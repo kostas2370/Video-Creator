@@ -1,0 +1,17 @@
+Django==4.0.3
+djangorestframework==3.13.1
+Pillow==8.4.0
+celery==5.2.7
+channels==4.0.0
+asgiref==3.5.0
+python-dateutil==2.8.2
+PyJWT==2.4.0
+django_celery_beat
+django_cleanup
+djoser
+django-taggit
+channels-redis
+celery[redis]
+python-dotenv~=1.0.0
+django_rest_passwordreset
+pymysql
