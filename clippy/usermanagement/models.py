@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractBaseUser, UnicodeUsernameValidato
 from django.core.mail import send_mail
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class User(AbstractBaseUser):
@@ -22,12 +23,12 @@ class User(AbstractBaseUser):
         verbose_name = _("user")
         verbose_name_plural = _("users")
 
+    def __str__(self):
+        return self.username
+
     def clean(self):
         super().clean()
         self.email = self.__class__.objects.normalize_email(self.email)
-
-    def __str__(self):
-        return self.username
 
     def get_full_name(self):
         return f'{self.first_name} {self.last_name}'
@@ -36,9 +37,13 @@ class User(AbstractBaseUser):
         return self.first_name
 
     def email_user(self, subject, message, from_email=None, **kwargs):
-        """Send an email to this user."""
         send_mail(subject, message, from_email, [self.email], **kwargs)
 
+    def get_tokens(self):
+        tokens = RefreshToken.for_user(self)
+
+        return {"access": str(tokens.access_token),
+                "refresh": str(tokens)}
 
 class Login(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
@@ -55,8 +60,10 @@ class Login(models.Model):
 
         return ip
 
+    @classmethod
+    def get_user_login_count(cls, user):
+        count = Login.objects.filter(user = user).count()
+        return count
+
     def __str__(self):
         return self.user.username + " (" + self.ip + ") at " + str(self.date)
-
-
-
