@@ -10,13 +10,9 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
 import jwt
 from django.conf import settings
-
+from .models import Login
 # Create your views here.
 #TODO Login View
-
-#TODO Register View
-
-#TODO EmailVerify Viwe
 
 
 class UserRegisterView(generics.GenericAPIView):
@@ -67,3 +63,31 @@ class VerifyEmail(generics.GenericAPIView):
 
         except jwt.DecodeError:
             return Response({"error": "Invalid Token"}, status = status.HTTP_400_BAD_REQUEST)
+
+
+class LoginView(generics.GenericAPIView):
+
+            serializer_class = LoginSerializer
+            permission_classes = (AllowAny,)
+
+            def post(self, request):
+                serializer = self.serializer_class(data = request.data)
+                user = get_user_model().objects.get(username = request.data["username"])
+                serializer.is_valid(raise_exception = True)
+                user_ip = get_user_model().get_user_ip(request)
+                ips = Login.objects.filter(ip = user_ip, user = user).all()
+                if ips.count() == 0:
+
+                    ip = Login.objects.create(user = user, ip = user_ip)
+                else:
+                    ip = ips[:1].get()
+                    ip.login_count += 1
+                    ip.save()
+                if ip not in user.logins.all() and ip.login_count == 1:
+                    send_email.delay("Someone logined to your account !", user.email,
+                                     f"Someone with ip of {user_ip} logined to"
+                                     f" yo"
+                                     f"ur account !")
+
+                    user.save()
+                return Response(serializer.data, status = status.HTTP_200_OK)
