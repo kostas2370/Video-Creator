@@ -31,9 +31,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return super().validate(attrs)
 
-#TODO Serializer for loginView
-#TODO Serializer for EmailView
-
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
