@@ -45,6 +45,7 @@ class User(AbstractBaseUser):
         return {"access": str(tokens.access_token),
                 "refresh": str(tokens)}
 
+
 class Login(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     ip = models.CharField(max_length=15)
