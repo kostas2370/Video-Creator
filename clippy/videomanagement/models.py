@@ -8,7 +8,7 @@ MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"))
 
 
 class AbstractModel(models.Model):
-    created_by = models.ForeignKey(get_user_model(), null = True, on_delete = models.SET_NULL)
+    created_by = models.ForeignKey(get_user_model(),on_delete = models.CASCADE)
     creation_date = models.DateField(auto_now = True)
     update_date = models.DateField(auto_now = True)
 
@@ -18,7 +18,6 @@ class AbstractModel(models.Model):
 
 class TemplatePrompts(AbstractModel):
     title = models.CharField(max_length = 20, blank = False)
-    prompt = models.TextField()
     category = models.CharField(choices = TEMPLATE_CHOICES, max_length = 20, null = True)
     format = models.TextField(blank = True)
 
@@ -36,12 +35,12 @@ class Music(AbstractModel):
 
 
 class UserPrompt(AbstractModel):
-    template = models.ForeignKey(TemplatePrompts, null = True, on_delete = models.SET_NULL)
+    template = models.ForeignKey(TemplatePrompts, on_delete = models.CASCADE, blank = True)
     prompt = models.TextField(blank = False)
     music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
 
     def __str__(self):
-        return f'{self.template.name} {self.created_by}'
+        return f'{self.template.title} {self.created_by}'
 
 
 class Speech(AbstractModel):
@@ -66,7 +65,7 @@ class Videos(AbstractModel):
 
 
 class VoiceModels(AbstractModel):
-    gender = models.CharField(max_length = '3')
+    gender = models.CharField(max_length = 3)
     type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
     sample = models.FileField(upload_to = "media/model_samples")
     path = models.CharField(max_length = 255, blank = False)

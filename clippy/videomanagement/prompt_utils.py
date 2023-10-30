@@ -5,15 +5,19 @@ def format_reply(reply_format):
     return code
 
 
-def format_prompt(template, userPrompt="", title ='', reply_format = ''):
+def format_prompt(template, userprompt="", title='', target_audience=''):
 
-    if template.format != "":
-        video_format = format_reply(reply_format)
+    if title == '':
+        title = "The title will be selected by you, depending on the prompt"
 
-    output = f"Hello i would like you to make me a prompt about a {template} video. \n" \
+    if target_audience == '':
+        target_audience = "You will select the target audience"
+
+    output = f"Hello i would like you to make me a prompt about a {template.category} video. \n" \
              f"The title of the video will be {title} .  \n" \
-             f"The information that you need are here : {userPrompt}  \n" \
-             f"The format of your answer must be like that in {video_format}"
+             f"The target audience : {target_audience}" \
+             f"The information that you need are here : {userprompt}  \n" \
+             f"The format of your answer must be like that in {template.format}"
 
     return output
 

@@ -58,6 +58,9 @@ INSTALLED_APPS = [
 
 ]
 
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -184,6 +187,7 @@ EMAIL_USE_SSL = False
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
