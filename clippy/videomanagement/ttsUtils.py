@@ -11,7 +11,7 @@ def create_model(model_path=".models.json", model="tts_models/en/ljspeech/tacotr
     if vocoder == "default_vocoder" and model_item.get(vocoder) is not None :
         voc_path, voc_config_path, _ = model_manager.download_model(model_item[vocoder])
 
-    elif vocoder is not None :
+    elif vocoder is not None:
         try:
             voc_path, voc_config_path, _ = model_manager.download_model(vocoder)
 
@@ -36,5 +36,5 @@ def save(syn, text="", save_path=""):
     syn.save_wav(outputs, save_path)
 
 
-syn = create_model(model = 'tts_models/en/jenny/jenny')
-save(syn, text = "Hello world , how are you ", save_path ="test.wav")
+x = create_model()
+save(x, text = "Hello world ! How are you?",save_path = "test2.wav")
