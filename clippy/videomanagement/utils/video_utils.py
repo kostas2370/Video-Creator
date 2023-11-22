@@ -12,7 +12,7 @@ def make_video(video, dir_name, music=True, avatar=True):
     template = video.prompt.template
     silent = AudioFileClip('media\\media\\sound_effects\\blank.wav')
     black = ImageClip('media\\media\\stock_images\\black.jpg')
-    sounds = Speech.objects.filter(prompt = video.prompt)
+    sounds = Scene.objects.filter(prompt = video.prompt)
 
     background = select_background(template.category)
 
@@ -25,7 +25,7 @@ def make_video(video, dir_name, music=True, avatar=True):
         sound_list.append(audio)
         sound_list.append(silent)
         sound_list.append(silent)
-        scenes = SpeechImage.objects.filter(scene = sound)
+        scenes = SceneImage.objects.filter(scene = sound)
 
         if len(scenes)> 0 :
             for x in scenes:
@@ -40,7 +40,6 @@ def make_video(video, dir_name, music=True, avatar=True):
                     vids.append(image)
         else:
             vids.append(black.set_duration(audio.duration+2))
-
 
     #top=65, left = 355, opacity=4
     final_video = concatenate_videoclips(vids).margin(top=background.image_pos_top, left = background.image_pos_left,
@@ -77,8 +76,7 @@ def make_video(video, dir_name, music=True, avatar=True):
     masked_clip = clip.fx(vfx.mask_color, color = color, thr = background.through, s = 7)
 
     final_clip = CompositeVideoClip([final_video,
-                                    masked_clip.set_duration(final_audio.duration)
-    ], size = (1920, 1080))
+                                    masked_clip.set_duration(final_audio.duration)], size = (1920, 1080))
 
     intro = VideoFileClip(Intro.objects.filter(category = template.category)[0].file.path)
     outro = VideoFileClip(Outro.objects.filter(category = template.category)[0].file.path)
