@@ -43,18 +43,17 @@ class UserPrompt(models.Model):
         return f'{self.template.title} {self.id}'
 
 
-class Speech(models.Model):
+class Scene(models.Model):
     prompt = models.ForeignKey(UserPrompt, on_delete = models.CASCADE)
     file = models.FileField(upload_to = "media/speech")
     text = models.TextField()
-
 
     def __str__(self):
         return str(self.id)
 
 
-class SpeechImage(models.Model):
-    scene = models.ForeignKey(Speech, on_delete = models.CASCADE)
+class SceneImage(models.Model):
+    scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
     file = models.ImageField(upload_to = "media/images")
 
 

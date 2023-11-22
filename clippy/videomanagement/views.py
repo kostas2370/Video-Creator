@@ -24,6 +24,12 @@ class MusicView(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
 
+class VideoView(viewsets.ModelViewSet):
+    serializer_class = VideoSerializer
+    queryset = Videos.objects.all()
+    permission_classes = [AllowAny]
+
+
 class TestView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
@@ -73,4 +79,5 @@ def downloadPlaylist(request):
     download_playlist(link, category = category)
     print("hello - world")
     return Response({'Message': 'Successful'})
+
 
