@@ -57,7 +57,7 @@ def make_video(video, dir_name, music=True, avatar=True):
             subprocess.run(shlex.split(
                 f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{os.getcwd()}\\{dir_name}\\output_avatar.mp4"'))
 
-            print(f'{os.getcwd()}\\{avatar_cam}\n \n')
+            print(f'\n \n')
 
     if music:
         selected_music = select_music(template.category)
