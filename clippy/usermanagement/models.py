@@ -1,7 +1,6 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser, UnicodeUsernameValidator, UserManager
+from django.contrib.auth.models import AbstractUser
 from django.core.mail import send_mail
-from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import PermissionsMixin
@@ -15,10 +14,7 @@ class User(AbstractUser, PermissionsMixin):
     is_verified = models.BooleanField(default = False)
     registration_date = models.DateField(auto_now = True)
 
-
     REQUIRED_FIELDS = ["email"]
-
-
 
     def __str__(self):
         return self.username

@@ -6,3 +6,16 @@
 *.pyc
 .env
 .wav
+
+/gfpgan/weights/
+.tar
+.safetensors
+/checkpoints
+.pth
+results
+/gfpgan/
+/videomanagement/utils/SadTalker/docs/
+/videomanagement/utils/SadTalker/examples/
+/videomanagement/utils/SadTalker/gfpgan/
+/videomanagement/utils/SadTalker/results/
+

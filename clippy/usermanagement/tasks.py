@@ -2,7 +2,6 @@ from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
 from channels.layers import get_channel_layer
-from PIL import Image
 
 channel_layer = get_channel_layer()
 

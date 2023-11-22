@@ -11,8 +11,6 @@ from django.urls import reverse
 import jwt
 from django.conf import settings
 from .models import Login
-# Create your views here.
-#TODO Login View
 
 
 class UserRegisterView(generics.GenericAPIView):
@@ -20,7 +18,7 @@ class UserRegisterView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     authentication_classes = []
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         serializer = self.get_serializer(data = request.data)
 
         serializer.is_valid(raise_exception = True)
@@ -67,27 +65,23 @@ class VerifyEmail(generics.GenericAPIView):
 
 class LoginView(generics.GenericAPIView):
 
-            serializer_class = LoginSerializer
-            permission_classes = (AllowAny,)
+    serializer_class = LoginSerializer
+    permission_classes = (AllowAny,)
 
-            def post(self, request):
-                serializer = self.serializer_class(data = request.data)
-                user = get_user_model().objects.get(username = request.data["username"])
-                serializer.is_valid(raise_exception = True)
-                user_ip = get_user_model().get_user_ip(request)
-                ips = Login.objects.filter(ip = user_ip, user = user).all()
-                if ips.count() == 0:
-
-                    ip = Login.objects.create(user = user, ip = user_ip)
-                else:
-                    ip = ips[:1].get()
-                    ip.login_count += 1
-                    ip.save()
-                if ip not in user.logins.all() and ip.login_count == 1:
-                    send_email.delay("Someone logined to your account !", user.email,
-                                     f"Someone with ip of {user_ip} logined to"
-                                     f" yo"
-                                     f"ur account !")
-
-                    user.save()
-                return Response(serializer.data, status = status.HTTP_200_OK)
+    def post(self, request):
+        serializer = self.serializer_class(data = request.data, context = {'request': request})
+        user = get_user_model().objects.get(username = request.data["username"])
+        serializer.is_valid(raise_exception = True)
+        user_ip = Login.get_user_ip(request)
+        ips = Login.objects.filter(ip = user_ip, user = user).all()
+        if ips.count() == 0:
+            ip = Login.objects.create(user = user, ip = user_ip)
+        else:
+            ip = ips[:1].get()
+            ip.login_count += 1
+            ip.save()
+        if ip not in user.logins.all() and ip.login_count == 1:
+            send_email.delay(f"Someone logined to your account !{user.email}Someone with ip of {user_ip} "
+                             f"logined to your account !")
+            user.save()
+        return Response(serializer.data, status = status.HTTP_200_OK)
