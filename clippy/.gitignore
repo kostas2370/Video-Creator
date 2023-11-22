@@ -19,3 +19,5 @@ results
 /videomanagement/utils/SadTalker/gfpgan/
 /videomanagement/utils/SadTalker/results/
 
+/videomanagement/utils/SadTalker/venv/
+.mp4
