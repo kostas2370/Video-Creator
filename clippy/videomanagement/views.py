@@ -71,5 +71,6 @@ def downloadPlaylist(request):
     category = request.data.get('category')
     link = request.data['link']
     download_playlist(link, category = category)
+    print("hello - world")
     return Response({'Message': 'Successful'})
 
