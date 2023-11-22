@@ -14,3 +14,9 @@ class MusicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Music
         fields = "__all__"
+
+
+class VideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Videos
+        fields = "__all__"
