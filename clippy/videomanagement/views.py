@@ -1,4 +1,5 @@
 from rest_framework.response import Response
+from slugify import slugify
 from .serializers import *
 from .models import *
 from rest_framework.permissions import AllowAny
@@ -10,7 +11,7 @@ from .utils.prompt_utils import format_prompt
 from .utils.gpt_utils import get_reply
 from .utils.audio_utils import make_scenes_speech
 from.utils.file_utils import generate_directory
-from slugify import slugify
+
 
 class TemplatePromptView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
@@ -71,9 +72,10 @@ class TestView(viewsets.ModelViewSet):
         return Response({"message": "The video has been made successfully",
                          "result": VideoSerializer(result).data})
 
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def downloadPlaylist(request):
+def download_playlist(request):
     category = request.data.get('category')
     link = request.data['link']
     download_playlist(link, category = category)
