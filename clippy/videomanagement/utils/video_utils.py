@@ -91,3 +91,6 @@ def make_video(video, dir_name, music=True, avatar=True):
     video.output = f"{dir_name}\\output_video.mp4"
     video.save()
     return video
+
+
+def create_avatar_video(image = )
