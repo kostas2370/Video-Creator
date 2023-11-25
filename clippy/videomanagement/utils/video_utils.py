@@ -1,4 +1,4 @@
-from .file_utils import select_music, select_background
+from .file_utils import select_music, select_background, select_avatar
 from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip,vfx,\
     concatenate_videoclips, CompositeVideoClip
 from ..models import *
@@ -8,7 +8,8 @@ import shlex
 import os
 from .SadTalker.inference import lip
 
-def make_video(video, dir_name, music=True, avatar=True):
+
+def make_video(video, dir_name, music=True, avatar=True, avatar_selection = 'random'):
     template = video.prompt.template
     silent = AudioFileClip('media\\media\\sound_effects\\blank.wav')
     black = ImageClip('media\\media\\stock_images\\black.jpg')
@@ -48,19 +49,8 @@ def make_video(video, dir_name, music=True, avatar=True):
     final_audio = concatenate_audioclips(sound_list)
     final_audio.write_audiofile(f"{dir_name}\\output_audio.wav")
 
-    if avatar:
-            avatar = Avatars.objects.all()
-            avatar_cam = lip(source_image = avatar[0].file.path, driven_audio = f"{dir_name}\\output_audio.wav",
-                             result_dir = dir_name, facerender = "pirender", )
-
-            subprocess.run(shlex.split(
-                f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{os.getcwd()}\\{dir_name}\\output_avatar.mp4"'))
-
-            print(f'\n \n')
-
     if music:
         selected_music = select_music(template.category)
-
         music = AudioFileClip(selected_music.file.path).volumex(0.07)
         if music.duration > final_audio.duration:
             music = music.subclip(0, final_audio.duration)
@@ -78,6 +68,12 @@ def make_video(video, dir_name, music=True, avatar=True):
     final_clip = CompositeVideoClip([final_video,
                                     masked_clip.set_duration(final_audio.duration)], size = (1920, 1080))
 
+    if avatar:
+        avatar = select_avatar(avatar_selection)
+        avatar_video = create_avatar_video(avatar, dir_name)
+        avatar_vid = VideoFileClip(avatar_video).set_position(("right", "bottom"))
+        final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
+
     intro = VideoFileClip(Intro.objects.filter(category = template.category)[0].file.path)
     outro = VideoFileClip(Outro.objects.filter(category = template.category)[0].file.path)
 
@@ -93,4 +89,12 @@ def make_video(video, dir_name, music=True, avatar=True):
     return video
 
 
-def create_avatar_video(image = )
+def create_avatar_video(avatar, dir_name):
+    avatar_cam = lip(source_image = avatar.file.path, driven_audio = f"{dir_name}\\output_audio.wav",
+                     result_dir = dir_name, facerender = "pirender", )
+
+    output = f'{os.getcwd()}\\{dir_name}\\output_avatar.mp4'
+    subprocess.run(shlex.split(
+        f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{output}"'))
+
+    return output
