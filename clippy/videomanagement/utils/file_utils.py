@@ -1,6 +1,6 @@
 import os
 from random import randint
-from ..models import Music, Backgrounds
+from ..models import Music, Backgrounds, Avatars
 
 
 def generate_directory(name, x=0):
@@ -31,3 +31,16 @@ def select_background(category=None):
 
     back = Backgrounds.objects.filter(category = category)
     return back[randint(0, back.count() - 1)]
+
+
+def select_avatar(selected='random'):
+    if selected == 'random':
+        avatars = Avatars.objects.all()
+        return avatars[randint(0, avatars.count()-1)]
+
+    if type(selected) == int:
+        items = Avatars.objects.filter(id = selected)
+        if items.count() == 1:
+            return items.first()
+
+    return None
