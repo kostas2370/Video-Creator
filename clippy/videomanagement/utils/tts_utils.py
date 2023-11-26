@@ -4,7 +4,7 @@ import os
 """#tts_models/en/jenny/jenny#"""
 
 
-def create_model(model_path=f"{os.path.abspath(os.getcwd())}\\.models.json",
+def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
                  model="tts_models/en/ljspeech/vits--neon", vocoder="default_vocoder"):
 
     model_manager = ModelManager(model_path)

@@ -33,9 +33,9 @@ def create_image_scenes(video, dir_name):
     for j in video.gpt_answer['scenes']:
         scene = Scene.objects.get(prompt = video.prompt, text = j['dialogue']["dialogue"].strip())
         for image in j['images']:
-            l = download_image(image, f'{dir_name}/images/', amount = 1)
-            if len(l) > 0:
-                SceneImage.objects.create(scene = scene, file = l[0])
+            downloaded_image = download_image(image, f'{dir_name}/images/', amount = 1)
+            if len(downloaded_image) > 0:
+                SceneImage.objects.create(scene = scene, file = downloaded_image[0])
 
 
 
