@@ -9,9 +9,9 @@ from .utils.download_utils import download_playlist, create_image_scenes
 from .utils.prompt_utils import format_prompt
 from .utils.gpt_utils import get_reply
 from .utils.audio_utils import make_scenes_speech
-from .utils.file_utils import generate_directory
+from .utils.file_utils import generate_directory, select_avatar, select_voice
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer
-from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt
+from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
@@ -39,17 +39,17 @@ class TestView(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         template_id = request.data.get('template_id', 2)
-        voice_id = request.data.get('voice_id', 1)
+        voice_id = request.data.get('voice_id', None)
         title = request.data.get('title')
         prompt = request.data.get('prompt')
         gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
         image_webscrap = request.data.get('image_webscrap', False)
-        avatar = request.data.get('avatar', True)
+        avatar = request.data.get('avatar', 1)
+
 
         # target_audience = request.data.get('target_audience')
 
         template = TemplatePrompts.objects.get(id = template_id)
-        voice_model = VoiceModels.objects.get(id = voice_id)
 
         userprompt = UserPrompt.objects.create(template = template, prompt = prompt)
         userprompt.save()
@@ -61,6 +61,21 @@ class TestView(viewsets.ModelViewSet):
         vid.gpt_answer = x
 
         dir_name = generate_directory(rf'media\media\videos\{slugify(x["title"])}')
+
+        if type(avatar) is int:
+            avatar = select_avatar(selected = avatar)
+            voice_model = avatar.voice
+
+        elif avatar is True:
+            avatar = select_avatar()
+            voice_model = avatar.voice
+
+        elif voice_id is not None:
+            voice_model = VoiceModels.objects.get(id = voice_id)
+
+        else:
+            voice_model = select_voice()
+
         make_scenes_speech(x, vid, voice_model, dir_name)
 
         if image_webscrap:
@@ -70,13 +85,13 @@ class TestView(viewsets.ModelViewSet):
 
         result = make_video(vid, dir_name, avatar = avatar)
 
-        return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
+        return Response({"message": "The video has been made successfully",
+                         "result": VideoSerializer(result).data})
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def download_playlist(request):
-    category = request.data.get('category')
     link = request.data['link']
-    download_playlist(link, category = category)
+    download_playlist(link, category = request.data.get('category'))
     return Response({'Message': 'Successful'})

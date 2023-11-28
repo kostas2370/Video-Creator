@@ -1,6 +1,8 @@
 from TTS.utils.synthesizer import Synthesizer
 from TTS.utils.manage import ModelManager
 import os
+import pyttsx3
+
 """#tts_models/en/jenny/jenny#"""
 
 
@@ -32,8 +34,16 @@ def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
     return syn
 
 
-def save(syn, text="", save_path=""):
+def save(syn = None, text="", save_path=""):
+    if syn is not None:
+        outputs = syn.tts(text)
+        syn.save_wav(outputs, save_path)
 
-    outputs = syn.tts(text)
-    syn.save_wav(outputs, save_path)
+    if syn is None:
+        engine = pyttsx3.init()
+        voices = engine.getProperty('voices')
+        engine.setProperty('voice', voices[1].id)
+        engine.save_to_file(text, save_path)
+        engine.runAndWait()
+
     return save_path

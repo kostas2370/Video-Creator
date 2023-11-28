@@ -1,6 +1,6 @@
 import os
 from random import randint
-from ..models import Music, Backgrounds, Avatars
+from ..models import Music, Backgrounds, Avatars, VoiceModels
 
 
 def generate_directory(name, x=0):
@@ -44,3 +44,10 @@ def select_avatar(selected='random'):
             return items.first()
 
     return None
+
+
+def select_voice():
+    voice = VoiceModels.objects.all()
+    return voice[randint(0, voice.count() - 1)]
+
+

@@ -1,3 +1,5 @@
+import io
+
 import g4f
 import json
 
@@ -26,14 +28,13 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
     gpt_model = g4f.models.gpt_4 if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
 
     response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True, )
-    x = ""
+    x = io.StringIO()
     for message in response:
-        x += message
-
+        x.write(message)
     if reply_format == "json":
-
+        x = x.getvalue()
         x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
-
+        print(x)
         try:
 
             js = json.loads(x)
@@ -47,6 +48,6 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
             if time == 5:
                 raise Exception("Max gpt limit is 5 , try again with different prompt !!")
 
-            return get_reply(prompt, time = time)
+            return get_reply(prompt, time = time, gpt_model = gpt_model)
 
     return x
