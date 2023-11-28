@@ -65,12 +65,15 @@ def make_video(video, dir_name, music=True, avatar=True, avatar_selection='rando
     masked_clip = clip.fx(vfx.mask_color, color = color, thr = background.through, s = 7)
 
     final_clip = CompositeVideoClip([final_video,
-                                    masked_clip.set_duration(final_audio.duration)], size = (1920, 1080))
+                                    masked_clip.set_duration(final_audio.duration)],
+                                    size = (1920, 1080))
 
     if avatar:
         avatar = select_avatar(avatar_selection)
         avatar_video = create_avatar_video(avatar, dir_name)
-        avatar_vid = VideoFileClip(avatar_video).set_position(("right", "bottom")).resize(1.5)
+        avatar_vid = VideoFileClip(avatar_video).without_audio().\
+                     set_position(("right", "bottom")).resize(1.5)
+
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
     intro = VideoFileClip(Intro.objects.filter(category = template.category)[0].file.path)
@@ -89,7 +92,8 @@ def make_video(video, dir_name, music=True, avatar=True, avatar_selection='rando
 
 
 def create_avatar_video(avatar, dir_name):
-    avatar_cam = lip(source_image = avatar.file.path, driven_audio = rf"{dir_name}\output_audio.wav",
+    avatar_cam = lip(source_image = avatar.file.path,
+                     driven_audio = rf"{dir_name}\output_audio.wav",
                      result_dir = dir_name, facerender = "pirender", )
 
     output = rf'{os.getcwd()}\{dir_name}\output_avatar.mp4'
@@ -97,3 +101,5 @@ def create_avatar_video(avatar, dir_name):
         f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{output}"'))
 
     return output
+
+

@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 TEMPLATE_CHOICES = (("EDUCATIONAL", "Educational"), ("GAMING", "Gaming"), ("ADVERTISEMENT", "Advertisement"),
                     ("STORY", "Story"), ("OTHER", "Other"))
 
-MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"))
+MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3"))
 
 
 class AbstractModel(models.Model):
