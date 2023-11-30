@@ -31,11 +31,29 @@ def download_image(query, path, amount=1):
 
 def create_image_scenes(video, dir_name):
     for j in video.gpt_answer['scenes']:
-        scene = Scene.objects.get(prompt = video.prompt, text = j['dialogue']["dialogue"].strip())
-        for image in j['images']:
-            downloaded_image = download_image(image, f'{dir_name}/images/', amount = 1)
+        if not video.prompt.template.is_sentenced:
+            scene = Scene.objects.get(prompt = video.prompt, text = j['dialogue'].strip())
+
+        if not video.prompt.template.is_sentenced and type(j['image']) is list:
+            for image in j['image']:
+                downloaded_image = download_image(image, f'{dir_name}/images/', amount = 1)
+                if len(downloaded_image) > 0:
+                    SceneImage.objects.create(scene = scene, file = downloaded_image[0])
+
+        elif video.prompt.template.is_sentenced:
+            for x in j['dialogue']:
+                scene = Scene.objects.get(prompt = video.prompt, text = x['sentence'].strip())
+                downloaded_image = download_image(x['image'], f'{dir_name}/images/', amount = 1)
+                if len(downloaded_image) > 0:
+                    SceneImage.objects.create(scene = scene, file = downloaded_image[0])
+
+        else:
+            downloaded_image = download_image(j['image'], f'{dir_name}/images/', amount = 1)
             if len(downloaded_image) > 0:
                 SceneImage.objects.create(scene = scene, file = downloaded_image[0])
+
+
+
 
 
 

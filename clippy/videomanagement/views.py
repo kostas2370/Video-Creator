@@ -51,10 +51,11 @@ class TestView(viewsets.ModelViewSet):
 
         template = TemplatePrompts.objects.get(id = template_id)
 
-        userprompt = UserPrompt.objects.create(template = template, prompt = prompt)
+        message = format_prompt(template, userprompt = prompt, title = title)
+
+        userprompt = UserPrompt.objects.create(template = template, prompt = message)
         userprompt.save()
 
-        message = format_prompt(template, userprompt = userprompt, title = title)
         vid = Videos.objects.create(title = title, prompt = userprompt)
 
         x = get_reply(message, gpt_model = gpt_model)
@@ -95,3 +96,15 @@ def download_playlist(request):
     link = request.data['link']
     download_playlist(link, category = request.data.get('category'))
     return Response({'Message': 'Successful'})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def render_video(request):
+    vid = Videos.objects.get(id = request.data['video_id'])
+
+    dir_name = r"C:\Users\mr_Dmn\Desktop\clippyv2\clippy\media\media\videos\zeus-the-king-of-the-gods-and-the-ruler-of-ancient-greece"
+    result = make_video(vid, dir_name, avatar = False)
+    return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
+
+
+

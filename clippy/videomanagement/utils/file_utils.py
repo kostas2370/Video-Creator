@@ -16,7 +16,6 @@ def generate_directory(name, x=0):
         else:
             x += 1
 
-
 def select_music(category=None):
     if category is None:
         raise Exception('You need to add a category')
@@ -44,7 +43,6 @@ def select_avatar(selected='random'):
             return items.first()
 
     return None
-
 
 def select_voice():
     voice = VoiceModels.objects.all()

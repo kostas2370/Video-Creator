@@ -20,6 +20,7 @@ class TemplatePrompts(AbstractModel):
     title = models.CharField(max_length = 20, blank = False)
     category = models.CharField(choices = TEMPLATE_CHOICES, max_length = 20, null = True)
     format = models.TextField(blank = True)
+    is_sentenced = models.BooleanField(default = False)
 
     def __str__(self):
         return self.title
@@ -47,6 +48,7 @@ class Scene(models.Model):
     prompt = models.ForeignKey(UserPrompt, on_delete = models.CASCADE)
     file = models.FileField(upload_to = "media/speech")
     text = models.TextField()
+    is_last = models.BooleanField(default = True)
 
     def __str__(self):
         return str(self.id)
