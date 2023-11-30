@@ -24,19 +24,23 @@ def make_video(video, dir_name, music=True, avatar=True, avatar_selection='rando
     for sound in sounds:
         audio = AudioFileClip(sound.file.path)
         sound_list.append(audio)
-        sound_list.append(silent)
-        sound_list.append(silent)
+        """
+        if sound.is_last:
+            sound_list.append(silent)
+            sound_list.append(silent)
+        """
+
         scenes = SceneImage.objects.filter(scene = sound)
 
         if scenes.count() > 0:
             for x in scenes:
-                if 'jpg' in x.file.path or 'jpeg' in x.file.path:
+                if 'jpg' in x.file.path or 'jpeg' in x.file.path or 'png' in x.file.path:
                     image = Image.open(x.file.path)
                     image = image.convert('RGB')
                     image = image.resize((int(w*0.65), int(h*0.65)))
                     image.save(x.file.path)
 
-                    image = ImageClip(x.file.path).set_duration((audio.duration+2)/len(scenes))
+                    image = ImageClip(x.file.path).set_duration(audio.duration/len(scenes))
                     image = image.fadein(image.duration*0.2).fadeout(image.duration*0.2)
                     vids.append(image)
         else:
