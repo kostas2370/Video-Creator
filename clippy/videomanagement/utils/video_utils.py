@@ -9,7 +9,7 @@ import os
 from .SadTalker.inference import lip
 
 
-def make_video(video, music=True, avatar=True, avatar_selection='random'):
+def make_video(video, music=True, avatar=True):
     template = video.prompt.template
     silent = AudioFileClip(r'media\media\sound_effects\blank.wav')
     black = ImageClip(r'media\media\stock_images\black.jpg')
@@ -33,13 +33,12 @@ def make_video(video, music=True, avatar=True, avatar_selection='random'):
         if scenes.count() > 0:
             for x in scenes:
                 if 'jpg' in x.file.path or 'jpeg' in x.file.path or 'png' in x.file.path:
-                    image = Image.open(x.file.path)
-                    image = image.convert('RGB')
-                    image = image.resize((int(w*0.65), int(h*0.65)))
-                    image.save(x.file.path)
+                    Image.open(x.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(x.file.path)
+                    image = ImageClip(x.file.path)
+                    image = image.set_duration(audio.duration/len(scenes))
+                    image = image.fadein(image.duration*0.2).\
+                        fadeout(image.duration*0.2)
 
-                    image = ImageClip(x.file.path).set_duration(audio.duration/len(scenes))
-                    image = image.fadein(image.duration*0.2).fadeout(image.duration*0.2)
                     vids.append(image)
 
                 else:
@@ -60,8 +59,7 @@ def make_video(video, music=True, avatar=True, avatar_selection='random'):
         music = music.audio_fadein(4).audio_fadeout(4)
         final_audio = CompositeAudioClip([final_audio, music])
 
-    clip = clip.set_duration(final_audio.duration)
-    clip = clip.set_audio(final_audio)
+    clip = clip.set_duration(final_audio.duration).set_audio(final_audio)
 
     color = [int(x) for x in background.color.split(',')]
 
@@ -71,11 +69,8 @@ def make_video(video, music=True, avatar=True, avatar_selection='random'):
                                     masked_clip.set_duration(final_audio.duration)],
                                     size = (1920, 1080))
 
-    if avatar:
-        if avatar_selection == "random":
-            avatar_selection = select_avatar(voice_model = video.voice_model)
-
-        avatar_video = create_avatar_video(avatar_selection, dir_name)
+    if avatar and video.avatar:
+        avatar_video = create_avatar_video(video.avatar, dir_name)
         avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 

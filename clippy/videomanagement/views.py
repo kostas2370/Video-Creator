@@ -59,18 +59,20 @@ class TestView(viewsets.ModelViewSet):
         vid = Videos.objects.create(title = title, prompt = userprompt)
 
         x = get_reply(message, gpt_model = gpt_model)
-        vid.gpt_answer = x
-
         dir_name = generate_directory(rf'media\media\videos\{slugify(x["title"])}')
+
+        vid.gpt_answer = x
         vid.dir_name = dir_name
 
-        if type(avatar) is int:
-            avatar = select_avatar(selected = avatar)
-            voice_model = avatar.voice
+        selected_avatar = None
 
-        elif avatar is True:
-            avatar = select_avatar()
-            voice_model = avatar.voice
+        if type(avatar_selection) is int:
+            selected_avatar = select_avatar(selected = avatar_selection)
+            voice_model = selected_avatar.voice
+
+        elif type(avatar_selection) == "random":
+            selected_avatar = select_avatar()
+            voice_model = selected_avatar.voice
 
         elif voice_id is not None:
             voice_model = VoiceModels.objects.get(id = voice_id)
@@ -79,6 +81,7 @@ class TestView(viewsets.ModelViewSet):
             voice_model = select_voice()
 
         vid.voice_model = voice_model
+        vid.avatar = selected_avatar
 
         make_scenes_speech(vid)
 
@@ -87,7 +90,7 @@ class TestView(viewsets.ModelViewSet):
 
         vid.save()
 
-        result = make_video(vid, avatar = avatar, avatar_selection = avatar_selection)
+        result = make_video(vid, avatar = avatar)
 
         return Response({"message": "The video has been made successfully",
                          "result": VideoSerializer(result).data})
@@ -107,6 +110,4 @@ def render_video(request):
 
     result = make_video(vid, avatar = True)
     return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
-
-
 
