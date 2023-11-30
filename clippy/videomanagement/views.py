@@ -44,8 +44,8 @@ class TestView(viewsets.ModelViewSet):
         prompt = request.data.get('prompt')
         gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
         image_webscrap = request.data.get('image_webscrap', False)
-        avatar = request.data.get('avatar', 1)
-
+        avatar = request.data.get('avatar', False)
+        avatar_selection = request.data.get('avatar_selection', 'random')
 
         # target_audience = request.data.get('target_audience')
 
@@ -62,6 +62,7 @@ class TestView(viewsets.ModelViewSet):
         vid.gpt_answer = x
 
         dir_name = generate_directory(rf'media\media\videos\{slugify(x["title"])}')
+        vid.dir_name = dir_name
 
         if type(avatar) is int:
             avatar = select_avatar(selected = avatar)
@@ -77,14 +78,16 @@ class TestView(viewsets.ModelViewSet):
         else:
             voice_model = select_voice()
 
-        make_scenes_speech(x, vid, voice_model, dir_name)
+        vid.voice_model = voice_model
+
+        make_scenes_speech(vid)
 
         if image_webscrap:
-            create_image_scenes(vid, dir_name)
+            create_image_scenes(vid)
 
         vid.save()
 
-        result = make_video(vid, dir_name, avatar = avatar)
+        result = make_video(vid, avatar = avatar, avatar_selection = avatar_selection)
 
         return Response({"message": "The video has been made successfully",
                          "result": VideoSerializer(result).data})
@@ -102,8 +105,7 @@ def download_playlist(request):
 def render_video(request):
     vid = Videos.objects.get(id = request.data['video_id'])
 
-    dir_name = r"C:\Users\mr_Dmn\Desktop\clippyv2\clippy\media\media\videos\zeus-the-king-of-the-gods-and-the-ruler-of-ancient-greece"
-    result = make_video(vid, dir_name, avatar = False)
+    result = make_video(vid, avatar = True)
     return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
 
 

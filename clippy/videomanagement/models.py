@@ -58,19 +58,6 @@ class SceneImage(models.Model):
     scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
     file = models.ImageField(upload_to = "media/images")
 
-
-class Videos(AbstractModel):
-    title = models.CharField(max_length = 50, blank = False)
-    description = models.CharField(max_length = 300, blank = True)
-    url = models.URLField(blank = True)
-    gpt_answer = models.TextField(blank = True, null = True)
-    prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
-    output = models.FileField(upload_to = "media/output")
-
-    def __str__(self):
-        return self.title + str(self.id)
-
-
 class VoiceModels(AbstractModel):
     gender = models.CharField(max_length = 3)
     type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
@@ -79,6 +66,20 @@ class VoiceModels(AbstractModel):
 
     def __str__(self):
         return self.path
+
+
+class Videos(AbstractModel):
+    title = models.CharField(max_length = 50, blank = False)
+    description = models.CharField(max_length = 300, blank = True)
+    url = models.URLField(blank = True)
+    gpt_answer = models.TextField(blank = True, null = True)
+    prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
+    output = models.FileField(upload_to = "media/output")
+    dir_name = models.TextField(default = "")
+    voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1)
+    def __str__(self):
+        return self.title + str(self.id)
+
 
 
 class Intro(AbstractModel):

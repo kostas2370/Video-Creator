@@ -29,7 +29,8 @@ def download_image(query, path, amount=1):
                                force_replace = False, timeout = 60, )
 
 
-def create_image_scenes(video, dir_name):
+def create_image_scenes(video):
+    dir_name = video.dir_name
     for j in video.gpt_answer['scenes']:
         if not video.prompt.template.is_sentenced:
             scene = Scene.objects.get(prompt = video.prompt, text = j['dialogue'].strip())
