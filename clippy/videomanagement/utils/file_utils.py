@@ -32,9 +32,13 @@ def select_background(category=None):
     return back[randint(0, back.count() - 1)]
 
 
-def select_avatar(selected='random'):
+def select_avatar(selected='random', voice_model=None):
     if selected == 'random':
-        avatars = Avatars.objects.all()
+        if voice_model is None:
+            avatars = Avatars.objects.all()
+        else:
+            avatars = Avatars.objects.filter(voice = voice_model)
+
         return avatars[randint(0, avatars.count()-1)]
 
     if type(selected) == int:
@@ -43,6 +47,7 @@ def select_avatar(selected='random'):
             return items.first()
 
     return None
+
 
 def select_voice():
     voice = VoiceModels.objects.all()

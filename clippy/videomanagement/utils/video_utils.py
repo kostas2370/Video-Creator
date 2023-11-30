@@ -9,27 +9,25 @@ import os
 from .SadTalker.inference import lip
 
 
-def make_video(video, dir_name, music=True, avatar=True, avatar_selection='random'):
+def make_video(video, music=True, avatar=True, avatar_selection='random'):
     template = video.prompt.template
     silent = AudioFileClip(r'media\media\sound_effects\blank.wav')
     black = ImageClip(r'media\media\stock_images\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
-
+    dir_name = video.dir_name
     background = select_background(template.category)
 
     clip = ImageClip(background.file.path)
     w, h = clip.size
     sound_list = []
     vids = []
+
     for sound in sounds:
         audio = AudioFileClip(sound.file.path)
-        sound_list.append(audio)
-        """
         if sound.is_last:
-            sound_list.append(silent)
-            sound_list.append(silent)
-        """
+            audio = concatenate_audioclips([audio, silent, silent])
 
+        sound_list.append(audio)
         scenes = SceneImage.objects.filter(scene = sound)
 
         if scenes.count() > 0:
@@ -43,8 +41,9 @@ def make_video(video, dir_name, music=True, avatar=True, avatar_selection='rando
                     image = ImageClip(x.file.path).set_duration(audio.duration/len(scenes))
                     image = image.fadein(image.duration*0.2).fadeout(image.duration*0.2)
                     vids.append(image)
-        else:
-            vids.append(black.set_duration(audio.duration+2))
+
+                else:
+                    vids.append(black.set_duration(audio.duration+2))
 
     final_video = concatenate_videoclips(vids).margin(top=background.image_pos_top, left = background.image_pos_left,
                                                       opacity=4)
@@ -73,11 +72,11 @@ def make_video(video, dir_name, music=True, avatar=True, avatar_selection='rando
                                     size = (1920, 1080))
 
     if avatar:
-        avatar = select_avatar(avatar_selection)
-        avatar_video = create_avatar_video(avatar, dir_name)
-        avatar_vid = VideoFileClip(avatar_video).without_audio().\
-                     set_position(("right", "bottom")).resize(1.5)
+        if avatar_selection == "random":
+            avatar_selection = select_avatar(voice_model = video.voice_model)
 
+        avatar_video = create_avatar_video(avatar_selection, dir_name)
+        avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
     intro = VideoFileClip(Intro.objects.filter(category = template.category)[0].file.path)

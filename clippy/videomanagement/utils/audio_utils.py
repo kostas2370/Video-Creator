@@ -3,8 +3,12 @@ from ..models import Scene
 import uuid
 
 
-def make_scenes_speech(gpt_answer, video, voice_model, dir_name):
+def make_scenes_speech(video):
     syn = None
+    dir_name = video.dir_name
+    voice_model = video.voice_model
+    gpt_answer = video.gpt_answer
+
     if voice_model.type == 'Local' or voice_model.type == "LOCAL":
         syn = create_model(model = voice_model.path)
     sounds = []
@@ -21,7 +25,6 @@ def make_scenes_speech(gpt_answer, video, voice_model, dir_name):
 
         else:
             filename = str(uuid.uuid4())
-
             sound = save(syn, j['dialogue'], save_path = f'{dir_name}/dialogues/{filename}.wav')
             Scene.objects.create(file = sound, prompt = video.prompt, text = j['dialogue'].strip())
             sounds.append(sound)
