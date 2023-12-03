@@ -1,10 +1,9 @@
-#from TTS.utils.synthesizer import Synthesizer
-#from TTS.utils.manage import ModelManager
+from TTS.utils.synthesizer import Synthesizer
+from TTS.utils.manage import ModelManager
 import os
 import pyttsx3
 
 """#tts_models/en/jenny/jenny#"""
-
 
 def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
                  model="tts_models/en/ljspeech/vits--neon", vocoder="default_vocoder"):
