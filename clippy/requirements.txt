@@ -21,13 +21,9 @@ g4f
 django-cors-headers
 slugify
 moviepy
-PIL
-subprocess
-shlex
-os
+pillow
+ushlex
 bing_image_downloader
 uuid
-json
-io
 pyttsx3
 pytube
