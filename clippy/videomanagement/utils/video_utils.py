@@ -44,6 +44,8 @@ def make_video(video, music=True, avatar=True):
                 else:
                     vids.append(black.set_duration(audio.duration+2))
 
+        else:
+            vids.append(black.set_duration(audio.duration))
     final_video = concatenate_videoclips(vids).margin(top=background.image_pos_top, left = background.image_pos_left,
                                                       opacity=4)
 

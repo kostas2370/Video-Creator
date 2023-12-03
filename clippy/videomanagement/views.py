@@ -10,8 +10,10 @@ from .utils.prompt_utils import format_prompt
 from .utils.gpt_utils import get_reply
 from .utils.audio_utils import make_scenes_speech
 from .utils.file_utils import generate_directory, select_avatar, select_voice
-from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer
+from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarSerializer, VoiceModelSerializer
 from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars
+
+from rest_framework.pagination import PageNumberPagination
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
@@ -26,9 +28,22 @@ class MusicView(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
 
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
+
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
-    queryset = Videos.objects.all()
+    queryset = Videos.objects.all().order_by("-id")
+    permission_classes = [AllowAny]
+    pagination_class = StandardResultsSetPagination
+
+
+class VoiceView(viewsets.ModelViewSet):
+    serializer_class = VoiceModelSerializer
+    queryset = VoiceModels.objects.all()
     permission_classes = [AllowAny]
 
 
@@ -41,11 +56,11 @@ class TestView(viewsets.ModelViewSet):
         template_id = request.data.get('template_id', 2)
         voice_id = request.data.get('voice_id', None)
         title = request.data.get('title')
-        prompt = request.data.get('prompt')
+        prompt = request.data.get('message')
         gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
         image_webscrap = request.data.get('image_webscrap', False)
         avatar = request.data.get('avatar', False)
-        avatar_selection = request.data.get('avatar_selection', 'random')
+        avatar_selection = int(request.data.get('avatar_selection', 'random'))
 
         # target_audience = request.data.get('target_audience')
 
@@ -66,11 +81,11 @@ class TestView(viewsets.ModelViewSet):
 
         selected_avatar = None
 
-        if type(avatar_selection) is int:
+        if type(avatar_selection) is int and avatar == True:
             selected_avatar = select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice
 
-        elif type(avatar_selection) == "random":
+        elif avatar_selection == "random" and avatar == True:
             selected_avatar = select_avatar()
             voice_model = selected_avatar.voice
 
@@ -110,4 +125,11 @@ def render_video(request):
 
     result = make_video(vid, avatar = True)
     return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
+
+
+class AvatarView(viewsets.ModelViewSet):
+    serializer_class = AvatarSerializer
+    queryset = Avatars.objects.all()
+    permission_classes = [AllowAny]
+
 

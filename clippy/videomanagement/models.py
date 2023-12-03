@@ -58,6 +58,7 @@ class SceneImage(models.Model):
     scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
     file = models.ImageField(upload_to = "media/images")
 
+
 class VoiceModels(AbstractModel):
     gender = models.CharField(max_length = 3)
     type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
@@ -69,6 +70,7 @@ class VoiceModels(AbstractModel):
 
 
 class Avatars(AbstractModel):
+    name = models.CharField(max_length = 100 , default = "Natasha")
     gender = models.CharField(max_length = 10)
     file = models.FileField(upload_to = "media/other/avatars")
     voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, default = 1)

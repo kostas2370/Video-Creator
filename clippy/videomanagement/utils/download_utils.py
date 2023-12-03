@@ -52,9 +52,3 @@ def create_image_scenes(video):
             downloaded_image = download_image(j['image'], f'{dir_name}/images/', amount = 1)
             if len(downloaded_image) > 0:
                 SceneImage.objects.create(scene = scene, file = downloaded_image[0])
-
-
-
-
-
-
