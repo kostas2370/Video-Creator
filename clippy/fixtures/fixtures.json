@@ -1,0 +1,71 @@
+[
+  {
+    "model": "usermanagement.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$320000$vi0Mdl0Nv9Z7ahjhYNCwPF$x42cfJjzkMkAdFr3C7iCsg3rJ1O3RlVUJSF40/5Y9Es=",
+      "is_superuser": true,
+      "is_staff": true,
+      "username": "admin",
+      "first_name": "monitor",
+      "last_name": "risk",
+      "email": "kostas2372@gmail.com",
+      "is_active": true,
+      "date_joined": "2022-06-30T17:03:10.123Z"
+    }
+  },
+  {
+    "model": "videomanagement.TemplatePrompts",
+    "pk": 1,
+    "fields": {
+      "title": "Educational1",
+      "category": "educational",
+      "format": "json {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": \"string\", }],\"image}. . Dialogue  image field must contain  word that is related to the dialogue so i can add it in the video it has to be specific"
+    }
+  },
+  {
+    "model": "videomanagement.TemplatePrompts",
+    "pk": 2,
+    "fields": {
+      "title": "Beta Educational",
+      "category": "educational",
+      "format": "json {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentence\",\"image\"}], }],}. . Dialogue  image field must contain  few words that is related to the sentence .it has to be specific."
+    }
+  },
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 1,
+    "fields": {
+      "gender": "fem",
+      "type": "local",
+      "path": "tts_models/en/jenny/jenny"
+    }
+  },
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 2,
+    "fields": {
+      "gender": "fem",
+      "type": "local",
+      "path": "tts_models/en/ljspeech/vits--neon"
+    }
+  },
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 3,
+    "fields": {
+      "gender": "fem",
+      "type": "local",
+      "path": "tts_models/en/ljspeech/tacotron2-DDC"
+    }
+  },
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 4,
+    "fields": {
+      "gender": "fem",
+      "type": "pyttsx3",
+      "path": 1
+    }
+  }
+]
