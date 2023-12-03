@@ -18,4 +18,16 @@ pymysql
 django-axes
 django-axes[ipware]
 g4f
-TTS
+django-cors-headers
+slugify
+moviepy
+PIL
+subprocess
+shlex
+os
+bing_image_downloader
+uuid
+json
+io
+pyttsx3
+pytube

@@ -1,5 +1,5 @@
-from TTS.utils.synthesizer import Synthesizer
-from TTS.utils.manage import ModelManager
+#from TTS.utils.synthesizer import Synthesizer
+#from TTS.utils.manage import ModelManager
 import os
 import pyttsx3
 
