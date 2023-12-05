@@ -15,5 +15,3 @@ urlpatterns = router.urls
 urlpatterns += [path('downloadplaylist/', download_playlist),
                 path('render/', render_video)
                 ]
-
-

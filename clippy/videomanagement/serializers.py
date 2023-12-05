@@ -23,16 +23,17 @@ class SceneSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class AvatarSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Avatars
-        fields = "__all__"
-
-
 class VoiceModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoiceModels
+        fields = "__all__"
+
+
+class AvatarSerializer(serializers.ModelSerializer):
+    voice = VoiceModelSerializer()
+
+    class Meta:
+        model = Avatars
         fields = "__all__"
 
 

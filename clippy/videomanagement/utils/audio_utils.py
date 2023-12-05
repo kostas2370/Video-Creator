@@ -11,6 +11,7 @@ def make_scenes_speech(video):
 
     if voice_model.type == 'Local' or voice_model.type == "LOCAL":
         syn = create_model(model = voice_model.path)
+
     sounds = []
     for j in gpt_answer["scenes"]:
         if video.prompt.template.is_sentenced:
@@ -29,4 +30,4 @@ def make_scenes_speech(video):
             Scene.objects.create(file = sound, prompt = video.prompt, text = j['dialogue'].strip())
             sounds.append(sound)
 
-    return sounds
+    return True

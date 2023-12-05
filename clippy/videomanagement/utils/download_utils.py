@@ -3,7 +3,7 @@ from ..models import Music, Scene, SceneImage
 import os
 import uuid
 from bing_image_downloader import downloader
-
+import os
 
 def download_playlist(url, category):
     playlist = Playlist(url)
@@ -29,26 +29,26 @@ def download_image(query, path, amount=1):
                                force_replace = False, timeout = 60, )
 
 
+def check_which_file_exists(images):
+    for i in images:
+        if os.path.exists(i):
+            return i
+    return None
+
+
+def create_image_scene(prompt,image, text,dir_name):
+    scene = Scene.objects.get(prompt = prompt, text = text.strip())
+    downloaded_image = download_image(image, f'{dir_name}/images/', amount = 3)
+    if len(downloaded_image) > 0:
+        SceneImage.objects.create(scene = scene, file = check_which_file_exists(downloaded_image))
+
+
 def create_image_scenes(video):
     dir_name = video.dir_name
     for j in video.gpt_answer['scenes']:
-        if not video.prompt.template.is_sentenced:
-            scene = Scene.objects.get(prompt = video.prompt, text = j['dialogue'].strip())
-
-        if not video.prompt.template.is_sentenced and type(j['image']) is list:
-            for image in j['image']:
-                downloaded_image = download_image(image, f'{dir_name}/images/', amount = 1)
-                if len(downloaded_image) > 0:
-                    SceneImage.objects.create(scene = scene, file = downloaded_image[0])
-
-        elif video.prompt.template.is_sentenced:
+        if video.prompt.template.is_sentenced:
             for x in j['dialogue']:
-                scene = Scene.objects.get(prompt = video.prompt, text = x['sentence'].strip())
-                downloaded_image = download_image(x['image'], f'{dir_name}/images/', amount = 1)
-                if len(downloaded_image) > 0:
-                    SceneImage.objects.create(scene = scene, file = downloaded_image[0])
+                create_image_scene(video.prompt, x['image'], x['sentence'], dir_name)
 
         else:
-            downloaded_image = download_image(j['image'], f'{dir_name}/images/', amount = 1)
-            if len(downloaded_image) > 0:
-                SceneImage.objects.create(scene = scene, file = downloaded_image[0])
+            create_image_scene(video.prompt, j['image'], j['scene'], dir_name)

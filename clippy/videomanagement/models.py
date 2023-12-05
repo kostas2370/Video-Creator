@@ -70,7 +70,7 @@ class VoiceModels(AbstractModel):
 
 
 class Avatars(AbstractModel):
-    name = models.CharField(max_length = 100 , default = "Natasha")
+    name = models.CharField(max_length = 100, default = "Natasha")
     gender = models.CharField(max_length = 10)
     file = models.FileField(upload_to = "media/other/avatars")
     voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, default = 1)
@@ -88,7 +88,7 @@ class Videos(AbstractModel):
     avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None)
 
     def __str__(self):
-        return self.title + str(self.id)
+        return f"{self.title} { str(self.id)}"
 
 
 class Intro(AbstractModel):
@@ -116,6 +116,3 @@ class Backgrounds(AbstractModel):
 
     def __str__(self):
         return self.name
-
-
-

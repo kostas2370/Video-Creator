@@ -46,7 +46,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
 
             return js
 
-        except Exception as ex:
+        except Exception:
             if time == 5:
                 raise Exception("Max gpt limit is 5 , try again with different prompt !!")
 
