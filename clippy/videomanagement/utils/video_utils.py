@@ -38,12 +38,10 @@ def make_video(video, music=True, avatar=True):
                     image = image.set_duration(audio.duration/len(scenes))
                     image = image.fadein(image.duration*0.2).\
                         fadeout(image.duration*0.2)
-
                     vids.append(image)
 
                 else:
-                    vids.append(black.set_duration(audio.duration+2))
-
+                    vids.append(black.set_duration(audio.duration))
         else:
             vids.append(black.set_duration(audio.duration))
     final_video = concatenate_videoclips(vids).margin(top=background.image_pos_top, left = background.image_pos_left,
@@ -101,5 +99,4 @@ def create_avatar_video(avatar, dir_name):
         f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{output}"'))
 
     return output
-
 

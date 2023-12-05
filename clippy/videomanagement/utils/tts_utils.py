@@ -5,6 +5,7 @@ import pyttsx3
 
 """#tts_models/en/jenny/jenny#"""
 
+
 def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
                  model="tts_models/en/ljspeech/vits--neon", vocoder="default_vocoder"):
 
@@ -33,7 +34,7 @@ def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
     return syn
 
 
-def save(syn = None, text="", save_path=""):
+def save(syn=None, text="", save_path=""):
     if syn is not None:
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)

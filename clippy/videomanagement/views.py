@@ -10,7 +10,8 @@ from .utils.prompt_utils import format_prompt
 from .utils.gpt_utils import get_reply
 from .utils.audio_utils import make_scenes_speech
 from .utils.file_utils import generate_directory, select_avatar, select_voice
-from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarSerializer, VoiceModelSerializer
+from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarSerializer, \
+    VoiceModelSerializer
 from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars
 
 from rest_framework.pagination import PageNumberPagination
@@ -47,6 +48,12 @@ class VoiceView(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
 
 
+class AvatarView(viewsets.ModelViewSet):
+    serializer_class = AvatarSerializer
+    queryset = Avatars.objects.all()
+    permission_classes = [AllowAny]
+
+
 class TestView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
@@ -60,7 +67,10 @@ class TestView(viewsets.ModelViewSet):
         gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
         image_webscrap = request.data.get('image_webscrap', False)
         avatar = request.data.get('avatar', False)
-        avatar_selection = int(request.data.get('avatar_selection', 'random'))
+        avatar_selection = request.data.get('avatar_selection', 'random')
+
+        if avatar_selection != 'random' and avatar!=False:
+            avatar_selection = int(avatar_selection)
 
         # target_audience = request.data.get('target_audience')
 
@@ -76,16 +86,15 @@ class TestView(viewsets.ModelViewSet):
         x = get_reply(message, gpt_model = gpt_model)
         dir_name = generate_directory(rf'media\media\videos\{slugify(x["title"])}')
 
-        vid.gpt_answer = x
-        vid.dir_name = dir_name
+        vid.dir_name, vid.gpt_answer = dir_name, x
 
         selected_avatar = None
 
-        if type(avatar_selection) is int and avatar == True:
+        if type(avatar_selection) is int and avatar:
             selected_avatar = select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice
 
-        elif avatar_selection == "random" and avatar == True:
+        elif avatar_selection == "random" and avatar:
             selected_avatar = select_avatar()
             voice_model = selected_avatar.voice
 
@@ -118,18 +127,10 @@ def download_playlist(request):
     download_playlist(link, category = request.data.get('category'))
     return Response({'Message': 'Successful'})
 
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def render_video(request):
     vid = Videos.objects.get(id = request.data['video_id'])
-
     result = make_video(vid, avatar = True)
-    return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
-
-
-class AvatarView(viewsets.ModelViewSet):
-    serializer_class = AvatarSerializer
-    queryset = Avatars.objects.all()
-    permission_classes = [AllowAny]
-
-
+    return Response({"message": "The video has been made succfully", "result": VideoSerializer(result).data})
