@@ -34,15 +34,17 @@ def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
     return syn
 
 
-def save(syn=None, text="", save_path=""):
-    if syn is not None:
+def save(syn, text="", save_path=""):
+
+    if type(syn) is Synthesizer:
+
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)
 
-    if syn is None:
+    if type(syn) is int or type(syn) is str:
         engine = pyttsx3.init()
         voices = engine.getProperty('voices')
-        engine.setProperty('voice', voices[1].id)
+        engine.setProperty('voice', voices[int(syn)].id)
         engine.save_to_file(text, save_path)
         engine.runAndWait()
 
