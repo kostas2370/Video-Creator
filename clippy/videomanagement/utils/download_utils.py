@@ -5,6 +5,7 @@ import uuid
 from bing_image_downloader import downloader
 import os
 
+
 def download_playlist(url, category):
     playlist = Playlist(url)
     for music in playlist.videos:
@@ -36,9 +37,9 @@ def check_which_file_exists(images):
     return None
 
 
-def create_image_scene(prompt,image, text,dir_name):
+def create_image_scene(prompt, image, text, dir_name):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
-    downloaded_image = download_image(image, f'{dir_name}/images/', amount = 3)
+    downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
     if len(downloaded_image) > 0:
         SceneImage.objects.create(scene = scene, file = check_which_file_exists(downloaded_image))
 
@@ -51,4 +52,4 @@ def create_image_scenes(video):
                 create_image_scene(video.prompt, x['image'], x['sentence'], dir_name)
 
         else:
-            create_image_scene(video.prompt, j['image'], j['scene'], dir_name)
+            create_image_scene(video.prompt, j['image'], j['dialogue'], dir_name)

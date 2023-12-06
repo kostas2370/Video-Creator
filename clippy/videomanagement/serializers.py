@@ -37,8 +37,15 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class VideoSerializer(serializers.ModelSerializer):
+class UserpromptSerializer(serializers.ModelSerializer):
 
+    class Meta:
+        model = UserPrompt
+        fields = "__all__"
+
+
+class VideoSerializer(serializers.ModelSerializer):
+    prompt = UserpromptSerializer()
     scenes = serializers.SerializerMethodField()
 
     class Meta:

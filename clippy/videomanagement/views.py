@@ -13,6 +13,7 @@ from .utils.file_utils import generate_directory, select_avatar, select_voice
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarSerializer, \
     VoiceModelSerializer
 from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars
+from django.db.models import Q
 
 from rest_framework.pagination import PageNumberPagination
 
@@ -30,14 +31,14 @@ class MusicView(viewsets.ModelViewSet):
 
 
 class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 10
+    page_size = 5
     page_size_query_param = 'page_size'
     max_page_size = 1000
 
 
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
-    queryset = Videos.objects.all().order_by("-id")
+    queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
     permission_classes = [AllowAny]
     pagination_class = StandardResultsSetPagination
 
