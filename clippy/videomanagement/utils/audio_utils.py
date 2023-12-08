@@ -1,5 +1,5 @@
 from .tts_utils import create_model, save
-from ..models import Scene
+from ..models import Scene, Videos
 import uuid
 
 
@@ -25,5 +25,22 @@ def make_scenes_speech(video):
             filename = str(uuid.uuid4())
             sound = save(syn, j['dialogue'], save_path = f'{dir_name}/dialogues/{filename}.wav')
             Scene.objects.create(file = sound, prompt = video.prompt, text = j['dialogue'].strip())
+
+    return True
+
+
+def update_scene(scene):
+    video = Videos.objects.get(prompt__id=scene.prompt.id)
+    dir_name = video.dir_name
+    voice_model = video.voice_model
+    syn = voice_model.path
+    if voice_model.type == 'Local' or voice_model.type == "LOCAL":
+        syn = create_model(model = syn)
+
+    filename = str(uuid.uuid4())
+
+    sound = save(syn, scene.text, save_path = f'{dir_name}/dialogues/{filename}.wav')
+    scene.file = sound
+    scene.save()
 
     return True

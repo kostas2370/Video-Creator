@@ -29,13 +29,18 @@ class VoiceModelSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class AvatarSerializer(serializers.ModelSerializer):
-    voice = VoiceModelSerializer()
+class AvatarNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Avatars
         fields = "__all__"
 
+class AvatarSerializer(serializers.ModelSerializer):
+
+
+    class Meta:
+        model = Avatars
+        fields = "__all__"
 
 class UserpromptSerializer(serializers.ModelSerializer):
 

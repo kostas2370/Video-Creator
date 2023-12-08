@@ -3,19 +3,19 @@ from slugify import slugify
 from rest_framework.permissions import AllowAny
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes
+from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
 
 from .utils.video_utils import make_video
 from .utils.download_utils import download_playlist, create_image_scenes
-from .utils.prompt_utils import format_prompt
-from .utils.gpt_utils import get_reply
-from .utils.audio_utils import make_scenes_speech
+from .utils.prompt_utils import format_prompt, format_update_form
+from .utils.gpt_utils import get_reply, get_update_sentence
+from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
-from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarSerializer, \
-    VoiceModelSerializer
-from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars
-from django.db.models import Q
+from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
+    VoiceModelSerializer, AvatarSerializer
+from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene
 
-from rest_framework.pagination import PageNumberPagination
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
@@ -54,6 +54,12 @@ class AvatarView(viewsets.ModelViewSet):
     queryset = Avatars.objects.all()
     permission_classes = [AllowAny]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AvatarNestedSerializer
+
+        return AvatarSerializer
+
 
 class TestView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
@@ -86,18 +92,17 @@ class TestView(viewsets.ModelViewSet):
 
         x = get_reply(message, gpt_model = gpt_model)
         dir_name = generate_directory(rf'media\media\videos\{slugify(x["title"])}')
-
         vid.dir_name, vid.gpt_answer = dir_name, x
-
-        selected_avatar = None
 
         if type(avatar_selection) is int and avatar:
             selected_avatar = select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice
+            vid.avatar = selected_avatar
 
         elif avatar_selection == "random" and avatar:
             selected_avatar = select_avatar()
             voice_model = selected_avatar.voice
+            vid.avatar = selected_avatar
 
         elif voice_id is not None:
             voice_model = VoiceModels.objects.get(id = voice_id)
@@ -106,19 +111,16 @@ class TestView(viewsets.ModelViewSet):
             voice_model = select_voice()
 
         vid.voice_model = voice_model
-        vid.avatar = selected_avatar
 
+        vid.save()
         make_scenes_speech(vid)
 
         if image_webscrap:
             create_image_scenes(vid)
 
+        vid.status = "GENERATION"
         vid.save()
-
-        result = make_video(vid, avatar = avatar)
-
-        return Response({"message": "The video has been made successfully",
-                         "result": VideoSerializer(result).data})
+        return Response({"message": "The video has been made successfully"})
 
 
 @api_view(['POST'])
@@ -132,6 +134,30 @@ def download_playlist(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def render_video(request):
-    vid = Videos.objects.get(id = request.data['video_id'])
-    result = make_video(vid, avatar = True)
+    vid = Videos.objects.get(id = request.GET.get('video_id'))
+    vid.status = "RENDERING"
+    vid.save()
+    result = make_video(vid, avatar = True if vid.avatar else False)
     return Response({"message": "The video has been made succfully", "result": VideoSerializer(result).data})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def update_scene_view(request):
+    scene = request.data.get("scene")
+    updated_text = request.data.get("text")
+    prompt = request.data.get("prompt")
+
+    if not scene:
+        return Response("You must add a scene")
+
+    scene = Scene.objects.get(id = scene)
+    if updated_text:
+        scene.text = updated_text
+
+    if prompt:
+        scene.text = get_update_sentence(format_update_form(scene.text, prompt))
+
+    update_scene(scene)
+    return Response({"Updated Sucessfully"})
+
