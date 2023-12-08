@@ -1,9 +1,9 @@
 from pytube import Playlist
 from ..models import Music, Scene, SceneImage
-import os
 import uuid
 from bing_image_downloader import downloader
 import os
+
 
 
 def download_playlist(url, category):

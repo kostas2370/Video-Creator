@@ -33,6 +33,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
 
     if reply_format == "json":
         x = x.getvalue()
+        print(x)
         x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
 
         try:
@@ -51,3 +52,13 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
             return get_reply(prompt, time = time, gpt_model = gpt_model)
 
     return x
+
+
+def get_update_sentence(prompt):
+
+    response = g4f.ChatCompletion.create(model = 'gpt-3.5-turbo', messages = [{"content": prompt}], stream = True, )
+    x = io.StringIO()
+    for message in response:
+        x.write(message)
+
+    return x.getvalue()

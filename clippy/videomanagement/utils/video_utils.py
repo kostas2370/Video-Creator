@@ -67,11 +67,11 @@ def make_video(video, music=True, avatar=True):
 
     final_clip = CompositeVideoClip([final_video,
                                     masked_clip.set_duration(final_audio.duration)],
-                                    size = (1920, 1080))
+                                    size = (1920, 1080)).fadein(2).fadeout(2)
 
     if avatar and video.avatar:
         avatar_video = create_avatar_video(video.avatar, dir_name)
-        avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5)
+        avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5).fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
     intro = VideoFileClip(Intro.objects.filter(category = template.category)[0].file.path)
@@ -85,6 +85,7 @@ def make_video(video, music=True, avatar=True):
         sound.close()
 
     video.output = rf"{dir_name}\output_video.mp4"
+    video.status = "COMPLETED"
     video.save()
     return video
 

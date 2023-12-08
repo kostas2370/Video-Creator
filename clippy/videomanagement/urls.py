@@ -1,7 +1,7 @@
 from .views import TemplatePromptView, TestView, VideoView, AvatarView, VoiceView
 from rest_framework import routers
 from django.urls import path
-from .views import download_playlist, render_video
+from .views import download_playlist, render_video, update_scene_view
 router = routers.DefaultRouter(trailing_slash = False)
 router.register('templates/', TemplatePromptView)
 router.register('test/', TestView)
@@ -13,5 +13,6 @@ router.register('voices/', VoiceView)
 urlpatterns = router.urls
 
 urlpatterns += [path('downloadplaylist/', download_playlist),
-                path('render/', render_video)
+                path('render/', render_video),
+                path('update_scene/', update_scene_view)
                 ]

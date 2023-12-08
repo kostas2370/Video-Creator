@@ -6,6 +6,8 @@ TEMPLATE_CHOICES = (("EDUCATIONAL", "Educational"), ("GAMING", "Gaming"), ("ADVE
 
 MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3"))
 
+VIDEO_STATUS = (("RENDERING", "RENDERING"), ("GENERATED", "GENERATED"), ("COMPLETED", "COMPLETED"))
+
 
 class AbstractModel(models.Model):
     created_by = models.ForeignKey(get_user_model(), on_delete = models.CASCADE, blank = True, null = True)
@@ -86,6 +88,7 @@ class Videos(AbstractModel):
     dir_name = models.TextField(default = "")
     voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1)
     avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None)
+    status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
 
     def __str__(self):
         return f"{self.title} { str(self.id)}"
