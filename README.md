@@ -3,6 +3,7 @@ How to run it :
 pip install with this command :
 pip: -r requirements.txt
 
+Create a checkpoints folder and
 Download these files from Sadtalker repository :
 https://github.com/OpenTalker/SadTalker
 
