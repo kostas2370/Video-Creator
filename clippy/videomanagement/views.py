@@ -72,7 +72,7 @@ class TestView(viewsets.ModelViewSet):
         title = request.data.get('title')
         prompt = request.data.get('message')
         gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
-        image_webscrap = request.data.get('image_webscrap', False)
+        images = request.data.get('images', False)
         avatar = request.data.get('avatar', False)
         avatar_selection = request.data.get('avatar_selection', 'random')
 
@@ -115,8 +115,9 @@ class TestView(viewsets.ModelViewSet):
         vid.save()
         make_scenes_speech(vid)
 
-        if image_webscrap:
-            create_image_scenes(vid)
+        if images:
+
+            create_image_scenes(vid, mode = images)
 
         vid.status = "GENERATION"
         vid.save()
