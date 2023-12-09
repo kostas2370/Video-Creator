@@ -3,8 +3,9 @@ from ..models import Music, Scene, SceneImage
 import uuid
 from bing_image_downloader import downloader
 import os
-
-
+from openai import OpenAI
+import requests
+from django.conf import settings
 
 def download_playlist(url, category):
     playlist = Playlist(url)
@@ -37,19 +38,46 @@ def check_which_file_exists(images):
     return None
 
 
-def create_image_scene(prompt, image, text, dir_name):
+def generate_from_dalle(prompt, dir_name):
+
+    client = OpenAI(api_key=settings.OPEN_API_KEY)
+
+    response = client.images.generate(
+      model="dall-e-3",
+      prompt= prompt,
+      size="1792x1024",
+      quality="standard",
+      n=1,
+
+    )
+
+    image_url = response.data[0].url
+    response = requests.get(image_url)
+    x = str(uuid.uuid4())
+    open(rf"{dir_name}/images/{x}.png", "wb").write(response.content)
+
+    return rf"{dir_name}/images/{x}.png"
+
+
+def create_image_scene(prompt, image, text, dir_name , mode="webscrap"):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
-    downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
+
+    if mode=="AI":
+        downloaded_image = generate_from_dalle(image, dir_name)
+
+    else:
+        downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
+        downloaded_image = check_which_file_exists(downloaded_image)
     if len(downloaded_image) > 0:
-        SceneImage.objects.create(scene = scene, file = check_which_file_exists(downloaded_image))
+        SceneImage.objects.create(scene = scene, file = downloaded_image)
 
 
-def create_image_scenes(video):
+def create_image_scenes(video, mode="webscrap"):
     dir_name = video.dir_name
     for j in video.gpt_answer['scenes']:
         if video.prompt.template.is_sentenced:
             for x in j['dialogue']:
-                create_image_scene(video.prompt, x['image'], x['sentence'], dir_name)
+                create_image_scene(video.prompt, x['image'], x['sentence'], dir_name, mode=mode)
 
         else:
-            create_image_scene(video.prompt, j['image'], j['dialogue'], dir_name)
+            create_image_scene(video.prompt, j['image'], j['dialogue'], dir_name, mode=mode)
