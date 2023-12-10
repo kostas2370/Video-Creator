@@ -68,7 +68,7 @@ def create_image_scene(prompt, image, text, dir_name , mode="webscrap"):
     else:
         downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
         downloaded_image = check_which_file_exists(downloaded_image)
-    if len(downloaded_image) > 0:
+    if downloaded_image is not None and len(downloaded_image) > 0:
         SceneImage.objects.create(scene = scene, file = downloaded_image)
 
 

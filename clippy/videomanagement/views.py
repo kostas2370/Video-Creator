@@ -2,7 +2,7 @@ from rest_framework.response import Response
 from slugify import slugify
 from rest_framework.permissions import AllowAny
 from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
 
@@ -12,10 +12,44 @@ from .utils.prompt_utils import format_prompt, format_update_form
 from .utils.gpt_utils import get_reply, get_update_sentence
 from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
-from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
-    VoiceModelSerializer, AvatarSerializer
+from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, SceneSerializer,\
+    VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer
 from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene
+from rest_framework import status
 
+
+class SceneView(viewsets.ModelViewSet):
+    serializer_class = SceneSerializer
+    queryset = Scene.objects.all()
+    permission_classes = [AllowAny]
+
+    def partial_update(self, request, pk=None):
+        instance = self.get_object()
+        if not instance:
+            return Response(status = status.HTTP_404_NOT_FOUND)
+
+        new_text = request.data.get('text', None)
+
+        instance.text = new_text if new_text else instance.text
+        update_scene(instance)
+
+        return Response({"message" : "Your scene updated Succcessfuly", "scene": SceneSerializer(instance).data},
+                        status = status.HTTP_200_OK)
+
+    @action(detail = True, methods = ['patch'])
+    def generate(self,request,pk):
+        text = request.data.get("text").strip()
+        scene = self.get_object()
+
+        if text == scene.text.strip():
+            return Response({"message": "Your scene updated Succcessfuly"}, status = status.HTTP_200_OK)
+
+        if text:
+            scene.text = get_update_sentence(format_update_form(scene.text, text))
+
+        update_scene(scene)
+        return Response({"message": "Your scene updated Succcessfuly"},
+                        status = status.HTTP_200_OK)
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
@@ -41,6 +75,13 @@ class VideoView(viewsets.ModelViewSet):
     queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
     permission_classes = [AllowAny]
     pagination_class = StandardResultsSetPagination
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+           return VideoNestedSerializer
+
+        return VideoSerializer
+
 
 
 class VoiceView(viewsets.ModelViewSet):
@@ -140,25 +181,3 @@ def render_video(request):
     vid.save()
     result = make_video(vid, avatar = True if vid.avatar else False)
     return Response({"message": "The video has been made succfully", "result": VideoSerializer(result).data})
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def update_scene_view(request):
-    scene = request.data.get("scene")
-    updated_text = request.data.get("text")
-    prompt = request.data.get("prompt")
-
-    if not scene:
-        return Response("You must add a scene")
-
-    scene = Scene.objects.get(id = scene)
-    if updated_text:
-        scene.text = updated_text
-
-    if prompt:
-        scene.text = get_update_sentence(format_update_form(scene.text, prompt))
-
-    update_scene(scene)
-    return Response({"Updated Sucessfully"})
-
