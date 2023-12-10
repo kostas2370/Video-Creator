@@ -17,10 +17,12 @@ class MusicSerializer(serializers.ModelSerializer):
 
 
 class SceneSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Scene
         fields = "__all__"
+
+
+
 
 
 class VoiceModelSerializer(serializers.ModelSerializer):
@@ -51,8 +53,15 @@ class UserpromptSerializer(serializers.ModelSerializer):
 
 class VideoSerializer(serializers.ModelSerializer):
     prompt = UserpromptSerializer()
-    scenes = serializers.SerializerMethodField()
 
+    class Meta:
+        model = Videos
+        fields = "__all__"
+
+
+class VideoNestedSerializer(serializers.ModelSerializer):
+    prompt = UserpromptSerializer()
+    scenes = serializers.SerializerMethodField()
     class Meta:
         model = Videos
         fields = "__all__"
@@ -60,3 +69,4 @@ class VideoSerializer(serializers.ModelSerializer):
     def get_scenes(self, obj):
         scenes = Scene.objects.filter(prompt__video_prompt__id = obj.id)
         return SceneSerializer(scenes, many = True).data
+

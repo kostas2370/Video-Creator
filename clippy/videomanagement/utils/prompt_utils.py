@@ -11,17 +11,17 @@ def format_prompt(template, userprompt="", title='', target_audience=''):
         title = "The title will be selected by you, depending on the prompt"
 
     if target_audience == '':
-        target_audience = "You will select the target audience"
+        target_audience = " Select an appropriate target audience."
 
-    output = f"Make me a scenario about a {template.category} video. \n" \
-             f"The title of the video will be {title} .  \n" \
+    output = f"Write a scenario named \' {title} \' \n" \
+             f"Video category : {template.category} \n" \
              f"The target audience : {target_audience}" \
-             f"The information that you need are here : {userprompt}  \n" \
-             f"The format of your answer must be like that in {template.format}" \
+             f"Description : {userprompt}  \n" \
+             f"Structure : {template.format}" \
 
 
     return output
 
 
 def format_update_form(text, prompt):
-    return f"Change this {text}, {prompt} , the size must be around the same of previous text"
+    return f"The text i will give you is a scene in a video. {text}. Rewrite this text: {prompt} . The text must be around the same size"
