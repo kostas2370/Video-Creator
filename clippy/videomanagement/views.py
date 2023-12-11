@@ -12,9 +12,9 @@ from .utils.prompt_utils import format_prompt, format_update_form
 from .utils.gpt_utils import get_reply, get_update_sentence
 from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
-from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, SceneSerializer,\
-    VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer
-from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene
+from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
+    SceneSerializer, VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer, SceneImageSerializer
+from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage
 from rest_framework import status
 
 
@@ -52,6 +52,13 @@ class SceneView(viewsets.ModelViewSet):
                         status = status.HTTP_200_OK)
 
 
+class SceneImageView(viewsets.ModelViewSet):
+    queryset = SceneImage.objects.all()
+    serializer_class = SceneImageSerializer
+    permission_classes = [AllowAny]
+
+
+
 class TemplatePromptView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
@@ -78,10 +85,9 @@ class VideoView(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "retrieve":
-           return VideoNestedSerializer
+            return VideoNestedSerializer
 
         return VideoSerializer
-
 
 
 class VoiceView(viewsets.ModelViewSet):
@@ -102,7 +108,7 @@ class AvatarView(viewsets.ModelViewSet):
         return AvatarSerializer
 
 
-class TestView(viewsets.ModelViewSet):
+class GenerateView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
     permission_classes = [AllowAny]
@@ -181,3 +187,25 @@ def render_video(request):
     vid.save()
     result = make_video(vid, avatar = True if vid.avatar else False)
     return Response({"message": "The video has been made succfully", "result": VideoSerializer(result).data})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def change_image_scene(request):
+    scene = request.GET.get("scene_id")
+    scene_image = request.GET.get("scene_image")
+    image = request.FILES.get("image")
+
+    if not image:
+        return Response({"message": "You must add a photo!"}, status = status.HTTP_400_BAD_REQUEST)
+
+    if scene_image:
+        img = SceneImage.objects.get(id = scene_image)
+        img.file = image
+        img.save()
+
+    else:
+        SceneImage.objects.create(scene_id = scene, file = image)
+
+    return Response({"Message": "Image Scene was added successfully"})
+
