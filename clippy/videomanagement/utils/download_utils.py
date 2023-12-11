@@ -1,7 +1,7 @@
 from pytube import Playlist
 from ..models import Music, Scene, SceneImage
 import uuid
-from bing_image_downloader import downloader
+from .bing_image_downloader import downloader
 import os
 from openai import OpenAI
 import requests
