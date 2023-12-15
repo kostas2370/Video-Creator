@@ -122,6 +122,7 @@ class GenerateView(viewsets.ModelViewSet):
         images = request.data.get('images', False)
         avatar = request.data.get('avatar', False)
         avatar_selection = request.data.get('avatar_selection', 'random')
+        style = request.data.get("style", "natural")
 
         if avatar_selection != 'random' and avatar!=False:
             avatar_selection = int(avatar_selection)
@@ -164,7 +165,7 @@ class GenerateView(viewsets.ModelViewSet):
 
         if images:
 
-            create_image_scenes(vid, mode = images)
+            create_image_scenes(vid, mode = images, style = style)
 
         vid.status = "GENERATION"
         vid.save()

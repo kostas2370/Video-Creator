@@ -38,7 +38,7 @@ def check_which_file_exists(images):
     return None
 
 
-def generate_from_dalle(prompt, dir_name):
+def generate_from_dalle(prompt, dir_name, style):
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
 
@@ -48,7 +48,7 @@ def generate_from_dalle(prompt, dir_name):
       size="1792x1024",
       quality="standard",
       n=1,
-
+      style = style
     )
 
     image_url = response.data[0].url
@@ -59,11 +59,11 @@ def generate_from_dalle(prompt, dir_name):
     return rf"{dir_name}/images/{x}.png"
 
 
-def create_image_scene(prompt, image, text, dir_name , mode="webscrap"):
+def create_image_scene(prompt, image, text, dir_name , mode="webscrap", style=""):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
     if mode=="AI":
-        downloaded_image = generate_from_dalle(image, dir_name)
+        downloaded_image = generate_from_dalle(image, dir_name, style = style)
 
     else:
         downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
@@ -72,12 +72,12 @@ def create_image_scene(prompt, image, text, dir_name , mode="webscrap"):
         SceneImage.objects.create(scene = scene, file = downloaded_image)
 
 
-def create_image_scenes(video, mode="webscrap"):
+def create_image_scenes(video, mode="webscrap", style="natural"):
     dir_name = video.dir_name
     for j in video.gpt_answer['scenes']:
         if video.prompt.template.is_sentenced:
             for x in j['dialogue']:
-                create_image_scene(video.prompt, x['image'], x['sentence'], dir_name, mode=mode)
+                create_image_scene(video.prompt, x['image'], x['sentence'], dir_name, mode=mode,  style=style)
 
         else:
-            create_image_scene(video.prompt, j['image'], j['dialogue'], dir_name, mode=mode)
+            create_image_scene(video.prompt, j['image'], j['dialogue'], dir_name, mode=mode, style=style)

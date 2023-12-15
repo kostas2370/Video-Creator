@@ -18,18 +18,18 @@
     "model": "videomanagement.TemplatePrompts",
     "pk": 1,
     "fields": {
-      "title": "Educational1",
+      "title": "Educational",
       "category": "educational",
-      "format": "json {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": \"string\", }],\"image}. . Dialogue  image field must contain  word that is related to the dialogue so i can add it in the video it has to be specific"
+      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentecne of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}."
     }
   },
   {
     "model": "videomanagement.TemplatePrompts",
     "pk": 2,
     "fields": {
-      "title": "Beta Educational",
-      "category": "educational",
-      "format": "json {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentence\",\"image\"}], }],}. . Dialogue  image field must contain  few words that is related to the sentence .it has to be specific."
+      "title": "General",
+      "category": "other",
+      "format": "json {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": \"string\", }],\"image}. \n\nImage :For each Scene, add an image description that represents the scene."
     }
   },
   {
