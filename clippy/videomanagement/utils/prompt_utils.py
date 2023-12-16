@@ -24,4 +24,5 @@ def format_prompt(template, userprompt="", title='', target_audience=''):
 
 
 def format_update_form(text, prompt):
-    return f"The text i will give you is a scene in a video. {text}. Rewrite this text: {prompt} . The text must be around the same size"
+    return f"The text i will give you is a scene in a video. {text}. Rewrite this text: {prompt} . " \
+           f"The text must be around the same size"
