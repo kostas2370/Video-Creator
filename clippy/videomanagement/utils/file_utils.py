@@ -22,7 +22,11 @@ def select_music(category=None):
         raise Exception('You need to add a category')
 
     music = Music.objects.filter(category = category)
-    return music[randint(0, music.count() - 1)]
+
+    if len(music.count()) > 0:
+        return music[randint(0, music.count() - 1)]
+
+    return None
 
 
 def select_background(category=None):

@@ -5,7 +5,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes, action
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
-
+from rest_framework import status
 from .utils.video_utils import make_video
 from .utils.download_utils import download_playlist, create_image_scenes
 from .utils.prompt_utils import format_prompt, format_update_form
@@ -15,7 +15,6 @@ from .utils.file_utils import generate_directory, select_avatar, select_voice
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
     SceneSerializer, VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer, SceneImageSerializer
 from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage
-from rest_framework import status
 
 
 class SceneView(viewsets.ModelViewSet):
@@ -33,11 +32,11 @@ class SceneView(viewsets.ModelViewSet):
         instance.text = new_text if new_text else instance.text
         update_scene(instance)
 
-        return Response({"message" : "Your scene updated Succcessfuly", "scene": SceneSerializer(instance).data},
+        return Response({"message": "Your scene updated Succcessfuly", "scene": SceneSerializer(instance).data},
                         status = status.HTTP_200_OK)
 
     @action(detail = True, methods = ['patch'])
-    def generate(self,request,pk):
+    def generate(self, request, pk):
         text = request.data.get("text").strip()
         scene = self.get_object()
 
@@ -56,7 +55,6 @@ class SceneImageView(viewsets.ModelViewSet):
     queryset = SceneImage.objects.all()
     serializer_class = SceneImageSerializer
     permission_classes = [AllowAny]
-
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
@@ -146,7 +144,7 @@ class GenerateView(viewsets.ModelViewSet):
             voice_model = selected_avatar.voice
             vid.avatar = selected_avatar
 
-        elif avatar_selection == "random" :
+        elif avatar_selection == "random":
             selected_avatar = select_avatar()
             voice_model = selected_avatar.voice
             vid.avatar = selected_avatar
@@ -209,3 +207,4 @@ def change_image_scene(request):
 
     return Response({"Message": "Image Scene was added successfully"})
 
+#TODO A function that initialize backgrounds, intro and outro
