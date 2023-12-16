@@ -120,18 +120,17 @@ class GenerateView(viewsets.ModelViewSet):
         prompt = request.data.get('message')
         gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
         images = request.data.get('images', False)
-        avatar = request.data.get('avatar', False)
-        avatar_selection = request.data.get('avatar_selection', 'random')
+        avatar_selection = request.data.get('avatar_selection', 'no_avatar')
         style = request.data.get("style", "natural")
 
-        if avatar_selection != 'random' and avatar!=False:
+        if avatar_selection != 'random' and avatar_selection !="no_avatar":
             avatar_selection = int(avatar_selection)
 
-        # target_audience = request.data.get('target_audience')
+        target_audience = request.data.get('target_audience')
 
         template = TemplatePrompts.objects.get(id = template_id)
 
-        message = format_prompt(template, userprompt = prompt, title = title)
+        message = format_prompt(template, userprompt = prompt, title = title, target_audience = target_audience)
 
         userprompt = UserPrompt.objects.create(template = template, prompt = message)
         userprompt.save()
@@ -142,12 +141,12 @@ class GenerateView(viewsets.ModelViewSet):
         dir_name = generate_directory(rf'media\media\videos\{slugify(x["title"])}')
         vid.dir_name, vid.gpt_answer = dir_name, x
 
-        if type(avatar_selection) is int and avatar:
+        if type(avatar_selection) is int:
             selected_avatar = select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice
             vid.avatar = selected_avatar
 
-        elif avatar_selection == "random" and avatar:
+        elif avatar_selection == "random" :
             selected_avatar = select_avatar()
             voice_model = selected_avatar.voice
             vid.avatar = selected_avatar
