@@ -1,4 +1,4 @@
-from .file_utils import select_music, select_background, select_avatar
+from .file_utils import select_music, select_background
 from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx,\
     concatenate_videoclips, CompositeVideoClip
 from ..models import *
@@ -52,12 +52,13 @@ def make_video(video, music=True, avatar=True):
 
     if music:
         selected_music = select_music(template.category)
-        music = AudioFileClip(selected_music.file.path).volumex(0.07)
-        if music.duration > final_audio.duration:
-            music = music.subclip(0, final_audio.duration)
+        if selected_music:
+            music = AudioFileClip(selected_music.file.path).volumex(0.07)
+            if music.duration > final_audio.duration:
+                music = music.subclip(0, final_audio.duration)
 
-        music = music.audio_fadein(4).audio_fadeout(4)
-        final_audio = CompositeAudioClip([final_audio, music])
+            music = music.audio_fadein(4).audio_fadeout(4)
+            final_audio = CompositeAudioClip([final_audio, music])
 
     clip = clip.set_duration(final_audio.duration).set_audio(final_audio)
 
@@ -71,13 +72,17 @@ def make_video(video, music=True, avatar=True):
 
     if avatar and video.avatar:
         avatar_video = create_avatar_video(video.avatar, dir_name)
-        avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5).fadeout(2)
+        avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5).\
+            fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
-    intro = VideoFileClip(Intro.objects.filter(category = template.category)[0].file.path)
-    outro = VideoFileClip(Outro.objects.filter(category = template.category)[0].file.path)
+    intro = Intro.objects.filter(category = template.category)
+    outro = Outro.objects.filter(category = template.category)
 
-    final_video = concatenate_videoclips([intro, final_clip, outro], method='compose')
+    if intro and outro:
+        intro = VideoFileClip(intro[0].file.path)
+        outro = VideoFileClip(outro[0].file.path)
+        final_video = concatenate_videoclips([intro, final_clip, outro], method='compose')
 
     final_video.write_videofile(rf"{dir_name}\output_video.mp4", fps = 24, threads = 8)
 
@@ -100,4 +105,3 @@ def create_avatar_video(avatar, dir_name):
         f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{output}"'))
 
     return output
-
