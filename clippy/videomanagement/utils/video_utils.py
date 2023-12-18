@@ -7,6 +7,8 @@ import subprocess
 import shlex
 import os
 from .SadTalker.inference import lip
+from django.db.models import Q
+
 
 
 def make_video(video, music=True, avatar=True):
@@ -76,8 +78,8 @@ def make_video(video, music=True, avatar=True):
             fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
-    intro = Intro.objects.filter(category = template.category)
-    outro = Outro.objects.filter(category = template.category)
+    intro = Intro.objects.filter(Q(category = template.category) | Q(category="OTHER"))
+    outro = Outro.objects.filter(Q(category = template.category) | Q(category="OTHER"))
 
     if intro and outro:
         intro = VideoFileClip(intro[0].file.path)

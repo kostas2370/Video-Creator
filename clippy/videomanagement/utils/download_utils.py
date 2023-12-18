@@ -6,6 +6,8 @@ import os
 from openai import OpenAI
 import requests
 from django.conf import settings
+from pytube import YouTube
+
 
 def download_playlist(url, category):
     playlist = Playlist(url)
@@ -81,3 +83,10 @@ def create_image_scenes(video, mode="webscrap", style="natural"):
 
         else:
             create_image_scene(video.prompt, j['image'], j['dialogue'], dir_name, mode=mode, style=style)
+
+
+def download_video(url, dir_name):
+    yt = YouTube(url)
+    video = yt.streams.get_highest_resolution()
+    video.download(dir_name)
+    return rf'{dir_name}{yt.title}.mp4'

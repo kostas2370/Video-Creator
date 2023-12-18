@@ -6,15 +6,19 @@ from rest_framework.decorators import api_view, permission_classes, action
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
 from rest_framework import status
+import urllib.request
+
+
 from .utils.video_utils import make_video
-from .utils.download_utils import download_playlist, create_image_scenes
+from .utils.download_utils import download_playlist, create_image_scenes, download_video
 from .utils.prompt_utils import format_prompt, format_update_form
 from .utils.gpt_utils import get_reply, get_update_sentence
 from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
     SceneSerializer, VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer, SceneImageSerializer
-from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage
+from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage, Backgrounds, \
+    Intro, Outro
 
 
 class SceneView(viewsets.ModelViewSet):
@@ -207,4 +211,33 @@ def change_image_scene(request):
 
     return Response({"Message": "Image Scene was added successfully"})
 
-#TODO A function that initialize backgrounds, intro and outro
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def setup(request):
+
+    if Intro.objects.filter(name="basicintro").count()==0:
+        intro = download_video("https://www.youtube.com/watch?v=fQaEv_odk0w", "media/other/intros/")
+        Intro.objects.create(category = "OTHER", name = "basicintro", file = intro)
+
+    if Outro.objects.filter(name="basicoutro").count()==0:
+        outro = download_video("https://www.youtube.com/watch?v=YqB62GjZqC0", "media/other/outros/")
+        Outro.objects.create(category = "OTHER", name = "basicoutro", file = outro)
+
+    if Backgrounds.objects.filter(name="basicbackground").count() == 0 :
+
+        background_url = "https://i.ibb.co/SPz879q/back.jpg"
+        urllib.request.urlretrieve(background_url, "media/other/backgrounds/back.png")
+
+        Backgrounds.objects.create(category = "OTHER",
+                                   name= "basicbackground",
+                                   file = "media/other/backgrounds/back.png",
+                                   color = "0,163,232",
+                                   image_pos_top=65,
+                                   image_pos_left = 355,
+                                   avatar_pos_top = 0,
+                                   avatar_pos_left = 0,
+                                   through = 6)
+
+    return Response({"message" : "setup ok"})
+
