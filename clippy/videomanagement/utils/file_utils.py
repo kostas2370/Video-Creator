@@ -23,7 +23,7 @@ def select_music(category=None):
 
     music = Music.objects.filter(category = category)
 
-    if len(music.count()) > 0:
+    if music.count() > 0:
         return music[randint(0, music.count() - 1)]
 
     return None
