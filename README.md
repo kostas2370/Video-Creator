@@ -21,4 +21,4 @@ py manage.py runserver
 ```
 
 In the end to load some assets like background,intro,outro :
-Just go to your browser and put this link :
+Just go to your browser and put this link : http://localhost:8000/api/setup/
