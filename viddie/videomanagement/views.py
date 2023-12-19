@@ -220,4 +220,3 @@ def setup(request):
                                    through = 6)
 
     return Response({"message" : "setup ok"})
-

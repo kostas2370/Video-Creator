@@ -15,7 +15,8 @@ router.register('scene_image', SceneImageView)
 urlpatterns = [path('downloadplaylist/', download_playlist),
                path('render/', render_video),
                path('change_image/', change_image_scene),
-               path('setup/', setup)]
+               path('setup/', setup),
+               ]
 
 
 urlpatterns += router.urls
