@@ -11,8 +11,6 @@ VIDEO_STATUS = (("RENDERING", "RENDERING"), ("GENERATED", "GENERATED"), ("COMPLE
 
 class AbstractModel(models.Model):
     created_by = models.ForeignKey(get_user_model(), on_delete = models.CASCADE, blank = True, null = True)
-    creation_date = models.DateField(auto_now = True)
-    update_date = models.DateField(auto_now = True)
 
     class Meta:
         abstract = True
@@ -84,10 +82,10 @@ class Videos(AbstractModel):
     url = models.URLField(blank = True)
     gpt_answer = models.TextField(blank = True, null = True)
     prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
-    output = models.FileField(upload_to = "media/output")
+    output = models.FileField(upload_to = "media/output", blank = True, null=True)
     dir_name = models.TextField(default = "")
     voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1)
-    avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None)
+    avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True)
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
 
     def __str__(self):

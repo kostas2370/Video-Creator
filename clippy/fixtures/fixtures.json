@@ -1,71 +1,87 @@
 [
   {
     "model": "usermanagement.user",
-    "pk": 1,
+    "pk": 16,
     "fields": {
       "password": "pbkdf2_sha256$320000$vi0Mdl0Nv9Z7ahjhYNCwPF$x42cfJjzkMkAdFr3C7iCsg3rJ1O3RlVUJSF40/5Y9Es=",
       "is_superuser": true,
       "is_staff": true,
-      "username": "admin",
-      "first_name": "monitor",
-      "last_name": "risk",
-      "email": "kostas2372@gmail.com",
+      "username": "adm",
+      "first_name": "admin",
+      "last_name": "admin",
+      "email": "test@gmail.com",
       "is_active": true,
       "date_joined": "2022-06-30T17:03:10.123Z"
     }
   },
   {
     "model": "videomanagement.TemplatePrompts",
-    "pk": 1,
+    "pk": 16,
     "fields": {
       "title": "Educational",
-      "category": "educational",
-      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}."
+      "category": "EDUCATIONAL",
+      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "is_sentenced" : true
     }
   },
   {
     "model": "videomanagement.TemplatePrompts",
-    "pk": 2,
+    "pk": 12,
     "fields": {
       "title": "General",
-      "category": "other",
-      "format": "json {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": \"string\", }],\"image}. \n\nImage :For each Scene, add an image description that represents the scene."
+      "category": "OTHER",
+      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "is_sentenced" : true
+
+    }
+  },
+
+   {
+    "model": "videomanagement.TemplatePrompts",
+    "pk": 13,
+    "fields": {
+      "title": "Story",
+      "category": "STORY",
+      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "is_sentenced" : true
+    }
+  },
+   {
+    "model": "videomanagement.TemplatePrompts",
+    "pk": 14,
+    "fields": {
+      "title": "Advertisement",
+      "category": "ADVERTISEMENT",
+      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "is_sentenced" : true
     }
   },
   {
     "model": "videomanagement.voicemodels",
-    "pk": 1,
+    "pk": 11,
     "fields": {
       "gender": "fem",
-      "type": "local",
+      "type": "LOCAL",
       "path": "tts_models/en/jenny/jenny"
     }
   },
   {
     "model": "videomanagement.voicemodels",
-    "pk": 2,
+    "pk": 12,
     "fields": {
       "gender": "fem",
-      "type": "local",
+      "type": "LOCAL",
       "path": "tts_models/en/ljspeech/vits--neon"
     }
   },
   {
     "model": "videomanagement.voicemodels",
-    "pk": 3,
+    "pk": 13,
     "fields": {
       "gender": "fem",
-      "type": "local",
+      "type": "LOCAL",
       "path": "tts_models/en/ljspeech/tacotron2-DDC"
     }
-  },
-  {
-    "model": "videomanagement.voicemodels",
-    "pk": 4,
-    "fields": {
-      "gender": "fem",
-      "type": "pyttsx3",
-      "path": 1
-    }
   }
+
 ]

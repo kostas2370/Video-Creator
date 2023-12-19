@@ -12,7 +12,6 @@ class User(AbstractUser, PermissionsMixin):
     last_name = models.CharField(max_length = 20, blank = False)
     email = models.EmailField(unique = True)
     is_verified = models.BooleanField(default = False)
-    registration_date = models.DateField(auto_now = True)
 
     REQUIRED_FIELDS = ["email"]
 
