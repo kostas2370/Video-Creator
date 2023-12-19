@@ -11,7 +11,13 @@ https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
 
 ![image](https://github.com/kostas2370/Clippy-V2/assets/96636678/621fa695-5a40-42e0-9464-51aae08d89c7)
 
+
+Inside the clippy folder : 
+Create the .env file and add your OPEN_API_KEY
+If you want to enable email services for more custom stuff, you can add these variables :EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
+
 After go to the folder clippy run the commands and run those commands:
+
 
 ```shell
 py manage.py makemigrations
@@ -22,3 +28,11 @@ py manage.py runserver
 
 In the end to load some assets like background,intro,outro :
 Just go to your browser and put this link : http://localhost:8000/api/setup/
+
+Login credentials for admin page : username = admin, password = pass
+
+
+* If you want to create and enable user management - permission you will have to change the permission class from AllowAny to
+IsAuthenticated
+
+You can find all the endpoints in swagger : http://localhost:8000/swagger/
