@@ -10,7 +10,6 @@ from .SadTalker.inference import lip
 from django.db.models import Q
 
 
-
 def make_video(video, music=True, avatar=True):
     template = video.prompt.template
     silent = AudioFileClip(r'media\media\sound_effects\blank.wav')
