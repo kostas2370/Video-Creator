@@ -8,8 +8,6 @@ from .utils import conds
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    profile_image = serializers.ImageField(required=False, use_url=True, allow_empty_file = False)
-    sex = serializers.CharField(required = False)
 
     class Meta:
         model = get_user_model()

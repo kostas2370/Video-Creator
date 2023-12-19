@@ -1,13 +1,11 @@
 from rest_framework.response import Response
 from slugify import slugify
-from rest_framework.permissions import AllowAny
 from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, action
 from django.db.models import Q
-from rest_framework.pagination import PageNumberPagination
 from rest_framework import status
 import urllib.request
-
+from .paginator import StandardResultsSetPagination
 
 from .utils.video_utils import make_video
 from .utils.download_utils import download_playlist, create_image_scenes, download_video
@@ -24,7 +22,6 @@ from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Ava
 class SceneView(viewsets.ModelViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
-    permission_classes = [AllowAny]
 
     def partial_update(self, request, pk=None):
         instance = self.get_object()
@@ -58,31 +55,21 @@ class SceneView(viewsets.ModelViewSet):
 class SceneImageView(viewsets.ModelViewSet):
     queryset = SceneImage.objects.all()
     serializer_class = SceneImageSerializer
-    permission_classes = [AllowAny]
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
-    permission_classes = [AllowAny]
 
 
 class MusicView(viewsets.ModelViewSet):
     serializer_class = MusicSerializer
     queryset = Music.objects.all()
-    permission_classes = [AllowAny]
-
-
-class StandardResultsSetPagination(PageNumberPagination):
-    page_size = 5
-    page_size_query_param = 'page_size'
-    max_page_size = 1000
 
 
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
     queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
-    permission_classes = [AllowAny]
     pagination_class = StandardResultsSetPagination
 
     def get_serializer_class(self):
@@ -95,13 +82,11 @@ class VideoView(viewsets.ModelViewSet):
 class VoiceView(viewsets.ModelViewSet):
     serializer_class = VoiceModelSerializer
     queryset = VoiceModels.objects.all()
-    permission_classes = [AllowAny]
 
 
 class AvatarView(viewsets.ModelViewSet):
     serializer_class = AvatarSerializer
     queryset = Avatars.objects.all()
-    permission_classes = [AllowAny]
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -113,7 +98,6 @@ class AvatarView(viewsets.ModelViewSet):
 class GenerateView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
-    permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
         template_id = request.data.get('template_id', 2)
@@ -174,7 +158,6 @@ class GenerateView(viewsets.ModelViewSet):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
 def download_playlist(request):
     link = request.data['link']
     download_playlist(link, category = request.data.get('category'))
@@ -182,7 +165,6 @@ def download_playlist(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
 def render_video(request):
     vid = Videos.objects.get(id = request.GET.get('video_id'))
     vid.status = "RENDERING"
@@ -192,7 +174,6 @@ def render_video(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
 def change_image_scene(request):
     scene = request.GET.get("scene_id")
     scene_image = request.GET.get("scene_image")
@@ -213,7 +194,6 @@ def change_image_scene(request):
 
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
 def setup(request):
 
     if Intro.objects.filter(name="basicintro").count()==0:

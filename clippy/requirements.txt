@@ -49,3 +49,4 @@ gradio
 gfpgan
 av
 safetensors
+drf-yasg
