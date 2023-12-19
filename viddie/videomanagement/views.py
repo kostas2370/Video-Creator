@@ -33,7 +33,7 @@ class SceneView(viewsets.ModelViewSet):
         instance.text = new_text if new_text else instance.text
         update_scene(instance)
 
-        return Response({"message": "Your scene updated Succcessfuly", "scene": SceneSerializer(instance).data},
+        return Response({"text": instance.text},
                         status = status.HTTP_200_OK)
 
     @action(detail = True, methods = ['patch'])
@@ -48,7 +48,7 @@ class SceneView(viewsets.ModelViewSet):
             scene.text = get_update_sentence(format_update_form(scene.text, text))
 
         update_scene(scene)
-        return Response({"message": "Your scene updated Succcessfuly"},
+        return Response({"text": scene.text},
                         status = status.HTTP_200_OK)
 
 
