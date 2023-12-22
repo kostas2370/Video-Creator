@@ -5,8 +5,8 @@ from rest_framework.decorators import api_view, action
 from django.db.models import Q
 from rest_framework import status
 import urllib.request
-from .paginator import StandardResultsSetPagination
 
+from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
 from .utils.download_utils import download_playlist, create_image_scenes, download_video
 from .utils.prompt_utils import format_prompt, format_update_form
@@ -17,6 +17,51 @@ from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerial
     SceneSerializer, VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer, SceneImageSerializer
 from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage, Backgrounds, \
     Intro, Outro
+from .view_utils import get_template
+from .defaults import default_format
+
+
+class SceneImageView(viewsets.ModelViewSet):
+    queryset = SceneImage.objects.all()
+    serializer_class = SceneImageSerializer
+
+
+class TemplatePromptView(viewsets.ModelViewSet):
+    serializer_class = TemplatePromptsSerializer
+    queryset = TemplatePrompts.objects.all()
+
+
+class MusicView(viewsets.ModelViewSet):
+    serializer_class = MusicSerializer
+    queryset = Music.objects.all()
+
+
+class VoiceView(viewsets.ModelViewSet):
+    serializer_class = VoiceModelSerializer
+    queryset = VoiceModels.objects.all()
+
+
+class VideoView(viewsets.ModelViewSet):
+    serializer_class = VideoSerializer
+    queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
+    pagination_class = StandardResultsSetPagination
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return VideoNestedSerializer
+
+        return VideoSerializer
+
+
+class AvatarView(viewsets.ModelViewSet):
+    serializer_class = AvatarSerializer
+    queryset = Avatars.objects.all()
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AvatarNestedSerializer
+
+        return AvatarSerializer
 
 
 class SceneView(viewsets.ModelViewSet):
@@ -52,55 +97,12 @@ class SceneView(viewsets.ModelViewSet):
                         status = status.HTTP_200_OK)
 
 
-class SceneImageView(viewsets.ModelViewSet):
-    queryset = SceneImage.objects.all()
-    serializer_class = SceneImageSerializer
-
-
-class TemplatePromptView(viewsets.ModelViewSet):
-    serializer_class = TemplatePromptsSerializer
-    queryset = TemplatePrompts.objects.all()
-
-
-class MusicView(viewsets.ModelViewSet):
-    serializer_class = MusicSerializer
-    queryset = Music.objects.all()
-
-
-class VideoView(viewsets.ModelViewSet):
-    serializer_class = VideoSerializer
-    queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
-    pagination_class = StandardResultsSetPagination
-
-    def get_serializer_class(self):
-        if self.action == "retrieve":
-            return VideoNestedSerializer
-
-        return VideoSerializer
-
-
-class VoiceView(viewsets.ModelViewSet):
-    serializer_class = VoiceModelSerializer
-    queryset = VoiceModels.objects.all()
-
-
-class AvatarView(viewsets.ModelViewSet):
-    serializer_class = AvatarSerializer
-    queryset = Avatars.objects.all()
-
-    def get_serializer_class(self):
-        if self.action == "list":
-            return AvatarNestedSerializer
-
-        return AvatarSerializer
-
-
 class GenerateView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
 
     def create(self, request, *args, **kwargs):
-        template_id = request.data.get('template_id', 2)
+        template_select = request.data.get('template_id', 2)
         voice_id = request.data.get('voice_id', None)
         title = request.data.get('title')
         prompt = request.data.get('message')
@@ -109,14 +111,28 @@ class GenerateView(viewsets.ModelViewSet):
         avatar_selection = request.data.get('avatar_selection', 'no_avatar')
         style = request.data.get("style", "natural")
 
-        if avatar_selection != 'random' and avatar_selection !="no_avatar":
+        if avatar_selection.isnumeric():
             avatar_selection = int(avatar_selection)
 
         target_audience = request.data.get('target_audience')
 
-        template = TemplatePrompts.objects.get(id = template_id)
+        template = get_template(template_select)
 
-        message = format_prompt(template, userprompt = prompt, title = title, target_audience = target_audience)
+        if template and template.count() > 0:
+            template = template.first()
+            category = template.category
+            template_format = template.format
+
+        else:
+            template_format = default_format
+            category = template_select if len(template_select) > 0 and not template_select.isnumeric() else ""
+            template = None
+
+        message = format_prompt(template_format = template_format,
+                                template_category = category,
+                                userprompt = prompt,
+                                title = title,
+                                target_audience = target_audience)
 
         userprompt = UserPrompt.objects.create(template = template, prompt = message)
         userprompt.save()
@@ -144,12 +160,10 @@ class GenerateView(viewsets.ModelViewSet):
             voice_model = select_voice()
 
         vid.voice_model = voice_model
-
         vid.save()
         make_scenes_speech(vid)
 
         if images:
-
             create_image_scenes(vid, mode = images, style = style)
 
         vid.status = "GENERATION"
@@ -196,15 +210,15 @@ def change_image_scene(request):
 @api_view(['GET'])
 def setup(request):
 
-    if Intro.objects.filter(name="basicintro").count()==0:
+    if not Intro.objects.filter(name="basicintro").count():
         intro = download_video("https://www.youtube.com/watch?v=fQaEv_odk0w", "media/other/intros/")
         Intro.objects.create(category = "OTHER", name = "basicintro", file = intro)
 
-    if Outro.objects.filter(name="basicoutro").count()==0:
+    if not Outro.objects.filter(name="basicoutro").count():
         outro = download_video("https://www.youtube.com/watch?v=YqB62GjZqC0", "media/other/outros/")
         Outro.objects.create(category = "OTHER", name = "basicoutro", file = outro)
 
-    if Backgrounds.objects.filter(name="basicbackground").count() == 0 :
+    if not Backgrounds.objects.filter(name="basicbackground").count():
 
         background_url = "https://i.ibb.co/SPz879q/back.jpg"
         urllib.request.urlretrieve(background_url, "media/other/backgrounds/back.png")
@@ -219,4 +233,4 @@ def setup(request):
                                    avatar_pos_left = 0,
                                    through = 6)
 
-    return Response({"message" : "setup ok"})
+    return Response({"message": "setup ok"})

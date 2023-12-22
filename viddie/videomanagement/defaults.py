@@ -1,0 +1,7 @@
+default_format = """
+Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.
+Image : For each sentence of a scene, describe one representative image to appear during the sentence narration. 
+
+The format of your answer must be:
+json {"title": -,"target_audience": -,"topic": -,"scenes": [{"scene": string "dialogue": [{,"sentecne ","image"}], }],}.
+"""

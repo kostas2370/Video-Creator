@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import urllib.request
 import urllib
 import imghdr
@@ -12,7 +13,7 @@ Author: Guru Prasad (g.gaurav541@gmail.com)
 
 
 class Bing:
-    def __init__(self, query, limit, output_dir, adult, timeout,  filter='', verbose=True):
+    def __init__(self, query, limit, output_dir, adult, timeout, filter='', verbose=False):
         self.download_count = 0
         self.query = query
         self.output_dir = output_dir
@@ -37,7 +38,6 @@ class Bing:
       'Accept-Language': 'en-US,en;q=0.8',
       'Connection': 'keep-alive'}
 
-
     def get_filter(self, shorthand):
             if shorthand == "line" or shorthand == "linedrawing":
                 return "+filterui:photo-linedrawing"
@@ -52,7 +52,6 @@ class Bing:
             else:
                 return ""
 
-
     def save_image(self, link, file_path):
         request = urllib.request.Request(link, None, self.headers)
         image = urllib.request.urlopen(request, timeout=self.timeout).read()
@@ -64,7 +63,6 @@ class Bing:
 
         return file_path
 
-    
     def download_image(self, link):
         self.download_count += 1
         # Get the image link
@@ -88,8 +86,8 @@ class Bing:
         except Exception as e:
             self.download_count -= 1
             print("[!] Issue getting: {}\n[!] Error:: {}".format(link, e))
+            return False
 
-    
     def run(self):
         done = []
         while self.download_count < self.limit:
@@ -102,7 +100,7 @@ class Bing:
             request = urllib.request.Request(request_url, None, headers=self.headers)
             response = urllib.request.urlopen(request)
             html = response.read().decode('utf8')
-            if html ==  "":
+            if html == "":
                 print("[%] No more images are available")
                 break
             links = re.findall('murl&quot;:&quot;(.*?)&quot;', html)
@@ -110,13 +108,15 @@ class Bing:
                 print("[%] Indexed {} Images on Page {}.".format(len(links), self.page_counter + 1))
                 print("\n===============================================\n")
 
-
             for link in links:
                 if self.download_count < self.limit and link not in self.seen:
                     self.seen.add(link)
                     j = self.download_image(link)
-                    done.append(str(j))
-
+                    if j and os.path.exists(j):
+                        done.append(str(j))
+                        break
+            if j and os.path.exists(j):
+                break
 
             self.page_counter += 1
         print("\n\n[%] Done. Downloaded {} images.".format(self.download_count))
