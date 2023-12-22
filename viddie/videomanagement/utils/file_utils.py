@@ -19,9 +19,10 @@ def generate_directory(name, x=0):
 
 def select_music(category=None):
     if category is None:
-        raise Exception('You need to add a category')
+        music = Music.objects.all()
 
-    music = Music.objects.filter(category = category)
+    else:
+        music = Music.objects.filter(category=category)
 
     if music.count() > 0:
         return music[randint(0, music.count() - 1)]
@@ -30,10 +31,11 @@ def select_music(category=None):
 
 
 def select_background(category=None):
-    if category is None:
-        raise Exception('You need to add a category')
+    if category is not None:
+        back = Backgrounds.objects.filter(category = category)
+    else:
 
-    back = Backgrounds.objects.filter(category = category)
+        back = Backgrounds.objects.filter()
     return back[randint(0, back.count() - 1)]
 
 

@@ -8,12 +8,12 @@ def make_scenes_speech(video):
     voice_model = video.voice_model
     syn = voice_model.path
     gpt_answer = video.gpt_answer
-
+    is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     if voice_model.type == 'Local' or voice_model.type == "LOCAL":
         syn = create_model(model = syn)
 
     for j in gpt_answer["scenes"]:
-        if video.prompt.template.is_sentenced:
+        if is_sentenced:
             for index, sentence in enumerate(j['dialogue']):
                 filename = str(uuid.uuid4())
 

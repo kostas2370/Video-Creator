@@ -16,7 +16,8 @@ def make_video(video, music=True, avatar=True):
     black = ImageClip(r'media\media\stock_images\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
     dir_name = video.dir_name
-    background = select_background(template.category)
+    category = template.category if template else None
+    background = select_background(category = category)
 
     clip = ImageClip(background.file.path)
     w, h = clip.size
@@ -52,7 +53,7 @@ def make_video(video, music=True, avatar=True):
     final_audio.write_audiofile(rf"{dir_name}\output_audio.wav")
 
     if music:
-        selected_music = select_music(template.category)
+        selected_music = select_music(category = category)
         if selected_music:
             music = AudioFileClip(selected_music.file.path).volumex(0.07)
             if music.duration > final_audio.duration:
@@ -77,8 +78,8 @@ def make_video(video, music=True, avatar=True):
             fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
-    intro = Intro.objects.filter(Q(category = template.category) | Q(category="OTHER"))
-    outro = Outro.objects.filter(Q(category = template.category) | Q(category="OTHER"))
+    intro = Intro.objects.filter(Q(category = category) | Q(category="OTHER"))
+    outro = Outro.objects.filter(Q(category = category) | Q(category="OTHER"))
 
     if intro and outro:
         intro = VideoFileClip(intro[0].file.path)

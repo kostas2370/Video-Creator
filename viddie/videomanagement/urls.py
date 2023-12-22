@@ -5,7 +5,7 @@ from django.urls import path
 from .views import download_playlist, render_video, setup
 router = routers.DefaultRouter()
 router.register('templates', TemplatePromptView)
-router.register('test', GenerateView)
+router.register('generate', GenerateView)
 router.register('video', VideoView)
 router.register('avatars', AvatarView)
 router.register('voices', VoiceView)

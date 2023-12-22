@@ -36,12 +36,12 @@ class Music(AbstractModel):
 
 
 class UserPrompt(models.Model):
-    template = models.ForeignKey(TemplatePrompts, on_delete = models.CASCADE, blank = True)
+    template = models.ForeignKey(TemplatePrompts, on_delete = models.CASCADE, blank = True, null = True)
     prompt = models.TextField(blank = False)
     music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
 
     def __str__(self):
-        return f'{self.template.title} {self.id}'
+        return f'{self.id}'
 
 
 class Scene(models.Model):
@@ -73,19 +73,18 @@ class Avatars(AbstractModel):
     name = models.CharField(max_length = 100, default = "Natasha")
     gender = models.CharField(max_length = 10)
     file = models.FileField(upload_to = "media/other/avatars")
-    voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, default = 1)
+    voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, db_constraint=False)
 
 
 class Videos(AbstractModel):
     title = models.CharField(max_length = 50, blank = False)
-    description = models.CharField(max_length = 300, blank = True)
     url = models.URLField(blank = True)
     gpt_answer = models.TextField(blank = True, null = True)
     prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
     output = models.FileField(upload_to = "media/output", blank = True, null=True)
     dir_name = models.TextField(default = "")
-    voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1)
-    avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True)
+    voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1, db_constraint=False)
+    avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True, db_constraint=False)
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
 
     def __str__(self):

@@ -75,9 +75,10 @@ def create_image_scene(prompt, image, text, dir_name , mode="webscrap", style=""
 
 
 def create_image_scenes(video, mode="webscrap", style="natural"):
+    is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
     for j in video.gpt_answer['scenes']:
-        if video.prompt.template.is_sentenced:
+        if is_sentenced:
             for x in j['dialogue']:
                 create_image_scene(video.prompt, x['image'], x['sentence'], dir_name, mode=mode,  style=style)
 
