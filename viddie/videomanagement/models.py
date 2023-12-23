@@ -56,7 +56,7 @@ class Scene(models.Model):
 
 class SceneImage(models.Model):
     scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
-    file = models.ImageField(upload_to = "media/images")
+    file = models.FileField(upload_to = "media/images")
 
 
 class VoiceModels(AbstractModel):

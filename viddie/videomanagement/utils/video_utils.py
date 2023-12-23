@@ -42,6 +42,15 @@ def make_video(video, music=True, avatar=True):
                         fadeout(image.duration*0.2)
                     vids.append(image)
 
+                elif "mp4" in x.file.path or "avi" in x.file.path:
+
+                    vid_scene = VideoFileClip(x.file.path).without_audio()
+                    if vid_scene.duration >= audio.duration:
+                        vid_scene = vid_scene.subclip(0, audio.duration)
+
+                    vid_scene = vid_scene.fadein(audio.duration*0.2).fadeout(audio.duration*0.2)
+                    vids.append(vid_scene)
+
                 else:
                     vids.append(black.set_duration(audio.duration))
         else:
