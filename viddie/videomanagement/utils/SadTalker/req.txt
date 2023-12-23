@@ -6,12 +6,12 @@ imageio-ffmpeg==0.4.7
 librosa==0.10.0.post2
 numba==0.55.1
 resampy==0.3.1
-pydub==0.25.1 
+pydub==0.25.1
 scipy==1.10.1
 kornia==0.6.8
 tqdm
 yacs==0.1.8
-pyyaml  
+pyyaml
 joblib==1.1.0
 scikit-image==0.19.3
 basicsr==1.4.2
