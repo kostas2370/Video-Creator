@@ -11,12 +11,10 @@ from django.db.models import Q
 
 
 def make_video(video, music=True, avatar=True):
-    template = video.prompt.template
     silent = AudioFileClip(r'media\media\sound_effects\blank.wav')
     black = ImageClip(r'media\media\stock_images\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
-    dir_name = video.dir_name
-    category = template.category if template else None
+    category = video.prompt.template.category if video.prompt.template else None
     background = select_background(category = category)
 
     clip = ImageClip(background.file.path)
@@ -59,7 +57,7 @@ def make_video(video, music=True, avatar=True):
                                                       opacity=4)
 
     final_audio = concatenate_audioclips(sound_list)
-    final_audio.write_audiofile(rf"{dir_name}\output_audio.wav")
+    final_audio.write_audiofile(rf"{video.dir_name}\output_audio.wav")
 
     if music:
         selected_music = select_music(category = category)
@@ -82,7 +80,7 @@ def make_video(video, music=True, avatar=True):
                                     size = (1920, 1080)).fadein(2).fadeout(2)
 
     if avatar and video.avatar:
-        avatar_video = create_avatar_video(video.avatar, dir_name)
+        avatar_video = create_avatar_video(video.avatar, video.dir_name)
         avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5).\
             fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
@@ -95,12 +93,12 @@ def make_video(video, music=True, avatar=True):
         outro = VideoFileClip(outro[0].file.path)
         final_video = concatenate_videoclips([intro, final_clip, outro], method='compose')
 
-    final_video.write_videofile(rf"{dir_name}\output_video.mp4", fps = 24, threads = 8)
+    final_video.write_videofile(rf"{video.dir_name}\output_video.mp4", fps = 24, threads = 8)
 
     for sound in sound_list:
         sound.close()
 
-    video.output = rf"{dir_name}\output_video.mp4"
+    video.output = rf"{video.dir_name}\output_video.mp4"
     video.status = "COMPLETED"
     video.save()
     return video
