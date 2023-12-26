@@ -5,6 +5,8 @@ from rest_framework.decorators import api_view, action
 from django.db.models import Q
 from rest_framework import status
 import urllib.request
+from django.shortcuts import get_object_or_404
+from django.db import transaction
 
 from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
@@ -41,6 +43,17 @@ class VoiceView(viewsets.ModelViewSet):
     queryset = VoiceModels.objects.all()
 
 
+class AvatarView(viewsets.ModelViewSet):
+    serializer_class = AvatarSerializer
+    queryset = Avatars.objects.all()
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AvatarNestedSerializer
+
+        return AvatarSerializer
+
+
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
     queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
@@ -52,16 +65,29 @@ class VideoView(viewsets.ModelViewSet):
 
         return VideoSerializer
 
+    def partial_update(self, request, pk):
+        avatar = request.data.get('avatar')
+        video = self.get_object()
 
-class AvatarView(viewsets.ModelViewSet):
-    serializer_class = AvatarSerializer
-    queryset = Avatars.objects.all()
+        if avatar and avatar == "no_avatar":
+            video.avatar = None
+            return Response("Avatar update")
 
-    def get_serializer_class(self):
-        if self.action == "list":
-            return AvatarNestedSerializer
+        elif avatar and type(avatar) is str:
+            selected_avatar = Avatars.objects.get(id = avatar)
+            video.avatar = selected_avatar
 
-        return AvatarSerializer
+            if video.voice_model != selected_avatar.voice:
+                video.voice_model = selected_avatar.voice
+                video.save()
+                scenes = Scene.objects.filter(prompt = video.prompt)
+                for scene in scenes:
+                    update_scene(scene)
+
+                return Response("Avatar update")
+
+        else:
+            return super().partial_update(request, pk)
 
 
 class SceneView(viewsets.ModelViewSet):
@@ -234,3 +260,22 @@ def setup(request):
                                    through = 6)
 
     return Response({"message": "setup ok"})
+
+
+@api_view(['PATCH'])
+def video_regenerate(request):
+    video_id = request.GET.get("video_id", None)
+    images = request.GET.get("images", None)
+    images_style = request.GET.get("style", None)
+
+    if video_id is None:
+        return Response({'Message': "You must insert a video_id"}, status = status.HTTP_400_BAD_REQUEST)
+
+    video = get_object_or_404(Videos, id = video_id)
+    with transaction.atomic():
+        Scene.objects.filter(video = video).delete()
+        make_scenes_speech(video)
+        if images:
+            create_image_scenes(video, mode = images, style = images_style)
+
+    return Response({"Message": f"Video with id {video_id} got regenerated successfully"}, status = status.HTTP_200_OK)

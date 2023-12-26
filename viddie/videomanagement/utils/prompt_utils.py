@@ -13,10 +13,12 @@ def format_prompt(template_format, template_category, userprompt="", title='', t
     if target_audience == '':
         target_audience = " Select an appropriate target audience."
 
-    output = f"Write a scenario named \' {title} \' \n" \
+    output = f"This is a request from Viddie application \n"\
+             f"Write a scenario titled \' {title} \', that I will use to create a video required by my user\n" \
+             f"The script should obey the following specifications:"\
              f"Video genre : {template_category} \n" \
              f"The target audience : {target_audience}" \
-             f"Description : {userprompt}  \n" \
+             f"Viddie's user prompt : {userprompt}  \n" \
              f"Structure : {template_format}" \
 
 
