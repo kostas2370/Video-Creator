@@ -1,6 +1,6 @@
 from .file_utils import select_music, select_background
 from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx,\
-    concatenate_videoclips, CompositeVideoClip
+    concatenate_videoclips, CompositeVideoClip, TextClip
 from ..models import *
 from PIL import Image
 import subprocess
@@ -21,13 +21,17 @@ def make_video(video, music=True, avatar=True):
     w, h = clip.size
     sound_list = []
     vids = []
-
+    subtitles = []
     for sound in sounds:
         audio = AudioFileClip(sound.file.path)
         if sound.is_last:
             audio = concatenate_audioclips([audio, silent, silent])
 
         sound_list.append(audio)
+
+        sub = TextClip(sound.text, fontsize = 45, color = 'white').set_duration(audio.duration)
+        subtitles.append(sub)
+
         scenes = SceneImage.objects.filter(scene = sound)
 
         if scenes.count() > 0:
@@ -84,6 +88,9 @@ def make_video(video, music=True, avatar=True):
         avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5).\
             fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
+
+    subs = concatenate_videoclips(subtitles)
+    final_clip = CompositeVideoClip([final_clip, subs.set_pos((220, 960)).fadein(1).fadeout(1)])
 
     intro = Intro.objects.filter(Q(category = category) | Q(category="OTHER"))
     outro = Outro.objects.filter(Q(category = category) | Q(category="OTHER"))
