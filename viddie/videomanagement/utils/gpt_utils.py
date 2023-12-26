@@ -1,6 +1,7 @@
 import io
 import g4f
 import json
+from .exceptions import InvalidJsonFormatError
 
 
 def check_json(json_file):
@@ -33,7 +34,6 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
 
     if reply_format == "json":
         x = x.getvalue()
-        print(x)
         x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
 
         try:
@@ -41,11 +41,11 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
             js = json.loads(x)
 
             if not check_json(js):
-                raise Exception('Wrong format in dialogue')
+                raise InvalidJsonFormatError()
 
             return js
 
-        except Exception:
+        except InvalidJsonFormatError:
             if time == 5:
                 raise Exception("Max gpt limit is 5 , try again with different prompt !!")
 

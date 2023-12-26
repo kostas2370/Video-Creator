@@ -7,6 +7,7 @@ from openai import OpenAI
 import requests
 from django.conf import settings
 from pytube import YouTube
+from .exceptions import FileNotDownloadedError
 
 
 def download_playlist(url, category):
@@ -18,11 +19,14 @@ def download_playlist(url, category):
             filename = str(uuid.uuid4())
             song = stream.download('media/music')
             new_file = f'media/music/{filename}.mp3'
+            if not os.path.isfile(song):
+                raise FileNotDownloadedError()
+
             os.rename(song, new_file)
 
             Music.objects.create(name = stream.title, file = new_file, category = category)
 
-        except:
+        except FileNotDownloadedError:
             pass
 
     return True
@@ -40,13 +44,13 @@ def check_which_file_exists(images):
     return None
 
 
-def generate_from_dalle(prompt, dir_name, style):
+def generate_from_dalle(prompt, dir_name, style, title=""):
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
 
     response = client.images.generate(
       model="dall-e-3",
-      prompt= prompt,
+      prompt= f"Title: {title} Prompt :{prompt}",
       size="1792x1024",
       quality="standard",
       n=1,
@@ -61,11 +65,11 @@ def generate_from_dalle(prompt, dir_name, style):
     return rf"{dir_name}/images/{x}.png"
 
 
-def create_image_scene(prompt, image, text, dir_name , mode="webscrap", style=""):
+def create_image_scene(prompt, image, text, dir_name, mode="webscrap", style="", title=""):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
-    if mode=="AI":
-        downloaded_image = generate_from_dalle(image, dir_name, style = style)
+    if mode == "AI":
+        downloaded_image = generate_from_dalle(image, dir_name, style = style, title = title)
 
     else:
         downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
@@ -80,10 +84,22 @@ def create_image_scenes(video, mode="webscrap", style="natural"):
     for j in video.gpt_answer['scenes']:
         if is_sentenced:
             for x in j['dialogue']:
-                create_image_scene(video.prompt, x['image'], x['sentence'], dir_name, mode=mode,  style=style)
+                create_image_scene(video.prompt,
+                                   x['image'],
+                                   x['sentence'],
+                                   dir_name,
+                                   mode=mode,
+                                   style=style,
+                                   title = video.title)
 
         else:
-            create_image_scene(video.prompt, j['image'], j['dialogue'], dir_name, mode=mode, style=style)
+            create_image_scene(video.prompt,
+                               j['image'],
+                               j['dialogue'],
+                               dir_name,
+                               mode=mode,
+                               style=style,
+                               title = video.title)
 
 
 def download_video(url, dir_name):
