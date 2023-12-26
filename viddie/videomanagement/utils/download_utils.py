@@ -8,6 +8,7 @@ import requests
 from django.conf import settings
 from pytube import YouTube
 from .exceptions import FileNotDownloadedError
+from .prompt_utils import format_dalle_prompt
 
 
 def download_playlist(url, category):
@@ -50,7 +51,7 @@ def generate_from_dalle(prompt, dir_name, style, title=""):
 
     response = client.images.generate(
       model="dall-e-3",
-      prompt= f"Title: {title} Prompt :{prompt}",
+      prompt= format_dalle_prompt(title = title, image_description = prompt),
       size="1792x1024",
       quality="standard",
       n=1,
