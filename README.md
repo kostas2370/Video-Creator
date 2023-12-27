@@ -12,7 +12,7 @@ https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
 ![image](https://github.com/kostas2370/Clippy-V2/assets/96636678/621fa695-5a40-42e0-9464-51aae08d89c7)
 
 
-Inside the clippy folder : 
+Inside the viddie folder : 
 Create the .env file and add your OPEN_API_KEY
 If you want to enable email services for more custom stuff, you can add these variables :EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
 
