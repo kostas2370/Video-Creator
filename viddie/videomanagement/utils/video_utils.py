@@ -67,9 +67,7 @@ def make_video(video, music=True, avatar=True):
         selected_music = select_music(category = category)
         if selected_music:
             music = AudioFileClip(selected_music.file.path).volumex(0.07)
-            if music.duration > final_audio.duration:
-                music = music.subclip(0, final_audio.duration)
-
+            music = music.subclip(0, final_audio.duration) if music.duration > final_audio.duration else music
             music = music.audio_fadein(4).audio_fadeout(4)
             final_audio = CompositeAudioClip([final_audio, music])
 
