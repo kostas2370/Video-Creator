@@ -108,3 +108,22 @@ def download_video(url, dir_name):
     video = yt.streams.get_highest_resolution()
     video.download(dir_name)
     return rf'{dir_name}{yt.title}.mp4'
+
+
+def download_music(url):
+    yt = YouTube(url)
+
+    video = yt.streams.filter(only_audio = True).first()
+    existing = Music.objects.filter(name= video.title)
+    if existing.count() > 0:
+        return existing.first()
+
+    video = video.download('media/music')
+    filename = str(uuid.uuid4())
+    new_file = f'media/music/{filename}.mp3'
+    os.rename(video, new_file)
+    mus = Music.objects.create(name = yt.title, file = new_file, category = "ΟΤΗΕR")
+    return mus
+
+
+
