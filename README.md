@@ -3,7 +3,9 @@ How to run it :
 pip install with this command :
 pip install -r requirements.txt
 
-Install FFmpeg in your computer.
+Install FFmpeg in your computer (Check this guide : https://phoenixnap.com/kb/ffmpeg-windows)
+Install ImageMagick (https://imagemagick.org/script/download.php#windows)
+ .
 
 Create a checkpoints folder and
 Download these files and add them in the checkpoints folder
@@ -16,7 +18,7 @@ Inside the viddie folder :
 Create the .env file and add your OPEN_API_KEY
 If you want to enable email services for more custom stuff, you can add these variables :EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
 
-After go to the folder clippy run the commands and run those commands:
+After go to the viddie folder clippy run the commands and run those commands:
 
 
 ```shell
