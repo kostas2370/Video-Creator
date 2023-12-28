@@ -41,7 +41,6 @@ class Music(AbstractModel):
 class UserPrompt(models.Model):
     template = models.ForeignKey(TemplatePrompts, on_delete = models.CASCADE, blank = True, null = True)
     prompt = models.TextField(blank = False)
-    music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
     objects = models.Manager()
 
     def __str__(self):
@@ -94,6 +93,8 @@ class Videos(AbstractModel):
     voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1, db_constraint=False)
     avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True, db_constraint=False)
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
+    music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
+
     objects = models.Manager()
 
     def __str__(self):

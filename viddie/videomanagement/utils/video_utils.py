@@ -10,7 +10,7 @@ from .SadTalker.inference import lip
 from django.db.models import Q
 
 
-def make_video(video, music=True, avatar=True):
+def make_video(video):
     silent = AudioFileClip(r'media\media\sound_effects\blank.wav')
     black = ImageClip(r'media\media\stock_images\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
@@ -29,7 +29,7 @@ def make_video(video, music=True, avatar=True):
 
         sound_list.append(audio)
 
-        sub = TextClip(sound.text, fontsize = 45, color = 'white').set_duration(audio.duration)
+        sub = TextClip(sound.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).set_duration(audio.duration)
         subtitles.append(sub)
 
         scenes = SceneImage.objects.filter(scene = sound)
@@ -63,13 +63,11 @@ def make_video(video, music=True, avatar=True):
     final_audio = concatenate_audioclips(sound_list)
     final_audio.write_audiofile(rf"{video.dir_name}\output_audio.wav")
 
-    if music:
-        selected_music = select_music(category = category)
-        if selected_music:
-            music = AudioFileClip(selected_music.file.path).volumex(0.07)
-            music = music.subclip(0, final_audio.duration) if music.duration > final_audio.duration else music
-            music = music.audio_fadein(4).audio_fadeout(4)
-            final_audio = CompositeAudioClip([final_audio, music])
+    if video.music:
+        music = AudioFileClip(video.music.file.path).volumex(0.07)
+        music = music.subclip(0, final_audio.duration) if music.duration > final_audio.duration else music
+        music = music.audio_fadein(4).audio_fadeout(4)
+        final_audio = CompositeAudioClip([final_audio, music])
 
     clip = clip.set_duration(final_audio.duration).set_audio(final_audio)
 
@@ -81,14 +79,14 @@ def make_video(video, music=True, avatar=True):
                                     masked_clip.set_duration(final_audio.duration)],
                                     size = (1920, 1080)).fadein(2).fadeout(2)
 
-    if avatar and video.avatar:
+    if video.avatar:
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
         avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5).\
             fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
     subs = concatenate_videoclips(subtitles)
-    final_clip = CompositeVideoClip([final_clip, subs.set_pos((220, 960)).fadein(1).fadeout(1)])
+    final_clip = CompositeVideoClip([final_clip, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
 
     intro = Intro.objects.filter(Q(category = category) | Q(category="OTHER"))
     outro = Outro.objects.filter(Q(category = category) | Q(category="OTHER"))

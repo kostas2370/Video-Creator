@@ -10,7 +10,7 @@ from django.db import transaction
 
 from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
-from .utils.download_utils import download_playlist, create_image_scenes, download_video
+from .utils.download_utils import download_playlist, create_image_scenes, download_video, download_music
 from .utils.prompt_utils import format_prompt, format_update_form
 from .utils.gpt_utils import get_reply, get_update_sentence
 from .utils.audio_utils import make_scenes_speech, update_scene
@@ -136,6 +136,7 @@ class GenerateView(viewsets.ModelViewSet):
         images = request.data.get('images', False)
         avatar_selection = request.data.get('avatar_selection', 'no_avatar')
         style = request.data.get("style", "natural")
+        music = request.data.get("music")
 
         if avatar_selection.isnumeric():
             avatar_selection = int(avatar_selection)
@@ -189,6 +190,9 @@ class GenerateView(viewsets.ModelViewSet):
         vid.save()
         make_scenes_speech(vid)
 
+        if music:
+            x = download_music(music)
+            vid.music = x
         if images:
             create_image_scenes(vid, mode = images, style = style)
 
@@ -209,7 +213,7 @@ def render_video(request):
     vid = Videos.objects.get(id = request.GET.get('video_id'))
     vid.status = "RENDERING"
     vid.save()
-    result = make_video(vid, avatar = True if vid.avatar else False)
+    result = make_video(vid)
     return Response({"message": "The video has been made succfully", "result": VideoSerializer(result).data})
 
 
