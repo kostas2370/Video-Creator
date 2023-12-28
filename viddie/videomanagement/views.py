@@ -7,6 +7,8 @@ from rest_framework import status
 import urllib.request
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+import pathlib
+
 
 from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
@@ -249,7 +251,7 @@ def setup(request):
         Outro.objects.create(category = "OTHER", name = "basicoutro", file = outro)
 
     if not Backgrounds.objects.filter(name="basicbackground").count():
-
+        pathlib.Path('media/other/backgrounds').mkdir(parents = True, exist_ok = True)
         background_url = "https://i.ibb.co/SPz879q/back.jpg"
         urllib.request.urlretrieve(background_url, "media/other/backgrounds/back.png")
 
