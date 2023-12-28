@@ -19,7 +19,7 @@ django-axes
 django-axes[ipware]
 g4f
 django-cors-headers
-slugify
+python-slugify == 8.0.1
 moviepy
 pillow
 ushlex

@@ -11,8 +11,8 @@ from django.db.models import Q
 
 
 def make_video(video):
-    silent = AudioFileClip(r'media\media\sound_effects\blank.wav')
-    black = ImageClip(r'media\media\stock_images\black.jpg')
+    silent = AudioFileClip(r'assets\blank.wav')
+    black = ImageClip(r'assets\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
     category = video.prompt.template.category if video.prompt.template else None
     background = select_background(category = category)
