@@ -20,3 +20,5 @@ results
 
 /videomanagement/utils/SadTalker/venv/
 .mp4
+/usermanagement/migrations/
+/videomanagement/migrations/

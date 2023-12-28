@@ -1,3 +1,5 @@
+import os.path
+
 from rest_framework.response import Response
 from slugify import slugify
 from rest_framework import viewsets
@@ -169,7 +171,7 @@ class GenerateView(viewsets.ModelViewSet):
         vid = Videos.objects.create(title = title, prompt = userprompt)
 
         x = get_reply(message, gpt_model = gpt_model)
-        dir_name = generate_directory(rf'media\media\videos\{slugify(x["title"])}')
+        dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
         vid.dir_name, vid.gpt_answer = dir_name, x
 
         if type(avatar_selection) is int:
@@ -241,6 +243,9 @@ def change_image_scene(request):
 
 @api_view(['GET'])
 def setup(request):
+
+    if not os.path.exists("media/videos/"):
+        os.mkdir("media/videos")
 
     if not Intro.objects.filter(name="basicintro").count():
         intro = download_video("https://www.youtube.com/watch?v=fQaEv_odk0w", "media/other/intros/")
