@@ -1,8 +1,7 @@
 /media/
 /venv/
 /db.sqlite3
-/videomanagement/migrations/
-/usermanagement/migrations/
+
 *.pyc
 .env
 .wav
