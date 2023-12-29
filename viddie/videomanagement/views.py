@@ -134,7 +134,6 @@ class GenerateView(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         template_select = request.data.get('template_id', 2)
         voice_id = request.data.get('voice_id', None)
-        title = request.data.get('title')
         prompt = request.data.get('message')
         gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
         images = request.data.get('images', False)
@@ -162,18 +161,15 @@ class GenerateView(viewsets.ModelViewSet):
         message = format_prompt(template_format = template_format,
                                 template_category = category,
                                 userprompt = prompt,
-                                title = title,
                                 target_audience = target_audience)
 
         userprompt = UserPrompt.objects.create(template = template, prompt = message)
         userprompt.save()
 
-        vid = Videos.objects.create(title = title, prompt = userprompt)
-
         x = get_reply(message, gpt_model = gpt_model)
         dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
-        vid.dir_name, vid.gpt_answer = dir_name, x
 
+        vid = Videos.objects.create(title = x['title'], prompt = userprompt, dir_name = dir_name, gpt_answer = x)
         if type(avatar_selection) is int:
             selected_avatar = select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice

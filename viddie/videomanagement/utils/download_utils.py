@@ -34,8 +34,8 @@ def download_playlist(url, category):
 
 
 def download_image(query, path, amount=1):
-    return downloader.download(query = f'{query} hd', limit = amount, output_dir = path, adult_filter_off = True,
-                               force_replace = False, timeout = 60, )
+    return downloader.download(query = f'{query}', limit = amount, output_dir = path, adult_filter_off = True,
+                               force_replace = False, timeout = 60, filter = 'photo')
 
 
 def check_which_file_exists(images):
