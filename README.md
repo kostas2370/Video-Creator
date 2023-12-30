@@ -1,13 +1,18 @@
 Frontend Demo repository :  https://github.com/kostas2370/ViddieDEMO
+Frontend Demo repository :  https://github.com/kostas2370/ViddieDEMO
 
 How to run it :
+Recommended python version : 3.9 - 3.11
 
-pip install with this command :
+First install these 2 programs in your computer : 
+
+
+1. Install FFmpeg in your computer (Check this guide : https://phoenixnap.com/kb/ffmpeg-windows)
+2. Install ImageMagick (https://imagemagick.org/script/download.php#windows)
+
+Go to the viddie folder and run this command :
 pip install -r requirements.txt
 
-Install FFmpeg in your computer (Check this guide : https://phoenixnap.com/kb/ffmpeg-windows)
-Install ImageMagick (https://imagemagick.org/script/download.php#windows)
- .
 
 Create a checkpoints folder and
 Download these files and add them in the checkpoints folder
@@ -20,8 +25,7 @@ Inside the viddie folder :
 Create the .env file and add your OPEN_API_KEY
 If you want to enable email services for more custom stuff, you can add these variables :EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
 
-After go to the viddie folder clippy run the commands and run those commands:
-
+After go to the viddie folder and run those commands:
 
 ```shell
 py manage.py makemigrations
