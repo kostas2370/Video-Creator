@@ -1,3 +1,5 @@
+Frontend Demo repository :  https://github.com/kostas2370/ViddieDEMO
+
 How to run it :
 
 pip install with this command :
