@@ -20,11 +20,11 @@ class SceneImageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SceneImage
-        fields = "__all__"
+        exclude = ("scene",)
+
 
 class SceneSerializer(serializers.ModelSerializer):
     scene_image = serializers.SerializerMethodField()
-
 
     class Meta:
         model = Scene
