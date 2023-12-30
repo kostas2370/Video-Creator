@@ -6,7 +6,7 @@
       "password": "pbkdf2_sha256$320000$vi0Mdl0Nv9Z7ahjhYNCwPF$x42cfJjzkMkAdFr3C7iCsg3rJ1O3RlVUJSF40/5Y9Es=",
       "is_superuser": true,
       "is_staff": true,
-      "username": "adm",
+      "username": "admin",
       "first_name": "admin",
       "last_name": "admin",
       "email": "test@gmail.com",
@@ -20,7 +20,7 @@
     "fields": {
       "title": "Educational",
       "category": "EDUCATIONAL",
-      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "format": "Organize the scenario in scenes. Separate each scene into subsections so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
       "is_sentenced" : true
     }
   },
@@ -30,7 +30,7 @@
     "fields": {
       "title": "General",
       "category": "OTHER",
-      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "format": "Organize the scenario in scenes. Separate each scene into subsections so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
       "is_sentenced" : true
 
     }
@@ -42,7 +42,7 @@
     "fields": {
       "title": "Story",
       "category": "STORY",
-      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "format": "Organize the scenario in scenes. Separate each scene into subsections so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
       "is_sentenced" : true
     }
   },
@@ -52,7 +52,7 @@
     "fields": {
       "title": "Advertisement",
       "category": "ADVERTISEMENT",
-      "format": "Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
+      "format": "Organize the scenario in scenes. Separate each scene into subsections so that a corresponding image can effectively describe each subsection.\nImage : For each sentence of a scene, describe one representative image to appear during the sentence narration. \n\nThe format of your answer must be:\njson {\"title\": -,\"target_audience\": -,\"topic\": -,\"scenes\": [{\"scene\": string \"dialogue\": [{,\"sentecne \",\"image\"}], }],}.",
       "is_sentenced" : true
     }
   },
