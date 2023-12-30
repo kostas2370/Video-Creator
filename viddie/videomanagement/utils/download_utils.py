@@ -87,7 +87,7 @@ def create_image_scenes(video, mode="webscrap", style="natural"):
             for x in j['dialogue']:
                 create_image_scene(video.prompt,
                                    x['image'],
-                                   x['sentence'],
+                                   x['subsection'],
                                    dir_name,
                                    mode=mode,
                                    style=style,

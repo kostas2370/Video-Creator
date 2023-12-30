@@ -17,8 +17,8 @@ def make_scenes_speech(video):
             for index, sentence in enumerate(j['dialogue']):
                 filename = str(uuid.uuid4())
 
-                sound = save(syn, sentence['sentence'], save_path = f'{dir_name}/dialogues/{filename}.wav')
-                Scene.objects.create(file = sound, prompt = video.prompt, text = sentence['sentence'].strip(),
+                sound = save(syn, sentence['subsection'], save_path = f'{dir_name}/dialogues/{filename}.wav')
+                Scene.objects.create(file = sound, prompt = video.prompt, text = sentence['subsection'].strip(),
                                      is_last = index == len(j['dialogue']) - 1)
 
         else:
