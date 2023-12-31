@@ -55,3 +55,8 @@ class LoginSerializer(serializers.ModelSerializer):
         return {
             "tokens": auser.get_tokens()
         }
+
+
+class VerifySerializer(serializers.Serializer):
+    email = serializers.CharField(required = False, read_only = True, max_length = 100)
+
