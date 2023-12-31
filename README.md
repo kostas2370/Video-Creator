@@ -35,7 +35,7 @@ py manage.py runserver
 ```
 
 In the end to load some assets like background,intro,outro :
-Just go to your browser and put this link : http://localhost:8000/api/setup/
+Just go to your browser and visit this link : http://localhost:8000/api/setup/
 
 Login credentials for admin page : username = admin, password = pass
 
@@ -44,3 +44,13 @@ Login credentials for admin page : username = admin, password = pass
 IsAuthenticated
 
 You can find all the endpoints in swagger : http://localhost:8000/swagger/
+
+* TO DO :
+1. Add voice cloning for avatars
+2. Better Image Selection in web mode
+3. ADD - DELETE scene
+4. Convert all moviepy functions to ffmpeg for better Performance .
+
+For any Injuries or Support you can contact me at those emails :
+1. kodamia@cs.ihu.gr (University Email)
+2. kostas2372@gmail.com (Personal Email)

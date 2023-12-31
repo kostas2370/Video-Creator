@@ -81,7 +81,7 @@ def make_video(video):
 
     if video.avatar:
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
-        avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "bottom")).resize(1.5).\
+        avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "top")).resize(1.5).\
             fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
