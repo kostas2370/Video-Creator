@@ -31,7 +31,8 @@ from .defaults import default_format
 from. swagger_serializers import SceneUpdateSerializer, GenerateSerializer, DownloadPlaylistSerializer
 
 
-video_id = openapi.Parameter('video_id', openapi.IN_QUERY, description="Id of the video", type=openapi.TYPE_NUMBER)
+swagger_video_id = openapi.Parameter('video_id', openapi.IN_QUERY, description="Id of the video",
+                                     type=openapi.TYPE_NUMBER)
 scene_id = openapi.Parameter('scene_id', openapi.IN_QUERY, description="Id of the scene you want to change.",
                              type=openapi.TYPE_NUMBER)
 
@@ -39,10 +40,10 @@ scene_image_id = openapi.Parameter('scene_image', openapi.IN_QUERY, description=
                                                                                 "to change.",
                                    type=openapi.TYPE_NUMBER)
 
-images = openapi.Parameter('images', openapi.IN_QUERY, description="Image mode , webscrap or AI",
-                           type=openapi.TYPE_STRING)
-style = openapi.Parameter('image_style', openapi.IN_QUERY, description="DALL E image styles ; vivid, natural",
-                          type=openapi.TYPE_STRING)
+swagger_images = openapi.Parameter('images', openapi.IN_QUERY, description="Image mode , webscrap or AI",
+                                   type=openapi.TYPE_STRING)
+swagger_style = openapi.Parameter('image_style', openapi.IN_QUERY, description="DALL E image styles ; vivid, natural",
+                                  type=openapi.TYPE_STRING)
 
 
 class SceneImageView(viewsets.ModelViewSet):
@@ -245,7 +246,7 @@ def download_playlist(request):
 @swagger_auto_schema(operation_description = "This api renders the video, you will have to put a query param in url"
                                              " video_id with the video you wanna render",
                      method = "POST",
-                     manual_parameters = [video_id])
+                     manual_parameters = [swagger_video_id])
 @api_view(['POST'])
 def render_video(request):
     vid = Videos.objects.get(id = request.GET.get('video_id'))
@@ -316,7 +317,7 @@ def setup(request):
 @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
                                              "a new one if it doesnt exists",
                      method = "PATCH",
-                     manual_parameters = [video_id, images, style])
+                     manual_parameters = [swagger_video_id, swagger_images, swagger_style])
 @api_view(['PATCH'])
 def video_regenerate(request):
     video_id = request.GET.get("video_id", None)
