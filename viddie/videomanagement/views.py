@@ -10,6 +10,8 @@ import urllib.request
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 import pathlib
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 
 from .paginator import StandardResultsSetPagination
@@ -25,6 +27,22 @@ from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Ava
     Intro, Outro
 from .view_utils import get_template
 from .defaults import default_format
+
+from. swagger_serializers import SceneUpdateSerializer, GenerateSerializer, DownloadPlaylistSerializer
+
+
+video_id = openapi.Parameter('video_id', openapi.IN_QUERY, description="Id of the video", type=openapi.TYPE_NUMBER)
+scene_id = openapi.Parameter('scene_id', openapi.IN_QUERY, description="Id of the scene you want to change.",
+                             type=openapi.TYPE_NUMBER)
+
+scene_image_id = openapi.Parameter('scene_image', openapi.IN_QUERY, description="Id of the scene Image you want "
+                                                                                "to change.",
+                                   type=openapi.TYPE_NUMBER)
+
+images = openapi.Parameter('images', openapi.IN_QUERY, description="Image mode , webscrap or AI",
+                           type=openapi.TYPE_STRING)
+style = openapi.Parameter('image_style', openapi.IN_QUERY, description="DALL E image styles ; vivid, natural",
+                          type=openapi.TYPE_STRING)
 
 
 class SceneImageView(viewsets.ModelViewSet):
@@ -69,6 +87,10 @@ class VideoView(viewsets.ModelViewSet):
 
         return VideoSerializer
 
+    @swagger_auto_schema(request_body = VideoSerializer,
+                         operation_description = "This API updates the attributes of the video. If you add a new avatar"
+                                                 " it will delete previous audio files and will regenerate them with "
+                                                 "new audios")
     def partial_update(self, request, pk):
         avatar = request.data.get('avatar')
         video = self.get_object()
@@ -98,6 +120,9 @@ class SceneView(viewsets.ModelViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
 
+    @swagger_auto_schema(request_body = SceneUpdateSerializer,
+                         operation_description = "This API updates the text of a scene and regenerates their dialogue "
+                                                 "with the new text")
     def partial_update(self, request, pk=None):
         instance = self.get_object()
         if not instance:
@@ -111,6 +136,10 @@ class SceneView(viewsets.ModelViewSet):
         return Response({"text": instance.text},
                         status = status.HTTP_200_OK)
 
+    @swagger_auto_schema(request_body = SceneUpdateSerializer,
+                         operation_description = "This API sends the dialogue into gpt and changes it depending on the "
+                                                 "prompt user sends of th of a scene and regenerates their dialogue "
+                                                 "with the new text")
     @action(detail = True, methods = ['patch'])
     def generate(self, request, pk):
         text = request.data.get("text").strip()
@@ -127,10 +156,12 @@ class SceneView(viewsets.ModelViewSet):
                         status = status.HTTP_200_OK)
 
 
-class GenerateView(viewsets.ModelViewSet):
+class GenerateView(viewsets.ViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
 
+    @swagger_auto_schema(request_body = GenerateSerializer,
+                         operation_description = "This API generates the scenes , the prompt and scene images !")
     def create(self, request, *args, **kwargs):
         template_select = request.data.get('template_id', 2)
         voice_id = request.data.get('voice_id', None)
@@ -140,16 +171,14 @@ class GenerateView(viewsets.ModelViewSet):
         avatar_selection = request.data.get('avatar_selection', 'no_avatar')
         style = request.data.get("style", "natural")
         music = request.data.get("music")
+        target_audience = request.data.get('target_audience')
 
         if avatar_selection.isnumeric():
             avatar_selection = int(avatar_selection)
 
-        target_audience = request.data.get('target_audience')
-
         template = get_template(template_select)
 
         if template and template.count() > 0:
-            template = template.first()
             category = template.category
             template_format = template.format
 
@@ -198,16 +227,25 @@ class GenerateView(viewsets.ModelViewSet):
 
         vid.status = "GENERATION"
         vid.save()
-        return Response({"message": "The video has been made successfully"})
+        return Response({"message": "The video has been generated successfully"})
 
 
+@swagger_auto_schema(request_body = DownloadPlaylistSerializer,
+                     operation_description = "This API downloads music playlist. The required fields are :"
+                                             " Category and URL ",
+                     method = "POST")
 @api_view(['POST'])
 def download_playlist(request):
+    DownloadPlaylistSerializer(data = request.data).is_valid(raise_exception = True)
     link = request.data['link']
     download_playlist(link, category = request.data.get('category'))
     return Response({'Message': 'Successful'})
 
 
+@swagger_auto_schema(operation_description = "This api renders the video, you will have to put a query param in url"
+                                             " video_id with the video you wanna render",
+                     method = "POST",
+                     manual_parameters = [video_id])
 @api_view(['POST'])
 def render_video(request):
     vid = Videos.objects.get(id = request.GET.get('video_id'))
@@ -217,6 +255,10 @@ def render_video(request):
     return Response({"message": "The video has been made succfully", "result": VideoSerializer(result).data})
 
 
+@swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
+                                             "a new one if it doesnt exists",
+                     method = "POST",
+                     manual_parameters = [scene_image_id, scene_id])
 @api_view(['POST'])
 def change_image_scene(request):
     scene = request.GET.get("scene_id")
@@ -237,6 +279,8 @@ def change_image_scene(request):
     return Response({"Message": "Image Scene was added successfully"})
 
 
+@swagger_auto_schema(operation_description = "This api setups the folders and some files you will need/",
+                     method = "GET")
 @api_view(['GET'])
 def setup(request):
 
@@ -269,6 +313,10 @@ def setup(request):
     return Response({"message": "setup ok"})
 
 
+@swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
+                                             "a new one if it doesnt exists",
+                     method = "PATCH",
+                     manual_parameters = [video_id, images, style])
 @api_view(['PATCH'])
 def video_regenerate(request):
     video_id = request.GET.get("video_id", None)

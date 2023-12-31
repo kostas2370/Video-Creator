@@ -85,3 +85,4 @@ class VideoNestedSerializer(serializers.ModelSerializer):
     def get_scenes(self, obj):
         scenes = Scene.objects.filter(prompt__video_prompt__id = obj.id)
         return SceneSerializer(scenes, many = True).data
+

@@ -11,4 +11,4 @@ def get_template(template_select: str):
     else:
         template = None
 
-    return template
+    return template.first() if template and template.count() > 0 else None
