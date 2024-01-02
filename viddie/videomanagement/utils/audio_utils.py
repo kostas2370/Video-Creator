@@ -13,13 +13,14 @@ You should have received a copy of the GNU General Public License along with thi
 from .tts_utils import create_model, save
 from ..models import Scene, Videos
 import uuid
-
+import json
 
 def make_scenes_speech(video):
     dir_name = video.dir_name
     voice_model = video.voice_model
     syn = voice_model.path
     gpt_answer = video.gpt_answer
+
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     if voice_model.type == 'Local' or voice_model.type == "LOCAL":
         syn = create_model(model = syn)
@@ -29,8 +30,8 @@ def make_scenes_speech(video):
             for index, sentence in enumerate(j['dialogue']):
                 filename = str(uuid.uuid4())
 
-                sound = save(syn, sentence['subsection'], save_path = f'{dir_name}/dialogues/{filename}.wav')
-                Scene.objects.create(file = sound, prompt = video.prompt, text = sentence['subsection'].strip(),
+                sound = save(syn, sentence['sentence'], save_path = f'{dir_name}/dialogues/{filename}.wav')
+                Scene.objects.create(file = sound, prompt = video.prompt, text = sentence['sentence'].strip(),
                                      is_last = index == len(j['dialogue']) - 1)
 
         else:

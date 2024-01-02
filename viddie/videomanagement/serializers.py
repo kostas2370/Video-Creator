@@ -6,7 +6,6 @@ Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRAN
 of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 """
 
 
@@ -97,4 +96,3 @@ class VideoNestedSerializer(serializers.ModelSerializer):
     def get_scenes(self, obj):
         scenes = Scene.objects.filter(prompt__video_prompt__id = obj.id)
         return SceneSerializer(scenes, many = True).data
-

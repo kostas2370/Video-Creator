@@ -6,7 +6,6 @@ Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRAN
 of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 """
 
 
@@ -41,7 +40,8 @@ def make_video(video):
 
         sound_list.append(audio)
 
-        sub = TextClip(sound.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).set_duration(audio.duration)
+        sub = TextClip(sound.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).\
+            set_duration(audio.duration)
         subtitles.append(sub)
 
         scenes = SceneImage.objects.filter(scene = sound)
@@ -94,7 +94,7 @@ def make_video(video):
     if video.avatar:
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
         avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "top")).resize(1.5).\
-            fadeout(2)
+            fadein(2).fadeout(2)
         final_clip = CompositeVideoClip([final_clip, avatar_vid], size = (1920, 1080))
 
     subs = concatenate_videoclips(subtitles)

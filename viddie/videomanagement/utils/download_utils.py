@@ -82,8 +82,10 @@ def create_image_scene(prompt, image, text, dir_name, mode="webscrap", style="",
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
     if mode == "AI":
-        downloaded_image = generate_from_dalle(image, dir_name, style = style, title = title)
-
+        try:
+            downloaded_image = generate_from_dalle(image, dir_name, style = style, title = title)
+        except:
+            pass
     else:
         downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
         downloaded_image = check_which_file_exists(downloaded_image)
@@ -99,7 +101,7 @@ def create_image_scenes(video, mode="webscrap", style="natural"):
             for x in j['dialogue']:
                 create_image_scene(video.prompt,
                                    x['image'],
-                                   x['subsection'],
+                                   x['sentence'],
                                    dir_name,
                                    mode=mode,
                                    style=style,

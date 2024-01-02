@@ -11,9 +11,9 @@ You should have received a copy of the GNU General Public License along with thi
 
 
 default_format = """
-Organize the scenario in scenes. Separate each scene into subsections so that a corresponding image can effectively describe each subsection.
+Organize the scenario in scenes. Separate each scene into sentences so that a corresponding image can effectively describe each sentence.
 Image : For each sentence of a scene, describe one representative image to appear during the sentence narration. 
 
 The format of your answer must be:
-json {"title": -,"target_audience": -,"topic": -,"scenes": [{"scene": string "dialogue": [{,"subsection ","image"}], }],}.
+json {"title": -,"target_audience": -,"topic": -,"scenes": [{"scene": string "dialogue": [{,"sentence ","image"}], }],}.
 """
