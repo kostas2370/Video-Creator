@@ -8,20 +8,15 @@ of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Publ
 You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """
-
-
-import os.path
-
+import json
 from rest_framework.response import Response
 from slugify import slugify
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, action
 from django.db.models import Q
 from rest_framework import status
-import urllib.request
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-import pathlib
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -35,8 +30,8 @@ from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
     SceneSerializer, VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer, SceneImageSerializer
-from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage, Backgrounds, \
-    Intro, Outro
+from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage
+
 from .view_utils import get_template
 from .defaults import default_format
 
@@ -179,7 +174,7 @@ class GenerateView(viewsets.ViewSet):
         template_select = request.data.get('template_id', 2)
         voice_id = request.data.get('voice_id', None)
         prompt = request.data.get('message')
-        gpt_model = request.data.get('gpt_model', 'gpt-3.5-turbo')
+        gpt_model = request.data.get('gpt_model', 'gpt-4')
         images = request.data.get('images', False)
         avatar_selection = request.data.get('avatar_selection', 'no_avatar')
         style = request.data.get("style", "natural")
@@ -191,7 +186,7 @@ class GenerateView(viewsets.ViewSet):
 
         template = get_template(template_select)
 
-        if template and template.count() > 0:
+        if template :
             category = template.category
             template_format = template.format
 
@@ -292,45 +287,11 @@ def change_image_scene(request):
     return Response({"Message": "Image Scene was added successfully"})
 
 
-@swagger_auto_schema(operation_description = "This api setups the folders and some files you will need/",
-                     method = "GET")
-@api_view(['GET'])
-def setup(request):
-
-    if not os.path.exists("media/videos/"):
-        os.mkdir("media/videos")
-
-    if not Intro.objects.filter(name="basicintro").count():
-        intro = download_video("https://www.youtube.com/watch?v=fQaEv_odk0w", "media/other/intros/")
-        Intro.objects.create(category = "OTHER", name = "basicintro", file = intro)
-
-    if not Outro.objects.filter(name="basicoutro").count():
-        outro = download_video("https://www.youtube.com/watch?v=YqB62GjZqC0", "media/other/outros/")
-        Outro.objects.create(category = "OTHER", name = "basicoutro", file = outro)
-
-    if not Backgrounds.objects.filter(name="basicbackground").count():
-        pathlib.Path('media/other/backgrounds').mkdir(parents = True, exist_ok = True)
-        background_url = "https://i.ibb.co/SPz879q/back.jpg"
-        urllib.request.urlretrieve(background_url, "media/other/backgrounds/back.png")
-
-        Backgrounds.objects.create(category = "OTHER",
-                                   name= "basicbackground",
-                                   file = "media/other/backgrounds/back.png",
-                                   color = "0,163,232",
-                                   image_pos_top=65,
-                                   image_pos_left = 355,
-                                   avatar_pos_top = 0,
-                                   avatar_pos_left = 0,
-                                   through = 6)
-
-    return Response({"message": "setup ok"})
-
-
 @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
                                              "a new one if it doesnt exists",
-                     method = "PATCH",
+                     method = "GET",
                      manual_parameters = [swagger_video_id, swagger_images, swagger_style])
-@api_view(['PATCH'])
+@api_view(['GET'])
 def video_regenerate(request):
     video_id = request.GET.get("video_id", None)
     images = request.GET.get("images", None)
@@ -341,7 +302,10 @@ def video_regenerate(request):
 
     video = get_object_or_404(Videos, id = video_id)
     with transaction.atomic():
-        Scene.objects.filter(video = video).delete()
+
+        video.gpt_answer = json.loads(json.dumps(video.gpt_answer))
+
+        Scene.objects.filter(prompt = video.prompt).delete()
         make_scenes_speech(video)
         if images:
             create_image_scenes(video, mode = images, style = images_style)

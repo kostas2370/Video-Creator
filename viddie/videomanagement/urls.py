@@ -6,7 +6,6 @@ Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRAN
 of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
 """
 
 
@@ -14,7 +13,7 @@ from .views import TemplatePromptView, GenerateView, VideoView, AvatarView, Voic
     change_image_scene
 from rest_framework import routers
 from django.urls import path
-from .views import download_playlist, render_video, setup
+from .views import download_playlist, render_video, setup, video_regenerate
 router = routers.DefaultRouter()
 router.register('templates', TemplatePromptView)
 router.register('generate', GenerateView)
@@ -28,6 +27,7 @@ urlpatterns = [path('downloadplaylist/', download_playlist),
                path('render/', render_video),
                path('change_image/', change_image_scene),
                path('setup/', setup),
+               path('regenerate/', video_regenerate)
                ]
 
 
