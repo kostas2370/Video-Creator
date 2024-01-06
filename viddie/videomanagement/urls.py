@@ -13,7 +13,7 @@ from .views import TemplatePromptView, GenerateView, VideoView, AvatarView, Voic
     change_image_scene
 from rest_framework import routers
 from django.urls import path
-from .views import download_playlist, render_video, setup, video_regenerate
+from .views import download_playlist, render_video, video_regenerate
 router = routers.DefaultRouter()
 router.register('templates', TemplatePromptView)
 router.register('generate', GenerateView)
@@ -26,7 +26,6 @@ router.register('scene_image', SceneImageView)
 urlpatterns = [path('downloadplaylist/', download_playlist),
                path('render/', render_video),
                path('change_image/', change_image_scene),
-               path('setup/', setup),
                path('regenerate/', video_regenerate)
                ]
 
