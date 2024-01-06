@@ -94,6 +94,22 @@ class Avatars(AbstractModel):
     objects = models.Manager()
 
 
+class Backgrounds(AbstractModel):
+    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
+    name = models.CharField(max_length = 100)
+    file = models.FileField(upload_to = "media/other/backgrounds")
+    color = models.CharField(max_length = 30)
+    image_pos_top = models.IntegerField()
+    image_pos_left = models.IntegerField()
+    avatar_pos_top = models.IntegerField()
+    avatar_pos_left = models.IntegerField()
+    through = models.IntegerField(default = 6)
+    objects = models.Manager()
+
+    def __str__(self):
+        return self.name
+
+
 class Videos(AbstractModel):
     title = models.CharField(max_length = 50, blank = False)
     url = models.URLField(blank = True)
@@ -105,6 +121,7 @@ class Videos(AbstractModel):
     avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True, db_constraint=False)
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
     music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
+    background = models.ForeignKey(Backgrounds, blank = True, null = True, on_delete = models.SET_NULL)
 
     objects = models.Manager()
 
@@ -126,17 +143,3 @@ class Outro(AbstractModel):
     objects = models.Manager()
 
 
-class Backgrounds(AbstractModel):
-    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
-    name = models.CharField(max_length = 100)
-    file = models.FileField(upload_to = "media/other/backgrounds")
-    color = models.CharField(max_length = 30)
-    image_pos_top = models.IntegerField()
-    image_pos_left = models.IntegerField()
-    avatar_pos_top = models.IntegerField()
-    avatar_pos_left = models.IntegerField()
-    through = models.IntegerField(default = 6)
-    objects = models.Manager()
-
-    def __str__(self):
-        return self.name

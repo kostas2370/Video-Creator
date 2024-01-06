@@ -30,7 +30,7 @@ from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
     SceneSerializer, VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer, SceneImageSerializer
-from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage
+from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage, Backgrounds
 
 from .view_utils import get_template
 from .defaults import default_format
@@ -180,13 +180,21 @@ class GenerateView(viewsets.ViewSet):
         style = request.data.get("style", "natural")
         music = request.data.get("music")
         target_audience = request.data.get('target_audience')
+        background = request.data.get('background')
+
+        if background == "default":
+            background = Backgrounds.objects.all()
+            if background:
+                background = background.first()
+            else:
+                background = None
 
         if avatar_selection.isnumeric():
             avatar_selection = int(avatar_selection)
 
         template = get_template(template_select)
 
-        if template :
+        if template:
             category = template.category
             template_format = template.format
 
@@ -206,7 +214,12 @@ class GenerateView(viewsets.ViewSet):
         x = get_reply(message, gpt_model = gpt_model)
         dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
 
-        vid = Videos.objects.create(title = x['title'], prompt = userprompt, dir_name = dir_name, gpt_answer = x)
+        vid = Videos.objects.create(title = x['title'],
+                                    prompt = userprompt,
+                                    dir_name = dir_name,
+                                    gpt_answer = x,
+                                    background = background)
+
         if type(avatar_selection) is int:
             selected_avatar = select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice
