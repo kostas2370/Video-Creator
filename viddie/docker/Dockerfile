@@ -16,7 +16,7 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY ../requirements.txt .
 
 
 RUN python -m pip install --upgrade pip
