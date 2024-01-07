@@ -220,29 +220,21 @@ class GenerateView(viewsets.ViewSet):
                                     gpt_answer = x,
                                     background = background)
 
-        if type(avatar_selection) is int:
+        if avatar_selection != "no_avatar":
             selected_avatar = select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice
             vid.avatar = selected_avatar
 
-        elif avatar_selection == "random":
-            selected_avatar = select_avatar()
-            voice_model = selected_avatar.voice
-            vid.avatar = selected_avatar
-
-        elif voice_id is not None:
-            voice_model = VoiceModels.objects.get(id = voice_id)
-
         else:
-            voice_model = select_voice()
+            voice_model = VoiceModels.objects.get(id = voice_id) if voice_id else select_voice()
 
         vid.voice_model = voice_model
         vid.save()
         make_scenes_speech(vid)
 
         if music:
-            x = download_music(music)
-            vid.music = x
+            vid.music = download_music(music)
+
         if images:
             create_image_scenes(vid, mode = images, style = style)
 

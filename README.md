@@ -1,5 +1,4 @@
 Frontend Demo repository :  https://github.com/kostas2370/ViddieDEMO
-Frontend Demo repository :  https://github.com/kostas2370/ViddieDEMO
 
 How to run it :
 Recommended python version : 3.9 - 3.11
@@ -31,11 +30,9 @@ After go to the viddie folder and run those commands:
 py manage.py makemigrations
 py manage.py migrate
 py manage.py loaddata fixtures/fixtures.json
+py manage.py setup_media
 py manage.py runserver
 ```
-
-In the end to load some assets like background,intro,outro :
-Just go to your browser and visit this link : http://localhost:8000/api/setup/
 
 Login credentials for admin page : username = admin, password = pass
 
@@ -50,6 +47,8 @@ You can find all the endpoints in swagger : http://localhost:8000/swagger/
 2. Better Image Selection in web mode
 3. ADD - DELETE scene
 4. Convert all moviepy functions to ffmpeg for better Performance .
+5. Test Cases for models, functions and Views
+6. Improvement in dall e prompt , more detailed prompts for more consistency
 
 For any Injuries or Support you can contact me at those emails :
 1. kodamia@cs.ihu.gr (University Email)
