@@ -18,10 +18,10 @@ class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required = True, max_length = 2000)
     template_id = serializers.CharField(required = False, max_length = 20)
     voice_id = serializers.CharField(required = False, max_length = 20)
-    gpt_model = serializers.ChoiceField(required = False, choices = ["gpt-3.5-turbo", "gpt-4"])
-    images = serializers.ChoiceField(required = False, choices = ["AI", "webscrap"])
+    gpt_model = serializers.ChoiceField(required = False, choices = ["gpt-3.5-turbo", "gpt-4"], default = "gpt-4")
+    images = serializers.ChoiceField(required = False, choices = ["AI", "webscrap", False], default = "webscrap")
     avatar_selection = serializers.CharField(required = False, max_length = 30)
-    style = serializers.ChoiceField(required = False, choices = ["vivid", "natural"])
+    style = serializers.ChoiceField(required = False, choices = ["vivid", "natural"], default = "vivid")
     music = serializers.CharField(required = False, max_length = 80)
     target_audience = serializers.CharField(required = False, max_length = 30)
 
