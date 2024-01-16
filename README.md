@@ -22,7 +22,6 @@ https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
 
 Inside the viddie folder : 
 Create the .env file and add your OPEN_API_KEY
-If you want to enable email services for more custom stuff, you can add these variables :EMAIL_HOST_USER, EMAIL_HOST_PASSWORD
 
 After go to the viddie folder and run those commands:
 
@@ -36,9 +35,6 @@ py manage.py runserver
 
 Login credentials for admin page : username = admin, password = pass
 
-
-* If you want to create and enable user management - permission you will have to change the permission class from AllowAny to
-IsAuthenticated
 
 You can find all the endpoints in swagger : http://localhost:8000/swagger/
 
