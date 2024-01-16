@@ -48,7 +48,7 @@ You can find all the endpoints in swagger : http://localhost:8000/swagger/
 3. ADD - DELETE scene
 4. Convert all moviepy functions to ffmpeg for better Performance .
 5. Test Cases for models, functions and Views
-6. Improvement in dall e prompt , more detailed prompts for more consistency
+6. Improvement in dall e prompt , mcore detailed prompts for more consistency
 
 For any Injuries or Support you can contact me at those emails :
 1. kodamia@cs.ihu.gr (University Email)
