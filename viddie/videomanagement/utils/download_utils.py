@@ -85,6 +85,7 @@ def create_image_scene(prompt, image, text, dir_name, mode="webscrap", style="",
         try:
             downloaded_image = generate_from_dalle(image, dir_name, style = style, title = title)
         except:
+            downloaded_image = None
             pass
     else:
         downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
