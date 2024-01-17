@@ -45,8 +45,9 @@ def download_playlist(url, category):
     return True
 
 
-def download_image(query, path, amount=1):
-    return downloader.download(query = f'{query}', limit = amount, output_dir = path, adult_filter_off = True,
+def download_image(query, path, amount=1, title = ""):
+    return downloader.download(query = f'{format_dalle_prompt(title,query)}', limit = amount, output_dir = path,
+                               adult_filter_off = True,
                                force_replace = False, timeout = 60, filter = 'photo')
 
 
@@ -88,7 +89,7 @@ def create_image_scene(prompt, image, text, dir_name, mode="webscrap", style="",
             downloaded_image = None
             pass
     else:
-        downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
+        downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6, title = title)
         downloaded_image = check_which_file_exists(downloaded_image)
     if downloaded_image is not None and len(downloaded_image) > 0:
         SceneImage.objects.create(scene = scene, file = downloaded_image)

@@ -21,7 +21,7 @@ from .SadTalker.inference import lip
 from django.db.models import Q
 
 
-def make_video(video):
+def make_video(video, subtitle=False):
     silent = AudioFileClip(r'assets\blank.wav')
     black = ImageClip(r'assets\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
@@ -40,11 +40,11 @@ def make_video(video):
             audio = concatenate_audioclips([audio, silent, silent])
 
         sound_list.append(audio)
+        if subtitle:
+            sub = TextClip(sound.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).\
+                set_duration(audio.duration)
 
-        sub = TextClip(sound.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).\
-            set_duration(audio.duration)
-
-        subtitles.append(sub)
+            subtitles.append(sub)
 
         scenes = SceneImage.objects.filter(scene = sound)
 
@@ -104,13 +104,16 @@ def make_video(video):
         final_video = final_video.set_audio(final_audio).resize((1920, 1080))
 
     if video.avatar:
-        avatar_video = create_avatar_video(video.avatar, video.dir_name)
+        avatar_video = rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'
+        if not os.path.exists(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'):
+            avatar_video = create_avatar_video(video.avatar, video.dir_name)
         avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "top")).resize(1.5).\
             fadein(2).fadeout(2)
         final_video = CompositeVideoClip([final_video, avatar_vid], size = (1920, 1080))
 
-    subs = concatenate_videoclips(subtitles)
-    final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
+    if subtitle:
+        subs = concatenate_videoclips(subtitles)
+        final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
 
     intro = Intro.objects.filter(Q(category = category) | Q(category="OTHER"))
     outro = Outro.objects.filter(Q(category = category) | Q(category="OTHER"))
