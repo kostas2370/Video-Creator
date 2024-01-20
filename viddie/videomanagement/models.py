@@ -72,6 +72,7 @@ class Scene(models.Model):
 class SceneImage(models.Model):
     scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
     file = models.FileField(upload_to = "media/images")
+    prompt = models.TextField(default = "", blank = True, null = True)
     objects = models.Manager()
 
 
