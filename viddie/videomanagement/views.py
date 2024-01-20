@@ -23,7 +23,8 @@ from drf_yasg import openapi
 
 from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
-from .utils.download_utils import download_playlist, create_image_scenes, download_video, download_music
+from .utils.download_utils import download_playlist, create_image_scenes, download_video, download_music,\
+    generate_new_image
 from .utils.prompt_utils import format_prompt, format_update_form
 from .utils.gpt_utils import get_reply, get_update_sentence
 from .utils.audio_utils import make_scenes_speech, update_scene
@@ -182,15 +183,11 @@ class GenerateView(viewsets.ViewSet):
         target_audience = request.data.get('target_audience')
         background = request.data.get('background')
 
-        if background == "default":
+        if background == "random":
             background = Backgrounds.objects.all()
-            if background:
-                background = background.first()
-            else:
-                background = None
+            background = background.first() if background else None
 
-        if avatar_selection.isnumeric():
-            avatar_selection = int(avatar_selection)
+        avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
         template = get_template(template_select)
 
@@ -299,20 +296,18 @@ def change_image_scene(request):
 @api_view(['GET'])
 def video_regenerate(request):
     video_id = request.GET.get("video_id", None)
-    images = request.GET.get("images", None)
-    images_style = request.GET.get("style", None)
+    images = request.GET.get("images", "webscrap")
+    images_style = request.GET.get("style", "vivid")
 
     if video_id is None:
+
         return Response({'Message': "You must insert a video_id"}, status = status.HTTP_400_BAD_REQUEST)
 
     video = get_object_or_404(Videos, id = video_id)
     with transaction.atomic():
-
-        video.gpt_answer = json.loads(json.dumps(video.gpt_answer))
-
-        Scene.objects.filter(prompt = video.prompt).delete()
-        make_scenes_speech(video)
-        if images:
-            create_image_scenes(video, mode = images, style = images_style)
+        for scene in Scene.objects.filter(prompt = video.prompt):
+            update_scene(scene)
+            for scene_image in SceneImage.objects.filter(scene = scene):
+                generate_new_image(scene_image = scene_image, video = video, mode = images, style=images_style)
 
     return Response({"Message": f"Video with id {video_id} got regenerated successfully"}, status = status.HTTP_200_OK)

@@ -31,6 +31,7 @@ def make_video(video, subtitle=False):
     if background:
         clip = ImageClip(background.file.path)
         w, h = clip.size
+
     sound_list = []
     vids = []
     subtitles = []
