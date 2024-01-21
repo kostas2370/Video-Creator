@@ -95,7 +95,7 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB", style="", titl
         SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
     else:
-        SceneImage.objects.create(scene = scene, prompt = image)
+        SceneImage.objects.create(scene = scene, prompt = image, file = None)
 
 
 def create_image_scenes(video, mode="WEB", style="natural"):

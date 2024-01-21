@@ -51,7 +51,7 @@ def make_video(video, subtitle=False):
 
         if scenes.count() > 0:
             for x in scenes:
-                if x.file and 'jpg' in x.file.path or 'jpeg' in x.file.path or 'png' in x.file.path:
+                if x.file and ('jpg' in x.file.path or 'jpeg' in x.file.path or 'png' in x.file.path):
                     if background:
                         Image.open(x.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(x.file.path)
 
@@ -61,7 +61,7 @@ def make_video(video, subtitle=False):
                         fadeout(image.duration*0.2)
                     vids.append(image)
 
-                elif "mp4" in x.file.path or "avi" in x.file.path:
+                elif x.file and ("mp4" in x.file.path or "avi" in x.file.path):
 
                     vid_scene = VideoFileClip(x.file.path).without_audio()
                     if vid_scene.duration >= audio.duration:

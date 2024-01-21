@@ -25,9 +25,6 @@ def check_json(json_file):
     if len(json_file['scenes']) == 0:
         return False
 
-    if "sentence" not in json_file['scenes'][0]:
-        return False
-
     return True
 
 

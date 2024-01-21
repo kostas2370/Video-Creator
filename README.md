@@ -6,8 +6,12 @@ Recommended python version : 3.9 - 3.11
 First install these 2 programs in your computer : 
 
 
-1. Install FFmpeg in your computer (Check this guide : https://phoenixnap.com/kb/ffmpeg-windows)
-2. Install ImageMagick (https://imagemagick.org/script/download.php#windows)
+1. Install FFmpeg in your computer (Check this guide : https://phoenixnap.com/kb/ffmpeg-windows) (For video Rendering)
+2. Install ImageMagick (https://imagemagick.org/script/download.php#windows) (For subtitles)
+3. For some voice model you will need to install the MSI from here (https://github.com/espeak-ng/espeak-ng/releases)
+
+If you dont want to install any extra packages for voices , 
+use only : tts_models/en/ljspeech/tacotron2-DDC Model
 
 Go to the viddie folder and run this command :
 pip install -r requirements.txt
