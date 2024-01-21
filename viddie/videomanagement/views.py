@@ -307,7 +307,9 @@ def video_regenerate(request):
     with transaction.atomic():
         for scene in Scene.objects.filter(prompt = video.prompt):
             update_scene(scene)
-            for scene_image in SceneImage.objects.filter(scene = scene):
+            scenes_images = SceneImage.objects.filter(scene = scene)
+
+            for scene_image in scenes_images:
                 generate_new_image(scene_image = scene_image, video = video, mode = images, style=images_style)
 
     return Response({"Message": f"Video with id {video_id} got regenerated successfully"}, status = status.HTTP_200_OK)

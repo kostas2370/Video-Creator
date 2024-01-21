@@ -100,9 +100,9 @@ def create_image_scenes(video, mode="webscrap", style="natural"):
     dir_name = video.dir_name
     for j in video.gpt_answer['scenes']:
         if is_sentenced:
-            for x in j['dialogue']:
+            for x in j['scene']:
                 create_image_scene(video.prompt,
-                                   x['image'],
+                                   x['image_description'],
                                    x['sentence'],
                                    dir_name,
                                    mode=mode,
@@ -144,8 +144,11 @@ def download_music(url):
 
 def generate_new_image(scene_image, video, mode="webscrap", style="vivid"):
     if mode == "AI":
-        img = generate_from_dalle(scene_image.prompt, video.dir_name, style, title = video.title)
-
+        try:
+            img = generate_from_dalle(scene_image.prompt, video.dir_name, style, title = video.title)
+        except:
+            img = None
+            pass
     else:
         img = check_which_file_exists(download_image(scene_image.prompt, video.dir_name, amount = 1))
 

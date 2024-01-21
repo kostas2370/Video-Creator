@@ -27,12 +27,12 @@ def make_scenes_speech(video):
 
     for j in gpt_answer["scenes"]:
         if is_sentenced:
-            for index, sentence in enumerate(j['dialogue']):
+            for index, sentence in enumerate(j['scene']):
                 filename = str(uuid.uuid4())
 
                 sound = save(syn, sentence['sentence'], save_path = f'{dir_name}/dialogues/{filename}.wav')
                 Scene.objects.create(file = sound, prompt = video.prompt, text = sentence['sentence'].strip(),
-                                     is_last = index == len(j['dialogue']) - 1)
+                                     is_last = index == len(j['scene']) - 1)
 
         else:
             filename = str(uuid.uuid4())
