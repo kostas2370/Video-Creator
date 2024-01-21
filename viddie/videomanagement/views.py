@@ -23,7 +23,7 @@ from drf_yasg import openapi
 
 from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
-from .utils.download_utils import download_playlist, create_image_scenes, download_video, download_music,\
+from .utils.download_utils import download_playlist, create_image_scenes, download_music,\
     generate_new_image
 from .utils.prompt_utils import format_prompt, format_update_form
 from .utils.gpt_utils import get_reply, get_update_sentence
@@ -119,10 +119,10 @@ class VideoView(viewsets.ModelViewSet):
                 for scene in scenes:
                     update_scene(scene)
 
-                return Response("Avatar update")
+            return Response("Avatar update")
 
         else:
-            return super().partial_update(request, pk)
+            return Response("Updated")
 
 
 class SceneView(viewsets.ModelViewSet):
@@ -226,6 +226,7 @@ class GenerateView(viewsets.ViewSet):
             voice_model = VoiceModels.objects.get(id = voice_id) if voice_id else select_voice()
 
         vid.voice_model = voice_model
+
         vid.save()
         make_scenes_speech(vid)
 
@@ -233,6 +234,7 @@ class GenerateView(viewsets.ViewSet):
             vid.music = download_music(music)
 
         if images:
+            vid.mode = images
             create_image_scenes(vid, mode = images, style = style)
 
         vid.status = "GENERATION"
@@ -291,13 +293,11 @@ def change_image_scene(request):
 
 @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
                                              "a new one if it doesnt exists",
-                     method = "GET",
-                     manual_parameters = [swagger_video_id, swagger_images, swagger_style])
-@api_view(['GET'])
+                     method = "PATCH",
+                     manual_parameters = [swagger_video_id])
+@api_view(['PATCH'])
 def video_regenerate(request):
     video_id = request.GET.get("video_id", None)
-    images = request.GET.get("images", "webscrap")
-    images_style = request.GET.get("style", "vivid")
 
     if video_id is None:
 
@@ -310,6 +310,6 @@ def video_regenerate(request):
             scenes_images = SceneImage.objects.filter(scene = scene)
 
             for scene_image in scenes_images:
-                generate_new_image(scene_image = scene_image, video = video, mode = images, style=images_style)
+                generate_new_image(scene_image = scene_image, video = video)
 
     return Response({"Message": f"Video with id {video_id} got regenerated successfully"}, status = status.HTTP_200_OK)

@@ -79,10 +79,10 @@ def generate_from_dalle(prompt, dir_name, style, title=""):
     return rf"{dir_name}/images/{x}.png"
 
 
-def create_image_scene(prompt, image, text, dir_name, mode="webscrap", style="", title=""):
+def create_image_scene(prompt, image, text, dir_name, mode="WEB", style="", title=""):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
-    if mode == "AI":
+    if mode == "DALL-E":
         try:
             downloaded_image = generate_from_dalle(image, dir_name, style = style, title = title)
         except:
@@ -94,8 +94,11 @@ def create_image_scene(prompt, image, text, dir_name, mode="webscrap", style="",
     if downloaded_image is not None and len(downloaded_image) > 0:
         SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
+    else:
+        SceneImage.objects.create(scene = scene, prompt = image)
 
-def create_image_scenes(video, mode="webscrap", style="natural"):
+
+def create_image_scenes(video, mode="WEB", style="natural"):
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
     for j in video.gpt_answer['scenes']:
@@ -142,8 +145,8 @@ def download_music(url):
     return mus
 
 
-def generate_new_image(scene_image, video, mode="webscrap", style="vivid"):
-    if mode == "AI":
+def generate_new_image(scene_image, video, style="vivid"):
+    if video.mode == "DALL-E":
         try:
             img = generate_from_dalle(scene_image.prompt, video.dir_name, style, title = video.title)
         except:

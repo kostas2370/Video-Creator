@@ -20,6 +20,10 @@ MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3")
 VIDEO_STATUS = (("RENDERING", "RENDERING"), ("GENERATED", "GENERATED"), ("COMPLETED", "COMPLETED"))
 
 
+IMAGE_MODE = (("DALL-E", "DALL-E"), ("WEB", "WEB"))
+
+
+
 class AbstractModel(models.Model):
     created_by = models.ForeignKey(get_user_model(), on_delete = models.CASCADE, blank = True, null = True)
     objects = models.Manager()
@@ -123,6 +127,7 @@ class Videos(AbstractModel):
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
     music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
     background = models.ForeignKey(Backgrounds, blank = True, null = True, on_delete = models.SET_NULL)
+    mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB")
 
     objects = models.Manager()
 
