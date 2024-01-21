@@ -58,15 +58,6 @@
   },
   {
     "model": "videomanagement.voicemodels",
-    "pk": 11,
-    "fields": {
-      "gender": "fem",
-      "type": "LOCAL",
-      "path": "tts_models/en/jenny/jenny"
-    }
-  },
-  {
-    "model": "videomanagement.voicemodels",
     "pk": 12,
     "fields": {
       "gender": "fem",

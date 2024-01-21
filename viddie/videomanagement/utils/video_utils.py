@@ -51,7 +51,7 @@ def make_video(video, subtitle=False):
 
         if scenes.count() > 0:
             for x in scenes:
-                if 'jpg' in x.file.path or 'jpeg' in x.file.path or 'png' in x.file.path:
+                if x.file and 'jpg' in x.file.path or 'jpeg' in x.file.path or 'png' in x.file.path:
                     if background:
                         Image.open(x.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(x.file.path)
 
