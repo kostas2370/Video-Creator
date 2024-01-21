@@ -28,7 +28,7 @@ def check_json(json_file):
     return True
 
 
-def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
+def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     time += 1
     g4f.logging = True  # enable logging
     g4f.check_version = False
@@ -42,12 +42,12 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
 
     if reply_format == "json":
         x = x.getvalue()
+        print(x)
         x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
 
         try:
 
             js = json.loads(x)
-            print(js)
             if not check_json(js):
                 raise InvalidJsonFormatError()
 
