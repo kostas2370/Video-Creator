@@ -1,5 +1,5 @@
 Django==4.0.3
-numpy==1.23.4
+numpy
 djangorestframework==3.13.1
 celery==5.2.7
 channels==4.0.0
