@@ -25,9 +25,6 @@ def check_json(json_file):
     if len(json_file['scenes']) == 0:
         return False
 
-    if "dialogue" not in json_file['scenes'][0]:
-        return False
-
     return True
 
 
@@ -50,7 +47,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-3.5-turbo'):
         try:
 
             js = json.loads(x)
-
+            print(js)
             if not check_json(js):
                 raise InvalidJsonFormatError()
 

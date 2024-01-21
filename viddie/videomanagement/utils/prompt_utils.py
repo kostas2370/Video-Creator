@@ -28,7 +28,7 @@ def format_prompt(template_format, template_category, userprompt="", title='', t
              f"Write a scenario titled \' {title} \', that I will use to create a video required by my user\n" \
              f"The script should obey the following specifications:\n"\
              f"Video genre : {template_category} \n" \
-             f"The target audience : {target_audience}\n" \
+             f"The audience : {target_audience}\n" \
              f"Viddie's user prompt : {userprompt}  \n" \
              f"Structure : {template_format}" \
 
