@@ -20,13 +20,13 @@ from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-
+from django.conf import settings
 from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
 from .utils.download_utils import download_playlist, create_image_scenes, download_music,\
     generate_new_image
 from .utils.prompt_utils import format_prompt, format_update_form
-from .utils.gpt_utils import get_reply, get_update_sentence
+from .utils.gpt_utils import get_reply, get_update_sentence, get_reply_from_official_api
 from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
@@ -207,8 +207,11 @@ class GenerateView(viewsets.ViewSet):
 
         userprompt = UserPrompt.objects.create(template = template, prompt = message)
         userprompt.save()
+        if settings.GPT_OFFICIAL:
+            x = get_reply_from_official_api(message)
+        else:
+            x = get_reply(message, gpt_model = gpt_model)
 
-        x = get_reply(message, gpt_model = gpt_model)
         dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
 
         vid = Videos.objects.create(title = x['title'],

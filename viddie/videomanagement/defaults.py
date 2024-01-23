@@ -15,5 +15,5 @@ Organize the scenario in scenes. Each scene should consist of individual sentenc
  For each sentence, develop the narration and the description of an image representing the narration.
 
 Your answer must be in the following JSON format:
-json {"title": -,"audience": -,"genre": -,"scenes": [{"scene": [{"sentence ","image_description"}], }],}.
+{"title": -,"audience": -,"genre": -,"scenes": [{"scene": [{"sentence ","image_description"},]},]}.
 """
