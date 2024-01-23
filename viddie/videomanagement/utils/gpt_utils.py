@@ -15,6 +15,8 @@ import json
 from .exceptions import InvalidJsonFormatError
 from openai import OpenAI
 from django.conf import settings
+
+
 def check_json(json_file):
     if "scenes" not in json_file:
         return False
@@ -23,6 +25,9 @@ def check_json(json_file):
         return False
 
     if len(json_file['scenes']) == 0:
+        return False
+
+    if "scene" not in json_file['scenes'][0]:
         return False
 
     return True
@@ -77,8 +82,9 @@ def get_reply_from_official_api(prompt, time = 1):
 
     try:
         x = x.getvalue()
-        x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
         print(x)
+        x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
+
         js = json.loads(x)
         if not check_json(js):
             raise InvalidJsonFormatError()
@@ -86,13 +92,6 @@ def get_reply_from_official_api(prompt, time = 1):
         return js
 
     except InvalidJsonFormatError:
-        if time == 5:
-            raise Exception("Max gpt limit is 5 , try again with different prompt !!")
-
-        return get_reply_from_official_api(prompt, time = time, model = model)
-
-    except:
-
         if time == 5:
             raise Exception("Max gpt limit is 5 , try again with different prompt !!")
 
