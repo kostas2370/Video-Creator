@@ -201,3 +201,9 @@ OPEN_API_KEY = os.getenv("OPEN_API_KEY")
 
 GPT_OFFICIAL = False
 MAX_TOKENS = 1000
+
+
+SEARCH_ENGINE_ID = os.getenv('SEARCH_ENGINE_ID')
+API_KEY = os.getenv('API_KEY')
+
+
