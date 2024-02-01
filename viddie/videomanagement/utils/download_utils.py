@@ -21,7 +21,7 @@ from django.conf import settings
 from pytube import YouTube
 from .exceptions import FileNotDownloadedError
 from .prompt_utils import format_dalle_prompt
-
+from .google_image_downloader import downloader as google_downloader
 
 def download_playlist(url, category):
     playlist = Playlist(url)
@@ -49,6 +49,10 @@ def download_image(query, path, amount=1, title=""):
     return downloader.download(query = f'{query}', limit = amount, output_dir = path,
                                adult_filter_off = True,
                                force_replace = False, timeout = 60, filter = 'photo')
+
+
+def download_image_from_google(q, path, amt=1):
+    return google_downloader.download(q = q, path = path, amt = amt)
 
 
 def check_which_file_exists(images):
@@ -79,7 +83,7 @@ def generate_from_dalle(prompt, dir_name, style, title=""):
     return rf"{dir_name}/images/{x}.png"
 
 
-def create_image_scene(prompt, image, text, dir_name, mode="WEB", style="", title=""):
+def create_image_scene(prompt, image, text, dir_name, mode="WEB",provider = "google", style="", title=""):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
     if mode == "DALL-E":
@@ -89,13 +93,29 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB", style="", titl
             downloaded_image = None
             pass
     else:
-        downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6, title = title)
-        downloaded_image = check_which_file_exists(downloaded_image)
+        if provider == "bing":
+            downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6, title = title)
+            downloaded_image = check_which_file_exists(downloaded_image)
+
+        else:
+            try:
+                downloaded_image = download_image_from_google(image, f'{dir_name}/images/', amt = 1)
+                print(downloaded_image)
+
+            except:
+                downloaded_image = None
+
     if downloaded_image is not None and len(downloaded_image) > 0:
         SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
     else:
         SceneImage.objects.create(scene = scene, prompt = image, file = None)
+
+
+
+
+
+
 
 
 def create_image_scenes(video, mode="WEB", style="natural"):
@@ -153,8 +173,10 @@ def generate_new_image(scene_image, video, style="vivid"):
             img = None
             pass
     else:
-        img = check_which_file_exists(download_image(scene_image.prompt, video.dir_name, amount = 1))
-
+        try:
+            img = download_image_from_google(scene_image.prompt, f'{video.dir_name}\\images\\', amt = 1)
+        except:
+            img = None
     if img:
         scene_image.file = img
         scene_image.save()

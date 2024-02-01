@@ -36,7 +36,7 @@ from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Ava
 from .view_utils import get_template
 from .defaults import default_format
 
-from. swagger_serializers import SceneUpdateSerializer, GenerateSerializer, DownloadPlaylistSerializer
+from .swagger_serializers import SceneUpdateSerializer, GenerateSerializer, DownloadPlaylistSerializer
 
 
 swagger_video_id = openapi.Parameter('video_id', openapi.IN_QUERY, description="Id of the video",
@@ -155,7 +155,7 @@ class SceneView(viewsets.ModelViewSet):
         scene = self.get_object()
 
         if text == scene.text.strip():
-            return Response({"message": "Your scene updated Succcessfuly"}, status = status.HTTP_200_OK)
+            return Response({"message": "Your scene updated Successfully"}, status = status.HTTP_200_OK)
 
         if text:
             scene.text = get_update_sentence(format_update_form(scene.text, text))
@@ -267,7 +267,7 @@ def render_video(request):
     vid.status = "RENDERING"
     vid.save()
     result = make_video(vid)
-    return Response({"message": "The video has been made succfully", "result": VideoSerializer(result).data})
+    return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
 
 
 @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "

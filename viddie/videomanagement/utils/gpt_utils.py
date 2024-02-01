@@ -68,6 +68,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
 
 
 def get_reply_from_official_api(prompt, time = 1):
+    time += 1
     client = OpenAI(api_key = settings.OPEN_API_KEY)
 
     stream = client.chat.completions.create(model = "gpt-4",
