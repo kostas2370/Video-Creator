@@ -21,6 +21,22 @@ from .SadTalker.inference import lip
 from django.db.models import Q
 
 
+def check_if_image(path):
+    image_extensions = ['jpg', 'jpeg', 'png', 'webp']
+    for x in image_extensions:
+        if x in path:
+            return True
+    return False
+
+
+def check_if_video(path):
+    image_extensions = ['mp4',  'avi']
+    for x in image_extensions:
+        if x in path:
+            return True
+    return False
+
+
 def make_video(video, subtitle=False):
     silent = AudioFileClip(r'assets\blank.wav')
     black = ImageClip(r'assets\black.jpg')
@@ -51,17 +67,23 @@ def make_video(video, subtitle=False):
 
         if scenes.count() > 0:
             for x in scenes:
-                if x.file and ('jpg' in x.file.path or 'jpeg' in x.file.path or 'png' in x.file.path):
+                if x.file and check_if_image(x.file.path):
                     if background:
                         Image.open(x.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(x.file.path)
 
                     image = ImageClip(x.file.path)
+
                     image = image.set_duration(audio.duration/len(scenes))
+
+                    print(image.duration*0.2)
                     image = image.fadein(image.duration*0.2).\
-                        fadeout(image.duration*0.2)
+                    fadeout(image.duration*0.2)
+
+
                     vids.append(image)
 
-                elif x.file and ("mp4" in x.file.path or "avi" in x.file.path):
+
+                elif x.file and check_if_video(x.file.path):
 
                     vid_scene = VideoFileClip(x.file.path).without_audio()
                     if vid_scene.duration >= audio.duration:

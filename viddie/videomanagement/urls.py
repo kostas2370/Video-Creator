@@ -10,7 +10,7 @@ You should have received a copy of the GNU General Public License along with thi
 
 
 from .views import TemplatePromptView, GenerateView, VideoView, AvatarView, VoiceView, SceneView, SceneImageView,\
-    change_image_scene
+    change_image_scene,fixvideo
 from rest_framework import routers
 from django.urls import path
 from .views import download_playlist, render_video, video_regenerate
@@ -26,7 +26,8 @@ router.register('scene_image', SceneImageView)
 urlpatterns = [path('downloadplaylist/', download_playlist),
                path('render/', render_video),
                path('change_image/', change_image_scene),
-               path('regenerate/', video_regenerate)
+               path('regenerate/', video_regenerate),
+               path('fixvideo/', fixvideo)
                ]
 
 
