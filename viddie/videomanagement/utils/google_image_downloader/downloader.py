@@ -10,7 +10,9 @@ def build_payload(query, start=1, num=1, **params):
                'start': start,
                'num': num,
                "searchType": "image",
-               'filter': 0}
+               'imgSize':'large',
+               'safe':'off'
+        }
 
     payload.update(params)
 
