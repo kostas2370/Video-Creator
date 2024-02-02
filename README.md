@@ -25,7 +25,9 @@ https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
 
 
 Inside the viddie folder : 
-Create the .env file and add your OPEN_API_KEY
+Create the .env file and add your OPEN_API_KEY, SEARCH_ENGINE_ID, API_KEY 
+
+To find your google search_engine_id and api_key , check this guide : https://www.youtube.com/watch?v=D4tWHX2nCzQ&t=127s
 
 After go to the viddie folder and run those commands:
 
