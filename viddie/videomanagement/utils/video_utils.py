@@ -22,7 +22,7 @@ from django.db.models import Q
 
 
 def check_if_image(path):
-    image_extensions = ['jpg', 'jpeg', 'png', 'webp']
+    image_extensions = ['jpg', 'jpeg', 'png']
     for x in image_extensions:
         if x in path:
             return True
@@ -72,16 +72,11 @@ def make_video(video, subtitle=False):
                         Image.open(x.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(x.file.path)
 
                     image = ImageClip(x.file.path)
-
                     image = image.set_duration(audio.duration/len(scenes))
-
-                    print(image.duration*0.2)
                     image = image.fadein(image.duration*0.2).\
-                    fadeout(image.duration*0.2)
-
+                        fadeout(image.duration*0.2)
 
                     vids.append(image)
-
 
                 elif x.file and check_if_video(x.file.path):
 

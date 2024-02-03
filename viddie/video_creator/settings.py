@@ -76,7 +76,7 @@ MIDDLEWARE = [
 
 ]
 
-ROOT_URLCONF = 'clippy.urls'
+ROOT_URLCONF = 'video_creator.urls'
 
 TEMPLATES = [
     {
@@ -94,7 +94,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'clippy.wsgi.application'
+WSGI_APPLICATION = 'video_creator.wsgi.application'
 
 
 # Database
