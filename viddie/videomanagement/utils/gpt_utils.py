@@ -72,7 +72,8 @@ def get_reply_from_official_api(prompt, time = 1):
     client = OpenAI(api_key = settings.OPEN_API_KEY)
 
     stream = client.chat.completions.create(model = "gpt-4",
-                                            messages = [{"role": "system", "content": prompt}],
+                                            messages = [{"role": "assistant", "content": prompt[0]},
+                                                        {"role": "user", "content": prompt[1]}],
                                             stream=True,
                                             max_tokens = settings.MAX_TOKENS)
 

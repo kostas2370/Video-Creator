@@ -25,7 +25,7 @@ from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
 from .utils.download_utils import download_playlist, create_image_scenes, download_music,\
     generate_new_image
-from .utils.prompt_utils import format_prompt, format_update_form
+from .utils.prompt_utils import format_prompt, format_update_form, format_prompt_for_official_gpt
 from .utils.gpt_utils import get_reply, get_update_sentence, get_reply_from_official_api
 from .utils.audio_utils import make_scenes_speech, update_scene
 from .utils.file_utils import generate_directory, select_avatar, select_voice
@@ -200,17 +200,21 @@ class GenerateView(viewsets.ViewSet):
             category = template_select if len(template_select) > 0 and not template_select.isnumeric() else ""
             template = None
 
-        message = format_prompt(template_format = template_format,
-                                template_category = category,
-                                userprompt = prompt,
-                                target_audience = target_audience)
-
-        userprompt = UserPrompt.objects.create(template = template, prompt = message)
-        userprompt.save()
         if settings.GPT_OFFICIAL:
+            message = format_prompt_for_official_gpt(template_format = template_format, template_category = category,
+                                                     userprompt = prompt, target_audience = target_audience)
+
             x = get_reply_from_official_api(message)
+            message = message[0]+message[1]
+
         else:
+            message = format_prompt(template_format = template_format, template_category = category,
+                                    userprompt = prompt, target_audience = target_audience)
+
             x = get_reply(message, gpt_model = gpt_model)
+
+        userprompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
+        userprompt.save()
 
         dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
 
