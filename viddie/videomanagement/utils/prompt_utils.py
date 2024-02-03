@@ -9,7 +9,6 @@ You should have received a copy of the GNU General Public License along with thi
 """
 
 
-
 def format_reply(reply_format):
     code = reply_format.strip()
 
@@ -45,9 +44,9 @@ def format_prompt_for_official_gpt(template_format, template_category, userpromp
         target_audience = " Select an appropriate target audience."
 
     system_output = f"This is a request from Viddie application \n"\
-             f"Write a scenario titled \' {title} \', that I will use to create a video required by my user\n" \
-             f"The script should obey the following specifications:\n"\
-             f"Structure : {template_format}" \
+                    f"Write a scenario titled \' {title} \', that I will use to create a video required by my user\n" \
+                    f"The script should obey the following specifications:\n"\
+                    f"Structure : {template_format}" \
 
     user_output = f"Video genre : {template_category} \n  {userprompt} The audience : {target_audience}\n"
 

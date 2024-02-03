@@ -1,5 +1,5 @@
 """
-WSGI config for clippy project.
+WSGI config for video_creator project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clippy.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'video_creator.settings')
 
 application = get_wsgi_application()
