@@ -2,7 +2,8 @@ import requests
 import urllib.request
 import uuid
 from django.conf import settings
-
+from ..gpt_utils import select_from_vision
+from django.conf import settings
 
 def build_payload(query, start=1, num=1, **params):
     payload = {'key': settings.API_KEY,
@@ -37,9 +38,14 @@ def download(q, amt=1, path=''):
         raise Exception("Couldn't find images")
 
     data = response.json()
-    image_url = data['items'][0]["link"]
-    print(image_url)
+    urls = [item['link'] for item in data['items']]
 
+    image_url = data['items'][0]["link"] \
+        if len(urls) == 1 or not settings.VISION_SELECTION \
+        else \
+        data['items'][select_from_vision(q, urls)]['link']
+
+    print(image_url)
     filename = str(uuid.uuid4())
     filetype = ".png" if 'png' in image_url else '.gif' if 'gif' in image_url else '.jpg'
     urllib.request.urlretrieve(image_url, f"{path}\\{filename}{filetype}")

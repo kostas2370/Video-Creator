@@ -15,48 +15,6 @@
     }
   },
   {
-    "model": "videomanagement.TemplatePrompts",
-    "pk": 16,
-    "fields": {
-      "title": "Educational",
-      "category": "EDUCATIONAL",
-      "format": "Organize the scenario in scenes. Each scene should consist of individual sentences.\n For each sentence, develop the narration and the description of an image representing the narration.\n\nYour answer must be in the following JSON format:\njson {\"title\": -,\"audience\": -,\"genre\": -,\"scenes\": [{\"scene\": [{\"sentence \",\"image_description\"}], }],}.",
-      "is_sentenced" : true
-    }
-  },
-  {
-    "model": "videomanagement.TemplatePrompts",
-    "pk": 12,
-    "fields": {
-      "title": "General",
-      "category": "OTHER",
-      "format": "Organize the scenario in scenes. Each scene should consist of individual sentences.\n For each sentence, develop the narration and the description of an image representing the narration.\n\nYour answer must be in the following JSON format:\njson {\"title\": -,\"audience\": -,\"genre\": -,\"scenes\": [{\"scene\": [{\"sentence \",\"image_description\"}], }],}.",
-      "is_sentenced" : true
-
-    }
-  },
-
-   {
-    "model": "videomanagement.TemplatePrompts",
-    "pk": 13,
-    "fields": {
-      "title": "Story",
-      "category": "STORY",
-      "format": "Organize the scenario in scenes. Each scene should consist of individual sentences.\n For each sentence, develop the narration and the description of an image representing the narration.\n\nYour answer must be in the following JSON format:\njson {\"title\": -,\"audience\": -,\"genre\": -,\"scenes\": [{\"scene\": [{\"sentence \",\"image_description\"}], }],}.",
-      "is_sentenced" : true
-    }
-  },
-   {
-    "model": "videomanagement.TemplatePrompts",
-    "pk": 14,
-    "fields": {
-      "title": "Advertisement",
-      "category": "ADVERTISEMENT",
-      "format": "Organize the scenario in scenes. Each scene should consist of individual sentences.\n For each sentence, develop the narration and the description of an image representing the narration.\n\nYour answer must be in the following JSON format:\njson {\"title\": -,\"audience\": -,\"genre\": -,\"scenes\": [{\"scene\": [{\"sentence \",\"image_description\"}], }],}.",
-      "is_sentenced" : true
-    }
-  },
-  {
     "model": "videomanagement.voicemodels",
     "pk": 12,
     "fields": {

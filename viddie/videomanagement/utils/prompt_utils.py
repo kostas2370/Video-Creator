@@ -60,3 +60,8 @@ def format_update_form(text, prompt):
 
 def format_dalle_prompt(title, image_description):
     return f'Title : {title} \nImage Description:{image_description}'
+
+
+
+
+
