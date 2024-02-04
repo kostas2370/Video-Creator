@@ -8,13 +8,14 @@ of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Publ
 You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
 
-
 import io
-import g4f
 import json
-from .exceptions import InvalidJsonFormatError
-from openai import OpenAI
+
+import g4f
 from django.conf import settings
+from openai import OpenAI
+
+from .exceptions import InvalidJsonFormatError
 
 
 def check_json(json_file):
@@ -48,7 +49,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     if reply_format == "json":
         x = x.getvalue()
         print(x)
-        x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
+        x = x[x.index('{'):len(x)-(x[::-1].index('}'))]
 
         try:
 
@@ -67,15 +68,13 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     return x
 
 
-def get_reply_from_official_api(prompt, time = 1):
+def get_reply_from_official_api(prompt, time=1):
     time += 1
     client = OpenAI(api_key = settings.OPEN_API_KEY)
 
-    stream = client.chat.completions.create(model = "gpt-4",
-                                            messages = [{"role": "assistant", "content": prompt[0]},
-                                                        {"role": "user", "content": prompt[1]}],
-                                            stream=True,
-                                            max_tokens = settings.MAX_TOKENS)
+    stream = client.chat.completions.create(model = "gpt-4", messages = [{"role": "assistant", "content": prompt[0]},
+                                                                         {"role": "user", "content": prompt[1]}],
+                                            stream = True, max_tokens = settings.MAX_TOKENS)
 
     x = io.StringIO()
 
@@ -85,7 +84,7 @@ def get_reply_from_official_api(prompt, time = 1):
     try:
         x = x.getvalue()
         print(x)
-        x = x[x.index('{'):len(x) - (x[::-1].index('}'))]
+        x = x[x.index('{'):len(x)-(x[::-1].index('}'))]
 
         js = json.loads(x)
         if not check_json(js):
@@ -101,10 +100,31 @@ def get_reply_from_official_api(prompt, time = 1):
 
 
 def get_update_sentence(prompt):
-
     response = g4f.ChatCompletion.create(model = 'gpt-3.5-turbo', messages = [{"content": prompt}], stream = True, )
     x = io.StringIO()
     for message in response:
         x.write(message)
 
     return x.getvalue()
+
+
+def select_from_vision(prompt, images):
+    client = OpenAI(api_key = settings.OPEN_API_KEY)
+
+    messages = [{"role": "user", "content": [{"type": "text",
+                                              "text": f"I will send you 3 images, i want you to pick 1 , that is closer on this prompt : {prompt}."
+                                                      f"Answer me with a number from 1 to 3 "}, ], }]
+
+    for x in images:
+        dicts = {"type": "image_url",
+                 "image_url": {"url": x}}
+        messages[0]['content'].append(dicts)
+
+    response = client.chat.completions.create(model = "gpt-4-vision-preview", messages = messages, max_tokens = 300, )
+    x = response.choices[0].message.content
+    print(messages)
+    print(x)
+
+    x = 0 if '1' in x else 1 if '2' in x else 2
+
+    return x

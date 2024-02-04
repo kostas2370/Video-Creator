@@ -99,7 +99,7 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB",provider = "goo
 
         else:
             try:
-                downloaded_image = download_image_from_google(image, f'{dir_name}/images/', amt = 1)
+                downloaded_image = download_image_from_google(image, f'{dir_name}/images/', amt = 3)
                 print(downloaded_image)
 
             except:
@@ -173,10 +173,9 @@ def generate_new_image(scene_image, video, style="vivid"):
             img = None
             pass
     else:
-        try:
-            img = download_image_from_google(scene_image.prompt, f'{video.dir_name}\\images\\', amt = 1)
-        except:
-            img = None
+
+        img = download_image_from_google(scene_image.prompt, f'{video.dir_name}\\images\\', amt = 3)
+
     if img:
         scene_image.file = img
         scene_image.save()
