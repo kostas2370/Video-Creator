@@ -13,6 +13,13 @@ from TTS.utils.synthesizer import Synthesizer
 from TTS.utils.manage import ModelManager
 import os
 import pyttsx3
+from .gpt_utils import tts_from_open_api
+from dataclasses import dataclass
+
+@dataclass
+class ApiSyn:
+    provider: str
+    path: str
 
 
 def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
@@ -50,11 +57,9 @@ def save(syn, text="", save_path=""):
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)
 
-    if type(syn) is int or type(syn) is str:
-        engine = pyttsx3.init()
-        voices = engine.getProperty('voices')
-        engine.setProperty('voice', voices[int(syn)].id)
-        engine.save_to_file(text, save_path)
-        engine.runAndWait()
+    if type(syn) is ApiSyn:
+        resp = tts_from_open_api(text, syn.path)
+        resp.stream_to_file(save_path)
+
 
     return save_path

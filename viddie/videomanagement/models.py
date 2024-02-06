@@ -83,7 +83,7 @@ class SceneImage(models.Model):
 class VoiceModels(AbstractModel):
     gender = models.CharField(max_length = 3)
     type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
-    sample = models.FileField(upload_to = "media/model_samples")
+    sample = models.URLField(blank = True, null=True, max_length = 1000)
     path = models.CharField(max_length = 255, blank = False)
     objects = models.Manager()
 

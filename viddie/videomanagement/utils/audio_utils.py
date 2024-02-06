@@ -10,10 +10,10 @@ You should have received a copy of the GNU General Public License along with thi
 """
 
 
-from .tts_utils import create_model, save
+from .tts_utils import create_model, save, ApiSyn
 from ..models import Scene, Videos
 import uuid
-import json
+
 
 def make_scenes_speech(video):
     dir_name = video.dir_name
@@ -22,8 +22,10 @@ def make_scenes_speech(video):
     gpt_answer = video.gpt_answer
 
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
-    if voice_model.type == 'Local' or voice_model.type == "LOCAL":
+    if voice_model.type.lower() == 'local':
         syn = create_model(model = syn)
+    elif voice_model.type.lower() == 'api':
+        syn = ApiSyn(provider = "openai", path = video.voice_model)
 
     for j in gpt_answer["scenes"]:
         if is_sentenced:
@@ -49,6 +51,9 @@ def update_scene(scene):
     syn = voice_model.path
     if voice_model.type == 'Local' or voice_model.type == "LOCAL":
         syn = create_model(model = syn)
+
+    elif voice_model.type.lower() == 'api':
+        syn = ApiSyn(provider = "openai", path = video.voice_model.path)
 
     filename = str(uuid.uuid4())
 

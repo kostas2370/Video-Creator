@@ -112,7 +112,8 @@ def select_from_vision(prompt, images):
     client = OpenAI(api_key = settings.OPEN_API_KEY)
 
     messages = [{"role": "user", "content": [{"type": "text",
-                                              "text": f"I will send you 3 images, i want you to pick 1 , that is closer on this prompt : {prompt}."
+                                              "text": f"I will send you 3 images, i want you to pick 1 , that is closer"
+                                                      f" on this prompt : {prompt}."
                                                       f"Answer me with a number from 1 to 3 "}, ], }]
 
     for x in images:
@@ -128,3 +129,9 @@ def select_from_vision(prompt, images):
     x = 0 if '1' in x else 1 if '2' in x else 2
 
     return x
+
+
+def tts_from_open_api(text, voice = "onyx"):
+    client = OpenAI(api_key = settings.OPEN_API_KEY)
+    response = client.audio.speech.create(model = "tts-1", voice = voice, input = text)
+    return response
