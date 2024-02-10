@@ -46,11 +46,9 @@ You can find all the endpoints in swagger : http://localhost:8000/swagger/
 
 * TO DO :
 1. Add voice cloning for avatars
-2. Better Image Selection in web mode
-3. Convert all moviepy functions to ffmpeg for better Performance .
-4. Test Cases for models, functions and Views
-5. Improvement in dall e prompt , mcore detailed prompts for more consistency
-6. Support for OPENAI tts
+2. Convert all moviepy functions to ffmpeg for better Performance .
+3. Test Cases for models, functions and Views
+4. Improvement in dall e prompt , mcore detailed prompts for more consistency
 
 For any Injuries or Support you can contact me at those emails :
 1. kodamia@cs.ihu.gr (University Email)
