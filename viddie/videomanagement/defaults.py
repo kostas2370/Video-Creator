@@ -11,9 +11,9 @@ You should have received a copy of the GNU General Public License along with thi
 
 
 default_format = """
-Organize the scenario in scenes. Each scene should consist of individual sentences.
- For each sentence, develop the narration and the description of an image representing the narration.
+ Organize the scenario in scenes. Each scene should consist of individual sections. For 
+each section, develop the narration and the description of an image representing the narration
 
 Your answer must be in the following JSON format:
-{"title": -,"audience": -,"genre": -,"scenes": [{"scene": [{"sentence ","image_description"},]},]}.
+{"title": -,"audience": -,"genre": -,"scenes": [{"scene": [{"narration ","image_description"},]},]}.
 """
