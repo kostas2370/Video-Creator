@@ -98,6 +98,9 @@ class Avatars(AbstractModel):
     voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, db_constraint=False)
     objects = models.Manager()
 
+    def __str__(self):
+        return self.name
+
 
 class Backgrounds(AbstractModel):
     category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)

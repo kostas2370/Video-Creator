@@ -112,12 +112,6 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB",provider = "goo
         SceneImage.objects.create(scene = scene, prompt = image, file = None)
 
 
-
-
-
-
-
-
 def create_image_scenes(video, mode="WEB", style="natural"):
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
@@ -126,7 +120,7 @@ def create_image_scenes(video, mode="WEB", style="natural"):
             for x in j['scene']:
                 create_image_scene(video.prompt,
                                    x['image_description'],
-                                   x['sentence'],
+                                   x['narration'],
                                    dir_name,
                                    mode=mode,
                                    style=style,
