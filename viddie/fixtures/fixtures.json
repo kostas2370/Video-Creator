@@ -1,7 +1,7 @@
 [
   {
     "model": "usermanagement.user",
-    "pk": 16,
+    "pk": 1,
     "fields": {
       "password": "pbkdf2_sha256$320000$vi0Mdl0Nv9Z7ahjhYNCwPF$x42cfJjzkMkAdFr3C7iCsg3rJ1O3RlVUJSF40/5Y9Es=",
       "is_superuser": true,
@@ -13,24 +13,93 @@
       "is_active": true,
       "date_joined": "2022-06-30T17:03:10.123Z"
     }
-  },
-  {
+  },{
     "model": "videomanagement.voicemodels",
-    "pk": 12,
+    "pk": 1,
     "fields": {
       "gender": "fem",
       "type": "LOCAL",
       "path": "tts_models/en/ljspeech/vits--neon"
     }
   },
+   {
+    "model": "videomanagement.voicemodels",
+    "pk": 2,
+    "fields": {
+      "gender": "mal",
+      "type": "API",
+      "path": "alloy",
+      "sample": "https://cdn.openai.com/API/docs/audio/alloy.wav"
+    }
+  },
+   {
+    "model": "videomanagement.voicemodels",
+    "pk": 3,
+    "fields": {
+      "gender": "mal",
+      "type": "API",
+      "path": "echo",
+      "sample": "https://cdn.openai.com/API/docs/audio/echo.wav"
+    }
+  },
   {
     "model": "videomanagement.voicemodels",
-    "pk": 13,
+    "pk": 4,
+    "fields": {
+      "gender": "mal",
+      "type": "API",
+      "path": "fable",
+      "sample": "https://cdn.openai.com/API/docs/audio/fable.wav"
+    }
+  },
+
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 5,
+    "fields": {
+      "gender": "mal",
+      "type": "API",
+      "path": "onyx",
+      "sample": "https://cdn.openai.com/API/docs/audio/onyx.wav"
+    }
+  },
+    {
+    "model": "videomanagement.voicemodels",
+    "pk": 6,
+    "fields": {
+      "gender": "fem",
+      "type": "API",
+      "path": "nova",
+      "sample": "https://cdn.openai.com/API/docs/audio/nova.wav"
+    }
+  },
+
+    {
+    "model": "videomanagement.voicemodels",
+    "pk": 7,
+    "fields": {
+      "gender": "fem",
+      "type": "API",
+      "path": "shimmer",
+      "sample": "https://cdn.openai.com/API/docs/audio/shimmer.wav"
+    }
+  },
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 8,
     "fields": {
       "gender": "fem",
       "type": "LOCAL",
       "path": "tts_models/en/ljspeech/tacotron2-DDC"
     }
+  },
+    {
+    "model": "videomanagement.voicemodels",
+    "pk": 9,
+    "fields": {
+      "gender": "fem",
+      "type": "LOCAL",
+      "path": "tts_models/en/jenny/jenny"
+    }
   }
-
-]
+  ]
