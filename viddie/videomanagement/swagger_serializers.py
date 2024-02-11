@@ -19,7 +19,7 @@ class GenerateSerializer(serializers.Serializer):
     template_id = serializers.CharField(required = False, max_length = 20)
     voice_id = serializers.CharField(required = False, max_length = 20)
     gpt_model = serializers.ChoiceField(required = False, choices = ["gpt-3.5-turbo", "gpt-4"], default = "gpt-4")
-    images = serializers.ChoiceField(required = False, choices = ["AI", "webscrap", False], default = "webscrap")
+    images = serializers.ChoiceField(required = False, choices = ["DALL-E", "WEB", False], default = "WEB")
     avatar_selection = serializers.CharField(required = False, max_length = 30)
     style = serializers.ChoiceField(required = False, choices = ["vivid", "natural"], default = "vivid")
     music = serializers.CharField(required = False, max_length = 80)

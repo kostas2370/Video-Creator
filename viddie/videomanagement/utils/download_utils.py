@@ -23,6 +23,7 @@ from .exceptions import FileNotDownloadedError
 from .prompt_utils import format_dalle_prompt
 from .google_image_downloader import downloader as google_downloader
 
+
 def download_playlist(url, category):
     playlist = Playlist(url)
     for music in playlist.videos:
