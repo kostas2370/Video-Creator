@@ -101,16 +101,11 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB",provider = "goo
         else:
             try:
                 downloaded_image = download_image_from_google(image, f'{dir_name}/images/', amt = 3)
-                print(downloaded_image)
 
             except:
                 downloaded_image = None
 
-    if downloaded_image is not None and len(downloaded_image) > 0:
-        SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
-
-    else:
-        SceneImage.objects.create(scene = scene, prompt = image, file = None)
+    SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
 
 def create_image_scenes(video, mode="WEB", style="natural"):
