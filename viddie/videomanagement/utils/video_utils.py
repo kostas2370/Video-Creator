@@ -73,8 +73,11 @@ def make_video(video, subtitle=False):
 
                     image = ImageClip(x.file.path)
                     image = image.set_duration(audio.duration/len(scenes))
-                    image = image.fadein(image.duration*0.2).\
-                        fadeout(image.duration*0.2)
+                    try:
+                        image = image.fadein(image.duration*0.2).\
+                            fadeout(image.duration*0.2)
+                    except ValueError:
+                        image = black.set_duration(audio.duration)
 
                     vids.append(image)
 
