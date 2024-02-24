@@ -21,3 +21,23 @@ class FileNotDownloadedError(Exception):
         self.message = "could not download the video"
 
 
+class GameNotFound(Exception):
+    def __init__(self):
+        self.message = "Could not find a game with that name"
+
+
+class StreamerNotFound(Exception):
+    def __init__(self):
+        self.message = "Could not find a streamer with that name"
+
+
+class InvalidTwitchToken(Exception):
+    def __init__(self):
+        self.message = "Invalid Twitch Token"
+
+
+class HeaderInitiationError(Exception):
+    def __init__(self):
+        self.message = "You need to set headers !"
+
+

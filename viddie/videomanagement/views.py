@@ -19,12 +19,15 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from datetime import date
 
 from django.conf import settings
 from .paginator import StandardResultsSetPagination
 from .utils.video_utils import make_video
 from .utils.download_utils import download_playlist, create_image_scenes, download_music,\
     generate_new_image
+
+from .utils.twitch import TwitchClient
 from .utils.prompt_utils import format_prompt, format_update_form, format_prompt_for_official_gpt
 from .utils.gpt_utils import get_reply, get_update_sentence, get_reply_from_official_api
 from .utils.audio_utils import make_scenes_speech, update_scene
@@ -36,7 +39,7 @@ from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Ava
 from .view_utils import get_template
 from .defaults import default_format
 
-from .swagger_serializers import SceneUpdateSerializer, GenerateSerializer, DownloadPlaylistSerializer
+from .swagger_serializers import SceneUpdateSerializer, GenerateSerializer, DownloadPlaylistSerializer,TwitchSerializer
 
 
 swagger_video_id = openapi.Parameter('video_id', openapi.IN_QUERY, description="Id of the video",
@@ -320,3 +323,29 @@ def video_regenerate(request):
                 generate_new_image(scene_image = scene_image, video = video)
 
     return Response({"Message": f"Video with id {video_id} got regenerated successfully"}, status = status.HTTP_200_OK)
+
+
+@swagger_auto_schema(operation_description = "generates a video from twitch clips, depending on the game or streamer",
+                     method = "POST",
+                     request_body = TwitchSerializer)
+def generate_twitch(request):
+    mode = request.data.get('mode','game')
+    value = request.data.get('value')
+
+    message = f"Mode : {mode} Value : {value}"
+    title = f"{request.data.get('value')} {date.today()}"
+    dir_name = generate_directory(rf'media\videos\{slugify(title)}')
+    userprompt = UserPrompt.objects.create(template = None, prompt = f'{message}')
+
+    video = Videos.objects.create(prompt = userprompt, dir_name = dir_name, title = title)
+
+    client = TwitchClient(path = dir_name)
+    client.set_headers()
+
+    value = client.get_streamer_id(value) if mode == "game" else client.get_game_id(value)
+    clips = client.get_clips(value, mode)
+
+    for clip in clips:
+        downloaded_clip = client.download_clip(clip)
+
+    return Response(VideoSerializer(video).data)+
