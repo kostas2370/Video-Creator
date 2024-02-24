@@ -33,3 +33,8 @@ class DownloadPlaylistSerializer(serializers.Serializer):
 
 class SceneUpdateSerializer(serializers.Serializer):
     text = serializers.CharField(required = True, max_length = 2000)
+
+
+class TwitchSerializer(serializers.Serializer):
+    mode = serializers.ChoiceField(choices = ["Streamer", "Game"] , default="Streamer")
+    value = serializers.CharField(max_length = 200)
