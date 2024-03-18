@@ -348,4 +348,4 @@ def generate_twitch(request):
     for clip in clips:
         downloaded_clip = client.download_clip(clip)
 
-    return Response(VideoSerializer(video).data)+
+    return Response(VideoSerializer(video).data)
