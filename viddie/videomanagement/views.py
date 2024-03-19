@@ -328,6 +328,7 @@ def video_regenerate(request):
 @swagger_auto_schema(operation_description = "generates a video from twitch clips, depending on the game or streamer",
                      method = "POST",
                      request_body = TwitchSerializer)
+@api_view(['POST'])
 def generate_twitch(request):
     mode = request.data.get('mode', 'game')
     value = request.data.get('value')
@@ -345,11 +346,11 @@ def generate_twitch(request):
     value = client.get_streamer_id(value) if mode == "streamer" else client.get_game_id(value)
     clips = client.get_clips(value, mode)
 
-    for clip in clips:
+    for clip in clips[:2]:
         downloaded_clip = client.download_clip(clip)
         splited_clip = split_video_and_mp3(downloaded_clip)
 
-        curr_scene = Scene.objects.create(file = splited_clip[0], prompt = video.prompt, text = "twitch clip",
+        curr_scene = Scene.objects.create(file = splited_clip[0], prompt = video.prompt, text = clip.get("title"),
                                           is_last = True)
 
         SceneImage.objects.create(scene = curr_scene, file = splited_clip[1], prompt = "twitch video")

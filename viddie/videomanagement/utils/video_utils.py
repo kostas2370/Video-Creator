@@ -169,10 +169,11 @@ def create_avatar_video(avatar, dir_name):
 
 
 def split_video_and_mp3(video_path):
-    folder_to_save = os.path.split(os.path.abspath(video_path))
+    folder_to_save = os.path.split(os.path.abspath(video_path))[0]
+
     video = VideoFileClip(video_path)
-    audio_save = rf'{folder_to_save}/{str(uuid.uuid4())}.mp3'
-    video_save = rf'{folder_to_save}/{str(uuid.uuid4())}.mp4'
+    audio_save = f'{str(folder_to_save)}/{str(uuid.uuid4())}.mp3'
+    video_save = f'{str(folder_to_save)}/{str(uuid.uuid4())}.mp4'
 
     video.audio.write_audiofile(audio_save)
 
