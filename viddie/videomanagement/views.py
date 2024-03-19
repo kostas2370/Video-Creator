@@ -23,7 +23,7 @@ from datetime import date
 
 from django.conf import settings
 from .paginator import StandardResultsSetPagination
-from .utils.video_utils import make_video
+from .utils.video_utils import make_video, split_video_and_mp3
 from .utils.download_utils import download_playlist, create_image_scenes, download_music,\
     generate_new_image
 
@@ -329,7 +329,7 @@ def video_regenerate(request):
                      method = "POST",
                      request_body = TwitchSerializer)
 def generate_twitch(request):
-    mode = request.data.get('mode','game')
+    mode = request.data.get('mode', 'game')
     value = request.data.get('value')
 
     message = f"Mode : {mode} Value : {value}"
@@ -342,10 +342,16 @@ def generate_twitch(request):
     client = TwitchClient(path = dir_name)
     client.set_headers()
 
-    value = client.get_streamer_id(value) if mode == "game" else client.get_game_id(value)
+    value = client.get_streamer_id(value) if mode == "streamer" else client.get_game_id(value)
     clips = client.get_clips(value, mode)
 
     for clip in clips:
         downloaded_clip = client.download_clip(clip)
+        splited_clip = split_video_and_mp3(downloaded_clip)
+
+        curr_scene = Scene.objects.create(file = splited_clip[0], prompt = video.prompt, text = "twitch clip",
+                                          is_last = True)
+
+        SceneImage.objects.create(scene = curr_scene, file = splited_clip[1], prompt = "twitch video")
 
     return Response(VideoSerializer(video).data)

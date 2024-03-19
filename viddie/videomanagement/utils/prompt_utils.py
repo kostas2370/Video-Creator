@@ -9,12 +9,6 @@ You should have received a copy of the GNU General Public License along with thi
 """
 
 
-def format_reply(reply_format):
-    code = reply_format.strip()
-
-    return code
-
-
 def format_prompt(template_format, template_category, userprompt="", title='', target_audience=''):
 
     if title == '':

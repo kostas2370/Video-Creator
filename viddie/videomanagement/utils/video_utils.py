@@ -19,6 +19,7 @@ import shlex
 import os
 from .SadTalker.inference import lip
 from django.db.models import Q
+import uuid
 
 
 def check_if_image(path):
@@ -165,3 +166,17 @@ def create_avatar_video(avatar, dir_name):
         f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{output}"'))
 
     return output
+
+
+def split_video_and_mp3(video_path):
+    folder_to_save = os.path.split(os.path.abspath(video_path))
+    video = VideoFileClip(video_path)
+    audio_save = rf'{folder_to_save}/{str(uuid.uuid4())}.mp3'
+    video_save = rf'{folder_to_save}/{str(uuid.uuid4())}.mp4'
+
+    video.audio.write_audiofile(audio_save)
+
+    video_without_audio = video.set_audio(None)
+    video_without_audio.write_videofile(video_save)
+
+    return audio_save, video_save
