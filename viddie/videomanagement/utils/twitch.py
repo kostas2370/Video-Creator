@@ -13,7 +13,7 @@ class TwitchClient:
 
     def set_headers(self):
         headers = {'Content-Type': 'application/x-www-form-urlencoded', }
-        data = f'client_id={settings.CLIENT_iD}&client_secret={settings.CLIENT_SECRET}&grant_type=client_credentials'
+        data = f'client_id={settings.TWITCH_CLIENT}&client_secret={settings.TWITCH_CLIENT_SECRET}&grant_type=client_credentials'
 
         try:
             response = requests.post('https://id.twitch.tv/oauth2/token', headers = headers, data = data)
@@ -26,7 +26,8 @@ class TwitchClient:
             return err
 
         bearer = response.json()['access_token']
-        return {"Authorization": f"Bearer {bearer}", "Client-Id": settings.CLIENT_ID}
+        self.headers = {"Authorization": f"Bearer {bearer}", "Client-Id": settings.TWITCH_CLIENT}
+        return {"Authorization": f"Bearer {bearer}", "Client-Id": settings.TWITCH_CLIENT}
 
     def get_game_id(self, name):
         if self.headers is None:
@@ -40,7 +41,7 @@ class TwitchClient:
         if req.status_code == 401:
             raise InvalidTwitchToken
 
-        return req.json().get("data").get("id")
+        return req.json().get("data")[0].get("id")
 
     def get_streamer_id(self, name):
 
@@ -65,9 +66,10 @@ class TwitchClient:
         return clips.json().get("data")
 
     def download_clip(self, clip):
+        print(clip)
         index = clip.get("thumbnail_url").find('-preview')
-        clip_url = clip.thumbnail_url[:index]+'.mp4'
+        clip_url = clip['thumbnail_url'][:index]+".mp4"
         filename = f'{str(uuid.uuid4())}.mp4'
-        urllib.request.urlretrieve(clip_url, f'{self.path}\\{filename}.mp4')
+        urllib.request.urlretrieve(clip_url, f'{self.path}\\{filename}')
 
-        return f'{self.path}\\{filename}.mp4'
+        return f'{self.path}\\{filename}'
