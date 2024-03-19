@@ -1,5 +1,11 @@
 Frontend Demo repository :  https://github.com/kostas2370/ViddieDEMO
 
+Samples :
+https://www.youtube.com/watch?v=PvrX_jq4fv4
+
+https://www.youtube.com/watch?v=bNZvK68O-Rk
+
+
 How to run it :
 Recommended python version : 3.9 - 3.11
 
