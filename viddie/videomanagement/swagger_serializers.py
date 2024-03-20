@@ -38,3 +38,4 @@ class SceneUpdateSerializer(serializers.Serializer):
 class TwitchSerializer(serializers.Serializer):
     mode = serializers.ChoiceField(choices = ["Streamer", "Game"] , default="Streamer")
     value = serializers.CharField(max_length = 200)
+    amt = serializers.IntegerField(max_value = 20)

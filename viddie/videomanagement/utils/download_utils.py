@@ -1,15 +1,3 @@
-"""
-Viddie is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-"""
-
-
 from pytube import Playlist
 from ..models import Music, Scene, SceneImage
 import uuid
@@ -22,6 +10,7 @@ from pytube import YouTube
 from .exceptions import FileNotDownloadedError
 from .prompt_utils import format_dalle_prompt
 from .google_image_downloader import downloader as google_downloader
+from .video_utils import split_video_and_mp3, add_text_to_video
 
 
 def download_playlist(url, category):
@@ -46,7 +35,7 @@ def download_playlist(url, category):
     return True
 
 
-def download_image(query, path, amount=1, title=""):
+def download_image(query, path, amount=1):
     return downloader.download(query = f'{query}', limit = amount, output_dir = path,
                                adult_filter_off = True,
                                force_replace = False, timeout = 60, filter = 'photo')
@@ -84,7 +73,7 @@ def generate_from_dalle(prompt, dir_name, style, title=""):
     return rf"{dir_name}/images/{x}.png"
 
 
-def create_image_scene(prompt, image, text, dir_name, mode="WEB",provider = "google", style="", title=""):
+def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="google", style="", title=""):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
     if mode == "DALL-E":
@@ -170,3 +159,13 @@ def generate_new_image(scene_image, video, style="vivid"):
         scene_image.file = img
         scene_image.save()
     return scene_image
+
+
+def create_twitch_clip_scene(clip, title, prompt):
+    splited_clip = split_video_and_mp3(clip)
+    edited_video = add_text_to_video(splited_clip[1], title, x = 80, y = 900)
+
+    curr_scene = Scene.objects.create(file = splited_clip[0], prompt = prompt, text = clip.get("title"),
+                                      is_last = True)
+
+    SceneImage.objects.create(scene = curr_scene, file = edited_video, prompt = "twitch video")
