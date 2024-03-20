@@ -1,14 +1,3 @@
-"""
-Viddie is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-"""
-
-
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -21,7 +10,6 @@ VIDEO_STATUS = (("RENDERING", "RENDERING"), ("GENERATED", "GENERATED"), ("COMPLE
 
 
 IMAGE_MODE = (("DALL-E", "DALL-E"), ("WEB", "WEB"))
-
 
 
 class AbstractModel(models.Model):
@@ -125,8 +113,10 @@ class Videos(AbstractModel):
     prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
     output = models.FileField(upload_to = "media/output", blank = True, null=True)
     dir_name = models.TextField(default = "")
-    voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1, db_constraint=False)
-    avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True, db_constraint=False)
+    voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1,
+                                    db_constraint=False)
+    avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True,
+                               db_constraint=False)
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
     music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
     background = models.ForeignKey(Backgrounds, blank = True, null = True, on_delete = models.SET_NULL)
@@ -150,5 +140,3 @@ class Outro(AbstractModel):
     name = models.CharField(max_length = 100)
     file = models.FileField(upload_to = "media/other/outros")
     objects = models.Manager()
-
-

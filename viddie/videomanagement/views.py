@@ -9,6 +9,8 @@ You should have received a copy of the GNU General Public License along with thi
 
 """
 import json
+import os
+
 from rest_framework.response import Response
 from slugify import slugify
 from rest_framework import viewsets
@@ -23,9 +25,9 @@ from datetime import date
 
 from django.conf import settings
 from .paginator import StandardResultsSetPagination
-from .utils.video_utils import make_video, split_video_and_mp3
+from .utils.video_utils import make_video, split_video_and_mp3, add_text_to_video
 from .utils.download_utils import download_playlist, create_image_scenes, download_music,\
-    generate_new_image
+    generate_new_image, create_twitch_clip_scene
 
 from .utils.twitch import TwitchClient
 from .utils.prompt_utils import format_prompt, format_update_form, format_prompt_for_official_gpt
@@ -332,13 +334,17 @@ def video_regenerate(request):
 def generate_twitch(request):
     mode = request.data.get('mode', 'game')
     value = request.data.get('value')
+    amt = request.data.get('amt', 10)
 
     message = f"Mode : {mode} Value : {value}"
     title = f"{request.data.get('value')} {date.today()}"
     dir_name = generate_directory(rf'media\videos\{slugify(title)}')
+
     userprompt = UserPrompt.objects.create(template = None, prompt = f'{message}')
 
-    video = Videos.objects.create(prompt = userprompt, dir_name = dir_name, title = title)
+    video = Videos.objects.create(prompt = userprompt,
+                                  dir_name = dir_name,
+                                  title = title)
 
     client = TwitchClient(path = dir_name)
     client.set_headers()
@@ -346,13 +352,8 @@ def generate_twitch(request):
     value = client.get_streamer_id(value) if mode == "streamer" else client.get_game_id(value)
     clips = client.get_clips(value, mode)
 
-    for clip in clips[:2]:
+    for clip in clips[:amt]:
         downloaded_clip = client.download_clip(clip)
-        splited_clip = split_video_and_mp3(downloaded_clip)
-
-        curr_scene = Scene.objects.create(file = splited_clip[0], prompt = video.prompt, text = clip.get("title"),
-                                          is_last = True)
-
-        SceneImage.objects.create(scene = curr_scene, file = splited_clip[1], prompt = "twitch video")
+        create_twitch_clip_scene(downloaded_clip, clip.get("ttitle"), video.prompt)
 
     return Response(VideoSerializer(video).data)

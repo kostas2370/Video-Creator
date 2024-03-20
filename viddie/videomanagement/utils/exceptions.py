@@ -39,5 +39,3 @@ class InvalidTwitchToken(Exception):
 class HeaderInitiationError(Exception):
     def __init__(self):
         self.message = "You need to set headers !"
-
-

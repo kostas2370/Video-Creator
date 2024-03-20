@@ -13,7 +13,8 @@ class TwitchClient:
 
     def set_headers(self):
         headers = {'Content-Type': 'application/x-www-form-urlencoded', }
-        data = f'client_id={settings.TWITCH_CLIENT}&client_secret={settings.TWITCH_CLIENT_SECRET}&grant_type=client_credentials'
+        data = f'client_id={settings.TWITCH_CLIENT}&client_secret={settings.TWITCH_CLIENT_SECRET}' \
+               f'&grant_type=client_credentials'
 
         try:
             response = requests.post('https://id.twitch.tv/oauth2/token', headers = headers, data = data)
@@ -66,10 +67,8 @@ class TwitchClient:
         return clips.json().get("data")
 
     def download_clip(self, clip):
-        print(clip)
         index = clip.get("thumbnail_url").find('-preview')
-        clip_url = clip['thumbnail_url'][:index]+".mp4"
         filename = f'{str(uuid.uuid4())}.mp4'
-        urllib.request.urlretrieve(clip_url, f'{self.path}\\{filename}')
+        urllib.request.urlretrieve(clip['thumbnail_url'][:index]+".mp4", f'{self.path}\\{filename}')
 
         return f'{self.path}\\{filename}'
