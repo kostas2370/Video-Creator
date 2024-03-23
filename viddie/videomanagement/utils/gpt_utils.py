@@ -29,9 +29,9 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     g4f.logging = True  # enable logging
     g4f.check_version = False
 
-    gpt_model = g4f.models.gpt_4_32k_0613 if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
+    gpt_model = g4f.models.gpt_4_32k if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
 
-    response = g4f.ChatCompletion.create(model = g4f.models.gpt_4_turbo, messages = [{"content": prompt}], stream = True,
+    response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True,
                                         )
     x = io.StringIO()
     for message in response:
