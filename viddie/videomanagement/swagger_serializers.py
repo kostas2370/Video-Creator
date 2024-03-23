@@ -10,8 +10,8 @@ class GenerateSerializer(serializers.Serializer):
     images = serializers.ChoiceField(required = False, choices = ["DALL-E", "WEB", False], default = "WEB")
     avatar_selection = serializers.CharField(required = False, max_length = 30)
     style = serializers.ChoiceField(required = False, choices = ["vivid", "natural"], default = "vivid")
-    music = serializers.CharField(required = False, max_length = 80)
-    target_audience = serializers.CharField(required = False, max_length = 30)
+    music = serializers.CharField(required = False, max_length = 500)
+    target_audience = serializers.CharField(required = False, max_length = 30, min_length = 0)
 
 
 class DownloadPlaylistSerializer(serializers.Serializer):

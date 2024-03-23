@@ -1,16 +1,3 @@
-"""
-Viddie is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-"""
-import json
-import os
-
 from rest_framework.response import Response
 from slugify import slugify
 from rest_framework import viewsets
@@ -22,6 +9,7 @@ from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from datetime import date
+import os
 
 from django.conf import settings
 from .paginator import StandardResultsSetPagination
@@ -176,9 +164,9 @@ class GenerateView(viewsets.ViewSet):
     @swagger_auto_schema(request_body = GenerateSerializer,
                          operation_description = "This API generates the scenes , the prompt and scene images !")
     def create(self, request, *args, **kwargs):
-        template_select = request.data.get('template_id', 2)
+        template_id = request.data.get('template_id', 2)
         voice_id = request.data.get('voice_id', None)
-        prompt = request.data.get('message')
+        message = request.data.get('message')
         gpt_model = request.data.get('gpt_model', 'gpt-4')
         images = request.data.get('images', False)
         avatar_selection = request.data.get('avatar_selection', 'no_avatar')
@@ -193,7 +181,7 @@ class GenerateView(viewsets.ViewSet):
 
         avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
-        template = TemplatePrompts.get_template(template_select)
+        template = TemplatePrompts.get_template(template_id)
 
         if template:
             category = template.category
@@ -201,21 +189,21 @@ class GenerateView(viewsets.ViewSet):
 
         else:
             template_format = default_format
-            category = template_select if len(template_select) > 0 and not template_select.isnumeric() else ""
+            category = template_id if len(template_id) > 0 and not template_id.isnumeric() else ""
             template = None
 
         if settings.GPT_OFFICIAL:
-            message = format_prompt_for_official_gpt(template_format = template_format, template_category = category,
-                                                     userprompt = prompt, target_audience = target_audience)
+            prompt = format_prompt_for_official_gpt(template_format = template_format, template_category = category,
+                                                    userprompt = message, target_audience = target_audience)
 
             x = get_reply_from_official_api(message)
-            message = message[0]+message[1]
+            message = prompt[0]+prompt[1]
 
         else:
-            message = format_prompt(template_format = template_format, template_category = category,
-                                    userprompt = prompt, target_audience = target_audience)
+            prompt = format_prompt(template_format = template_format, template_category = category,
+                                   userprompt = message, target_audience = target_audience)
 
-            x = get_reply(message, gpt_model = gpt_model)
+            x = get_reply(prompt, gpt_model = gpt_model)
 
         userprompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
         userprompt.save()
@@ -316,12 +304,16 @@ def video_regenerate(request):
 
     video = get_object_or_404(Videos, id = video_id)
     with transaction.atomic():
+
         for scene in Scene.objects.filter(prompt = video.prompt):
             update_scene(scene)
             scenes_images = SceneImage.objects.filter(scene = scene)
 
             for scene_image in scenes_images:
                 generate_new_image(scene_image = scene_image, video = video)
+
+        if video.avatar:
+            os.remove(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4')
 
     return Response({"Message": f"Video with id {video_id} got regenerated successfully"}, status = status.HTTP_200_OK)
 
@@ -353,6 +345,6 @@ def generate_twitch(request):
 
     for clip in clips[:amt]:
         downloaded_clip = client.download_clip(clip)
-        create_twitch_clip_scene(downloaded_clip, clip.get("ttitle"), video.prompt)
+        create_twitch_clip_scene(downloaded_clip, clip.get("title"), video.prompt)
 
     return Response(VideoSerializer(video).data)
