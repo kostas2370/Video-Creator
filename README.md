@@ -64,4 +64,3 @@ For any Injuries or Support you can contact me at those emails :
 
 * Now we are able to make compilation videos from twitch by game or streamer
 * Added open-ai voices
-
