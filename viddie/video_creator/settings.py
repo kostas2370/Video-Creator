@@ -65,6 +65,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'video_creator.urls'
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000']
 
 TEMPLATES = [
     {

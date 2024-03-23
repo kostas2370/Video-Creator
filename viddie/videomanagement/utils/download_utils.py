@@ -73,7 +73,7 @@ def generate_from_dalle(prompt, dir_name, style, title=""):
     return rf"{dir_name}/images/{x}.png"
 
 
-def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="google", style="", title=""):
+def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="bing", style="", title=""):
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
     if mode == "DALL-E":
