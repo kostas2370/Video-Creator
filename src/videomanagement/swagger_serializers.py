@@ -1,6 +1,4 @@
 from rest_framework import serializers
-from .models import TEMPLATE_CHOICES
-
 
 class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required = True, max_length = 2000)
