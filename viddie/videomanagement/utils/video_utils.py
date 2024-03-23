@@ -9,7 +9,6 @@ You should have received a copy of the GNU General Public License along with thi
 """
 
 
-from .file_utils import select_music, select_background
 from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx,\
     concatenate_videoclips, CompositeVideoClip, TextClip
 from ..models import *

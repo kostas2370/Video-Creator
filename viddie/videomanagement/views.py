@@ -33,12 +33,11 @@ from .utils.twitch import TwitchClient
 from .utils.prompt_utils import format_prompt, format_update_form, format_prompt_for_official_gpt
 from .utils.gpt_utils import get_reply, get_update_sentence, get_reply_from_official_api
 from .utils.audio_utils import make_scenes_speech, update_scene
-from .utils.file_utils import generate_directory, select_avatar, select_voice
+from .utils.file_utils import generate_directory
 from .serializers import TemplatePromptsSerializer, MusicSerializer, VideoSerializer, AvatarNestedSerializer, \
     SceneSerializer, VoiceModelSerializer, AvatarSerializer, VideoNestedSerializer, SceneImageSerializer
 from .models import TemplatePrompts, Music, Videos, VoiceModels, UserPrompt, Avatars, Scene, SceneImage, Backgrounds
 
-from .view_utils import get_template
 from .defaults import default_format
 
 from .swagger_serializers import SceneUpdateSerializer, GenerateSerializer, DownloadPlaylistSerializer,TwitchSerializer
@@ -194,7 +193,7 @@ class GenerateView(viewsets.ViewSet):
 
         avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
-        template = get_template(template_select)
+        template = TemplatePrompts.get_template(template_select)
 
         if template:
             category = template.category
@@ -230,16 +229,16 @@ class GenerateView(viewsets.ViewSet):
                                     background = background)
 
         if avatar_selection != "no_avatar":
-            selected_avatar = select_avatar(selected = avatar_selection)
+            selected_avatar = Avatars.select_avatar(selected = avatar_selection)
             voice_model = selected_avatar.voice
             vid.avatar = selected_avatar
 
         else:
-            voice_model = VoiceModels.objects.get(id = voice_id) if voice_id else select_voice()
+            voice_model = VoiceModels.objects.get(id = voice_id) if voice_id else VoiceModels.select_voice()
 
         vid.voice_model = voice_model
-
         vid.save()
+
         make_scenes_speech(vid)
 
         if music:
