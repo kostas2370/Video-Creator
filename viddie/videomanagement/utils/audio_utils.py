@@ -8,6 +8,8 @@ def make_scenes_speech(video):
     voice_model = video.voice_model
     syn = voice_model.path
     gpt_answer = video.gpt_answer
+    search_field = "scene" if "scene" in gpt_answer["scenes"][0] and isinstance(gpt_answer["scenes"][0]["scene"], list) \
+        else "sections"
 
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     if voice_model.type.lower() == 'local':
@@ -17,12 +19,12 @@ def make_scenes_speech(video):
 
     for j in gpt_answer["scenes"]:
         if is_sentenced:
-            for index, sentence in enumerate(j['scene']):
+            for index, sentence in enumerate(j[search_field]):
                 filename = str(uuid.uuid4())
 
                 sound = save(syn, sentence['narration'], save_path = f'{dir_name}/dialogues/{filename}.wav')
                 Scene.objects.create(file = sound, prompt = video.prompt, text = sentence['narration'].strip(),
-                                     is_last = index == len(j['scene']) - 1)
+                                     is_last = index == len(j[search_field]) - 1)
 
         else:
             filename = str(uuid.uuid4())

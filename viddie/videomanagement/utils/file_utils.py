@@ -1,6 +1,4 @@
 import os
-from random import randint
-from ..models import Music, Backgrounds, Avatars, VoiceModels
 
 
 def generate_directory(name, x=0):
@@ -15,47 +13,3 @@ def generate_directory(name, x=0):
             return dir_name
         else:
             x += 1
-
-
-def select_music(category=None):
-    if category is None:
-        music = Music.objects.all()
-
-    else:
-        music = Music.objects.filter(category=category)
-
-    if music.count() > 0:
-        return music[randint(0, music.count() - 1)]
-
-    return None
-
-
-def select_background(category=None):
-    if category is not None:
-        back = Backgrounds.objects.filter(category = category)
-    else:
-
-        back = Backgrounds.objects.filter()
-    return back[randint(0, back.count() - 1)]
-
-
-def select_avatar(selected='random', voice_model=None):
-    if selected == 'random':
-        if voice_model is None:
-            avatars = Avatars.objects.all()
-        else:
-            avatars = Avatars.objects.filter(voice = voice_model)
-
-        return avatars[randint(0, avatars.count()-1)]
-
-    if type(selected) == int:
-        items = Avatars.objects.filter(id = selected)
-        if items.count() == 1:
-            return items.first()
-
-    return None
-
-
-def select_voice():
-    voice = VoiceModels.objects.all()
-    return voice[randint(0, voice.count() - 1)]

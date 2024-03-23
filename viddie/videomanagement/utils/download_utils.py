@@ -79,7 +79,8 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="goog
     if mode == "DALL-E":
         try:
             downloaded_image = generate_from_dalle(image, dir_name, style = style, title = title)
-        except:
+        except Exception as ex:
+            print(ex)
             downloaded_image = None
             pass
     else:
@@ -91,7 +92,8 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="goog
             try:
                 downloaded_image = download_image_from_google(image, f'{dir_name}/images/', amt = 3)
 
-            except:
+            except Exception as ex:
+                print(ex)
                 downloaded_image = None
 
     SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
@@ -100,9 +102,13 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="goog
 def create_image_scenes(video, mode="WEB", style="natural"):
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
+    search_field = "scene" if "scene" in video.gpt_answer["scenes"][0] and \
+                              isinstance(video.gpt_answer["scenes"][0]["scene"], list) \
+                           else "sections"
+
     for j in video.gpt_answer['scenes']:
         if is_sentenced:
-            for x in j['scene']:
+            for x in j[search_field]:
                 create_image_scene(video.prompt,
                                    x['image_description'],
                                    x['narration'],
@@ -148,11 +154,12 @@ def generate_new_image(scene_image, video, style="vivid"):
     if video.mode == "DALL-E":
         try:
             img = generate_from_dalle(scene_image.prompt, video.dir_name, style, title = video.title)
-        except:
+        except Exception as ex:
+            print(ex)
             img = None
             pass
-    else:
 
+    else:
         img = download_image_from_google(scene_image.prompt, f'{video.dir_name}\\images\\', amt = 3)
 
     if img:
