@@ -6,7 +6,6 @@ from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import action
 
-
 import os
 from drf_yasg.utils import swagger_auto_schema
 from ..paginator import StandardResultsSetPagination
@@ -15,7 +14,6 @@ from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..models import Videos, Avatars, Scene, SceneImage
 from ..utils.download_utils import generate_new_image
 from ..utils.video_utils import make_video
-
 
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
@@ -89,8 +87,3 @@ class VideoView(viewsets.ModelViewSet):
         vid.save()
         result = make_video(vid)
         return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})
-
-
-
-
-

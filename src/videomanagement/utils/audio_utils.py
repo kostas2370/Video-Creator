@@ -15,7 +15,7 @@ def make_scenes_speech(video):
     if voice_model.type.lower() == 'local':
         syn = create_model(model = syn)
     elif voice_model.type.lower() == 'api':
-        syn = ApiSyn(provider = "openai", path = video.voice_model.path)
+        syn = ApiSyn(provider = syn.provider, path = video.voice_model.path)
 
     for j in gpt_answer["scenes"]:
         if is_sentenced:
@@ -43,7 +43,7 @@ def update_scene(scene):
         syn = create_model(model = syn)
 
     elif voice_model.type.lower() == 'api':
-        syn = ApiSyn(provider = "openai", path = video.voice_model.path)
+        syn = ApiSyn(provider = video.voice_model.provider, path = video.voice_model.path)
 
     filename = str(uuid.uuid4())
 

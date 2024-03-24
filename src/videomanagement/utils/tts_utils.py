@@ -2,7 +2,7 @@ from TTS.utils.synthesizer import Synthesizer
 from TTS.utils.manage import ModelManager
 import os
 
-from .gpt_utils import tts_from_open_api
+from .gpt_utils import tts_from_open_api, tts_from_eleven_labs
 from dataclasses import dataclass
 
 
@@ -47,7 +47,15 @@ def save(syn, text="", save_path=""):
         syn.save_wav(outputs, save_path)
 
     if type(syn) is ApiSyn:
-        resp = tts_from_open_api(text, syn.path)
-        resp.stream_to_file(save_path)
+        if syn.provider == "open_ai":
+            resp = tts_from_open_api(text, syn.path)
+            resp.stream_to_file(save_path)
+
+        if syn.provider == "eleven_labs":
+            resp = tts_from_eleven_labs(text, syn.path)
+            with open(save_path, 'wb') as f:
+                for chunk in resp.iter_content(chunk_size = 1024):
+                    if chunk:
+                        f.write(chunk)
 
     return save_path
