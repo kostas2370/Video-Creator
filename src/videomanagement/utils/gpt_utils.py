@@ -6,6 +6,9 @@ from django.conf import settings
 from openai import OpenAI
 
 from .exceptions import InvalidJsonFormatError
+import requests
+
+
 
 
 def check_json(json_file):
@@ -126,3 +129,26 @@ def tts_from_open_api(text, voice="onyx"):
     print(f"Text : {text}")
     response = client.audio.speech.create(model = "tts-1", voice = voice, input = text)
     return response
+
+
+def tts_from_eleven_labs(text, voice):
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
+
+    headers = {"Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": settings.XI_API_KEY}
+    data = {"text": text, "model_id": "eleven_monolingual_v1",
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}}
+
+    response = requests.post(url, json = data, headers = headers)
+
+    return response
+
+
+def get_voices_from_labs():
+    url = "https://api.elevenlabs.io/v1/voices"
+    headers = {"Accept": "application/json", "xi-api-key": settings.XI_API_KEY, "Content-Type": "application/json"}
+
+    response = requests.get(url, headers = headers)
+    return response.json()['voices']
+
+
+

@@ -67,6 +67,7 @@ class Music(AbstractModel):
 
         return None
 
+
 class UserPrompt(models.Model):
     template = models.ForeignKey(TemplatePrompts, on_delete = models.CASCADE, blank = True, null = True)
     prompt = models.TextField(blank = False)
@@ -95,14 +96,15 @@ class SceneImage(models.Model):
 
 
 class VoiceModels(AbstractModel):
-    gender = models.CharField(max_length = 3)
+    name = models.CharField(max_length = 200, blank = True)
+    provider = models.CharField(max_length = 100, blank = True)
     type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
     sample = models.URLField(blank = True, null=True, max_length = 1000)
     path = models.CharField(max_length = 255, blank = False)
     objects = models.Manager()
 
     def __str__(self):
-        return self.path
+        return self.name
 
     @staticmethod
     def select_voice():

@@ -17,39 +17,43 @@
     "model": "videomanagement.voicemodels",
     "pk": 1,
     "fields": {
-      "gender": "fem",
+      "name": "neon",
       "type": "LOCAL",
-      "path": "tts_models/en/ljspeech/vits--neon"
+      "path": "tts_models/en/ljspeech/vits--neon",
+      "provider":"local"
     }
   },
    {
     "model": "videomanagement.voicemodels",
     "pk": 2,
     "fields": {
-      "gender": "mal",
+      "name": "alloy",
       "type": "API",
       "path": "alloy",
-      "sample": "https://cdn.openai.com/API/docs/audio/alloy.wav"
+      "sample": "https://cdn.openai.com/API/docs/audio/alloy.wav",
+      "provider":"open_ai"
     }
   },
    {
     "model": "videomanagement.voicemodels",
     "pk": 3,
     "fields": {
-      "gender": "mal",
+      "name": "echo",
       "type": "API",
       "path": "echo",
-      "sample": "https://cdn.openai.com/API/docs/audio/echo.wav"
+      "sample": "https://cdn.openai.com/API/docs/audio/echo.wav",
+      "provider":"open_ai"
     }
   },
   {
     "model": "videomanagement.voicemodels",
     "pk": 4,
     "fields": {
-      "gender": "mal",
+      "name": "fable",
       "type": "API",
       "path": "fable",
-      "sample": "https://cdn.openai.com/API/docs/audio/fable.wav"
+      "sample": "https://cdn.openai.com/API/docs/audio/fable.wav",
+      "provider":"open_ai"
     }
   },
 
@@ -57,20 +61,22 @@
     "model": "videomanagement.voicemodels",
     "pk": 5,
     "fields": {
-      "gender": "mal",
+      "name": "onyx",
       "type": "API",
       "path": "onyx",
-      "sample": "https://cdn.openai.com/API/docs/audio/onyx.wav"
+      "sample": "https://cdn.openai.com/API/docs/audio/onyx.wav",
+      "provider":"open_ai"
     }
   },
     {
     "model": "videomanagement.voicemodels",
     "pk": 6,
     "fields": {
-      "gender": "fem",
+      "name": "nova",
       "type": "API",
       "path": "nova",
-      "sample": "https://cdn.openai.com/API/docs/audio/nova.wav"
+      "sample": "https://cdn.openai.com/API/docs/audio/nova.wav",
+      "provider":"open_ai"
     }
   },
 
@@ -78,28 +84,31 @@
     "model": "videomanagement.voicemodels",
     "pk": 7,
     "fields": {
-      "gender": "fem",
+      "name": "shimmer",
       "type": "API",
       "path": "shimmer",
-      "sample": "https://cdn.openai.com/API/docs/audio/shimmer.wav"
+      "sample": "https://cdn.openai.com/API/docs/audio/shimmer.wav",
+      "provider":"open_ai"
     }
   },
   {
     "model": "videomanagement.voicemodels",
     "pk": 8,
     "fields": {
-      "gender": "fem",
+      "name": "tacotron",
       "type": "LOCAL",
-      "path": "tts_models/en/ljspeech/tacotron2-DDC"
+      "path": "tts_models/en/ljspeech/tacotron2-DDC",
+      "provider":"local"
     }
   },
     {
     "model": "videomanagement.voicemodels",
     "pk": 9,
     "fields": {
-      "gender": "fem",
+      "name": "jenny",
       "type": "LOCAL",
-      "path": "tts_models/en/jenny/jenny"
+      "path": "tts_models/en/jenny/jenny",
+      "provider":"local"
     }
   }
   ]
