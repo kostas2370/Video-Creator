@@ -45,22 +45,29 @@ py manage.py setup_media
 py manage.py runserver
 ```
 
-Login credentials for admin page : username = admin, password = pass
+If you want to add voices from elevenlabs(your voices or the premade ones) just add your XI_API_KEY in .env file and 
+run this command :
 
+```shell
+py manage.py setup_elevenlabs
+```
+
+Login credentials for admin page : username = admin, password = pass
 
 You can find all the endpoints in swagger : http://localhost:8000/swagger/
 
+
+
 * TO DO :
-1. Add voice cloning for avatars
-2. Convert all moviepy functions to ffmpeg for better Performance .
-3. Test Cases for models, functions and Views
-4. Improvement in dall e prompt , mcore detailed prompts for more consistency
+1. Convert all moviepy functions to ffmpeg for better Performance .
+2. Test Cases for models, functions and Views
+3. Improvement in dall e prompt , mcore detailed prompts for more consistency
 
 For any Injuries or Support you can contact me at those emails :
 1. kodamia@cs.ihu.gr (University Email)
 2. kostas2372@gmail.com (Personal Email)
 
 # NEWS:
-
+* Implemented ElevenLabs api voices !!
 * Now we are able to make compilation videos from twitch by game or streamer
 * Added open-ai voices
