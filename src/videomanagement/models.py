@@ -137,6 +137,7 @@ class Avatars(AbstractModel):
 
         return None
 
+
 class Backgrounds(AbstractModel):
     category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
     name = models.CharField(max_length = 100)
@@ -162,6 +163,20 @@ class Backgrounds(AbstractModel):
         return back[randint(0, back.count()-1)]
 
 
+class Intro(AbstractModel):
+    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
+    name = models.CharField(max_length = 100)
+    file = models.FileField(upload_to = "media/other/intros")
+    objects = models.Manager()
+
+
+class Outro(AbstractModel):
+    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
+    name = models.CharField(max_length = 100)
+    file = models.FileField(upload_to = "media/other/outros")
+    objects = models.Manager()
+
+
 class Videos(AbstractModel):
     title = models.CharField(max_length = 50, blank = False)
     url = models.URLField(blank = True)
@@ -176,23 +191,12 @@ class Videos(AbstractModel):
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
     music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
     background = models.ForeignKey(Backgrounds, blank = True, null = True, on_delete = models.SET_NULL)
+    intro = models.ForeignKey(Intro, blank = True, null = True, on_delete = models.SET_NULL)
+    outro = models.ForeignKey(Outro, blank = True, null = True, on_delete = models.SET_NULL)
+
     mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB")
 
     objects = models.Manager()
 
     def __str__(self):
         return f"{self.title} { str(self.id)}"
-
-
-class Intro(AbstractModel):
-    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
-    name = models.CharField(max_length = 100)
-    file = models.FileField(upload_to = "media/other/intros")
-    objects = models.Manager()
-
-
-class Outro(AbstractModel):
-    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
-    name = models.CharField(max_length = 100)
-    file = models.FileField(upload_to = "media/other/outros")
-    objects = models.Manager()

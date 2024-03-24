@@ -85,7 +85,7 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="bing
             pass
     else:
         if provider == "bing":
-            downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6, title = title)
+            downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
             downloaded_image = check_which_file_exists(downloaded_image)
 
         else:
@@ -103,8 +103,8 @@ def create_image_scenes(video, mode="WEB", style="natural"):
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
     search_field = "scene" if "scene" in video.gpt_answer["scenes"][0] and \
-                              isinstance(video.gpt_answer["scenes"][0]["scene"], list) \
-                           else "sections"
+                              isinstance(video.gpt_answer["scenes"][0]["scene"],list) \
+                              else "sections" if "sections" in video.gpt_answer["scenes"][0] else "sentence"
 
     for j in video.gpt_answer['scenes']:
         if is_sentenced:

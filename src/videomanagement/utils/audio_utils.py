@@ -8,8 +8,8 @@ def make_scenes_speech(video):
     voice_model = video.voice_model
     syn = voice_model.path
     gpt_answer = video.gpt_answer
-    search_field = "scene" if "scene" in gpt_answer["scenes"][0] and isinstance(gpt_answer["scenes"][0]["scene"], list) \
-        else "sections"
+    search_field = "scene" if "scene" in gpt_answer["scenes"][0] and isinstance(gpt_answer["scenes"][0]["scene"], list)\
+                   else "sections" if "sections" in gpt_answer["scenes"][0] else "sentence"
 
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     if voice_model.type.lower() == 'local':

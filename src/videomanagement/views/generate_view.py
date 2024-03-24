@@ -14,7 +14,7 @@ from ..utils.gpt_utils import get_reply, get_reply_from_official_api
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..serializers import TemplatePromptsSerializer
-from ..models import TemplatePrompts, Videos, VoiceModels, UserPrompt, Avatars, Backgrounds
+from ..models import TemplatePrompts, Videos, VoiceModels, UserPrompt, Avatars, Backgrounds, Intro, Outro
 
 from ..defaults import default_format
 
@@ -38,6 +38,8 @@ class GenerateView(viewsets.ViewSet):
         music = request.data.get("music")
         target_audience = request.data.get('target_audience')
         background = request.data.get('background')
+        intro = request.data.get("intro", None)
+        outro = request.data.get("outro", None)
 
         if background == "random":
             background = Backgrounds.objects.all()
@@ -74,11 +76,21 @@ class GenerateView(viewsets.ViewSet):
 
         dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
 
+        if intro and outro:
+            intro = Intro.objects.get(id = int(intro))
+            outro = Outro.objects.get(id = int(outro))
+
+        if intro == "default":
+            intro = Intro.objects.all().first()
+            outro = Outro.objects.all().first()
+
         vid = Videos.objects.create(title = x['title'],
                                     prompt = userprompt,
                                     dir_name = dir_name,
                                     gpt_answer = x,
-                                    background = background)
+                                    background = background,
+                                    intro = intro,
+                                    outro = outro)
 
         if avatar_selection != "no_avatar":
             selected_avatar = Avatars.select_avatar(selected = avatar_selection)
