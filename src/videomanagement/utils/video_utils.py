@@ -70,10 +70,10 @@ def make_video(video, subtitle=False):
                 if x.file and check_if_image(x.file.path):
                     if background:
                         Image.open(x.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(x.file.path)
-
-                    image = ImageClip(x.file.path)
-                    image = image.set_duration(audio.duration/len(scenes))
                     try:
+                        image = ImageClip(x.file.path)
+                        image = image.set_duration(audio.duration/len(scenes))
+
                         image = image.fadein(image.duration*0.2).\
                             fadeout(image.duration*0.2)
                     except ValueError:
@@ -136,12 +136,9 @@ def make_video(video, subtitle=False):
         subs = concatenate_videoclips(subtitles)
         final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
 
-    intro = Intro.objects.filter(Q(category = category) | Q(category="OTHER"))
-    outro = Outro.objects.filter(Q(category = category) | Q(category="OTHER"))
-
-    if intro and outro:
-        intro = VideoFileClip(intro[0].file.path)
-        outro = VideoFileClip(outro[0].file.path)
+    if video.intro and video.outro:
+        intro = VideoFileClip(video.intro.file.path)
+        outro = VideoFileClip(video.outro.file.path)
         final_video = concatenate_videoclips([intro, final_video, outro], method='compose')
 
     final_video.write_videofile(rf"{video.dir_name}\output_video.mp4", fps = 24, threads = 8)

@@ -24,9 +24,9 @@ def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
         try:
             voc_path, voc_config_path, _ = model_manager.download_model(vocoder)
 
-        except Exception:
+        except Exception as ex:
             voc_path, voc_config_path, _ = None, None, None
-            print(Exception)
+            print(ex)
     else:
         voc_path, voc_config_path = None, None
 
@@ -43,7 +43,6 @@ def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
 def save(syn, text="", save_path=""):
 
     if type(syn) is Synthesizer:
-
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)
 

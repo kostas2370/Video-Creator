@@ -29,7 +29,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     g4f.logging = True  # enable logging
     g4f.check_version = False
 
-    gpt_model = g4f.models.gpt_4_32k if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
+    gpt_model = g4f.models.gpt_4 if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
 
     response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True,
                                         )
@@ -114,8 +114,6 @@ def select_from_vision(prompt, images):
 
     response = client.chat.completions.create(model = "gpt-4-vision-preview", messages = messages, max_tokens = 300, )
     x = response.choices[0].message.content
-    print(messages)
-    print(x)
 
     x = 0 if '1' in x else 1 if '2' in x else 2
 
@@ -123,6 +121,8 @@ def select_from_vision(prompt, images):
 
 
 def tts_from_open_api(text, voice="onyx"):
+
     client = OpenAI(api_key = settings.OPEN_API_KEY)
+    print(f"Text : {text}")
     response = client.audio.speech.create(model = "tts-1", voice = voice, input = text)
     return response
