@@ -3,15 +3,6 @@ from django.conf import settings
 from ...utils.gpt_utils import get_voices_from_labs
 from ...models import VoiceModels
 
-"""
-    name = models.CharField(max_length = 200, blank = True)
-    provider = models.CharField(max_length = 100, blank = True)
-    type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
-    sample = models.URLField(blank = True, null=True, max_length = 1000)
-    path = models.CharField(max_length = 255, blank = False)
-
-"""
-
 
 class Command(BaseCommand):
     help = "Setup the eleven labs voices"
