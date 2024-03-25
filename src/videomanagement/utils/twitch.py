@@ -56,11 +56,14 @@ class TwitchClient:
 
         return req.json().get("data").get("id")
 
-    def get_clips(self, value, mode="game"):
+    def get_clips(self, value, mode="game", start_date=""):
         base_url = "https://api.twitch.tv/helix/clips"
 
         url = f"{base_url}?game_id={value}" if mode == "game" else \
               f"{base_url}?broadcaster_id={value}"
+
+        if start_date:
+            url += f"&started_at={start_date}T00:00:00Z"
 
         clips = requests.get(url, headers = self.headers)
 

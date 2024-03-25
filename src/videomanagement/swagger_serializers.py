@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+
 class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required = True, max_length = 2000)
     template_id = serializers.CharField(required = False, max_length = 20)
@@ -26,3 +27,5 @@ class TwitchSerializer(serializers.Serializer):
     mode = serializers.ChoiceField(choices = ["Streamer", "Game"] , default="Streamer")
     value = serializers.CharField(max_length = 200)
     amt = serializers.IntegerField(max_value = 20)
+    started_at = serializers.DateField(format="%YYYY-%mm-%dd")
+

@@ -172,7 +172,7 @@ def create_twitch_clip_scene(clip, title, prompt):
     splited_clip = split_video_and_mp3(clip)
     edited_video = add_text_to_video(splited_clip[1], title, x = 80, y = 900)
 
-    curr_scene = Scene.objects.create(file = splited_clip[0], prompt = prompt, text = clip.get("title"),
+    curr_scene = Scene.objects.create(file = splited_clip[0], prompt = prompt, text = title,
                                       is_last = True)
 
     SceneImage.objects.create(scene = curr_scene, file = edited_video, prompt = "twitch video")

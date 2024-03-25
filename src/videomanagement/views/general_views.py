@@ -3,23 +3,11 @@ from rest_framework import viewsets
 from rest_framework.decorators import api_view
 
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
-
 from ..utils.download_utils import download_playlist
-
 from ..serializers import TemplatePromptsSerializer, MusicSerializer, AvatarNestedSerializer, VoiceModelSerializer, \
     AvatarSerializer, SceneImageSerializer
 from ..models import TemplatePrompts, Music, VoiceModels, Avatars, SceneImage
-
 from ..swagger_serializers import DownloadPlaylistSerializer
-
-
-swagger_video_id = openapi.Parameter('video_id', openapi.IN_QUERY, description="Id of the video",
-                                     type=openapi.TYPE_NUMBER)
-swagger_images = openapi.Parameter('images', openapi.IN_QUERY, description="Image mode , webscrap or AI",
-                                   type=openapi.TYPE_STRING)
-swagger_style = openapi.Parameter('image_style', openapi.IN_QUERY, description="DALL E image styles ; vivid, natural",
-                                  type=openapi.TYPE_STRING)
 
 
 class SceneImageView(viewsets.ModelViewSet):
