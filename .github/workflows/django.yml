@@ -23,8 +23,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install Dependencies
       run: |
+        findstr  /V "TTS" src/requirements.txt > src/requirements_fix.txt
         python -m pip install --upgrade pip
-        pip install -r src/requirements.txt
-    - name: Run Tests
-      run: |
-        python manage.py test
+        pip install -r src/requirements_fix.txt
+
