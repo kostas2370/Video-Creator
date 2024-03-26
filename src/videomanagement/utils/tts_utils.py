@@ -1,5 +1,5 @@
-from TTS.utils.synthesizer import Synthesizer
-from TTS.utils.manage import ModelManager
+#from TTS.utils.synthesizer import Synthesizer
+#from TTS.utils.manage import ModelManager
 import os
 
 from .gpt_utils import tts_from_open_api, tts_from_eleven_labs
@@ -12,6 +12,7 @@ class ApiSyn:
     path: str
 
 
+"""
 def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
                  model="tts_models/en/ljspeech/vits--neon", vocoder="default_vocoder"):
 
@@ -38,14 +39,14 @@ def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
         syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path)
 
     return syn
-
+"""
 
 def save(syn, text="", save_path=""):
-
+    """
     if type(syn) is Synthesizer:
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)
-
+    """
     if type(syn) is ApiSyn:
         if syn.provider == "open_ai":
             resp = tts_from_open_api(text, syn.path)

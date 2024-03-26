@@ -15,6 +15,7 @@ from ..models import Videos, Avatars, Scene, SceneImage
 from ..utils.download_utils import generate_new_image
 from ..utils.video_utils import make_video
 
+
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
     queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
