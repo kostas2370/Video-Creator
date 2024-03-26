@@ -79,7 +79,7 @@ class UserPrompt(models.Model):
 
 class Scene(models.Model):
     prompt = models.ForeignKey(UserPrompt, on_delete = models.CASCADE)
-    file = models.FileField(upload_to = "media/speech")
+    file = models.FileField(upload_to = "media/speech", max_length = 2000)
     text = models.TextField()
     is_last = models.BooleanField(default = True)
     objects = models.Manager()
@@ -90,7 +90,7 @@ class Scene(models.Model):
 
 class SceneImage(models.Model):
     scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
-    file = models.FileField(upload_to = "media/images", null = True, blank = True)
+    file = models.FileField(upload_to = "media/images", null = True, blank = True, max_length = 2000)
     prompt = models.TextField(default = "", blank = True, null = True)
     objects = models.Manager()
 
@@ -115,7 +115,7 @@ class VoiceModels(AbstractModel):
 class Avatars(AbstractModel):
     name = models.CharField(max_length = 100, default = "Natasha")
     gender = models.CharField(max_length = 10)
-    file = models.FileField(upload_to = "media/other/avatars")
+    file = models.FileField(upload_to = "media/other/avatars", max_length = 2000)
     voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, db_constraint=False)
     objects = models.Manager()
 
@@ -184,7 +184,7 @@ class Videos(AbstractModel):
     url = models.URLField(blank = True)
     gpt_answer = models.TextField(blank = True, null = True)
     prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
-    output = models.FileField(upload_to = "media/output", blank = True, null=True)
+    output = models.FileField(upload_to = "media/output", blank = True, null=True, max_length = 2000)
     dir_name = models.TextField(default = "")
     voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1,
                                     db_constraint=False)
