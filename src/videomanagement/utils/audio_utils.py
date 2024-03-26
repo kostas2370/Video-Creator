@@ -1,4 +1,4 @@
-from .tts_utils import create_model, save, ApiSyn
+from .tts_utils import  save, ApiSyn, create_model
 from ..models import Scene, Videos
 import uuid
 
