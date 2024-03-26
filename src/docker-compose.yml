@@ -1,34 +1,18 @@
 version: '3.9'
 
 services:
-  clippy:
+
+
+
+  video_creator:
     build: .
     command: /startdjango
     ports:
       - "8000:8000"
     volumes:
       - .:/app
-    depends_on:
-      - redis
-      - celery
 
-  redis:
-    image: "redis:alpine"
 
-  celery:
-    build: .
-    command: /startceleryworker
 
-    volumes:
-      - .:/app
-    depends_on:
-      - redis
 
-  celery-beat:
-    build: .
-    command: /startcelerybeat
-    volumes:
-      - .:/app
-    depends_on:
-      - clippy
 

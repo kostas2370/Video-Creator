@@ -1,4 +1,4 @@
-FROM python:3.9.5
+FROM python:3.9
 
 ENV PYTHONBUFFERED 1
 
@@ -16,23 +16,19 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY ../requirements.txt .
+COPY production_requirements.txt .
 
 
 RUN python -m pip install --upgrade pip
-RUN pip install -r requirements.txt
+RUN pip install -r production_requirements.txt
 
 
 COPY startdjango.sh /startdjango
-COPY startceleryworker.sh /startceleryworker
-COPY startcelerybeat.sh /startcelerybeat
+
 
 RUN sed -i 's/\r$//g' /startdjango
 RUN chmod +x /startdjango
-RUN sed -i 's/\r$//g' /startceleryworker
-RUN chmod +x /startceleryworker
-RUN sed -i 's/\r$//g' /startcelerybeat
-RUN chmod +x /startcelerybeat
+
 
 
 EXPOSE 8000
