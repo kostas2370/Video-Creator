@@ -1,0 +1,9 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+media/videos

@@ -87,3 +87,14 @@ class VideoNestedSerializer(serializers.ModelSerializer):
         return SceneSerializer(scenes, many = True).data
 
 
+class IntroSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Intro
+        fields = "__all__"
+
+
+class OutroSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Outro
+        fields = "__all__"
