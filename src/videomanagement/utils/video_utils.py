@@ -136,10 +136,13 @@ def make_video(video, subtitle=False):
         subs = concatenate_videoclips(subtitles)
         final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
 
-    if video.intro and video.outro:
+    if video.intro:
         intro = VideoFileClip(video.intro.file.path)
+        final_video = concatenate_videoclips([intro, final_video], method='compose')
+
+    if video.outro:
         outro = VideoFileClip(video.outro.file.path)
-        final_video = concatenate_videoclips([intro, final_video, outro], method='compose')
+        final_video = concatenate_videoclips([final_video, outro], method='compose')
 
     final_video.write_videofile(rf"{video.dir_name}\output_video.mp4", fps = 24, threads = 8)
 

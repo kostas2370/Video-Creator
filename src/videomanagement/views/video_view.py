@@ -11,7 +11,7 @@ from drf_yasg.utils import swagger_auto_schema
 from ..paginator import StandardResultsSetPagination
 from ..utils.audio_utils import update_scene
 from ..serializers import VideoSerializer, VideoNestedSerializer
-from ..models import Videos, Avatars, Scene, SceneImage
+from ..models import Videos, Avatars, Scene, SceneImage, Intro, Outro
 from ..utils.download_utils import generate_new_image
 from ..utils.video_utils import make_video
 
@@ -33,9 +33,12 @@ class VideoView(viewsets.ModelViewSet):
                                                  "new audios")
     def partial_update(self, request, pk):
         avatar = request.data.get('avatar')
+        intro = request.data.get('intro')
+        outro = request.data.get('outro')
+
         video = self.get_object()
 
-        if avatar and avatar == "no_avatar":
+        if avatar and avatar == "no_value":
             video.avatar = None
             return Response("Avatar update")
 
@@ -52,8 +55,16 @@ class VideoView(viewsets.ModelViewSet):
 
             return Response("Avatar update")
 
-        else:
-            return Response("Updated")
+        intro = Intro.objects.get(id=intro) if intro is not None and intro != "no_value" else None \
+            if intro == "no_value" else video.intro
+
+        outro = Outro.objects.get(id=outro) if outro is not None and outro != "no_value" else None \
+            if outro == "no_value" else video.outro
+
+        video.intro = intro
+        video.outro = outro
+        video.save()
+        return Response("Updated Success")
 
     @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
                                                  "a new one if it doesnt exists", method = "GET")

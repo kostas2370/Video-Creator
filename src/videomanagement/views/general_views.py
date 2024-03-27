@@ -4,9 +4,9 @@ from rest_framework.decorators import api_view
 
 from drf_yasg.utils import swagger_auto_schema
 from ..utils.download_utils import download_playlist
-from ..serializers import TemplatePromptsSerializer, MusicSerializer, AvatarNestedSerializer, VoiceModelSerializer, \
+from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, AvatarNestedSerializer, VoiceModelSerializer, \
     AvatarSerializer, SceneImageSerializer
-from ..models import TemplatePrompts, Music, VoiceModels, Avatars, SceneImage
+from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage
 from ..swagger_serializers import DownloadPlaylistSerializer
 
 
@@ -39,6 +39,16 @@ class AvatarView(viewsets.ModelViewSet):
             return AvatarNestedSerializer
 
         return AvatarSerializer
+
+
+class IntroView(viewsets.ModelViewSet):
+    serializer_class = IntroSerializer
+    queryset = Intro.objects.all()
+
+
+class OutroView(viewsets.ModelViewSet):
+    serializer_class = OutroSerializer
+    queryset = Outro.objects.all()
 
 
 @swagger_auto_schema(request_body = DownloadPlaylistSerializer,

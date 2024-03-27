@@ -1,6 +1,18 @@
 version: '3.9'
 
 services:
+  db:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3307:3307"
+
+
 
 
 
@@ -11,6 +23,9 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+
+    env_file:
+      - .env
 
 
 
