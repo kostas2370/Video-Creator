@@ -9,8 +9,6 @@ from .exceptions import InvalidJsonFormatError
 import requests
 
 
-
-
 def check_json(json_file):
     if "scenes" not in json_file:
         return False
@@ -149,6 +147,3 @@ def get_voices_from_labs():
 
     response = requests.get(url, headers = headers)
     return response.json()['voices']
-
-
-
