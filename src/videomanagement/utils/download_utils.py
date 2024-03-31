@@ -1,5 +1,5 @@
 from pytube import Playlist
-from ..models import Music, Scene, SceneImage
+from ..models import Music, Scene, SceneImage, Videos
 import uuid
 from .bing_image_downloader import downloader
 import os
@@ -13,7 +13,7 @@ from .google_image_downloader import downloader as google_downloader
 from .video_utils import split_video_and_mp3, add_text_to_video
 
 
-def download_playlist(url, category):
+def download_playlist(url: str, category: str) -> None:
     playlist = Playlist(url)
     for music in playlist.videos:
         stream = music.streams.filter(only_audio = True).first()
@@ -32,27 +32,25 @@ def download_playlist(url, category):
         except FileNotDownloadedError:
             pass
 
-    return True
 
-
-def download_image(query, path, amount=1):
+def download_image(query: str, path: str, amount: int = 1) -> list[str]:
     return downloader.download(query = f'{query}', limit = amount, output_dir = path,
                                adult_filter_off = True,
                                force_replace = False, timeout = 60, filter = 'photo')
 
 
-def download_image_from_google(q, path, amt=1):
+def download_image_from_google(q: str, path: str, amt: int = 1) -> str:
     return google_downloader.download(q = q, path = path, amt = amt)
 
 
-def check_which_file_exists(images):
+def check_which_file_exists(images: list) -> str:
     for i in images:
         if os.path.exists(i):
             return i
     return None
 
 
-def generate_from_dalle(prompt, dir_name, style, title=""):
+def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "") -> str:
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
 
@@ -73,7 +71,9 @@ def generate_from_dalle(prompt, dir_name, style, title=""):
     return rf"{dir_name}/images/{x}.png"
 
 
-def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="bing", style="", title=""):
+def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: str = "WEB", provider: str = "bing",
+                       style: str = "", title: str = "") -> None:
+
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
 
     if mode == "DALL-E":
@@ -99,7 +99,7 @@ def create_image_scene(prompt, image, text, dir_name, mode="WEB", provider="bing
     SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
 
-def create_image_scenes(video, mode="WEB", style="natural"):
+def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural") -> None:
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
     search_field = "scene" if "scene" in video.gpt_answer["scenes"][0] and \
@@ -129,14 +129,14 @@ def create_image_scenes(video, mode="WEB", style="natural"):
                                title = video.title)
 
 
-def download_video(url, dir_name):
+def download_video(url: str, dir_name: str) -> str:
     yt = YouTube(url)
     video = yt.streams.get_highest_resolution()
     video.download(dir_name)
     return rf'{dir_name}{yt.title}.mp4'
 
 
-def download_music(url):
+def download_music(url: str) -> str:
     yt = YouTube(url)
 
     video = yt.streams.filter(only_audio = True).first()
@@ -152,7 +152,7 @@ def download_music(url):
     return mus
 
 
-def generate_new_image(scene_image, video, style="vivid"):
+def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid") -> SceneImage:
     if video.mode == "DALL-E":
         try:
             img = generate_from_dalle(scene_image.prompt, video.dir_name, style, title = video.title)
@@ -170,7 +170,7 @@ def generate_new_image(scene_image, video, style="vivid"):
     return scene_image
 
 
-def create_twitch_clip_scene(clip, title, prompt):
+def create_twitch_clip_scene(clip: str, title: str, prompt: str) -> None:
     splited_clip = split_video_and_mp3(clip)
     edited_video = add_text_to_video(splited_clip[1], title, x = 80, y = 900)
 

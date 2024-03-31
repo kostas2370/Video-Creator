@@ -1,11 +1,13 @@
 import requests
 import urllib.request
 import uuid
-from django.conf import settings
 from ..gpt_utils import select_from_vision
 from django.conf import settings
+from requests import Response
+from typing import Union
 
-def build_payload(query, start=1, num=1, **params):
+
+def build_payload(query: str, start: int = 1, num: int = 1, **params) -> dict:
     payload = {'key': settings.API_KEY,
                'q': query, 'cx': settings.SEARCH_ENGINE_ID,
                'start': start,
@@ -20,18 +22,20 @@ def build_payload(query, start=1, num=1, **params):
     return payload
 
 
-def make_request(payload):
+def make_request(payload: dict) -> Response:
     response = requests.get('https://www.googleapis.com/customsearch/v1', params = payload)
     if response.status_code != 200:
         raise Exception('Request Failed')
     return response
 
 
-def download(q, amt=1, path=''):
+def download(q: str, amt: int = 1, path: str = '') -> Union[str, None]:
     payload = build_payload(q, num = amt)
     try:
         response = make_request(payload)
-    except:
+
+    except Exception as exc:
+        print(exc)
         return None
 
     if response.status_code != 200:

@@ -3,7 +3,7 @@ from ..models import Scene, Videos
 import uuid
 
 
-def make_scenes_speech(video):
+def make_scenes_speech(video: Videos) -> None:
     dir_name = video.dir_name
     voice_model = video.voice_model
     syn = voice_model.path
@@ -32,10 +32,10 @@ def make_scenes_speech(video):
             sound = save(syn, j['dialogue'], save_path = f'{dir_name}/dialogues/{filename}.wav')
             Scene.objects.create(file = sound, prompt = video.prompt, text = j['dialogue'].strip())
 
-    return True
+    return
 
 
-def update_scene(scene):
+def update_scene(scene: Scene) -> None:
     video = Videos.objects.get(prompt__id=scene.prompt.id)
     dir_name = video.dir_name
     voice_model = video.voice_model
@@ -51,5 +51,3 @@ def update_scene(scene):
     sound = save(syn, scene.text, save_path = f'{dir_name}/dialogues/{filename}.wav')
     scene.file = sound
     scene.save()
-
-    return True

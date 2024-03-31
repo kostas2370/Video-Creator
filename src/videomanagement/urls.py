@@ -10,7 +10,7 @@ from django.urls import path
 router = routers.DefaultRouter()
 
 
-router.register('templates', TemplatePromptView)
+# router.register('templates', TemplatePromptView)
 router.register('generate', GenerateView)
 router.register('video', VideoView)
 router.register('avatars', AvatarView)

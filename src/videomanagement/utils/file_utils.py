@@ -1,7 +1,7 @@
 import os
 
 
-def generate_directory(name, x=0):
+def generate_directory(name: str, x: int = 0) -> str:
 
     while True:
         dir_name = (name + (' ' + str(x) if x is not 0 else '')).strip()

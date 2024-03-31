@@ -1,6 +1,7 @@
 from TTS.utils.synthesizer import Synthesizer
 from TTS.utils.manage import ModelManager
 import os
+from typing import Union
 
 from .gpt_utils import tts_from_open_api, tts_from_eleven_labs
 from dataclasses import dataclass
@@ -12,8 +13,8 @@ class ApiSyn:
     path: str
 
 
-def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
-                 model="tts_models/en/ljspeech/vits--neon", vocoder="default_vocoder"):
+def create_model(model_path: str = rf"{os.path.abspath(os.getcwd())}\.models.json",
+                 model: str = "tts_models/en/ljspeech/vits--neon", vocoder: str = "default_vocoder") -> Synthesizer:
 
     model_manager = ModelManager(model_path)
     model_path, config_path, model_item = model_manager.download_model(model)
@@ -40,7 +41,7 @@ def create_model(model_path=rf"{os.path.abspath(os.getcwd())}\.models.json",
     return syn
 
 
-def save(syn, text="", save_path=""):
+def save(syn: Union[Synthesizer, ApiSyn], text: str = "", save_path: str = "") -> str:
     if type(syn) is Synthesizer:
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)

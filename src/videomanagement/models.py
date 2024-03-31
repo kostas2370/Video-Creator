@@ -1,6 +1,8 @@
+from __future__ import annotations
 from django.db import models
 from django.contrib.auth import get_user_model
 from random import randint
+from typing import Union
 
 TEMPLATE_CHOICES = (("EDUCATIONAL", "Educational"), ("GAMING", "Gaming"), ("ADVERTISEMENT", "Advertisement"),
                     ("STORY", "Story"), ("OTHER", "Other"))
@@ -32,7 +34,7 @@ class TemplatePrompts(AbstractModel):
         return self.title
 
     @staticmethod
-    def get_template(template_select: str):
+    def get_template(template_select: str) -> Union[TemplatePrompts, None]:
         if template_select.isnumeric():
             template = TemplatePrompts.objects.filter(id = template_select)
 
@@ -55,7 +57,7 @@ class Music(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_music(category=None):
+    def select_music(category: str = None) -> Union[Music, None]:
         if category is None:
             music = Music.objects.all()
 
@@ -107,7 +109,7 @@ class VoiceModels(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_voice():
+    def select_voice() -> VoiceModels:
         voice = VoiceModels.objects.all()
         return voice[randint(0, voice.count()-1)]
 
@@ -123,7 +125,7 @@ class Avatars(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_avatar(selected='random', voice_model=None):
+    def select_avatar(selected: str = 'random', voice_model: VoiceModels = None) -> Union[Avatars, None]:
         if selected == 'random':
             if voice_model is None:
                 avatars = Avatars.objects.all()
@@ -156,7 +158,7 @@ class Backgrounds(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_background(category=None):
+    def select_background(category: str = None) -> Backgrounds:
         if category is not None:
             back = Backgrounds.objects.filter(category = category)
         else:
