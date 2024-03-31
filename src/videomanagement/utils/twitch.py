@@ -11,7 +11,7 @@ class TwitchClient:
         self.path = path
         self.headers = None
 
-    def set_headers(self):
+    def set_headers(self) -> dict:
         headers = {'Content-Type': 'application/x-www-form-urlencoded', }
         data = f'client_id={settings.TWITCH_CLIENT}&client_secret={settings.TWITCH_CLIENT_SECRET}' \
                f'&grant_type=client_credentials'
@@ -30,7 +30,7 @@ class TwitchClient:
         self.headers = {"Authorization": f"Bearer {bearer}", "Client-Id": settings.TWITCH_CLIENT}
         return {"Authorization": f"Bearer {bearer}", "Client-Id": settings.TWITCH_CLIENT}
 
-    def get_game_id(self, name):
+    def get_game_id(self, name: str) -> str:
         if self.headers is None:
             raise HeaderInitiationError
 
@@ -44,7 +44,7 @@ class TwitchClient:
 
         return req.json().get("data")[0].get("id")
 
-    def get_streamer_id(self, name):
+    def get_streamer_id(self, name: str) -> str:
 
         url = f'https://api.twitch.tv/helix/users?login={name}'
         req = requests.get(url, headers = self.headers)
@@ -56,7 +56,7 @@ class TwitchClient:
 
         return req.json().get("data").get("id")
 
-    def get_clips(self, value, mode="game", start_date=""):
+    def get_clips(self, value: str, mode="game", start_date: str = ""):
         base_url = "https://api.twitch.tv/helix/clips"
 
         url = f"{base_url}?game_id={value}" if mode == "game" else \
@@ -69,7 +69,7 @@ class TwitchClient:
 
         return clips.json().get("data")
 
-    def download_clip(self, clip):
+    def download_clip(self, clip) -> str:
         index = clip.get("thumbnail_url").find('-preview')
         filename = f'{str(uuid.uuid4())}.mp4'
         urllib.request.urlretrieve(clip['thumbnail_url'][:index]+".mp4", f'{self.path}\\{filename}')

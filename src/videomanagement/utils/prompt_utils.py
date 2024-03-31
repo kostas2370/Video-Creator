@@ -1,4 +1,5 @@
-def format_prompt(template_format, template_category, userprompt="", title='', target_audience=''):
+def format_prompt(template_format: str, template_category: str, userprompt: str = "", title: str = '',
+                  target_audience: str = '') -> str:
 
     if title == '':
         title = "The title will be selected by you, depending on the prompt"
@@ -18,7 +19,8 @@ def format_prompt(template_format, template_category, userprompt="", title='', t
     return output
 
 
-def format_prompt_for_official_gpt(template_format, template_category, userprompt="", title='', target_audience=''):
+def format_prompt_for_official_gpt(template_format: str, template_category: str, userprompt: str = "", title: str = '',
+                                   target_audience: str = ''):
 
     if title == '':
         title = "The title will be selected by you, depending on the prompt"
@@ -36,10 +38,10 @@ def format_prompt_for_official_gpt(template_format, template_category, userpromp
     return system_output, user_output
 
 
-def format_update_form(text, prompt):
+def format_update_form(text: str, prompt: str) -> str:
     return f"The text i will give you is a scene in a video. {text}. Rewrite this text: {prompt} . " \
            f"The text must be around the same size"
 
 
-def format_dalle_prompt(title, image_description):
+def format_dalle_prompt(title: str, image_description: str) -> str:
     return f'Title : {title} \nImage Description:{image_description}'

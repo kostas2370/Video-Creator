@@ -17,11 +17,10 @@ import subprocess
 import shlex
 import os
 from .SadTalker.inference import lip
-from django.db.models import Q
 import uuid
 
 
-def check_if_image(path):
+def check_if_image(path: str) -> bool:
     image_extensions = ['jpg', 'jpeg', 'png']
     for x in image_extensions:
         if x in path:
@@ -29,7 +28,7 @@ def check_if_image(path):
     return False
 
 
-def check_if_video(path):
+def check_if_video(path: str) -> bool:
     image_extensions = ['mp4',  'avi']
     for x in image_extensions:
         if x in path:
@@ -37,7 +36,7 @@ def check_if_video(path):
     return False
 
 
-def make_video(video, subtitle=False):
+def make_video(video: Videos, subtitle: bool = False) -> Videos:
     silent = AudioFileClip(r'assets\blank.wav')
     black = ImageClip(r'assets\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
@@ -155,7 +154,7 @@ def make_video(video, subtitle=False):
     return video
 
 
-def create_avatar_video(avatar, dir_name):
+def create_avatar_video(avatar: Avatars, dir_name: str) -> str:
     avatar_cam = lip(source_image = avatar.file.path,
                      driven_audio = rf"{dir_name}\output_audio.wav",
                      result_dir = dir_name, facerender = "pirender", )
@@ -167,7 +166,7 @@ def create_avatar_video(avatar, dir_name):
     return output
 
 
-def split_video_and_mp3(video_path):
+def split_video_and_mp3(video_path: str) -> tuple[str, str]:
     folder_to_save = os.path.split(os.path.abspath(video_path))[0]
     video = VideoFileClip(video_path)
     audio_save = f'{str(folder_to_save)}/dialogues/{str(uuid.uuid4())}.mp3'
@@ -181,9 +180,13 @@ def split_video_and_mp3(video_path):
     return audio_save, video_save
 
 
-def add_text_to_video(video, text, fontcolor="blue", fontsize=50, x=500, y=500):
+def add_text_to_video(video: str, text: str, fontcolor: str = "blue", fontsize: int = 50,
+                      x: int = 500, y: int = 500) -> str:
+
     video_name = video[:-3]+"l.mp4"
-    command = f"ffmpeg -i \"{video}\" -vf \" drawtext =fontsize={fontsize}: fontcolor = {fontcolor}:text='{text}': x = {x}: y= {y} \" \"{video_name}\""
+    command = f"ffmpeg -i \"{video}\" -vf \" drawtext =fontsize={fontsize}: fontcolor = {fontcolor}:text='{text}': " \
+              f"x = {x}: y= {y} \" \"{video_name}\""
+
     os.system(command)
     os.remove(video)
     return video_name

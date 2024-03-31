@@ -9,7 +9,7 @@ from .exceptions import InvalidJsonFormatError
 import requests
 
 
-def check_json(json_file):
+def check_json(json_file: json) -> bool:
     if "scenes" not in json_file:
         return False
 
@@ -30,12 +30,14 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     g4f.logging = True  # enable logging
     g4f.check_version = False
 
-    gpt_model = g4f.models.gpt_4 if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
+    gpt_model = g4f.models.gpt_4_turbo if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
 
     response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True,
                                         )
+
     x = io.StringIO()
     for message in response:
+
         x.write(message)
 
     if reply_format == "json":
