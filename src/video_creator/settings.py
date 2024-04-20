@@ -39,8 +39,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_celery_beat',
     'djoser',
-    'usermanagement',
-    'videomanagement',
+    'apps.usermanagement',
+    'apps.videomanagement',
     'django_rest_passwordreset',
     'corsheaders',
     'drf_yasg'
