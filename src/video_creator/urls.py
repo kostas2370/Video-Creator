@@ -26,8 +26,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('djoser.urls')),
     path('api/auth/', include('djoser.urls.jwt')),
-    path('api/', include('usermanagement.urls')),
-    path('api/', include('videomanagement.urls'))
+    path('api/', include('apps.usermanagement.urls')),
+    path('api/', include('apps.videomanagement.urls'))
 ]
 
 if settings.DEBUG:

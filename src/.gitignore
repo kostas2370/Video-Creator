@@ -13,12 +13,12 @@
 .pth
 results
 /gfpgan/
-/videomanagement/utils/SadTalker/docs/
-/videomanagement/utils/SadTalker/examples/
-/videomanagement/utils/SadTalker/gfpgan/
-/videomanagement/utils/SadTalker/results/
+/apps/videomanagement/utils/SadTalker/docs/
+/apps/videomanagement/utils/SadTalker/examples/
+/apps/videomanagement/utils/SadTalker/gfpgan/
+/apps/videomanagement/utils/SadTalker/results/
 
-/videomanagement/utils/SadTalker/venv/
+/apps/videomanagement/utils/SadTalker/venv/
 .mp4
-/usermanagement/migrations/
-/videomanagement/migrations/
+/apps/usermanagement/migrations/
+/apps/videomanagement/migrations/
