@@ -10,7 +10,7 @@ from django.conf import settings
 from ..utils.download_utils import  create_image_scenes, download_music
 
 from ..utils.prompt_utils import format_prompt, format_prompt_for_official_gpt
-from ..utils.gpt_utils import get_reply, get_reply_from_official_api
+from ..utils.gpt_utils import get_reply
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..serializers import TemplatePromptsSerializer
@@ -35,15 +35,11 @@ class GenerateView(viewsets.ViewSet):
         images = request.data.get('images', False)
         avatar_selection = request.data.get('avatar_selection', 'no_avatar')
         style = request.data.get("style", "natural")
-        music = request.data.get("music")
+        music = request.data.get("music", None)
         target_audience = request.data.get('target_audience')
-        background = request.data.get('background')
+        background = request.data.get('background', None)
         intro = request.data.get("intro", None)
         outro = request.data.get("outro", None)
-
-        if background == "random":
-            background = Backgrounds.objects.all()
-            background = background.first() if background else None
 
         avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
@@ -62,14 +58,13 @@ class GenerateView(viewsets.ViewSet):
             prompt = format_prompt_for_official_gpt(template_format = template_format, template_category = category,
                                                     userprompt = message, target_audience = target_audience)
 
-            x = get_reply_from_official_api(message)
             message = prompt[0]+prompt[1]
 
         else:
             prompt = format_prompt(template_format = template_format, template_category = category,
                                    userprompt = message, target_audience = target_audience)
 
-            x = get_reply(prompt, gpt_model = gpt_model)
+        x = get_reply(prompt, gpt_model = gpt_model)
 
         userprompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
         userprompt.save()
@@ -79,10 +74,6 @@ class GenerateView(viewsets.ViewSet):
         if intro and outro:
             intro = Intro.objects.get(id = int(intro))
             outro = Outro.objects.get(id = int(outro))
-
-        if intro == "default":
-            intro = Intro.objects.all().first()
-            outro = Outro.objects.all().first()
 
         vid = Videos.objects.create(title = x['title'],
                                     prompt = userprompt,
@@ -105,8 +96,7 @@ class GenerateView(viewsets.ViewSet):
 
         make_scenes_speech(vid)
 
-        if music:
-            vid.music = download_music(music)
+        vid.music = download_music(music)
 
         if images:
             vid.mode = images

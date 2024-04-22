@@ -148,6 +148,9 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
     for sound in sound_list:
         sound.close()
 
+    for vid in vids:
+        vid.close()
+
     video.output = rf"{video.dir_name}\output_video.mp4"
     video.status = "COMPLETED"
     video.save()

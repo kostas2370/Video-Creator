@@ -12,7 +12,7 @@ from .src.generate_batch import get_data
 from .src.generate_facerender_batch import get_facerender_data
 from .src.utils.init_path import init_path
 from .src.facerender.pirender_animate import AnimateFromCoeff_PIRender
-
+from django.conf import settings
 
 def lip(source_image,   result_dir = './results', pose_style= 0 , cpu=False, batch_size = 2, input_yaw = None,
         input_pitch = None, input_roll = None, ref_eyeblink = None, ref_pose = None, checkpoint_dir = './checkpoints',
@@ -42,7 +42,7 @@ def lip(source_image,   result_dir = './results', pose_style= 0 , cpu=False, bat
 
     current_root_path = os.path.split(sys.argv[0])[0]
 
-    sadtalker_paths = init_path(checkpoint_dir, os.path.join(current_root_path, 'videomanagement/utils/SadTalker/src/config'), size, old_version,
+    sadtalker_paths = init_path(checkpoint_dir, os.path.join(current_root_path, settings.CONFIG_PATH), size, old_version,
                                 preprocess)
 
     #init model

@@ -137,6 +137,9 @@ def download_video(url: str, dir_name: str) -> str:
 
 
 def download_music(url: str) -> str:
+    if url is None:
+        return None
+
     yt = YouTube(url)
 
     video = yt.streams.filter(only_audio = True).first()

@@ -199,7 +199,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
 
-GPT_OFFICIAL = False
+GPT_OFFICIAL = True
 MAX_TOKENS = 2000
 
 
@@ -211,3 +211,5 @@ TWITCH_CLIENT = os.getenv('TWITCH_CLIENT')
 TWITCH_CLIENT_SECRET = os.getenv('TWITCH_CLIENT_SECRET')
 
 XI_API_KEY = os.getenv('XI_API_KEY')
+
+CONFIG_PATH = "apps/videomanagement/utils/SadTalker/src/config"
