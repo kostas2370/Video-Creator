@@ -7,6 +7,7 @@ from openai import OpenAI
 
 from .exceptions import InvalidJsonFormatError
 import requests
+from django.conf import settings
 
 
 def check_json(json_file: json) -> bool:
@@ -29,16 +30,27 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     time += 1
     g4f.logging = True  # enable logging
     g4f.check_version = False
-
-    gpt_model = g4f.models.gpt_4 if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
-
-    response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True,
-                                        )
-
     x = io.StringIO()
-    for message in response:
 
-        x.write(message)
+    if not settings.GPT_OFFICIAL:
+
+        gpt_model = g4f.models.gpt_4 if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
+        response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True,
+                                             )
+
+        for message in response:
+            x.write(message)
+
+    else:
+        client = OpenAI(api_key = settings.OPEN_API_KEY)
+
+        stream = client.chat.completions.create(model = "gpt-4",
+                                                messages = [{"role": "assistant", "content": prompt[0]},
+                                                            {"role": "user", "content": prompt[1]}], stream = True,
+                                                max_tokens = settings.MAX_TOKENS)
+
+        for chunk in stream:
+            x.write(chunk.choices[0].delta.content or "")
 
     if reply_format == "json":
         x = x.getvalue()
@@ -60,37 +72,6 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
             return get_reply(prompt, time = time, gpt_model = gpt_model)
 
     return x
-
-
-def get_reply_from_official_api(prompt, time=1):
-    time += 1
-    client = OpenAI(api_key = settings.OPEN_API_KEY)
-
-    stream = client.chat.completions.create(model = "gpt-4", messages = [{"role": "assistant", "content": prompt[0]},
-                                                                         {"role": "user", "content": prompt[1]}],
-                                            stream = True, max_tokens = settings.MAX_TOKENS)
-
-    x = io.StringIO()
-
-    for chunk in stream:
-        x.write(chunk.choices[0].delta.content or "")
-
-    try:
-        x = x.getvalue()
-        print(x)
-        x = x[x.index('{'):len(x)-(x[::-1].index('}'))]
-
-        js = json.loads(x)
-        if not check_json(js):
-            raise InvalidJsonFormatError()
-
-        return js
-
-    except InvalidJsonFormatError:
-        if time == 5:
-            raise Exception("Max gpt limit is 5 , try again with different prompt !!")
-
-        return get_reply_from_official_api(prompt, time = time)
 
 
 def get_update_sentence(prompt):
