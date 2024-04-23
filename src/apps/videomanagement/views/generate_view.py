@@ -1,107 +1,25 @@
 from rest_framework.response import Response
-from slugify import slugify
 from rest_framework import viewsets
-
 from drf_yasg.utils import swagger_auto_schema
 
-
-from django.conf import settings
-
-from ..utils.download_utils import  create_image_scenes, download_music
-
-from ..utils.prompt_utils import format_prompt, format_prompt_for_official_gpt
-from ..utils.gpt_utils import get_reply
-from ..utils.audio_utils import make_scenes_speech
-from ..utils.file_utils import generate_directory
-from ..serializers import TemplatePromptsSerializer
-from ..models import TemplatePrompts, Videos, VoiceModels, UserPrompt, Avatars, Backgrounds, Intro, Outro
-
-from ..defaults import default_format
-
+from ..models import TemplatePrompts
 from ..swagger_serializers import GenerateSerializer
+from ..services.generate_video import generate_video
+from ..serializers import VideoSerializer
 
 
 class GenerateView(viewsets.ViewSet):
-    serializer_class = TemplatePromptsSerializer
+    serializer_class = GenerateSerializer
     queryset = TemplatePrompts.objects.all()
 
     @swagger_auto_schema(request_body = GenerateSerializer,
                          operation_description = "This API generates the scenes , the prompt and scene images !")
     def create(self, request, *args, **kwargs):
-        template_id = request.data.get('template_id', 2)
-        voice_id = request.data.get('voice_id', None)
-        message = request.data.get('message')
-        gpt_model = request.data.get('gpt_model', 'gpt-4')
-        images = request.data.get('images', False)
-        avatar_selection = request.data.get('avatar_selection', 'no_avatar')
-        style = request.data.get("style", "natural")
-        music = request.data.get("music", None)
-        target_audience = request.data.get('target_audience')
-        background = request.data.get('background', None)
-        intro = request.data.get("intro", None)
-        outro = request.data.get("outro", None)
+        serializer = self.serializer_class(data = request.data)
+        serializer.is_valid(raise_exception = True)
 
-        avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
+        video = generate_video(**serializer.data)
 
-        template = TemplatePrompts.get_template(template_id)
-
-        if template:
-            category = template.category
-            template_format = template.format
-
-        else:
-            template_format = default_format
-            category = template_id if len(template_id) > 0 and not template_id.isnumeric() else ""
-            template = None
-
-        if settings.GPT_OFFICIAL:
-            prompt = format_prompt_for_official_gpt(template_format = template_format, template_category = category,
-                                                    userprompt = message, target_audience = target_audience)
-
-            message = prompt[0]+prompt[1]
-
-        else:
-            prompt = format_prompt(template_format = template_format, template_category = category,
-                                   userprompt = message, target_audience = target_audience)
-
-        x = get_reply(prompt, gpt_model = gpt_model)
-
-        userprompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
-        userprompt.save()
-
-        dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
-
-        if intro and outro:
-            intro = Intro.objects.get(id = int(intro))
-            outro = Outro.objects.get(id = int(outro))
-
-        vid = Videos.objects.create(title = x['title'],
-                                    prompt = userprompt,
-                                    dir_name = dir_name,
-                                    gpt_answer = x,
-                                    background = background,
-                                    intro = intro,
-                                    outro = outro)
-
-        if avatar_selection != "no_avatar":
-            selected_avatar = Avatars.select_avatar(selected = avatar_selection)
-            voice_model = selected_avatar.voice
-            vid.avatar = selected_avatar
-
-        else:
-            voice_model = VoiceModels.objects.get(id = voice_id) if voice_id else VoiceModels.select_voice()
-
-        vid.voice_model = voice_model
-        vid.save()
-
-        make_scenes_speech(vid)
-
-        vid.music = download_music(music)
-
-        if images:
-            vid.mode = images
-            create_image_scenes(vid, mode = images, style = style)
-
-        vid.status = "GENERATION"
-        vid.save()
-        return Response({"message": "The video has been generated successfully"})
+        return Response({"message": "The video has been generated successfully",
+                         "video": VideoSerializer(video).data
+                         })
