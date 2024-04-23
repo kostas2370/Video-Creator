@@ -49,8 +49,8 @@ def generate_video(template_id: Union[str, int, None],
 
     x = get_reply(prompt, gpt_model = gpt_model)
 
-    userprompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
-    userprompt.save()
+    user_rompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
+    user_rompt.save()
 
     dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
 
@@ -58,7 +58,7 @@ def generate_video(template_id: Union[str, int, None],
         intro = Intro.objects.get(id = int(intro))
         outro = Outro.objects.get(id = int(outro))
 
-    vid = Videos.objects.create(title = x['title'], prompt = userprompt, dir_name = dir_name, gpt_answer = x,
+    vid = Videos.objects.create(title = x['title'], prompt = user_rompt, dir_name = dir_name, gpt_answer = x,
                                 background = background, intro = intro, outro = outro)
 
     if avatar_selection != "no_avatar":

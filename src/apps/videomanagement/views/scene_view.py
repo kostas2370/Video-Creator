@@ -6,14 +6,12 @@ from rest_framework import status
 
 from drf_yasg.utils import swagger_auto_schema
 
-from ..utils.prompt_utils import format_update_form
-from ..utils.gpt_utils import get_update_sentence
-from ..utils.audio_utils import update_scene
 from ..serializers import SceneSerializer
 from ..models import Scene, SceneImage
 
 from ..swagger_serializers import SceneUpdateSerializer
 from drf_yasg import openapi
+from ..services.SceneServices import generate_scene, update_scene
 
 scene_id = openapi.Parameter('scene_id', openapi.IN_QUERY, description="Id of the scene you want to change.",
                              type=openapi.TYPE_NUMBER)
@@ -35,12 +33,8 @@ class SceneView(viewsets.ModelViewSet):
         if not instance:
             return Response(status = status.HTTP_404_NOT_FOUND)
 
-        new_text = request.data.get('text', None)
-
-        instance.text = new_text if new_text else instance.text
-        update_scene(instance)
-
-        return Response({"text": instance.text},
+        updated_scene = update_scene(request.data.get("text"), instance)
+        return Response({"text": updated_scene},
                         status = status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body = SceneUpdateSerializer,
@@ -51,15 +45,8 @@ class SceneView(viewsets.ModelViewSet):
     def generate(self, request, pk):
         text = request.data.get("text").strip()
         scene = self.get_object()
-
-        if text == scene.text.strip():
-            return Response({"message": "Your scene updated Successfully"}, status = status.HTTP_200_OK)
-
-        if text:
-            scene.text = get_update_sentence(format_update_form(scene.text, text))
-
-        update_scene(scene)
-        return Response({"text": scene.text},
+        generated_scene = generate_scene(text, scene)
+        return Response({"text": generated_scene},
                         status = status.HTTP_200_OK)
 
     @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "

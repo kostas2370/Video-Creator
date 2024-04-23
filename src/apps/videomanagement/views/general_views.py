@@ -4,8 +4,8 @@ from rest_framework.decorators import api_view
 
 from drf_yasg.utils import swagger_auto_schema
 from ..utils.download_utils import download_playlist
-from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, AvatarNestedSerializer, VoiceModelSerializer, \
-    AvatarSerializer, SceneImageSerializer
+from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
+    AvatarNestedSerializer, VoiceModelSerializer, AvatarSerializer, SceneImageSerializer
 from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage
 from ..swagger_serializers import DownloadPlaylistSerializer
 
@@ -61,6 +61,3 @@ def download_playlist(request):
     link = request.data['link']
     download_playlist(link, category = request.data.get('category'))
     return Response({'Message': 'Successful'})
-
-
-

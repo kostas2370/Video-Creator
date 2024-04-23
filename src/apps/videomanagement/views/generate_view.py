@@ -4,7 +4,7 @@ from drf_yasg.utils import swagger_auto_schema
 
 from ..models import TemplatePrompts
 from ..swagger_serializers import GenerateSerializer
-from ..services.generate_video import generate_video
+from ..services.VideoGenerationServices import generate_video
 from ..serializers import VideoSerializer
 
 

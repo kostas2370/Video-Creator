@@ -1,14 +1,3 @@
-"""
-Viddie is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-"""
-
-
 from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx,\
     concatenate_videoclips, CompositeVideoClip, TextClip
 from ..models import *
@@ -40,7 +29,6 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
     silent = AudioFileClip(r'assets\blank.wav')
     black = ImageClip(r'assets\black.jpg')
     sounds = Scene.objects.filter(prompt = video.prompt)
-    category = video.prompt.template.category if video.prompt.template else None
     background = video.background
 
     if background:
@@ -95,7 +83,8 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
             vids.append(black.set_duration(audio.duration))
 
     if background:
-        final_video = concatenate_videoclips(vids).margin(top=background.image_pos_top, left = background.image_pos_left,
+        final_video = concatenate_videoclips(vids).margin(top=background.image_pos_top,
+                                                          left = background.image_pos_left,
                                                           opacity=4)
     else:
         final_video = concatenate_videoclips(vids).set_position('center')
