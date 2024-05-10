@@ -164,20 +164,19 @@ def download_music(url: str) -> str:
 
 
 def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid") -> SceneImage:
-    if video.mode == "DALL-E":
-        try:
-            img = generate_from_dalle(scene_image.prompt, video.dir_name, style, title = video.title)
-        except Exception as ex:
-            print(ex)
-            img = None
-            pass
-
-    else:
-        img = download_image_from_google(scene_image.prompt, f'{video.dir_name}\\images\\', amt = 3)
+    provider = default_providers.get(video.mode)
+    try:
+        img = modes.get(video.mode).get(provider)(scene_image.prompt, f'{video.dir_name}/images/', style = style,
+                                                  title = video.title)
+    except Exception as ex:
+        logger.error(ex)
+        img = None
+        pass
 
     if img:
         scene_image.file = img
         scene_image.save()
+
     return scene_image
 
 
