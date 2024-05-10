@@ -22,7 +22,9 @@ router.register('outro', OutroView)
 
 
 urlpatterns = [path('downloadplaylist/', download_playlist),
-               path('twitch_generate/', generate_twitch)
+               path('twitch_generate/', generate_twitch),
+
+
                ]
 
 

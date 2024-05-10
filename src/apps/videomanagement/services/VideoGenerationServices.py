@@ -9,6 +9,11 @@ from ..defaults import default_format
 from slugify import slugify
 from typing import Union, Literal
 
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 def generate_video(template_id: Union[str, int, None],
                    message: str,
@@ -27,6 +32,7 @@ def generate_video(template_id: Union[str, int, None],
     avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
     template = TemplatePrompts.get_template(template_id)
+    logger.info("Retrieved template")
 
     if template:
         category = template.category
@@ -47,10 +53,13 @@ def generate_video(template_id: Union[str, int, None],
         prompt = format_prompt(template_format = template_format, template_category = category, userprompt = message,
                                target_audience = target_audience)
 
+        logger.info("api call in gpt4free")
+
     x = get_reply(prompt, gpt_model = gpt_model)
 
     user_rompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
     user_rompt.save()
+    logger.info(f"Created the user_prompt instance with id : {user_rompt.id}")
 
     dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
 
@@ -60,6 +69,7 @@ def generate_video(template_id: Union[str, int, None],
 
     vid = Videos.objects.create(title = x['title'], prompt = user_rompt, dir_name = dir_name, gpt_answer = x,
                                 background = background, intro = intro, outro = outro)
+    logger.info(f"Created the video instance with id : {vid.id}")
 
     if avatar_selection != "no_avatar":
         selected_avatar = Avatars.select_avatar(selected = avatar_selection)
@@ -73,12 +83,14 @@ def generate_video(template_id: Union[str, int, None],
     vid.save()
 
     make_scenes_speech(vid)
+    logger.info(f"Generated the scenes audios for the video with id : {vid.id}")
 
     vid.music = download_music(music)
 
     if images:
         vid.mode = images
         create_image_scenes(vid, mode = images, style = style)
+        logger.info(f"Generated the images for the video with id : {vid.id}")
 
     vid.status = "GENERATION"
     vid.save()

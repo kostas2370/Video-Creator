@@ -12,6 +12,11 @@ from .prompt_utils import format_dalle_prompt
 from .google_image_downloader import downloader as google_downloader
 from .video_utils import split_video_and_mp3, add_text_to_video
 
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 def download_playlist(url: str, category: str) -> None:
     playlist = Playlist(url)
@@ -30,17 +35,27 @@ def download_playlist(url: str, category: str) -> None:
             Music.objects.create(name = stream.title, file = new_file, category = category)
 
         except FileNotDownloadedError:
-            pass
+            logger.error("Error downloading song")
 
 
 def download_image(query: str, path: str, amount: int = 1) -> list[str]:
-    return downloader.download(query = f'{query}', limit = amount, output_dir = path,
-                               adult_filter_off = True,
-                               force_replace = False, timeout = 60, filter = 'photo')
+    try:
+        logger.info("Downloading image from bing")
+        return downloader.download(query = f'{query}', limit = amount, output_dir = path,
+                                   adult_filter_off = True,
+                                   force_replace = False, timeout = 60, filter = 'photo')
+
+    except Exception as exc:
+        logger.error(f"Error downloading image with query {query} Error {exc}")
 
 
 def download_image_from_google(q: str, path: str, amt: int = 1) -> str:
-    return google_downloader.download(q = q, path = path, amt = amt)
+    try:
+        logger.info("Downloading image from google")
+        return google_downloader.download(q = q, path = path, amt = amt)
+
+    except Exception as exc:
+        logger.error(f"Error downloading image with query {q} Error {exc}")
 
 
 def check_which_file_exists(images: list) -> str:
@@ -51,6 +66,7 @@ def check_which_file_exists(images: list) -> str:
 
 
 def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "") -> str:
+    logger.warning("API CALL IN DALL-E")
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
 
