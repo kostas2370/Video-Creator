@@ -10,6 +10,10 @@ from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..models import Videos
 from ..utils.video_utils import make_video
 from ..services.VideoServices import video_update, video_regenerate
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class VideoView(viewsets.ModelViewSet):
@@ -34,6 +38,7 @@ class VideoView(viewsets.ModelViewSet):
         video = self.get_object()
 
         outcome = video_update(video, avatar, intro, outro)
+        logger.info(f"Video with id {pk}  got updated successfully")
         return Response({"message": "Updated Success",
                          "video": self.get_serializer_class()(outcome).data})
 
@@ -43,10 +48,13 @@ class VideoView(viewsets.ModelViewSet):
     def video_regenerate(self, _, pk):
 
         if pk is None:
+            logger.warning(f"Tried to regenerate without a pk")
+
             return Response({'Message': "You must insert a video_id"}, status = status.HTTP_400_BAD_REQUEST)
 
         video = get_object_or_404(Videos, id = pk)
         video_regenerate(video)
+        logger.info(f"Video with id {pk}  got regenerated successfully")
 
         return Response({"Message": f"Video with id {pk} got regenerated successfully"}, status = status.HTTP_200_OK)
 

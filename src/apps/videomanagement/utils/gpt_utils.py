@@ -8,6 +8,10 @@ from openai import OpenAI
 from .exceptions import InvalidJsonFormatError
 import requests
 from django.conf import settings
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def check_json(json_file: json) -> bool:
@@ -33,7 +37,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     x = io.StringIO()
 
     if not settings.GPT_OFFICIAL:
-
+        logger.info("api call in gpt4free")
         gpt_model = g4f.models.gpt_4 if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
         response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True,
                                              )
@@ -42,6 +46,8 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
             x.write(message)
 
     else:
+        logger.warning("API CALL IN OFFICIAL GPT")
+
         client = OpenAI(api_key = settings.OPEN_API_KEY)
 
         stream = client.chat.completions.create(model = "gpt-4",
@@ -84,6 +90,8 @@ def get_update_sentence(prompt):
 
 
 def select_from_vision(prompt, images):
+    logger.warning("API CALL IN OFFICIAL GPT vision")
+
     client = OpenAI(api_key = settings.OPEN_API_KEY)
 
     messages = [{"role": "user", "content": [{"type": "text",
@@ -105,6 +113,7 @@ def select_from_vision(prompt, images):
 
 
 def tts_from_open_api(text, voice="onyx"):
+    logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key = settings.OPEN_API_KEY)
     print(f"Text : {text}")
@@ -113,6 +122,8 @@ def tts_from_open_api(text, voice="onyx"):
 
 
 def tts_from_eleven_labs(text, voice):
+    logger.warning("API CALL IN ELEVEN-LABS")
+
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
 
     headers = {"Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": settings.XI_API_KEY}

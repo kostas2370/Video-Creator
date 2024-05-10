@@ -29,7 +29,6 @@ def download(query, limit=100, output_dir='dataset', adult_filter_off=True,
         print('[Error]Failed to create directory.', e)
         sys.exit(1)
         
-    print("[%] Downloading Images to {}".format(str(image_dir.absolute())))
     bing = Bing(query, limit, image_dir, adult, timeout, filter, verbose)
     kk = bing.run()
     return kk
