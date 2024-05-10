@@ -11,7 +11,6 @@ from .exceptions import FileNotDownloadedError
 from .prompt_utils import format_dalle_prompt
 from .google_image_downloader import downloader as google_downloader
 from .video_utils import split_video_and_mp3, add_text_to_video
-
 import logging
 
 
@@ -38,18 +37,18 @@ def download_playlist(url: str, category: str) -> None:
             logger.error("Error downloading song")
 
 
-def download_image(query: str, path: str, amount: int = 1) -> list[str]:
+def download_image(query: str, path: str, amount: int = 1, *args, **kwargs) -> list[str]:
     try:
         logger.info("Downloading image from bing")
         return downloader.download(query = f'{query}', limit = amount, output_dir = path,
                                    adult_filter_off = True,
-                                   force_replace = False, timeout = 60, filter = 'photo')
+                                   force_replace = False, timeout = 60, filter = 'photo')[0]
 
     except Exception as exc:
         logger.error(f"Error downloading image with query {query} Error {exc}")
 
 
-def download_image_from_google(q: str, path: str, amt: int = 1) -> str:
+def download_image_from_google(q: str, path: str, amt: int = 1, *args, **kwargs) -> str:
     try:
         logger.info("Downloading image from google")
         return google_downloader.download(q = q, path = path, amt = amt)
@@ -82,35 +81,28 @@ def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "")
     image_url = response.data[0].url
     response = requests.get(image_url)
     x = str(uuid.uuid4())
-    open(rf"{dir_name}/images/{x}.png", "wb").write(response.content)
+    open(rf"{dir_name}{x}.png", "wb").write(response.content)
 
-    return rf"{dir_name}/images/{x}.png"
+    return rf"{dir_name}{x}.png"
 
 
-def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: str = "WEB", provider: str = "bing",
+modes = {"AI": {"dall-e": generate_from_dalle}, "WEB": {"bing": download_image, "google": download_image_from_google}}
+default_providers = {"WEB": "bing", "AI": "dall-e"}
+
+
+def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: str = "WEB", provider: str = None,
                        style: str = "", title: str = "") -> None:
 
+    provider = default_providers.get(mode) if provider is None else provider
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
-
-    if mode == "DALL-E":
-        try:
-            downloaded_image = generate_from_dalle(image, dir_name, style = style, title = title)
-        except Exception as ex:
-            print(ex)
-            downloaded_image = None
-            pass
-    else:
-        if provider == "bing":
-            downloaded_image = download_image(image, f'{dir_name}/images/', amount = 6)
-            downloaded_image = check_which_file_exists(downloaded_image)
-
-        else:
-            try:
-                downloaded_image = download_image_from_google(image, f'{dir_name}/images/', amt = 3)
-
-            except Exception as ex:
-                print(ex)
-                downloaded_image = None
+    try:
+        downloaded_image = modes.get(mode, "WEB").get(provider)(image,
+                                                                f'{dir_name}/images/',
+                                                                style = style,
+                                                                title = title)
+    except Exception as ex:
+        logger.error(ex)
+        downloaded_image = None
 
     SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
