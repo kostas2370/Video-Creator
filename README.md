@@ -61,9 +61,7 @@ You can find all the endpoints in swagger : http://localhost:8000/swagger/
 * TO DO :
 1. Convert all moviepy functions to ffmpeg for better Performance .
 2. Test Cases for models, functions and Views
-3. Improvement in dall e prompt , mcore detailed prompts for more consistency
-4. Implementation of midjourney for image generation
-5. Logging
+3. Implementation of midjourney for image generation
 
 For any Injuries or Support you can contact me at those emails :
 1. kodamia@cs.ihu.gr (University Email)

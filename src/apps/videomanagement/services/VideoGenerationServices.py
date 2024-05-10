@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def generate_video(template_id: Union[str, int, None],
                    message: str,
                    gpt_model: Union[str, None],
-                   images: Union[str, bool, Literal["web", "DALL-E"]],
+                   images: Union[str, bool, Literal["WEB", "AI"]],
                    avatar_selection: Union[str],
                    style: Literal["vivid", "natural"],
                    target_audience: str,
