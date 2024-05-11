@@ -1,9 +1,8 @@
 
-
 from ..utils.prompt_utils import format_update_form
 from ..utils.gpt_utils import get_update_sentence
 from ..utils.audio_utils import update_scene as update
-from ..models import Scene, SceneImage
+from ..models import Scene
 
 
 def generate_scene(text: str,
@@ -24,3 +23,4 @@ def update_scene(text: str, scene: Scene):
     scene.text = new_text if new_text else scene.text
     update(scene)
     return scene.text
+
