@@ -61,7 +61,6 @@ You can find all the endpoints in swagger : http://localhost:8000/swagger/
 * TO DO :
 1. Convert all moviepy functions to ffmpeg for better Performance .
 2. Test Cases for models, functions and Views
-3. Implementation of midjourney for image generation
 
 For any Injuries or Support you can contact me at those emails :
 1. kodamia@cs.ihu.gr (University Email)
@@ -71,3 +70,4 @@ For any Injuries or Support you can contact me at those emails :
 * Implemented ElevenLabs api voices !!
 * Now we are able to make compilation videos from twitch by game or streamer
 * Added open-ai voices
+* Added midjourney and special diffusion as image providers !! (For now you can change the providers in the mapper.py in default providers)

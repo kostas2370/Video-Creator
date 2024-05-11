@@ -211,19 +211,19 @@ CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 
-OPEN_API_KEY = os.getenv("OPEN_API_KEY")
-
 GPT_OFFICIAL = False
 MAX_TOKENS = 2000
+OPEN_API_KEY = os.getenv("OPEN_API_KEY")    # Open AI api key
 
 
-SEARCH_ENGINE_ID = os.getenv('SEARCH_ENGINE_ID')
-API_KEY = os.getenv('API_KEY')
+SEARCH_ENGINE_ID = os.getenv('SEARCH_ENGINE_ID')    # SEARCH ENGINE ID FOR GOOGLE IMAGES
+API_KEY = os.getenv('API_KEY')  # GOOGLE API ID
 VISION_SELECTION = False
 
 TWITCH_CLIENT = os.getenv('TWITCH_CLIENT')
 TWITCH_CLIENT_SECRET = os.getenv('TWITCH_CLIENT_SECRET')
 
 XI_API_KEY = os.getenv('XI_API_KEY')
-
+DIFFUSION_KEY = os.getenv('DIFFUSION_KEY')
+MIDJOURNEY_KEY = os.getenv('MIDJOURNEY_KEY')
 CONFIG_PATH = "apps/videomanagement/utils/SadTalker/src/config"

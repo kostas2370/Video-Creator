@@ -13,3 +13,11 @@ def generate_directory(name: str, x: int = 0) -> str:
             return dir_name
         else:
             x += 1
+
+
+def check_which_file_exists(images: list) -> str:
+    for i in images:
+        if os.path.exists(i):
+            return i
+
+    return None

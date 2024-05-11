@@ -12,9 +12,15 @@ from .prompt_utils import format_dalle_prompt
 from .google_image_downloader import downloader as google_downloader
 from .video_utils import split_video_and_mp3, add_text_to_video
 import logging
+import json
+import sys
+import urllib.request
+from .mapper import modes, default_providers
 
 
 logger = logging.getLogger(__name__)
+
+thismodule = sys.modules[__name__]
 
 
 def download_playlist(url: str, category: str) -> None:
@@ -57,11 +63,30 @@ def download_image_from_google(q: str, path: str, amt: int = 1, *args, **kwargs)
         logger.error(f"Error downloading image with query {q} Error {exc}")
 
 
-def check_which_file_exists(images: list) -> str:
-    for i in images:
-        if os.path.exists(i):
-            return i
-    return None
+def download_video(url: str, dir_name: str) -> str:
+    yt = YouTube(url)
+    video = yt.streams.get_highest_resolution()
+    video.download(dir_name)
+    return rf'{dir_name}{yt.title}.mp4'
+
+
+def download_music(url: str) -> str:
+    if url is None:
+        return None
+
+    yt = YouTube(url)
+
+    video = yt.streams.filter(only_audio = True).first()
+    existing = Music.objects.filter(name= video.title)
+    if existing.count() > 0:
+        return existing.first()
+
+    video = video.download('media/music')
+    filename = str(uuid.uuid4())
+    new_file = f'media/music/{filename}.mp3'
+    os.rename(video, new_file)
+    mus = Music.objects.create(name = yt.title, file = new_file, category = "ΟΤΗΕR")
+    return mus
 
 
 def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "") -> str:
@@ -86,8 +111,57 @@ def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "")
     return rf"{dir_name}{x}.png"
 
 
-modes = {"AI": {"dall-e": generate_from_dalle}, "WEB": {"bing": download_image, "google": download_image_from_google}}
-default_providers = {"WEB": "bing", "AI": "dall-e"}
+def generate_from_diffusion(prompt: str, dir_name: str, title: str = "", *args, **kwargs):
+
+    url = "https://stablediffusionapi.com/api/v3/text2img"
+
+    if not settings.DIFFUSION_KEY:
+        logger.error("Tried to call diffusion but no api key")
+        return
+
+    logger.warning("Api call in diffusion")
+    payload = json.dumps({
+                    "key": settings.DIFFUSION_KEY,
+                    "prompt": format_dalle_prompt(title = title, image_description = prompt),
+                    "negative_prompt": None,
+                    "width": "1024",
+                    "height": "1024",
+                    "samples": "1",
+                    "num_inference_steps": "20",
+                    "guidance_scale": 7.5,
+                    })
+
+    headers = {'Content-Type': 'application/json'}
+
+    response = requests.post(url, headers = headers, data = payload)
+    image = response.json()['output'][0]
+    filename = str(uuid.uuid4())
+    urllib.request.urlretrieve(image, f"{dir_name}\\{filename}.png")
+    return f"{dir_name}\\{filename}.png"
+
+
+def generate_from_midjourney(prompt: str, dir_name: str, title: str = "", *args, **kwargs):
+    if not settings.MIDJOURNEY_KEY:
+        logger.error("Tried to call MIDJOURNEY but no api key")
+        return
+
+    logger.warning("Api call in midjourney")
+    payload = {"prompt": format_dalle_prompt(title, prompt)}
+    headers = {"Authorization": f"Bearer {settings.MIDJOURNEY_KEY}"}
+    response = requests.post("https://api.mymidjourney.ai/api/v1/midjourney/imagine",
+                             headers = headers,
+                             data = payload).json()
+
+    if not response["success"]:
+        logger.error("Failed to generate image with midjourney")
+        return
+
+    image = requests.get(f"https://api.mymidjourney.ai/api/v1/midjourney/message/{response['messageId']}",
+                         headers).json()['uri']
+
+    filename = str(uuid.uuid4())
+    urllib.request.urlretrieve(image, f"{dir_name}\\{filename}.png")
+    return f"{dir_name}\\{filename}.png"
 
 
 def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: str = "WEB", provider: str = None,
@@ -96,10 +170,10 @@ def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: 
     provider = default_providers.get(mode) if provider is None else provider
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
     try:
-        downloaded_image = modes.get(mode, "WEB").get(provider)(image,
-                                                                f'{dir_name}/images/',
-                                                                style = style,
-                                                                title = title)
+        downloaded_image = getattr(thismodule, modes.get(mode, "WEB").get(provider))(image,
+                                                                                     f'{dir_name}/images/',
+                                                                                     style = style,
+                                                                                     title = title)
     except Exception as ex:
         logger.error(ex)
         downloaded_image = None
@@ -135,32 +209,6 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
                                mode=mode,
                                style=style,
                                title = video.title)
-
-
-def download_video(url: str, dir_name: str) -> str:
-    yt = YouTube(url)
-    video = yt.streams.get_highest_resolution()
-    video.download(dir_name)
-    return rf'{dir_name}{yt.title}.mp4'
-
-
-def download_music(url: str) -> str:
-    if url is None:
-        return None
-
-    yt = YouTube(url)
-
-    video = yt.streams.filter(only_audio = True).first()
-    existing = Music.objects.filter(name= video.title)
-    if existing.count() > 0:
-        return existing.first()
-
-    video = video.download('media/music')
-    filename = str(uuid.uuid4())
-    new_file = f'media/music/{filename}.mp3'
-    os.rename(video, new_file)
-    mus = Music.objects.create(name = yt.title, file = new_file, category = "ΟΤΗΕR")
-    return mus
 
 
 def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid") -> SceneImage:
