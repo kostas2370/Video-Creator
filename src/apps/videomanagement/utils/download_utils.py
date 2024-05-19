@@ -214,8 +214,10 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
 def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid") -> SceneImage:
     provider = default_providers.get(video.mode)
     try:
-        img = modes.get(video.mode).get(provider)(scene_image.prompt, f'{video.dir_name}/images/', style = style,
-                                                  title = video.title)
+        img = getattr(modes.get(video.mode).get(provider))(scene_image.prompt,
+                                                           f'{video.dir_name}/images/',
+                                                           style = style,
+                                                           title = video.title)
     except Exception as ex:
         logger.error(ex)
         img = None
