@@ -29,6 +29,47 @@ def generate_video(template_id: Union[str, int, None],
                    voice_id: Union[int, None] = None,
                    ) -> Videos:
 
+    """
+    Generate a video based on the provided parameters.
+
+    Parameters:
+    -----------
+    template_id : Union[str, int, None]
+        The ID of the template used for the video.
+    message : str
+        The main message or prompt for the video.
+    gpt_model : Union[str, None]
+        The GPT model to use for generating text.
+    images : Union[str, bool, Literal["WEB", "AI"]]
+        The source of images for the video.
+    avatar_selection : Union[str]
+        The selection of an avatar for the video.
+    style : Literal["vivid", "natural"]
+        The style of the video.
+    target_audience : str
+        The target audience for the video.
+    music : Union[str, None], optional
+        The music to be included in the video.
+    background : str, optional
+        The background for the video.
+    intro : str, optional
+        The intro for the video.
+    outro : str, optional
+        The outro for the video.
+    voice_id : Union[int, None], optional
+        The ID of the voice model to be used.
+
+    Returns:
+    --------
+    Videos
+        The generated video object.
+
+    Notes:
+    ------
+    - This function generates a video based on the provided parameters.
+    - It uses various sources for text, images, and other elements to create the video.
+    """
+
     avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
     template = TemplatePrompts.get_template(template_id)

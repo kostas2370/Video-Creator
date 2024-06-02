@@ -16,7 +16,8 @@ class GenerateView(viewsets.ViewSet):
                          operation_description = "This API generates the scenes , the prompt and scene images !")
     def create(self, request, *args, **kwargs):
         serializer = self.serializer_class(data = request.data)
-        serializer.is_valid(raise_exception = True)
+
+        serializer.is_valid()
 
         video = generate_video(**serializer.data)
 
