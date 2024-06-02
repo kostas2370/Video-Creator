@@ -17,6 +17,18 @@ def generate_twitch_video(
         amt: int = 10,
         started_at: str = ""
         ):
+    """
+    Generate a video based on clips fetched from Twitch.
+
+    Args:
+        mode (Literal["game", "streamer"]): The mode of fetching clips, either "game" or "streamer".
+        value (str): The value to search for, either the name of a game or a streamer.
+        amt (int, optional): The number of clips to fetch. Defaults to 10.
+        started_at (str, optional): The starting date/time from which to fetch clips. Defaults to "".
+
+    Returns:
+        Videos: The generated video instance.
+    """
 
     message = f"Mode : {mode} Value : {value}"
     title = f"{value} {date.today()}"

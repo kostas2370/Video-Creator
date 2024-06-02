@@ -4,6 +4,25 @@ import uuid
 
 
 def make_scenes_speech(video: Videos) -> None:
+    """
+    Generate speech audio files for scenes based on the provided video.
+
+    Parameters:
+    -----------
+    video : Videos
+        The video object containing information about the scenes and speech generation settings.
+
+    Returns:
+    --------
+    None
+
+    Notes:
+    ------
+    - This function generates speech audio files for each scene in the video based on the provided GPT-3.5 answer.
+    - The speech synthesis can be performed using either a local model or an API, depending on the settings in the video object.
+    - Each scene's dialogue or narration text is converted to speech and saved as a WAV file in the video's directory.
+    """
+
     dir_name = video.dir_name
     voice_model = video.voice_model
     syn = voice_model.path
@@ -36,6 +55,24 @@ def make_scenes_speech(video: Videos) -> None:
 
 
 def update_scene(scene: Scene) -> None:
+    """
+    Update the speech audio file for a given scene.
+
+    Parameters:
+    -----------
+    scene : Scene
+        The scene object to be updated.
+
+    Returns:
+    --------
+    None
+
+    Notes:
+    ------
+    - This function updates the speech audio file for the provided scene.
+    - It retrieves the associated video and voice model information to perform the speech synthesis.
+    - The updated audio file is saved in the scene's directory.
+    """
     video = Videos.objects.get(prompt__id=scene.prompt.id)
     dir_name = video.dir_name
     voice_model = video.voice_model

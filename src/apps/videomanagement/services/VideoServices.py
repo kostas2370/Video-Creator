@@ -15,6 +15,18 @@ def video_update(video: Videos,
                  intro: str = None,
                  outro: str = None,
                  ) -> Videos:
+    """
+    Update the specified video with new avatar, intro, or outro.
+
+    Args:
+        video (Videos): The video instance to update.
+        avatar (str, optional): The ID of the new avatar or "no_value" to remove the avatar. Defaults to None.
+        intro (str, optional): The ID of the new intro or "no_value" to remove the intro. Defaults to None.
+        outro (str, optional): The ID of the new outro or "no_value" to remove the outro. Defaults to None.
+
+    Returns:
+        Videos: The updated video instance.
+    """
 
     if avatar and avatar == "no_value":
         video.avatar = None

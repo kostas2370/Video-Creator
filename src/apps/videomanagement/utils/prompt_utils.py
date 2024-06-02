@@ -1,5 +1,36 @@
 def format_prompt(template_format: str, template_category: str, userprompt: str = "", title: str = '',
                   target_audience: str = '') -> str:
+    """
+    Generate a formatted script prompt for video creation.
+
+    Parameters:
+    -----------
+    template_format : str
+        The structure/format of the video script.
+    template_category : str
+        The genre/category of the video.
+    userprompt : str, optional
+        The user's prompt or request. Default is an empty string.
+    title : str, optional
+        The title of the scenario. If not provided, it will be generated based on the prompt.
+    target_audience : str, optional
+        The target audience for the video. Default is an empty string.
+
+    Returns:
+    --------
+    str
+        The formatted script prompt.
+
+    Detailed Steps:
+    ---------------
+    1. If 'title' is not provided, generate it based on the prompt.
+    2. If 'target_audience' is not provided, generate a suggestion.
+    3. Construct the formatted script prompt with the provided parameters.
+
+    Notes:
+    ------
+    - This function generates a script prompt for video creation, tailored to the specified format, category, user prompt, title, and target audience.
+    """
 
     if title == '':
         title = "The title will be selected by you, depending on the prompt"
@@ -21,6 +52,38 @@ def format_prompt(template_format: str, template_category: str, userprompt: str 
 
 def format_prompt_for_official_gpt(template_format: str, template_category: str, userprompt: str = "", title: str = '',
                                    target_audience: str = ''):
+
+    """
+    Generate a formatted script prompt for video creation.
+
+    Parameters:
+    -----------
+    template_format : str
+        The structure/format of the video script.
+    template_category : str
+        The genre/category of the video.
+    userprompt : str, optional
+        The user's prompt or request. Default is an empty string.
+    title : str, optional
+        The title of the scenario. If not provided, it will be generated based on the prompt.
+    target_audience : str, optional
+        The target audience for the video. Default is an empty string.
+
+    Returns:
+    --------
+    str
+        The formatted script prompt.
+
+    Detailed Steps:
+    ---------------
+    1. If 'title' is not provided, generate it based on the prompt.
+    2. If 'target_audience' is not provided, generate a suggestion.
+    3. Construct the formatted script prompt with the provided parameters.
+
+    Notes:
+    ------
+    - This function generates a script prompt for video creation, tailored to the specified format, category, user prompt, title, and target audience.
+    """
 
     if title == '':
         title = "The title will be selected by you, depending on the prompt"
