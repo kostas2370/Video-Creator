@@ -27,10 +27,11 @@ def make_scenes_speech(video: Videos) -> None:
     voice_model = video.voice_model
     syn = voice_model.path
     gpt_answer = video.gpt_answer
-    search_field = "scene" if "scene" in gpt_answer["scenes"][0] and isinstance(gpt_answer["scenes"][0]["scene"], list)\
-                   else "section" if "section" in gpt_answer["scenes"][0] else "sentences"
+    first_scene = gpt_answer["scenes"][0]
+    search_field = "scene" if "scene" in first_scene and isinstance(first_scene["scene"], list)\
+                   else "sections" if "sections" in first_scene else "sentences"
 
-    narration_field = "sentence" if "sentence" in gpt_answer["scenes"][0][search_field][0] else "narration"
+    narration_field = "sentence" if "sentence" in first_scene[search_field][0] else "narration"
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     if voice_model.type.lower() == 'local':
         syn = create_model(model = syn)

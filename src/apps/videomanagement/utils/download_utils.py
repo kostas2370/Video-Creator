@@ -429,11 +429,12 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
 
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
-    search_field = "scene" if "scene" in video.gpt_answer["scenes"][0] and \
-                              isinstance(video.gpt_answer["scenes"][0]["scene"],list) \
-                              else "section" if "section" in video.gpt_answer["scenes"][0] else "sentences"
+    first_scene = video.gpt_answer["scenes"][0]
 
-    narration_field = "sentence" if "sentence" in video.gpt_answer["scenes"][0][search_field][0] else "narration"
+    search_field = "scene" if "scene" in first_scene and isinstance(first_scene["scene"], list)\
+                   else "sections" if "sections" in first_scene else "sentences"
+
+    narration_field = "sentence" if "sentence" in first_scene[search_field][0] else "narration"
 
     for j in video.gpt_answer['scenes']:
         if is_sentenced:

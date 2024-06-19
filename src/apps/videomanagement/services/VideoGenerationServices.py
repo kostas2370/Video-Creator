@@ -1,5 +1,5 @@
 from ..utils.download_utils import create_image_scenes, download_music
-from ..utils.prompt_utils import format_prompt, format_prompt_for_official_gpt
+from ..utils.prompt_utils import format_prompt
 from ..utils.gpt_utils import get_reply
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
@@ -84,17 +84,8 @@ def generate_video(template_id: Union[str, int, None],
         category = template_id if len(template_id) > 0 and not template_id.isnumeric() else ""
         template = None
 
-    if settings.GPT_OFFICIAL:
-        prompt = format_prompt_for_official_gpt(template_format = template_format, template_category = category,
-                                                userprompt = message, target_audience = target_audience)
-
-        message = prompt[0]+prompt[1]
-
-    else:
-        prompt = format_prompt(template_format = template_format, template_category = category, userprompt = message,
-                               target_audience = target_audience)
-
-        logger.info("api call in gpt4free")
+    prompt = format_prompt(template_format = template_format, template_category = category,
+                           userprompt = message, target_audience = target_audience)
 
     x = get_reply(prompt, gpt_model = gpt_model)
 
