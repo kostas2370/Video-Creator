@@ -50,57 +50,6 @@ def format_prompt(template_format: str, template_category: str, userprompt: str 
     return output
 
 
-def format_prompt_for_official_gpt(template_format: str, template_category: str, userprompt: str = "", title: str = '',
-                                   target_audience: str = ''):
-
-    """
-    Generate a formatted script prompt for video creation.
-
-    Parameters:
-    -----------
-    template_format : str
-        The structure/format of the video script.
-    template_category : str
-        The genre/category of the video.
-    userprompt : str, optional
-        The user's prompt or request. Default is an empty string.
-    title : str, optional
-        The title of the scenario. If not provided, it will be generated based on the prompt.
-    target_audience : str, optional
-        The target audience for the video. Default is an empty string.
-
-    Returns:
-    --------
-    str
-        The formatted script prompt.
-
-    Detailed Steps:
-    ---------------
-    1. If 'title' is not provided, generate it based on the prompt.
-    2. If 'target_audience' is not provided, generate a suggestion.
-    3. Construct the formatted script prompt with the provided parameters.
-
-    Notes:
-    ------
-    - This function generates a script prompt for video creation, tailored to the specified format, category, user prompt, title, and target audience.
-    """
-
-    if title == '':
-        title = "The title will be selected by you, depending on the prompt"
-
-    if target_audience == '':
-        target_audience = " Select an appropriate target audience."
-
-    system_output = f"This is a request from Viddie application \n"\
-                    f"Write a scenario titled \' {title} \', that I will use to create a video required by my user\n" \
-                    f"The script should obey the following specifications:\n"\
-                    f"Structure : {template_format}" \
-
-    user_output = f"Video genre : {template_category} \n  {userprompt} The audience : {target_audience}\n"
-
-    return system_output, user_output
-
-
 def format_update_form(text: str, prompt: str) -> str:
     return f"The text i will give you is a scene in a video. {text}. Rewrite this text: {prompt} . " \
            f"The text must be around the same size"
