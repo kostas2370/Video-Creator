@@ -54,9 +54,10 @@ class Login(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     ip = models.CharField(max_length=15)
     date = models.DateTimeField(auto_now_add=True)
+    count = models.PositiveIntegerField(default = 0)
 
-    @classmethod
-    def get_user_ip(cls, req):
+    @staticmethod
+    def get_user_ip(req):
         x_forwarded_for = req.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             ip = x_forwarded_for.split(',')[0]
@@ -64,11 +65,6 @@ class Login(models.Model):
             ip = req.META.get('REMOTE_ADDR')
 
         return ip
-
-    @classmethod
-    def get_user_login_count(cls, user):
-        count = Login.objects.filter(user = user).count()
-        return count
 
     def __str__(self):
         return self.user.username + " (" + self.ip + ") at " + str(self.date)
