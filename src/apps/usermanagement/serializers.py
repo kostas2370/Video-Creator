@@ -1,40 +1,24 @@
-"""
-Viddie is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-"""
-
-
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from datetime import datetime
 from dateutil import relativedelta
-from .utils import conds
+from .utils import check_conditions
 
 
 class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = get_user_model()
-        fields = ('username', 'password', "email", "first_name", "last_name")
+        fields = ('username', 'password', "email", "first_name", "last_name",)
         extra_kwargs = {'password': {'write_only': True}, 'is_verified': {'read_only': True}}
 
     def validate(self, attrs):
 
         password = attrs.get("password")
 
-        if relativedelta.relativedelta(datetime.now(), attrs.get("date_of_birth")).years < 18:
-
-            raise AuthenticationFailed("You must be over 18")
-
-        if not conds(password):
+        if not check_conditions(password):
             raise AuthenticationFailed("Your password must contain at least 8 chars ,uppercase ,lowercase ,digit")
 
         return super().validate(attrs)
@@ -71,4 +55,3 @@ class LoginSerializer(serializers.ModelSerializer):
 
 class VerifySerializer(serializers.Serializer):
     email = serializers.CharField(required = False, read_only = True, max_length = 100)
-

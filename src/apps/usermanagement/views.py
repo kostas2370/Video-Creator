@@ -1,15 +1,3 @@
-"""
-Viddie is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-"""
-
-
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -31,13 +19,14 @@ class UserRegisterView(generics.GenericAPIView):
     authentication_classes = []
 
     def post(self, request):
-        serializer = self.get_serializer(data = request.data)
+        if get_user_model().objects.all().count() > settings.USER_LIMIT:
+            return Response({"message": "User limit reached, contact the admin !"})
 
+        serializer = self.get_serializer(data = request.data)
         serializer.is_valid(raise_exception = True)
         serializer.save()
 
         user = get_user_model().objects.get(email=serializer.data["email"])
-
         user.set_password(request.data["password"])
         user.save()
 
@@ -47,7 +36,8 @@ class UserRegisterView(generics.GenericAPIView):
 
         absurl = f'{current_site}{reverse("email-verify")}?token={str(token)}'
 
-        send_email.delay("Register verification", user.email, f"Thank you, here is the verification link : {absurl}")
+        send_email.delay("Register verification for video creator !", user.email,
+                         f"Thank you, here is the verification link : {absurl}")
 
         return Response(UserSerializer(user).data, status = status.HTTP_201_CREATED)
 
@@ -55,24 +45,25 @@ class UserRegisterView(generics.GenericAPIView):
 class VerifyEmail(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = VerifySerializer
+
     def get(self, request):
         token = request.GET.get('token')
         try:
             load = jwt.decode(token, settings.SECRET_KEY, algorithms = 'HS256')
-            user = get_user_model().objects.get(id = load['user_id'])
-            if not user.is_verified:
-                user.is_verified = True
-                user.save()
-            else:
-                return Response({"error": "User is already verified"}, status = status.HTTP_400_BAD_REQUEST)
-
-            return Response({"email": "Successfuly Activated"}, status=status.HTTP_200_OK)
 
         except jwt.ExpiredSignatureError:
-            return Response({"error": "Token Expired"}, status = status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Token Expired"}, status = 400)
 
         except jwt.DecodeError:
-            return Response({"error": "Invalid Token"}, status = status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Invalid Token"}, status = 400)
+
+        user = get_user_model().objects.get(id = load['user_id'])
+        if user.is_verified:
+            return Response({"error": "User is already verified"}, status = status.HTTP_400_BAD_REQUEST)
+
+        user.is_verified = True
+        user.save()
+        return Response({"email": "Successfully Activated"}, status=status.HTTP_200_OK)
 
 
 class LoginView(generics.GenericAPIView):
@@ -85,15 +76,13 @@ class LoginView(generics.GenericAPIView):
         user = get_user_model().objects.get(username = request.data["username"])
         serializer.is_valid(raise_exception = True)
         user_ip = Login.get_user_ip(request)
-        ips = Login.objects.filter(ip = user_ip, user = user).all()
-        if ips.count() == 0:
-            ip = Login.objects.create(user = user, ip = user_ip)
-        else:
-            ip = ips[:1].get()
-            ip.login_count += 1
-            ip.save()
-        if ip not in user.logins.all() and ip.login_count == 1:
-            send_email.delay(f"Someone logined to your account !{user.email}Someone with ip of {user_ip} "
-                             f"logined to your account !")
+
+        login, created = Login.objects.get_or_create(user = user, ip = user_ip)
+        login.count += 1
+
+        if created:
+            send_email.delay(f"Someone accessed your account!", user.email, f"Someone with this ip : {user_ip} "   
+                                                                            f"accessed your account,")
             user.save()
+
         return Response(serializer.data, status = status.HTTP_200_OK)

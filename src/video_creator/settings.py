@@ -24,6 +24,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
 
 LOGGING = {
     "version": 1,
@@ -212,7 +213,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 
 GPT_OFFICIAL = True
-MAX_TOKENS = os.getenv("MAX_TOKENS", 3900) # Max Tokens
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", 3900))# Max Tokens
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")    # Open AI api key
 DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL", "gpt-4o")
 
