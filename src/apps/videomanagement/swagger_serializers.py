@@ -2,7 +2,6 @@ from rest_framework import serializers
 
 
 class GenerateSerializer(serializers.Serializer):
-
     message = serializers.CharField(required = True, max_length = 2000)
     template_id = serializers.CharField(required = False, max_length = 20, default = "")
     voice_id = serializers.CharField(required = False, max_length = 20, default=None)
@@ -36,7 +35,6 @@ class DownloadPlaylistSerializer(serializers.Serializer):
 
 
 class SceneUpdateSerializer(serializers.Serializer):
-
     text = serializers.CharField(required = True, max_length = 2000)
 
     def create(self, validated_data):
@@ -47,11 +45,10 @@ class SceneUpdateSerializer(serializers.Serializer):
 
 
 class TwitchSerializer(serializers.Serializer):
-
     mode = serializers.ChoiceField(choices = ["streamer", "game"], default="streamer")
     value = serializers.CharField(max_length = 200)
     amt = serializers.IntegerField(max_value = 20)
-    started_at = serializers.DateField(format="%YYYY-%mm-%dd", required = False)
+    started_at = serializers.DateField(format="%Y-%m-%d", required = False)
 
     def create(self, validated_data):
         pass

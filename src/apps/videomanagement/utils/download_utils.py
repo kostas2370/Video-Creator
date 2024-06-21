@@ -16,6 +16,9 @@ import json
 import sys
 import urllib.request
 from .mapper import modes, default_providers
+from moviepy.editor import AudioFileClip, VideoFileClip, ImageClip
+from pydub import AudioSegment
+
 
 
 logger = logging.getLogger(__name__)
@@ -439,22 +442,26 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
     for j in video.gpt_answer['scenes']:
         if is_sentenced:
             for x in j[search_field]:
-                create_image_scene(video.prompt,
-                                   x['image_description'],
-                                   x[narration_field],
-                                   dir_name,
-                                   mode=mode,
-                                   style=style,
-                                   title = video.title)
+                create_image_scene(
+                    prompt = video.prompt,
+                    image = x['image_description'],
+                    text = x[narration_field],
+                    dir_name = dir_name,
+                    mode = mode,
+                    style = style,
+                    title = video.title
+                )
 
         else:
-            create_image_scene(video.prompt,
-                               j['image'],
-                               j['dialogue'],
-                               dir_name,
-                               mode=mode,
-                               style=style,
-                               title = video.title)
+            create_image_scene(
+                prompt = video.prompt,
+                image = j['image'],
+                text = j['dialogue'],
+                dir_name = dir_name,
+                mode=mode,
+                style=style,
+                title = video.title
+            )
 
 
 def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid") -> SceneImage:
@@ -520,10 +527,10 @@ def create_twitch_clip_scene(clip: str, title: str, prompt: str) -> None:
     - This function splits the Twitch clip into video and audio components, adds text to the video,
       and creates the scene and associated scene image objects.
     """
-    splited_clip = split_video_and_mp3(clip)
-    edited_video = add_text_to_video(splited_clip[1], title, x = 80, y = 900)
 
-    curr_scene = Scene.objects.create(file = splited_clip[0], prompt = prompt, text = title,
+    edited_video = add_text_to_video(clip, title, x = 80, y = 900)
+
+    curr_scene = Scene.objects.create(prompt = prompt, text = title,
                                       is_last = True)
 
-    SceneImage.objects.create(scene = curr_scene, file = edited_video, prompt = "twitch video")
+    SceneImage.objects.create(scene = curr_scene, file = edited_video, prompt = "twitch video", with_audio = True)
