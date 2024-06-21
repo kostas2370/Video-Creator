@@ -132,7 +132,8 @@ class TwitchClient:
         if req.status_code == 401:
             raise InvalidTwitchToken
 
-        return req.json().get("data").get("id")
+        print(req.json())
+        return req.json().get("data")[0].get("id")
 
     def get_clips(self, value: str, mode="game", start_date: str = ""):
         """
@@ -165,7 +166,9 @@ class TwitchClient:
             url += f"&started_at={start_date}T00:00:00Z"
 
         clips = requests.get(url, headers = self.headers)
+        print(clips.json(
 
+        ))
         return clips.json().get("data")
 
     def download_clip(self, clip) -> str:

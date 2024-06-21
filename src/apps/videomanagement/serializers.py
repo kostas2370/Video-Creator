@@ -31,7 +31,6 @@ class SceneSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_scene_image(self, obj):
-
         img = SceneImage.objects.filter(scene_id = obj.id)
         if img.count() == 0:
             return ""
@@ -59,7 +58,7 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class UserpromptSerializer(serializers.ModelSerializer):
+class UserPromptSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserPrompt
@@ -67,7 +66,7 @@ class UserpromptSerializer(serializers.ModelSerializer):
 
 
 class VideoSerializer(serializers.ModelSerializer):
-    prompt = UserpromptSerializer()
+    prompt = UserPromptSerializer()
 
     class Meta:
         model = Videos
@@ -75,7 +74,7 @@ class VideoSerializer(serializers.ModelSerializer):
 
 
 class VideoNestedSerializer(serializers.ModelSerializer):
-    prompt = UserpromptSerializer()
+    prompt = UserPromptSerializer()
     scenes = serializers.SerializerMethodField()
 
     class Meta:

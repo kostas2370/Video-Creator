@@ -81,7 +81,7 @@ class UserPrompt(models.Model):
 
 class Scene(models.Model):
     prompt = models.ForeignKey(UserPrompt, on_delete = models.CASCADE)
-    file = models.FileField(upload_to = "media/speech", max_length = 2000)
+    file = models.FileField(upload_to = "media/speech", blank = True, null = True, max_length = 2000)
     text = models.TextField()
     is_last = models.BooleanField(default = True)
     objects = models.Manager()
@@ -94,6 +94,7 @@ class SceneImage(models.Model):
     scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
     file = models.FileField(upload_to = "media/images", null = True, blank = True, max_length = 2000)
     prompt = models.TextField(default = "", blank = True, null = True)
+    with_audio = models.BooleanField(default = False)
     objects = models.Manager()
 
 
