@@ -3,7 +3,7 @@ from slugify import slugify
 
 from datetime import date
 
-from ..utils.download_utils import create_twitch_clip_scene
+from ..utils.visual_utils import create_twitch_clip_scene
 
 from ..utils.twitch import TwitchClient
 
