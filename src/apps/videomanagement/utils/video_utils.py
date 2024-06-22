@@ -11,19 +11,13 @@ from django.db.models import QuerySet
 
 
 def check_if_image(path: str) -> bool:
-    image_extensions = ['jpg', 'jpeg', 'png']
-    for x in image_extensions:
-        if x in path:
-            return True
-    return False
+    accepted_image_extensions = ('jpg', 'jpeg', 'png')
+    return path.lower().endswith(accepted_image_extensions)
 
 
 def check_if_video(path: str) -> bool:
-    image_extensions = ['mp4',  'avi']
-    for x in image_extensions:
-        if x in path:
-            return True
-    return False
+    accepted_video_extensions = ('mp4',  'avi')
+    return path.lower().endswith(accepted_video_extensions)
 
 
 def handle_audio(scene: Scene, scene_image: SceneImage):
@@ -62,7 +56,7 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
     return audio
 
 
-def handle_image(audio, scene_image, background, w, h):
+def handle_image(audio, scene_image, background):
     """
     Processes and returns the appropriate image clip based on the given audio and scene image.
 
@@ -77,8 +71,7 @@ def handle_image(audio, scene_image, background, w, h):
         audio (AudioFileClip): The audio clip associated with the scene.
         scene_image (SceneImage): The scene image object containing the file path.
         background (bool): A flag indicating if the image should be resized as a background.
-        w (int): The width to resize the image.
-        h (int): The height to resize the image.
+
 
     Returns:
         ImageClip: The processed image clip for the scene, which may include resizing, duration adjustment,
@@ -86,7 +79,10 @@ def handle_image(audio, scene_image, background, w, h):
     """
     black = ImageClip(r'assets\black.jpg')
 
+    clip = None
     if background:
+        clip = ImageClip(background.file.path)
+        w, h = clip.size
         Image.open(scene_image.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(scene_image.file.path)
     try:
         image = ImageClip(scene_image.file.path)
@@ -125,7 +121,7 @@ def handle_video(audio, scene_image: SceneImage):
     return vid_scene
 
 
-def process_scene(scene_image, audio, background, w, h, black):
+def process_scene(scene_image, audio, background, black):
     """
     Processes and returns the appropriate visual clip (image or video) based on the given scene image and audio.
 
@@ -139,8 +135,6 @@ def process_scene(scene_image, audio, background, w, h, black):
         scene_image (SceneImage): The scene image object containing the file path to the image or video file.
         audio (AudioFileClip): The audio clip associated with the scene.
         background (bool): A flag indicating if the image should be resized as a background.
-        w (int): The width to resize the image if applicable.
-        h (int): The height to resize the image if applicable.
         black (VideoFileClip): A default black video clip to use in case the scene image is not available.
 
     Returns:
@@ -150,11 +144,14 @@ def process_scene(scene_image, audio, background, w, h, black):
 
     vid_scene = black.set_duration(audio.duration)
 
-    if scene_image and scene_image.file:
-        if check_if_image(scene_image.file.path):
-            vid_scene = handle_image(audio, scene_image, background, w, h)
-        elif check_if_video(scene_image.file.path):
-            vid_scene = handle_video(audio, scene_image)
+    if not scene_image and not scene_image.file:
+        return vid_scene
+
+    if check_if_image(scene_image.file.path):
+        return handle_image(audio, scene_image, background)
+
+    if check_if_video(scene_image.file.path):
+        return handle_video(audio, scene_image)
 
     return vid_scene
 
@@ -215,7 +212,7 @@ def handle_music(video, final_audio):
     return final_audio
 
 
-def handle_background(clip, final_audio, background, final_video):
+def handle_background(final_audio, background, final_video):
     """
     Adds a background effect to a video clip based on the specified color and threshold.
 
@@ -234,7 +231,12 @@ def handle_background(clip, final_audio, background, final_video):
         VideoFileClip: The final video clip with the background effect applied, including masking and fade effects.
     """
 
-    clip = clip.set_duration(final_audio.duration).set_audio(final_audio)
+    if not background:
+        return final_video.resize((1920, 1080))
+
+    clip = ImageClip(background.file.path)
+
+    clip = clip.set_duration(final_audio.duration)
     color = [int(x) for x in background.color.split(',')]
     masked_clip = clip.fx(vfx.mask_color, color = color, thr = background.through, s = 7)
 
@@ -244,7 +246,7 @@ def handle_background(clip, final_audio, background, final_video):
     return final_video
 
 
-def handle_final_video(background, clip, final_audio, final_video, video, subtitle, subtitles):
+def handle_final_video(background, final_audio, final_video, video, subtitle, subtitles):
     """
     Processes and generates the final video clip with optional music, background effect, avatar overlay,
     subtitles, intro, and outro clips.
@@ -261,7 +263,6 @@ def handle_final_video(background, clip, final_audio, final_video, video, subtit
     Args:
         background (Background or None): The background object containing color and threshold settings for masking,
                                          or None if no background effect is applied.
-        clip (VideoFileClip): The main video clip content.
         final_audio (AudioFileClip): The final audio clip to synchronize with the video.
         final_video (VideoFileClip): The base final video clip to which all components will be added.
         video (Video): The video object containing metadata such as music, avatar, intro, and outro clips.
@@ -275,11 +276,8 @@ def handle_final_video(background, clip, final_audio, final_video, video, subtit
     if video.music:
         final_audio = handle_music(video, final_audio)
 
-    if background:
-        final_video = handle_background(clip, final_audio, background, final_video)
-
-    else:
-        final_video = final_video.set_audio(final_audio).resize((1920, 1080))
+    final_video = handle_background(final_audio, background, final_video)
+    final_video = final_video.set_audio(final_audio)
 
     if video.avatar:
         final_video = handle_avatar_video(video, final_video)
@@ -299,7 +297,7 @@ def handle_final_video(background, clip, final_audio, final_video, video, subtit
     return final_video
 
 
-def make_video(video: Videos, subtitle: bool = True) -> Videos:
+def make_video(video: Videos, subtitle: bool = False) -> Videos:
     """
     Creates a video based on the provided video object, handling scenes, audio, subtitles, background,
     and final video assembly and output.
@@ -315,11 +313,6 @@ def make_video(video: Videos, subtitle: bool = True) -> Videos:
     black = ImageClip(r'assets\black.jpg')
     scenes: Union[QuerySet, list[Scene]] = Scene.objects.filter(prompt = video.prompt)
     background: Backgrounds = video.background
-    w, h = 0, 0
-    clip = None
-    if background:
-        clip = ImageClip(background.file.path)
-        w, h = clip.size
 
     sound_list = []
     vids = []
@@ -335,7 +328,7 @@ def make_video(video: Videos, subtitle: bool = True) -> Videos:
 
             subtitles.append(sub)
 
-        im = process_scene(scene_image, audio, background, w, h, black)
+        im = process_scene(scene_image, audio, background, black)
         vids.append(im)
 
     if background:
@@ -347,7 +340,7 @@ def make_video(video: Videos, subtitle: bool = True) -> Videos:
 
     final_audio = concatenate_audioclips(sound_list)
     final_audio.write_audiofile(rf"{video.dir_name}\output_audio.wav")
-    final_video = handle_final_video(background, clip, final_audio, final_video, video, subtitle, subtitles)
+    final_video = handle_final_video(background, final_audio, final_video, video, subtitle, subtitles)
     final_video.write_videofile(rf"{video.dir_name}\output_video.mp4", fps = 24, threads = 8)
 
     for sound in sound_list:
@@ -355,6 +348,9 @@ def make_video(video: Videos, subtitle: bool = True) -> Videos:
 
     for vid in vids:
         vid.close()
+
+    final_video.close()
+    final_audio.close()
 
     video.output = rf"{video.dir_name}\output_video.mp4"
     video.status = "COMPLETED"
@@ -492,8 +488,9 @@ def add_text_to_video(video: str, text: str, fontcolor: str = "blue", fontsize: 
     """
 
     video_name = video[:-3]+"l.mp4"
-    command = f"ffmpeg -i \"{video}\" -vf \" drawtext =fontsize={fontsize}: fontcolor = {fontcolor}:text='{text}': " \
-              f"x = {x}: y= {y} \" \"{video_name}\""
+    command = (f"ffmpeg -i \"{video}\" -vf \"drawtext="
+               f"fontsize={fontsize}:fontcolor={fontcolor}:text='{text}':"
+               f"x={x}:y={y}\" \"{video_name}\"")
 
     os.system(command)
     os.remove(video)

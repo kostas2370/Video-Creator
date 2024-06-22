@@ -3,7 +3,7 @@ import os
 import pathlib
 import urllib
 from ...models import Intro, Outro, Backgrounds
-from ...utils.download_utils import download_video
+from ...utils.visual_utils import download_video
 
 
 class Command(BaseCommand):

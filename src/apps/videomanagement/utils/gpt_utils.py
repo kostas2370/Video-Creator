@@ -2,7 +2,6 @@ import io
 import json
 
 import g4f
-from django.conf import settings
 from openai import OpenAI
 
 from .exceptions import InvalidJsonFormatError

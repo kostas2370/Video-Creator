@@ -2,7 +2,7 @@ from django.db import transaction
 import os
 from ..utils.audio_utils import update_scene
 from ..models import Videos, Avatars, Scene, SceneImage, Intro, Outro
-from ..utils.download_utils import generate_new_image
+from ..utils.visual_utils import generate_new_image
 
 import logging
 
