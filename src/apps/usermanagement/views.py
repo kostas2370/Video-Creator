@@ -1,16 +1,17 @@
+import jwt
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.sites.shortcuts import get_current_site
+from django.urls import reverse
 from rest_framework import generics
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model
+
+from .models import Login
 from .serializers import RegisterSerializer, UserSerializer, LoginSerializer, VerifySerializer
 from .tasks import send_email
-from rest_framework import status
-from django.contrib.sites.shortcuts import get_current_site
-from django.urls import reverse
-import jwt
-from django.conf import settings
-from .models import Login
 
 
 class UserRegisterView(generics.GenericAPIView):

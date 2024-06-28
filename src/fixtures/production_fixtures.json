@@ -1,0 +1,85 @@
+[
+   {
+    "model": "videomanagement.voicemodels",
+    "pk": 2,
+    "fields": {
+      "name": "alloy",
+      "type": "API",
+      "path": "alloy",
+      "sample": "https://cdn.openai.com/API/docs/audio/alloy.wav",
+      "provider":"open_ai"
+    }
+  },
+   {
+    "model": "videomanagement.voicemodels",
+    "pk": 3,
+    "fields": {
+      "name": "echo",
+      "type": "API",
+      "path": "echo",
+      "sample": "https://cdn.openai.com/API/docs/audio/echo.wav",
+      "provider":"open_ai"
+    }
+  },
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 4,
+    "fields": {
+      "name": "fable",
+      "type": "API",
+      "path": "fable",
+      "sample": "https://cdn.openai.com/API/docs/audio/fable.wav",
+      "provider":"open_ai"
+    }
+  },
+
+  {
+    "model": "videomanagement.voicemodels",
+    "pk": 5,
+    "fields": {
+      "name": "onyx",
+      "type": "API",
+      "path": "onyx",
+      "sample": "https://cdn.openai.com/API/docs/audio/onyx.wav",
+      "provider":"open_ai"
+    }
+  },
+    {
+    "model": "videomanagement.voicemodels",
+    "pk": 6,
+    "fields": {
+      "name": "nova",
+      "type": "API",
+      "path": "nova",
+      "sample": "https://cdn.openai.com/API/docs/audio/nova.wav",
+      "provider":"open_ai"
+    }
+  },
+
+    {
+    "model": "videomanagement.voicemodels",
+    "pk": 7,
+    "fields": {
+      "name": "shimmer",
+      "type": "API",
+      "path": "shimmer",
+      "sample": "https://cdn.openai.com/API/docs/audio/shimmer.wav",
+      "provider":"open_ai"
+    }
+  },
+  {
+    "model": "usermanagement.user",
+    "pk": 12,
+    "fields": {
+      "password": "pbkdf2_sha256$320000$vi0Mdl0Nv9Z7ahjhYNCwPF$x42cfJjzkMkAdFr3C7iCsg3rJ1O3RlVUJSF40/5Y9Es=",
+      "is_superuser": true,
+      "is_staff": true,
+      "username": "admin2",
+      "first_name": "admin2",
+      "last_name": "admin",
+      "email": "test2@gmail.com",
+      "is_active": true,
+      "date_joined": "2022-06-30T17:03:10.123Z"
+    }
+  }
+]

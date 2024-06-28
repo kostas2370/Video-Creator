@@ -1,5 +1,4 @@
-import os, sys
-import shutil
+import sys
 from pathlib import Path
 
 try:

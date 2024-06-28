@@ -1,7 +1,8 @@
-from django.core.management import BaseCommand
 from django.conf import settings
-from ...utils.gpt_utils import get_voices_from_labs
+from django.core.management import BaseCommand
+
 from ...models import VoiceModels
+from ...utils.gpt_utils import get_voices_from_labs
 
 
 class Command(BaseCommand):

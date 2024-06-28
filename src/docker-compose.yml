@@ -13,19 +13,17 @@ services:
       - "3307:3307"
 
 
-
-
-
   video_creator:
-    build: ..
+    build: .
+    stdin_open: true
+    tty : true
     command: /startdjango
     ports:
       - "8000:8000"
     volumes:
       - .:/app
-
     env_file:
-      - ../.env
+      - ./.env
 
 
 

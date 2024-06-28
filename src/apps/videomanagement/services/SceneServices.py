@@ -1,8 +1,8 @@
 
-from ..utils.prompt_utils import format_update_form
-from ..utils.gpt_utils import get_update_sentence
-from ..utils.audio_utils import update_scene as update
 from ..models import Scene
+from ..utils.audio_utils import update_scene as update
+from ..utils.gpt_utils import get_update_sentence
+from ..utils.prompt_utils import format_update_form
 
 
 def generate_scene(text: str,

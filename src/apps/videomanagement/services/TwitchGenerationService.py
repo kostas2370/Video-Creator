@@ -1,14 +1,12 @@
+from datetime import date
 from typing import Literal
+
 from slugify import slugify
 
-from datetime import date
-
-from ..utils.visual_utils import create_twitch_clip_scene
-
-from ..utils.twitch import TwitchClient
-
-from ..utils.file_utils import generate_directory
 from ..models import Videos, UserPrompt
+from ..utils.file_utils import generate_directory
+from ..utils.twitch import TwitchClient
+from ..utils.visual_utils import create_twitch_clip_scene
 
 
 def generate_twitch_video(
@@ -32,7 +30,7 @@ def generate_twitch_video(
 
     message = f"Mode : {mode} Value : {value}"
     title = f"{value} {date.today()}"
-    dir_name = generate_directory(rf'media\videos\{slugify(title)}')
+    dir_name = generate_directory(f'media/videos/{slugify(title)}')
 
     user_prompt = UserPrompt.objects.create(template = None, prompt = f'{message}')
 

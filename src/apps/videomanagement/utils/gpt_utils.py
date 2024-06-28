@@ -1,14 +1,13 @@
 import io
 import json
+import logging
 
 import g4f
+import requests
+from django.conf import settings
 from openai import OpenAI
 
 from .exceptions import InvalidJsonFormatError
-import requests
-from django.conf import settings
-import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +102,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
         client = OpenAI(api_key = settings.OPEN_API_KEY)
 
         stream = client.chat.completions.create(model = settings.DEFAULT_GPT_MODEL,
-                                                messages = [{"role": "assistant", "content": prompt},
-                                                           ], stream = True,
+                                                messages = [{"role": "assistant", "content": prompt}, ], stream = True,
                                                 max_tokens = settings.MAX_TOKENS)
 
         for chunk in stream:

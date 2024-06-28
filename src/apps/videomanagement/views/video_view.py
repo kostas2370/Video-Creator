@@ -1,17 +1,18 @@
-from rest_framework.response import Response
-from rest_framework import viewsets
-from django.db.models import Q
-from django.shortcuts import get_object_or_404
-from rest_framework import status
-from rest_framework.decorators import action
-from drf_yasg.utils import swagger_auto_schema
-from ..paginator import StandardResultsSetPagination
-from ..serializers import VideoSerializer, VideoNestedSerializer
-from ..models import Videos
-from ..utils.video_utils import make_video
-from ..services.VideoServices import video_update, video_regenerate
 import logging
 
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import status
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from ..models import Videos
+from ..paginator import StandardResultsSetPagination
+from ..serializers import VideoSerializer, VideoNestedSerializer
+from ..services.VideoServices import video_update, video_regenerate
+from ..utils.video_utils import make_video
 
 logger = logging.getLogger(__name__)
 

@@ -1,11 +1,11 @@
-from django.db import transaction
-import os
-from ..utils.audio_utils import update_scene
-from ..models import Videos, Avatars, Scene, SceneImage, Intro, Outro
-from ..utils.visual_utils import generate_new_image
-
 import logging
+import os
 
+from django.db import transaction
+
+from ..models import Videos, Avatars, Scene, SceneImage, Intro, Outro
+from ..utils.audio_utils import update_scene
+from ..utils.visual_utils import generate_new_image
 
 logger = logging.getLogger(__name__)
 

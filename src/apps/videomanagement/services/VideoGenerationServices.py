@@ -1,16 +1,15 @@
-from ..utils.visual_utils import create_image_scenes, download_music
-from ..utils.prompt_utils import format_prompt
-from ..utils.gpt_utils import get_reply
-from ..utils.audio_utils import make_scenes_speech
-from ..utils.file_utils import generate_directory
-from ..models import TemplatePrompts, Videos, VoiceModels, UserPrompt, Avatars, Intro, Outro
-from django.conf import settings
-from ..defaults import default_format
-from slugify import slugify
+import logging
 from typing import Union, Literal
 
-import logging
+from slugify import slugify
 
+from ..defaults import default_format
+from ..models import TemplatePrompts, Videos, VoiceModels, UserPrompt, Avatars, Intro, Outro
+from ..utils.audio_utils import make_scenes_speech
+from ..utils.file_utils import generate_directory
+from ..utils.gpt_utils import get_reply
+from ..utils.prompt_utils import format_prompt
+from ..utils.visual_utils import create_image_scenes, download_music
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +92,7 @@ def generate_video(template_id: Union[str, int, None],
     user_rompt.save()
     logger.info(f"Created the user_prompt instance with id : {user_rompt.id}")
 
-    dir_name = generate_directory(rf'media\videos\{slugify(x["title"])}')
+    dir_name = generate_directory(f'media/videos/{slugify(x["title"])}')
 
     if intro and outro:
         intro = Intro.objects.get(id = int(intro))

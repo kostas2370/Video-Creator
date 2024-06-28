@@ -1,10 +1,14 @@
-from TTS.utils.synthesizer import Synthesizer
-from TTS.utils.manage import ModelManager
 import os
+from dataclasses import dataclass
 from typing import Union
 
+try:
+    from TTS.utils.manage import ModelManager
+    from TTS.utils.synthesizer import Synthesizer
+except ImportError:
+    pass
+
 from .gpt_utils import tts_from_open_api, tts_from_eleven_labs
-from dataclasses import dataclass
 
 
 @dataclass
@@ -14,7 +18,7 @@ class ApiSyn:
 
 
 def create_model(model_path: str = rf"{os.path.abspath(os.getcwd())}\.models.json",
-                 model: str = "tts_models/en/ljspeech/vits--neon", vocoder: str = "default_vocoder") -> Synthesizer:
+                 model: str = "tts_models/en/ljspeech/vits--neon", vocoder: str = "default_vocoder"):
 
     """
     Create and return a Synthesizer instance with specified model and vocoder settings.
@@ -46,33 +50,36 @@ def create_model(model_path: str = rf"{os.path.abspath(os.getcwd())}\.models.jso
     - The function assumes that the model and vocoder names provided are valid and available for download.
     - The function prints an error message if the specified vocoder cannot be downloaded, and proceeds without a vocoder.
     """
+    try:
+        model_manager = ModelManager(model_path)
+        model_path, config_path, model_item = model_manager.download_model(model)
+        if vocoder == "default_vocoder" and model_item.get(vocoder) is not None:
+            voc_path, voc_config_path, _ = model_manager.download_model(model_item[vocoder])
 
-    model_manager = ModelManager(model_path)
-    model_path, config_path, model_item = model_manager.download_model(model)
-    if vocoder == "default_vocoder" and model_item.get(vocoder) is not None:
-        voc_path, voc_config_path, _ = model_manager.download_model(model_item[vocoder])
+        elif vocoder is not None:
+            try:
+                voc_path, voc_config_path, _ = model_manager.download_model(vocoder)
 
-    elif vocoder is not None:
-        try:
-            voc_path, voc_config_path, _ = model_manager.download_model(vocoder)
+            except Exception as ex:
+                voc_path, voc_config_path, _ = None, None, None
+                print(ex)
+        else:
+            voc_path, voc_config_path = None, None
 
-        except Exception as ex:
-            voc_path, voc_config_path, _ = None, None, None
-            print(ex)
-    else:
-        voc_path, voc_config_path = None, None
-
-    if voc_path is not None and voc_config_path is not None:
-        syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path, vocoder_checkpoint = voc_path,
+        if voc_path is not None and voc_config_path is not None:
+            syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path, vocoder_checkpoint = voc_path,
                           vocoder_config = voc_config_path)
 
-    else:
-        syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path)
+        else:
+            syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path)
+
+    except:
+        syn = None
 
     return syn
 
 
-def save(syn: Union[Synthesizer, ApiSyn], text: str = "", save_path: str = "") -> str:
+def save(syn: Union[ApiSyn], text: str = "", save_path: str = "") -> str:
     """
     Save synthesized audio to a file.
 
@@ -108,9 +115,8 @@ def save(syn: Union[Synthesizer, ApiSyn], text: str = "", save_path: str = "") -
     - The function assumes that the provided synthesizer objects have appropriate methods for text-to-speech synthesis.
     - If `save_path` is not provided, the audio will be saved with a unique filename in the current directory.
     """
-    if type(syn) is Synthesizer:
-        outputs = syn.tts(text)
-        syn.save_wav(outputs, save_path)
+    if syn is None:
+        return None
 
     if type(syn) is ApiSyn:
         if syn.provider == "open_ai":
@@ -123,5 +129,8 @@ def save(syn: Union[Synthesizer, ApiSyn], text: str = "", save_path: str = "") -
                 for chunk in resp.iter_content(chunk_size = 1024):
                     if chunk:
                         f.write(chunk)
+    else:
+        outputs = syn.tts(text)
+        syn.save_wav(outputs, save_path)
 
     return save_path

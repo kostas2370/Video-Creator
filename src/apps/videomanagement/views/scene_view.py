@@ -1,17 +1,14 @@
-from rest_framework.response import Response
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework import status
+from rest_framework.response import Response
 
-
-from drf_yasg.utils import swagger_auto_schema
-
-from ..serializers import SceneSerializer
 from ..models import Scene, SceneImage
-
-from ..swagger_serializers import SceneUpdateSerializer
-from drf_yasg import openapi
+from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
+from ..swagger_serializers import SceneUpdateSerializer
 
 scene_id = openapi.Parameter('scene_id', openapi.IN_QUERY, description="Id of the scene you want to change.",
                              type=openapi.TYPE_NUMBER)

@@ -1,8 +1,10 @@
-from django.conf import settings
-import requests
-from .exceptions import GameNotFound, InvalidTwitchToken, StreamerNotFound, HeaderInitiationError
 import urllib.request
 import uuid
+
+import requests
+from django.conf import settings
+
+from .exceptions import GameNotFound, InvalidTwitchToken, StreamerNotFound, HeaderInitiationError
 
 
 class TwitchClient:
@@ -188,6 +190,6 @@ class TwitchClient:
 
         index = clip.get("thumbnail_url").find('-preview')
         filename = f'{str(uuid.uuid4())}.mp4'
-        urllib.request.urlretrieve(clip['thumbnail_url'][:index]+".mp4", f'{self.path}\\{filename}')
+        urllib.request.urlretrieve(clip['thumbnail_url'][:index]+".mp4", f'{self.path}/{filename}')
 
-        return f'{self.path}\\{filename}'
+        return f'{self.path}/{filename}'

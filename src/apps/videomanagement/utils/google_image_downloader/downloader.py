@@ -1,10 +1,12 @@
-import requests
 import urllib.request
 import uuid
-from ..gpt_utils import select_from_vision
+from typing import Union
+
+import requests
 from django.conf import settings
 from requests import Response
-from typing import Union
+
+from ..gpt_utils import select_from_vision
 
 
 def build_payload(query: str, start: int = 1, num: int = 1, **params) -> dict:

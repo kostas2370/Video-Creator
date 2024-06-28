@@ -13,14 +13,18 @@ RUN apt-get update \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
+RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 
+RUN apt-get update && apt-get install -y imagemagick
+
+RUN apt-get install espeak-ng -y
 WORKDIR /app
 
-COPY ../production_requirements.txt .
+COPY requirements/docker_requirements.txt .
 
 
 RUN python -m pip install --upgrade pip
-RUN pip install -r production_requirements.txt
+RUN pip install -r docker_requirements.txt
 
 
 COPY startdjango.sh /startdjango

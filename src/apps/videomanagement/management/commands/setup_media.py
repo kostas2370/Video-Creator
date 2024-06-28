@@ -1,7 +1,9 @@
-from django.core.management import BaseCommand
 import os
 import pathlib
 import urllib
+
+from django.core.management import BaseCommand
+
 from ...models import Intro, Outro, Backgrounds
 from ...utils.visual_utils import download_video
 
