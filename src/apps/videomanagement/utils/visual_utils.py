@@ -164,7 +164,7 @@ def download_video(url: str, dir_name: str) -> str:
     yt = YouTube(url)
     video = yt.streams.get_highest_resolution()
     video.download(dir_name)
-    return rf'{dir_name}{yt.title}.mp4'
+    return f'{dir_name}{yt.title}.mp4'
 
 
 def download_music(url: str) -> str:

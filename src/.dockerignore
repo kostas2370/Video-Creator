@@ -8,7 +8,6 @@ __pycache__
 .hypothesis
 /media/videos/**
 .env
-db.sqlite3
 # Git
 .gitignore
 .gitattributes
@@ -66,3 +65,12 @@ target/
 venv/
 .idea
 .vscode/
+/db.sqlite3
+/media/images/**
+/media/media/**
+/media/music/**
+/media/speech/**
+/media/other/avatars/**
+/media/other/backgrounds/**
+/media/other/intros/**
+/media/other/outros/**
