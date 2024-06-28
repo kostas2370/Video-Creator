@@ -87,3 +87,4 @@ For any Injuries or Support you can contact me at those emails :
 * Now we are able to make compilation videos from twitch by game or streamer
 * Added open-ai voices
 * Added midjourney and special diffusion as image providers !! (For now you can change the providers in the mapper.py in default providers)
+* Dockerized the app
