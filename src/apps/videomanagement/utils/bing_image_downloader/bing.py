@@ -1,11 +1,11 @@
-from pathlib import Path
 import os
-import urllib.request
-import urllib
-import imghdr
 import posixpath
 import re
+import urllib
+import urllib.request
 import uuid
+import imghdr
+
 '''
 Python api to download image form Bing.
 Author: Guru Prasad (g.gaurav541@gmail.com)
@@ -66,7 +66,8 @@ class Bing:
     def download_image(self, link):
         self.download_count += 1
         # Get the image link
-        try:
+        #try:
+        if True :
             path = urllib.parse.urlsplit(link).path
             filename = posixpath.basename(path).split('?')[0]
             file_type = filename.split(".")[-1]
@@ -83,7 +84,7 @@ class Bing:
                 print("[%] File Downloaded !\n")
 
             return x
-        except Exception as e:
+        #except Exception as e:
             self.download_count -= 1
             print("[!] Issue getting: {}\n[!] Error:: {}".format(link, e))
             return False

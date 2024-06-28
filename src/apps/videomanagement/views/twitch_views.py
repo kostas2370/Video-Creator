@@ -1,9 +1,10 @@
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
 from ..serializers import VideoSerializer
-from ..swagger_serializers import TwitchSerializer
 from ..services.TwitchGenerationService import generate_twitch_video
+from ..swagger_serializers import TwitchSerializer
 
 
 @swagger_auto_schema(operation_description = "generates a video from twitch clips, depending on the game or streamer",

@@ -1,13 +1,13 @@
-from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
-from drf_yasg.utils import swagger_auto_schema
-from ..utils.visual_utils import download_playlist
+from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage
 from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
     AvatarNestedSerializer, VoiceModelSerializer, AvatarSerializer, SceneImageSerializer
-from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage
 from ..swagger_serializers import DownloadPlaylistSerializer
+from ..utils.visual_utils import download_playlist
 
 
 class SceneImageView(viewsets.ModelViewSet):

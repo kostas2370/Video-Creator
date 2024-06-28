@@ -1,6 +1,6 @@
 from django.contrib import admin
+
 from .models import *
-from django.contrib import admin
 from .utils.video_utils import make_video
 
 

@@ -7,6 +7,10 @@ https://www.youtube.com/watch?v=bNZvK68O-Rk
 
 
 How to run it :
+
+There are 2 ways:
+
+# Manually :
 Recommended python version : 3.9 - 3.11
 
 First install these 2 programs in your computer : 
@@ -20,7 +24,7 @@ If you dont want to install any extra packages for voices ,
 use only : tts_models/en/ljspeech/tacotron2-DDC Model
 
 Go to the viddie folder and run this command :
-pip install -r requirements.txt
+pip install -r requirements/requirements.txt
 
 
 Create a checkpoints folder and
@@ -51,6 +55,18 @@ run this command :
 ```shell
 py manage.py setup_elevenlabs
 ```
+
+
+# Docker :
+Docker can't use coquis tts yet , because of an error, trying to figure it out.
+1. Create the .env file and add your OPEN_API_KEY, SEARCH_ENGINE_ID, API_KEY like .env_example
+2. Download these files and add them in the checkpoints folder
+https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
+![image](https://github.com/kostas2370/Clippy-V2/assets/96636678/621fa695-5a40-42e0-9464-51aae08d89c7)
+
+3. docker-compose up --build in the src folder 
+
+
 
 Login credentials for admin page : username = admin, password = pass
 

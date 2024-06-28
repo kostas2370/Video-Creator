@@ -1,6 +1,7 @@
-from .tts_utils import  save, ApiSyn, create_model
-from ..models import Scene, Videos
 import uuid
+
+from .tts_utils import save, ApiSyn, create_model
+from ..models import Scene, Videos
 
 
 def make_scenes_speech(video: Videos) -> None:

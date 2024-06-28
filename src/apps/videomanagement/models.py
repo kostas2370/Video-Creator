@@ -204,4 +204,4 @@ class Videos(AbstractModel):
     objects = models.Manager()
 
     def __str__(self):
-        return f"{self.title} { str(self.id)}"
+        return f"{self.title}"

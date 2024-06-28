@@ -1,25 +1,23 @@
-from pytube import Playlist
-from ..models import Music, Scene, SceneImage, Videos
-import uuid
-from .bing_image_downloader import downloader
-import os
-from openai import OpenAI
-import requests
-from django.conf import settings
-from pytube import YouTube
-from .exceptions import FileNotDownloadedError
-from .prompt_utils import format_dalle_prompt
-from .google_image_downloader import downloader as google_downloader
-from .video_utils import split_video_and_mp3, add_text_to_video
-import logging
 import json
+import logging
+import os
 import sys
 import urllib.request
+import uuid
+
+import requests
+from django.conf import settings
+from openai import OpenAI
+from pytube import Playlist
+from pytube import YouTube
+
+from .bing_image_downloader import downloader
+from .exceptions import FileNotDownloadedError
+from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
-from moviepy.editor import AudioFileClip, VideoFileClip, ImageClip
-from pydub import AudioSegment
-
-
+from .prompt_utils import format_dalle_prompt
+from .video_utils import add_text_to_video
+from ..models import Music, Scene, SceneImage, Videos
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +307,7 @@ def generate_from_diffusion(prompt: str, dir_name: str, title: str = "", *args, 
     return f"{dir_name}\\{filename}.png"
 
 
-def generate_from_midjourney(prompt: str, dir_name: str, title: str = "", *args, **kwargs):
+def generate_from_midjourney(prompt: str, dir_name: str, title: str = ""):
     """
     Generate an image using the Midjourney API.
 
@@ -321,8 +319,7 @@ def generate_from_midjourney(prompt: str, dir_name: str, title: str = "", *args,
         The directory path where the generated image will be saved.
     title : str, optional
         The title for the image. Default is an empty string.
-    *args, **kwargs : additional arguments and keyword arguments
-        Additional arguments and keyword arguments to pass to the Midjourney API.
+
 
     Returns:
     --------

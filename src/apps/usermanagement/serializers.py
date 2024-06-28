@@ -1,9 +1,8 @@
-from django.contrib.auth import get_user_model
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework import serializers
 from django.contrib.auth import authenticate
-from datetime import datetime
-from dateutil import relativedelta
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
+
 from .utils import check_conditions
 
 

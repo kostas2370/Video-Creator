@@ -1,13 +1,15 @@
-from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx,\
-    concatenate_videoclips, CompositeVideoClip, TextClip
-from ..models import *
-from PIL import Image
-import subprocess
-import shlex
 import os
-from .SadTalker.inference import lip
+import shlex
+import subprocess
 import uuid
+
+from PIL import Image
 from django.db.models import QuerySet
+from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx, \
+    concatenate_videoclips, CompositeVideoClip, TextClip
+
+from .SadTalker.inference import lip
+from ..models import *
 
 
 def check_if_image(path: str) -> bool:
@@ -38,7 +40,7 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
                        the scene image's audio, and silence if applicable.
     """
 
-    silent = AudioFileClip(r'assets\blank.wav')
+    silent = AudioFileClip('assets/blank.wav')
     audio = None
     if scene.file:
         audio = AudioFileClip(scene.file.path)
@@ -77,7 +79,7 @@ def handle_image(audio, scene_image, background):
         ImageClip: The processed image clip for the scene, which may include resizing, duration adjustment,
                    and fade effects, or a default black image clip in case of an error.
     """
-    black = ImageClip(r'assets\black.jpg')
+    black = ImageClip('assets/black.jpg')
 
     clip = None
     if background:
@@ -174,9 +176,9 @@ def handle_avatar_video(video, final_video):
                        and fade-out effects applied.
     """
 
-    avatar_video = rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'
+    avatar_video = f'{os.getcwd()}/{video.dir_name}/output_avatar.mp4'
 
-    if not os.path.exists(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'):
+    if not os.path.exists(f'{os.getcwd()}/{video.dir_name}/output_avatar.mp4'):
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
 
     avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "top")).resize(1.5).fadein(2)\
@@ -310,7 +312,7 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
         Videos: The updated video object with output file path and status.
     """
 
-    black = ImageClip(r'assets\black.jpg')
+    black = ImageClip('assets/black.jpg')
     scenes: Union[QuerySet, list[Scene]] = Scene.objects.filter(prompt = video.prompt)
     background: Backgrounds = video.background
 
@@ -339,9 +341,9 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
         final_video = concatenate_videoclips(vids).set_position('center')
 
     final_audio = concatenate_audioclips(sound_list)
-    final_audio.write_audiofile(rf"{video.dir_name}\output_audio.wav")
+    final_audio.write_audiofile(f"{video.dir_name}/output_audio.wav")
     final_video = handle_final_video(background, final_audio, final_video, video, subtitle, subtitles)
-    final_video.write_videofile(rf"{video.dir_name}\output_video.mp4", fps = 24, threads = 8)
+    final_video.write_videofile(f"{video.dir_name}/output_video.mp4", fps = 24, threads = 8)
 
     for sound in sound_list:
         sound.close()
@@ -352,7 +354,7 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
     final_video.close()
     final_audio.close()
 
-    video.output = rf"{video.dir_name}\output_video.mp4"
+    video.output = f"{video.dir_name}/output_video.mp4"
     video.status = "COMPLETED"
     video.save()
     return video
@@ -387,11 +389,11 @@ def create_avatar_video(avatar: Avatars, dir_name: str) -> str:
 
     avatar_cam: str = lip(
         source_image = avatar.file.path,
-        driven_audio = rf"{dir_name}\output_audio.wav",
+        driven_audio = f"{dir_name}/output_audio.wav",
         result_dir = dir_name,
         facerender = "pirender", )
 
-    output: str = rf'{os.getcwd()}\{dir_name}\output_avatar.mp4'
+    output: str = f'{os.getcwd()}/{dir_name}/output_avatar.mp4'
     subprocess.run(shlex.split(
         f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{output}"'))
 
