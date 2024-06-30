@@ -51,4 +51,3 @@ safetensors
 drf-yasg
 llvmlite==0.38.1
 openai
-imghdr
