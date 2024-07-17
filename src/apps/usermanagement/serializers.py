@@ -42,7 +42,12 @@ class LoginSerializer(serializers.ModelSerializer):
         request = self.context['request']
         username = attrs.get("username", '')
         password = attrs.get("password", '')
+
+        if not username:
+            raise AuthenticationFailed("Υou need to add username")
+
         auser = authenticate(username = username, password = password, request=request)
+
         if not auser:
             raise AuthenticationFailed("There is not a user with that credentials")
         if not auser.is_verified:

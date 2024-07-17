@@ -12,7 +12,6 @@ services:
     ports:
       - "3307:3307"
 
-
   video_creator:
     build: .
     stdin_open: true
@@ -25,7 +24,8 @@ services:
     env_file:
       - ./.env
 
-
-
-
-
+  redis:
+    image: "redis:alpine"
+    container_name: "video_creator_redis"
+    ports:
+      - "6379:6379"

@@ -63,6 +63,9 @@ INSTALLED_APPS = [
 
 ]
 
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER", "redis://127.0.0.1:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_BACKEND", "redis://127.0.0.1:6379/0")
+
 MEDIA_ROOT = os.path.join(BASE_DIR, "")
 MEDIA_URL = ""
 
@@ -174,7 +177,7 @@ AUTHENTICATION_BACKENDS = [
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=100),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': 'Bearer',
 }
