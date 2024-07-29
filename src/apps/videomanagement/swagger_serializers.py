@@ -1,11 +1,14 @@
 from rest_framework import serializers
 
+accepted_models = ["gpt-3.5-turbo", "gpt-4", "gpt-4o", "claude-3-5-sonnet-20240620",
+                   "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.0-pro"]
+
 
 class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required = True, max_length = 2000)
     template_id = serializers.CharField(required = False, max_length = 20, default = "")
     voice_id = serializers.CharField(required = False, max_length = 20, default=None)
-    gpt_model = serializers.ChoiceField(required = False, choices = ["gpt-3.5-turbo", "gpt-4"], default = "gpt-4")
+    gpt_model = serializers.ChoiceField(required = False, choices = accepted_models, default = "gpt-4")
     images = serializers.ChoiceField(required = False, choices = ["AI", "WEB", False], default = "WEB")
     avatar_selection = serializers.CharField(required = False, max_length = 30, default = "no_avatar")
     style = serializers.ChoiceField(required = False, choices = ["vivid", "natural"], default = "vivid")

@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.mail import send_mail
 
 from .models import Login
 from .serializers import RegisterSerializer, UserSerializer, LoginSerializer, VerifySerializer
@@ -37,8 +38,8 @@ class UserRegisterView(generics.GenericAPIView):
 
         absurl = f'{current_site}{reverse("email-verify")}?token={str(token)}'
 
-        send_email.delay("Register verification for video creator !", user.email,
-                         f"Thank you, here is the verification link : {absurl}")
+        send_mail(subject ="Register verification for video creator !", recipient_list = [user.email],
+                  message=f"Thank you, here is the verification link : {absurl}", from_email= settings.EMAIL_HOST_USER)
 
         return Response(UserSerializer(user).data, status = status.HTTP_201_CREATED)
 
@@ -75,7 +76,7 @@ class LoginView(generics.GenericAPIView):
     def post(self, request):
         serializer = self.serializer_class(data = request.data, context = {'request': request})
 
-        user = get_user_model().objects.get(username = request.data["username"])
+        user = get_user_model().objects.get(username = request.data.get("username"))
         serializer.is_valid(raise_exception = True)
         user_ip = Login.get_user_ip(request)
 

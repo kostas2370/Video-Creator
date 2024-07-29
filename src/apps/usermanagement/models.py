@@ -7,11 +7,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class User(AbstractUser, PermissionsMixin):
-
     first_name = models.CharField(max_length = 20, blank = False)
     last_name = models.CharField(max_length = 20, blank = False)
     email = models.EmailField(unique = True)
     is_verified = models.BooleanField(default = False)
+    # generation_limit_for_ai = models.PositiveIntegerField(default = 0)
+    # generation_limit_for_twitch = models.PositiveIntegerField(default = 0)
 
     REQUIRED_FIELDS = ["email"]
 
