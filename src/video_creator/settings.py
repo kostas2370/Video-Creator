@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -213,6 +213,8 @@ REST_FRAMEWORK = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_ALLOW_ALL = True
+ALLOWED_HOSTS = ['*']
 
 
 GPT_OFFICIAL = True
@@ -232,3 +234,6 @@ XI_API_KEY = os.getenv('XI_API_KEY')
 DIFFUSION_KEY = os.getenv('DIFFUSION_KEY')
 MIDJOURNEY_KEY = os.getenv('MIDJOURNEY_KEY')
 CONFIG_PATH = "apps/videomanagement/utils/SadTalker/src/config"
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")

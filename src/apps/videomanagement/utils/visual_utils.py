@@ -486,7 +486,7 @@ def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "viv
     """
     provider = default_providers.get(video.mode)
     try:
-        img = getattr(modes.get(video.mode).get(provider))(scene_image.prompt,
+        img = getattr(thismodule,modes.get(video.mode).get(provider))(scene_image.prompt,
                                                            f'{video.dir_name}/images/',
                                                            style = style,
                                                            title = video.title)

@@ -1,15 +1,20 @@
 import io
 import json
 import logging
+import sys
 
 import g4f
 import requests
 from django.conf import settings
 from openai import OpenAI
+import anthropic
 
 from .exceptions import InvalidJsonFormatError
+import google.generativeai as genai
+from .mapper import model_calls
 
 logger = logging.getLogger(__name__)
+thismodule = sys.modules[__name__]
 
 
 def check_json(json_file: json) -> bool:
@@ -52,7 +57,69 @@ def check_json(json_file: json) -> bool:
     return True
 
 
-def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
+def official_gpt_call(prompt: str, gpt_model=None):
+    x = io.StringIO()
+    logger.warning("API CALL IN OFFICIAL GPT")
+
+    client = OpenAI(api_key = settings.OPEN_API_KEY)
+
+    stream = client.chat.completions.create(model = settings.DEFAULT_GPT_MODEL if not gpt_model else gpt_model,
+                                            messages = [{"role": "assistant", "content": prompt}, ], stream = True,
+                                            max_tokens = settings.MAX_TOKENS)
+
+    for chunk in stream:
+        x.write(chunk.choices[0].delta.content or "")
+
+    return x
+
+
+def g4f_gpt_call(prompt: str, gpt_model="gpt-4"):
+    x = io.StringIO()
+    logger.info("api call in gpt4free")
+
+    gpt_model = g4f.models.gpt_4_turbo if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
+    response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True, )
+
+    for message in response:
+        x.write(message)
+
+    return x
+
+
+def gemini_call(prompt: str, model='gemini-1.5-pro'):
+    x = io.StringIO()
+    genai.configure(api_key = settings.GEMINI_API_KEY)
+    model = genai.GenerativeModel(model)
+    response = model.generate_content(prompt)
+    for chunk in response:
+        x.write(chunk)
+
+    return x
+
+
+def claude_call(prompt: str, model="claude-3-5-sonnet-20240620"):
+    x = io.StringIO()
+    client = anthropic.Anthropic(settings.ANTHROPIC_API_KEY)
+    message = client.messages.create(model = model,
+                                     max_tokens = 1000,
+                                     temperature = 0,
+                                     system = "You are a world-class poet. Respond only with short poems.",
+                                     messages = [{"role": "assistant", "content": [{"type": "text", "text": prompt}]}])
+
+    x.write(message.content[0].text)
+    return x
+
+
+def gpt_call(prompt, gpt_model):
+    if not settings.GPT_OFFICIAL:
+        x = g4f_gpt_call(prompt = prompt, gpt_model = gpt_model)
+    else:
+        x = official_gpt_call(prompt = prompt)
+
+    return x
+
+
+def get_reply(prompt, time=0, reply_format="json", model='gpt-4'):
     """
     Get a reply to a prompt from either GPT-4 Free or the OpenAI API.
 
@@ -83,34 +150,16 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     - This function interacts with either GPT-4 Free or the OpenAI API to generate replies to prompts.
     """
     time += 1
-    g4f.logging = True  # enable logging
+    g4f.logging = True
     g4f.check_version = False
-    x = io.StringIO()
 
-    if not settings.GPT_OFFICIAL:
-        logger.info("api call in gpt4free")
-        gpt_model = g4f.models.gpt_4_turbo if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
-        response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True,
-                                             )
-
-        for message in response:
-            x.write(message)
-
-    else:
-        logger.warning("API CALL IN OFFICIAL GPT")
-
-        client = OpenAI(api_key = settings.OPEN_API_KEY)
-
-        stream = client.chat.completions.create(model = settings.DEFAULT_GPT_MODEL,
-                                                messages = [{"role": "assistant", "content": prompt}, ], stream = True,
-                                                max_tokens = settings.MAX_TOKENS)
-
-        for chunk in stream:
-            x.write(chunk.choices[0].delta.content or "")
+    for key, call in model_calls.items():
+        if key in model:
+            x = getattr(thismodule, call)(prompt, model)
+            break
 
     if reply_format == "json":
         x = x.getvalue()
-        print(x)
         x = x[x.index('{'):len(x)-(x[::-1].index('}'))]
 
         try:
@@ -125,7 +174,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
             if time == 5:
                 raise Exception("Max gpt limit is 5 , try again with different prompt !!")
 
-            return get_reply(prompt, time = time, gpt_model = gpt_model)
+            return get_reply(prompt, time = time, gpt_model = model)
 
     return x
 

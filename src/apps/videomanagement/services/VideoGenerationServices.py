@@ -86,7 +86,7 @@ def generate_video(template_id: Union[str, int, None],
     prompt = format_prompt(template_format = template_format, template_category = category,
                            userprompt = message, target_audience = target_audience)
 
-    x = get_reply(prompt, gpt_model = gpt_model)
+    x = get_reply(prompt, model = gpt_model)
 
     user_rompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
     user_rompt.save()

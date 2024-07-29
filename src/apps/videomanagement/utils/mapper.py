@@ -13,3 +13,9 @@ default_providers = {
     "WEB": "bing",
     "AI": "dall-e"
 }
+
+model_calls = {
+    "gpt": "gpt_call",
+    "claude": "claude_call",
+    "gemini": "gemini_call"
+}
