@@ -26,6 +26,7 @@ def generate_video(template_id: Union[str, int, None],
                    intro: str = None,
                    outro: str = None,
                    voice_id: Union[int, None] = None,
+                   subtitles: bool = False
                    ) -> Videos:
 
     """
@@ -99,7 +100,7 @@ def generate_video(template_id: Union[str, int, None],
         outro = Outro.objects.get(id = int(outro))
 
     vid = Videos.objects.create(title = x['title'], prompt = user_rompt, dir_name = dir_name, gpt_answer = x,
-                                background = background, intro = intro, outro = outro)
+                                background = background, intro = intro, outro = outro, subtitles = subtitles)
     logger.info(f"Created the video instance with id : {vid.id}")
 
     if avatar_selection != "no_avatar":

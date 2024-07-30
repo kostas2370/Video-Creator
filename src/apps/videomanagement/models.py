@@ -198,6 +198,7 @@ class Videos(AbstractModel):
     background = models.ForeignKey(Backgrounds, blank = True, null = True, on_delete = models.SET_NULL)
     intro = models.ForeignKey(Intro, blank = True, null = True, on_delete = models.SET_NULL)
     outro = models.ForeignKey(Outro, blank = True, null = True, on_delete = models.SET_NULL)
+    subtitles = models.BooleanField(default = False)
 
     mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB")
 

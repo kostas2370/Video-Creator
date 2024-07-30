@@ -146,7 +146,7 @@ def process_scene(scene_image, audio, background, black):
 
     vid_scene = black.set_duration(audio.duration)
 
-    if not scene_image and not scene_image.file:
+    if not scene_image or not scene_image.file:
         return vid_scene
 
     if check_if_image(scene_image.file.path):
@@ -248,7 +248,7 @@ def handle_background(final_audio, background, final_video):
     return final_video
 
 
-def handle_final_video(background, final_audio, final_video, video, subtitle, subtitles):
+def handle_final_video(background, final_audio, final_video, video, subtitles):
     """
     Processes and generates the final video clip with optional music, background effect, avatar overlay,
     subtitles, intro, and outro clips.
@@ -278,13 +278,12 @@ def handle_final_video(background, final_audio, final_video, video, subtitle, su
     if video.music:
         final_audio = handle_music(video, final_audio)
 
-    final_video = handle_background(final_audio, background, final_video)
-    final_video = final_video.set_audio(final_audio)
+    final_video = handle_background(final_audio, background, final_video).set_audio(final_audio)
 
     if video.avatar:
         final_video = handle_avatar_video(video, final_video)
 
-    if subtitle:
+    if video.subtitles:
         subs = concatenate_videoclips(subtitles)
         final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
 
@@ -299,7 +298,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitle, su
     return final_video
 
 
-def make_video(video: Videos, subtitle: bool = False) -> Videos:
+def make_video(video: Videos) -> Videos:
     """
     Creates a video based on the provided video object, handling scenes, audio, subtitles, background,
     and final video assembly and output.
@@ -324,7 +323,7 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
         audio = handle_audio(scene, scene_image)
         sound_list.append(audio)
 
-        if subtitle:
+        if video.subtitles:
             sub = TextClip(scene.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).\
                   set_duration(audio.duration)
 
@@ -342,7 +341,7 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
 
     final_audio = concatenate_audioclips(sound_list)
     final_audio.write_audiofile(f"{video.dir_name}/output_audio.wav")
-    final_video = handle_final_video(background, final_audio, final_video, video, subtitle, subtitles)
+    final_video = handle_final_video(background, final_audio, final_video, video, subtitles)
     final_video.write_videofile(f"{video.dir_name}/output_video.mp4", fps = 24, threads = 8)
 
     for sound in sound_list:
@@ -353,6 +352,9 @@ def make_video(video: Videos, subtitle: bool = False) -> Videos:
 
     final_video.close()
     final_audio.close()
+
+    for sub in subtitles:
+        sub.close()
 
     video.output = f"{video.dir_name}/output_video.mp4"
     video.status = "COMPLETED"
