@@ -1,12 +1,4 @@
-"""
-Viddie is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-Viddie is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-"""
+from rest_framework.exceptions import APIException
 
 
 class InvalidJsonFormatError(Exception):
@@ -22,20 +14,24 @@ class FileNotDownloadedError(Exception):
 
 
 class GameNotFound(Exception):
-    def __init__(self):
-        self.message = "Could not find a game with that name"
+    status_code = 404
+    default_detail = 'Could not find a game with that name'
+    default_code = 'game_not_found'
 
 
-class StreamerNotFound(Exception):
-    def __init__(self):
-        self.message = "Could not find a streamer with that name"
+class StreamerNotFound(APIException):
+    status_code = 404
+    default_detail = 'Could not find a streamer with that name'
+    default_code = 'streamer_not_found'
 
 
-class InvalidTwitchToken(Exception):
-    def __init__(self):
-        self.message = "Invalid Twitch Token"
+class InvalidTwitchToken(APIException):
+    status_code = 400
+    default_detail = 'Twitch token is missing'
+    default_code = 'token_is_missing'
 
 
-class HeaderInitiationError(Exception):
-    def __init__(self):
-        self.message = "You need to set headers !"
+class HeaderInitiationError(APIException):
+    status_code = 500
+    default_detail = 'Headers are missing'
+    default_code = 'headers_missing'
