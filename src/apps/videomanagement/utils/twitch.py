@@ -128,13 +128,13 @@ class TwitchClient:
 
         url = f'https://api.twitch.tv/helix/users?login={name}'
         req = requests.get(url, headers = self.headers)
-        if req.status_code == 400:
+
+        if req.status_code == 400 or len(req.json()["data"]) == 0:
             raise StreamerNotFound
 
         if req.status_code == 401:
             raise InvalidTwitchToken
 
-        print(req.json())
         return req.json().get("data")[0].get("id")
 
     def get_clips(self, value: str, mode="game", start_date: str = ""):
@@ -166,11 +166,13 @@ class TwitchClient:
 
         if start_date:
             url += f"&started_at={start_date}T00:00:00Z"
+        try:
+            clips = requests.get(url, headers = self.headers)
+            clips.raise_for_status()
+        except requests.exceptions.HTTPError as err:
+            print(err)
+            return
 
-        clips = requests.get(url, headers = self.headers)
-        print(clips.json(
-
-        ))
         return clips.json().get("data")
 
     def download_clip(self, clip) -> str:
