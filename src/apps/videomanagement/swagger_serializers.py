@@ -17,7 +17,7 @@ class GenerateSerializer(serializers.Serializer):
     background = serializers.CharField(required = False, max_length = 10, default = None)
     intro = serializers.CharField(required = False, max_length = 10, default = None)
     outro = serializers.CharField(required = False, max_length = 10, default = None)
-
+    subtitles = serializers.BooleanField(required = False, default = False)
     def update(self, instance, validated_data):
         pass
 
