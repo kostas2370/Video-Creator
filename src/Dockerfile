@@ -17,21 +17,33 @@ RUN apt-get update && apt-get install ffmpeg libsm6 libxext6  -y
 
 RUN apt-get update && apt-get install -y imagemagick
 
+RUN apt-get install -y git
+
+
 RUN apt-get install espeak-ng -y
 WORKDIR /app
 
 COPY requirements/docker_requirements.txt .
 
 
+
+
 RUN python -m pip install --upgrade pip
-RUN pip install -r docker_requirements.txt
+
+
+
+
+RUN pip install -r docker_requirements.txt --ignore-installed
+
 
 
 COPY startdjango.sh /startdjango
+COPY setupdjango.sh /setupdjango
 
 
-RUN sed -i 's/\r$//g' /startdjango
-RUN chmod +x /startdjango
+
+RUN sed -i 's/\r$//g' /setupdjango
+RUN chmod +x /setupdjango
 
 
 
