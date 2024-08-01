@@ -58,13 +58,12 @@ py manage.py setup_elevenlabs
 
 
 # Docker :
-Docker can't use coquis tts yet , because of an error, trying to figure it out.
 1. Create the .env file and add your OPEN_API_KEY, SEARCH_ENGINE_ID, API_KEY like .env_example
 2. Download these files and add them in the checkpoints folder
 https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
 ![image](https://github.com/kostas2370/Clippy-V2/assets/96636678/621fa695-5a40-42e0-9464-51aae08d89c7)
-
 3. docker-compose up --build in the src folder 
+
 
 
 
@@ -84,6 +83,7 @@ For any Injuries or Support you can contact me at those emails :
 2. kostas2372@gmail.com (Personal Email)
 
 # NEWS:
+* Fix of the conquis TTS docker issue
 * Gemini and claude support !
 * Implemented ElevenLabs api voices !!
 * Now we are able to make compilation videos from twitch by game or streamer

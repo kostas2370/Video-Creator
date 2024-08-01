@@ -11,11 +11,15 @@ import anthropic
 
 from .exceptions import InvalidJsonFormatError
 import google.generativeai as genai
-from .mapper import model_calls
 
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
 
+model_calls = {
+    "gpt": "gpt_call",
+    "claude": "claude_call",
+    "gemini": "gemini_call"
+}
 
 def check_json(json_file: json) -> bool:
     """
@@ -228,7 +232,7 @@ def select_from_vision(prompt, images):
     return x
 
 
-def tts_from_open_api(text, voice="onyx"):
+def tts_from_open_api(text, save_path, voice="onyx"):
     """
     Generate speech audio from text using the OpenAI TTS API.
 
@@ -251,12 +255,13 @@ def tts_from_open_api(text, voice="onyx"):
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key = settings.OPEN_API_KEY)
-    print(f"Text : {text}")
     response = client.audio.speech.create(model = "tts-1", voice = voice, input = text)
+    response.stream_to_file(save_path)
+
     return response
 
 
-def tts_from_eleven_labs(text, voice):
+def tts_from_eleven_labs(text, save_path, voice):
     """
     Generate speech audio from text using the Eleven Labs Text-to-Speech (TTS) API.
 
@@ -286,6 +291,10 @@ def tts_from_eleven_labs(text, voice):
             "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}}
 
     response = requests.post(url, json = data, headers = headers)
+    with open(save_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size = 1024):
+            if chunk:
+                f.write(chunk)
 
     return response
 

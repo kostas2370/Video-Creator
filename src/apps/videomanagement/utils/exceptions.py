@@ -13,7 +13,7 @@ class FileNotDownloadedError(Exception):
         self.message = "could not download the video"
 
 
-class GameNotFound(Exception):
+class GameNotFound(APIException):
     status_code = 404
     default_detail = 'Could not find a game with that name'
     default_code = 'game_not_found'

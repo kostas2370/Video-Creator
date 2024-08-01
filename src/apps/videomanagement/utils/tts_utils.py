@@ -2,13 +2,10 @@ import os
 from dataclasses import dataclass
 from typing import Union
 
-try:
-    from TTS.utils.manage import ModelManager
-    from TTS.utils.synthesizer import Synthesizer
-except ImportError:
-    pass
+from TTS.utils.manage import ModelManager
+from TTS.utils.synthesizer import Synthesizer
 
-from .gpt_utils import tts_from_open_api, tts_from_eleven_labs
+from .mapper import api_providers
 
 
 @dataclass
@@ -17,8 +14,8 @@ class ApiSyn:
     path: str
 
 
-def create_model(model_path: str = rf"{os.path.abspath(os.getcwd())}\.models.json",
-                 model: str = "tts_models/en/ljspeech/vits--neon", vocoder: str = "default_vocoder"):
+def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json",
+                 model: str = "tts_models/en/ljspeech/vits--neon", vocoder: str = "default_vocoder") -> Synthesizer:
 
     """
     Create and return a Synthesizer instance with specified model and vocoder settings.
@@ -68,18 +65,19 @@ def create_model(model_path: str = rf"{os.path.abspath(os.getcwd())}\.models.jso
 
         if voc_path is not None and voc_config_path is not None:
             syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path, vocoder_checkpoint = voc_path,
-                          vocoder_config = voc_config_path)
+                              vocoder_config = voc_config_path)
 
         else:
             syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path)
 
-    except:
+    except Exception as exc:
+        print(exc)
         syn = None
 
     return syn
 
 
-def save(syn: Union[ApiSyn], text: str = "", save_path: str = "") -> str:
+def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -> str:
     """
     Save synthesized audio to a file.
 
@@ -119,16 +117,8 @@ def save(syn: Union[ApiSyn], text: str = "", save_path: str = "") -> str:
         return None
 
     if type(syn) is ApiSyn:
-        if syn.provider == "open_ai":
-            resp = tts_from_open_api(text, syn.path)
-            resp.stream_to_file(save_path)
+        resp = api_providers.get(syn.provider)(text, save_path, syn.path)
 
-        if syn.provider == "eleven_labs":
-            resp = tts_from_eleven_labs(text, syn.path)
-            with open(save_path, 'wb') as f:
-                for chunk in resp.iter_content(chunk_size = 1024):
-                    if chunk:
-                        f.write(chunk)
     else:
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)
