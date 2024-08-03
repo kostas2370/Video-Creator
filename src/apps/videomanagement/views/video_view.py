@@ -54,6 +54,8 @@ class VideoView(viewsets.ModelViewSet):
             return Response({'Message': "You must insert a video_id"}, status = status.HTTP_400_BAD_REQUEST)
 
         video = get_object_or_404(Videos, id = pk)
+        video.status = "GENERATION"
+        video.save()
         video_regenerate(video)
         logger.info(f"Video with id {pk}  got regenerated successfully")
 
@@ -64,7 +66,6 @@ class VideoView(viewsets.ModelViewSet):
     @action(detail = True, methods = ["GET"])
     def render_video(self, _, pk):
         vid = Videos.objects.get(id = pk)
-        vid.status = "RENDERING"
         vid.save()
         result = make_video(vid)
         return Response({"message": "The video has been made successfully", "result": VideoSerializer(result).data})

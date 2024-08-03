@@ -4,7 +4,7 @@ import uuid
 import requests
 from django.conf import settings
 
-from .exceptions import GameNotFound, InvalidTwitchToken, StreamerNotFound, HeaderInitiationError
+from .exceptions import GameNotFound, InvalidTwitchToken, StreamerNotFound, HeaderInitiationException
 
 
 class TwitchClient:
@@ -92,7 +92,7 @@ class TwitchClient:
         """
 
         if self.headers is None:
-            raise HeaderInitiationError
+            raise HeaderInitiationException
 
         url = f"https://api.twitch.tv/helix/games?name={name}"
         req = requests.get(url, headers = self.headers)

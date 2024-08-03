@@ -70,4 +70,7 @@ def video_regenerate(video: Videos) -> int:
         if video.avatar and os.path.exists(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'):
             os.remove(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4')
 
+        video.status = "READY"
+        video.save()
+
 

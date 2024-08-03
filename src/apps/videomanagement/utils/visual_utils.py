@@ -8,11 +8,10 @@ import uuid
 import requests
 from django.conf import settings
 from openai import OpenAI
-from pytube import Playlist
-from pytube import YouTube
+from pytubefix import YouTube, Playlist
 
 from .bing_image_downloader import downloader
-from .exceptions import FileNotDownloadedError
+from .exceptions import FileNotDownloadedException
 from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
 from .prompt_utils import format_dalle_prompt
@@ -56,13 +55,13 @@ def download_playlist(url: str, category: str) -> None:
             song = stream.download('media/music')
             new_file = f'media/music/{filename}.mp3'
             if not os.path.isfile(song):
-                raise FileNotDownloadedError()
+                raise FileNotDownloadedException()
 
             os.rename(song, new_file)
 
             Music.objects.create(name = stream.title, file = new_file, category = category)
 
-        except FileNotDownloadedError:
+        except FileNotDownloadedException:
             logger.error("Error downloading song")
 
 
@@ -486,10 +485,10 @@ def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "viv
     """
     provider = default_providers.get(video.mode)
     try:
-        img = getattr(thismodule,modes.get(video.mode).get(provider))(scene_image.prompt,
-                                                           f'{video.dir_name}/images/',
-                                                           style = style,
-                                                           title = video.title)
+        img = getattr(thismodule, modes.get(video.mode).get(provider))(scene_image.prompt,
+                                                                       f'{video.dir_name}/images/',
+                                                                       style = style,
+                                                                       title = video.title)
     except Exception as ex:
         logger.error(ex)
         img = None
