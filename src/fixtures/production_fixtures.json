@@ -66,6 +66,25 @@
       "sample": "https://cdn.openai.com/API/docs/audio/shimmer.wav",
       "provider":"open_ai"
     }
+  },  {
+    "model": "videomanagement.voicemodels",
+    "pk": 8,
+    "fields": {
+      "name": "tacotron",
+      "type": "LOCAL",
+      "path": "tts_models/en/ljspeech/tacotron2-DDC",
+      "provider":"local"
+    }
+  },
+    {
+    "model": "videomanagement.voicemodels",
+    "pk": 9,
+    "fields": {
+      "name": "jenny",
+      "type": "LOCAL",
+      "path": "tts_models/en/jenny/jenny",
+      "provider":"local"
+    }
   },
   {
     "model": "usermanagement.user",

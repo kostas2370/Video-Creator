@@ -10,6 +10,7 @@ from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudio
 
 from .SadTalker.inference import lip
 from ..models import *
+from .exceptions import RenderFailedException
 
 
 def check_if_image(path: str) -> bool:
@@ -311,10 +312,15 @@ def make_video(video: Videos) -> Videos:
         Videos: The updated video object with output file path and status.
     """
 
+    if video.status not in ["READY", "COMPLETED"]:
+        raise RenderFailedException
+
+    video.status = "RENDERING"
+    video.save()
+
     black = ImageClip('assets/black.jpg')
     scenes: Union[QuerySet, list[Scene]] = Scene.objects.filter(prompt = video.prompt)
     background: Backgrounds = video.background
-
     sound_list = []
     vids = []
     subtitles = []

@@ -9,7 +9,7 @@ from django.conf import settings
 from openai import OpenAI
 import anthropic
 
-from .exceptions import InvalidJsonFormatError
+from .exceptions import InvalidJsonFormatException
 import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
@@ -170,11 +170,11 @@ def get_reply(prompt, time=0, reply_format="json", model='gpt-4'):
 
             js = json.loads(x)
             if not check_json(js):
-                raise InvalidJsonFormatError()
+                raise InvalidJsonFormatException()
 
             return js
 
-        except InvalidJsonFormatError:
+        except InvalidJsonFormatException:
             if time == 5:
                 raise Exception("Max gpt limit is 5 , try again with different prompt !!")
 

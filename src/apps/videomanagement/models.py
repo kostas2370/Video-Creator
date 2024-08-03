@@ -9,7 +9,7 @@ TEMPLATE_CHOICES = (("EDUCATIONAL", "Educational"), ("GAMING", "Gaming"), ("ADVE
 
 MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3"))
 
-VIDEO_STATUS = (("RENDERING", "RENDERING"), ("GENERATED", "GENERATED"), ("COMPLETED", "COMPLETED"))
+VIDEO_STATUS = (("GENERATION", "GENERATION"), ("READY", "READY"), ("RENDERING", "RENDERING"), ("COMPLETED", "COMPLETED"))
 
 
 IMAGE_MODE = (("DALL-E", "DALL-E"), ("WEB", "WEB"))
@@ -164,7 +164,8 @@ class Backgrounds(AbstractModel):
             back = Backgrounds.objects.filter(category = category)
         else:
 
-            back = Backgrounds.objects.filter()
+            back = Backgrounds.objects.all()
+
         return back[randint(0, back.count()-1)]
 
 
