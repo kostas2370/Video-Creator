@@ -8,7 +8,7 @@ class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required = True, max_length = 2000)
     template_id = serializers.CharField(required = False, max_length = 20, default = "")
     voice_id = serializers.CharField(required = False, max_length = 20, default=None)
-    gpt_model = serializers.ChoiceField(required = False, choices = accepted_models, default = "gpt-4")
+    gpt_model = serializers.ChoiceField(required = False, choices = accepted_models, default = "gpt-4o")
     images = serializers.ChoiceField(required = False, choices = ["AI", "WEB", False], default = "WEB")
     avatar_selection = serializers.CharField(required = False, max_length = 30, default = "no_avatar")
     style = serializers.ChoiceField(required = False, choices = ["vivid", "natural"], default = "vivid")
@@ -18,6 +18,7 @@ class GenerateSerializer(serializers.Serializer):
     intro = serializers.CharField(required = False, max_length = 10, default = None)
     outro = serializers.CharField(required = False, max_length = 10, default = None)
     subtitles = serializers.BooleanField(required = False, default = False)
+    provider = serializers.CharField(required = False, default = None)
     def update(self, instance, validated_data):
         pass
 

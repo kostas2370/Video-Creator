@@ -187,7 +187,7 @@ def download_music(url: str) -> str:
     - If the same music is already downloaded, it returns the existing Music object without downloading again.
     """
 
-    if url is None or url == "None":
+    if url is None or url == "None" or url == "":
         return None
 
     yt = YouTube(url)
@@ -389,7 +389,7 @@ def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: 
     - The downloaded image is saved in the specified directory path.
     - If an exception occurs during image downloading or creation, it is logged, and the scene is created with a None image.
     """
-    provider = default_providers.get(mode) if provider is None else provider
+    provider = default_providers.get(mode) if not provider else provider
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
     try:
         downloaded_image = getattr(thismodule, modes.get(mode, "WEB").get(provider))(image,
@@ -403,7 +403,7 @@ def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: 
     SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
 
-def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural") -> None:
+def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural", provider= None) -> None:
     """
     Create image scenes for a video.
 
@@ -445,7 +445,8 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
                     dir_name = dir_name,
                     mode = mode,
                     style = style,
-                    title = video.title
+                    title = video.title,
+                    provider = provider
                 )
 
         else:

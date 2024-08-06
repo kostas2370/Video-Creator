@@ -13,7 +13,8 @@ class GenerateView(viewsets.ViewSet):
     queryset = TemplatePrompts.objects.all()
 
     @swagger_auto_schema(request_body = GenerateSerializer,
-                         operation_description = "This API generates the scenes , the prompt and scene images !")
+                         operation_description = "This API generates the scenes , the prompt and scene images !"
+                         )
     def create(self, request):
         serializer = self.serializer_class(data = request.data)
 

@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import pprint
 import sys
 
 import g4f
@@ -8,6 +9,9 @@ import requests
 from django.conf import settings
 from openai import OpenAI
 import anthropic
+from rest_framework.exceptions import APIException
+from rest_framework import status
+
 
 from .exceptions import InvalidJsonFormatException
 import google.generativeai as genai
@@ -20,6 +24,7 @@ model_calls = {
     "claude": "claude_call",
     "gemini": "gemini_call"
 }
+
 
 def check_json(json_file: json) -> bool:
     """
@@ -64,15 +69,20 @@ def check_json(json_file: json) -> bool:
 def official_gpt_call(prompt: str, gpt_model=None):
     x = io.StringIO()
     logger.warning("API CALL IN OFFICIAL GPT")
+    try:
 
-    client = OpenAI(api_key = settings.OPEN_API_KEY)
+        client = OpenAI(api_key = settings.OPEN_API_KEY)
+        print(gpt_model)
+        stream = client.chat.completions.create(model = settings.DEFAULT_GPT_MODEL if not gpt_model else gpt_model,
+                                                messages = [{"role": "assistant", "content": prompt}, ], stream = True,
+                                                max_tokens = settings.MAX_TOKENS)
 
-    stream = client.chat.completions.create(model = settings.DEFAULT_GPT_MODEL if not gpt_model else gpt_model,
-                                            messages = [{"role": "assistant", "content": prompt}, ], stream = True,
-                                            max_tokens = settings.MAX_TOKENS)
+        for chunk in stream:
+            x.write(chunk.choices[0].delta.content or "")
 
-    for chunk in stream:
-        x.write(chunk.choices[0].delta.content or "")
+    except Exception as err:
+        logger.error(err)
+        raise APIException(detail = err, code = status.HTTP_400_BAD_REQUEST)
 
     return x
 
@@ -80,50 +90,63 @@ def official_gpt_call(prompt: str, gpt_model=None):
 def g4f_gpt_call(prompt: str, gpt_model="gpt-4"):
     x = io.StringIO()
     logger.info("api call in gpt4free")
+    try:
+        gpt_model = g4f.models.gpt_4_turbo if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
+        response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True, )
 
-    gpt_model = g4f.models.gpt_4_turbo if gpt_model == "gpt-4" else 'gpt-3.5-turbo'
-    response = g4f.ChatCompletion.create(model = gpt_model, messages = [{"content": prompt}], stream = True, )
+        for message in response:
+            x.write(message)
 
-    for message in response:
-        x.write(message)
+    except Exception as err:
+        logger.error(err)
+        raise APIException(detail = err, code = status.HTTP_400_BAD_REQUEST)
 
     return x
 
 
 def gemini_call(prompt: str, model='gemini-1.5-pro'):
     x = io.StringIO()
-    genai.configure(api_key = settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel(model)
-    response = model.generate_content(prompt)
-    for chunk in response:
-        x.write(chunk)
+    try:
+        genai.configure(api_key = settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel(model)
+        response = model.generate_content(prompt)
+        for chunk in response:
+            x.write(chunk)
+
+    except Exception as err:
+        logger.error(err)
+        raise APIException(detail = err, code = status.HTTP_400_BAD_REQUEST)
 
     return x
 
 
 def claude_call(prompt: str, model="claude-3-5-sonnet-20240620"):
     x = io.StringIO()
-    client = anthropic.Anthropic(settings.ANTHROPIC_API_KEY)
-    message = client.messages.create(model = model,
-                                     max_tokens = 1000,
-                                     temperature = 0,
-                                     system = "You are a world-class poet. Respond only with short poems.",
-                                     messages = [{"role": "assistant", "content": [{"type": "text", "text": prompt}]}])
+    try:
+        client = anthropic.Anthropic(settings.ANTHROPIC_API_KEY)
+        message = client.messages.create(model = model,
+                                         max_tokens = 1000,
+                                         temperature = 0,
+                                         system = "You are a world-class poet. Respond only with short poems.",
+                                         messages = [{"role": "assistant", "content": [{"type": "text", "text": prompt}]}])
 
-    x.write(message.content[0].text)
-    return x
+        x.write(message.content[0].text)
+        return x
+    except Exception as err:
+        logger.error(err)
+        raise APIException(err, code = status.HTTP_400_BAD_REQUEST)
 
 
 def gpt_call(prompt, gpt_model):
     if not settings.GPT_OFFICIAL:
         x = g4f_gpt_call(prompt = prompt, gpt_model = gpt_model)
     else:
-        x = official_gpt_call(prompt = prompt)
+        x = official_gpt_call(prompt = prompt, gpt_model = gpt_model)
 
     return x
 
 
-def get_reply(prompt, time=0, reply_format="json", model='gpt-4'):
+def get_reply(prompt, time=0, reply_format="json", gpt_model='gpt-4'):
     """
     Get a reply to a prompt from either GPT-4 Free or the OpenAI API.
 
@@ -158,16 +181,17 @@ def get_reply(prompt, time=0, reply_format="json", model='gpt-4'):
     g4f.check_version = False
 
     for key, call in model_calls.items():
-        if key in model:
-            x = getattr(thismodule, call)(prompt, model)
+        if key in gpt_model:
+            x = getattr(thismodule, call)(prompt, gpt_model)
             break
+    else:
+        x = gpt_call(prompt, gpt_model = "gpt-4")
 
     if reply_format == "json":
         x = x.getvalue()
         x = x[x.index('{'):len(x)-(x[::-1].index('}'))]
 
         try:
-
             js = json.loads(x)
             if not check_json(js):
                 raise InvalidJsonFormatException()
@@ -175,10 +199,16 @@ def get_reply(prompt, time=0, reply_format="json", model='gpt-4'):
             return js
 
         except InvalidJsonFormatException:
+
             if time == 5:
                 raise Exception("Max gpt limit is 5 , try again with different prompt !!")
 
-            return get_reply(prompt, time = time, gpt_model = model)
+            return get_reply(prompt, time = time, gpt_model = gpt_model)
+
+        except Exception as exc:
+            logger.error(exc)
+            pprint.pprint(x)
+            raise APIException(detail = "There was a problem with the ai model", code = status.HTTP_400_BAD_REQUEST)
 
     return x
 

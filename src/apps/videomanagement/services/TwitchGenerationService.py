@@ -36,7 +36,8 @@ def generate_twitch_video(
 
     video = Videos.objects.create(prompt = user_prompt,
                                   dir_name = dir_name,
-                                  title = title)
+                                  title = title,
+                                  status = "GENERATION")
 
     client = TwitchClient(path = dir_name)
     client.set_headers()
@@ -47,9 +48,13 @@ def generate_twitch_video(
     description = "Source : \n"
     for count, clip in enumerate(clips[:amt]):
         downloaded_clip = client.download_clip(clip)
+        if downloaded_clip is None:
+            continue
+
         create_twitch_clip_scene(downloaded_clip, clip.get("title"), video.prompt)
         description += f"{count+1} {clip.get('title')} : {clip.get('url')} \n"
 
     video.gpt_answer = description
+    video.status = "READY"
     video.save()
     return video
