@@ -1,7 +1,7 @@
 from .gpt_utils import tts_from_open_api, tts_from_eleven_labs
 modes = \
     {"AI":
-        {"dall-e": "generate_from_dalle",
+        {"DALL-E": "generate_from_dalle",
          "stable-diffusion": "generate_from_diffusion",
          "midjourney": "generate_from_midjourney"},
      "WEB": {
@@ -12,7 +12,7 @@ modes = \
 
 default_providers = {
     "WEB": "bing",
-    "AI": "dall-e"
+    "AI": "DALL-E"
 }
 
 

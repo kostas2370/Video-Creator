@@ -10,11 +10,14 @@ from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
 
-scene_id = openapi.Parameter('scene_id', openapi.IN_QUERY, description="Id of the scene you want to change.",
+scene_id = openapi.Parameter('scene_id',
+                             openapi.IN_QUERY,
+                             description="Id of the scene you want to change.",
                              type=openapi.TYPE_NUMBER)
 
-scene_image_id = openapi.Parameter('scene_image', openapi.IN_QUERY, description="Id of the scene Image you want "
-                                                                                "to change.",
+scene_image_id = openapi.Parameter('scene_image',
+                                   openapi.IN_QUERY,
+                                   description="Id of the scene Image you want to change.",
                                    type=openapi.TYPE_NUMBER)
 
 

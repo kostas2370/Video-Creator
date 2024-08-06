@@ -26,7 +26,8 @@ def generate_video(template_id: Union[str, int, None],
                    intro: str = None,
                    outro: str = None,
                    voice_id: Union[int, None] = None,
-                   subtitles: bool = False
+                   subtitles: bool = False,
+                   provider: Union[str, None] = None
                    ) -> Videos:
 
     """
@@ -70,6 +71,7 @@ def generate_video(template_id: Union[str, int, None],
     - It uses various sources for text, images, and other elements to create the video.
     """
 
+
     avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
     template = TemplatePrompts.get_template(template_id)
@@ -87,7 +89,7 @@ def generate_video(template_id: Union[str, int, None],
     prompt = format_prompt(template_format = template_format, template_category = category,
                            userprompt = message, target_audience = target_audience)
 
-    x = get_reply(prompt, model = gpt_model)
+    x = get_reply(prompt, gpt_model = gpt_model)
 
     user_rompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
     user_rompt.save()
@@ -122,7 +124,7 @@ def generate_video(template_id: Union[str, int, None],
 
     if images:
         vid.mode = images
-        create_image_scenes(vid, mode = images, style = style)
+        create_image_scenes(vid, mode = images, style = style, provider = provider)
         logger.info(f"Generated the images for the video with id : {vid.id}")
 
     vid.status = "READY"

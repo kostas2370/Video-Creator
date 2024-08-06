@@ -458,7 +458,7 @@ def split_video_and_mp3(video_path: str) -> tuple[str, str]:
     return audio_save, video_save
 
 
-def add_text_to_video(video: str, text: str, fontcolor: str = "blue", fontsize: int = 50,
+def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize: int = 50,
                       x: int = 500, y: int = 500) -> str:
     """
     Add text to a video at a specified position and return the new video file path.

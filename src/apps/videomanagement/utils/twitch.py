@@ -1,10 +1,14 @@
 import urllib.request
 import uuid
+import logging
 
 import requests
 from django.conf import settings
+from rest_framework.exceptions import APIException
 
 from .exceptions import GameNotFound, InvalidTwitchToken, StreamerNotFound, HeaderInitiationException
+
+logger = logging.getLogger(__name__)
 
 
 class TwitchClient:
@@ -57,11 +61,10 @@ class TwitchClient:
             response = requests.post('https://id.twitch.tv/oauth2/token', headers = headers, data = data)
             response.raise_for_status()
 
-        except requests.exceptions.HTTPError as err:
-            return err
+        except (requests.exceptions.HTTPError,
+                requests.exceptions.RequestException) as err:
 
-        except requests.exceptions.RequestException as err:
-            return err
+            raise APIException(err)
 
         bearer = response.json()['access_token']
         self.headers = {"Authorization": f"Bearer {bearer}", "Client-Id": settings.TWITCH_CLIENT}
@@ -94,15 +97,21 @@ class TwitchClient:
         if self.headers is None:
             raise HeaderInitiationException
 
-        url = f"https://api.twitch.tv/helix/games?name={name}"
-        req = requests.get(url, headers = self.headers)
-        if req.status_code == 400:
-            raise GameNotFound
+        try:
+            url = f"https://api.twitch.tv/helix/games?name={name}"
+            req = requests.get(url, headers = self.headers)
+            req.raise_for_status()
+            return req.json().get("data")[0].get("id")
 
-        if req.status_code == 401:
-            raise InvalidTwitchToken
+        except requests.exceptions.HTTPError as err:
 
-        return req.json().get("data")[0].get("id")
+            if err.response.status_code == 400:
+                raise GameNotFound
+
+            if err.response.status_code == 401:
+                raise InvalidTwitchToken
+
+            raise APIException(err.response)
 
     def get_streamer_id(self, name: str) -> str:
         """
@@ -125,17 +134,21 @@ class TwitchClient:
         InvalidTwitchToken
             If the Twitch token is invalid.
         """
+        try:
+            url = f'https://api.twitch.tv/helix/users?login={name}'
+            req = requests.get(url, headers = self.headers)
+            req.raise_for_status()
+            return req.json().get("data")[0].get("id")
 
-        url = f'https://api.twitch.tv/helix/users?login={name}'
-        req = requests.get(url, headers = self.headers)
+        except requests.exceptions.HTTPError as err:
+            logger.error(err)
+            if err.response.status_code == 400 or len(req.json()["data"]) == 0:
+                raise StreamerNotFound
 
-        if req.status_code == 400 or len(req.json()["data"]) == 0:
-            raise StreamerNotFound
+            if err.response.status_code.status_code == 401:
+                raise InvalidTwitchToken
 
-        if req.status_code == 401:
-            raise InvalidTwitchToken
-
-        return req.json().get("data")[0].get("id")
+            raise APIException(err.response)
 
     def get_clips(self, value: str, mode="game", start_date: str = ""):
         """
@@ -170,7 +183,7 @@ class TwitchClient:
             clips = requests.get(url, headers = self.headers)
             clips.raise_for_status()
         except requests.exceptions.HTTPError as err:
-            print(err)
+            logger.error(err)
             return
 
         return clips.json().get("data")
@@ -189,9 +202,13 @@ class TwitchClient:
         str
             The file path to the downloaded clip.
         """
+        try:
+            index = clip.get("thumbnail_url").find('-preview')
+            filename = f'{str(uuid.uuid4())}.mp4'
+            urllib.request.urlretrieve(clip['thumbnail_url'][:index]+".mp4", f'{self.path}/{filename}')
 
-        index = clip.get("thumbnail_url").find('-preview')
-        filename = f'{str(uuid.uuid4())}.mp4'
-        urllib.request.urlretrieve(clip['thumbnail_url'][:index]+".mp4", f'{self.path}/{filename}')
+            return f'{self.path}/{filename}'
 
-        return f'{self.path}/{filename}'
+        except Exception as err:
+            logger.error(err)
+            return
