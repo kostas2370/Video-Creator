@@ -57,3 +57,4 @@ basicsr @ git+https://github.com/XPixelGroup/BasicSR@8d56e3a045f9fb3e1d8872f92ee
 curl_cffi
 google-generativeai
 anthropic
+django-resized

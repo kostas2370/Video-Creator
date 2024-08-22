@@ -46,14 +46,14 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
     if scene.file:
         audio = AudioFileClip(scene.file.path)
 
-    if scene_image.with_audio:
+    if scene_image and scene_image.with_audio:
         dump_video = VideoFileClip(scene_image.file.path)
         if audio:
             audio = CompositeAudioClip([audio, dump_video.audio])
         else:
             audio = dump_video.audio
 
-    if scene.is_last and not scene_image.with_audio:
+    if scene_image and scene.is_last and not scene_image.with_audio:
         audio = concatenate_audioclips([audio, silent, silent])
 
     return audio
@@ -498,9 +498,9 @@ def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize:
     """
 
     video_name = video[:-3]+"l.mp4"
-    command = (f"ffmpeg -i \"{video}\" -vf \"drawtext="
-               f"fontsize={fontsize}:fontcolor={fontcolor}:text='{text}':"
-               f"x={x}:y={y}\" \"{video_name}\"")
+    command = (f"ffmpeg -i \"{video}\" -vf \"drawtext=fontsize={fontsize}:fontcolor={fontcolor}:"
+               f"text='{text}':x=(w-text_w)/2:y=h-text_h-20:shadowcolor=black:shadowx=2:shadowy=2:"
+               f"box=1:boxcolor=black@0.5:boxborderw=10\" \"{video_name}\"")
 
     os.system(command)
     os.remove(video)

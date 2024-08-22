@@ -104,7 +104,6 @@ class TwitchClient:
             return req.json().get("data")[0].get("id")
 
         except requests.exceptions.HTTPError as err:
-
             if err.response.status_code == 400:
                 raise GameNotFound
 

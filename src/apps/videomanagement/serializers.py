@@ -53,10 +53,14 @@ class AvatarNestedSerializer(serializers.ModelSerializer):
 
 
 class AvatarSerializer(serializers.ModelSerializer):
+    sample = serializers.SerializerMethodField()
 
     class Meta:
         model = Avatars
         fields = "__all__"
+
+    def get_sample(self, obj):
+        return obj.voice.sample
 
 
 class UserPromptSerializer(serializers.ModelSerializer):
@@ -68,10 +72,18 @@ class UserPromptSerializer(serializers.ModelSerializer):
 
 class VideoSerializer(serializers.ModelSerializer):
     prompt = UserPromptSerializer()
+    music = serializers.SerializerMethodField()
 
     class Meta:
         model = Videos
         fields = "__all__"
+
+    def get_music(self, obj):
+
+        if obj.music:
+            return obj.music.name
+
+        return ""
 
 
 class VideoNestedSerializer(serializers.ModelSerializer):

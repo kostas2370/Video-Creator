@@ -217,7 +217,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 ALLOWED_HOSTS = ['*']
 
 
-GPT_OFFICIAL = True
+GPT_OFFICIAL = False
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", 3900))# Max Tokens
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")    # Open AI api key
 DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL", "gpt-4o")

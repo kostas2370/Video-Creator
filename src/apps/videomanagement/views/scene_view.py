@@ -70,3 +70,6 @@ class SceneView(viewsets.ModelViewSet):
             SceneImage.objects.create(scene_id = pk, file = image)
 
         return Response({"Message": "Image Scene was added successfully"})
+
+
+
