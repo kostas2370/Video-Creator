@@ -19,6 +19,7 @@ class GenerateSerializer(serializers.Serializer):
     outro = serializers.CharField(required = False, max_length = 10, default = None)
     subtitles = serializers.BooleanField(required = False, default = False)
     provider = serializers.CharField(required = False, default = None)
+    created_by = serializers.IntegerField(write_only = True, default = None)
     def update(self, instance, validated_data):
         pass
 
@@ -52,7 +53,9 @@ class TwitchSerializer(serializers.Serializer):
     mode = serializers.ChoiceField(choices = ["streamer", "game"], default="streamer")
     value = serializers.CharField(max_length = 200)
     amt = serializers.IntegerField(max_value = 20)
-    started_at = serializers.DateField(format="%Y-%m-%d", required = False)
+    started_at = serializers.DateField(format="%Y-%m-%d", required = False, allow_null = True)
+    created_by = serializers.IntegerField(write_only = True, default = None)
+
 
     def create(self, validated_data):
         pass

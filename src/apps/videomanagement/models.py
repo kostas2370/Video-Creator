@@ -3,16 +3,20 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from random import randint
 from typing import Union
+from django_resized import ResizedImageField
 
 TEMPLATE_CHOICES = (("EDUCATIONAL", "Educational"), ("GAMING", "Gaming"), ("ADVERTISEMENT", "Advertisement"),
                     ("STORY", "Story"), ("OTHER", "Other"))
 
 MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3"))
 
-VIDEO_STATUS = (("GENERATION", "GENERATION"), ("READY", "READY"), ("RENDERING", "RENDERING"), ("COMPLETED", "COMPLETED"))
+VIDEO_STATUS = (("GENERATION", "GENERATION"), ("READY", "READY"), ("RENDERING", "RENDERING"), ("COMPLETED", "COMPLETED")
+                , ("FAILED", "FAILED"))
 
 
 IMAGE_MODE = (("DALL-E", "DALL-E"), ("WEB", "WEB"))
+
+VIDEO_TYPE = (("AI", "AI"), ("TWITCH", "TWITCH"))
 
 
 class AbstractModel(models.Model):
@@ -118,7 +122,7 @@ class VoiceModels(AbstractModel):
 class Avatars(AbstractModel):
     name = models.CharField(max_length = 100, default = "Natasha")
     gender = models.CharField(max_length = 10)
-    file = models.FileField(upload_to = "media/other/avatars", max_length = 2000)
+    file = ResizedImageField(size=[256, 256], quality=75, upload_to = "media/other/avatars", force_format='jpeg')
     voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, db_constraint=False)
     objects = models.Manager()
 
@@ -200,8 +204,8 @@ class Videos(AbstractModel):
     intro = models.ForeignKey(Intro, blank = True, null = True, on_delete = models.SET_NULL)
     outro = models.ForeignKey(Outro, blank = True, null = True, on_delete = models.SET_NULL)
     subtitles = models.BooleanField(default = False)
-
-    mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB")
+    video_type = models.CharField(max_length = 20, default = "AI", choices = VIDEO_TYPE)
+    mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB" , null = True)
 
     objects = models.Manager()
 

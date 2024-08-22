@@ -21,11 +21,9 @@ def generate_scene(text: str,
     if text == scene.text.strip():
         return text
 
-    if text:
-        scene.text = get_update_sentence(format_update_form(scene.text, text))
+    text = get_update_sentence(format_update_form(scene.text, text))
 
-    update(scene)
-    return scene.text
+    return text
 
 
 def update_scene(text: str, scene: Scene):

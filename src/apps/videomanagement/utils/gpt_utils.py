@@ -231,7 +231,7 @@ def get_update_sentence(prompt):
     ------
     - This function interacts with GPT-4 Free to generate an updated sentence based on the given prompt.
     """
-    response = g4f.ChatCompletion.create(model = 'gpt-3.5-turbo', messages = [{"content": prompt}], stream = True, )
+    response = g4f.ChatCompletion.create(model = 'gpt-4', messages = [{"content": prompt}], stream = True, )
     x = io.StringIO()
     for message in response:
         x.write(message)
@@ -320,11 +320,16 @@ def tts_from_eleven_labs(text, save_path, voice):
     data = {"text": text, "model_id": "eleven_monolingual_v1",
             "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}}
 
-    response = requests.post(url, json = data, headers = headers)
-    with open(save_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size = 1024):
-            if chunk:
-                f.write(chunk)
+    try:
+        response = requests.post(url, json = data, headers = headers)
+        response.raise_for_status()
+        with open(save_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size = 1024):
+                if chunk:
+                    f.write(chunk)
+
+    except Exception as exc:
+        logger.error(exc)
 
     return response
 

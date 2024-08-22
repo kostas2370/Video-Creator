@@ -2,8 +2,12 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.filters import OrderingFilter, SearchFilter
 
-from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage
+from django_filters.rest_framework import DjangoFilterBackend
+
+
+from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage, Videos
 from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
     AvatarNestedSerializer, VoiceModelSerializer, AvatarSerializer, SceneImageSerializer
 from ..swagger_serializers import DownloadPlaylistSerializer
@@ -13,6 +17,18 @@ from ..utils.visual_utils import download_playlist
 class SceneImageView(viewsets.ModelViewSet):
     queryset = SceneImage.objects.all()
     serializer_class = SceneImageSerializer
+
+    def destroy(self, request, pk):
+        obj = self.get_object()
+        video = Videos.objects.get(prompt=obj.scene.prompt)
+        if video.video_type == "AI":
+            obj.file = None
+            obj.save()
+
+        if video.video_type == "TWITCH":
+            obj.scene.delete()
+
+        return Response({"message": "scene image deleted !"}, status = 204)
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
@@ -31,14 +47,11 @@ class VoiceView(viewsets.ModelViewSet):
 
 
 class AvatarView(viewsets.ModelViewSet):
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['name']
+
     serializer_class = AvatarSerializer
     queryset = Avatars.objects.all()
-
-    def get_serializer_class(self):
-        if self.action == "list":
-            return AvatarNestedSerializer
-
-        return AvatarSerializer
 
 
 class IntroView(viewsets.ModelViewSet):

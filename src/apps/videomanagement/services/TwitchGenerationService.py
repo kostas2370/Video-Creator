@@ -13,7 +13,8 @@ def generate_twitch_video(
         mode: Literal["game", "streamer"],
         value: str,
         amt: int = 10,
-        started_at: str = ""
+        started_at: str = "",
+        created_by: int = None
         ):
     """
     Generate a video based on clips fetched from Twitch.
@@ -37,11 +38,12 @@ def generate_twitch_video(
     video = Videos.objects.create(prompt = user_prompt,
                                   dir_name = dir_name,
                                   title = title,
-                                  status = "GENERATION")
+                                  status = "GENERATION",
+                                  video_type = "TWITCH",
+                                  created_by_id = created_by)
 
     client = TwitchClient(path = dir_name)
     client.set_headers()
-
     value = client.get_streamer_id(value) if mode == "streamer" else client.get_game_id(value)
     clips = client.get_clips(value, mode, started_at)
 
