@@ -43,7 +43,7 @@ Video Config Modal :
 
 
 Edit Scene : 
-![image](https://github.com/user-attachments/assets/5eb4c066-a7ec-4e2f-bdb9-f5b244c0672f)
+![image](https://github.com/user-attachments/assets/5647a192-1eea-4ce0-87b2-74cec52b61ae)
 
 Edit Scene Image : 
 
