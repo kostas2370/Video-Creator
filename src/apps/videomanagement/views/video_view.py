@@ -10,11 +10,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter,SearchFilter
 
-from ..models import Videos
+from ..models import Videos, Scene
 from ..paginator import StandardResultsSetPagination
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.VideoServices import video_update, video_regenerate
 from ..utils.video_utils import make_video
+
+from ..utils.twitch import TwitchClient
+from ..utils.visual_utils import create_twitch_clip_scene
 
 logger = logging.getLogger(__name__)
 
@@ -82,3 +85,27 @@ class VideoView(viewsets.ModelViewSet):
             vid.save()
 
         return Response({"message": "The render failed, probably you have to generate a new one"}, status = 400)
+
+    @swagger_auto_schema(operation_description = "This api add a scene to the video", method = "POST")
+    @action(detail = True, methods = ["POST"])
+    def add_scene(self, request, pk):
+
+        vid = Videos.objects.get(id = pk)
+
+        if vid.video_type == "TWITCH":
+            client = TwitchClient(vid.dir_name)
+            client.set_headers()
+            try:
+                clip = client.get_clip_by_url(request.data.get("url"))
+                downloaded_clip = client.download_clip(clip[0])
+                create_twitch_clip_scene(downloaded_clip, clip[0].get("title"), vid.prompt)
+
+            except Exception as esc:
+                return Response({"message": str(esc)}, status = 400)
+
+        if vid.video_type == "AI":
+            return Response({"message": "Not implemented yet"}, status = 400)
+
+        return Response({"message": "The scene was added successfully"}, status = 200)
+
+

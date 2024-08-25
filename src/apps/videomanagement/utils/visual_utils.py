@@ -461,7 +461,7 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
             )
 
 
-def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid") -> SceneImage:
+def generate_new_image(scene_image: SceneImage, style: str = "vivid") -> SceneImage:
     """
     Generate a new image for a scene image associated with a video.
 
@@ -484,6 +484,8 @@ def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "viv
     - This function generates a new image for a given scene image associated with a video.
     - The mode and style parameters determine the method and style of image generation.
     """
+    video = Videos.objects.get(prompt = scene_image.scene.prompt)
+
     provider = default_providers.get(video.mode)
     try:
         img = getattr(thismodule, modes.get(video.mode).get(provider))(scene_image.prompt,

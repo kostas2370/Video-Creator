@@ -9,6 +9,7 @@ from ..models import Scene, SceneImage
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
+from ..utils.visual_utils import generate_new_image
 
 scene_id = openapi.Parameter('scene_id',
                              openapi.IN_QUERY,
@@ -57,19 +58,45 @@ class SceneView(viewsets.ModelViewSet):
     def change_image_scene(self, request, pk):
         scene_image = request.GET.get("scene_image")
         image = request.FILES.get("image")
-
-        if not image:
-            return Response({"message": "You must add a photo!"}, status = status.HTTP_400_BAD_REQUEST)
+        with_audio = request.data.get("with_audio", False)
 
         if scene_image:
             img = SceneImage.objects.get(id = scene_image)
-            img.file = image
+            if image:
+                img.file = image
+
+            img.with_audio = with_audio
             img.save()
 
         else:
-            SceneImage.objects.create(scene_id = pk, file = image)
+            if not image:
+                return Response({"message": "You must add an image !"}, status = 400)
+            SceneImage.objects.create(scene_id = pk, file = image, with_audio = with_audio)
 
         return Response({"Message": "Image Scene was added successfully"})
+
+    @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
+                                                 "a new one if it doesnt exists",
+                         method = "POST",
+                         manual_parameters = [scene_id])
+    @action(detail = True, methods = ["POST"])
+    def generate_image_scene(self, request, pk):
+        img = SceneImage.objects.filter(scene=self.get_object()).first()
+        image_description = request.data.get('image_description')
+
+        if not image_description:
+            return Response({"message": "Image description can not be blank"}, status = 400)
+
+        if not img:
+            img = SceneImage.objects.create(prompt = image_description, scene = self.get_object())
+
+        img.prompt = image_description
+        img.save()
+        generate_new_image(img)
+
+        return Response({"Message": "Image Scene was added successfully"})
+
+
 
 
 

@@ -211,3 +211,28 @@ class TwitchClient:
         except Exception as err:
             logger.error(err)
             return
+
+    def get_clip_by_url(self, url):
+        try:
+            clip_id = url.split('/')[-1].split('?')[0]
+
+        except Exception as exc:
+            raise APIException("Invalid Url")
+
+        url = f"https://api.twitch.tv/helix/clips?id={clip_id}"
+
+        try:
+            clips = requests.get(url, headers = self.headers)
+            clips.raise_for_status()
+        except requests.exceptions.HTTPError as err:
+            logger.error(err)
+            raise APIException("Could not find a video with that url")
+
+        if len(clips.json().get("data")) == 0:
+            raise APIException("Could not find a video with that url")
+
+
+        return clips.json().get("data")
+
+
+

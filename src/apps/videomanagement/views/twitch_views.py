@@ -19,3 +19,5 @@ def generate_twitch(request):
     video = generate_twitch_video(**serializer.validated_data)
     return Response({"message": "The video has been generated successfully", "video": VideoSerializer(video).data})
 
+
+

@@ -2,12 +2,12 @@ from rest_framework.response import Response
 from rest_framework import viewsets
 from drf_yasg.utils import swagger_auto_schema
 
-from ..models import TemplatePrompts, Videos
+from ..models import TemplatePrompts
 from ..swagger_serializers import GenerateSerializer
 from ..services.VideoGenerationServices import generate_video
 from ..serializers import VideoSerializer
 
-import time
+
 class GenerateView(viewsets.ViewSet):
     serializer_class = GenerateSerializer
     queryset = TemplatePrompts.objects.all()
