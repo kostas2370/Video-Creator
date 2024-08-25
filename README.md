@@ -1,4 +1,4 @@
-Frontend Demo repository :  https://github.com/kostas2370/ViddieDEMO
+Frontend  repository :  [https://github.com/kostas2370/ViddieDEMO](https://github.com/kostas2370/video_frontend)
 
 Samples :
 https://www.youtube.com/watch?v=PvrX_jq4fv4
