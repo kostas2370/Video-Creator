@@ -14,7 +14,7 @@ from .bing_image_downloader import downloader
 from .exceptions import FileNotDownloadedException
 from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
-from .prompt_utils import format_dalle_prompt
+from .prompt_utils import format_dalle_prompt, determine_fields
 from .video_utils import add_text_to_video
 from ..models import Music, Scene, SceneImage, Videos
 
@@ -429,12 +429,7 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     dir_name = video.dir_name
     first_scene = video.gpt_answer["scenes"][0]
-
-    search_field = "scene" if "scene" in first_scene and isinstance(first_scene["scene"], list)\
-                   else "sections" if "sections" in first_scene else "sentences"
-
-    narration_field = "sentence" if "sentence" in first_scene[search_field][0] else "narration"
-
+    search_field, narration_field = determine_fields(first_scene)
     for j in video.gpt_answer['scenes']:
         if is_sentenced:
             for x in j[search_field]:

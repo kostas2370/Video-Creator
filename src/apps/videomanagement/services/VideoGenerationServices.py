@@ -28,7 +28,8 @@ def generate_video(template_id: Union[str, int, None],
                    voice_id: Union[int, None] = None,
                    subtitles: bool = False,
                    provider: Union[str, None] = None,
-                   created_by: int = None
+                   created_by: int = None,
+                   avatar_position: str = "top,right"
                    ) -> Videos:
 
     """
@@ -71,7 +72,6 @@ def generate_video(template_id: Union[str, int, None],
     - This function generates a video based on the provided parameters.
     - It uses various sources for text, images, and other elements to create the video.
     """
-    print(created_by)
     avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else "no_avatar"
 
     template = TemplatePrompts.get_template(template_id)
@@ -102,7 +102,8 @@ def generate_video(template_id: Union[str, int, None],
         outro = Outro.objects.get(id = int(outro))
 
     vid = Videos.objects.create(title = x['title'], prompt = user_rompt, dir_name = dir_name, gpt_answer = x,
-                                background = background, intro = intro, outro = outro, subtitles = subtitles,
+                                background = background, intro = intro, outro = outro,
+                                settings = dict(subtitles=subtitles,avatar_position=avatar_position),
                                 status = "GENERATION", video_type = "AI", created_by_id = created_by)
 
     logger.info(f"Created the video instance with id : {vid.id}")

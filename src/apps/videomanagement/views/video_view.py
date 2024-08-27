@@ -44,10 +44,12 @@ class VideoView(viewsets.ModelViewSet):
         intro = request.data.get('intro')
         outro = request.data.get('outro')
         title = request.data.get("title")
+        subtitles = request.data.get("subtitles")
+        avatar_position = request.data.get("avatar_position")
 
         video = self.get_object()
 
-        outcome = video_update(video, title, avatar, intro, outro)
+        outcome = video_update(video, title, avatar, intro, outro, subtitles, avatar_position)
         logger.info(f"Video with id {pk}  got updated successfully")
         return Response({"message": "Updated Success",
                          "video": self.get_serializer_class()(outcome).data})

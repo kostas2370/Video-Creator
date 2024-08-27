@@ -20,6 +20,7 @@ class GenerateSerializer(serializers.Serializer):
     subtitles = serializers.BooleanField(required = False, default = False)
     provider = serializers.CharField(required = False, default = None)
     created_by = serializers.IntegerField(write_only = True, default = None)
+    avatar_position = serializers.CharField(required = False, default = "right,top")
     def update(self, instance, validated_data):
         pass
 

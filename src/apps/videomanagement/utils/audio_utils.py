@@ -2,6 +2,7 @@ import uuid
 
 from .tts_utils import save, ApiSyn, create_model
 from ..models import Scene, Videos
+from .prompt_utils import determine_fields
 
 
 def make_scenes_speech(video: Videos) -> None:
@@ -29,10 +30,8 @@ def make_scenes_speech(video: Videos) -> None:
     syn = voice_model.path
     gpt_answer = video.gpt_answer
     first_scene = gpt_answer["scenes"][0]
-    search_field = "scene" if "scene" in first_scene and isinstance(first_scene["scene"], list)\
-                   else "sections" if "sections" in first_scene else "sentences"
+    search_field, narration_field = determine_fields(first_scene)
 
-    narration_field = "sentence" if "sentence" in first_scene[search_field][0] else "narration"
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     if voice_model.type.lower() == 'local':
         syn = create_model(model = syn)

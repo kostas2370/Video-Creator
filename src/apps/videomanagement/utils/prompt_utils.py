@@ -57,3 +57,22 @@ def format_update_form(text: str, prompt: str) -> str:
 
 def format_dalle_prompt(title: str, image_description: str) -> str:
     return f'Title : {title} \nImage Description:{image_description}'
+
+
+def determine_fields(first_scene):
+    # Determine the search_field based on the presence and type of keys in first_scene
+    if "scene" in first_scene and isinstance(first_scene["scene"], list):
+        search_field = "scene"
+    elif "sections" in first_scene:
+        search_field = "sections"
+    elif "dialogue" in first_scene:
+        search_field = "dialogue"
+    else:
+        search_field = "sentences"
+
+    if "sentence" in first_scene[search_field][0]:
+        narration_field = "sentence"
+    else:
+        narration_field = "narration"
+
+    return search_field, narration_field

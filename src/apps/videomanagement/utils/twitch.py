@@ -231,8 +231,4 @@ class TwitchClient:
         if len(clips.json().get("data")) == 0:
             raise APIException("Could not find a video with that url")
 
-
         return clips.json().get("data")
-
-
-
