@@ -25,6 +25,8 @@ const Home = () => {
     style: "natural",
     music: "",
     provider: "",
+    subtitles: true,
+    avatar_position:"top,left"
   });
 
   const handleInputChange = (event) => {

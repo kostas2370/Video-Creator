@@ -45,6 +45,7 @@ export const Video = () => {
           outro: videoInfo?.outro,
           avatar: videoInfo?.avatar,
           video_type: videoInfo?.video_type,
+          settings: videoInfo?.settings,
           id: videoInfo?.id,
         }}
       />
