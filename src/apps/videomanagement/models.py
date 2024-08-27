@@ -54,24 +54,10 @@ class TemplatePrompts(AbstractModel):
 class Music(AbstractModel):
     name = models.CharField(max_length = 140, blank = False)
     file = models.FileField(upload_to = "media/music", blank = False)
-    category = models.CharField(choices = TEMPLATE_CHOICES, max_length = 20, null = True)
     objects = models.Manager()
 
     def __str__(self):
         return self.name
-
-    @staticmethod
-    def select_music(category: str = None) -> Union[Music, None]:
-        if category is None:
-            music = Music.objects.all()
-
-        else:
-            music = Music.objects.filter(category = category)
-
-        if music.count() > 0:
-            return music[randint(0, music.count()-1)]
-
-        return None
 
 
 class UserPrompt(models.Model):
@@ -174,14 +160,12 @@ class Backgrounds(AbstractModel):
 
 
 class Intro(AbstractModel):
-    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
     name = models.CharField(max_length = 100)
     file = models.FileField(upload_to = "media/other/intros")
     objects = models.Manager()
 
 
 class Outro(AbstractModel):
-    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
     name = models.CharField(max_length = 100)
     file = models.FileField(upload_to = "media/other/outros")
     objects = models.Manager()
@@ -203,9 +187,9 @@ class Videos(AbstractModel):
     background = models.ForeignKey(Backgrounds, blank = True, null = True, on_delete = models.SET_NULL)
     intro = models.ForeignKey(Intro, blank = True, null = True, on_delete = models.SET_NULL)
     outro = models.ForeignKey(Outro, blank = True, null = True, on_delete = models.SET_NULL)
-    subtitles = models.BooleanField(default = False)
     video_type = models.CharField(max_length = 20, default = "AI", choices = VIDEO_TYPE)
-    mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB" , null = True)
+    mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB", null = True)
+    settings = models.JSONField(null = True, blank = True, default = dict(subtitles=False, avatar_position="right,top"))
 
     objects = models.Manager()
 

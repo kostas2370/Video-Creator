@@ -182,8 +182,9 @@ def handle_avatar_video(video, final_video):
     if not os.path.exists(f'{os.getcwd()}/{video.dir_name}/output_avatar.mp4'):
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
 
-    avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(("right", "top")).resize(1.5).fadein(2)\
-        .fadeout(2)
+    position = tuple(video.settings.get("avatar_position", "right,top").split(","))
+    print(position)
+    avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(position).resize(1.5).fadein(2).fadeout(2)
 
     final_video = CompositeVideoClip([final_video, avatar_vid], size = (1920, 1080))
     return final_video
@@ -284,7 +285,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles):
     if video.avatar:
         final_video = handle_avatar_video(video, final_video)
 
-    if video.subtitles:
+    if video.settings.get("subtitles",False):
         subs = concatenate_videoclips(subtitles)
         final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
 
@@ -329,7 +330,7 @@ def make_video(video: Videos) -> Videos:
         audio = handle_audio(scene, scene_image)
         sound_list.append(audio)
 
-        if video.subtitles:
+        if video.settings.get("subtitles", False):
             sub = TextClip(scene.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).\
                   set_duration(audio.duration)
 

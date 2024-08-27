@@ -16,6 +16,9 @@ def video_update(video: Videos,
                  avatar: str = None,
                  intro: str = None,
                  outro: str = None,
+                 subtitles: bool = False,
+                 avatar_position: str = "right, top"
+
 
                  ) -> Videos:
     """
@@ -34,7 +37,7 @@ def video_update(video: Videos,
 
     video.title = title
 
-    if avatar == "null" or avatar == '':
+    if avatar == "null" or avatar == '' or video.video_type == "TWITCH":
         video.avatar = None
 
     else:
@@ -58,6 +61,9 @@ def video_update(video: Videos,
         video.outro = Outro.objects.get(id = outro) if outro != "null" and outro != '' else None
     except Outro.DoesNotExist:
         raise APIException("Outro with that id does not Exists !")
+
+    if video.video_type != 'TWITCH':
+        video.settings = dict(subtitles = subtitles, avatar_position = avatar_position)
 
     video.save()
 
