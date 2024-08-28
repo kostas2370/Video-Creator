@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 from django_filters.rest_framework import DjangoFilterBackend
-
+from ..permissions import IsOwnerPermission
+from rest_framework.permissions import IsAuthenticated
 
 from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage, Videos
 from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
@@ -14,9 +15,10 @@ from ..swagger_serializers import DownloadPlaylistSerializer
 from ..utils.visual_utils import download_playlist
 
 
-class SceneImageView(viewsets.ModelViewSet):
+class SceneImageView(viewsets.ViewSet):
     queryset = SceneImage.objects.all()
     serializer_class = SceneImageSerializer
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def destroy(self, request, pk):
         obj = self.get_object()
@@ -34,11 +36,25 @@ class SceneImageView(viewsets.ModelViewSet):
 class TemplatePromptView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompts.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return TemplatePrompts.objects.all()
+
+        return TemplatePrompts.objects.filter(created_by=self.request.user)
 
 
 class MusicView(viewsets.ModelViewSet):
     serializer_class = MusicSerializer
     queryset = Music.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return Music.objects.all()
+
+        return Music.objects.filter(created_by=self.request.user)
 
 
 class VoiceView(viewsets.ModelViewSet):
@@ -52,16 +68,37 @@ class AvatarView(viewsets.ModelViewSet):
 
     serializer_class = AvatarSerializer
     queryset = Avatars.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return Avatars.objects.all()
+
+        return Avatars.objects.filter(created_by=self.request.user)
 
 
 class IntroView(viewsets.ModelViewSet):
     serializer_class = IntroSerializer
     queryset = Intro.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return Intro.objects.all()
+
+        return Intro.objects.filter(created_by=self.request.user)
 
 
 class OutroView(viewsets.ModelViewSet):
     serializer_class = OutroSerializer
     queryset = Outro.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return Outro.objects.all()
+
+        return Outro.objects.filter(created_by=self.request.user)
 
 
 @swagger_auto_schema(request_body = DownloadPlaylistSerializer,

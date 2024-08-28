@@ -4,12 +4,14 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
-from ..models import Scene, SceneImage
+from ..models import Scene, SceneImage, UserPrompt
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
 from ..utils.visual_utils import generate_new_image
+from ..permissions import IsOwnerPermission
 
 scene_id = openapi.Parameter('scene_id',
                              openapi.IN_QUERY,
@@ -22,9 +24,10 @@ scene_image_id = openapi.Parameter('scene_image',
                                    type=openapi.TYPE_NUMBER)
 
 
-class SceneView(viewsets.ModelViewSet):
+class SceneView(viewsets.ViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     @swagger_auto_schema(request_body = SceneUpdateSerializer,
                          operation_description = "This API updates the text of a scene and regenerates their dialogue "

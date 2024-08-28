@@ -40,7 +40,7 @@ def generate_twitch_video(
                                   title = title,
                                   status = "GENERATION",
                                   video_type = "TWITCH",
-                                  created_by_id = created_by)
+                                  created_by = created_by)
 
     client = TwitchClient(path = dir_name)
     client.set_headers()
