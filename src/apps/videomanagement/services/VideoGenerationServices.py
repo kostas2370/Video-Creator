@@ -104,7 +104,7 @@ def generate_video(template_id: Union[str, int, None],
     vid = Videos.objects.create(title = x['title'], prompt = user_rompt, dir_name = dir_name, gpt_answer = x,
                                 background = background, intro = intro, outro = outro,
                                 settings = dict(subtitles=subtitles,avatar_position=avatar_position),
-                                status = "GENERATION", video_type = "AI", created_by_id = created_by)
+                                status = "GENERATION", video_type = "AI", created_by = created_by)
 
     logger.info(f"Created the video instance with id : {vid.id}")
 

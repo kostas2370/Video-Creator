@@ -11,6 +11,7 @@ class TemplatePromptsSerializer(serializers.ModelSerializer):
 
 
 class MusicSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default = serializers.CurrentUserDefault())
 
     class Meta:
         model = Music
@@ -54,7 +55,7 @@ class AvatarNestedSerializer(serializers.ModelSerializer):
 
 class AvatarSerializer(serializers.ModelSerializer):
     sample = serializers.SerializerMethodField()
-
+    created_by = serializers.HiddenField(default = serializers.CurrentUserDefault())
     class Meta:
         model = Avatars
         fields = "__all__"
@@ -100,6 +101,7 @@ class VideoNestedSerializer(serializers.ModelSerializer):
 
 
 class IntroSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default = serializers.CurrentUserDefault())
 
     class Meta:
         model = Intro
@@ -107,6 +109,8 @@ class IntroSerializer(serializers.ModelSerializer):
 
 
 class OutroSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default = serializers.CurrentUserDefault())
+    
     class Meta:
         model = Outro
         fields = "__all__"

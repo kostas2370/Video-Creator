@@ -13,8 +13,7 @@ from ..swagger_serializers import TwitchSerializer
 @api_view(['POST'])
 def generate_twitch(request):
     data = request.data.copy()
-    data["created_by"] = request.user.id
-    serializer = TwitchSerializer(data = data)
+    serializer = TwitchSerializer(data = data, context = dict(request=request))
     serializer.is_valid(raise_exception = True)
     video = generate_twitch_video(**serializer.validated_data)
     return Response({"message": "The video has been generated successfully", "video": VideoSerializer(video).data})

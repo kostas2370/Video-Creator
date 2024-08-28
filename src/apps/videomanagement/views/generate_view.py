@@ -17,13 +17,9 @@ class GenerateView(viewsets.ViewSet):
                          )
     def create(self, request):
         data = request.data.copy()
-        data["created_by"] = request.user.id
-        print(data)
-        serializer = self.serializer_class(data = data)
-
+        serializer = self.serializer_class(data = data, context = dict(request=request))
         serializer.is_valid()
 
-        print(serializer.validated_data)
         video = generate_video(**serializer.validated_data)
 
         return Response({"message": "The video has been generated successfully",
