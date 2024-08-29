@@ -10,7 +10,7 @@ from ..utils.file_utils import generate_directory
 from ..utils.gpt_utils import get_reply
 from ..utils.prompt_utils import format_prompt
 from ..utils.visual_utils import create_image_scenes, download_music
-
+from ..utils.cost_utils import calculate_total_cost
 logger = logging.getLogger(__name__)
 
 
@@ -121,7 +121,6 @@ def generate_video(template_id: Union[str, int, None],
 
     make_scenes_speech(vid)
     logger.info(f"Generated the scenes audios for the video with id : {vid.id}")
-
     vid.music = download_music(music)
 
     if images:
@@ -131,5 +130,8 @@ def generate_video(template_id: Union[str, int, None],
 
     vid.status = "READY"
     vid.save()
+
+    created_by.generation_limit_for_ai -= calculate_total_cost(vid)
+    created_by.save()
 
     return vid

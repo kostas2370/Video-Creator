@@ -14,7 +14,7 @@ VIDEO_STATUS = (("GENERATION", "GENERATION"), ("READY", "READY"), ("RENDERING", 
                 , ("FAILED", "FAILED"))
 
 
-IMAGE_MODE = (("DALL-E", "DALL-E"), ("WEB", "WEB"))
+IMAGE_MODE = (("AI", "AI"), ("WEB", "WEB"))
 
 VIDEO_TYPE = (("AI", "AI"), ("TWITCH", "TWITCH"))
 

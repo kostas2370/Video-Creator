@@ -7,7 +7,7 @@ from ..models import Videos, UserPrompt
 from ..utils.file_utils import generate_directory
 from ..utils.twitch import TwitchClient
 from ..utils.visual_utils import create_twitch_clip_scene
-
+from ..utils.cost_utils import calculate_total_cost
 
 def generate_twitch_video(
         mode: Literal["game", "streamer"],
@@ -59,4 +59,7 @@ def generate_twitch_video(
     video.gpt_answer = description
     video.status = "READY"
     video.save()
+
+    created_by.generation_limit_for_twitch -= calculate_total_cost(video)
+    created_by.save()
     return video
