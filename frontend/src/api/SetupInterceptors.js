@@ -40,6 +40,11 @@ export const SetupInterceptors = http => {
             toast.error("404 Not Found !")
             return Promise.reject(error)
         }
+        if (status === 403){
+            toast.error("No permission !")
+            return Promise.reject(error)
+        }
+
 
         
         return Promise.reject(error)

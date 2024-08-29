@@ -15,11 +15,11 @@ import { Avatar } from "./pages/AvatarPage";
 import { Videos } from "./pages/VideosPage";
 import useAuth from "./useAuth";
 import { Video } from "./pages/VideoPage";
+import { AssetPage } from "./pages/AssetPage";
 function App() {
 
   useAuth()
   const location = useLocation();
-  let { videoId } = useParams();
 
   
   const shouldShowNavbar =
@@ -36,9 +36,7 @@ function App() {
         <Route path="/avatars/" element={<Avatar />} />
         <Route path="/videos/" element={<Videos />} />
         <Route path="/videos/:videoId/" element={<Video/>} />
-
-
-
+        <Route path="/assets/" element={<AssetPage/>} />
 
         <Route path="/" element={<Home />} />
         <Route path="*" element={<>Not found</>} />

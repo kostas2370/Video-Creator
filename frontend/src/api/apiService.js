@@ -285,3 +285,64 @@ export const createScene = async (id, data) => {
 
     }
 }
+
+export const createIntro = async (data) => {
+
+    try{
+        var url = "intro/"
+     
+        const response = await httpClient.post(url, data);
+      
+        return response.data
+
+    }catch (error){
+        console.error('Error fetching data:', error);
+
+    }
+}
+
+export const createOutro = async (data) => {
+
+    try{
+        var url = "outro/"
+     
+        const response = await httpClient.post(url, data);
+      
+        return response.data
+
+    }catch (error){
+        console.error('Error fetching data:', error);
+
+    }
+}
+
+
+export const deleteIntro = async (id) => {
+
+    try{
+        var url = "intro/"+id+"/"
+     
+        const response = await httpClient.delete(url);
+      
+        return response.data
+
+    }catch (error){
+        console.error('Error fetching data:', error);
+
+    }
+}
+
+export const deleteOutro = async (id) => {
+
+    try{
+        var url = "outro/"+id+"/"
+     
+        const response = await httpClient.delete(url);
+      
+        return response.data
+
+    }catch (error){
+        console.error('Error fetching data:', error);
+
+    }
+}

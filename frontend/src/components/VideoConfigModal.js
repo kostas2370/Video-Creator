@@ -162,52 +162,48 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
                   ) : null}
                 </div>
                 {info.video_type !== "TWITCH" ? (
-               
-                    <div className="flex justify-center mt-4">
-                      <div className="flex items-center space-x-4">
+                  <div className="flex justify-center mt-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center">
+                        <label
+                          htmlFor="subtitles"
+                          className="mr-2 text-sm font-medium text-gray-900 dark:text-white"
+                        >
+                          Subtitles
+                        </label>
+                        <input
+                          type="checkbox"
+                          id="subtitles"
+                          name="subtitles"
+                          checked={subtitles}
+                          onChange={(e) => setSubtitles(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                      </div>
+
+                      {avatar && (
                         <div className="flex items-center">
                           <label
-                            htmlFor="subtitles"
+                            htmlFor="avatarPosition"
                             className="mr-2 text-sm font-medium text-gray-900 dark:text-white"
                           >
-                            Subtitles
+                            Avatar Position
                           </label>
-                          <input
-                            type="checkbox"
-                            id="subtitles"
-                            name="subtitles"
-                            checked={subtitles}
-                            onChange={(e) => setSubtitles(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                          />
+                          <select
+                            id="avatarPosition"
+                            value={avatarPosition}
+                            onChange={(e) => setAvatarPosition(e.target.value)}
+                            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                          >
+                            <option value="left,top">Top Left</option>
+                            <option value="right,top">Top Right</option>
+                            <option value="left,bottom">Bottom Left</option>
+                            <option value="right,bottom">Bottom Right</option>
+                          </select>
                         </div>
-
-                        {avatar && (
-                          <div className="flex items-center">
-                            <label
-                              htmlFor="avatarPosition"
-                              className="mr-2 text-sm font-medium text-gray-900 dark:text-white"
-                            >
-                              Avatar Position
-                            </label>
-                            <select
-                              id="avatarPosition"
-                              value={avatarPosition}
-                              onChange={(e) =>
-                                setAvatarPosition(e.target.value)
-                              }
-                              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                            >
-                              <option value="left,top">Top Left</option>
-                              <option value="right,top">Top Right</option>
-                              <option value="left,bottom">Bottom Left</option>
-                              <option value="right,bottom">Bottom Right</option>
-                            </select>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  
+                  </div>
                 ) : null}
 
                 <div className="flex justify-center mt-4">
