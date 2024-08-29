@@ -11,7 +11,7 @@ from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
 from ..utils.visual_utils import generate_new_image
-from ..permissions import IsOwnerPermission
+from ..permissions import IsOwnerPermission, SceneGenerationLimitPermission
 
 scene_id = openapi.Parameter('scene_id',
                              openapi.IN_QUERY,
@@ -27,17 +27,20 @@ scene_image_id = openapi.Parameter('scene_image',
 class SceneView(viewsets.ViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
-    permission_classes = [IsAuthenticated, IsOwnerPermission]
+    permission_classes = [IsAuthenticated, IsOwnerPermission, SceneGenerationLimitPermission]
 
     @swagger_auto_schema(request_body = SceneUpdateSerializer,
                          operation_description = "This API updates the text of a scene and regenerates their dialogue "
                                                  "with the new text")
     def partial_update(self, request, pk=None):
-        instance = self.get_object()
+        instance = Scene.objects.get(id=pk)
         if not instance:
             return Response(status = status.HTTP_404_NOT_FOUND)
 
         updated_scene = update_scene(request.data.get("text"), instance)
+        request.user.generation_limit_for_ai -= 0.01
+        request.user.save()
+
         return Response({"text": updated_scene},
                         status = status.HTTP_200_OK)
 
@@ -48,8 +51,10 @@ class SceneView(viewsets.ViewSet):
     @action(detail = True, methods = ['patch'])
     def generate(self, request, pk):
         text = request.data.get("text").strip()
-        scene = self.get_object()
+        scene = Scene.objects.get(id=pk)
         generated_scene = generate_scene(text, scene)
+        request.user.generation_limit_for_ai -= 0.03
+        request.user.save()
         return Response({"text": generated_scene},
                         status = status.HTTP_200_OK)
 
@@ -96,6 +101,9 @@ class SceneView(viewsets.ViewSet):
         img.prompt = image_description
         img.save()
         generate_new_image(img)
+
+        request.user.generation_limit_for_ai -= 0.08
+        request.user.save()
 
         return Response({"Message": "Image Scene was added successfully"})
 
