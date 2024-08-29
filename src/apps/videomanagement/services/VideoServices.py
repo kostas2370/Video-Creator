@@ -63,7 +63,7 @@ def video_update(video: Videos,
         raise APIException("Outro with that id does not Exists !")
 
     if video.video_type != 'TWITCH':
-        video.settings = dict(subtitles = subtitles, avatar_position = avatar_position)
+        video.settings = dict(subtitles = subtitles == 'true', avatar_position = avatar_position)
 
     video.save()
 

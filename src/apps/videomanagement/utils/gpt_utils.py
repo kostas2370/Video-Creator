@@ -76,7 +76,6 @@ def official_gpt_call(prompt: str, gpt_model=None):
                                                 messages = [{"role": "assistant", "content": prompt}, ], stream = True,
                                                 max_tokens = settings.MAX_TOKENS)
 
-
         for chunk in stream:
             x.write(chunk.choices[0].delta.content or "")
 

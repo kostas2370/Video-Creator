@@ -71,8 +71,6 @@ class AvatarView(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
-        if self.request.user.is_superuser:
-            return Avatars.objects.all()
 
         return Avatars.objects.filter(created_by=self.request.user)
 

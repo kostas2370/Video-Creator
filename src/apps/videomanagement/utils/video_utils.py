@@ -2,6 +2,7 @@ import os
 import shlex
 import subprocess
 import uuid
+import json
 
 from PIL import Image
 from django.db.models import QuerySet
@@ -183,7 +184,6 @@ def handle_avatar_video(video, final_video):
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
 
     position = tuple(video.settings.get("avatar_position", "right,top").split(","))
-    print(position)
     avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(position).resize(1.5).fadein(2).fadeout(2)
 
     final_video = CompositeVideoClip([final_video, avatar_vid], size = (1920, 1080))
@@ -276,7 +276,6 @@ def handle_final_video(background, final_audio, final_video, video, subtitles):
     Returns:
         VideoFileClip: The fully processed final video clip with all specified components added.
     """
-
     if video.music:
         final_audio = handle_music(video, final_audio)
 
@@ -285,7 +284,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles):
     if video.avatar:
         final_video = handle_avatar_video(video, final_video)
 
-    if video.settings.get("subtitles",False):
+    if video.settings.get("subtitles", False):
         subs = concatenate_videoclips(subtitles)
         final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
 
