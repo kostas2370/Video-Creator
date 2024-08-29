@@ -72,10 +72,10 @@ def official_gpt_call(prompt: str, gpt_model=None):
     try:
 
         client = OpenAI(api_key = settings.OPEN_API_KEY)
-        print(gpt_model)
         stream = client.chat.completions.create(model = settings.DEFAULT_GPT_MODEL if not gpt_model else gpt_model,
                                                 messages = [{"role": "assistant", "content": prompt}, ], stream = True,
                                                 max_tokens = settings.MAX_TOKENS)
+
 
         for chunk in stream:
             x.write(chunk.choices[0].delta.content or "")

@@ -84,14 +84,14 @@ class SceneView(viewsets.ViewSet):
                          manual_parameters = [scene_id])
     @action(detail = True, methods = ["POST"])
     def generate_image_scene(self, request, pk):
-        img = SceneImage.objects.filter(scene=self.get_object()).first()
+        img = SceneImage.objects.filter(scene_id=pk).first()
         image_description = request.data.get('image_description')
 
         if not image_description:
             return Response({"message": "Image description can not be blank"}, status = 400)
 
         if not img:
-            img = SceneImage.objects.create(prompt = image_description, scene = self.get_object())
+            img = SceneImage.objects.create(prompt = image_description, scene_id=pk)
 
         img.prompt = image_description
         img.save()

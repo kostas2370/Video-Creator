@@ -1,16 +1,18 @@
 from rest_framework.response import Response
 from rest_framework import viewsets
 from drf_yasg.utils import swagger_auto_schema
-
+from rest_framework.permissions import IsAuthenticated
 from ..models import TemplatePrompts
 from ..swagger_serializers import GenerateSerializer
 from ..services.VideoGenerationServices import generate_video
 from ..serializers import VideoSerializer
+from ..permissions import AiGenerationLimitPermission
 
 
 class GenerateView(viewsets.ViewSet):
     serializer_class = GenerateSerializer
     queryset = TemplatePrompts.objects.all()
+    permission_classes = [IsAuthenticated, AiGenerationLimitPermission]
 
     @swagger_auto_schema(request_body = GenerateSerializer,
                          operation_description = "This API generates the scenes , the prompt and scene images !"
