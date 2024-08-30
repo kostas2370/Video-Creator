@@ -3,29 +3,28 @@ import { Search } from "@rsuite/icons";
 import { getAvatars } from "../api/apiService";
 import { Card } from "../components/ui/AvatarCards";
 import { AvatarCreationModal } from "../components/AvatarCreationModal";
+import { useDebounce } from "../hooks/useDebounce";
 
 export const Avatar = () => {
   const [avatars, setAvatars] = useState([]);
   const [search, setSearch] = useState([]);
   const [showModal, setshowModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const debouncedSearchTerm = useDebounce(search, 500);
+
+
+
 
   useEffect(() => {
-    const fetchAvatars = async () => {
-      getAvatars().then((response) => {
-        setAvatars(response);
-        setLoading(false)
-      });
-    };
     setLoading(true)
-    fetchAvatars();
-  }, []);
 
-  const SearchClick = (event) => {
     getAvatars(search).then((response) => {
       setAvatars(response);
+      setLoading(false)
+
     });
-  };
+  }, [debouncedSearchTerm])
+ 
 
   return (
     <>
@@ -49,16 +48,11 @@ export const Avatar = () => {
             <div className="absolute inset-y-2 left-2 flex items-center pl-3 pointer-events-none">
               <Search
                 className="text-gray-500"
-                onClick={(e) => SearchClick()}
+                
               />
             </div>
           </div>
-          <button
-            className="bg-blue-700 text-white font-bold py-2 px-4 rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 rounded-lg focus:ring-blue-600"
-            onClick={(e) => SearchClick()}
-          >
-            Search
-          </button>
+   
           <button
             onClick={(e) => setshowModal(true)}
             className="bg-gray-800 text-white font-bold py-2 px-8 rounded-r-lg hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 "

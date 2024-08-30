@@ -158,10 +158,14 @@ export const deleteImageScene = async (id) =>  {
 };
 
 
-export const getIntro = async () => {
+export const getIntro = async (search = null) => {
     try {
 
         var url = "intro/"
+
+        if(search){
+            url += "?search="+ search
+        }
       
         const response = await httpClient.get(url); 
         return response.data;
@@ -173,10 +177,14 @@ export const getIntro = async () => {
 
 
 
-export const getOutro = async () => {
+export const getOutro = async (search = null) => {
     try {
 
         var url = "outro/"
+
+        if(search){
+            url += "?search="+ search
+        }
       
         const response = await httpClient.get(url); 
         return response.data;

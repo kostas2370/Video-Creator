@@ -4,25 +4,43 @@ import { SearchInput } from "../components/ui/SearchInput";
 import { SmallTable } from "../components/SmallTable";
 import { AssetCreationModal } from "../components/AssetCreationModal";
 import { createIntro, createOutro } from "../api/apiService";
-import { DeleteModal } from "../components/DeleteModal";
 import { deleteIntro, deleteOutro } from "../api/apiService";
+import { useDebounce } from "../hooks/useDebounce";
 
 export const AssetPage = () => {
   const [intros, setIntros] = useState([]);
   const [outros, setOutros] = useState([]);
   const [showIntroModal, setShowIntroModal] = useState(false);
   const [showOutroModal, setShowOutroModal] = useState(false);
-  
+  const [searchIntro, setSearchIntro] = useState(null);
+  const [searchOutro, setSearchOutro] = useState(null);
+
+
+
+  const debouncedSearchIntroTerm = useDebounce(searchIntro, 500);
+
+  const debouncedSearchOutroTerm = useDebounce(searchOutro, 500);
 
 
   useEffect(() => {
-    getIntro().then((response) => {
+
+    getIntro(searchIntro).then((response) => {
       setIntros(response);
     });
-    getOutro().then((response) => {
+
+  }, [debouncedSearchIntroTerm])
+ 
+
+  useEffect(() => {
+
+    getOutro(searchOutro).then((response) => {
       setOutros(response);
     });
-  }, []);
+
+  }, [debouncedSearchOutroTerm])
+
+  
+
 
   return (
     <>
@@ -53,11 +71,11 @@ export const AssetPage = () => {
               <button onClick={(e) => {setShowIntroModal(true)}} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
               Create
                 </button>
-                <SearchInput placeholder="Search Intros" />
+                <SearchInput placeholder="Search Intros" setVal={setSearchIntro} />
               </div>
             </div>
             <div className="overflow-x-auto">
-              <SmallTable data={intros} setData={setIntros} deleteFunction={deleteIntro} />
+              <SmallTable data={intros} setData={setIntros}  />
             </div>
           </div>
 
@@ -69,7 +87,7 @@ export const AssetPage = () => {
                 <button onClick={(e) => {setShowOutroModal(true)}} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
                   Create
                 </button>
-                <SearchInput placeholder="Search Outros" />
+                <SearchInput placeholder="Search Outros" setVal={setSearchOutro}/>
               </div>
             </div>
             <div className="overflow-x-auto">
