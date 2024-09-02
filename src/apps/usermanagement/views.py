@@ -1,18 +1,28 @@
 import jwt
+import logging
+
+from django.middleware import csrf
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.shortcuts import get_current_site
 from django.urls import reverse
-from rest_framework import generics
-from rest_framework import status
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.core.mail import send_mail
 
+from rest_framework_simplejwt import views as jwt_views
+from rest_framework import generics
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.exceptions import ParseError
+from rest_framework_simplejwt import tokens
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework_simplejwt.exceptions import TokenError
+
 from .models import Login
-from .serializers import RegisterSerializer, UserSerializer, LoginSerializer, VerifySerializer
+from .serializers import RegisterSerializer, UserSerializer, LoginSerializer, VerifySerializer, CookieTokenRefreshSerializer
 from .tasks import send_email
+
+logger = logging.getLogger(__name__)
 
 
 class UserRegisterView(generics.GenericAPIView):
@@ -32,7 +42,7 @@ class UserRegisterView(generics.GenericAPIView):
         user.set_password(request.data["password"])
         user.save()
 
-        token = RefreshToken.for_user(user).access_token
+        token = tokens.RefreshToken.for_user(user).access_token
 
         current_site = get_current_site(request).domain
 
@@ -77,6 +87,7 @@ class LoginView(generics.GenericAPIView):
         serializer = self.serializer_class(data = request.data, context = {'request': request})
 
         user = get_user_model().objects.get(username = request.data.get("username"))
+
         serializer.is_valid(raise_exception = True)
         user_ip = Login.get_user_ip(request)
 
@@ -88,4 +99,70 @@ class LoginView(generics.GenericAPIView):
                                                                             f"accessed your account,")
             user.save()
 
-        return Response(serializer.data, status = status.HTTP_200_OK)
+        response = Response(serializer.data, status = status.HTTP_200_OK)
+        response.set_cookie("access_token", serializer.data["tokens"]["access"],
+                            max_age = settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],
+                            httponly = settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
+                            secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
+                            samesite = settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE'])
+
+        response.set_cookie("refresh_token",
+                            serializer.data["tokens"]["refresh"],
+                            max_age = settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+                            samesite = settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE'],
+                            httponly = settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
+                            secure = settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"] )
+
+        response["X-CSRFToken"] = csrf.get_token(request)
+
+        return response
+
+
+class CookieTokenRefreshView(jwt_views.TokenRefreshView):
+    serializer_class = CookieTokenRefreshSerializer
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        refresh = request.COOKIES.get("refresh_token")
+
+        if not refresh:
+            response.data = {"Message": "You need to set refresh token"}
+            response.status_code = 400
+            return super().finalize_response(request, response, *args, **kwargs)
+
+        try:
+            token = tokens.RefreshToken(refresh)
+        except TokenError:
+            response.data = {"Message": "This token has expired"}
+            response.status_code = 400
+            return super().finalize_response(request, response, *args, **kwargs)
+
+        if 'access' in response.data:
+            response.set_cookie(key = "access_token",
+                                value = response.data['access'],
+                                max_age = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'],
+                                secure = settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
+                                httponly = settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'], )
+
+        response["X-CSRFToken"] = request.COOKIES.get("csrftoken", "")
+        return super().finalize_response(request, response, *args, **kwargs)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    try:
+        refresh_token = request.COOKIES.get("refresh_token")
+        token = tokens.RefreshToken(refresh_token)
+        token.blacklist()
+        res = Response()
+        res.delete_cookie("access_token", samesite = "Strict", )
+        res.delete_cookie("refresh_token", samesite = "Strict",)
+        res.delete_cookie("X-CSRFToken", samesite = "None")
+        res.delete_cookie("csrftoken", samesite = "None")
+        return res
+
+    except Exception as exc:
+        logger.error(exc)
+        raise ParseError("Invalid token")
+
+

@@ -30,8 +30,6 @@ class VideoView(viewsets.ModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        if self.request.user.is_superuser:
-            return Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
 
         return Videos.objects.filter(~Q(gpt_answer=None), created_by=self.request.user).order_by("-id")
 

@@ -3,7 +3,7 @@ import uuid
 from .tts_utils import save, ApiSyn, create_model
 from ..models import Scene, Videos
 from .prompt_utils import determine_fields
-
+import os
 
 def make_scenes_speech(video: Videos) -> None:
     """
@@ -78,6 +78,10 @@ def update_scene(scene: Scene) -> None:
     dir_name = video.dir_name
     voice_model = video.voice_model
     syn = voice_model.path
+
+    if video.avatar and os.path.exists(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'):
+        os.remove(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4')
+
     if voice_model.type == 'Local' or voice_model.type == "LOCAL":
         syn = create_model(model = syn)
 
