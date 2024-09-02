@@ -1,9 +1,10 @@
-import httpClient from "./axiosPrivate";
-
+import { axiosPrivateInstance } from "./axiosPrivate"; 
+import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 export const generateVideo = async (data) => {
+
     try{
-        const response = await httpClient.post('generate/', data);
+        const response = await axiosPrivateInstance.post('generate/', data);
       
         return response.data
 
@@ -16,7 +17,7 @@ export const generateVideo = async (data) => {
 
 export const generateTwitchVideo = async (data) => {
     try{
-        const response = await httpClient.post('twitch_generate/', data);
+        const response = await axiosPrivateInstance.post('twitch_generate/', data);
       
         return response.data
 
@@ -32,7 +33,7 @@ export const getVoices = async () => {
 
         var url = "voices/"
       
-        const response = await httpClient.get(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.get(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -43,7 +44,7 @@ export const getVoices = async () => {
 
 export const createAvatar = async (data) => {
     try{
-        const response = await httpClient.post('avatars/', data);
+        const response = await axiosPrivateInstance.post('avatars/', data);
         return response.data
 
 
@@ -63,7 +64,7 @@ export const getAvatars = async (name) => {
             url = url+"?search=" +name
         }
 
-        const response = await httpClient.get(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.get(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -77,7 +78,7 @@ export const deleteAvatar = async (id) =>  {
 
         var url = "avatars/" + id +"/"
       
-        const response = await httpClient.delete(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.delete(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -97,7 +98,7 @@ export const getVideos = async (search, page) => {
         }
 
 
-        const response = await httpClient.get(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.get(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -110,7 +111,7 @@ export const deleteVideo = async (id) =>  {
 
         var url = "video/" + id +"/"
       
-        const response = await httpClient.delete(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.delete(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -122,7 +123,7 @@ export const renderVideo = async (id) => {
     try {
         var url = "video/" + id +"/render_video/"
       
-        const response = await httpClient.patch(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.patch(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -136,7 +137,7 @@ export const getVideo = async (id) =>  {
 
         var url = "video/" + id +"/"
       
-        const response = await httpClient.get(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.get(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -149,7 +150,7 @@ export const deleteImageScene = async (id) =>  {
 
         var url = "scene_image/" + id +"/"
       
-        const response = await httpClient.delete(url); // replace with your endpoint
+        const response = await axiosPrivateInstance.delete(url); // replace with your endpoint
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -167,7 +168,7 @@ export const getIntro = async (search = null) => {
             url += "?search="+ search
         }
       
-        const response = await httpClient.get(url); 
+        const response = await axiosPrivateInstance.get(url); 
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -186,7 +187,7 @@ export const getOutro = async (search = null) => {
             url += "?search="+ search
         }
       
-        const response = await httpClient.get(url); 
+        const response = await axiosPrivateInstance.get(url); 
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
@@ -198,7 +199,7 @@ export const getOutro = async (search = null) => {
 export const updateVideo = async (id,data) => {
     try{
         var url = "video/" + id +"/"
-        const response = await httpClient.patch(url, data);
+        const response = await axiosPrivateInstance.patch(url, data);
       
         return response.data
 
@@ -213,7 +214,7 @@ export const updateScene = async (id, data) => {
 
     try{
         var url = "scene/" + id +"/"
-        const response = await httpClient.patch(url, data);
+        const response = await axiosPrivateInstance.patch(url, data);
       
         return response.data
 
@@ -230,7 +231,7 @@ export const generateScene = async (id, data) => {
 
     try{
         var url = "scene/" + id +"/generate/"
-        const response = await httpClient.patch(url, data);
+        const response = await axiosPrivateInstance.patch(url, data);
       
         return response.data
 
@@ -250,7 +251,7 @@ export const updateSceneImage = async (id,scene_image_id, data) => {
             url = url + "?scene_image=" + scene_image_id;
 
         }
-        const response = await httpClient.post(url, data);
+        const response = await axiosPrivateInstance.post(url, data);
       
         return response.data
 
@@ -267,7 +268,7 @@ export const generateSceneImage = async (id, data) => {
     try{
         var url = "scene/" + id +"/generate_image_scene/"
      
-        const response = await httpClient.post(url, data);
+        const response = await axiosPrivateInstance.post(url, data);
       
         return response.data
 
@@ -284,7 +285,7 @@ export const createScene = async (id, data) => {
     try{
         var url = "video/" + id +"/add_scene/"
      
-        const response = await httpClient.post(url, data);
+        const response = await axiosPrivateInstance.post(url, data);
       
         return response.data
 
@@ -299,7 +300,7 @@ export const createIntro = async (data) => {
     try{
         var url = "intro/"
      
-        const response = await httpClient.post(url, data);
+        const response = await axiosPrivateInstance.post(url, data);
       
         return response.data
 
@@ -314,7 +315,7 @@ export const createOutro = async (data) => {
     try{
         var url = "outro/"
      
-        const response = await httpClient.post(url, data);
+        const response = await axiosPrivateInstance.post(url, data);
       
         return response.data
 
@@ -330,7 +331,7 @@ export const deleteIntro = async (id) => {
     try{
         var url = "intro/"+id+"/"
      
-        const response = await httpClient.delete(url);
+        const response = await axiosPrivateInstance.delete(url);
       
         return response.data
 
@@ -345,9 +346,25 @@ export const deleteOutro = async (id) => {
     try{
         var url = "outro/"+id+"/"
      
-        const response = await httpClient.delete(url);
+        const response = await axiosPrivateInstance.delete(url);
       
         return response.data
+
+    }catch (error){
+        console.error('Error fetching data:', error);
+
+    }
+}
+
+
+export const logout = async () => {
+
+    try{
+        var url = "logout/"
+     
+        const response = await axiosPrivateInstance.post(url);
+      
+        return response
 
     }catch (error){
         console.error('Error fetching data:', error);

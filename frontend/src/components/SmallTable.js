@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { RiDeleteBin6Fill } from "react-icons/ri";
 import { DeleteModal } from "./DeleteModal";
+import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 export function SmallTable({ data, setData, deleteFunction }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);

@@ -10,6 +10,7 @@ export function DeleteModal({
   name,
   mode = "normal",
 }) {
+
   const DeleteClick = (event) => {
     deleteFunction(id).then((response) => {
       if (mode === "normal") {

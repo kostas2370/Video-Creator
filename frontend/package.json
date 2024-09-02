@@ -15,6 +15,7 @@
     "flowbite-react": "^0.10.1",
     "heroicons": "^2.1.5",
     "install": "^0.13.0",
+    "js-cookie": "^3.0.5",
     "jwt-decode": "^4.0.0",
     "npm": "^10.8.2",
     "postcss-cli": "^11.0.0",

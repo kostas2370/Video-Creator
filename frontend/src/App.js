@@ -1,46 +1,85 @@
-import React  from "react";
-import {
-  Route,
-  Routes,
-  useLocation,
-  useParams 
-} from "react-router-dom";
+import React from "react";
+import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 
 import Login from "./pages/LoginPage";
-import Home from "./pages/HomePage"
+import Home from "./pages/HomePage";
 import Register from "./pages/RegisterPage";
 import Navbar from "./components/ui/myNavBar";
 import Twitch from "./pages/TwitchPage";
 import { Avatar } from "./pages/AvatarPage";
 import { Videos } from "./pages/VideosPage";
-import useAuth from "./useAuth";
 import { Video } from "./pages/VideoPage";
+import useAuth from "./hooks/useAuth";
 import { AssetPage } from "./pages/AssetPage";
+import { useAxiosPrivate } from "./hooks/useAxiosPrivate";
+import useRefreshToken from "./hooks/useRefreshToken";
+import PersistLogin from "./components/PersistLogin";
 function App() {
-
-  useAuth()
   const location = useLocation();
+  const { access_token } = useAuth();
 
-  
   const shouldShowNavbar =
-    location.pathname !== "/login/" && location.pathname !== "/register";
+    location.pathname !== "/login/" &&
+    location.pathname !== "/register" &&
+    location.pathname !== "/login";
 
   return (
-    <div className="">
-      {shouldShowNavbar ? <Navbar /> : <></>}
+    <div>
+      {shouldShowNavbar ? <Navbar /> : null}
 
-      <Routes class="w-screen">
-        <Route path="/login/" element={<Login />} />
-        <Route path="/register/" element={<Register />} />
-        <Route path="/twitch/" element={<Twitch />} />
-        <Route path="/avatars/" element={<Avatar />} />
-        <Route path="/videos/" element={<Videos />} />
-        <Route path="/videos/:videoId/" element={<Video/>} />
-        <Route path="/assets/" element={<AssetPage/>} />
-
-        <Route path="/" element={<Home />} />
-        <Route path="*" element={<>Not found</>} />
-
+      <Routes>
+        <Route path="/" element={<PersistLogin />}>
+          <Route
+            path="/login/"
+            element={!access_token ? <Login /> : <Navigate to="/" replace />}
+          />
+          <Route
+            index
+            exact
+            element={access_token ? <Home /> : <Navigate to="/login" replace />}
+          />
+          <Route path="/register/" element={<Register />} />
+          <Route
+            path="/twitch/"
+            element={
+              access_token ? <Twitch /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/avatars/"
+            element={
+              access_token ? <Avatar /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/videos/"
+            element={
+              access_token ? <Videos /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/videos/:videoId/"
+            element={
+              access_token ? <Video /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/assets/"
+            element={
+              access_token ? <AssetPage /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="*"
+            element={
+              access_token ? (
+                <>Page not found !</>
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+        </Route>
       </Routes>
     </div>
   );

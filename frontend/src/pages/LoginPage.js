@@ -1,17 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { LOGIN_URL } from "../endpoints";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from 'react-router-dom'
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from "axios";
+import useAuth from "../hooks/useAuth";
+import Cookies from "js-cookie"
+import { axiosInstance } from "../api/axiosPrivate";
+
+
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  
+  const { setAccessToken, setCSRFToken } = useAuth()
+
   const navigate = useNavigate();
+  const location = useLocation()
+
+  const fromLocation = location?.state?.from?.pathname || '/'
+
 
   useEffect(() => {
-    var token = localStorage.getItem("token");
-    if (token) {
+    var token = Cookies.get("access_token");
+    if (token &&token !== "ey") {
       navigate("/");
     }
   }, []);
@@ -34,16 +46,18 @@ const Login = () => {
         password: password,
       };
 
-      axios
+      axiosInstance
         .post(LOGIN_URL, data)
         .then((response) => {
           const data = response?.data;
-          if(data){
-            localStorage.setItem("token", data?.tokens?.access);
-            toast.success("Login succesfully");
-            navigate("/");
-            return
-          }
+          toast.success("Login succesfully");
+          setAccessToken(data.tokens.access)
+
+          setCSRFToken(response.headers["x-csrftoken"])
+          
+          navigate(fromLocation, { replace: true })
+          
+          
          
           
         })

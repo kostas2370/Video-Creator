@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { generateVideo } from "../api/apiService";
 import { LoadingButton } from "../components/ui/LoadingButton";
 import { ProceedModal } from "../components/ProceedModal";
+import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 const Home = () => {
   const isOpenFunction = (data) => {
@@ -14,6 +15,7 @@ const Home = () => {
   const [open, setOpen] = useState(false);
   const [video_id, setVideo_id] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
 
   const [formData, setFormData] = useState({
     template_id: "",
@@ -28,6 +30,8 @@ const Home = () => {
     subtitles: true,
     avatar_position:"top,left"
   });
+
+ const axiosPrivateInstance = useAxiosPrivate()
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -44,8 +48,8 @@ const Home = () => {
 
   useEffect(() => {
     const fetchOptions = async () => {
-      getAvatars().then((response) => {
-        setAvatars(response);
+      axiosPrivateInstance.get("avatars/").then((response) => {
+        setAvatars(response.data);
       });
     };
 

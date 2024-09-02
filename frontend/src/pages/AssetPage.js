@@ -6,6 +6,7 @@ import { AssetCreationModal } from "../components/AssetCreationModal";
 import { createIntro, createOutro } from "../api/apiService";
 import { deleteIntro, deleteOutro } from "../api/apiService";
 import { useDebounce } from "../hooks/useDebounce";
+import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 export const AssetPage = () => {
   const [intros, setIntros] = useState([]);
@@ -15,32 +16,19 @@ export const AssetPage = () => {
   const [searchIntro, setSearchIntro] = useState(null);
   const [searchOutro, setSearchOutro] = useState(null);
 
-
-
   const debouncedSearchIntroTerm = useDebounce(searchIntro, 500);
-
   const debouncedSearchOutroTerm = useDebounce(searchOutro, 500);
-
-
   useEffect(() => {
-
     getIntro(searchIntro).then((response) => {
       setIntros(response);
     });
-
-  }, [debouncedSearchIntroTerm])
- 
+  }, [debouncedSearchIntroTerm]);
 
   useEffect(() => {
-
     getOutro(searchOutro).then((response) => {
       setOutros(response);
     });
-
-  }, [debouncedSearchOutroTerm])
-
-  
-
+  }, [debouncedSearchOutroTerm]);
 
   return (
     <>
@@ -57,42 +45,42 @@ export const AssetPage = () => {
         nameh1="Outro"
         ApiCall={createOutro}
         setItems={setOutros}
-
-
       />
 
       <div className="p-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 justify-center">
           {/* Intros Table */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col items-center">
+            <div className="flex justify-between items-center mb-4 w-full">
               <h2 className="text-xl font-bold">Intros</h2>
               <div className="flex items-center space-x-2">
-              <button onClick={(e) => {setShowIntroModal(true)}} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
-              Create
+                <button 
+                  onClick={(e) => { setShowIntroModal(true); }} 
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                >
+                  Create
                 </button>
                 <SearchInput placeholder="Search Intros" setVal={setSearchIntro} />
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <SmallTable data={intros} setData={setIntros}  />
-            </div>
+            <SmallTable data={intros} setData={setIntros} deleteFunction={deleteIntro} />
           </div>
 
           {/* Outros Table */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-col items-center">
+            <div className="flex justify-between items-center mb-4 w-full">
               <h2 className="text-xl font-bold">Outros</h2>
               <div className="flex items-center space-x-2">
-                <button onClick={(e) => {setShowOutroModal(true)}} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                <button 
+                  onClick={(e) => { setShowOutroModal(true); }} 
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                >
                   Create
                 </button>
-                <SearchInput placeholder="Search Outros" setVal={setSearchOutro}/>
+                <SearchInput placeholder="Search Outros" setVal={setSearchOutro} />
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <SmallTable data={outros} setData={setOutros} deleteFunction={deleteOutro}/>
-            </div>
+            <SmallTable data={outros} setData={setOutros} deleteFunction={deleteOutro} />
           </div>
         </div>
       </div>

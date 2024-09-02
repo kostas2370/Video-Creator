@@ -1,13 +1,19 @@
-import axios from 'axios';
-import SetupInterceptors from './SetupInterceptors';
-import { API_BASE_URL } from '../endpoints';
+import axios from "axios"
 
-const httpClient = axios.create({
-    baseURL: API_BASE_URL || API_BASE_URL, 
-    timeout: 1000000, 
-});
+const API_URL = "http://127.0.0.1:8000/api/"
 
+export const axiosInstance = axios.create({
+    baseURL: API_URL,
+    withCredentials: true,
+    headers: {
+        "Content-Type": 'multipart/form-data'
+    }
+})
 
-SetupInterceptors(httpClient);
-
-export default httpClient;
+export const axiosPrivateInstance = axios.create({
+    baseURL: API_URL,
+    withCredentials: true,
+    headers: {
+        "Content-Type": 'multipart/form-data'
+    }
+})

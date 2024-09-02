@@ -1,9 +1,13 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
-
+import Cookies from 'js-cookie';
+import useLogout from "../../hooks/useLogout";
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  const logout = useLogout()
+
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -203,8 +207,9 @@ function Navbar() {
                       to="/login/"
                       className="block px-4 py-2 text-sm text-gray-700"
                       activeClassName="bg-gray-900 text-white"
-                      onClick={() => {
-                        localStorage.removeItem("token");
+                      onClick={ async () => {
+                       await logout()
+
                       }}
                     >
                       Sign out
