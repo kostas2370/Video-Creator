@@ -2,7 +2,6 @@ import os
 import shlex
 import subprocess
 import uuid
-import json
 
 from PIL import Image
 from django.db.models import QuerySet

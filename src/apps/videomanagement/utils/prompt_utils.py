@@ -60,7 +60,6 @@ def format_dalle_prompt(title: str, image_description: str) -> str:
 
 
 def determine_fields(first_scene):
-    # Determine the search_field based on the presence and type of keys in first_scene
     if "scene" in first_scene and isinstance(first_scene["scene"], list):
         search_field = "scene"
     elif "sections" in first_scene:
@@ -70,9 +69,6 @@ def determine_fields(first_scene):
     else:
         search_field = "sentences"
 
-    if "sentence" in first_scene[search_field][0]:
-        narration_field = "sentence"
-    else:
-        narration_field = "narration"
+    narration_field = "sentence" if "sentence" in first_scene[search_field][0] else "narration"
 
     return search_field, narration_field

@@ -71,7 +71,6 @@ class AvatarView(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
-
         return Avatars.objects.filter(created_by=self.request.user)
 
 
@@ -79,6 +78,8 @@ class IntroView(viewsets.ModelViewSet):
     serializer_class = IntroSerializer
     queryset = Intro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['name']
 
     def get_queryset(self):
         if self.request.user.is_superuser:
@@ -91,6 +92,8 @@ class OutroView(viewsets.ModelViewSet):
     serializer_class = OutroSerializer
     queryset = Outro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['name']
 
     def get_queryset(self):
         if self.request.user.is_superuser:

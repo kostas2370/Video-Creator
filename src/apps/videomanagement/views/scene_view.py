@@ -1,3 +1,4 @@
+import os
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
@@ -6,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Scene, SceneImage, UserPrompt
+from ..models import Scene, SceneImage, UserPrompt, Videos
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
@@ -34,10 +35,12 @@ class SceneView(viewsets.ViewSet):
                                                  "with the new text")
     def partial_update(self, request, pk=None):
         instance = Scene.objects.get(id=pk)
+
         if not instance:
             return Response(status = status.HTTP_404_NOT_FOUND)
 
         updated_scene = update_scene(request.data.get("text"), instance)
+
         request.user.generation_limit_for_ai -= 0.01
         request.user.save()
 

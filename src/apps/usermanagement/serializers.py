@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt import  serializers as jwt_serializers, exceptions as jwt_exceptions
 
 from .utils import check_conditions
 
@@ -60,3 +61,16 @@ class LoginSerializer(serializers.ModelSerializer):
 
 class VerifySerializer(serializers.Serializer):
     email = serializers.CharField(required = False, read_only = True, max_length = 100)
+
+
+class CookieTokenRefreshSerializer(jwt_serializers.TokenRefreshSerializer):
+    refresh = None
+
+    def validate(self, attrs):
+        attrs['refresh'] = self.context['request'].COOKIES.get('refresh_token')
+        if attrs['refresh']:
+            return super().validate(attrs)
+        else:
+            raise jwt_exceptions.InvalidToken(
+                'No valid token found in cookie \'refresh\'')
+
