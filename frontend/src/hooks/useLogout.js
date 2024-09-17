@@ -1,12 +1,14 @@
 import useAuth from "./useAuth"
 import { axiosPrivateInstance } from "../api/axiosPrivate"
 import Cookies from "js-cookie"
+import { useNavigate } from "react-router-dom"
 export default function useLogout() {
     const { setUser, setAccessToken, setCSRFToken } = useAuth()
+    const {navigate}= useNavigate()
 
     const logout = async () => {
         try {
-            const response = await axiosPrivateInstance.post("logout/")
+            await axiosPrivateInstance.post("logout/")
 
             setAccessToken(null)
             setCSRFToken(null)

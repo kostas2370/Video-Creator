@@ -20,6 +20,7 @@ export const Videos = () => {
 
   const fetchVideos = async () => {
     setIsLoading(true);
+    setVideos([])
     const response = await getVideos(debouncedSearchTerm, currentPage);
     if (response) {
       setVideos(response.results);

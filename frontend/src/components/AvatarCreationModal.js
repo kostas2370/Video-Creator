@@ -123,7 +123,7 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
                           <option value={voice.id}>{voice.name}</option>
                         ))}
                       </select>
-                      {voices.map((item, index) => {
+                      {voices?.map((item, index) => {
                       if (voice === item.id.toString()) {
                         return (
                             <audio controls name={item.id} className="block w-full p-2.5">

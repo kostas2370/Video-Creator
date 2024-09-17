@@ -19,7 +19,7 @@ export function SmallTable({ data, setData, deleteFunction }) {
           </tr>
         </thead>
         <tbody>
-          {data.map((row, index) => (
+          {data?.map((row, index) => (
             <tr key={index} className="border-b">
               <td className="py-2 px-4 border-r">{row.name}</td>
               <td className="py-2 px-4 border-r">
