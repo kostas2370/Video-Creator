@@ -15,13 +15,13 @@ from ..swagger_serializers import DownloadPlaylistSerializer
 from ..utils.visual_utils import download_playlist
 
 
-class SceneImageView(viewsets.ViewSet):
+class SceneImageView(viewsets.GenericViewSet):
     queryset = SceneImage.objects.all()
     serializer_class = SceneImageSerializer
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def destroy(self, request, pk):
-        obj = self.queryset.get(id=pk)
+        obj = self.get_object()
         video = Videos.objects.get(prompt=obj.scene.prompt)
         if video.video_type == "AI":
             obj.file = None
@@ -75,6 +75,7 @@ class AvatarView(viewsets.ModelViewSet):
 
 
 class IntroView(viewsets.ModelViewSet):
+
     serializer_class = IntroSerializer
     queryset = Intro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
@@ -89,6 +90,7 @@ class IntroView(viewsets.ModelViewSet):
 
 
 class OutroView(viewsets.ModelViewSet):
+
     serializer_class = OutroSerializer
     queryset = Outro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]

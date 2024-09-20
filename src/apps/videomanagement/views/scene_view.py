@@ -25,7 +25,7 @@ scene_image_id = openapi.Parameter('scene_image',
                                    type=openapi.TYPE_NUMBER)
 
 
-class SceneView(viewsets.ViewSet):
+class SceneView(viewsets.GenericViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission, SceneGenerationLimitPermission]
@@ -34,10 +34,7 @@ class SceneView(viewsets.ViewSet):
                          operation_description = "This API updates the text of a scene and regenerates their dialogue "
                                                  "with the new text")
     def partial_update(self, request, pk=None):
-        instance = Scene.objects.get(id=pk)
-
-        if not instance:
-            return Response(status = status.HTTP_404_NOT_FOUND)
+        instance = self.get_object()
 
         updated_scene = update_scene(request.data.get("text"), instance)
 
@@ -54,7 +51,8 @@ class SceneView(viewsets.ViewSet):
     @action(detail = True, methods = ['patch'])
     def generate(self, request, pk):
         text = request.data.get("text").strip()
-        scene = Scene.objects.get(id=pk)
+        scene = self.get_object()
+
         generated_scene = generate_scene(text, scene)
         request.user.generation_limit_for_ai -= 0.03
         request.user.save()

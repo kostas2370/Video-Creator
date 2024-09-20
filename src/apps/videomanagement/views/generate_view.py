@@ -7,7 +7,7 @@ from ..swagger_serializers import GenerateSerializer
 from ..services.VideoGenerationServices import generate_video
 from ..serializers import VideoSerializer
 from ..permissions import AiGenerationLimitPermission
-from . throttling import GenerateRateThrottle
+from ..throttling import GenerateRateThrottle
 
 
 class GenerateView(viewsets.GenericViewSet):
