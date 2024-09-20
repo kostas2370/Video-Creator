@@ -10,7 +10,7 @@ from ..permissions import AiGenerationLimitPermission
 from . throttling import GenerateRateThrottle
 
 
-class GenerateView(viewsets.ViewSet):
+class GenerateView(viewsets.GenericViewSet):
     serializer_class = GenerateSerializer
     queryset = TemplatePrompts.objects.all()
     permission_classes = [IsAuthenticated, AiGenerationLimitPermission]
@@ -29,3 +29,5 @@ class GenerateView(viewsets.ViewSet):
         return Response({"message": "The video has been generated successfully",
                          "video": VideoSerializer(video).data
                          })
+
+
