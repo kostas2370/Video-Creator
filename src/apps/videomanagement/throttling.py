@@ -16,3 +16,7 @@ class GenerateRateThrottle(BaseThrottle):
 
 class TwitchGenerateRateThrottle(BaseThrottle):
     rate = '6/hour'
+
+
+class RenderRateThrottle(BaseThrottle):
+    rate = '0/day'
