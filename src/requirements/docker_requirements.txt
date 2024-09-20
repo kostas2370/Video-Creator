@@ -58,3 +58,4 @@ curl_cffi
 google-generativeai
 anthropic
 django-resized
+django-filter

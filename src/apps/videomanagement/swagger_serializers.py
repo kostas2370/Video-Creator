@@ -57,9 +57,25 @@ class TwitchSerializer(serializers.Serializer):
     started_at = serializers.DateField(format="%Y-%m-%d", required = False, allow_null = True)
     created_by = serializers.IntegerField(default = serializers.CurrentUserDefault())
 
+    def create(self, validated_data):
+        pass
+
+    def update(self, instance, validated_data):
+        pass
+
+
+class VideoUpdateSerializer(serializers.Serializer):
+    avatar = serializers.CharField(required = False, default=None, allow_null = True)
+    intro = serializers.CharField(required = False, default=None, allow_null = True)
+    outro = serializers.CharField(required = False, default=None, allow_null = True)
+    title = serializers.CharField(required = False, default=None)
+    subtitles = serializers.BooleanField(required= False, default=None)
+    avatar_position = serializers.ChoiceField(choices = ["left,top", "right,top", "left,bottom", "right,bottom"],
+                                              default="streamer", allow_null = True)
 
     def create(self, validated_data):
         pass
 
     def update(self, instance, validated_data):
         pass
+        

@@ -6,7 +6,7 @@ def enforce_csrf(request):
     check = authentication.CSRFCheck(request)
     reason = check.process_view(request, None, (), {})
     if reason:
-        raise rest_exceptions.PermissionDenied('CSRF Failed: %s'%reason)
+        raise rest_exceptions.PermissionDenied(f'CSRF Failed: {reason}')
 
 
 class CustomAuthentication(jwt_authentication.JWTAuthentication):
@@ -16,6 +16,7 @@ class CustomAuthentication(jwt_authentication.JWTAuthentication):
 
         if header is None and raw_token is None:
             return None
+
         if raw_token is None:
             raw_token = self.get_raw_token(header)
 

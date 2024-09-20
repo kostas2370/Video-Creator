@@ -8,10 +8,11 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.filters import OrderingFilter,SearchFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 
-from ..models import Videos, Scene
+from ..models import Videos
 from ..paginator import StandardResultsSetPagination
+from ..swagger_serializers import VideoUpdateSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.VideoServices import video_update, video_regenerate
 from ..utils.video_utils import make_video
@@ -39,21 +40,15 @@ class VideoView(viewsets.ModelViewSet):
 
         return VideoSerializer
 
-    @swagger_auto_schema(request_body = VideoSerializer,
+    @swagger_auto_schema(request_body = VideoUpdateSerializer,
                          operation_description = "This API updates the attributes of the video. If you add a new avatar"
                                                  " it will delete previous audio files and will regenerate them with "
                                                  "new audios")
     def partial_update(self, request, pk):
-        avatar = request.data.get('avatar')
-        intro = request.data.get('intro')
-        outro = request.data.get('outro')
-        title = request.data.get("title")
-        subtitles = request.data.get("subtitles")
-        avatar_position = request.data.get("avatar_position")
-
+        serializer = VideoUpdateSerializer(data = request.data)
+        serializer.is_valid(raise_exception = True)
         video = self.get_object()
-
-        outcome = video_update(video, title, avatar, intro, outro, subtitles, avatar_position)
+        outcome = video_update(video, **serializer.validated_data)
         logger.info(f"Video with id {pk}  got updated successfully")
         return Response({"message": "Updated Success",
                          "video": self.get_serializer_class()(outcome).data})
@@ -62,12 +57,6 @@ class VideoView(viewsets.ModelViewSet):
                                                  "a new one if it doesnt exists", method = "GET")
     @action(detail = True, methods = ["GET"])
     def video_regenerate(self, _, pk):
-
-        if pk is None:
-            logger.warning(f"Tried to regenerate without a pk")
-
-            return Response({'Message': "You must insert a video_id"}, status = status.HTTP_400_BAD_REQUEST)
-
         video = get_object_or_404(Videos, id = pk)
         video.status = "GENERATION"
         video.save()

@@ -5,6 +5,7 @@ from ..models import Scene, Videos
 from .prompt_utils import determine_fields
 import os
 
+
 def make_scenes_speech(video: Videos) -> None:
     """
     Generate speech audio files for scenes based on the provided video.
