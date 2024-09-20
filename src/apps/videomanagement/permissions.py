@@ -29,10 +29,11 @@ class BaseGenerationLimitPermission(BasePermission):
                 f"{self.__class__.__name__} requires a `limit_field` attribute."
             )
 
-        if request.user.is_authenticated:
-            generation_limit = getattr(request.user, self.limit_field, 0)
-            return request.user.is_superuser or generation_limit > self.required_limit
-        return False
+        if not request.user.is_authenticated:
+            return False
+
+        generation_limit = getattr(request.user, self.limit_field, 0)
+        return request.user.is_superuser or generation_limit > self.required_limit
 
 
 class AiGenerationLimitPermission(BaseGenerationLimitPermission):

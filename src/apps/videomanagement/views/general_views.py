@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage, Videos
 from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
-    AvatarNestedSerializer, VoiceModelSerializer, AvatarSerializer, SceneImageSerializer
+     VoiceModelSerializer, AvatarSerializer, SceneImageSerializer
 from ..swagger_serializers import DownloadPlaylistSerializer
 from ..utils.visual_utils import download_playlist
 
@@ -21,7 +21,7 @@ class SceneImageView(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def destroy(self, request, pk):
-        obj = self.get_object()
+        obj = self.queryset.get(id=pk)
         video = Videos.objects.get(prompt=obj.scene.prompt)
         if video.video_type == "AI":
             obj.file = None

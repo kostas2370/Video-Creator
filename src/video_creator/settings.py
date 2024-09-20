@@ -16,7 +16,6 @@ ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
-    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -49,7 +48,6 @@ MIDDLEWARE = [
 
 # URL configuration
 ROOT_URLCONF = 'video_creator.urls'
-WSGI_APPLICATION = 'video_creator.wsgi.application'
 
 # Database
 if os.getenv("ENV", "dev") == 'prod':
