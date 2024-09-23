@@ -78,4 +78,39 @@ class VideoUpdateSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         pass
-        
+
+
+class AddSceneSerializer(serializers.Serializer):
+
+    mode = serializers.ChoiceField(choices = ["AI", "TWITCH"])
+    url = serializers.URLField(required = False)
+    text = serializers.CharField(required = False)
+    image_description = serializers.CharField(required = False)
+    is_last = serializers.BooleanField(default = False)
+    with_audio = serializers.BooleanField(default = False)
+
+    def validate(self, attrs):
+        if attrs.get("mode") == "AI":
+            if not attrs.get("text"):
+                raise serializers.ValidationError("text field required !")
+
+        else:
+            if not attrs.get("url"):
+                raise serializers.ValidationError("url field required !")
+
+        return super().validate(attrs)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        mode = data.pop("mode")
+
+        if mode == "AI" and "url" in data:
+            data.pop("url")
+        elif data == "TWITCH":
+            data = {"url": data["url"]}
+
+        return data
+
+
+
+

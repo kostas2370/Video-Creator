@@ -9,16 +9,17 @@ from rest_framework.decorators import action, throttle_classes
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 
-from ..models import Videos
+from ..models import Videos, SceneImage
 from ..paginator import StandardResultsSetPagination
-from ..swagger_serializers import VideoUpdateSerializer
+from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.VideoServices import video_update, video_regenerate
 from ..utils.video_utils import make_video
 
 from ..utils.twitch import TwitchClient
-from ..utils.visual_utils import create_twitch_clip_scene
+from ..utils.visual_utils import create_twitch_clip_scene, create_image_scene
 from ..throttling import RenderRateThrottle
+from ..utils.audio_utils import make_scene_speech, get_syn
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +36,13 @@ class VideoView(viewsets.ModelViewSet):
         return Videos.objects.filter(~Q(gpt_answer=None), created_by=self.request.user).order_by("-id")
 
     def get_serializer_class(self):
-        if self.action == "retrieve":
-            return VideoNestedSerializer
+        serializer_class = {
+            "retrieve": VideoNestedSerializer,
+            "partial_update": VideoUpdateSerializer,
+            "add_scene": AddSceneSerializer
+        }
 
-        if self.action == "partial_update":
-            return VideoUpdateSerializer
-
-        return VideoSerializer
+        return serializer_class.get(self.action, VideoSerializer)
 
     @swagger_auto_schema(request_body = VideoUpdateSerializer,
                          operation_description = "This API updates the attributes of the video. If you add a new avatar"
@@ -86,17 +87,22 @@ class VideoView(viewsets.ModelViewSet):
 
         return Response({"message": "The render failed, probably you have to generate a new one"}, status = 400)
 
-    @swagger_auto_schema(operation_description = "This api add a scene to the video", method = "POST")
+    @swagger_auto_schema(operation_description = "This api add a scene to the video", method = "POST",
+                         request_body = AddSceneSerializer)
     @action(detail = True, methods = ["POST"])
     def add_scene(self, request, pk):
 
         vid = self.get_object()
+        data = request.data.copy()
+        data["mode"] = vid.video_type
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
 
         if vid.video_type == "TWITCH":
             client = TwitchClient(vid.dir_name)
             client.set_headers()
             try:
-                clip = client.get_clip_by_url(request.data.get("url"))
+                clip = client.get_clip_by_url(serializer.data.get("url"))
                 downloaded_clip = client.download_clip(clip[0])
                 create_twitch_clip_scene(downloaded_clip, clip[0].get("title"), vid.prompt)
 
@@ -104,7 +110,24 @@ class VideoView(viewsets.ModelViewSet):
                 return Response({"message": str(esc)}, status = 400)
 
         if vid.video_type == "AI":
-            return Response({"message": "Not implemented yet"}, status = 400)
+            syn = get_syn(vid.voice_model)
+            try:
+                scene = make_scene_speech(syn, vid.dir_name, vid.prompt, serializer.data["text"],
+                                          serializer.data['is_last'])
+
+            except Exception as exc:
+                logger.error(exc)
+                return Response({"message": exc}, status = 400)
+
+            if request.FILES.get('image'):
+                SceneImage.objects.create(scene = scene,
+                                          file = request.FILES['image'],
+                                          prompt = serializer.data['image_description'],
+                                          with_audio =serializer.data['with_audio'])
+
+            if serializer.data.get("image_description"):
+                create_image_scene(prompt = vid.prompt, image = serializer.data['image_description'], text = scene.text,
+                                   dir_name = vid.dir_name, mode = vid.mode, title = vid.title)
 
         return Response({"message": "The scene was added successfully"}, status = 200)
 
