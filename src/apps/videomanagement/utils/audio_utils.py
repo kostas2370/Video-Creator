@@ -6,6 +6,24 @@ from .prompt_utils import determine_fields
 import os
 
 
+def make_scene_speech(syn, dir_name, prompt, text, is_last):
+    filename = str(uuid.uuid4())
+    sound = save(syn, text, save_path = f'{dir_name}/dialogues/{filename}.wav')
+    scene = Scene.objects.create(file = sound, prompt = prompt, text = text.strip(), is_last= is_last)
+    return scene
+
+
+def get_syn(voice_model):
+    path = voice_model.path
+    if voice_model.type.lower() == 'local':
+        syn = create_model(model = path)
+
+    if voice_model.type.lower() == 'api':
+        syn = ApiSyn(provider =voice_model.provider, path = path)
+
+    return syn
+
+
 def make_scenes_speech(video: Videos) -> None:
     """
     Generate speech audio files for scenes based on the provided video.
@@ -26,7 +44,6 @@ def make_scenes_speech(video: Videos) -> None:
     - Each scene's dialogue or narration text is converted to speech and saved as a WAV file in the video's directory.
     """
 
-    dir_name = video.dir_name
     voice_model = video.voice_model
     syn = voice_model.path
     gpt_answer = video.gpt_answer
@@ -34,24 +51,15 @@ def make_scenes_speech(video: Videos) -> None:
     search_field, narration_field = determine_fields(first_scene)
 
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
-    if voice_model.type.lower() == 'local':
-        syn = create_model(model = syn)
-    elif voice_model.type.lower() == 'api':
-        syn = ApiSyn(provider =video.voice_model.provider, path = video.voice_model.path)
+    syn = get_syn(voice_model)
 
     for j in gpt_answer["scenes"]:
         if is_sentenced:
             for index, sentence in enumerate(j[search_field]):
-                filename = str(uuid.uuid4())
-
-                sound = save(syn, sentence[narration_field], save_path = f'{dir_name}/dialogues/{filename}.wav')
-                Scene.objects.create(file = sound, prompt = video.prompt, text = sentence[narration_field].strip(),
-                                     is_last = index == len(j[search_field]) - 1)
+                make_scene_speech(syn, video.dir_name, video.prompt, sentence[narration_field], len(j[search_field]) - 1)
 
         else:
-            filename = str(uuid.uuid4())
-            sound = save(syn, j['dialogue'], save_path = f'{dir_name}/dialogues/{filename}.wav')
-            Scene.objects.create(file = sound, prompt = video.prompt, text = j['dialogue'].strip())
+            make_scene_speech(syn, video.dir_name, video.prompt, j['dialogue'], False)
 
     return
 
