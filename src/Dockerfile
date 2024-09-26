@@ -42,8 +42,15 @@ COPY setupdjango.sh /setupdjango
 
 
 
+
 RUN sed -i 's/\r$//g' /setupdjango
 RUN chmod +x /setupdjango
+
+COPY startceleryworker.sh /startceleryworker
+
+
+RUN sed -i 's/\r$//g' /startceleryworker
+RUN chmod +x /startceleryworker
 
 
 

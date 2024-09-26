@@ -24,8 +24,20 @@ services:
     env_file:
       - ./.env
 
-  redis:
-    image: "redis:alpine"
-    container_name: "video_creator_redis"
+  redis-stack-server:
+    image: redis/redis-stack-server:latest
+    container_name: redis-stack-server
     ports:
       - "6379:6379"
+    restart: unless-stopped
+
+
+  celery:
+    build: .
+    command: /startceleryworker
+
+    volumes:
+      - .:/app
+    depends_on:
+      - redis-stack-server
+
