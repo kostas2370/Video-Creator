@@ -56,12 +56,11 @@ def make_scenes_speech(video: Videos) -> None:
     for j in gpt_answer["scenes"]:
         if is_sentenced:
             for index, sentence in enumerate(j[search_field]):
-                make_scene_speech(syn, video.dir_name, video.prompt, sentence[narration_field], len(j[search_field]) - 1)
+                make_scene_speech(syn, video.dir_name, video.prompt, sentence[narration_field],
+                                  index == len(j[search_field]) - 1)
 
         else:
             make_scene_speech(syn, video.dir_name, video.prompt, j['dialogue'], False)
-
-    return
 
 
 def update_scene(scene: Scene) -> None:

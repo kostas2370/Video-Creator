@@ -9,6 +9,8 @@ from rest_framework.decorators import action, throttle_classes
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 
+from rest_framework.permissions import IsAuthenticated
+
 from ..models import Videos, SceneImage
 from ..paginator import StandardResultsSetPagination
 from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
@@ -20,20 +22,22 @@ from ..utils.twitch import TwitchClient
 from ..utils.visual_utils import create_twitch_clip_scene, create_image_scene
 from ..throttling import RenderRateThrottle
 from ..utils.audio_utils import make_scene_speech, get_syn
-
+from ..permissions import IsOwnerPermission
 logger = logging.getLogger(__name__)
 
 
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
-    queryset = Videos.objects.filter(~Q(gpt_answer=None)).order_by("-id")
+    queryset = Videos.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['title']
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
 
-        return Videos.objects.filter(~Q(gpt_answer=None), created_by=self.request.user).order_by("-id")
+        return Videos.objects.filter(~Q(gpt_answer=None), created_by_id=self.request.user.id).order_by("-id").\
+            select_related("music", "prompt")
 
     def get_serializer_class(self):
         serializer_class = {
@@ -122,12 +126,15 @@ class VideoView(viewsets.ModelViewSet):
             if request.FILES.get('image'):
                 SceneImage.objects.create(scene = scene,
                                           file = request.FILES['image'],
-                                          prompt = serializer.data['image_description'],
+                                          prompt = serializer.data.get('image_description', ""),
                                           with_audio =serializer.data['with_audio'])
 
-            if serializer.data.get("image_description"):
+            elif serializer.data.get("image_description"):
                 create_image_scene(prompt = vid.prompt, image = serializer.data['image_description'], text = scene.text,
                                    dir_name = vid.dir_name, mode = vid.mode, title = vid.title)
+
+            else:
+                pass
 
         return Response({"message": "The scene was added successfully"}, status = 200)
 

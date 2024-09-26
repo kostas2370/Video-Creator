@@ -23,7 +23,6 @@ class GenerateView(viewsets.GenericViewSet):
         data = request.data.copy()
         serializer = self.get_serializer(data = data)
         serializer.is_valid()
-
         video = generate_video(**serializer.validated_data)
 
         return Response({"message": "The video has been generated successfully",

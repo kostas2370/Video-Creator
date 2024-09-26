@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'django_rest_passwordreset',
     'corsheaders',
     'drf_yasg',
+    'debug_toolbar'
 ]
 
 # Middleware
@@ -43,8 +44,12 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
+
     'corsheaders.middleware.CorsMiddleware',
 ]
+
+INTERNAL_IPS = ["127.0.0.1", "::1"]
 
 # URL configuration
 ROOT_URLCONF = 'video_creator.urls'

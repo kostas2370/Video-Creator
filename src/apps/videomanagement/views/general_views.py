@@ -6,7 +6,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from django_filters.rest_framework import DjangoFilterBackend
 from ..permissions import IsOwnerPermission
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage, Videos
 from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
@@ -71,7 +71,7 @@ class AvatarView(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
-        return Avatars.objects.filter(created_by=self.request.user)
+        return Avatars.objects.filter(created_by=self.request.user).select_related("voice")
 
 
 class IntroView(viewsets.ModelViewSet):
@@ -79,10 +79,12 @@ class IntroView(viewsets.ModelViewSet):
     serializer_class = IntroSerializer
     queryset = Intro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
+
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['name']
 
     def get_queryset(self):
+
         if self.request.user.is_superuser:
             return Intro.objects.all()
 

@@ -61,6 +61,7 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_sample(self, obj):
+
         return obj.voice.sample
 
 

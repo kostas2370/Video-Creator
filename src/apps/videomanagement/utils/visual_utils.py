@@ -480,6 +480,7 @@ def generate_new_image(scene_image: SceneImage, style: str = "vivid") -> SceneIm
     - The mode and style parameters determine the method and style of image generation.
     """
     video = Videos.objects.get(prompt = scene_image.scene.prompt)
+    print(video.mode)
 
     provider = default_providers.get(video.mode)
     try:
