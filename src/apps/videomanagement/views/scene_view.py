@@ -108,6 +108,12 @@ class SceneView(viewsets.GenericViewSet):
 
         return Response({"Message": "Image Scene was added successfully"})
 
+    def destroy(self, request, pk):
+        obj = self.get_object()
+        obj.delete()
+
+        return Response(dict(message = "Scene deleted successfully"), status = 204)
+
 
 
 
