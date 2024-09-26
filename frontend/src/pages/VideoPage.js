@@ -8,6 +8,7 @@ import { Scene } from "../components/Scene";
 import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "../components/RenderModal";
 import { TwitchSceneCreationModal } from "../components/CreateTwitchSceneModal";
+import { SceneCreationModal } from "../components/CreateSceneModal";
 
 export const Video = () => {
   const { videoId } = useParams();
@@ -15,8 +16,8 @@ export const Video = () => {
   const [updated, setUpdated] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
+  const [showAddTwitchSceneModal, setShowAddTwitchSceneModal] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
-
 
   useEffect(() => {
     if (!updated) {
@@ -50,9 +51,25 @@ export const Video = () => {
         }}
       />
 
-      <TwitchSceneCreationModal showModal={showAddSceneModal} setShowModal={setShowAddSceneModal} id = {videoInfo?.id} setItems={setUpdated} />
+      <TwitchSceneCreationModal
+        showModal={showAddTwitchSceneModal}
+        setShowModal={setShowAddTwitchSceneModal}
+        id={videoInfo?.id}
+        setItems={setUpdated}
+      />
 
-      <RenderModal showModal={showRenderModal} setShowModal={setShowRenderModal} id={videoId} />
+      <SceneCreationModal
+        showModal={showAddSceneModal}
+        setShowModal={setShowAddSceneModal}
+        id={videoInfo?.id}
+        setItems={setUpdated}
+      />
+
+      <RenderModal
+        showModal={showRenderModal}
+        setShowModal={setShowRenderModal}
+        id={videoId}
+      />
 
       <div className="flex flex-col items-center">
         <div className="flex items-center gap-4">
@@ -65,7 +82,6 @@ export const Video = () => {
           />
 
           <GiProcessor
-          
             className={`w-5 h-5 text-purple-500 hover:text-red-300`}
             onClick={(e) => {
               setShowRenderModal(true);
@@ -84,11 +100,23 @@ export const Video = () => {
         })}
         {videoInfo?.video_type === "TWITCH" ? (
           <button className="bg-white p-2 pr-4 rounded-full shadow-lg hover:bg-gray-200 ">
-            <FaPlus className="text-orange-500 w-5 h-5"   onClick={(e) => {
-              setShowAddSceneModal(true);
-            }}/>
+            <FaPlus
+              className="text-orange-500 w-5 h-5"
+              onClick={(e) => {
+                setShowAddSceneModal(true);
+              }}
+            />
           </button>
-        ) : null}
+        ) : (
+          <button className="bg-white p-2 pr-4 rounded-full shadow-lg hover:bg-gray-200 ">
+            <FaPlus
+              className="text-orange-500 w-5 h-5"
+              onClick={(e) => {
+                setShowAddSceneModal(true);
+              }}
+            />
+          </button>
+        )}
       </div>
     </>
   );

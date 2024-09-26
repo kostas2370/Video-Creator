@@ -19,10 +19,10 @@ const Home = () => {
 
   const [formData, setFormData] = useState({
     template_id: "",
-    avatar_selection: "no_avatar",
+    avatar_selection: null,
     message: "",
     target_audience: "",
-    images: "WEB",
+    image_mode: "WEB",
     gpt_model: "gpt-4o",
     style: "natural",
     music: "",
@@ -35,7 +35,7 @@ const Home = () => {
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
-    if (name === "images") {
+    if (name === "image_mode") {
       setFormData((prevData) => ({
         ...prevData,
         [name]: value,
@@ -66,7 +66,7 @@ const Home = () => {
 
     generateVideo(formData).then((response) => {
       if (response) {
-        setVideo_id(response.video.id);
+        setVideo_id(response?.video?.id);
         setOpen(true);
         toast.success("Video generated successfully!");
       }
@@ -160,7 +160,7 @@ const Home = () => {
                         className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         onChange={handleInputChange}
                       >
-                        <option value="no_avatar">No Avatar</option>
+                        <option value="">No Avatar</option>
                         {avatars?.map((avatar) => (
                           <option key={avatar.id} value={avatar.id}>
                             {avatar.name}
@@ -198,14 +198,14 @@ const Home = () => {
                   <div className="flex space-x-4">
                     <div className="w-1/2">
                       <label
-                        htmlFor="images"
+                        htmlFor="image_mode"
                         className="block text-sm font-medium text-gray-900 dark:text-white"
                       >
                         Image Mode
                       </label>
                       <select
-                        name="images"
-                        id="images"
+                        name="image_mode"
+                        id="image_mode"
                         className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         onChange={handleInputChange}
                       >
@@ -226,7 +226,7 @@ const Home = () => {
                         className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         onChange={handleInputChange}
                       >
-                        {formData.images === "AI" ? (
+                        {formData.image_mode === "AI" ? (
                           <>
                             <option value="DALL-E">DALL-E</option>
                             <option value="midjourney">midjourney</option>

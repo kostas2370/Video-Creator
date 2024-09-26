@@ -12,9 +12,6 @@ export const Avatar = () => {
   const [loading, setLoading] = useState(false);
   const debouncedSearchTerm = useDebounce(search, 500);
 
-
-
-
   useEffect(() => {
     setLoading(true)
 

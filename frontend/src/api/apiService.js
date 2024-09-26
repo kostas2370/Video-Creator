@@ -18,7 +18,7 @@ const API_ENDPOINTS = {
     RENDER: (id) => `video/${id}/render_video/`,
     SCENE_GENERATE : (id) => `scene/${id}/generate/`,
     SCENE_IMAGE_GENERATE : (id) => `scene/${id}/generate_image_scene/`,
-
+    
     INTRO_GET: (search = null) => `intro/${search ? `?search=${search}` : ''}`,
     OUTRO_GET: (search = null) => `outro/${search ? `?search=${search}` : ''}`,
     VIDEOS_GET: (search = null, page = null, id = null) => {
@@ -47,7 +47,6 @@ const getRequest = async (url, params = {}, axiosInstance = axiosPrivateInstance
         return response.data;
     } catch (error) {
         console.error(`Error fetching data from ${url}:`, error);
-        throw error; 
     }
 }
 
@@ -58,7 +57,6 @@ const postRequest = async (url, data) => {
         return response.data;
     } catch (error) {
         console.error('Error fetching data:', error);
-        throw error; 
     }
 };
 
@@ -68,7 +66,6 @@ const deleteRequest = async (url, axiosInstance = axiosPrivateInstance) => {
         return response.data;
     } catch (error) {
         console.error(`Error deleting data from ${url}:`, error);
-        throw error; 
     }
 }
 
@@ -78,7 +75,6 @@ const patchRequest = async (url,data, axiosInstance = axiosPrivateInstance) => {
         return response.data;
     } catch (error) {
         console.error(`Error deleting data from ${url}:`, error);
-        throw error; 
     }
 }
 
@@ -89,10 +85,12 @@ export const createAvatar = async (data) => {return postRequest(API_ENDPOINTS.AV
 export const generateVideo = async (data) => {return postRequest(API_ENDPOINTS.GENERATE, data)}
 export const generateTwitchVideo = async (data) => {return postRequest(API_ENDPOINTS.TWITCH_GENERATE, data)}
 export const deleteAvatar = async (id) => {return deleteRequest(API_ENDPOINTS.AVATAR_SELECT(id))}
-export const deleteVideo = async (id) =>  {return deleteRequest(API_ENDPOINTS.VIDEOS_GET(id=id))}
+export const deleteVideo = async (id) =>  {return deleteRequest(API_ENDPOINTS.VIDEO_SELECT(id))}
 export const deleteIntro = async (id) => {return deleteRequest(API_ENDPOINTS.INTRO_SELECT(id))}
 export const deleteOutro = async (id) => {return deleteRequest(API_ENDPOINTS.OUTRO_SELECT(id))}
 export const deleteImageScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_IMAGE_SELECT(id))}
+export const deleteScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_SELECT(id))}
+
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
 export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data)}
 export const renderVideo = async (id) => {return patchRequest(API_ENDPOINTS.RENDER(id),{})}

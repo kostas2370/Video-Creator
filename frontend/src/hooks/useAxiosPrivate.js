@@ -42,8 +42,12 @@ export function useAxiosPrivate() {
                 } else if (status === 403) {
                     toast.error("No permission !");
                 }
-                toast.error("Internal Server Error");
+                  else if (status === 429) {
+                    toast.error("Too many requests !");
+                }else{
+                    toast.error("Internal Server Error");
 
+                }
                 return Promise.reject(error);
             }
         );

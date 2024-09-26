@@ -5,11 +5,13 @@ import { IoTrashBinSharp } from "react-icons/io5";
 import { DeleteModal } from "./DeleteModal";
 import { FaPlus } from "react-icons/fa6";
 import { HiOutlinePencilSquare } from "react-icons/hi2";
-import { deleteImageScene } from "../api/apiService";
+import { deleteImageScene, deleteScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 export const Scene = ({ scene, setUpdated, video_type }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditImageModal, setShowEditImageModal] = useState(false);
 
@@ -26,6 +28,17 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
         name="image"
         mode="image"
       />
+
+    <DeleteModal
+        showModal={showDeleteSceneModal}
+        setShowModal={setShowDeleteSceneModal}
+        id={scene?.id}
+        setItems={setUpdated}
+        deleteFunction={deleteScene}
+        name="Scene"
+        mode="image"
+      />
+
       <EditSceneModal
         showModal={showEditModal}
         setShowModal={setShowEditModal}
@@ -56,6 +69,15 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
               >
                 <FaPencilAlt className="text-blue-500" />
               </button>
+
+              <button
+                  onClick={(e) => {
+                    setShowDeleteSceneModal(true);
+                  }}
+                  className="absolute top-12 right-4  p-2 pr-4 rounded-full bg-white hover:bg-gray-200"
+                >
+                  <IoTrashBinSharp className="text-red-500" />
+                </button>
 
               <audio controls key={scene.file}>
                 <source src={MEDIA_URL + scene.file ?? ""} />
@@ -139,7 +161,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
           </div>
         </div>
       </div>
-      ;
+      
     </>
   );
 };
