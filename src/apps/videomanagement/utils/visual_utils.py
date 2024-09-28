@@ -400,6 +400,9 @@ def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: 
         logger.error(ex)
         downloaded_image = None
 
+    if downloaded_image and "app/" in downloaded_image:
+        downloaded_image = downloaded_image.replace("app/", "")
+
     SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
 

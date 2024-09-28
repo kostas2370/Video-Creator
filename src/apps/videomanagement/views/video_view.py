@@ -80,9 +80,9 @@ class VideoView(viewsets.ModelViewSet):
     def render_video(self, _, pk):
         vid = self.get_object()
         try:
-            result = make_video(vid)
-            return Response({"message": "The video has been made successfully",
-                             "result": self.get_serializer(result).data})
+            result = make_video.delay(pk)
+            return Response({"message": "The video is rendering right ",
+                             "result": self.get_serializer(vid).data})
 
         except Exception as exc:
             logger.error(exc)

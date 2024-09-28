@@ -11,7 +11,8 @@ from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudio
 from .SadTalker.inference import lip
 from ..models import *
 from .exceptions import RenderFailedException
-
+from celery import shared_task
+from channels.layers import get_channel_layer
 
 def check_if_image(path: str) -> bool:
     accepted_image_extensions = ('jpg', 'jpeg', 'png')
@@ -297,8 +298,8 @@ def handle_final_video(background, final_audio, final_video, video, subtitles):
 
     return final_video
 
-
-def make_video(video: Videos) -> Videos:
+@shared_task
+def make_video(video_id: int) -> Videos:
     """
     Creates a video based on the provided video object, handling scenes, audio, subtitles, background,
     and final video assembly and output.
@@ -310,7 +311,7 @@ def make_video(video: Videos) -> Videos:
     Returns:
         Videos: The updated video object with output file path and status.
     """
-
+    video= Videos.objects.get(id=video_id)
     if video.status not in ["READY", "COMPLETED"]:
         raise RenderFailedException
 

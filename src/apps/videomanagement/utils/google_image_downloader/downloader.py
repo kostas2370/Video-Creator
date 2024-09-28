@@ -54,5 +54,5 @@ def download(q: str, amt: int = 1, path: str = '') -> Union[str, None]:
     filename = str(uuid.uuid4())
     filetype = ".png" if 'png' in image_url else '.gif' if 'gif' in image_url else '.jpg'
     urllib.request.urlretrieve(image_url, f"{path}\\{filename}{filetype}")
-
+    print(path)
     return f"{path}\\{filename}{filetype}"

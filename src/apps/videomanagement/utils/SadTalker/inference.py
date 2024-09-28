@@ -20,6 +20,7 @@ def lip(source_image,   result_dir = './results', pose_style= 0 , cpu=False, bat
         expression_scale = 1, driven_audio = './examples/driven_audio/bus_chinese.wav', old_version = None,
         face3dvis = None, facerender = 'facevid2vid'):
 
+  
     #torch.backends.cudnn.enabled = False
     if torch.cuda.is_available() and not cpu:
         device = "cuda"
@@ -42,7 +43,7 @@ def lip(source_image,   result_dir = './results', pose_style= 0 , cpu=False, bat
 
     current_root_path = os.path.split(sys.argv[0])[0]
 
-    sadtalker_paths = init_path(checkpoint_dir, os.path.join(current_root_path, settings.CONFIG_PATH), size, old_version,
+    sadtalker_paths = init_path(checkpoint_dir, os.path.join(".", settings.CONFIG_PATH), size, old_version,
                                 preprocess)
 
     #init model

@@ -71,7 +71,7 @@ class VideoUpdateSerializer(serializers.Serializer):
     title = serializers.CharField(required = False, default=None)
     subtitles = serializers.BooleanField(required= False, default=None)
     avatar_position = serializers.ChoiceField(choices = ["left,top", "right,top", "left,bottom", "right,bottom"],
-                                              default="streamer", allow_null = True)
+                                              default="left,top", allow_null = True)
 
     def create(self, validated_data):
         pass

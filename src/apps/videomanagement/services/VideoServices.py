@@ -37,7 +37,7 @@ def video_update(video: Videos,
 
     video.title = title
 
-    if avatar == "null" or avatar == '' or video.video_type == "TWITCH":
+    if avatar == "null" or avatar == '' or not avatar or video.video_type == "TWITCH":
         video.avatar = None
 
     else:

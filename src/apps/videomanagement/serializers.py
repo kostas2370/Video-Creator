@@ -3,6 +3,8 @@ from rest_framework import serializers
 from .models import *
 
 
+
+
 class TemplatePromptsSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -19,10 +21,18 @@ class MusicSerializer(serializers.ModelSerializer):
 
 
 class SceneImageSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
 
     class Meta:
         model = SceneImage
         exclude = ("scene",)
+
+    def get_file(self,obj):
+        if obj.file:
+            return obj.file.path.replace("app/", "")
+
+        return ""
+
 
 
 class SceneSerializer(serializers.ModelSerializer):
