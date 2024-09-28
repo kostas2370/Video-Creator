@@ -17,9 +17,7 @@ def video_update(video: Videos,
                  intro: str = None,
                  outro: str = None,
                  subtitles: bool = False,
-                 avatar_position: str = "right, top"
-
-
+                 avatar_position: str = "right,top"
                  ) -> Videos:
     """
     Update the specified video with new avatar, intro, or outro.
@@ -30,6 +28,8 @@ def video_update(video: Videos,
         avatar (str, optional): The ID of the new avatar or "no_value" to remove the avatar. Defaults to None.
         intro (str, optional): The ID of the new intro or "no_value" to remove the intro. Defaults to None.
         outro (str, optional): The ID of the new outro or "no_value" to remove the outro. Defaults to None.
+        subtitles (bool, optional): If you want subs or not
+        avatar_position (str, optional): Where the avatar should be located
 
     Returns:
         Videos: The updated video instance.

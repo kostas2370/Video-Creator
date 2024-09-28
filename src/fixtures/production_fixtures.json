@@ -93,12 +93,13 @@
       "password": "pbkdf2_sha256$320000$vi0Mdl0Nv9Z7ahjhYNCwPF$x42cfJjzkMkAdFr3C7iCsg3rJ1O3RlVUJSF40/5Y9Es=",
       "is_superuser": true,
       "is_staff": true,
-      "username": "admin2",
-      "first_name": "admin2",
+      "username": "admin",
+      "first_name": "admin",
       "last_name": "admin",
       "email": "test2@gmail.com",
       "is_active": true,
-      "date_joined": "2022-06-30T17:03:10.123Z"
+      "date_joined": "2022-06-30T17:03:10.123Z",
+      "is_verified": true
     }
   }
 ]

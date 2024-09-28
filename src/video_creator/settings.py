@@ -58,10 +58,10 @@ if os.getenv("ENV", "dev") == 'prod':
         'default': {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': os.getenv('MYSQL_DATABASE', 'db'),
-            'USER': os.getenv('MYSQL_USER'),
-            'PASSWORD': os.getenv('MYSQL_PASSWORD'),
-            'HOST': os.getenv('MYSQL_HOST'),
-            'PORT': '3307',
+            'USER': os.getenv('MYSQL_USER', 'root'),
+            'PASSWORD': os.getenv('MYSQL_PASSWORD', 'password'),
+            'HOST': os.getenv('MYSQL_HOST', 'db'),
+            'PORT': os.getenv('MYSQL_PORT', '3306'),
         }
     }
 else:
