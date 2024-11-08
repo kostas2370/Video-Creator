@@ -6,7 +6,8 @@ from .prompt_utils import determine_fields
 import os
 
 
-def make_scene_speech(syn, dir_name, prompt, text, is_last):
+def make_scene_speech(voice_model, dir_name, prompt, text, is_last) -> Scene:
+    syn = get_syn(voice_model)
     filename = str(uuid.uuid4())
     sound = save(syn, text, save_path = f'{dir_name}/dialogues/{filename}.wav')
     scene = Scene.objects.create(file = sound, prompt = prompt, text = text.strip(), is_last= is_last)
@@ -45,11 +46,9 @@ def make_scenes_speech(video: Videos) -> None:
     """
 
     voice_model = video.voice_model
-    syn = voice_model.path
     gpt_answer = video.gpt_answer
     first_scene = gpt_answer["scenes"][0]
     search_field, narration_field = determine_fields(first_scene)
-
     is_sentenced = True if video.prompt.template is None else video.prompt.template.is_sentenced
     syn = get_syn(voice_model)
 

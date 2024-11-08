@@ -19,4 +19,4 @@ class TwitchGenerateRateThrottle(BaseThrottle):
 
 
 class RenderRateThrottle(BaseThrottle):
-    rate = '0/day'
+    rate = '1/day'

@@ -112,7 +112,6 @@ def generate_video(template_id: Union[str, int, None],
     logger.info(f"Created the video instance with id : {vid.id}")
 
     if avatar_selection:
-        print(avatar_selection)
         selected_avatar = Avatars.select_avatar(selected = avatar_selection)
         voice_model = selected_avatar.voice
         vid.avatar = selected_avatar

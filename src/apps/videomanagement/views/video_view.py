@@ -14,14 +14,11 @@ from rest_framework.permissions import IsAuthenticated
 from ..models import Videos, SceneImage
 from ..paginator import StandardResultsSetPagination
 from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
-from ..serializers import VideoSerializer, VideoNestedSerializer
+from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
 from ..services.VideoServices import video_update, video_regenerate
+from ..services.SceneServices import create_scene
 from ..utils.video_utils import make_video
-
-from ..utils.twitch import TwitchClient
-from ..utils.visual_utils import create_twitch_clip_scene, create_image_scene
 from ..throttling import RenderRateThrottle
-from ..utils.audio_utils import make_scene_speech, get_syn
 from ..permissions import IsOwnerPermission
 logger = logging.getLogger(__name__)
 
@@ -96,46 +93,11 @@ class VideoView(viewsets.ModelViewSet):
     @action(detail = True, methods = ["POST"])
     def add_scene(self, request, pk):
 
-        vid = self.get_object()
-        data = request.data.copy()
-        data["mode"] = vid.video_type
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
+        scene = create_scene(video = self.get_object(),
+                             data = request.data,
+                             files = request.FILES)
 
-        if vid.video_type == "TWITCH":
-            client = TwitchClient(vid.dir_name)
-            client.set_headers()
-            try:
-                clip = client.get_clip_by_url(serializer.data.get("url"))
-                downloaded_clip = client.download_clip(clip[0])
-                create_twitch_clip_scene(downloaded_clip, clip[0].get("title"), vid.prompt)
-
-            except Exception as esc:
-                return Response({"message": str(esc)}, status = 400)
-
-        if vid.video_type == "AI":
-            syn = get_syn(vid.voice_model)
-            try:
-                scene = make_scene_speech(syn, vid.dir_name, vid.prompt, serializer.data["text"],
-                                          serializer.data['is_last'])
-
-            except Exception as exc:
-                logger.error(exc)
-                return Response({"message": exc}, status = 400)
-
-            if request.FILES.get('image'):
-                SceneImage.objects.create(scene = scene,
-                                          file = request.FILES['image'],
-                                          prompt = serializer.data.get('image_description', ""),
-                                          with_audio =serializer.data['with_audio'])
-
-            elif serializer.data.get("image_description"):
-                create_image_scene(prompt = vid.prompt, image = serializer.data['image_description'], text = scene.text,
-                                   dir_name = vid.dir_name, mode = vid.mode, title = vid.title)
-
-            else:
-                pass
-
-        return Response({"message": "The scene was added successfully"}, status = 200)
+        return Response({"message": "The scene was added successfully",
+                         "scene": SceneSerializer(scene).data}, status = 200)
 
 
