@@ -355,7 +355,7 @@ def generate_from_midjourney(prompt: str, dir_name: str, title: str = ""):
 
 
 def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: str = "WEB", provider: str = None,
-                       style: str = "", title: str = "") -> None:
+                       style: str = "vivid", title: str = "") -> None:
     """
     Create a scene with an image and text.
 
@@ -480,7 +480,6 @@ def generate_new_image(scene_image: SceneImage, style: str = "vivid") -> SceneIm
     - The mode and style parameters determine the method and style of image generation.
     """
     video = Videos.objects.get(prompt = scene_image.scene.prompt)
-    print(video.mode)
 
     provider = default_providers.get(video.mode)
     try:

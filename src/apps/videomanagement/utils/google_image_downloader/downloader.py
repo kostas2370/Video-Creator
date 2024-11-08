@@ -1,6 +1,7 @@
 import urllib.request
 import uuid
 from typing import Union
+import logging
 
 import requests
 from django.conf import settings
@@ -8,8 +9,13 @@ from requests import Response
 
 from ..gpt_utils import select_from_vision
 
+logger = logging.getLogger(__name__)
+
 
 def build_payload(query: str, start: int = 1, num: int = 1, **params) -> dict:
+    if not settings.API_KEY:
+        raise Exception("Google api key is missing")
+
     payload = {'key': settings.API_KEY,
                'q': query, 'cx': settings.SEARCH_ENGINE_ID,
                'start': start,
@@ -37,7 +43,7 @@ def download(q: str, amt: int = 1, path: str = '') -> Union[str, None]:
         response = make_request(payload)
 
     except Exception as exc:
-        print(exc)
+        logger.error(exc)
         return None
 
     if response.status_code != 200:

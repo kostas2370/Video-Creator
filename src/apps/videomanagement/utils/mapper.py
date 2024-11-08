@@ -1,4 +1,3 @@
-from .gpt_utils import tts_from_open_api, tts_from_eleven_labs
 modes = \
     {"AI":
         {"DALL-E": "generate_from_dalle",
@@ -17,6 +16,6 @@ default_providers = {
 
 
 api_providers = {
-    "open_ai": tts_from_open_api,
-    "eleven_labs": tts_from_eleven_labs
+    "open_ai": 'tts_from_open_api',
+    "eleven_labs": 'tts_from_eleven_labs'
 }

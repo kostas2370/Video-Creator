@@ -1,5 +1,6 @@
 from datetime import date
 from typing import Literal
+from django.contrib.auth import get_user_model
 
 from slugify import slugify
 
@@ -9,12 +10,13 @@ from ..utils.twitch import TwitchClient
 from ..utils.visual_utils import create_twitch_clip_scene
 from ..utils.cost_utils import calculate_total_cost
 
+
 def generate_twitch_video(
         mode: Literal["game", "streamer"],
         value: str,
         amt: int = 10,
         started_at: str = "",
-        created_by: int = None
+        created_by: get_user_model() = None
         ):
     """
     Generate a video based on clips fetched from Twitch.
@@ -24,6 +26,7 @@ def generate_twitch_video(
         value (str): The value to search for, either the name of a game or a streamer.
         amt (int, optional): The number of clips to fetch. Defaults to 10.
         started_at (str, optional): The starting date/time from which to fetch clips. Defaults to "".
+        created_by (User, optional): The user that created the video
 
     Returns:
         Videos: The generated video instance.

@@ -1,12 +1,17 @@
 import os
 from dataclasses import dataclass
 from typing import Union
-
+import logging
+import requests
 from TTS.utils.manage import ModelManager
 from TTS.utils.synthesizer import Synthesizer
-
+from django.conf import settings
+from openai import OpenAI
 from .mapper import api_providers
+import sys
 
+logger = logging.getLogger(__name__)
+thismodule = sys.modules[__name__]
 
 @dataclass
 class ApiSyn:
@@ -117,10 +122,82 @@ def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -
         return None
 
     if type(syn) is ApiSyn:
-        resp = api_providers.get(syn.provider)(text, save_path, syn.path)
+        resp = getattr(thismodule, api_providers.get(syn.provider))(text, save_path, syn.path)
 
     else:
         outputs = syn.tts(text)
         syn.save_wav(outputs, save_path)
 
     return save_path
+
+
+def tts_from_open_api(text, save_path, voice="onyx"):
+    """
+    Generate speech audio from text using the OpenAI TTS API.
+
+    Parameters:
+    -----------
+    text : str
+        The text to convert into speech audio.
+    voice : str, optional
+        The voice to use for speech synthesis. Default is "onyx".
+
+    Returns:
+    --------
+    OpenAIResponse
+        The response object from the OpenAI TTS API.
+
+    Notes:
+    ------
+    - This function interacts with the Official OpenAI TTS API to generate speech audio from text.
+    """
+    logger.warning("API CALL IN OFFICIAL GPT-TTS")
+
+    client = OpenAI(api_key = settings.OPEN_API_KEY)
+    response = client.audio.speech.create(model = "tts-1", voice = voice, input = text)
+    response.stream_to_file(save_path)
+
+    return response
+
+
+def tts_from_eleven_labs(text, save_path, voice):
+    """
+    Generate speech audio from text using the Eleven Labs Text-to-Speech (TTS) API.
+
+    Parameters:
+    -----------
+    text : str
+        The text to convert into speech audio.
+    voice : str
+        The voice to use for speech synthesis.
+
+    Returns:
+    --------
+    requests.Response
+        The response object from the Eleven Labs TTS API.
+
+    Notes:
+    ------
+    - This function interacts with the Eleven Labs Text-to-Speech (TTS) API to generate speech audio from text.
+    """
+
+    logger.warning("API CALL IN ELEVEN-LABS")
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
+
+    headers = {"Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": settings.XI_API_KEY}
+    data = {"text": text, "model_id": "eleven_monolingual_v1",
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}}
+
+    try:
+        response = requests.post(url, json = data, headers = headers)
+        response.raise_for_status()
+        with open(save_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size = 1024):
+                if chunk:
+                    f.write(chunk)
+
+    except Exception as exc:
+        logger.error(exc)
+
+    return response
