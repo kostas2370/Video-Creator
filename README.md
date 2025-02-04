@@ -1,5 +1,11 @@
 This is the new frontend for video creator :
 
+Backend - repo : https://github.com/kostas2370/Video-Creator 
+
+Samples : 
+https://www.youtube.com/watch?v=PvrX_jq4fv4
+https://www.youtube.com/watch?v=bNZvK68O-Rk
+
 Login Page : 
 ![image](https://github.com/user-attachments/assets/30b93680-59aa-4a68-9676-f3b572bb1dd2)
 
