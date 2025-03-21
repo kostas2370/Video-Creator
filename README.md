@@ -1,5 +1,8 @@
 # Viddie - AI-Powered Video Creation
 
+## Short Description
+Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining GPT-4 for script generation, Conquis TTS for speech synthesis, DALL-E for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
+
 ## Frontend Repository
 
 [GitHub - Video Frontend](https://github.com/kostas2370/ViddieDEMO)
@@ -91,7 +94,9 @@ You can find all API endpoints in Swagger: [http://localhost:8000/swagger/](http
 
 ## Roadmap / To-Do List
 
--
+- [ ] Convert all `moviepy` functions to `FFmpeg` for better performance.
+- [ ] Add **Celery** support for asynchronous and scheduled tasks.
+- [ ] Implement unit tests for models, functions, and views.
 
 ---
 
@@ -99,8 +104,8 @@ You can find all API endpoints in Swagger: [http://localhost:8000/swagger/](http
 
 For any inquiries or support, feel free to reach out:
 
-- University Email: [kodamia@cs.ihu.gr](mailto\:kodamia@cs.ihu.gr)
-- Personal Email: [kostas2372@gmail.com](mailto\:kostas2372@gmail.com)
+- University Email: [kodamia@cs.ihu.gr](mailto:kodamia@cs.ihu.gr)
+- Personal Email: [kostas2372@gmail.com](mailto:kostas2372@gmail.com)
 
 ---
 
@@ -111,7 +116,7 @@ For any inquiries or support, feel free to reach out:
 ✅ Integrated ElevenLabs API voices\
 ✅ Enabled compilation video creation from Twitch (by game or streamer)\
 ✅ Added OpenAI voices\
-✅ Integrated MidJourney and Stable Diffusion as image providers *(Change providers in **``**)*\
+✅ Integrated MidJourney and Stable Diffusion as image providers *(Change providers in ****\`\`****)*\
 ✅ Dockerized the application for easier deployment
 
 ---
