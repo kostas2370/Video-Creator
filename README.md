@@ -1,92 +1,120 @@
-Frontend  repository :  [https://github.com/kostas2370/ViddieDEMO](https://github.com/kostas2370/video_frontend)
+# Viddie - AI-Powered Video Creation
 
-Samples :
-https://www.youtube.com/watch?v=PvrX_jq4fv4
+## Frontend Repository
 
-https://www.youtube.com/watch?v=bNZvK68O-Rk
+[GitHub - Video Frontend](https://github.com/kostas2370/ViddieDEMO)
 
+## Sample Videos
 
-How to run it :
+- [Demo Video 1](https://www.youtube.com/watch?v=PvrX_jq4fv4)
+- [Demo Video 2](https://www.youtube.com/watch?v=bNZvK68O-Rk)
 
-There are 2 ways:
+---
 
-# Manually :
-Recommended python version : 3.9 - 3.11
+## How to Run the Project
 
-First install these 2 programs in your computer : 
+There are two ways to run the project: manually or using Docker.
 
+### Manual Installation
 
-1. Install FFmpeg in your computer (Check this guide : https://phoenixnap.com/kb/ffmpeg-windows) (For video Rendering)
-2. Install ImageMagick (https://imagemagick.org/script/download.php#windows) (For subtitles)
-3. For some voice model you will need to install the MSI from here (https://github.com/espeak-ng/espeak-ng/releases)
+#### Prerequisites
 
-If you dont want to install any extra packages for voices , 
-use only : tts_models/en/ljspeech/tacotron2-DDC Model
+- Recommended Python version: 3.9 - 3.11
+- Install the following dependencies:
+  1. FFmpeg (Required for video rendering) - [Installation Guide](https://phoenixnap.com/kb/ffmpeg-windows)
+  2. ImageMagick (Required for subtitles) - [Download](https://imagemagick.org/script/download.php#windows)
+  3. eSpeak-NG (Only required for some voice models) - [Download MSI](https://github.com/espeak-ng/espeak-ng/releases)
+     - If you don't want to install extra voice packages, use only:
+       ```
+       tts_models/en/ljspeech/tacotron2-DDC
+       ```
 
-Go to the viddie folder and run this command :
-pip install -r requirements/requirements.txt
+#### Installation Steps
 
+1. Navigate to the viddie folder and install dependencies:
 
-Create a checkpoints folder and
-Download these files and add them in the checkpoints folder
-https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
+   ```shell
+   pip install -r requirements/requirements.txt
+   ```
 
-![image](https://github.com/kostas2370/Clippy-V2/assets/96636678/621fa695-5a40-42e0-9464-51aae08d89c7)
+2. Create a `checkpoints` folder and download required files from: [Google Drive - Checkpoints](https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od)
 
+3. Inside the viddie folder, create a `.env` file and add the following API keys:
 
-Inside the viddie folder : 
-Create the .env file and add your OPEN_API_KEY, SEARCH_ENGINE_ID, API_KEY 
+   - `OPEN_API_KEY`
+   - `SEARCH_ENGINE_ID`
+   - `API_KEY`
 
-To find your google search_engine_id and api_key , check this guide : https://www.youtube.com/watch?v=D4tWHX2nCzQ&t=127s
+   *To find your Google search engine ID and API key, refer to this *[***YouTube Guide***](https://www.youtube.com/watch?v=D4tWHX2nCzQ\&t=127s)*.*
 
-After go to the viddie folder and run those commands:
+4. Run the following commands to set up the database and start the server:
 
-```shell
-py manage.py makemigrations
-py manage.py migrate
-py manage.py loaddata fixtures/fixtures.json
-py manage.py setup_media
-py manage.py runserver
-```
+   ```shell
+   py manage.py makemigrations
+   py manage.py migrate
+   py manage.py loaddata fixtures/fixtures.json
+   py manage.py setup_media
+   py manage.py runserver
+   ```
 
-If you want to add voices from elevenlabs(your voices or the premade ones) just add your XI_API_KEY in .env file and 
-run this command :
+5. (Optional) To enable ElevenLabs voices, add your `XI_API_KEY` in the `.env` file and run:
 
-```shell
-py manage.py setup_elevenlabs
-```
+   ```shell
+   py manage.py setup_elevenlabs
+   ```
 
+---
 
-# Docker :
-1. Create the .env file and add your OPEN_API_KEY, SEARCH_ENGINE_ID, API_KEY like .env_example
-2. Download these files and add them in the checkpoints folder
-https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od
-![image](https://github.com/kostas2370/Clippy-V2/assets/96636678/621fa695-5a40-42e0-9464-51aae08d89c7)
-3. docker-compose up --build in the src folder 
+### Docker Installation
 
+1. Create the `.env` file and add your OPEN\_API\_KEY, SEARCH\_ENGINE\_ID, API\_KEY as per `.env_example`.
+2. Download and place the required checkpoint files in the `checkpoints` folder from: [Google Drive - Checkpoints](https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od)
+3. Navigate to the src folder and run:
+   ```shell
+   docker-compose up --build
+   ```
 
+---
 
+## Admin Panel
 
-Login credentials for admin page : username = admin, password = pass
+- URL: [http://localhost:8000/admin](http://localhost:8000/admin)
+- Login Credentials:
+  - Username: `admin`
+  - Password: `pass`
 
-You can find all the endpoints in swagger : http://localhost:8000/swagger/
+## API Documentation
 
+You can find all API endpoints in Swagger: [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
 
+---
 
-* TO DO :
-1. Convert all moviepy functions to ffmpeg for better Performance .
-2. Add celery support for async tasks and scheduled tasks
-3. Test Cases for models, functions and Views
+## Roadmap / To-Do List
 
-For any Injuries or Support you can contact me at those emails :
-1. kodamia@cs.ihu.gr (University Email)
-2. kostas2372@gmail.com (Personal Email)
+-
 
-# NEWS:
-* Fix of the conquis TTS docker issue
-* Gemini and claude support !
-* Implemented ElevenLabs api voices !!
-* Now we are able to make compilation videos from twitch by game or streamer
-* Added open-ai voices
-* Added midjourney and special diffusion as image providers !! (For now you can change the providers in the mapper.py in default providers)
-* Dockerized the app
+---
+
+## Contact & Support
+
+For any inquiries or support, feel free to reach out:
+
+- University Email: [kodamia@cs.ihu.gr](mailto\:kodamia@cs.ihu.gr)
+- Personal Email: [kostas2372@gmail.com](mailto\:kostas2372@gmail.com)
+
+---
+
+## Recent Updates
+
+✅ Fixed Conquis TTS Docker issue\
+✅ Added support for Gemini and Claude AI models\
+✅ Integrated ElevenLabs API voices\
+✅ Enabled compilation video creation from Twitch (by game or streamer)\
+✅ Added OpenAI voices\
+✅ Integrated MidJourney and Stable Diffusion as image providers *(Change providers in **``**)*\
+✅ Dockerized the application for easier deployment
+
+---
+
+### 🚀 Happy Video Rendering!
+
