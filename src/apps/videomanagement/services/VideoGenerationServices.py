@@ -11,6 +11,7 @@ from ..utils.gpt_utils import get_reply
 from ..utils.prompt_utils import format_prompt
 from ..utils.visual_utils import create_image_scenes, download_music
 from ..utils.cost_utils import calculate_total_cost
+from django.contrib.auth import get_user_model
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +29,7 @@ def generate_video(template_id: Union[str, int, None],
                    voice_id: Union[int, None] = None,
                    subtitles: bool = False,
                    provider: Union[str, None] = None,
-                   created_by: int = None,
+                   created_by: get_user_model() = None,
                    avatar_position: str = "top,right"
                    ) -> Videos:
 
@@ -78,7 +79,8 @@ def generate_video(template_id: Union[str, int, None],
     Notes:
     ------
     - This function generates a video based on the provided parameters.
-    - It retrieves a template, formats a prompt, and generates video content using various sources for text, images, and audio.
+    - It retrieves a template, formats a prompt, and generates video content using various sources for text, images,
+      and audio.
     """
     avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else None
 
@@ -106,7 +108,7 @@ def generate_video(template_id: Union[str, int, None],
 
     vid = Videos.objects.create(title = x['title'], prompt = user_prompt, dir_name = dir_name, gpt_answer = x,
                                 background = background, intro = intro, outro = outro,
-                                settings = dict(subtitles=subtitles,avatar_position=avatar_position),
+                                settings = dict(subtitles=subtitles, avatar_position=avatar_position),
                                 status = "GENERATION", video_type = "AI", created_by = created_by)
 
     logger.info(f"Created the video instance with id : {vid.id}")

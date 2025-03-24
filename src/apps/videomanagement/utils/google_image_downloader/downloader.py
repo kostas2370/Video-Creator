@@ -21,9 +21,9 @@ def build_payload(query: str, start: int = 1, num: int = 1, **params) -> dict:
                'start': start,
                'num': num,
                "searchType": "image",
-               'imgSize':'large',
-               'safe':'off'
-        }
+               'imgSize': 'large',
+               'safe': 'off'
+               }
 
     payload.update(params)
 

@@ -1,4 +1,5 @@
 import os
+from typing import Union
 
 
 def generate_directory(name: str, x: int = 0) -> str:
@@ -20,7 +21,8 @@ def generate_directory(name: str, x: int = 0) -> str:
     Notes:
     ------
     - This function creates a directory with the given name.
-    - If a directory with the same name already exists, it appends a numerical suffix until a unique directory name is found.
+    - If a directory with the same name already exists, it appends a numerical suffix until a
+      unique directory name is found.
     """
 
     while True:
@@ -35,7 +37,7 @@ def generate_directory(name: str, x: int = 0) -> str:
             x += 1
 
 
-def check_which_file_exists(images: list) -> str:
+def check_which_file_exists(images: list) -> Union[str, None]:
     """
     Check which file from a list of file paths actually exists on the file system.
 

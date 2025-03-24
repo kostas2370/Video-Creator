@@ -13,7 +13,7 @@ costs = {"twitch_scene": 0.08,
 
 def calculate_total_cost(video):
     total_cost = 0
-    scenes = Scene.objects.filter(prompt__video_prompt__id = video.id)
+    scenes = video.prompt.scenes.all()
     scene_count = scenes.count()
 
     if video.video_type == "TWITCH":

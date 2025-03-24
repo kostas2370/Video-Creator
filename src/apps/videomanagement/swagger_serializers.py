@@ -110,7 +110,3 @@ class AddSceneSerializer(serializers.Serializer):
             data = {"url": data["url"]}
 
         return data
-
-
-
-

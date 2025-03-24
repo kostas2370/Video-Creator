@@ -36,18 +36,18 @@ def video_update(video: Videos,
 
     video.title = title
 
-    if avatar == "null" or avatar == '' or video.video_type == "TWITCH":
+    if avatar == "None" or avatar == '' or video.video_type == "TWITCH" or avatar is None:
         video.avatar = None
 
     else:
-
+        print(avatar)
         selected_avatar = Avatars.objects.get(id = avatar)
         video.avatar = selected_avatar
 
         if video.voice_model != selected_avatar.voice:
             video.voice_model = selected_avatar.voice
             video.save()
-            scenes = Scene.objects.filter(prompt = video.prompt)
+            scenes = video.prompt.scenes.all()
             for scene in scenes:
                 update_scene(scene)
 
@@ -69,13 +69,12 @@ def video_update(video: Videos,
     return video
 
 
-def video_regenerate(video: Videos) -> int:
+def video_regenerate(video: Videos) -> None:
     with transaction.atomic():
-        for scene in Scene.objects.filter(prompt = video.prompt):
+        for scene in video.prompt.scenes.all():
             update_scene(scene)
-            scenes_images = SceneImage.objects.filter(scene = scene)
 
-            for scene_image in scenes_images:
+            for scene_image in scene.scene_images.all():
                 generate_new_image(scene_image = scene_image, video = video)
 
         if video.avatar and os.path.exists(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'):
@@ -83,5 +82,3 @@ def video_regenerate(video: Videos) -> int:
 
         video.status = "READY"
         video.save()
-
-

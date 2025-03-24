@@ -41,6 +41,3 @@ class HeaderInitiationException(APIException):
     status_code = 500
     default_detail = 'Headers are missing'
     default_code = 'headers_missing'
-
-
-

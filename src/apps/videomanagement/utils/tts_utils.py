@@ -13,6 +13,7 @@ import sys
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
 
+
 @dataclass
 class ApiSyn:
     provider: str
@@ -32,7 +33,8 @@ def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json
     model : str, optional
         The model to be used for the text-to-speech synthesis. Default is "tts_models/en/ljspeech/vits--neon".
     vocoder : str, optional
-        The vocoder to be used. If "default_vocoder" and available in the model, it will be used. Default is "default_vocoder".
+        The vocoder to be used. If "default_vocoder" and available in the model, it will be used. Default is
+        "default_vocoder".
 
     Returns:
     --------
@@ -50,7 +52,8 @@ def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json
     ------
     - Requires the `Synthesizer` and `ModelManager` classes from the appropriate library.
     - The function assumes that the model and vocoder names provided are valid and available for download.
-    - The function prints an error message if the specified vocoder cannot be downloaded, and proceeds without a vocoder.
+    - The function prints an error message if the specified vocoder cannot be downloaded,
+      and proceeds without a vocoder.
     """
     try:
         model_manager = ModelManager(model_path)
@@ -82,7 +85,7 @@ def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json
     return syn
 
 
-def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -> str:
+def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -> Union[str, None]:
     """
     Save synthesized audio to a file.
 
@@ -93,7 +96,8 @@ def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -
     text : str, optional
         The text to synthesize. Default is an empty string.
     save_path : str, optional
-        The file path where the synthesized audio will be saved. If not provided, a unique filename will be generated in the current directory.
+        The file path where the synthesized audio will be saved. If not provided, a unique filename will be
+        generated in the current directory.
 
     Returns:
     --------
@@ -108,7 +112,8 @@ def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -
     Detailed Steps:
     ---------------
     1. Check the type of synthesizer object provided.
-    2. If it's a Synthesizer object, synthesize the text using the Synthesizer's `tts` method and save the output to the specified path.
+    2. If it's a Synthesizer object, synthesize the text using the Synthesizer's `tts` method and save the output to the
+       specified path.
     3. If it's an ApiSyn object, determine the provider and call the appropriate API function to synthesize the text.
     4. Save the synthesized audio to the specified path.
 
@@ -122,7 +127,7 @@ def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -
         return None
 
     if type(syn) is ApiSyn:
-        resp = getattr(thismodule, api_providers.get(syn.provider))(text, save_path, syn.path)
+        getattr(thismodule, api_providers.get(syn.provider))(text, save_path, syn.path)
 
     else:
         outputs = syn.tts(text)
@@ -189,6 +194,7 @@ def tts_from_eleven_labs(text, save_path, voice):
     data = {"text": text, "model_id": "eleven_monolingual_v1",
             "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}}
 
+    response = None
     try:
         response = requests.post(url, json = data, headers = headers)
         response.raise_for_status()
