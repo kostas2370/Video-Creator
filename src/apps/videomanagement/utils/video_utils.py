@@ -2,7 +2,7 @@ import os
 import shlex
 import subprocess
 import uuid
-
+import logging
 from PIL import Image
 from django.db.models import QuerySet
 from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx, \
@@ -13,24 +13,24 @@ from ..models import *
 from .exceptions import RenderFailedException
 
 
+logger = logging.getLogger(__name__)
+
+
 def check_if_image(path: str) -> bool:
-    supported_image_extensions = ('jpg', 'jpeg', 'png')
-    return path.lower().endswith(supported_image_extensions)
+    supported_image_extensions = {'.jpg', '.jpeg', '.png'}
+    file_extension = os.path.splitext(path)[1].lower()
+    return file_extension in supported_image_extensions
 
 
 def check_if_video(path: str) -> bool:
-    supported_video_extensions = ('mp4',  'avi')
-    return path.lower().endswith(supported_video_extensions)
+    supported_video_extensions = {'.mp4', '.avi'}
+    file_extension = os.path.splitext(path)[1].lower()
+    return file_extension in supported_video_extensions
 
 
 def handle_audio(scene: Scene, scene_image: SceneImage):
     """
     Processes and returns the appropriate audio clip based on the given scene and scene image.
-
-    This function handles the audio for a given scene by:
-    1. Loading an audio file from the scene if available.
-    2. Adding audio from the scene image if it includes audio.
-    3. Appending silent audio if the scene is the last one and the scene image does not include audio.
 
     Args:
         scene (Scene): The scene object containing metadata and file path for the audio.
@@ -42,19 +42,31 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
     """
 
     silent = AudioFileClip('assets/blank.wav')
+
     audio = None
+
     if scene.file:
-        audio = AudioFileClip(scene.file.path)
+        try:
+            audio = AudioFileClip(scene.file.path)
+        except Exception as e:
+            logger.error(f"Error loading scene audio: {e}")
 
     if scene_image and scene_image.with_audio:
-        dump_video = VideoFileClip(scene_image.file.path)
-        if audio:
-            audio = CompositeAudioClip([audio, dump_video.audio])
-        else:
-            audio = dump_video.audio
+        try:
+            dump_video = VideoFileClip(scene_image.file.path)
+            scene_audio = dump_video.audio
+            if audio:
+                audio = CompositeAudioClip([audio, scene_audio])
+            else:
+                audio = scene_audio
+        except Exception as e:
+            logger.error(f"Error processing scene image audio: {e}")
 
     if scene_image and scene.is_last and not scene_image.with_audio:
         audio = concatenate_audioclips([audio, silent, silent])
+
+    if audio is None:
+        audio = silent
 
     return audio
 
@@ -62,13 +74,6 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
 def handle_image(audio, scene_image, background):
     """
     Processes and returns the appropriate image clip based on the given audio and scene image.
-
-    This function handles the image for a given scene by:
-    1. Resizing and saving the scene image if a background is provided.
-    2. Creating an ImageClip from the scene image file.
-    3. Setting the duration of the image clip to match the audio duration.
-    4. Applying fade-in and fade-out effects to the image clip.
-    5. Using a black image clip if there's an issue with the scene image file.
 
     Args:
         audio (AudioFileClip): The audio clip associated with the scene.
@@ -80,9 +85,6 @@ def handle_image(audio, scene_image, background):
         ImageClip: The processed image clip for the scene, which may include resizing, duration adjustment,
                    and fade effects, or a default black image clip in case of an error.
     """
-    black = ImageClip('assets/black.jpg')
-
-    clip = None
     if background:
         clip = ImageClip(background.file.path)
         w, h = clip.size
@@ -90,10 +92,9 @@ def handle_image(audio, scene_image, background):
     try:
         image = ImageClip(scene_image.file.path)
         image = image.set_duration(audio.duration)
-
         image = image.fadein(image.duration*0.2).fadeout(image.duration*0.2)
-    except ValueError:
-        image = black.set_duration(audio.duration)
+    except Exception as exc:
+        raise Exception(f"Error handling image: {exc}")
 
     return image
 
@@ -102,11 +103,6 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
     """
     Processes and returns the appropriate video clip based on the given audio and scene image.
 
-    This function handles the video for a given scene by:
-    1. Loading a video file from the scene image and removing its audio.
-    2. Adjusting the duration of the video to match the audio duration, trimming it if necessary.
-    3. Applying fade-in and fade-out effects to the video clip.
-
     Args:
         audio (AudioFileClip): The audio clip associated with the scene.
         scene_image (SceneImage): The scene image object containing the file path to the video file.
@@ -114,8 +110,11 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
     Returns:
         VideoFileClip: The processed video clip for the scene, which includes duration adjustment and fade effects.
     """
+    try:
+        vid_scene = VideoFileClip(scene_image.file.path).without_audio()
 
-    vid_scene = VideoFileClip(scene_image.file.path).without_audio()
+    except Exception as e:
+        raise ValueError(f"Error loading video file at {scene_image.file.path}: {e}")
 
     if vid_scene.duration > audio.duration:
         vid_scene = vid_scene.subclip(0, audio.duration)
@@ -143,18 +142,25 @@ def process_scene(scene_image: SceneImage, audio, background: Backgrounds):
         VideoFileClip: The processed visual clip for the scene, which may be a black video, an image clip,
                        or a video clip based on the scene image file type.
     """
-    black = ImageClip('assets/black.jpg')
+    black_clip = ImageClip('assets/black.jpg').set_duration(audio.duration)
+
+    file_path = scene_image.file.path
 
     if not scene_image or not scene_image.file:
-        return black.set_duration(audio.duration)
+        return black_clip
+    try:
+        if check_if_image(scene_image.file.path):
+            return handle_image(audio, scene_image, background)
 
-    if check_if_image(scene_image.file.path):
-        return handle_image(audio, scene_image, background)
+        if check_if_video(scene_image.file.path):
+            return handle_video(audio, scene_image)
 
-    if check_if_video(scene_image.file.path):
-        return handle_video(audio, scene_image)
+    except Exception as exc:
+        logger.warning(exc)
 
-    return black.set_duration(audio.duration)
+    logger.warning(f"Warning: Unsupported file type for {file_path}. Returning black clip.")
+
+    return black_clip
 
 
 def handle_avatar_video(video, final_video):
@@ -178,6 +184,7 @@ def handle_avatar_video(video, final_video):
     avatar_video = f'{os.getcwd()}/{video.dir_name}/output_avatar.mp4'
 
     if not os.path.exists(f'{os.getcwd()}/{video.dir_name}/output_avatar.mp4'):
+        logger.info("Start creating the avatar video")
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
 
     position = tuple(video.settings.get("avatar_position", "right,top").split(","))
@@ -191,12 +198,6 @@ def handle_music(video, final_audio):
     """
     Adds background music to the final audio, adjusting the volume and applying fade-in and fade-out effects.
 
-    This function handles the addition of background music by:
-    1. Loading the music file associated with the video and adjusting its volume.
-    2. Trimming the music to match the duration of the final audio if necessary.
-    3. Applying fade-in and fade-out effects to the music.
-    4. Combining the final audio with the background music into a composite audio clip.
-
     Args:
         video (Video): The video object containing metadata and the file path for the music.
         final_audio (AudioFileClip): The final audio clip to which the background music will be added.
@@ -206,9 +207,20 @@ def handle_music(video, final_audio):
         including volume adjustment and fade effects.
     """
 
-    music = AudioFileClip(video.music.file.path).volumex(0.07)
-    music = music.subclip(0, final_audio.duration) if music.duration > final_audio.duration else music
-    music = music.audio_fadein(4).audio_fadeout(4)
+    music = AudioFileClip(video.music.file.path)
+    music_volume = video.settings.get("music_volume", 0.07)
+    music = music.volumex(music_volume)
+
+    if music.duration < final_audio.duration:
+        loop_count = int(final_audio.duration//music.duration)+1
+        music = concatenate_audioclips([music]*loop_count).subclip(0, final_audio.duration)
+
+    else:
+        music = music.subclip(0, final_audio.duration)
+
+    fade_duration = min(4, final_audio.duration*0.1)
+    music = music.audio_fadein(fade_duration).audio_fadeout(fade_duration)
+
     final_audio = CompositeAudioClip([final_audio, music])
 
     return final_audio
@@ -218,32 +230,28 @@ def handle_background(final_audio, background, final_video):
     """
     Adds a background effect to a video clip based on the specified color and threshold.
 
-    This function handles the addition of a background effect by:
-    1. Setting the duration of the video clip to match the duration of the final audio and applying the final audio.
-    2. Masking the video clip to replace the specified color with transparency, based on the provided threshold.
-    3. Compositing the masked video clip onto the final video, adjusting its size,
-       and applying fade-in and fade-out effects.
-
     Args:
-        final_audio (AudioFileClip): The final audio clip to synchronize with the video clip.
+        final_audio (AudioFileClip): The final audio clip to synchronize with the video.
         background (Background): The background object containing color and threshold settings for masking.
-        final_video (VideoFileClip): The final video clip onto which the masked video clip will be composited.
+        final_video (VideoFileClip): The final video clip onto which the masked video will be composited.
 
     Returns:
-        VideoFileClip: The final video clip with the background effect applied, including masking and fade effects.
+        VideoFileClip: The final video with background effect applied, including masking and fade effects.
     """
 
     if not background:
         return final_video.resize((1920, 1080))
 
-    clip = ImageClip(background.file.path)
+    if background.file.path.lower().endswith((".jpg", ".png")):
+        bg_clip = ImageClip(background.file.path)
+    else:
+        bg_clip = VideoFileClip(background.file.path).without_audio()
 
-    clip = clip.set_duration(final_audio.duration)
-    color = [int(x) for x in background.color.split(',')]
-    masked_clip = clip.fx(vfx.mask_color, color = color, thr = background.through, s = 7)
-
-    final_video = CompositeVideoClip([final_video, masked_clip.set_duration(final_audio.duration)],
-                                     size = (1920, 1080)).fadein(2).fadeout(2)
+    bg_clip = bg_clip.set_duration(final_audio.duration).resize((1920, 1080))
+    mask_color = [int(x) for x in background.color.split(",")]
+    threshold = float(background.threshold) / 255.0
+    masked_clip = final_video.fx(vfx.mask_color, color=mask_color, thr=threshold, s=7)
+    final_video = CompositeVideoClip([bg_clip, masked_clip.set_duration(final_audio.duration)]).crossfadein(2)
 
     return final_video
 
@@ -253,18 +261,8 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     Processes and generates the final video clip with optional music, background effect, avatar overlay,
     subtitles, intro, and outro clips.
 
-    This function handles the assembly of the final video by:
-    1. Adding background music if specified in the video metadata.
-    2. Applying a background effect if specified in the video metadata, masking a specified color with transparency.
-    3. Setting the audio for the final video clip and resizing it to 1920x1080 resolution
-       if no background effect is applied.
-    4. Adding an avatar overlay at the top right corner of the final video if specified in the video metadata.
-    5. Adding subtitles to the final video, positioned at the bottom left, with fade-in and fade-out effects.
-    6. Adding an intro clip at the beginning of the final video if specified in the video metadata.
-    7. Adding an outro clip at the end of the final video if specified in the video metadata.
-
     Args:
-        background (Background or None): The background object containing color and threshold settings for masking,
+        background (Background or None): Background object containing color and threshold settings for masking,
                                          or None if no background effect is applied.
         final_audio (AudioFileClip): The final audio clip to synchronize with the video.
         final_video (VideoFileClip): The base final video clip to which all components will be added.
@@ -274,25 +272,29 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     Returns:
         VideoFileClip: The fully processed final video clip with all specified components added.
     """
-    if video.music:
+    final_video = handle_background(final_audio, background, final_video)
+
+    if getattr(video, "music", None):
         final_audio = handle_music(video, final_audio)
 
-    final_video = handle_background(final_audio, background, final_video).set_audio(final_audio)
+    final_video = final_video.set_audio(final_audio)
 
-    if video.avatar:
+    if getattr(video, "avatar", None):
         final_video = handle_avatar_video(video, final_video)
 
-    if video.settings.get("subtitles", False):
-        subs = concatenate_videoclips(subtitles)
-        final_video = CompositeVideoClip([final_video, subs.set_pos((60, 760)).fadein(1).fadeout(1)])
+    if video.settings.get("subtitles", False) and subtitles:
+        subs = concatenate_videoclips(subtitles, method = "compose")
+        video_height = final_video.size[1]
+        subtitle_position = (60, video_height-150)
+        final_video = CompositeVideoClip([final_video, subs.set_pos(subtitle_position).fadein(1).fadeout(1)])
 
-    if video.intro:
-        intro = VideoFileClip(video.intro.file.path)
-        final_video = concatenate_videoclips([intro, final_video], method='compose')
+    if getattr(video, "intro", None):
+        intro = VideoFileClip(video.intro.file.path).resize(final_video.size)
+        final_video = concatenate_videoclips([intro, final_video], method = "compose")
 
-    if video.outro:
-        outro = VideoFileClip(video.outro.file.path)
-        final_video = concatenate_videoclips([final_video, outro], method='compose')
+    if getattr(video, "outro", None):
+        outro = VideoFileClip(video.outro.file.path).resize(final_video.size)
+        final_video = concatenate_videoclips([final_video, outro], method = "compose")
 
     return final_video
 
@@ -309,59 +311,95 @@ def make_video(video: Videos) -> Videos:
         Videos: The updated video object with output file path and status.
     """
 
-    if video.status not in ["READY", "COMPLETED"]:
-        raise RenderFailedException
+    if video.status not in {"READY", "COMPLETED"}:
+        raise RenderFailedException("Video is not in a renderable state.")
 
     video.status = "RENDERING"
     video.save()
 
     scenes: Union[QuerySet, list[Scene]] = video.prompt.scenes.all()
     background: Backgrounds = video.background
-    sound_list = []
-    vids = []
-    subtitles = []
+    sound_list, vids, subtitles = [], [], []
+
     for scene in scenes:
-        scene_image = SceneImage.objects.filter(scene = scene).first()
+        scene_image = SceneImage.objects.filter(scene=scene).first()
         audio = handle_audio(scene, scene_image)
         sound_list.append(audio)
 
         if video.settings.get("subtitles", False):
-            sub = TextClip(scene.text, fontsize = 37, color = 'blue', method = "caption", size = (1600, 500)).\
-                  set_duration(audio.duration)
+            subtitles.append(create_subtitle_clip(scene.text, audio.duration))
 
-            subtitles.append(sub)
+        vids.append(process_scene(scene_image, audio, background))
 
-        im = process_scene(scene_image, audio, background)
-        vids.append(im)
+    if not vids:
+        raise RenderFailedException("No video scenes were processed.")
 
-    if background:
-        final_video = concatenate_videoclips(vids).margin(top=background.image_pos_top,
-                                                          left = background.image_pos_left,
-                                                          opacity=4)
-    else:
-        final_video = concatenate_videoclips(vids).set_position('center')
+    try:
+        final_video = concatenate_videoclips(vids)
 
-    final_audio = concatenate_audioclips(sound_list)
-    final_audio.write_audiofile(f"{video.dir_name}/output_audio.wav")
-    final_video = handle_final_video(background, final_audio, final_video, video, subtitles)
-    final_video.write_videofile(f"{video.dir_name}/output_video.mp4", fps = 24, threads = 8)
+        if background:
+            final_video = final_video.margin(
+                top=background.image_pos_top,
+                left=background.image_pos_left,
+                opacity=4
+            ).set_position("center")
 
-    for sound in sound_list:
-        sound.close()
+        final_audio = concatenate_audioclips(sound_list)
+        final_audio_path = f"{video.dir_name}/output_audio.wav"
+        final_audio.write_audiofile(final_audio_path)
 
-    for vid in vids:
-        vid.close()
+        final_video = handle_final_video(background, final_audio, final_video, video, subtitles)
+        final_video_path = f"{video.dir_name}/output_video.mp4"
+        final_video.write_videofile(final_video_path, fps=24, threads=8)
 
-    final_video.close()
-    final_audio.close()
+        video.output = final_video_path
+        video.status = "COMPLETED"
 
-    for sub in subtitles:
-        sub.close()
+    finally:
+        for clip in sound_list + vids + subtitles:
+            clip.close()
+        final_audio.close()
+        final_video.close()
 
-    video.output = f"{video.dir_name}/output_video.mp4"
-    video.status = "COMPLETED"
     video.save()
     return video
+
+
+def create_subtitle_clip(text: str, duration: float, fontsize: int = 37, color: str = "blue",
+                         bg_color: str = "black", font: str = "Arial", size: tuple = (1600, 500)) -> TextClip:
+    """
+    Creates a styled subtitle clip.
+
+    Parameters:
+    -----------
+    text : str
+        The subtitle text.
+    duration : float
+        The duration for which the subtitle should be displayed.
+    fontsize : int, optional
+        The font size of the text (default: 37).
+    color : str, optional
+        The color of the text (default: "blue").
+    bg_color : str, optional
+        The background color of the text box (default: "black").
+    font : str, optional
+        The font type (default: "Arial").
+    size : tuple, optional
+        The size of the subtitle box (default: (1600, 500)).
+
+    Returns:
+    --------
+    TextClip
+        A moviepy TextClip styled as a subtitle.
+    """
+    try:
+        return TextClip(
+            text, fontsize=fontsize, color=color, font=font, method="caption", size=size,
+            bg_color=bg_color
+        ).set_duration(duration)
+    except Exception as e:
+        logger.error(f"Error creating subtitle clip: {e}")
+        return None
 
 
 def create_avatar_video(avatar: Avatars, dir_name: str) -> str:
@@ -391,15 +429,25 @@ def create_avatar_video(avatar: Avatars, dir_name: str) -> str:
     - The `lip` function should generate the avatar video and save it in the specified directory.
     """
 
-    avatar_cam: str = lip(
-        source_image = avatar.file.path,
-        driven_audio = f"{dir_name}/output_audio.wav",
-        result_dir = dir_name,
-        facerender = "pirender", )
+    try:
+        avatar_cam = lip(source_image = avatar.file.path, driven_audio = os.path.join(dir_name, "output_audio.wav"),
+                         result_dir = dir_name, facerender = "pirender", )
+    except Exception as e:
+        logger.error(f"Error running lip function: {e}")
+        return ""
 
-    output: str = f'{os.getcwd()}/{dir_name}/output_avatar.mp4'
-    subprocess.run(shlex.split(
-        f'ffmpeg -i "{os.getcwd()}/{avatar_cam}" -vcodec h264  "{output}"'))
+    output = os.path.join(os.getcwd(), dir_name, "output_avatar.mp4")
+
+    ffmpeg_command = f'ffmpeg -i "{os.path.join(os.getcwd(), avatar_cam)}" -vcodec h264 "{output}"'
+    try:
+        result = subprocess.run(shlex.split(ffmpeg_command), stdout = subprocess.PIPE, stderr = subprocess.PIPE,
+                                text = True)
+        if result.returncode != 0:
+            logger.error(f"FFmpeg error: {result.stderr}")
+            return ""
+    except Exception as e:
+        logger.error(f"Error executing ffmpeg: {e}")
+        return ""
 
     return output
 
@@ -438,23 +486,32 @@ def split_video_and_mp3(video_path: str) -> tuple[str, str]:
 
     folder_to_save = os.path.split(os.path.abspath(video_path))[0]
     video = VideoFileClip(video_path)
+
     audio_save = f'{str(folder_to_save)}/dialogues/{str(uuid.uuid4())}.mp3'
     video_save = f'{str(folder_to_save)}/images/{str(uuid.uuid4())}.mp4'
 
-    video.audio.write_audiofile(audio_save)
+    try:
+        video = VideoFileClip(video_path)
+        video.audio.write_audiofile(audio_save)
+        video_without_audio = video.set_audio(None)
+        video_without_audio.write_videofile(video_save, codec = "libx264", audio = False)
 
-    video_without_audio = video.set_audio(None)
-    video_without_audio.write_videofile(video_save)
+    except Exception as e:
+        logger.error(f"Error processing video '{video_path}': {e}")
+        return "", ""
 
-    video.close()
-    video_without_audio.close()
-
-    os.remove(video_path)
+    finally:
+        if 'video' in locals():
+            video.close()
+        if 'video_without_audio' in locals():
+            video_without_audio.close()
+        os.remove(video_path)
 
     return audio_save, video_save
 
 
-def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize: int = 50) -> str:
+def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize: int = 50, x: str = "(w-text_w)/2",
+                      y: str = "h-text_h-20") -> str:
     """
     Add text to a video at a specified position and return the new video file path.
 
@@ -465,13 +522,13 @@ def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize:
     text : str
         The text to be added to the video.
     fontcolor : str, optional
-        The color of the text. Default is "blue".
+        The color of the text. Default is "black".
     fontsize : int, optional
         The size of the text font. Default is 50.
-    x : int, optional
-        The x-coordinate position for the text. Default is 500.
-    y : int, optional
-        The y-coordinate position for the text. Default is 500.
+    x : str, optional
+        The x-coordinate position for the text (FFmpeg expression). Default is centered.
+    y : str, optional
+        The y-coordinate position for the text (FFmpeg expression). Default is near the bottom.
 
     Returns:
     --------
@@ -482,21 +539,35 @@ def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize:
     ---------------
     1. Generate a new file name for the video with the added text.
     2. Construct the ffmpeg command to add text to the video.
-    3. Execute the ffmpeg command.
-    4. Remove the original video file.
+    3. Execute the ffmpeg command using subprocess.
+    4. Remove the original video file if successful.
     5. Return the file path to the new video.
 
     Notes:
     ------
     - Requires ffmpeg to be installed and available in the system path.
-    - The original video file is deleted after the new video is created.
+    - The original video file is deleted only if the new video is successfully created.
     """
 
-    video_name = video[:-3]+"l.mp4"
-    command = (f"ffmpeg -i \"{video}\" -vf \"drawtext=fontsize={fontsize}:fontcolor={fontcolor}:"
-               f"text='{text}':x=(w-text_w)/2:y=h-text_h-20:shadowcolor=black:shadowx=2:shadowy=2:"
-               f"box=1:boxcolor=black@0.5:boxborderw=10\" \"{video_name}\"")
+    base_dir, ext = os.path.splitext(video)
+    output_video = f"{base_dir}_{uuid.uuid4().hex}.mp4"
 
-    os.system(command)
-    os.remove(video)
-    return video_name
+    command = [
+        "ffmpeg", "-i", video,
+        "-vf", f"drawtext=fontsize={fontsize}:fontcolor={fontcolor}:text='{text}':"
+               f"x={x}:y={y}:shadowcolor=black:shadowx=2:shadowy=2:"
+               f"box=1:boxcolor=black@0.5:boxborderw=10",
+        "-y", output_video
+    ]
+    try:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            logger.error(f"FFmpeg error: {result.stderr}")
+            return ""
+
+        os.remove(video)
+        return output_video
+
+    except Exception as e:
+        logger.error(f"Error processing video: {e}")
+        return ""
