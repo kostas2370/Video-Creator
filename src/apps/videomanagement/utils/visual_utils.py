@@ -476,22 +476,25 @@ def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "viv
     SceneImage
         The updated scene image object with the new image.
 
-    Notes:
-    ------
-    - This function generates a new image for a given scene image associated with a video.
-    - The mode and style parameters determine the method and style of image generation.
     """
-
     provider = default_providers.get(video.mode)
+
+    if not provider or not modes.get(video.mode):
+        logger.error(f"Invalid video mode or provider not found for video {video.id}.")
+        return scene_image
+
     try:
-        img = getattr(thismodule, modes.get(video.mode).get(provider))(scene_image.prompt,
-                                                                       f'{video.dir_name}/images/',
-                                                                       style = style,
-                                                                       title = video.title)
-    except Exception as ex:
-        logger.error(ex)
+        img_gen_method = getattr(thismodule, modes.get(video.mode).get(provider))
+
+        img = img_gen_method(scene_image.prompt, f'{video.dir_name}/images/', style = style, title = video.title, *args,
+                             **kwargs)
+
+    except AttributeError as attr_err:
+        logger.error(f"Method not found for provider {provider} in mode {video.mode}: {attr_err}")
         img = None
-        pass
+    except Exception as ex:
+        logger.error(f"Error generating image for video {video.id}: {ex}")
+        img = None
 
     if img:
         scene_image.file = img
