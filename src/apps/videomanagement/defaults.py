@@ -1,4 +1,4 @@
-default_format = """
+default_format1 = """
  Organize the scenario in scenes. Each scene should consist of individual sections. For 
 each section, develop the narration and the description of an image representing the narration
 
@@ -15,9 +15,7 @@ Your answer must be in the following JSON format:
 """
 
 
-default_format2 = """
-
-
+default_format = """
 The format of your answer must be like that in json 
 json {"title": -,"target_audience": -,"topic": -,"scenes": [{"scene": string "dialogue": [{,"sentence","image_description"}], }],}. . 
 image_description :For each sentence, add an image description

@@ -1,7 +1,7 @@
 import urllib.request
 import uuid
 import logging
-
+from typing import Union
 import requests
 from django.conf import settings
 from rest_framework.exceptions import APIException
@@ -133,6 +133,7 @@ class TwitchClient:
         InvalidTwitchToken
             If the Twitch token is invalid.
         """
+        req = None
         try:
             url = f'https://api.twitch.tv/helix/users?login={name}'
             req = requests.get(url, headers = self.headers)
@@ -187,7 +188,7 @@ class TwitchClient:
 
         return clips.json().get("data")
 
-    def download_clip(self, clip) -> str:
+    def download_clip(self, clip) -> Union[str, None]:
         """
         Download a clip and save it to the specified directory.
 
@@ -217,6 +218,7 @@ class TwitchClient:
             clip_id = url.split('/')[-1].split('?')[0]
 
         except Exception as exc:
+            logger.error(exc)
             raise APIException("Invalid Url")
 
         url = f"https://api.twitch.tv/helix/clips?id={clip_id}"

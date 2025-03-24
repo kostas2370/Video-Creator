@@ -59,8 +59,8 @@ class VideoView(viewsets.ModelViewSet):
                          "video": VideoNestedSerializer(outcome).data})
 
     @swagger_auto_schema(operation_description = "This api changes the image of the scene or it creates "
-                                                 "a new one if it doesnt exists", method = "GET")
-    @action(detail = True, methods = ["GET"])
+                                                 "a new one if it doesnt exists", method = "PATCH")
+    @action(detail = True, methods = ["PATCH"])
     def video_regenerate(self, _, pk):
         video = self.get_object()
         video.status = "GENERATION"

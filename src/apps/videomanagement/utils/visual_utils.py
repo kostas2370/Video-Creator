@@ -137,7 +137,7 @@ def download_image_from_google(q: str, path: str, amt: int = 1, *args, **kwargs)
         logger.error(f"Error downloading image with query {q} Error {exc}")
 
 
-def download_video(url: str, dir_name: str) -> str:
+def download_video(url: str, dir_name: str, *args, **kwargs) -> str:
     """
     Download a video from YouTube.
 
@@ -306,7 +306,7 @@ def generate_from_diffusion(prompt: str, dir_name: str, title: str = "", *args, 
     return f"{dir_name}\\{filename}.png"
 
 
-def generate_from_midjourney(prompt: str, dir_name: str, title: str = ""):
+def generate_from_midjourney(prompt: str, dir_name: str, title: str = "", *args, **kwargs):
     """
     Generate an image using the Midjourney API.
 
@@ -355,7 +355,7 @@ def generate_from_midjourney(prompt: str, dir_name: str, title: str = ""):
 
 
 def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: str = "WEB", provider: str = None,
-                       style: str = "vivid", title: str = "") -> None:
+                       style: str = "vivid", title: str = "", *args, **kwargs) -> None:
     """
     Create a scene with an image and text.
 
@@ -387,7 +387,8 @@ def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: 
     - This function creates a scene with an image.
     - The image is downloaded or generated based on the mode and provider specified.
     - The downloaded image is saved in the specified directory path.
-    - If an exception occurs during image downloading or creation, it is logged, and the scene is created with a None image.
+    - If an exception occurs during image downloading or creation, it is logged,
+      and the scene is created with a None image.
     """
     provider = default_providers.get(mode) if not provider else provider
     scene = Scene.objects.get(prompt = prompt, text = text.strip())
@@ -403,7 +404,7 @@ def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: 
     SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
 
-def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural", provider= None) -> None:
+def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural", provider=None, *args, **kwargs) -> None:
     """
     Create image scenes for a video.
 
@@ -422,7 +423,8 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
 
     Notes:
     ------
-    - This function iterates over scenes in a video's GPT answer and creates image scenes based on the scene descriptions.
+    - This function iterates over scenes in a video's GPT answer and creates image
+      scenes based on the scene descriptions.
     - The mode and style parameters determine the method and style of image creation.
     """
 
@@ -456,7 +458,7 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
             )
 
 
-def generate_new_image(scene_image: SceneImage, style: str = "vivid") -> SceneImage:
+def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid", *args, **kwargs) -> SceneImage:
     """
     Generate a new image for a scene image associated with a video.
 
@@ -479,7 +481,6 @@ def generate_new_image(scene_image: SceneImage, style: str = "vivid") -> SceneIm
     - This function generates a new image for a given scene image associated with a video.
     - The mode and style parameters determine the method and style of image generation.
     """
-    video = Videos.objects.get(prompt = scene_image.scene.prompt)
 
     provider = default_providers.get(video.mode)
     try:
@@ -522,7 +523,7 @@ def create_twitch_clip_scene(clip: str, title: str, prompt: str) -> None:
       and creates the scene and associated scene image objects.
     """
 
-    edited_video = add_text_to_video(clip, title, x = 80, y = 900)
+    edited_video = add_text_to_video(clip, title)
 
     curr_scene = Scene.objects.create(prompt = prompt, text = title,
                                       is_last = True)

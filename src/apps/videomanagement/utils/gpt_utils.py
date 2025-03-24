@@ -122,12 +122,13 @@ def gemini_call(prompt: str, model='gemini-1.5-pro'):
 def claude_call(prompt: str, model="claude-3-5-sonnet-20240620"):
     x = io.StringIO()
     try:
-        client = anthropic.Anthropic(settings.ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key = settings.ANTHROPIC_API_KEY)
         message = client.messages.create(model = model,
                                          max_tokens = 1000,
                                          temperature = 0,
                                          system = "You are a world-class poet. Respond only with short poems.",
-                                         messages = [{"role": "assistant", "content": [{"type": "text", "text": prompt}]}])
+                                         messages = [{"role": "assistant",
+                                                      "content": [{"type": "text", "text": prompt}]}])
 
         x.write(message.content[0].text)
         return x

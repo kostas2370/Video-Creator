@@ -29,7 +29,8 @@ def format_prompt(template_format: str, template_category: str, userprompt: str 
 
     Notes:
     ------
-    - This function generates a script prompt for video creation, tailored to the specified format, category, user prompt, title, and target audience.
+    - This function generates a script prompt for video creation, tailored to the specified format, category, user
+      prompt, title, and target audience.
     """
 
     if title == '':

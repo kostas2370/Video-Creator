@@ -10,8 +10,8 @@ TEMPLATE_CHOICES = (("EDUCATIONAL", "Educational"), ("GAMING", "Gaming"), ("ADVE
 
 MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3"))
 
-VIDEO_STATUS = (("GENERATION", "GENERATION"), ("READY", "READY"), ("RENDERING", "RENDERING"), ("COMPLETED", "COMPLETED")
-                , ("FAILED", "FAILED"))
+VIDEO_STATUS = (("GENERATION", "GENERATION"), ("READY", "READY"), ("RENDERING", "RENDERING"),
+                ("COMPLETED", "COMPLETED"), ("FAILED", "FAILED"))
 
 
 IMAGE_MODE = (("AI", "AI"), ("WEB", "WEB"))
@@ -70,7 +70,7 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
-    prompt = models.ForeignKey(UserPrompt, on_delete = models.CASCADE)
+    prompt = models.ForeignKey(UserPrompt, on_delete = models.CASCADE, related_name = 'scenes')
     file = models.FileField(upload_to = "media/speech", blank = True, null = True, max_length = 2000)
     text = models.TextField()
     is_last = models.BooleanField(default = True)
@@ -81,7 +81,7 @@ class Scene(models.Model):
 
 
 class SceneImage(models.Model):
-    scene = models.ForeignKey(Scene, on_delete = models.CASCADE)
+    scene = models.ForeignKey(Scene, on_delete = models.CASCADE, related_name = 'scene_images')
     file = models.FileField(upload_to = "media/images", null = True, blank = True, max_length = 2000)
     prompt = models.TextField(default = "", blank = True, null = True)
     with_audio = models.BooleanField(default = False)
