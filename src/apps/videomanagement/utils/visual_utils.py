@@ -16,7 +16,7 @@ from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
 from .prompt_utils import format_dalle_prompt, determine_fields
 from .video_utils import add_text_to_video
-from ..models import Music, Scene, SceneImage, Videos
+from ..models import Music, Scene, SceneImage, Video
 
 logger = logging.getLogger(__name__)
 
@@ -404,7 +404,7 @@ def create_image_scene(prompt: str, image: str, text: str, dir_name: str, mode: 
     SceneImage.objects.create(scene = scene, file = downloaded_image, prompt = image)
 
 
-def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural", provider=None, *args, **kwargs) -> None:
+def create_image_scenes(video: Video, mode: str = "WEB", style: str = "natural", provider=None, *args, **kwargs) -> None:
     """
     Create image scenes for a video.
 
@@ -458,7 +458,7 @@ def create_image_scenes(video: Videos, mode: str = "WEB", style: str = "natural"
             )
 
 
-def generate_new_image(scene_image: SceneImage, video: Videos, style: str = "vivid", *args, **kwargs) -> SceneImage:
+def generate_new_image(scene_image: SceneImage, video: Video, style: str = "vivid", *args, **kwargs) -> SceneImage:
     """
     Generate a new image for a scene image associated with a video.
 

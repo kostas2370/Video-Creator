@@ -4,21 +4,21 @@ from rest_framework.exceptions import APIException
 
 from django.db import transaction
 
-from ..models import Videos, Avatars, Scene, SceneImage, Intro, Outro
+from ..models import Video, Avatar, Intro, Outro
 from ..utils.audio_utils import update_scene
 from ..utils.visual_utils import generate_new_image
 
 logger = logging.getLogger(__name__)
 
 
-def video_update(video: Videos,
+def video_update(video: Video,
                  title: str = None,
                  avatar: str = None,
                  intro: str = None,
                  outro: str = None,
                  subtitles: bool = False,
                  avatar_position: str = "right,top"
-                 ) -> Videos:
+                 ) -> Video:
     """
     Update the specified video with new avatar, intro, or outro.
 
@@ -41,7 +41,7 @@ def video_update(video: Videos,
 
     else:
         print(avatar)
-        selected_avatar = Avatars.objects.get(id = avatar)
+        selected_avatar = Avatar.objects.get(id = avatar)
         video.avatar = selected_avatar
 
         if video.voice_model != selected_avatar.voice:
@@ -69,7 +69,7 @@ def video_update(video: Videos,
     return video
 
 
-def video_regenerate(video: Videos) -> None:
+def video_regenerate(video: Video) -> None:
     with transaction.atomic():
         for scene in video.prompt.scenes.all():
             update_scene(scene)

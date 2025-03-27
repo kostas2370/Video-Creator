@@ -6,7 +6,7 @@ from .models import *
 class TemplatePromptsSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = TemplatePrompts
+        model = TemplatePrompt
         fields = "__all__"
 
 
@@ -42,14 +42,14 @@ class SceneSerializer(serializers.ModelSerializer):
 
 class VoiceModelSerializer(serializers.ModelSerializer):
     class Meta:
-        model = VoiceModels
+        model = VoiceModel
         fields = "__all__"
 
 
 class AvatarNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Avatars
+        model = Avatar
         fields = "__all__"
 
 
@@ -57,7 +57,7 @@ class AvatarSerializer(serializers.ModelSerializer):
     sample = serializers.SerializerMethodField()
     created_by = serializers.HiddenField(default = serializers.CurrentUserDefault())
     class Meta:
-        model = Avatars
+        model = Avatar
         fields = "__all__"
 
     def get_sample(self, obj):
@@ -77,7 +77,7 @@ class VideoSerializer(serializers.ModelSerializer):
     music = serializers.SerializerMethodField()
 
     class Meta:
-        model = Videos
+        model = Video
         fields = "__all__"
 
     def get_music(self, obj):
@@ -93,7 +93,7 @@ class VideoNestedSerializer(serializers.ModelSerializer):
     scenes = serializers.SerializerMethodField()
 
     class Meta:
-        model = Videos
+        model = Video
         fields = "__all__"
 
     def get_scenes(self, obj):

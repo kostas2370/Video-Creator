@@ -11,7 +11,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Videos, SceneImage
+from ..models import Video
 from ..paginator import StandardResultsSetPagination
 from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 class VideoView(viewsets.ModelViewSet):
     serializer_class = VideoSerializer
-    queryset = Videos.objects.all()
+    queryset = Video.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['title']
     permission_classes = [IsAuthenticated, IsOwnerPermission]
@@ -33,7 +33,7 @@ class VideoView(viewsets.ModelViewSet):
 
     def get_queryset(self):
 
-        return Videos.objects.filter(~Q(gpt_answer=None), created_by_id=self.request.user.id).order_by("-id").\
+        return Video.objects.filter(~Q(gpt_answer=None), created_by_id=self.request.user.id).order_by("-id").\
             select_related("music", "prompt")
 
     def get_serializer_class(self):
@@ -99,5 +99,3 @@ class VideoView(viewsets.ModelViewSet):
 
         return Response({"message": "The scene was added successfully",
                          "scene": SceneSerializer(scene).data}, status = 200)
-
-

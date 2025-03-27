@@ -1,6 +1,6 @@
 
 
-from ..models import Scene, SceneImage
+from ..models import SceneImage
 
 
 costs = {"twitch_scene": 0.08,

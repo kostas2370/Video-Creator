@@ -27,7 +27,7 @@ class AbstractModel(models.Model):
         abstract = True
 
 
-class TemplatePrompts(AbstractModel):
+class TemplatePrompt(AbstractModel):
     title = models.CharField(max_length = 20, blank = False)
     category = models.CharField(choices = TEMPLATE_CHOICES, max_length = 20, null = True)
     format = models.TextField(blank = True)
@@ -38,12 +38,12 @@ class TemplatePrompts(AbstractModel):
         return self.title
 
     @staticmethod
-    def get_template(template_select: str) -> Union[TemplatePrompts, None]:
+    def get_template(template_select: str) -> Union[TemplatePrompt, None]:
         if template_select.isnumeric():
-            template = TemplatePrompts.objects.filter(id = template_select)
+            template = TemplatePrompt.objects.filter(id = template_select)
 
         elif len(template_select) > 0:
-            template = TemplatePrompts.objects.filter(category = template_select.upper())
+            template = TemplatePrompt.objects.filter(category = template_select.upper())
 
         else:
             template = None
@@ -61,7 +61,7 @@ class Music(AbstractModel):
 
 
 class UserPrompt(models.Model):
-    template = models.ForeignKey(TemplatePrompts, on_delete = models.CASCADE, blank = True, null = True)
+    template = models.ForeignKey(TemplatePrompt, on_delete = models.CASCADE, blank = True, null = True)
     prompt = models.TextField(blank = False)
     objects = models.Manager()
 
@@ -88,7 +88,7 @@ class SceneImage(models.Model):
     objects = models.Manager()
 
 
-class VoiceModels(AbstractModel):
+class VoiceModel(AbstractModel):
     name = models.CharField(max_length = 200, blank = True)
     provider = models.CharField(max_length = 100, blank = True)
     type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
@@ -100,40 +100,40 @@ class VoiceModels(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_voice() -> VoiceModels:
-        voice = VoiceModels.objects.all()
+    def select_voice() -> VoiceModel:
+        voice = VoiceModel.objects.all()
         return voice[randint(0, voice.count()-1)]
 
 
-class Avatars(AbstractModel):
+class Avatar(AbstractModel):
     name = models.CharField(max_length = 100, default = "Natasha")
     gender = models.CharField(max_length = 10)
     file = ResizedImageField(size=[256, 256], quality=75, upload_to = "media/other/avatars", force_format='jpeg')
-    voice = models.ForeignKey(VoiceModels, null = True, on_delete = models.SET_NULL, db_constraint=False)
+    voice = models.ForeignKey(VoiceModel, null = True, on_delete = models.SET_NULL, db_constraint=False)
     objects = models.Manager()
 
     def __str__(self):
         return self.name
 
     @staticmethod
-    def select_avatar(selected: str = 'random', voice_model: VoiceModels = None) -> Union[Avatars, None]:
+    def select_avatar(selected: str = 'random', voice_model: VoiceModel = None) -> Union[Avatar, None]:
         if selected == 'random':
             if voice_model is None:
-                avatars = Avatars.objects.all()
+                avatars = Avatar.objects.all()
             else:
-                avatars = Avatars.objects.filter(voice = voice_model)
+                avatars = Avatar.objects.filter(voice = voice_model)
 
             return avatars[randint(0, avatars.count()-1)]
 
         if isinstance(selected, int):
-            items = Avatars.objects.filter(id = selected)
+            items = Avatar.objects.filter(id = selected)
             if items.count() == 1:
                 return items.first()
 
         return None
 
 
-class Backgrounds(AbstractModel):
+class Background(AbstractModel):
     category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
     name = models.CharField(max_length = 100)
     file = models.FileField(upload_to = "media/other/backgrounds")
@@ -149,12 +149,12 @@ class Backgrounds(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_background(category: str = None) -> Backgrounds:
+    def select_background(category: str = None) -> Background:
         if category is not None:
-            back = Backgrounds.objects.filter(category = category)
+            back = Background.objects.filter(category = category)
         else:
 
-            back = Backgrounds.objects.all()
+            back = Background.objects.all()
 
         return back[randint(0, back.count()-1)]
 
@@ -171,20 +171,20 @@ class Outro(AbstractModel):
     objects = models.Manager()
 
 
-class Videos(AbstractModel):
+class Video(AbstractModel):
     title = models.CharField(max_length = 50, blank = False)
     url = models.URLField(blank = True)
     gpt_answer = models.TextField(blank = True, null = True)
     prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
     output = models.FileField(upload_to = "media/output", blank = True, null=True, max_length = 2000)
     dir_name = models.TextField(default = "")
-    voice_model = models.ForeignKey(VoiceModels, on_delete = models.SET_NULL, null = True, default = 1,
+    voice_model = models.ForeignKey(VoiceModel, on_delete = models.SET_NULL, null = True, default = 1,
                                     db_constraint=False)
-    avatar = models.ForeignKey(Avatars, on_delete = models.SET_NULL, null = True, default = None, blank = True,
+    avatar = models.ForeignKey(Avatar, on_delete = models.SET_NULL, null = True, default = None, blank = True,
                                db_constraint=False)
     status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
     music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
-    background = models.ForeignKey(Backgrounds, blank = True, null = True, on_delete = models.SET_NULL)
+    background = models.ForeignKey(Background, blank = True, null = True, on_delete = models.SET_NULL)
     intro = models.ForeignKey(Intro, blank = True, null = True, on_delete = models.SET_NULL)
     outro = models.ForeignKey(Outro, blank = True, null = True, on_delete = models.SET_NULL)
     video_type = models.CharField(max_length = 20, default = "AI", choices = VIDEO_TYPE)

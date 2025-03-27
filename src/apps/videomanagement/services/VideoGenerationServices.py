@@ -4,7 +4,7 @@ from typing import Union, Literal
 from slugify import slugify
 
 from ..defaults import default_format
-from ..models import TemplatePrompts, Videos, VoiceModels, UserPrompt, Avatars, Intro, Outro
+from ..models import TemplatePrompt, Video, VoiceModel, UserPrompt, Avatar, Intro, Outro
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..utils.gpt_utils import get_reply
@@ -31,7 +31,7 @@ def generate_video(template_id: Union[str, int, None],
                    provider: Union[str, None] = None,
                    created_by: get_user_model() = None,
                    avatar_position: str = "top,right"
-                   ) -> Videos:
+                   ) -> Video:
 
     """
     Generate a video based on the provided parameters.
@@ -84,7 +84,7 @@ def generate_video(template_id: Union[str, int, None],
     """
     avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else None
 
-    template = TemplatePrompts.get_template(template_id)
+    template = TemplatePrompt.get_template(template_id)
     logger.info("Retrieved template")
 
     template_format = template.format if template else default_format
@@ -106,20 +106,20 @@ def generate_video(template_id: Union[str, int, None],
         intro = Intro.objects.get(id = int(intro))
         outro = Outro.objects.get(id = int(outro))
 
-    vid = Videos.objects.create(title = x['title'], prompt = user_prompt, dir_name = dir_name, gpt_answer = x,
-                                background = background, intro = intro, outro = outro,
-                                settings = dict(subtitles=subtitles, avatar_position=avatar_position),
-                                status = "GENERATION", video_type = "AI", created_by = created_by)
+    vid = Video.objects.create(title = x['title'], prompt = user_prompt, dir_name = dir_name, gpt_answer = x,
+                               background = background, intro = intro, outro = outro,
+                               settings = dict(subtitles=subtitles, avatar_position=avatar_position),
+                               status = "GENERATION", video_type = "AI", created_by = created_by)
 
     logger.info(f"Created the video instance with id : {vid.id}")
 
     if avatar_selection:
-        selected_avatar = Avatars.select_avatar(selected = avatar_selection)
+        selected_avatar = Avatar.select_avatar(selected = avatar_selection)
         voice_model = selected_avatar.voice
         vid.avatar = selected_avatar
 
     else:
-        voice_model = VoiceModels.objects.get(id = voice_id) if voice_id else VoiceModels.select_voice()
+        voice_model = VoiceModel.objects.get(id = voice_id) if voice_id else VoiceModel.select_voice()
 
     vid.voice_model = voice_model
     vid.save()
