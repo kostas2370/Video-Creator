@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 
 from slugify import slugify
 
-from ..models import Videos, UserPrompt
+from ..models import Video, UserPrompt
 from ..utils.file_utils import generate_directory
 from ..utils.twitch import TwitchClient
 from ..utils.visual_utils import create_twitch_clip_scene
@@ -38,12 +38,12 @@ def generate_twitch_video(
 
     user_prompt = UserPrompt.objects.create(template = None, prompt = f'{message}')
 
-    video = Videos.objects.create(prompt = user_prompt,
-                                  dir_name = dir_name,
-                                  title = title,
-                                  status = "GENERATION",
-                                  video_type = "TWITCH",
-                                  created_by = created_by)
+    video = Video.objects.create(prompt = user_prompt,
+                                 dir_name = dir_name,
+                                 title = title,
+                                 status = "GENERATION",
+                                 video_type = "TWITCH",
+                                 created_by = created_by)
 
     client = TwitchClient(path = dir_name)
     client.set_headers()

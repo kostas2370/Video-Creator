@@ -1,7 +1,7 @@
 from rest_framework.exceptions import APIException
 import logging
 
-from ..models import Scene, Videos, SceneImage
+from ..models import Scene, Video, SceneImage
 from ..swagger_serializers import AddSceneSerializer
 from ..utils.audio_utils import update_scene as update
 from ..utils.gpt_utils import get_update_sentence
@@ -51,7 +51,7 @@ def update_scene(text: str, scene: Scene):
     return scene.text
 
 
-def create_scene(video: Videos, data: dict, files: dict) -> Scene:
+def create_scene(video: Video, data: dict, files: dict) -> Scene:
     data = data.copy()
     data["mode"] = video.video_type
     serializer = AddSceneSerializer(data = data)

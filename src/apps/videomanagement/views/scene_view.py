@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Scene, SceneImage, Videos
+from ..models import Scene, SceneImage, Video
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
@@ -92,7 +92,7 @@ class SceneView(viewsets.GenericViewSet):
     def generate_image_scene(self, request, pk):
         img = SceneImage.objects.filter(scene_id=pk).first()
         image_description = request.data.get('image_description')
-        video = Videos.objects.filter(prompt__scene__sceneimage=img).distinct().first()
+        video = Video.objects.filter(prompt__scene__sceneimage=img).distinct().first()
 
         if not image_description:
             return Response({"message": "Image description can not be blank"}, status = 400)
@@ -114,8 +114,3 @@ class SceneView(viewsets.GenericViewSet):
         obj.delete()
 
         return Response(dict(message = "Scene deleted successfully"), status = 204)
-
-
-
-
-

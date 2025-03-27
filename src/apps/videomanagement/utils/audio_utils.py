@@ -1,7 +1,7 @@
 import uuid
 
 from .tts_utils import save, ApiSyn, create_model
-from ..models import Scene, Videos
+from ..models import Scene, Video
 from .prompt_utils import determine_fields
 import os
 
@@ -27,7 +27,7 @@ def get_syn(voice_model):
     return syn
 
 
-def make_scenes_speech(video: Videos) -> None:
+def make_scenes_speech(video: Video) -> None:
     """
     Generate speech audio files for scenes based on the provided video.
 
@@ -83,7 +83,7 @@ def update_scene(scene: Scene) -> None:
     - It retrieves the associated video and voice model information to perform the speech synthesis.
     - The updated audio file is saved in the scene's directory.
     """
-    video = Videos.objects.get(prompt__id=scene.prompt.id)
+    video = Video.objects.get(prompt__id=scene.prompt.id)
     dir_name = video.dir_name
     voice_model = video.voice_model
     syn = voice_model.path

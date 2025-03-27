@@ -6,9 +6,9 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from django_filters.rest_framework import DjangoFilterBackend
 from ..permissions import IsOwnerPermission
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 
-from ..models import TemplatePrompts, Outro, Intro, Music, VoiceModels, Avatars, SceneImage, Videos
+from ..models import TemplatePrompt, Outro, Intro, Music, VoiceModel, Avatar, SceneImage, Video
 from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
      VoiceModelSerializer, AvatarSerializer, SceneImageSerializer
 from ..swagger_serializers import DownloadPlaylistSerializer
@@ -22,7 +22,7 @@ class SceneImageView(viewsets.GenericViewSet):
 
     def destroy(self, request, pk):
         obj = self.get_object()
-        video = Videos.objects.get(prompt=obj.scene.prompt)
+        video = Video.objects.get(prompt=obj.scene.prompt)
         if video.video_type == "AI":
             obj.file = None
             obj.save()
@@ -35,14 +35,14 @@ class SceneImageView(viewsets.GenericViewSet):
 
 class TemplatePromptView(viewsets.ModelViewSet):
     serializer_class = TemplatePromptsSerializer
-    queryset = TemplatePrompts.objects.all()
+    queryset = TemplatePrompt.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
         if self.request.user.is_superuser:
-            return TemplatePrompts.objects.all()
+            return TemplatePrompt.objects.all()
 
-        return TemplatePrompts.objects.filter(created_by=self.request.user)
+        return TemplatePrompt.objects.filter(created_by=self.request.user)
 
 
 class MusicView(viewsets.ModelViewSet):
@@ -59,7 +59,7 @@ class MusicView(viewsets.ModelViewSet):
 
 class VoiceView(viewsets.ModelViewSet):
     serializer_class = VoiceModelSerializer
-    queryset = VoiceModels.objects.all()
+    queryset = VoiceModel.objects.all()
 
 
 class AvatarView(viewsets.ModelViewSet):
@@ -67,11 +67,11 @@ class AvatarView(viewsets.ModelViewSet):
     search_fields = ['name']
 
     serializer_class = AvatarSerializer
-    queryset = Avatars.objects.all()
+    queryset = Avatar.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
-        return Avatars.objects.filter(created_by=self.request.user).select_related("voice")
+        return Avatar.objects.filter(created_by=self.request.user).select_related("voice")
 
 
 class IntroView(viewsets.ModelViewSet):

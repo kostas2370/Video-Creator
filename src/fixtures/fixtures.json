@@ -14,7 +14,7 @@
       "date_joined": "2022-06-30T17:03:10.123Z"
     }
   },{
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 1,
     "fields": {
       "name": "neon",
@@ -24,7 +24,7 @@
     }
   },
    {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 2,
     "fields": {
       "name": "alloy",
@@ -35,7 +35,7 @@
     }
   },
    {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 3,
     "fields": {
       "name": "echo",
@@ -46,7 +46,7 @@
     }
   },
   {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 4,
     "fields": {
       "name": "fable",
@@ -58,7 +58,7 @@
   },
 
   {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 5,
     "fields": {
       "name": "onyx",
@@ -69,7 +69,7 @@
     }
   },
     {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 6,
     "fields": {
       "name": "nova",
@@ -81,7 +81,7 @@
   },
 
     {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 7,
     "fields": {
       "name": "shimmer",
@@ -92,7 +92,7 @@
     }
   },
   {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 8,
     "fields": {
       "name": "tacotron",
@@ -102,7 +102,7 @@
     }
   },
     {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 9,
     "fields": {
       "name": "jenny",

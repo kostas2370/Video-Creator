@@ -1,5 +1,5 @@
 from rest_framework.permissions import BasePermission
-from .models import Scene, SceneImage, Videos
+from .models import Scene, SceneImage, Video
 
 
 class IsOwnerPermission(BasePermission):
@@ -9,10 +9,10 @@ class IsOwnerPermission(BasePermission):
             return False
 
         if isinstance(obj, Scene):
-            obj = Videos.objects.get(prompt_id = obj.prompt.id)
+            obj = Video.objects.get(prompt_id = obj.prompt.id)
 
         if isinstance(obj, SceneImage):
-            obj = Videos.objects.get(prompt_id = obj.scene.prompt.id)
+            obj = Video.objects.get(prompt_id = obj.scene.prompt.id)
 
         return obj.created_by == request.user or request.user.is_superuser
 
@@ -23,7 +23,7 @@ class BaseGenerationLimitPermission(BasePermission):
     required_limit = 1
     message = "You do not have enough tokens !"
 
-    def has_permission(self, request, view):
+    def has_permission(self, request, view) -> bool:
         if not self.limit_field:
             raise NotImplementedError(
                 f"{self.__class__.__name__} requires a `limit_field` attribute."

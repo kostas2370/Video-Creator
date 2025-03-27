@@ -123,7 +123,7 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
     return vid_scene
 
 
-def process_scene(scene_image: SceneImage, audio, background: Backgrounds):
+def process_scene(scene_image: SceneImage, audio, background: Background):
     """
     Processes and returns the appropriate visual clip (image or video) based on the given scene image and audio.
 
@@ -299,7 +299,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     return final_video
 
 
-def make_video(video: Videos) -> Videos:
+def make_video(video: Video) -> Video:
     """
     Creates a video based on the provided video object, handling scenes, audio, subtitles, background,
     and final video assembly and output.
@@ -318,7 +318,7 @@ def make_video(video: Videos) -> Videos:
     video.save()
 
     scenes: Union[QuerySet, list[Scene]] = video.prompt.scenes.all()
-    background: Backgrounds = video.background
+    background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 
     for scene in scenes:
@@ -402,7 +402,7 @@ def create_subtitle_clip(text: str, duration: float, fontsize: int = 37, color: 
         return None
 
 
-def create_avatar_video(avatar: Avatars, dir_name: str) -> str:
+def create_avatar_video(avatar: Avatar, dir_name: str) -> str:
     """
     Create an avatar video synchronized with an audio file.
 

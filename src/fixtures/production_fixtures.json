@@ -1,6 +1,6 @@
 [
    {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 2,
     "fields": {
       "name": "alloy",
@@ -11,7 +11,7 @@
     }
   },
    {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 3,
     "fields": {
       "name": "echo",
@@ -22,7 +22,7 @@
     }
   },
   {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 4,
     "fields": {
       "name": "fable",
@@ -34,7 +34,7 @@
   },
 
   {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 5,
     "fields": {
       "name": "onyx",
@@ -45,7 +45,7 @@
     }
   },
     {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 6,
     "fields": {
       "name": "nova",
@@ -57,7 +57,7 @@
   },
 
     {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 7,
     "fields": {
       "name": "shimmer",
@@ -67,7 +67,7 @@
       "provider":"open_ai"
     }
   },  {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 8,
     "fields": {
       "name": "tacotron",
@@ -77,7 +77,7 @@
     }
   },
     {
-    "model": "videomanagement.voicemodels",
+    "model": "videomanagement.voicemodel",
     "pk": 9,
     "fields": {
       "name": "jenny",
