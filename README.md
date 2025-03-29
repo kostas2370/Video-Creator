@@ -5,7 +5,7 @@ Viddie is an AI-powered platform for automated video creation, utilizing advance
 
 ## Frontend Repository
 
-](https://github.com/kostas2370/video_creator_frontend)
+[Frontend Repository](https://github.com/kostas2370/video_creator_frontend)
 ## Sample Videos
 
 - [Demo Video 1](https://www.youtube.com/watch?v=PvrX_jq4fv4)
