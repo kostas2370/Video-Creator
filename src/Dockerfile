@@ -37,16 +37,15 @@ RUN pip install -r docker_requirements.txt --ignore-installed
 
 
 
-COPY startdjango.sh /startdjango
-COPY setupdjango.sh /setupdjango
-
+COPY scripts/startdjango.sh /startdjango
+COPY scripts/setupdjango.sh /setupdjango
+COPY scripts/startceleryworker.sh /startceleryworker
 
 
 
 RUN sed -i 's/\r$//g' /setupdjango
 RUN chmod +x /setupdjango
 
-COPY startceleryworker.sh /startceleryworker
 
 
 RUN sed -i 's/\r$//g' /startceleryworker
