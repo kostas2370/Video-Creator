@@ -4,7 +4,6 @@ from .views.general_views import (
     AvatarView,
     VoiceView,
     SceneImageView,
-    download_playlist,
 )
 from .views.generate_view import GenerateView
 from .views.scene_view import SceneView
@@ -28,7 +27,6 @@ router.register("outro", OutroView)
 
 
 urlpatterns = [
-    path("downloadplaylist/", download_playlist),
     path("twitch_generate/", generate_twitch),
 ]
 
