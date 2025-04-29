@@ -9,7 +9,7 @@ from PIL import Image
 from tqdm import tqdm
 from itertools import cycle
 
-from torch.multiprocessing import Pool, Process, set_start_method
+from torch.multiprocessing import Pool, set_start_method
 
 class KeypointExtractor():
     def __init__(self, device):

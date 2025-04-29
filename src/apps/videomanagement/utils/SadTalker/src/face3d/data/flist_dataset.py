@@ -3,15 +3,10 @@
 
 import os.path
 from data.base_dataset import BaseDataset, get_transform, get_affine_mat, apply_img_affine, apply_lm_affine
-from data.image_folder import make_dataset
 from PIL import Image
-import random
-import util.util as util
 import numpy as np
 import json
 import torch
-from scipy.io import loadmat, savemat
-import pickle
 from util.preprocess import align_img, estimate_norm
 from util.load_mats import load_lm3d
 

@@ -1,5 +1,7 @@
-import torch, uuid
-import os, sys, shutil
+import torch
+import uuid
+import os
+import shutil
 from src.utils.preprocess import CropAndExtract
 from src.test_audio2coeff import Audio2Coeff  
 from src.facerender.animate import AnimateFromCoeff

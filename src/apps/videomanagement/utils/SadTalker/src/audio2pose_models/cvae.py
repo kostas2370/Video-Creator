@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 from torch import nn
 from ..audio2pose_models.res_unet import ResUnet
 

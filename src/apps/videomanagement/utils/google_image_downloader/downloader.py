@@ -16,14 +16,16 @@ def build_payload(query: str, start: int = 1, num: int = 1, **params) -> dict:
     if not settings.API_KEY:
         raise Exception("Google api key is missing")
 
-    payload = {'key': settings.API_KEY,
-               'q': query, 'cx': settings.SEARCH_ENGINE_ID,
-               'start': start,
-               'num': num,
-               "searchType": "image",
-               'imgSize': 'large',
-               'safe': 'off'
-               }
+    payload = {
+        "key": settings.API_KEY,
+        "q": query,
+        "cx": settings.SEARCH_ENGINE_ID,
+        "start": start,
+        "num": num,
+        "searchType": "image",
+        "imgSize": "large",
+        "safe": "off",
+    }
 
     payload.update(params)
 
@@ -31,14 +33,16 @@ def build_payload(query: str, start: int = 1, num: int = 1, **params) -> dict:
 
 
 def make_request(payload: dict) -> Response:
-    response = requests.get('https://www.googleapis.com/customsearch/v1', params = payload)
+    response = requests.get(
+        "https://www.googleapis.com/customsearch/v1", params=payload
+    )
     if response.status_code != 200:
-        raise Exception('Request Failed')
+        raise Exception("Request Failed")
     return response
 
 
-def download(q: str, amt: int = 1, path: str = '') -> Union[str, None]:
-    payload = build_payload(q, num = amt)
+def download(q: str, amt: int = 1, path: str = "") -> Union[str, None]:
+    payload = build_payload(q, num=amt)
     try:
         response = make_request(payload)
 
@@ -50,15 +54,18 @@ def download(q: str, amt: int = 1, path: str = '') -> Union[str, None]:
         raise Exception("Couldn't find images")
 
     data = response.json()
-    urls = [item['link'] for item in data['items']]
+    urls = [item["link"] for item in data["items"]]
 
-    image_url = data['items'][0]["link"] \
-        if len(urls) == 1 or not settings.VISION_SELECTION \
-        else \
-        data['items'][select_from_vision(q, urls)]['link']
+    image_url = (
+        data["items"][0]["link"]
+        if len(urls) == 1 or not settings.VISION_SELECTION
+        else data["items"][select_from_vision(q, urls)]["link"]
+    )
 
     filename = str(uuid.uuid4())
-    filetype = ".png" if 'png' in image_url else '.gif' if 'gif' in image_url else '.jpg'
+    filetype = (
+        ".png" if "png" in image_url else ".gif" if "gif" in image_url else ".jpg"
+    )
     urllib.request.urlretrieve(image_url, f"{path}\\{filename}{filetype}")
 
     return f"{path}\\{filename}{filetype}"

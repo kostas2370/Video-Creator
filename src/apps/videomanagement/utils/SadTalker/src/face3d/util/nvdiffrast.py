@@ -3,24 +3,14 @@
 """
 import pytorch3d.ops
 import torch
-import torch.nn.functional as F
-import kornia
-from kornia.geometry.camera import pixel2cam
-import numpy as np
-from typing import List
-from scipy.io import loadmat
 from torch import nn
 
 from pytorch3d.structures import Meshes
 from pytorch3d.renderer import (
-    look_at_view_transform,
     FoVPerspectiveCameras,
-    DirectionalLights,
     RasterizationSettings,
     MeshRenderer,
     MeshRasterizer,
-    SoftPhongShader,
-    TexturesUV,
 )
 
 # def ndc_projection(x=0.1, n=1.0, f=50.0):

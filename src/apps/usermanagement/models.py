@@ -7,12 +7,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class User(AbstractUser, PermissionsMixin):
-    first_name = models.CharField(max_length = 20, blank = False)
-    last_name = models.CharField(max_length = 20, blank = False)
-    email = models.EmailField(unique = True)
-    is_verified = models.BooleanField(default = False)
-    generation_limit_for_ai = models.FloatField(default = 0)
-    generation_limit_for_twitch = models.FloatField(default = 0)
+    first_name = models.CharField(max_length=20, blank=False)
+    last_name = models.CharField(max_length=20, blank=False)
+    email = models.EmailField(unique=True)
+    is_verified = models.BooleanField(default=False)
+    generation_limit_for_ai = models.FloatField(default=0)
+    generation_limit_for_twitch = models.FloatField(default=0)
 
     REQUIRED_FIELDS = ["email"]
 
@@ -24,7 +24,7 @@ class User(AbstractUser, PermissionsMixin):
         self.email = self.__class__.objects.normalize_email(self.email)
 
     def get_full_name(self):
-        return f'{self.first_name} {self.last_name}'
+        return f"{self.first_name} {self.last_name}"
 
     def get_short_name(self):
         return self.first_name
@@ -35,23 +35,22 @@ class User(AbstractUser, PermissionsMixin):
     def get_tokens(self):
         tokens = RefreshToken.for_user(self)
 
-        return {"access": str(tokens.access_token),
-                "refresh": str(tokens)}
+        return {"access": str(tokens.access_token), "refresh": str(tokens)}
 
 
 class Login(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     ip = models.CharField(max_length=15)
     date = models.DateTimeField(auto_now_add=True)
-    count = models.PositiveIntegerField(default = 0)
+    count = models.PositiveIntegerField(default=0)
 
     @staticmethod
     def get_user_ip(req):
-        x_forwarded_for = req.META.get('HTTP_X_FORWARDED_FOR')
+        x_forwarded_for = req.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            ip = x_forwarded_for.split(",")[0]
         else:
-            ip = req.META.get('REMOTE_ADDR')
+            ip = req.META.get("REMOTE_ADDR")
 
         return ip
 

@@ -2,10 +2,8 @@ from __future__ import division
 import datetime
 import os
 import os.path as osp
-import glob
 import numpy as np
 import cv2
-import sys
 import onnxruntime
 import onnx
 import argparse

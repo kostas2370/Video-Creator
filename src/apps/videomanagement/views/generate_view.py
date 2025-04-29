@@ -16,17 +16,19 @@ class GenerateView(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated, AiGenerationLimitPermission]
     throttle_classes = [GenerateRateThrottle]
 
-    @swagger_auto_schema(request_body = GenerateSerializer,
-                         operation_description = "This API generates the scenes , the prompt and scene images !"
-                         )
+    @swagger_auto_schema(
+        request_body=GenerateSerializer,
+        operation_description="This API generates the scenes , the prompt and scene images !",
+    )
     def create(self, request):
         data = request.data.copy()
-        serializer = self.get_serializer(data = data)
+        serializer = self.get_serializer(data=data)
         serializer.is_valid()
         video = generate_video(**serializer.validated_data)
 
-        return Response({"message": "The video has been generated successfully",
-                         "video": VideoSerializer(video).data
-                         })
-
-
+        return Response(
+            {
+                "message": "The video has been generated successfully",
+                "video": VideoSerializer(video).data,
+            }
+        )

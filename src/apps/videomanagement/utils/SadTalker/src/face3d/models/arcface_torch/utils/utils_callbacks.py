@@ -17,7 +17,7 @@ class CallBackVerification(object):
         self.highest_acc_list: List[float] = [0.0] * len(val_targets)
         self.ver_list: List[object] = []
         self.ver_name_list: List[str] = []
-        if self.rank is 0:
+        if self.rank == 0:
             self.init_dataset(val_targets=val_targets, data_dir=rec_prefix, image_size=image_size)
 
     def ver_test(self, backbone: torch.nn.Module, global_step: int):
@@ -42,7 +42,7 @@ class CallBackVerification(object):
                 self.ver_name_list.append(name)
 
     def __call__(self, num_update, backbone: torch.nn.Module):
-        if self.rank is 0 and num_update > 0 and num_update % self.frequent == 0:
+        if self.rank == 0 and num_update > 0 and num_update % self.frequent == 0:
             backbone.eval()
             self.ver_test(backbone, num_update)
             backbone.train()

@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from PIL import Image
-from skimage import io, img_as_float32, transform
+from skimage import img_as_float32, transform
 import torch
 import scipy.io as scio
 

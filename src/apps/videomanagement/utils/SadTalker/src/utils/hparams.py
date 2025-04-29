@@ -1,5 +1,3 @@
-from glob import glob
-import os
 
 class HParams:
 	def __init__(self, **kwargs):

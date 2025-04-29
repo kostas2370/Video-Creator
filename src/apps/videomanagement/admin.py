@@ -1,6 +1,18 @@
 from django.contrib import admin
 
-from .models import *
+from .models import (
+    Video,
+    TemplatePrompt,
+    SceneImage,
+    Scene,
+    UserPrompt,
+    Music,
+    VoiceModel,
+    Intro,
+    Outro,
+    Background,
+    Avatar,
+)
 from .utils.video_utils import make_video
 
 
@@ -13,8 +25,9 @@ class VideoAdmin(admin.ModelAdmin):
         make_video(queryset.first())
 
         return "Success"
+
     # Register the action with the model
-    actions = ['render_video']
+    actions = ["render_video"]
 
 
 # Register your models here.

@@ -5,13 +5,23 @@ from random import randint
 from typing import Union
 from django_resized import ResizedImageField
 
-TEMPLATE_CHOICES = (("EDUCATIONAL", "Educational"), ("GAMING", "Gaming"), ("ADVERTISEMENT", "Advertisement"),
-                    ("STORY", "Story"), ("OTHER", "Other"))
+TEMPLATE_CHOICES = (
+    ("EDUCATIONAL", "Educational"),
+    ("GAMING", "Gaming"),
+    ("ADVERTISEMENT", "Advertisement"),
+    ("STORY", "Story"),
+    ("OTHER", "Other"),
+)
 
 MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3"))
 
-VIDEO_STATUS = (("GENERATION", "GENERATION"), ("READY", "READY"), ("RENDERING", "RENDERING"),
-                ("COMPLETED", "COMPLETED"), ("FAILED", "FAILED"))
+VIDEO_STATUS = (
+    ("GENERATION", "GENERATION"),
+    ("READY", "READY"),
+    ("RENDERING", "RENDERING"),
+    ("COMPLETED", "COMPLETED"),
+    ("FAILED", "FAILED"),
+)
 
 
 IMAGE_MODE = (("AI", "AI"), ("WEB", "WEB"))
@@ -20,7 +30,9 @@ VIDEO_TYPE = (("AI", "AI"), ("TWITCH", "TWITCH"))
 
 
 class AbstractModel(models.Model):
-    created_by = models.ForeignKey(get_user_model(), on_delete = models.CASCADE, blank = True, null = True)
+    created_by = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, blank=True, null=True
+    )
     objects = models.Manager()
 
     class Meta:
@@ -28,10 +40,10 @@ class AbstractModel(models.Model):
 
 
 class TemplatePrompt(AbstractModel):
-    title = models.CharField(max_length = 20, blank = False)
-    category = models.CharField(choices = TEMPLATE_CHOICES, max_length = 20, null = True)
-    format = models.TextField(blank = True)
-    is_sentenced = models.BooleanField(default = False)
+    title = models.CharField(max_length=20, blank=False)
+    category = models.CharField(choices=TEMPLATE_CHOICES, max_length=20, null=True)
+    format = models.TextField(blank=True)
+    is_sentenced = models.BooleanField(default=False)
     objects = models.Manager()
 
     def __str__(self):
@@ -40,10 +52,10 @@ class TemplatePrompt(AbstractModel):
     @staticmethod
     def get_template(template_select: str) -> Union[TemplatePrompt, None]:
         if template_select.isnumeric():
-            template = TemplatePrompt.objects.filter(id = template_select)
+            template = TemplatePrompt.objects.filter(id=template_select)
 
         elif len(template_select) > 0:
-            template = TemplatePrompt.objects.filter(category = template_select.upper())
+            template = TemplatePrompt.objects.filter(category=template_select.upper())
 
         else:
             template = None
@@ -52,8 +64,8 @@ class TemplatePrompt(AbstractModel):
 
 
 class Music(AbstractModel):
-    name = models.CharField(max_length = 140, blank = False)
-    file = models.FileField(upload_to = "media/music", blank = False)
+    name = models.CharField(max_length=140, blank=False)
+    file = models.FileField(upload_to="media/music", blank=False)
     objects = models.Manager()
 
     def __str__(self):
@@ -61,19 +73,25 @@ class Music(AbstractModel):
 
 
 class UserPrompt(models.Model):
-    template = models.ForeignKey(TemplatePrompt, on_delete = models.CASCADE, blank = True, null = True)
-    prompt = models.TextField(blank = False)
+    template = models.ForeignKey(
+        TemplatePrompt, on_delete=models.CASCADE, blank=True, null=True
+    )
+    prompt = models.TextField(blank=False)
     objects = models.Manager()
 
     def __str__(self):
-        return f'{self.id}'
+        return f"{self.id}"
 
 
 class Scene(models.Model):
-    prompt = models.ForeignKey(UserPrompt, on_delete = models.CASCADE, related_name = 'scenes')
-    file = models.FileField(upload_to = "media/speech", blank = True, null = True, max_length = 2000)
+    prompt = models.ForeignKey(
+        UserPrompt, on_delete=models.CASCADE, related_name="scenes"
+    )
+    file = models.FileField(
+        upload_to="media/speech", blank=True, null=True, max_length=2000
+    )
     text = models.TextField()
-    is_last = models.BooleanField(default = True)
+    is_last = models.BooleanField(default=True)
     objects = models.Manager()
 
     def __str__(self):
@@ -81,19 +99,23 @@ class Scene(models.Model):
 
 
 class SceneImage(models.Model):
-    scene = models.ForeignKey(Scene, on_delete = models.CASCADE, related_name = 'scene_images')
-    file = models.FileField(upload_to = "media/images", null = True, blank = True, max_length = 2000)
-    prompt = models.TextField(default = "", blank = True, null = True)
-    with_audio = models.BooleanField(default = False)
+    scene = models.ForeignKey(
+        Scene, on_delete=models.CASCADE, related_name="scene_images"
+    )
+    file = models.FileField(
+        upload_to="media/images", null=True, blank=True, max_length=2000
+    )
+    prompt = models.TextField(default="", blank=True, null=True)
+    with_audio = models.BooleanField(default=False)
     objects = models.Manager()
 
 
 class VoiceModel(AbstractModel):
-    name = models.CharField(max_length = 200, blank = True)
-    provider = models.CharField(max_length = 100, blank = True)
-    type = models.CharField(max_length = 10, choices = MODEL_TYPE_CHOICES)
-    sample = models.URLField(blank = True, null=True, max_length = 1000)
-    path = models.CharField(max_length = 255, blank = False)
+    name = models.CharField(max_length=200, blank=True)
+    provider = models.CharField(max_length=100, blank=True)
+    type = models.CharField(max_length=10, choices=MODEL_TYPE_CHOICES)
+    sample = models.URLField(blank=True, null=True, max_length=1000)
+    path = models.CharField(max_length=255, blank=False)
     objects = models.Manager()
 
     def __str__(self):
@@ -102,31 +124,40 @@ class VoiceModel(AbstractModel):
     @staticmethod
     def select_voice() -> VoiceModel:
         voice = VoiceModel.objects.all()
-        return voice[randint(0, voice.count()-1)]
+        return voice[randint(0, voice.count() - 1)]
 
 
 class Avatar(AbstractModel):
-    name = models.CharField(max_length = 100, default = "Natasha")
-    gender = models.CharField(max_length = 10)
-    file = ResizedImageField(size=[256, 256], quality=75, upload_to = "media/other/avatars", force_format='jpeg')
-    voice = models.ForeignKey(VoiceModel, null = True, on_delete = models.SET_NULL, db_constraint=False)
+    name = models.CharField(max_length=100, default="Natasha")
+    gender = models.CharField(max_length=10)
+    file = ResizedImageField(
+        size=[256, 256],
+        quality=75,
+        upload_to="media/other/avatars",
+        force_format="jpeg",
+    )
+    voice = models.ForeignKey(
+        VoiceModel, null=True, on_delete=models.SET_NULL, db_constraint=False
+    )
     objects = models.Manager()
 
     def __str__(self):
         return self.name
 
     @staticmethod
-    def select_avatar(selected: str = 'random', voice_model: VoiceModel = None) -> Union[Avatar, None]:
-        if selected == 'random':
+    def select_avatar(
+        selected: str = "random", voice_model: VoiceModel = None
+    ) -> Union[Avatar, None]:
+        if selected == "random":
             if voice_model is None:
                 avatars = Avatar.objects.all()
             else:
-                avatars = Avatar.objects.filter(voice = voice_model)
+                avatars = Avatar.objects.filter(voice=voice_model)
 
-            return avatars[randint(0, avatars.count()-1)]
+            return avatars[randint(0, avatars.count() - 1)]
 
         if isinstance(selected, int):
-            items = Avatar.objects.filter(id = selected)
+            items = Avatar.objects.filter(id=selected)
             if items.count() == 1:
                 return items.first()
 
@@ -134,15 +165,15 @@ class Avatar(AbstractModel):
 
 
 class Background(AbstractModel):
-    category = models.CharField(max_length = 30, choices = TEMPLATE_CHOICES)
-    name = models.CharField(max_length = 100)
-    file = models.FileField(upload_to = "media/other/backgrounds")
-    color = models.CharField(max_length = 30)
+    category = models.CharField(max_length=30, choices=TEMPLATE_CHOICES)
+    name = models.CharField(max_length=100)
+    file = models.FileField(upload_to="media/other/backgrounds")
+    color = models.CharField(max_length=30)
     image_pos_top = models.IntegerField()
     image_pos_left = models.IntegerField()
     avatar_pos_top = models.IntegerField()
     avatar_pos_left = models.IntegerField()
-    through = models.IntegerField(default = 6)
+    through = models.IntegerField(default=6)
     objects = models.Manager()
 
     def __str__(self):
@@ -151,45 +182,61 @@ class Background(AbstractModel):
     @staticmethod
     def select_background(category: str = None) -> Background:
         if category is not None:
-            back = Background.objects.filter(category = category)
+            back = Background.objects.filter(category=category)
         else:
-
             back = Background.objects.all()
 
-        return back[randint(0, back.count()-1)]
+        return back[randint(0, back.count() - 1)]
 
 
 class Intro(AbstractModel):
-    name = models.CharField(max_length = 100)
-    file = models.FileField(upload_to = "media/other/intros")
+    name = models.CharField(max_length=100)
+    file = models.FileField(upload_to="media/other/intros")
     objects = models.Manager()
 
 
 class Outro(AbstractModel):
-    name = models.CharField(max_length = 100)
-    file = models.FileField(upload_to = "media/other/outros")
+    name = models.CharField(max_length=100)
+    file = models.FileField(upload_to="media/other/outros")
     objects = models.Manager()
 
 
 class Video(AbstractModel):
-    title = models.CharField(max_length = 50, blank = False)
-    url = models.URLField(blank = True)
-    gpt_answer = models.TextField(blank = True, null = True)
-    prompt = models.ForeignKey(UserPrompt, related_name = 'video_prompt', on_delete = models.CASCADE)
-    output = models.FileField(upload_to = "media/output", blank = True, null=True, max_length = 2000)
-    dir_name = models.TextField(default = "")
-    voice_model = models.ForeignKey(VoiceModel, on_delete = models.SET_NULL, null = True, default = 1,
-                                    db_constraint=False)
-    avatar = models.ForeignKey(Avatar, on_delete = models.SET_NULL, null = True, default = None, blank = True,
-                               db_constraint=False)
-    status = models.CharField(max_length = 20, choices = VIDEO_STATUS, default = "RENDERING")
-    music = models.ForeignKey(Music, blank = True, null = True, on_delete = models.SET_NULL)
-    background = models.ForeignKey(Background, blank = True, null = True, on_delete = models.SET_NULL)
-    intro = models.ForeignKey(Intro, blank = True, null = True, on_delete = models.SET_NULL)
-    outro = models.ForeignKey(Outro, blank = True, null = True, on_delete = models.SET_NULL)
-    video_type = models.CharField(max_length = 20, default = "AI", choices = VIDEO_TYPE)
-    mode = models.CharField(max_length = 30, choices=IMAGE_MODE, default = "WEB", null = True)
-    settings = models.JSONField(null = True, blank = True, default = dict(subtitles=False, avatar_position="right,top"))
+    title = models.CharField(max_length=50, blank=False)
+    url = models.URLField(blank=True)
+    gpt_answer = models.TextField(blank=True, null=True)
+    prompt = models.ForeignKey(
+        UserPrompt, related_name="video_prompt", on_delete=models.CASCADE
+    )
+    output = models.FileField(
+        upload_to="media/output", blank=True, null=True, max_length=2000
+    )
+    dir_name = models.TextField(default="")
+    voice_model = models.ForeignKey(
+        VoiceModel, on_delete=models.SET_NULL, null=True, default=1, db_constraint=False
+    )
+    avatar = models.ForeignKey(
+        Avatar,
+        on_delete=models.SET_NULL,
+        null=True,
+        default=None,
+        blank=True,
+        db_constraint=False,
+    )
+    status = models.CharField(max_length=20, choices=VIDEO_STATUS, default="RENDERING")
+    music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
+    background = models.ForeignKey(
+        Background, blank=True, null=True, on_delete=models.SET_NULL
+    )
+    intro = models.ForeignKey(Intro, blank=True, null=True, on_delete=models.SET_NULL)
+    outro = models.ForeignKey(Outro, blank=True, null=True, on_delete=models.SET_NULL)
+    video_type = models.CharField(max_length=20, default="AI", choices=VIDEO_TYPE)
+    mode = models.CharField(max_length=30, choices=IMAGE_MODE, default="WEB", null=True)
+    settings = models.JSONField(
+        null=True,
+        blank=True,
+        default=dict(subtitles=False, avatar_position="right,top"),
+    )
 
     objects = models.Manager()
 
