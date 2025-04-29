@@ -9,7 +9,7 @@ __pycache__
 /media/videos/**
 .env
 # Git
-.gitignore
+../.gitignore
 .gitattributes
 
 
