@@ -12,12 +12,12 @@ from ..utils.cost_utils import calculate_total_cost
 
 
 def generate_twitch_video(
-        mode: Literal["game", "streamer"],
-        value: str,
-        amt: int = 10,
-        started_at: str = "",
-        created_by: get_user_model() = None
-        ):
+    mode: Literal["game", "streamer"],
+    value: str,
+    amt: int = 10,
+    started_at: str = "",
+    created_by: get_user_model() = None,
+):
     """
     Generate a video based on clips fetched from Twitch.
 
@@ -34,20 +34,26 @@ def generate_twitch_video(
 
     message = f"Mode : {mode} Value : {value}"
     title = f"{value} {date.today()}"
-    dir_name = generate_directory(f'media/videos/{slugify(title)}')
+    dir_name = generate_directory(f"media/videos/{slugify(title)}")
 
-    user_prompt = UserPrompt.objects.create(template = None, prompt = f'{message}')
+    user_prompt = UserPrompt.objects.create(template=None, prompt=f"{message}")
 
-    video = Video.objects.create(prompt = user_prompt,
-                                 dir_name = dir_name,
-                                 title = title,
-                                 status = "GENERATION",
-                                 video_type = "TWITCH",
-                                 created_by = created_by)
+    video = Video.objects.create(
+        prompt=user_prompt,
+        dir_name=dir_name,
+        title=title,
+        status="GENERATION",
+        video_type="TWITCH",
+        created_by=created_by,
+    )
 
-    client = TwitchClient(path = dir_name)
+    client = TwitchClient(path=dir_name)
     client.set_headers()
-    value = client.get_streamer_id(value) if mode == "streamer" else client.get_game_id(value)
+    value = (
+        client.get_streamer_id(value)
+        if mode == "streamer"
+        else client.get_game_id(value)
+    )
     clips = client.get_clips(value, mode, started_at)
 
     description = "Source : \n"
@@ -57,7 +63,7 @@ def generate_twitch_video(
             continue
 
         create_twitch_clip_scene(downloaded_clip, clip.get("title"), video.prompt)
-        description += f"{count+1} {clip.get('title')} : {clip.get('url')} \n"
+        description += f"{count + 1} {clip.get('title')} : {clip.get('url')} \n"
 
     video.gpt_answer = description
     video.status = "READY"

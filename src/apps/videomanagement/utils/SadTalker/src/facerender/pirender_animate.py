@@ -1,12 +1,9 @@
 import os
 import cv2
 from tqdm import tqdm
-import yaml
 import numpy as np
 import warnings
 from skimage import img_as_ubyte
-import safetensors
-import safetensors.torch 
 warnings.filterwarnings('ignore')
 
 
@@ -22,7 +19,6 @@ from ..utils.paste_pic import paste_pic
 from ..utils.videoio import save_video_with_watermark
 
 try:
-    import webui  # in webui
     in_webui = True
 except:
     in_webui = False

@@ -8,7 +8,7 @@ from PIL import Image
 import torch
 from tqdm import tqdm
 from itertools import cycle
-from torch.multiprocessing import Pool, Process, set_start_method
+from torch.multiprocessing import Pool, set_start_method
 
 from facexlib.alignment import landmark_98_to_68
 from facexlib.detection import init_detection_model
@@ -36,7 +36,6 @@ class KeypointExtractor():
 
         ### gfpgan/weights
         try:
-            import webui  # in webui
             root_path = 'extensions/SadTalker/gfpgan/weights' 
 
         except:

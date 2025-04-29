@@ -8,4 +8,9 @@ channel_layer = get_channel_layer()
 
 @shared_task
 def send_email(name, email, text):
-    send_mail(subject = name, message = text, from_email = settings.EMAIL_HOST_USER, recipient_list = [email])
+    send_mail(
+        subject=name,
+        message=text,
+        from_email=settings.EMAIL_HOST_USER,
+        recipient_list=[email],
+    )

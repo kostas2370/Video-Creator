@@ -4,9 +4,7 @@ import subprocess
 import os
 import sys
 import importlib.util
-import shlex
 import platform
-import json
 
 python = sys.executable
 git = os.environ.get('GIT', "git")
@@ -189,11 +187,11 @@ def prepare_environment():
     run_pip(f"install -r \"{requirements_file}\"", "requirements for SadTalker WebUI (may take longer time in first time)")
 
     if sys.platform != 'win32' and not is_installed('tts'):
-        run_pip(f"install TTS", "install TTS individually in SadTalker, which might not work on windows.")
+        run_pip("install TTS", "install TTS individually in SadTalker, which might not work on windows.")
 
 
 def start():
-    print(f"Launching SadTalker Web UI")
+    print("Launching SadTalker Web UI")
     from app_sadtalker import sadtalker_demo
     demo = sadtalker_demo()
     demo.queue()

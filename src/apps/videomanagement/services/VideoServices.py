@@ -11,14 +11,15 @@ from ..utils.visual_utils import generate_new_image
 logger = logging.getLogger(__name__)
 
 
-def video_update(video: Video,
-                 title: str = None,
-                 avatar: str = None,
-                 intro: str = None,
-                 outro: str = None,
-                 subtitles: bool = False,
-                 avatar_position: str = "right,top"
-                 ) -> Video:
+def video_update(
+    video: Video,
+    title: str = None,
+    avatar: str = None,
+    intro: str = None,
+    outro: str = None,
+    subtitles: bool = False,
+    avatar_position: str = "right,top",
+) -> Video:
     """
     Update the specified video with new avatar, intro, or outro.
 
@@ -36,12 +37,17 @@ def video_update(video: Video,
 
     video.title = title
 
-    if avatar == "None" or avatar == '' or video.video_type == "TWITCH" or avatar is None:
+    if (
+        avatar == "None"
+        or avatar == ""
+        or video.video_type == "TWITCH"
+        or avatar is None
+    ):
         video.avatar = None
 
     else:
         print(avatar)
-        selected_avatar = Avatar.objects.get(id = avatar)
+        selected_avatar = Avatar.objects.get(id=avatar)
         video.avatar = selected_avatar
 
         if video.voice_model != selected_avatar.voice:
@@ -52,17 +58,23 @@ def video_update(video: Video,
                 update_scene(scene)
 
     try:
-        video.intro = Intro.objects.get(id = intro) if intro != "null" and intro != '' else None
+        video.intro = (
+            Intro.objects.get(id=intro) if intro != "null" and intro != "" else None
+        )
     except Intro.DoesNotExist:
         raise APIException("Intro with that id does not Exists !")
 
     try:
-        video.outro = Outro.objects.get(id = outro) if outro != "null" and outro != '' else None
+        video.outro = (
+            Outro.objects.get(id=outro) if outro != "null" and outro != "" else None
+        )
     except Outro.DoesNotExist:
         raise APIException("Outro with that id does not Exists !")
 
-    if video.video_type != 'TWITCH':
-        video.settings = dict(subtitles = subtitles == 'true', avatar_position = avatar_position)
+    if video.video_type != "TWITCH":
+        video.settings = dict(
+            subtitles=subtitles == "true", avatar_position=avatar_position
+        )
 
     video.save()
 
@@ -75,10 +87,12 @@ def video_regenerate(video: Video) -> None:
             update_scene(scene)
 
             for scene_image in scene.scene_images.all():
-                generate_new_image(scene_image = scene_image, video = video)
+                generate_new_image(scene_image=scene_image, video=video)
 
-        if video.avatar and os.path.exists(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4'):
-            os.remove(rf'{os.getcwd()}\{video.dir_name}\output_avatar.mp4')
+        if video.avatar and os.path.exists(
+            rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4"
+        ):
+            os.remove(rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4")
 
         video.status = "READY"
         video.save()

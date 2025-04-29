@@ -4,12 +4,23 @@ import subprocess
 import uuid
 import logging
 from PIL import Image
+from typing import Union
+
 from django.db.models import QuerySet
-from moviepy.editor import AudioFileClip, concatenate_audioclips, CompositeAudioClip, ImageClip, VideoFileClip, vfx, \
-    concatenate_videoclips, CompositeVideoClip, TextClip
+from moviepy.editor import (
+    AudioFileClip,
+    concatenate_audioclips,
+    CompositeAudioClip,
+    ImageClip,
+    VideoFileClip,
+    vfx,
+    concatenate_videoclips,
+    CompositeVideoClip,
+    TextClip,
+)
 
 from .SadTalker.inference import lip
-from ..models import *
+from ..models import Avatar, SceneImage, Background, Scene, Video
 from .exceptions import RenderFailedException
 
 
@@ -17,13 +28,13 @@ logger = logging.getLogger(__name__)
 
 
 def check_if_image(path: str) -> bool:
-    supported_image_extensions = {'.jpg', '.jpeg', '.png'}
+    supported_image_extensions = {".jpg", ".jpeg", ".png"}
     file_extension = os.path.splitext(path)[1].lower()
     return file_extension in supported_image_extensions
 
 
 def check_if_video(path: str) -> bool:
-    supported_video_extensions = {'.mp4', '.avi'}
+    supported_video_extensions = {".mp4", ".avi"}
     file_extension = os.path.splitext(path)[1].lower()
     return file_extension in supported_video_extensions
 
@@ -41,7 +52,7 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
                        the scene image's audio, and silence if applicable.
     """
 
-    silent = AudioFileClip('assets/blank.wav')
+    silent = AudioFileClip("assets/blank.wav")
 
     audio = None
 
@@ -88,11 +99,13 @@ def handle_image(audio, scene_image, background):
     if background:
         clip = ImageClip(background.file.path)
         w, h = clip.size
-        Image.open(scene_image.file.path).convert('RGB').resize((int(w*0.65), int(h*0.65))).save(scene_image.file.path)
+        Image.open(scene_image.file.path).convert("RGB").resize(
+            (int(w * 0.65), int(h * 0.65))
+        ).save(scene_image.file.path)
     try:
         image = ImageClip(scene_image.file.path)
         image = image.set_duration(audio.duration)
-        image = image.fadein(image.duration*0.2).fadeout(image.duration*0.2)
+        image = image.fadein(image.duration * 0.2).fadeout(image.duration * 0.2)
     except Exception as exc:
         raise Exception(f"Error handling image: {exc}")
 
@@ -119,7 +132,9 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
     if vid_scene.duration > audio.duration:
         vid_scene = vid_scene.subclip(0, audio.duration)
 
-    vid_scene = vid_scene.fadein(vid_scene.duration*0.2).fadeout(vid_scene.duration*0.2)
+    vid_scene = vid_scene.fadein(vid_scene.duration * 0.2).fadeout(
+        vid_scene.duration * 0.2
+    )
     return vid_scene
 
 
@@ -142,7 +157,7 @@ def process_scene(scene_image: SceneImage, audio, background: Background):
         VideoFileClip: The processed visual clip for the scene, which may be a black video, an image clip,
                        or a video clip based on the scene image file type.
     """
-    black_clip = ImageClip('assets/black.jpg').set_duration(audio.duration)
+    black_clip = ImageClip("assets/black.jpg").set_duration(audio.duration)
 
     file_path = scene_image.file.path
 
@@ -158,7 +173,9 @@ def process_scene(scene_image: SceneImage, audio, background: Background):
     except Exception as exc:
         logger.warning(exc)
 
-    logger.warning(f"Warning: Unsupported file type for {file_path}. Returning black clip.")
+    logger.warning(
+        f"Warning: Unsupported file type for {file_path}. Returning black clip."
+    )
 
     return black_clip
 
@@ -181,16 +198,23 @@ def handle_avatar_video(video, final_video):
                        and fade-out effects applied.
     """
 
-    avatar_video = f'{os.getcwd()}/{video.dir_name}/output_avatar.mp4'
+    avatar_video = f"{os.getcwd()}/{video.dir_name}/output_avatar.mp4"
 
-    if not os.path.exists(f'{os.getcwd()}/{video.dir_name}/output_avatar.mp4'):
+    if not os.path.exists(f"{os.getcwd()}/{video.dir_name}/output_avatar.mp4"):
         logger.info("Start creating the avatar video")
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
 
     position = tuple(video.settings.get("avatar_position", "right,top").split(","))
-    avatar_vid = VideoFileClip(avatar_video).without_audio().set_position(position).resize(1.5).fadein(2).fadeout(2)
+    avatar_vid = (
+        VideoFileClip(avatar_video)
+        .without_audio()
+        .set_position(position)
+        .resize(1.5)
+        .fadein(2)
+        .fadeout(2)
+    )
 
-    final_video = CompositeVideoClip([final_video, avatar_vid], size = (1920, 1080))
+    final_video = CompositeVideoClip([final_video, avatar_vid], size=(1920, 1080))
     return final_video
 
 
@@ -212,13 +236,15 @@ def handle_music(video, final_audio):
     music = music.volumex(music_volume)
 
     if music.duration < final_audio.duration:
-        loop_count = int(final_audio.duration//music.duration)+1
-        music = concatenate_audioclips([music]*loop_count).subclip(0, final_audio.duration)
+        loop_count = int(final_audio.duration // music.duration) + 1
+        music = concatenate_audioclips([music] * loop_count).subclip(
+            0, final_audio.duration
+        )
 
     else:
         music = music.subclip(0, final_audio.duration)
 
-    fade_duration = min(4, final_audio.duration*0.1)
+    fade_duration = min(4, final_audio.duration * 0.1)
     music = music.audio_fadein(fade_duration).audio_fadeout(fade_duration)
 
     final_audio = CompositeAudioClip([final_audio, music])
@@ -251,7 +277,9 @@ def handle_background(final_audio, background, final_video):
     mask_color = [int(x) for x in background.color.split(",")]
     threshold = float(background.threshold) / 255.0
     masked_clip = final_video.fx(vfx.mask_color, color=mask_color, thr=threshold, s=7)
-    final_video = CompositeVideoClip([bg_clip, masked_clip.set_duration(final_audio.duration)]).crossfadein(2)
+    final_video = CompositeVideoClip(
+        [bg_clip, masked_clip.set_duration(final_audio.duration)]
+    ).crossfadein(2)
 
     return final_video
 
@@ -283,18 +311,20 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
         final_video = handle_avatar_video(video, final_video)
 
     if video.settings.get("subtitles", False) and subtitles:
-        subs = concatenate_videoclips(subtitles, method = "compose")
+        subs = concatenate_videoclips(subtitles, method="compose")
         video_height = final_video.size[1]
-        subtitle_position = (60, video_height-150)
-        final_video = CompositeVideoClip([final_video, subs.set_pos(subtitle_position).fadein(1).fadeout(1)])
+        subtitle_position = (60, video_height - 150)
+        final_video = CompositeVideoClip(
+            [final_video, subs.set_pos(subtitle_position).fadein(1).fadeout(1)]
+        )
 
     if getattr(video, "intro", None):
         intro = VideoFileClip(video.intro.file.path).resize(final_video.size)
-        final_video = concatenate_videoclips([intro, final_video], method = "compose")
+        final_video = concatenate_videoclips([intro, final_video], method="compose")
 
     if getattr(video, "outro", None):
         outro = VideoFileClip(video.outro.file.path).resize(final_video.size)
-        final_video = concatenate_videoclips([final_video, outro], method = "compose")
+        final_video = concatenate_videoclips([final_video, outro], method="compose")
 
     return final_video
 
@@ -339,16 +369,16 @@ def make_video(video: Video) -> Video:
 
         if background:
             final_video = final_video.margin(
-                top=background.image_pos_top,
-                left=background.image_pos_left,
-                opacity=4
+                top=background.image_pos_top, left=background.image_pos_left, opacity=4
             ).set_position("center")
 
         final_audio = concatenate_audioclips(sound_list)
         final_audio_path = f"{video.dir_name}/output_audio.wav"
         final_audio.write_audiofile(final_audio_path)
 
-        final_video = handle_final_video(background, final_audio, final_video, video, subtitles)
+        final_video = handle_final_video(
+            background, final_audio, final_video, video, subtitles
+        )
         final_video_path = f"{video.dir_name}/output_video.mp4"
         final_video.write_videofile(final_video_path, fps=24, threads=8)
 
@@ -365,8 +395,15 @@ def make_video(video: Video) -> Video:
     return video
 
 
-def create_subtitle_clip(text: str, duration: float, fontsize: int = 37, color: str = "blue",
-                         bg_color: str = "black", font: str = "Arial", size: tuple = (1600, 500)) -> TextClip:
+def create_subtitle_clip(
+    text: str,
+    duration: float,
+    fontsize: int = 37,
+    color: str = "blue",
+    bg_color: str = "black",
+    font: str = "Arial",
+    size: tuple = (1600, 500),
+) -> TextClip:
     """
     Creates a styled subtitle clip.
 
@@ -394,8 +431,13 @@ def create_subtitle_clip(text: str, duration: float, fontsize: int = 37, color: 
     """
     try:
         return TextClip(
-            text, fontsize=fontsize, color=color, font=font, method="caption", size=size,
-            bg_color=bg_color
+            text,
+            fontsize=fontsize,
+            color=color,
+            font=font,
+            method="caption",
+            size=size,
+            bg_color=bg_color,
         ).set_duration(duration)
     except Exception as e:
         logger.error(f"Error creating subtitle clip: {e}")
@@ -430,18 +472,28 @@ def create_avatar_video(avatar: Avatar, dir_name: str) -> str:
     """
 
     try:
-        avatar_cam = lip(source_image = avatar.file.path, driven_audio = os.path.join(dir_name, "output_audio.wav"),
-                         result_dir = dir_name, facerender = "pirender", )
+        avatar_cam = lip(
+            source_image=avatar.file.path,
+            driven_audio=os.path.join(dir_name, "output_audio.wav"),
+            result_dir=dir_name,
+            facerender="pirender",
+        )
     except Exception as e:
         logger.error(f"Error running lip function: {e}")
         return ""
 
     output = os.path.join(os.getcwd(), dir_name, "output_avatar.mp4")
 
-    ffmpeg_command = f'ffmpeg -i "{os.path.join(os.getcwd(), avatar_cam)}" -vcodec h264 "{output}"'
+    ffmpeg_command = (
+        f'ffmpeg -i "{os.path.join(os.getcwd(), avatar_cam)}" -vcodec h264 "{output}"'
+    )
     try:
-        result = subprocess.run(shlex.split(ffmpeg_command), stdout = subprocess.PIPE, stderr = subprocess.PIPE,
-                                text = True)
+        result = subprocess.run(
+            shlex.split(ffmpeg_command),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         if result.returncode != 0:
             logger.error(f"FFmpeg error: {result.stderr}")
             return ""
@@ -487,31 +539,37 @@ def split_video_and_mp3(video_path: str) -> tuple[str, str]:
     folder_to_save = os.path.split(os.path.abspath(video_path))[0]
     video = VideoFileClip(video_path)
 
-    audio_save = f'{str(folder_to_save)}/dialogues/{str(uuid.uuid4())}.mp3'
-    video_save = f'{str(folder_to_save)}/images/{str(uuid.uuid4())}.mp4'
+    audio_save = f"{str(folder_to_save)}/dialogues/{str(uuid.uuid4())}.mp3"
+    video_save = f"{str(folder_to_save)}/images/{str(uuid.uuid4())}.mp4"
 
     try:
         video = VideoFileClip(video_path)
         video.audio.write_audiofile(audio_save)
         video_without_audio = video.set_audio(None)
-        video_without_audio.write_videofile(video_save, codec = "libx264", audio = False)
+        video_without_audio.write_videofile(video_save, codec="libx264", audio=False)
 
     except Exception as e:
         logger.error(f"Error processing video '{video_path}': {e}")
         return "", ""
 
     finally:
-        if 'video' in locals():
+        if "video" in locals():
             video.close()
-        if 'video_without_audio' in locals():
+        if "video_without_audio" in locals():
             video_without_audio.close()
         os.remove(video_path)
 
     return audio_save, video_save
 
 
-def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize: int = 50, x: str = "(w-text_w)/2",
-                      y: str = "h-text_h-20") -> str:
+def add_text_to_video(
+    video: str,
+    text: str,
+    fontcolor: str = "black",
+    fontsize: int = 50,
+    x: str = "(w-text_w)/2",
+    y: str = "h-text_h-20",
+) -> str:
     """
     Add text to a video at a specified position and return the new video file path.
 
@@ -553,14 +611,20 @@ def add_text_to_video(video: str, text: str, fontcolor: str = "black", fontsize:
     output_video = f"{base_dir}_{uuid.uuid4().hex}.mp4"
 
     command = [
-        "ffmpeg", "-i", video,
-        "-vf", f"drawtext=fontsize={fontsize}:fontcolor={fontcolor}:text='{text}':"
-               f"x={x}:y={y}:shadowcolor=black:shadowx=2:shadowy=2:"
-               f"box=1:boxcolor=black@0.5:boxborderw=10",
-        "-y", output_video
+        "ffmpeg",
+        "-i",
+        video,
+        "-vf",
+        f"drawtext=fontsize={fontsize}:fontcolor={fontcolor}:text='{text}':"
+        f"x={x}:y={y}:shadowcolor=black:shadowx=2:shadowy=2:"
+        f"box=1:boxcolor=black@0.5:boxborderw=10",
+        "-y",
+        output_video,
     ]
     try:
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
         if result.returncode != 0:
             logger.error(f"FFmpeg error: {result.stderr}")
             return ""

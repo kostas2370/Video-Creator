@@ -12,27 +12,28 @@ from ..utils.prompt_utils import format_prompt
 from ..utils.visual_utils import create_image_scenes, download_music
 from ..utils.cost_utils import calculate_total_cost
 from django.contrib.auth import get_user_model
+
 logger = logging.getLogger(__name__)
 
 
-def generate_video(template_id: Union[str, int, None],
-                   message: str,
-                   gpt_model: Union[str, None],
-                   image_mode: Union[str, bool, Literal["WEB", "AI"]],
-                   avatar_selection: Union[str],
-                   style: Literal["vivid", "natural"],
-                   target_audience: str,
-                   music: Union[str, None] = None,
-                   background: str = None,
-                   intro: str = None,
-                   outro: str = None,
-                   voice_id: Union[int, None] = None,
-                   subtitles: bool = False,
-                   provider: Union[str, None] = None,
-                   created_by: get_user_model() = None,
-                   avatar_position: str = "top,right"
-                   ) -> Video:
-
+def generate_video(
+    template_id: Union[str, int, None],
+    message: str,
+    gpt_model: Union[str, None],
+    image_mode: Union[str, bool, Literal["WEB", "AI"]],
+    avatar_selection: Union[str],
+    style: Literal["vivid", "natural"],
+    target_audience: str,
+    music: Union[str, None] = None,
+    background: str = None,
+    intro: str = None,
+    outro: str = None,
+    voice_id: Union[int, None] = None,
+    subtitles: bool = False,
+    provider: Union[str, None] = None,
+    created_by: get_user_model() = None,
+    avatar_position: str = "top,right",
+) -> Video:
     """
     Generate a video based on the provided parameters.
 
@@ -88,38 +89,60 @@ def generate_video(template_id: Union[str, int, None],
     logger.info("Retrieved template")
 
     template_format = template.format if template else default_format
-    category = template.category if template else template_id if len(template_id) > 0 and not template_id.isnumeric() \
+    category = (
+        template.category
+        if template
+        else template_id
+        if len(template_id) > 0 and not template_id.isnumeric()
         else ""
+    )
 
-    prompt = format_prompt(template_format = template_format, template_category = category,
-                           userprompt = message, target_audience = target_audience)
+    prompt = format_prompt(
+        template_format=template_format,
+        template_category=category,
+        userprompt=message,
+        target_audience=target_audience,
+    )
 
-    x = get_reply(prompt, gpt_model = gpt_model)
+    x = get_reply(prompt, gpt_model=gpt_model)
 
-    user_prompt = UserPrompt.objects.create(template = template, prompt = F'{message}')
+    user_prompt = UserPrompt.objects.create(template=template, prompt=f"{message}")
     user_prompt.save()
     logger.info(f"Created the user_prompt instance with id : {user_prompt.id}")
 
-    dir_name = generate_directory(f'media/videos/{slugify(x["title"])}')
+    dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     if intro and outro:
-        intro = Intro.objects.get(id = int(intro))
-        outro = Outro.objects.get(id = int(outro))
+        intro = Intro.objects.get(id=int(intro))
+        outro = Outro.objects.get(id=int(outro))
 
-    vid = Video.objects.create(title = x['title'], prompt = user_prompt, dir_name = dir_name, gpt_answer = x,
-                               background = background, intro = intro, outro = outro,
-                               settings = dict(subtitles=subtitles, avatar_position=avatar_position),
-                               status = "GENERATION", video_type = "AI", created_by = created_by)
+    vid = Video.objects.create(
+        title=x["title"],
+        prompt=user_prompt,
+        dir_name=dir_name,
+        gpt_answer=x,
+        background=background,
+        intro=intro,
+        outro=outro,
+        settings=dict(subtitles=subtitles, avatar_position=avatar_position),
+        status="GENERATION",
+        video_type="AI",
+        created_by=created_by,
+    )
 
     logger.info(f"Created the video instance with id : {vid.id}")
 
     if avatar_selection:
-        selected_avatar = Avatar.select_avatar(selected = avatar_selection)
+        selected_avatar = Avatar.select_avatar(selected=avatar_selection)
         voice_model = selected_avatar.voice
         vid.avatar = selected_avatar
 
     else:
-        voice_model = VoiceModel.objects.get(id = voice_id) if voice_id else VoiceModel.select_voice()
+        voice_model = (
+            VoiceModel.objects.get(id=voice_id)
+            if voice_id
+            else VoiceModel.select_voice()
+        )
 
     vid.voice_model = voice_model
     vid.save()
@@ -134,7 +157,7 @@ def generate_video(template_id: Union[str, int, None],
 
     if image_mode:
         vid.mode = image_mode
-        create_image_scenes(vid, mode = image_mode, style = style, provider = provider)
+        create_image_scenes(vid, mode=image_mode, style=style, provider=provider)
         logger.info(f"Generated the images for the video with id : {vid.id}")
 
     vid.status = "READY"

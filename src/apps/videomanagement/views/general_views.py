@@ -1,6 +1,4 @@
-from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 
@@ -8,11 +6,25 @@ from django_filters.rest_framework import DjangoFilterBackend
 from ..permissions import IsOwnerPermission
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import TemplatePrompt, Outro, Intro, Music, VoiceModel, Avatar, SceneImage, Video
-from ..serializers import TemplatePromptsSerializer, IntroSerializer, OutroSerializer, MusicSerializer, \
-     VoiceModelSerializer, AvatarSerializer, SceneImageSerializer
-from ..swagger_serializers import DownloadPlaylistSerializer
-from ..utils.visual_utils import download_playlist
+from ..models import (
+    TemplatePrompt,
+    Outro,
+    Intro,
+    Music,
+    VoiceModel,
+    Avatar,
+    SceneImage,
+    Video,
+)
+from ..serializers import (
+    TemplatePromptsSerializer,
+    IntroSerializer,
+    OutroSerializer,
+    MusicSerializer,
+    VoiceModelSerializer,
+    AvatarSerializer,
+    SceneImageSerializer,
+)
 
 
 class SceneImageView(viewsets.GenericViewSet):
@@ -30,7 +42,7 @@ class SceneImageView(viewsets.GenericViewSet):
         if video.video_type == "TWITCH":
             obj.scene.delete()
 
-        return Response({"message": "scene image deleted !"}, status = 204)
+        return Response({"message": "scene image deleted !"}, status=204)
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
@@ -64,27 +76,27 @@ class VoiceView(viewsets.ModelViewSet):
 
 class AvatarView(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['name']
+    search_fields = ["name"]
 
     serializer_class = AvatarSerializer
     queryset = Avatar.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
-        return Avatar.objects.filter(created_by=self.request.user).select_related("voice")
+        return Avatar.objects.filter(created_by=self.request.user).select_related(
+            "voice"
+        )
 
 
 class IntroView(viewsets.ModelViewSet):
-
     serializer_class = IntroSerializer
     queryset = Intro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['name']
+    search_fields = ["name"]
 
     def get_queryset(self):
-
         if self.request.user.is_superuser:
             return Intro.objects.all()
 
@@ -92,27 +104,14 @@ class IntroView(viewsets.ModelViewSet):
 
 
 class OutroView(viewsets.ModelViewSet):
-
     serializer_class = OutroSerializer
     queryset = Outro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['name']
+    search_fields = ["name"]
 
     def get_queryset(self):
         if self.request.user.is_superuser:
             return Outro.objects.all()
 
         return Outro.objects.filter(created_by=self.request.user)
-
-
-@swagger_auto_schema(request_body = DownloadPlaylistSerializer,
-                     operation_description = "This API downloads music playlist. The required fields are :"
-                                             " Category and URL ",
-                     method = "POST")
-@api_view(['POST'])
-def download_playlist(request):
-    DownloadPlaylistSerializer(data = request.data).is_valid(raise_exception = True)
-    link = request.data['link']
-    download_playlist(link, category = request.data.get('category'))
-    return Response({'Message': 'Successful'})

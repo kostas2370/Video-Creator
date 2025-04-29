@@ -20,9 +20,11 @@ class ApiSyn:
     path: str
 
 
-def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json",
-                 model: str = "tts_models/en/ljspeech/vits--neon", vocoder: str = "default_vocoder") -> Synthesizer:
-
+def create_model(
+    model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json",
+    model: str = "tts_models/en/ljspeech/vits--neon",
+    vocoder: str = "default_vocoder",
+) -> Synthesizer:
     """
     Create and return a Synthesizer instance with specified model and vocoder settings.
 
@@ -59,7 +61,9 @@ def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json
         model_manager = ModelManager(model_path)
         model_path, config_path, model_item = model_manager.download_model(model)
         if vocoder == "default_vocoder" and model_item.get(vocoder) is not None:
-            voc_path, voc_config_path, _ = model_manager.download_model(model_item[vocoder])
+            voc_path, voc_config_path, _ = model_manager.download_model(
+                model_item[vocoder]
+            )
 
         elif vocoder is not None:
             try:
@@ -72,11 +76,15 @@ def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json
             voc_path, voc_config_path = None, None
 
         if voc_path is not None and voc_config_path is not None:
-            syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path, vocoder_checkpoint = voc_path,
-                              vocoder_config = voc_config_path)
+            syn = Synthesizer(
+                tts_checkpoint=model_path,
+                tts_config_path=config_path,
+                vocoder_checkpoint=voc_path,
+                vocoder_config=voc_config_path,
+            )
 
         else:
-            syn = Synthesizer(tts_checkpoint = model_path, tts_config_path = config_path)
+            syn = Synthesizer(tts_checkpoint=model_path, tts_config_path=config_path)
 
     except Exception as exc:
         print(exc)
@@ -85,7 +93,9 @@ def create_model(model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json
     return syn
 
 
-def save(syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = "") -> Union[str, None]:
+def save(
+    syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = ""
+) -> Union[str, None]:
     """
     Save synthesized audio to a file.
 
@@ -158,8 +168,8 @@ def tts_from_open_api(text, save_path, voice="onyx"):
     """
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
-    client = OpenAI(api_key = settings.OPEN_API_KEY)
-    response = client.audio.speech.create(model = "tts-1", voice = voice, input = text)
+    client = OpenAI(api_key=settings.OPEN_API_KEY)
+    response = client.audio.speech.create(model="tts-1", voice=voice, input=text)
     response.stream_to_file(save_path)
 
     return response
@@ -190,16 +200,23 @@ def tts_from_eleven_labs(text, save_path, voice):
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
 
-    headers = {"Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": settings.XI_API_KEY}
-    data = {"text": text, "model_id": "eleven_monolingual_v1",
-            "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}}
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": settings.XI_API_KEY,
+    }
+    data = {
+        "text": text,
+        "model_id": "eleven_monolingual_v1",
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
+    }
 
     response = None
     try:
-        response = requests.post(url, json = data, headers = headers)
+        response = requests.post(url, json=data, headers=headers)
         response.raise_for_status()
-        with open(save_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size = 1024):
+        with open(save_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
 

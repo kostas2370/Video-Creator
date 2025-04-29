@@ -13,8 +13,7 @@ from ..utils.audio_utils import make_scene_speech
 logger = logging.getLogger(__name__)
 
 
-def generate_scene(text: str,
-                   scene: Scene) -> str:
+def generate_scene(text: str, scene: Scene) -> str:
     """
     Generate an updated version of the scene text and update the scene with it.
 
@@ -54,8 +53,8 @@ def update_scene(text: str, scene: Scene):
 def create_scene(video: Video, data: dict, files: dict) -> Scene:
     data = data.copy()
     data["mode"] = video.video_type
-    serializer = AddSceneSerializer(data = data)
-    serializer.is_valid(raise_exception = True)
+    serializer = AddSceneSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
     scene = None
 
     if video.video_type == "TWITCH":
@@ -64,27 +63,43 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
         try:
             clip = client.get_clip_by_url(serializer.data.get("url"))
             downloaded_clip = client.download_clip(clip[0])
-            create_twitch_clip_scene(downloaded_clip, clip[0].get("title"), video.prompt)
+            create_twitch_clip_scene(
+                downloaded_clip, clip[0].get("title"), video.prompt
+            )
 
         except Exception as esc:
-            raise APIException(str(esc), code= 400)
+            raise APIException(str(esc), code=400)
 
     if video.video_type == "AI":
         try:
-            scene = make_scene_speech(video.voice_model, video.dir_name, video.prompt, serializer.data["text"],
-                                      serializer.data['is_last'])
+            scene = make_scene_speech(
+                video.voice_model,
+                video.dir_name,
+                video.prompt,
+                serializer.data["text"],
+                serializer.data["is_last"],
+            )
 
         except Exception as exc:
             logger.error(exc)
-            raise APIException(str(exc), code= 400)
+            raise APIException(str(exc), code=400)
 
-        if files.get('image'):
-            SceneImage.objects.create(scene = scene, file = files['image'],
-                                      prompt = serializer.data.get('image_description', ""),
-                                      with_audio = serializer.data['with_audio'], )
+        if files.get("image"):
+            SceneImage.objects.create(
+                scene=scene,
+                file=files["image"],
+                prompt=serializer.data.get("image_description", ""),
+                with_audio=serializer.data["with_audio"],
+            )
 
         if serializer.data.get("image_description"):
-            create_image_scene(prompt = video.prompt, image = serializer.data['image_description'], text = scene.text,
-                               dir_name = video.dir_name, mode = video.mode, title = video.title)
+            create_image_scene(
+                prompt=video.prompt,
+                image=serializer.data["image_description"],
+                text=scene.text,
+                dir_name=video.dir_name,
+                mode=video.mode,
+                title=video.title,
+            )
 
     return scene

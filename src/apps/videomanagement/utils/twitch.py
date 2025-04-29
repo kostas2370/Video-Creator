@@ -6,22 +6,27 @@ import requests
 from django.conf import settings
 from rest_framework.exceptions import APIException
 
-from .exceptions import GameNotFound, InvalidTwitchToken, StreamerNotFound, HeaderInitiationException
+from .exceptions import (
+    GameNotFound,
+    InvalidTwitchToken,
+    StreamerNotFound,
+    HeaderInitiationException,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class TwitchClient:
     """
-        A client for interacting with the Twitch API to fetch game and streamer information, clips, and download clips.
+    A client for interacting with the Twitch API to fetch game and streamer information, clips, and download clips.
 
-        Attributes:
-        -----------
-        path : str
-            The directory path where downloaded clips will be saved.
-        headers : dict or None
-            The headers for authentication, including the Bearer token and Client ID.
-        """
+    Attributes:
+    -----------
+    path : str
+        The directory path where downloaded clips will be saved.
+    headers : dict or None
+        The headers for authentication, including the Bearer token and Client ID.
+    """
 
     def __init__(self, path):
         """
@@ -53,22 +58,35 @@ class TwitchClient:
                     If a general error occurs during the request for the OAuth token.
         """
 
-        headers = {'Content-Type': 'application/x-www-form-urlencoded', }
-        data = f'client_id={settings.TWITCH_CLIENT}&client_secret={settings.TWITCH_CLIENT_SECRET}' \
-               f'&grant_type=client_credentials'
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+        data = (
+            f"client_id={settings.TWITCH_CLIENT}&client_secret={settings.TWITCH_CLIENT_SECRET}"
+            f"&grant_type=client_credentials"
+        )
 
         try:
-            response = requests.post('https://id.twitch.tv/oauth2/token', headers = headers, data = data)
+            response = requests.post(
+                "https://id.twitch.tv/oauth2/token", headers=headers, data=data
+            )
             response.raise_for_status()
 
-        except (requests.exceptions.HTTPError,
-                requests.exceptions.RequestException) as err:
-
+        except (
+            requests.exceptions.HTTPError,
+            requests.exceptions.RequestException,
+        ) as err:
             raise APIException(err)
 
-        bearer = response.json()['access_token']
-        self.headers = {"Authorization": f"Bearer {bearer}", "Client-Id": settings.TWITCH_CLIENT}
-        return {"Authorization": f"Bearer {bearer}", "Client-Id": settings.TWITCH_CLIENT}
+        bearer = response.json()["access_token"]
+        self.headers = {
+            "Authorization": f"Bearer {bearer}",
+            "Client-Id": settings.TWITCH_CLIENT,
+        }
+        return {
+            "Authorization": f"Bearer {bearer}",
+            "Client-Id": settings.TWITCH_CLIENT,
+        }
 
     def get_game_id(self, name: str) -> str:
         """
@@ -99,7 +117,7 @@ class TwitchClient:
 
         try:
             url = f"https://api.twitch.tv/helix/games?name={name}"
-            req = requests.get(url, headers = self.headers)
+            req = requests.get(url, headers=self.headers)
             req.raise_for_status()
             return req.json().get("data")[0].get("id")
 
@@ -135,8 +153,8 @@ class TwitchClient:
         """
         req = None
         try:
-            url = f'https://api.twitch.tv/helix/users?login={name}'
-            req = requests.get(url, headers = self.headers)
+            url = f"https://api.twitch.tv/helix/users?login={name}"
+            req = requests.get(url, headers=self.headers)
             req.raise_for_status()
             return req.json().get("data")[0].get("id")
 
@@ -174,13 +192,16 @@ class TwitchClient:
 
         base_url = "https://api.twitch.tv/helix/clips"
 
-        url = f"{base_url}?game_id={value}" if mode == "game" else \
-              f"{base_url}?broadcaster_id={value}"
+        url = (
+            f"{base_url}?game_id={value}"
+            if mode == "game"
+            else f"{base_url}?broadcaster_id={value}"
+        )
 
         if start_date:
             url += f"&started_at={start_date}T00:00:00Z"
         try:
-            clips = requests.get(url, headers = self.headers)
+            clips = requests.get(url, headers=self.headers)
             clips.raise_for_status()
         except requests.exceptions.HTTPError as err:
             logger.error(err)
@@ -203,11 +224,13 @@ class TwitchClient:
             The file path to the downloaded clip.
         """
         try:
-            index = clip.get("thumbnail_url").find('-preview')
-            filename = f'{str(uuid.uuid4())}.mp4'
-            urllib.request.urlretrieve(clip['thumbnail_url'][:index]+".mp4", f'{self.path}/{filename}')
+            index = clip.get("thumbnail_url").find("-preview")
+            filename = f"{str(uuid.uuid4())}.mp4"
+            urllib.request.urlretrieve(
+                clip["thumbnail_url"][:index] + ".mp4", f"{self.path}/{filename}"
+            )
 
-            return f'{self.path}/{filename}'
+            return f"{self.path}/{filename}"
 
         except Exception as err:
             logger.error(err)
@@ -215,7 +238,7 @@ class TwitchClient:
 
     def get_clip_by_url(self, url):
         try:
-            clip_id = url.split('/')[-1].split('?')[0]
+            clip_id = url.split("/")[-1].split("?")[0]
 
         except Exception as exc:
             logger.error(exc)
@@ -224,7 +247,7 @@ class TwitchClient:
         url = f"https://api.twitch.tv/helix/clips?id={clip_id}"
 
         try:
-            clips = requests.get(url, headers = self.headers)
+            clips = requests.get(url, headers=self.headers)
             clips.raise_for_status()
         except requests.exceptions.HTTPError as err:
             logger.error(err)

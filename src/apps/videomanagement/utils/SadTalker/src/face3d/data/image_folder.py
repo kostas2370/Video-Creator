@@ -3,7 +3,6 @@
 We modify the official PyTorch image folder (https://github.com/pytorch/vision/blob/master/torchvision/datasets/folder.py)
 so that this class can load images from both current directory and its subdirectories.
 """
-import numpy as np
 import torch.utils.data as data
 
 from PIL import Image

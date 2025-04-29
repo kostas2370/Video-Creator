@@ -11,12 +11,11 @@ warnings.filterwarnings('ignore')
 
 import imageio
 import torch
-import torchvision
 
 
 from ..facerender.modules.keypoint_detector import HEEstimator, KPDetector
 from ..facerender.modules.mapping import MappingNet
-from ..facerender.modules.generator import OcclusionAwareGenerator, OcclusionAwareSPADEGenerator
+from ..facerender.modules.generator import OcclusionAwareSPADEGenerator
 from ..facerender.modules.make_animation import make_animation
 
 from pydub import AudioSegment 
@@ -25,7 +24,6 @@ from ..utils.paste_pic import paste_pic
 from ..utils.videoio import save_video_with_watermark
 
 try:
-    import webui  # in webui
     in_webui = True
 except:
     in_webui = False
@@ -131,7 +129,7 @@ class AnimateFromCoeff():
         if optimizer_discriminator is not None:
             try:
                 optimizer_discriminator.load_state_dict(checkpoint['optimizer_discriminator'])
-            except RuntimeError as e:
+            except RuntimeError:
                 print ('No discriminator optimizer in the state-dict. Optimizer will be not initialized')
         if optimizer_kp_detector is not None:
             optimizer_kp_detector.load_state_dict(checkpoint['optimizer_kp_detector'])

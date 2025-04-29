@@ -4,8 +4,6 @@
 import argparse
 import os
 from util import util
-import numpy as np
-import torch
 import face3d.models as models
 import face3d.data as data
 

@@ -1,10 +1,9 @@
-import os, sys
+import sys
 import gradio as gr
 from src.gradio_demo import SadTalker  
 
 
 try:
-    import webui  # in webui
     in_webui = True
 except:
     in_webui = False
