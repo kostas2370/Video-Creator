@@ -299,3 +299,15 @@ def get_voices_from_labs():
 
     response = requests.get(url, headers=headers)
     return response.json()["voices"]
+
+
+def get_voices_from_60db():
+    url = "https://api.60db.ai/myvoices"
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {settings.SIXTYDB_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.get(url, headers=headers)
+    return response.json()["data"]

@@ -65,6 +65,15 @@ There are two ways to run the project: manually or using Docker.
    py manage.py setup_elevenlabs
    ```
 
+6. (Optional) To enable 60db voices, add your `SIXTYDB_API_KEY` in the `.env` file and run:
+
+   ```shell
+   py manage.py setup_60db
+   ```
+
+   This imports your 60db voices into the database. Once imported, a 60db voice can be
+   selected for a video just like any other voice — synthesis is routed automatically.
+
 ---
 
 ### Docker Installation
@@ -113,6 +122,7 @@ For any inquiries or support, feel free to reach out:
 ✅ Fixed Conquis TTS Docker issue\
 ✅ Added support for Gemini and Claude AI models\
 ✅ Integrated ElevenLabs API voices\
+✅ Integrated 60db API voices\
 ✅ Enabled compilation video creation from Twitch (by game or streamer)\
 ✅ Added OpenAI voices\
 ✅ Integrated MidJourney and Stable Diffusion as image providers *(Change providers in ****\`\`****)*\
