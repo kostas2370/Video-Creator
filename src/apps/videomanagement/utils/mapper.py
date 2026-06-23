@@ -11,4 +11,8 @@ modes = {
 default_providers = {"WEB": "bing", "AI": "DALL-E"}
 
 
-api_providers = {"open_ai": "tts_from_open_api", "eleven_labs": "tts_from_eleven_labs"}
+api_providers = {
+    "open_ai": "tts_from_open_api",
+    "eleven_labs": "tts_from_eleven_labs",
+    "60db": "tts_from_60db",
+}

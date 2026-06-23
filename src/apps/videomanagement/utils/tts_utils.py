@@ -1,3 +1,4 @@
+import base64
 import os
 from dataclasses import dataclass
 from typing import Union
@@ -219,6 +220,68 @@ def tts_from_eleven_labs(text, save_path, voice):
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
+
+    except Exception as exc:
+        logger.error(exc)
+
+    return response
+
+
+def tts_from_60db(text, save_path, voice):
+    """
+    Generate speech audio from text using the 60db Text-to-Speech (TTS) API.
+
+    Parameters:
+    -----------
+    text : str
+        The text to convert into speech audio.
+    save_path : str
+        The file path where the synthesized audio will be saved.
+    voice : str
+        The 60db voice_id to use for speech synthesis.
+
+    Returns:
+    --------
+    requests.Response
+        The response object from the 60db TTS API.
+
+    Notes:
+    ------
+    - This function interacts with the 60db Text-to-Speech (TTS) API to generate speech audio from text.
+    - Unlike Eleven Labs (which streams raw bytes), 60db returns a JSON payload containing the audio as a
+      base64-encoded string under the `audio_base64` field, which is decoded and written to ``save_path``.
+    - ``wav`` output is requested so the saved file matches the ``.wav`` extension used by the pipeline.
+    """
+
+    logger.warning("API CALL IN 60DB")
+
+    url = "https://api.60db.ai/tts-synthesize"
+
+    headers = {
+        "Authorization": f"Bearer {settings.SIXTYDB_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    data = {
+        "text": text,
+        "voice_id": voice,
+        "output_format": "wav",
+        "enhance": True,
+        "speed": 1,
+        "stability": 50,
+        "similarity": 75,
+    }
+
+    response = None
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+        payload = response.json()
+        audio_base64 = payload.get("audio_base64")
+        if not audio_base64:
+            raise ValueError(f"60db TTS returned no audio: {payload.get('message')}")
+
+        with open(save_path, "wb") as f:
+            f.write(base64.b64decode(audio_base64))
 
     except Exception as exc:
         logger.error(exc)
