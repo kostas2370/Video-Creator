@@ -23,10 +23,8 @@ g4f
 django-cors-headers
 python-slugify == 8.0.1
 moviepy
-pillow
 ushlex
 bing_image_downloader
-uuid
 pyttsx3
 pytubefix
 face_alignment==1.3.5
@@ -43,9 +41,7 @@ yacs==0.1.8
 pyyaml
 joblib==1.1.0
 scikit-image==0.19.3
-basicsr==1.4.2
 facexlib==0.3.0
-gradio
 gfpgan
 av
 safetensors
@@ -59,3 +55,5 @@ google-generativeai
 anthropic
 django-resized
 django-filter
+
+gdown

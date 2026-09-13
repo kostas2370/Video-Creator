@@ -39,7 +39,13 @@ There are two ways to run the project: manually or using Docker.
    pip install -r requirements/requirements.txt
    ```
 
-2. Create a `checkpoints` folder and download required files from: [Google Drive - Checkpoints](https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od)
+2. Download the SadTalker and GFPGAN model weights:
+
+   ```shell
+   python manage.py setup_checkpoints
+   ```
+
+   This fills `checkpoints/` and `gfpgan/weights/` and skips anything already there, so it is safe to re-run if a download drops out. The files come from [Google Drive - Checkpoints](https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od) if you would rather fetch them by hand — note that the `gfpgan` subfolder belongs at `gfpgan/weights/`, not inside `checkpoints/`.
 
 3. Inside the viddie folder, create a `.env` file and add the following API keys:
 
@@ -79,11 +85,14 @@ There are two ways to run the project: manually or using Docker.
 ### Docker Installation
 
 1. Create the `.env` file and add your OPEN\_API\_KEY, SEARCH\_ENGINE\_ID, API\_KEY as per `.env_example`.
-2. Download and place the required checkpoint files in the `checkpoints` folder from: [Google Drive - Checkpoints](https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od)
-3. Navigate to the src folder and run:
+2. Navigate to the src folder and run:
    ```shell
    docker-compose up --build
    ```
+
+The model weights are downloaded for you: the celery worker runs `setup_checkpoints` before it starts consuming tasks, since it is the service that runs SadTalker. They land in `checkpoints/` and `gfpgan/weights/` on the host through the `.:/app` bind mount, so the first boot pays for the download once and every rebuild after that reuses it. Expect the worker to take several minutes to come up the first time.
+
+They are deliberately **not** baked into the image — that would add several GB to it, and they are not needed at build time.
 
 ---
 
