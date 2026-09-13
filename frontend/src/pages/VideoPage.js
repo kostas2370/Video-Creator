@@ -19,17 +19,19 @@ export const Video = () => {
   const [showAddTwitchSceneModal, setShowAddTwitchSceneModal] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
 
+  // getVideo resolves undefined when the request fails, which would blank the state
+  // and break the scenes map below, so only adopt a response that came back.
   useEffect(() => {
     if (!updated) {
       getVideo(videoId).then((response) => {
-        setVideoInfo(response);
+        if (response) setVideoInfo(response);
       });
     }
   }, []);
   useEffect(() => {
     if (updated) {
       getVideo(videoId).then((response) => {
-        setVideoInfo(response);
+        if (response) setVideoInfo(response);
         setUpdated(false);
       });
     }
@@ -69,6 +71,8 @@ export const Video = () => {
         showModal={showRenderModal}
         setShowModal={setShowRenderModal}
         id={videoId}
+        name={videoInfo?.title}
+        onFinished={() => setUpdated(true)}
       />
 
       <div className="flex flex-col items-center">
@@ -89,7 +93,7 @@ export const Video = () => {
           />
         </div>
 
-        {videoInfo.scenes.map((scene) => {
+        {videoInfo?.scenes?.map((scene) => {
           return (
             <Scene
               scene={scene}

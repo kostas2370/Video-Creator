@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { generateTwitchVideo } from "../api/apiService";
+import { pollVideo } from "../api/pollVideo";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { LoadingButton } from "../components/ui/LoadingButton";
@@ -10,6 +11,10 @@ const Twitch = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [video_id, setVideo_id]= useState("")
+  const pollRef = useRef(null);
+
+  // Stop watching if the user navigates away mid-generation.
+  useEffect(() => () => pollRef.current?.cancel(), []);
 
 
   const [formData, setFormData] = useState({
@@ -27,15 +32,38 @@ const Twitch = () => {
       return;
     }
     setIsLoading(true);
-    generateTwitchVideo(formData).then((response) => {
-      if (response) {
-        setVideo_id(response.video.id)
-        setOpen(true)
 
-        toast.success("Video got generated successfully !");
-      } 
+    // 202 + an empty video: the clips are downloaded by a worker, so watch the id.
+    const response = await generateTwitchVideo(formData);
+
+    if (!response?.video?.id) {
+      toast.error("Could not start the generation, please try again.");
       setIsLoading(false);
-    });
+      return;
+    }
+
+    toast.info("Generation started, this usually takes a few minutes...");
+
+    pollRef.current = pollVideo(response.video.id);
+    const { outcome, video } = await pollRef.current.promise;
+
+    setIsLoading(false);
+
+    if (outcome !== "SETTLED") {
+      toast.error(
+        "Lost track of the generation. Check your videos page in a few minutes."
+      );
+      return;
+    }
+
+    if (video.status === "FAILED") {
+      toast.error("The generation failed, please try again.");
+      return;
+    }
+
+    setVideo_id(video.id);
+    setOpen(true);
+    toast.success("Video got generated successfully !");
   };
 
 

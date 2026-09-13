@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getAvatars } from "../api/apiService";
 import { toast } from "react-toastify";
 import { generateVideo } from "../api/apiService";
+import { pollVideo } from "../api/pollVideo";
 import { LoadingButton } from "../components/ui/LoadingButton";
 import { ProceedModal } from "../components/ProceedModal";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
@@ -32,6 +33,10 @@ const Home = () => {
   });
 
  const axiosPrivateInstance = useAxiosPrivate()
+ const pollRef = useRef(null);
+
+ // Stop watching if the user navigates away mid-generation.
+ useEffect(() => () => pollRef.current?.cancel(), []);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -64,14 +69,38 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    generateVideo(formData).then((response) => {
-      if (response) {
-        setVideo_id(response?.video?.id);
-        setOpen(true);
-        toast.success("Video generated successfully!");
-      }
+    // The API only queues the job and answers 202 with an empty video, so the id it
+    // hands back has to be watched until a worker finishes filling it in.
+    const response = await generateVideo(formData);
+
+    if (!response?.video?.id) {
+      toast.error("Could not start the generation, please try again.");
       setIsLoading(false);
-    });
+      return;
+    }
+
+    toast.info("Generation started, this usually takes a few minutes...");
+
+    pollRef.current = pollVideo(response.video.id);
+    const { outcome, video } = await pollRef.current.promise;
+
+    setIsLoading(false);
+
+    if (outcome !== "SETTLED") {
+      toast.error(
+        "Lost track of the generation. Check your videos page in a few minutes."
+      );
+      return;
+    }
+
+    if (video.status === "FAILED") {
+      toast.error("The generation failed, please try again.");
+      return;
+    }
+
+    setVideo_id(video.id);
+    setOpen(true);
+    toast.success("Video generated successfully!");
   };
 
   return (
