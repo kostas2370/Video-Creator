@@ -55,3 +55,4 @@ google-generativeai
 anthropic
 django-resized
 django-filter
+gdown
