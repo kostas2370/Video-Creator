@@ -93,7 +93,22 @@ export const deleteScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SC
 
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
 export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data)}
-export const renderVideo = async (id) => {return patchRequest(API_ENDPOINTS.RENDER(id),{})}
+// Not patchRequest: this one has to tell a refusal (409, the video is not in a
+// renderable state) apart from the request never landing, and patchRequest collapses
+// both into undefined. Returns {ok, data} or {ok, status, message}.
+export const renderVideo = async (id) => {
+    try {
+        const response = await axiosPrivateInstance.patch(API_ENDPOINTS.RENDER(id), {});
+        return { ok: true, data: response.data };
+    } catch (error) {
+        console.error(`Error queueing the render of video ${id}:`, error);
+        return {
+            ok: false,
+            status: error?.response?.status,
+            message: error?.response?.data?.message || "The render could not be queued",
+        };
+    }
+}
 export const generateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_GENERATE(id),data)}
 export const generateSceneImage = async (id, data) => {return postRequest(API_ENDPOINTS.SCENE_IMAGE_GENERATE(id), data)}
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
