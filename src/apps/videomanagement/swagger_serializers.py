@@ -34,7 +34,10 @@ class GenerateSerializer(serializers.Serializer):
     outro = serializers.CharField(required=False, max_length=10, default=None)
     subtitles = serializers.BooleanField(required=False, default=False)
     provider = serializers.CharField(required=False, default=None)
-    created_by = serializers.IntegerField(default=serializers.CurrentUserDefault())
+    # HiddenField, not IntegerField: the default is a User object, so a client that
+    # posted `created_by` used to both break the service and attribute the video (and
+    # its cost) to another account. A HiddenField is never read from the payload.
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     avatar_position = serializers.CharField(required=False, default="right,top")
 
     def update(self, instance, validated_data):
@@ -72,9 +75,9 @@ class TwitchSerializer(serializers.Serializer):
     value = serializers.CharField(max_length=200)
     amt = serializers.IntegerField(max_value=20)
     started_at = serializers.DateField(
-        format="%Y-%m-%d", required=False, allow_null=True
+        format="%Y-%m-%d", required=False, allow_null=True, default=None
     )
-    created_by = serializers.IntegerField(default=serializers.CurrentUserDefault())
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     def create(self, validated_data):
         pass

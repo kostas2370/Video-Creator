@@ -1,7 +1,6 @@
 import logging
 
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework import viewsets
@@ -15,9 +14,9 @@ from ..models import Video
 from ..paginator import StandardResultsSetPagination
 from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
-from ..services.VideoServices import video_update, video_regenerate
+from ..services.VideoServices import video_update
 from ..services.SceneServices import create_scene
-from ..utils.video_utils import make_video
+from ..tasks import regenerate_video_task, render_video_task
 from ..throttling import RenderRateThrottle
 from ..permissions import IsOwnerPermission
 
@@ -29,17 +28,26 @@ class VideoView(viewsets.ModelViewSet):
     queryset = Video.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["title"]
+    # DjangoFilterBackend was enabled but had no fields to act on. Status is what a
+    # client needs now that videos are visible while a worker is still on them.
+    filterset_fields = ["status", "video_type"]
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        return (
-            Video.objects.filter(
-                ~Q(gpt_answer=None), created_by_id=self.request.user.id
-            )
+        queryset = (
+            Video.objects.filter(created_by_id=self.request.user.id)
             .order_by("-id")
             .select_related("music", "prompt")
         )
+
+        # Detail routes have to reach a video the moment it exists, so a client can
+        # poll it while a worker is still filling it in. The list keeps its old
+        # behaviour of hiding videos that have no gpt_answer yet.
+        if self.action == "list":
+            queryset = queryset.exclude(gpt_answer=None)
+
+        return queryset
 
     def get_serializer_class(self):
         serializer_class = {
@@ -67,8 +75,8 @@ class VideoView(viewsets.ModelViewSet):
         )
 
     @swagger_auto_schema(
-        operation_description="This api changes the image of the scene or it creates "
-        "a new one if it doesnt exists",
+        operation_description="Queues regeneration of the scene audio and imagery. Returns 202; "
+        "poll GET /video/{id}/ until its status becomes READY or FAILED.",
         method="PATCH",
     )
     @action(detail=True, methods=["PATCH"])
@@ -76,40 +84,47 @@ class VideoView(viewsets.ModelViewSet):
         video = self.get_object()
         video.status = "GENERATION"
         video.save()
-        video_regenerate(video)
-        logger.info(f"Video with id {pk}  got regenerated successfully")
+        regenerate_video_task.delay(video_id=video.id)
+        logger.info(f"Video with id {pk} was queued for regeneration")
 
         return Response(
-            {"Message": f"Video with id {pk} got regenerated successfully"},
-            status=status.HTTP_200_OK,
+            {
+                # "Message" is the key this endpoint has always returned; kept so an
+                # existing client's toast does not go blank.
+                "Message": f"Video with id {pk} was queued for regeneration",
+                "message": f"Video with id {pk} was queued for regeneration",
+                "video": VideoSerializer(video).data,
+            },
+            status=status.HTTP_202_ACCEPTED,
         )
 
     @swagger_auto_schema(
-        operation_description="This api renders the video, you will have to put a query param in url"
-        " video_id with the video you wanna render",
+        operation_description="Queues the render of the video. Returns 202; poll GET /video/{id}/ "
+        "until its status becomes COMPLETED or FAILED, then read `output`.",
         method="PATCH",
     )
     @action(detail=True, methods=["PATCH"])
     @throttle_classes([RenderRateThrottle])
     def render_video(self, _, pk):
         vid = self.get_object()
-        try:
-            result = make_video(vid)
+
+        if vid.status not in {"READY", "COMPLETED"}:
             return Response(
                 {
-                    "message": "The video has been made successfully",
-                    "result": self.get_serializer(result).data,
-                }
+                    "message": f"Video with id {pk} is {vid.status} and cannot be rendered yet"
+                },
+                status=status.HTTP_409_CONFLICT,
             )
 
-        except Exception as exc:
-            logger.error(exc)
-            vid.status = "FAILED"
-            vid.save()
+        render_video_task.delay(video_id=vid.id)
+        logger.info(f"Video with id {pk} was queued for rendering")
 
         return Response(
-            {"message": "The render failed, probably you have to generate a new one"},
-            status=400,
+            {
+                "message": "The render has been queued",
+                "video": VideoSerializer(vid).data,
+            },
+            status=status.HTTP_202_ACCEPTED,
         )
 
     @swagger_auto_schema(

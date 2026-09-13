@@ -72,7 +72,7 @@ def create_model(
 
             except Exception as ex:
                 voc_path, voc_config_path, _ = None, None, None
-                print(ex)
+                logger.warning("Could not download vocoder %s: %s", vocoder, ex)
         else:
             voc_path, voc_config_path = None, None
 
@@ -88,7 +88,7 @@ def create_model(
             syn = Synthesizer(tts_checkpoint=model_path, tts_config_path=config_path)
 
     except Exception as exc:
-        print(exc)
+        logger.exception("Failed to load the TTS synthesizer: %s", exc)
         syn = None
 
     return syn

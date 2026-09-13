@@ -105,8 +105,31 @@ DJOSER = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = "redis://redis-stack-server:6379/0"
-CELERY_BROKER_URL = "redis://redis-stack-server:6379/0"
+# `or` rather than a getenv default: a key left blank in .env reads as "", which would
+# otherwise be handed to Celery as the broker URL.
+CELERY_BROKER_URL = (
+    os.getenv("CELERY_BROKER_URL") or "redis://redis-stack-server:6379/0"
+)
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
+
+# Generation and rendering are long and expensive. Acknowledge tasks only once they
+# finish so a worker that dies mid-render requeues its task instead of losing it, and
+# never let a worker hoard queued jobs it cannot start.
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TRACK_STARTED = True
+
+# A render that has not reported back within this many seconds is treated as dead by
+# `reap_stalled_videos` and flipped to FAILED.
+VIDEO_TASK_STALE_AFTER = int(os.getenv("VIDEO_TASK_STALE_AFTER") or 60 * 60 * 3)
+
+CELERY_BEAT_SCHEDULE = {
+    "reap-stalled-videos": {
+        "task": "apps.videomanagement.tasks.reap_stalled_videos",
+        "schedule": 15 * 60.0,
+    },
+}
 
 # Logging
 LOGGING = {

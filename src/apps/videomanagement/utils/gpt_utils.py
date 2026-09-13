@@ -1,7 +1,6 @@
 import io
 import json
 import logging
-import pprint
 import sys
 
 import g4f
@@ -215,7 +214,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
 
         except Exception as exc:
             logger.error(exc)
-            pprint.pprint(x)
+            logger.debug("Unparsable model reply: %s", x)
             raise APIException(
                 detail="There was a problem with the ai model",
                 code=status.HTTP_400_BAD_REQUEST,
