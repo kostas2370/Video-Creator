@@ -46,7 +46,6 @@ def video_update(
         video.avatar = None
 
     else:
-        print(avatar)
         selected_avatar = Avatar.objects.get(id=avatar)
         video.avatar = selected_avatar
 
