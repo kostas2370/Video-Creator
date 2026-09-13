@@ -38,6 +38,23 @@ services:
 
     volumes:
       - .:/app
+    # The worker now runs generation and rendering, so it needs the same API keys and
+    # database settings as the web container.
+    env_file:
+      - ./.env
     depends_on:
       - redis-stack-server
+      - db
+
+  celery-beat:
+    build: .
+    command: /startcelerybeat
+
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    depends_on:
+      - redis-stack-server
+      - db
 

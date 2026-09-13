@@ -224,6 +224,7 @@ class Video(AbstractModel):
         db_constraint=False,
     )
     status = models.CharField(max_length=20, choices=VIDEO_STATUS, default="RENDERING")
+    updated_at = models.DateTimeField(auto_now=True)
     music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
     background = models.ForeignKey(
         Background, blank=True, null=True, on_delete=models.SET_NULL
