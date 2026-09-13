@@ -1,3 +1,14 @@
+# Model weights. These are gitignored but were still being uploaded to the daemon as
+# build context on every `docker-compose up --build`. Nothing in the build reads them:
+# the Dockerfile never COPYs the app, and SadTalker loads them at runtime from
+# /app/checkpoints, which is the `.:/app` bind mount in docker-compose.
+checkpoints/
+gfpgan/
+**/*.pth
+**/*.pth.tar
+**/*.safetensors
+**/*.ckpt
+
 __pycache__
 *.pyc
 *.pyo
