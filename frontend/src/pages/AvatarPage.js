@@ -78,9 +78,9 @@ export const Avatar = () => {
           </>
         ) : (
           <>
-            <p class="text-center text-lg text-gray-700 className= mt-4 ml-20">
+            <p className="text-center text-lg text-gray-700 className= mt-4 ml-20">
               Avatars are empty,{" "}
-              <span class="text-blue-500 font-semibold">
+              <span className="text-blue-500 font-semibold">
                 create your avatars!
               </span>
             </p>

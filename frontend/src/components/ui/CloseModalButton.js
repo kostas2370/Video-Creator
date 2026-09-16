@@ -3,12 +3,12 @@ export function CloseModalButton({ setShowModal }) {
   return (
     <button
       type="button"
-      class="text-gray-400 absolute top-2.5 right-2.5 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"
+      className="text-gray-400 absolute top-2.5 right-2.5 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"
       onClick={(e) => setShowModal(false)}
     >
       <svg
         aria-hidden="true"
-        class="w-5 h-5"
+        className="w-5 h-5"
         fill="currentColor"
         viewBox="0 0 20 20"
         xmlns="http://www.w3.org/2000/svg"
@@ -19,7 +19,7 @@ export function CloseModalButton({ setShowModal }) {
           clip-rule="evenodd"
         ></path>
       </svg>
-      <span class="sr-only">Close modal</span>
+      <span className="sr-only">Close modal</span>
     </button>
   );
 }

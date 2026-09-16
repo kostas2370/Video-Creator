@@ -24,7 +24,7 @@ const Home = () => {
     message: "",
     target_audience: "",
     image_mode: "WEB",
-    gpt_model: "gpt-4o",
+    gpt_model: "gpt-5.4-mini",
     style: "natural",
     music: "",
     provider: "",
@@ -210,17 +210,50 @@ const Home = () => {
                         className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         onChange={handleInputChange}
                       >
-                        <option value="gpt-4o">gpt-4o</option>
-                        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-                        <option value="gpt-4">gpt-4</option>
-                        <option value="claude-3-5-sonnet-20240620">
-                          claude 3-5
-                        </option>
-                        <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-                        <option value="gemini-1.5-flash">
-                          gemini-1.5-flash
-                        </option>
-                        <option value="gemini-1.0-pro">gemini-1.0-pro</option>
+                        {/* The first entry is what an untouched form submits, so it has
+                            to stay in sync with gpt_model in the formData defaults. */}
+                        <optgroup label="OpenAI">
+                          <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+                          <option value="gpt-5.4">gpt-5.4</option>
+                          <option value="gpt-5.4-nano">gpt-5.4-nano</option>
+                          <option value="gpt-5.5">gpt-5.5</option>
+                          <option value="gpt-5.6-luna">gpt-5.6-luna</option>
+                          <option value="gpt-5.6-sol">gpt-5.6-sol</option>
+                          <option value="gpt-5.6-terra">gpt-5.6-terra</option>
+                          <option value="gpt-6-astra">gpt-6-astra</option>
+                          <option value="gpt-5">gpt-5</option>
+                          <option value="gpt-5-mini">gpt-5-mini</option>
+                          <option value="gpt-5-nano">gpt-5-nano</option>
+                          <option value="gpt-5.1">gpt-5.1</option>
+                          <option value="gpt-5.2">gpt-5.2</option>
+                          <option value="gpt-5.3-chat-latest">
+                            gpt-5.3-chat-latest
+                          </option>
+                          <option value="gpt-4.1">gpt-4.1</option>
+                          <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                          <option value="gpt-4.1-nano">gpt-4.1-nano</option>
+                          <option value="gpt-4o">gpt-4o</option>
+                          <option value="gpt-4o-mini">gpt-4o-mini</option>
+                          <option value="gpt-4-turbo">gpt-4-turbo</option>
+                          <option value="gpt-4">gpt-4</option>
+                          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                          <option value="o3">o3</option>
+                          <option value="o3-mini">o3-mini</option>
+                          <option value="o4-mini">o4-mini</option>
+                          <option value="o1">o1</option>
+                        </optgroup>
+                        <optgroup label="Anthropic">
+                          <option value="claude-3-5-sonnet-20240620">
+                            claude 3-5
+                          </option>
+                        </optgroup>
+                        <optgroup label="Google">
+                          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                          <option value="gemini-1.5-flash">
+                            gemini-1.5-flash
+                          </option>
+                          <option value="gemini-1.0-pro">gemini-1.0-pro</option>
+                        </optgroup>
                       </select>
                     </div>
                   </div>
@@ -257,7 +290,11 @@ const Home = () => {
                       >
                         {formData.image_mode === "AI" ? (
                           <>
-                            <option value="DALL-E">DALL-E</option>
+                            {/* The value stays "DALL-E": it is the provider key the
+                                backend's mapper looks up, and existing videos store
+                                it. Only the label follows the model, which is now
+                                gpt-image-2 — DALL-E itself has been retired. */}
+                            <option value="DALL-E">OpenAI (gpt-image)</option>
                             <option value="midjourney">midjourney</option>
                             <option value="stable-diffusion">
                               stable-diffusion
