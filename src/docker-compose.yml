@@ -34,6 +34,10 @@ services:
     # stays one that CSRF_TRUSTED_ORIGINS already names. nginx listens on 80 inside.
     ports:
       - "3000:80"
+    volumes:
+      # Read-only: nginx serves the rendered videos and images directly, but only the
+      # workers ever write them.
+      - ./media:/usr/share/nginx/media:ro
     depends_on:
       - video_creator
 
