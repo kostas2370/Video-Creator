@@ -72,6 +72,9 @@ class GenerateSerializer(serializers.Serializer):
     intro = serializers.CharField(required=False, max_length=10, default=None)
     outro = serializers.CharField(required=False, max_length=10, default=None)
     subtitles = serializers.BooleanField(required=False, default=False)
+    # False renders the scene visuals back to back with no spoken narration, so the
+    # clips run at their own length instead of being fitted to a voice track.
+    narration = serializers.BooleanField(required=False, default=True)
     provider = serializers.CharField(required=False, default=None)
     # HiddenField, not IntegerField: the default is a User object, so a client that
     # posted `created_by` used to both break the service and attribute the video (and

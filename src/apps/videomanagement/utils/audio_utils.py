@@ -1,18 +1,25 @@
 import uuid
 
+from .prompt_utils import scene_text
 from .tts_utils import save, ApiSyn
 from ..models import Scene, Video
 import os
 
 
-def make_scene_speech(voice_model, dir_name, prompt, text, is_last) -> Scene:
-    filename = str(uuid.uuid4())
-    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
-    sound = save(syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav")
-    scene = Scene.objects.create(
+def make_scene_speech(
+    voice_model, dir_name, prompt, text, is_last, narrate=True
+) -> Scene:
+    # The Scene row is created either way — the rest of the pipeline keys off it, and
+    # create_image_scene looks it up by text. Only the audio is optional.
+    sound = None
+    if narrate:
+        filename = str(uuid.uuid4())
+        syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
+        sound = save(syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav")
+
+    return Scene.objects.create(
         file=sound, prompt=prompt, text=text.strip(), is_last=is_last
     )
-    return scene
 
 
 def make_scenes_speech(video: Video) -> None:
@@ -37,6 +44,7 @@ def make_scenes_speech(video: Video) -> None:
     """
 
     voice_model = video.voice_model
+    narrate = video.settings.get("narration", True)
     for scene in video.gpt_answer["scenes"]:
         sentences = scene["sentences"]
         for index, sentence in enumerate(sentences):
@@ -44,8 +52,9 @@ def make_scenes_speech(video: Video) -> None:
                 voice_model,
                 video.dir_name,
                 video.prompt,
-                sentence["sentence"],
+                scene_text(sentence),
                 index == len(sentences) - 1,
+                narrate=narrate,
             )
 
 
