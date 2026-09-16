@@ -1,13 +1,12 @@
 import base64
-import os
 from dataclasses import dataclass
 from typing import Union
 import logging
 import requests
-from TTS.utils.manage import ModelManager
-from TTS.utils.synthesizer import Synthesizer
 from django.conf import settings
 from openai import OpenAI
+from rest_framework import status
+from rest_framework.exceptions import APIException
 from .mapper import api_providers
 import sys
 
@@ -21,128 +20,47 @@ class ApiSyn:
     path: str
 
 
-def create_model(
-    model_path: str = f"{os.path.abspath(os.getcwd())}/.models.json",
-    model: str = "tts_models/en/ljspeech/vits--neon",
-    vocoder: str = "default_vocoder",
-) -> Synthesizer:
-    """
-    Create and return a Synthesizer instance with specified model and vocoder settings.
-
-    Parameters:
-    -----------
-    model_path : str, optional
-        The file path to the model manager configuration. Default is the current working directory with `.models.json`.
-    model : str, optional
-        The model to be used for the text-to-speech synthesis. Default is "tts_models/en/ljspeech/vits--neon".
-    vocoder : str, optional
-        The vocoder to be used. If "default_vocoder" and available in the model, it will be used. Default is
-        "default_vocoder".
-
-    Returns:
-    --------
-    Synthesizer
-        An instance of the Synthesizer class initialized with the specified model and vocoder.
-
-    Detailed Steps:
-    ---------------
-    1. Initialize the ModelManager with the given model path.
-    2. Download the specified model using the ModelManager.
-    3. Download the vocoder model if specified, falling back to the default vocoder if necessary.
-    4. Initialize the Synthesizer with the downloaded model and vocoder configurations.
-
-    Notes:
-    ------
-    - Requires the `Synthesizer` and `ModelManager` classes from the appropriate library.
-    - The function assumes that the model and vocoder names provided are valid and available for download.
-    - The function prints an error message if the specified vocoder cannot be downloaded,
-      and proceeds without a vocoder.
-    """
-    try:
-        model_manager = ModelManager(model_path)
-        model_path, config_path, model_item = model_manager.download_model(model)
-        if vocoder == "default_vocoder" and model_item.get(vocoder) is not None:
-            voc_path, voc_config_path, _ = model_manager.download_model(
-                model_item[vocoder]
-            )
-
-        elif vocoder is not None:
-            try:
-                voc_path, voc_config_path, _ = model_manager.download_model(vocoder)
-
-            except Exception as ex:
-                voc_path, voc_config_path, _ = None, None, None
-                logger.warning("Could not download vocoder %s: %s", vocoder, ex)
-        else:
-            voc_path, voc_config_path = None, None
-
-        if voc_path is not None and voc_config_path is not None:
-            syn = Synthesizer(
-                tts_checkpoint=model_path,
-                tts_config_path=config_path,
-                vocoder_checkpoint=voc_path,
-                vocoder_config=voc_config_path,
-            )
-
-        else:
-            syn = Synthesizer(tts_checkpoint=model_path, tts_config_path=config_path)
-
-    except Exception as exc:
-        logger.exception("Failed to load the TTS synthesizer: %s", exc)
-        syn = None
-
-    return syn
-
-
 def save(
-    syn: Union[ApiSyn, Synthesizer], text: str = "", save_path: str = ""
+    syn: Union[ApiSyn, None], text: str = "", save_path: str = ""
 ) -> Union[str, None]:
     """
     Save synthesized audio to a file.
 
     Parameters:
     -----------
-    syn : Union[Synthesizer, ApiSyn]
-        The synthesizer object to use for audio synthesis.
+    syn : ApiSyn
+        The synthesizer to use. Only API-backed voices are supported.
     text : str, optional
         The text to synthesize. Default is an empty string.
     save_path : str, optional
-        The file path where the synthesized audio will be saved. If not provided, a unique filename will be
-        generated in the current directory.
+        The file path where the synthesized audio will be saved.
 
     Returns:
     --------
     str
-        The file path to the saved audio file.
+        The file path to the saved audio file, or None if no synthesizer was given.
 
     Raises:
     -------
-    ValueError
-        If an unsupported synthesizer type is provided.
-
-    Detailed Steps:
-    ---------------
-    1. Check the type of synthesizer object provided.
-    2. If it's a Synthesizer object, synthesize the text using the Synthesizer's `tts` method and save the output to the
-       specified path.
-    3. If it's an ApiSyn object, determine the provider and call the appropriate API function to synthesize the text.
-    4. Save the synthesized audio to the specified path.
+    APIException
+        If the voice names a provider that is not in api_providers.
 
     Notes:
     ------
-    - Requires the `Synthesizer` and `ApiSyn` classes from the appropriate library.
-    - The function assumes that the provided synthesizer objects have appropriate methods for text-to-speech synthesis.
-    - If `save_path` is not provided, the audio will be saved with a unique filename in the current directory.
+    - Every voice is an API call; see api_providers in mapper.py.
     """
     if syn is None:
         return None
 
-    if type(syn) is ApiSyn:
-        getattr(thismodule, api_providers.get(syn.provider))(text, save_path, syn.path)
+    provider = api_providers.get(syn.provider)
+    if provider is None:
+        logger.error("Voice has unsupported provider %r", syn.provider)
+        raise APIException(
+            detail=f"Unsupported voice provider: {syn.provider}",
+            code=status.HTTP_400_BAD_REQUEST,
+        )
 
-    else:
-        outputs = syn.tts(text)
-        syn.save_wav(outputs, save_path)
+    getattr(thismodule, provider)(text, save_path, syn.path)
 
     return save_path
 
@@ -170,7 +88,10 @@ def tts_from_open_api(text, save_path, voice="onyx"):
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
-    response = client.audio.speech.create(model="tts-1", voice=voice, input=text)
+    # Explicit wav: the API defaults to mp3, which this writes to a .wav path.
+    response = client.audio.speech.create(
+        model="tts-1", voice=voice, input=text, response_format="wav"
+    )
     response.stream_to_file(save_path)
 
     return response

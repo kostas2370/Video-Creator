@@ -1,14 +1,15 @@
-version: '3.9'
-
 services:
   db:
-    image: mysql:5.7
+    # 5.7 is amd64-only (no Apple Silicon image) and EOL since October 2023.
+    image: mysql:8.4
     restart: always
+    # Throwaway defaults so a blank .env still boots; MySQL refuses to initialise
+    # without a root password. `:-` substitutes on empty as well as unset.
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devroot}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-video_creator}
+      MYSQL_USER: ${MYSQL_USER:-video_creator}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-devpassword}
     ports:
       - "3307:3307"
 
@@ -49,7 +50,9 @@ services:
   celery-beat:
     build: .
     command: /startcelerybeat
-
+    # depends_on waits for the container, not for video_creator to finish migrating,
+    # so on a cold boot beat loses that race and needs to retry.
+    restart: on-failure
     volumes:
       - .:/app
     env_file:

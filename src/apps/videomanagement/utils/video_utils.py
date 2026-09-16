@@ -6,6 +6,7 @@ import logging
 from PIL import Image
 from typing import Union
 
+from django.conf import settings
 from django.db.models import QuerySet
 from moviepy.editor import (
     AudioFileClip,
@@ -313,9 +314,15 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     if video.settings.get("subtitles", False) and subtitles:
         subs = concatenate_videoclips(subtitles, method="compose")
         video_height = final_video.size[1]
-        subtitle_position = (60, video_height - 150)
+        # Anchored off the clip's own height, so the text cannot fall out of frame
+        # when the box size changes.
+        subtitle_bottom_margin = 60
+        subtitle_y = max(0, video_height - subs.h - subtitle_bottom_margin)
         final_video = CompositeVideoClip(
-            [final_video, subs.set_pos(subtitle_position).fadein(1).fadeout(1)]
+            [
+                final_video,
+                subs.set_pos(("center", subtitle_y)).fadein(1).fadeout(1),
+            ]
         )
 
     if getattr(video, "intro", None):
@@ -357,13 +364,18 @@ def make_video(video: Video) -> Video:
         sound_list.append(audio)
 
         if video.settings.get("subtitles", False):
-            subtitles.append(create_subtitle_clip(scene.text, audio.duration))
+            # None when ImageMagick cannot render the text — skip it rather than fail
+            # the whole render.
+            subtitle = create_subtitle_clip(scene.text, audio.duration)
+            if subtitle is not None:
+                subtitles.append(subtitle)
 
         vids.append(process_scene(scene_image, audio, background))
 
     if not vids:
         raise RenderFailedException("No video scenes were processed.")
 
+    final_audio = final_video = None
     try:
         final_video = concatenate_videoclips(vids)
 
@@ -380,16 +392,28 @@ def make_video(video: Video) -> Video:
             background, final_audio, final_video, video, subtitles
         )
         final_video_path = f"{video.dir_name}/output_video.mp4"
-        final_video.write_videofile(final_video_path, fps=24, threads=8)
+        # Explicit aac: moviepy defaults to libmp3lame, and Safari and QuickTime
+        # silently drop an mp3 audio track inside an mp4.
+        final_video.write_videofile(
+            final_video_path,
+            fps=24,
+            threads=8,
+            codec="libx264",
+            audio_codec="aac",
+        )
 
         video.output = final_video_path
         video.status = "COMPLETED"
 
     finally:
-        for clip in sound_list + vids + subtitles:
-            clip.close()
-        final_audio.close()
-        final_video.close()
+        # Cleanup must not raise, or it replaces the exception that failed the render.
+        for clip in sound_list + vids + subtitles + [final_audio, final_video]:
+            if clip is None:
+                continue
+            try:
+                clip.close()
+            except Exception as exc:
+                logger.warning("Ignoring error while closing a clip: %s", exc)
 
     video.save()
     return video
@@ -398,11 +422,13 @@ def make_video(video: Video) -> Video:
 def create_subtitle_clip(
     text: str,
     duration: float,
-    fontsize: int = 37,
-    color: str = "blue",
-    bg_color: str = "black",
-    font: str = "Arial",
-    size: tuple = (1600, 500),
+    fontsize: int = 48,
+    color: str = "white",
+    bg_color: str = "transparent",
+    font: str = None,
+    size: tuple = (1600, 200),
+    stroke_color: str = "black",
+    stroke_width: int = 2,
 ) -> TextClip:
     """
     Creates a styled subtitle clip.
@@ -414,15 +440,20 @@ def create_subtitle_clip(
     duration : float
         The duration for which the subtitle should be displayed.
     fontsize : int, optional
-        The font size of the text (default: 37).
+        The font size of the text (default: 48).
     color : str, optional
-        The color of the text (default: "blue").
+        The color of the text (default: "white").
     bg_color : str, optional
-        The background color of the text box (default: "black").
+        The box background (default: "transparent"). An opaque colour paints the whole
+        `size` rectangle over the picture.
     font : str, optional
-        The font type (default: "Arial").
+        The ImageMagick font name. Defaults to settings.SUBTITLE_FONT.
     size : tuple, optional
-        The size of the subtitle box (default: (1600, 500)).
+        The subtitle box, (width, height) (default: (1600, 200)). `method="caption"`
+        centres the text vertically inside it, so an over-tall box pushes the text
+        off-screen.
+    stroke_color, stroke_width : optional
+        Glyph outline, which keeps the text readable over light imagery.
 
     Returns:
     --------
@@ -434,10 +465,12 @@ def create_subtitle_clip(
             text,
             fontsize=fontsize,
             color=color,
-            font=font,
+            font=font or settings.SUBTITLE_FONT,
             method="caption",
             size=size,
             bg_color=bg_color,
+            stroke_color=stroke_color,
+            stroke_width=stroke_width,
         ).set_duration(duration)
     except Exception as e:
         logger.error(f"Error creating subtitle clip: {e}")

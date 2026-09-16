@@ -1,6 +1,6 @@
 import uuid
 
-from .tts_utils import save, ApiSyn, create_model
+from .tts_utils import save, ApiSyn
 from ..models import Scene, Video
 from .prompt_utils import determine_fields
 import os
@@ -8,24 +8,12 @@ import os
 
 def make_scene_speech(voice_model, dir_name, prompt, text, is_last) -> Scene:
     filename = str(uuid.uuid4())
-    syn = get_syn(voice_model)
+    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
     sound = save(syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav")
     scene = Scene.objects.create(
         file=sound, prompt=prompt, text=text.strip(), is_last=is_last
     )
     return scene
-
-
-def get_syn(voice_model):
-    syn = None
-    path = voice_model.path
-    if voice_model.type.lower() == "local":
-        syn = create_model(model=path)
-
-    if voice_model.type.lower() == "api":
-        syn = ApiSyn(provider=voice_model.provider, path=path)
-
-    return syn
 
 
 def make_scenes_speech(video: Video) -> None:
@@ -96,18 +84,13 @@ def update_scene(scene: Scene) -> None:
     video = Video.objects.get(prompt__id=scene.prompt.id)
     dir_name = video.dir_name
     voice_model = video.voice_model
-    syn = voice_model.path
 
     if video.avatar and os.path.exists(
         rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4"
     ):
         os.remove(rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4")
 
-    if voice_model.type == "Local" or voice_model.type == "LOCAL":
-        syn = create_model(model=syn)
-
-    elif voice_model.type.lower() == "api":
-        syn = ApiSyn(provider=video.voice_model.provider, path=video.voice_model.path)
+    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
 
     filename = str(uuid.uuid4())
 
