@@ -221,7 +221,6 @@ REST_FRAMEWORK = {
 
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
-GPT_OFFICIAL = True
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
 # Headroom for gpt-5/o-series thinking tokens, which bill against the same cap as the
 # reply. Applied only to those models — see gpt_utils.token_limit_kwarg.
@@ -234,6 +233,31 @@ DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini"
 IMAGE_MODEL = os.getenv("IMAGE_MODEL") or "gpt-image-2"
 IMAGE_QUALITY = os.getenv("IMAGE_QUALITY") or "high"
 IMAGE_SIZE = os.getenv("IMAGE_SIZE") or "1792x1024"
+
+# Sora, used by the "sora" AI image provider to give each sentence a moving clip
+# instead of a still. Billed per second of output, so it costs far more than an image.
+# `seconds` is picked per sentence from the narration length — the API only accepts
+# 4, 8 or 12.
+#
+# Size is validated twice by the API: against the shared enum (720x1280, 1280x720,
+# 1024x1792, 1792x1024) and then against the model. sora-2 takes only the 720p pair;
+# the 1024x1792/1792x1024 pair needs sora-2-pro. 1280x720 is 16:9, the same shape as
+# the rendered video, so it scales up without cropping.
+SORA_MODEL = os.getenv("SORA_MODEL") or "sora-2"
+SORA_SIZE = os.getenv("SORA_SIZE") or "1280x720"
+
+# Appended to every Sora prompt so the clips in one video look like each other rather
+# than like a dozen unrelated stock shots. Sora sees each sentence as an independent
+# job, so without this the style resets every time.
+# How long a scene runs when narration is switched off and nothing else sets a length.
+# Sora clips bring their own duration, so this only covers stills and the black
+# fallback; it is also the clip length asked of Sora when there is no narration to fit.
+SILENT_SCENE_SECONDS = int(os.getenv("SILENT_SCENE_SECONDS") or 7)
+
+SORA_STYLE = os.getenv("SORA_STYLE") or (
+    "Consistent look across the whole video: natural lighting, shallow depth of field, "
+    "warm colour grade, steady camera, photorealistic."
+)
 
 # As ImageMagick names it (`convert -list font`). The image carries only DejaVu;
 # "Arial" exists on macOS and Windows but not in debian-slim.
