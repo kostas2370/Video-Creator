@@ -18,6 +18,15 @@ SECRET_KEY = (
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
+# A Secure cookie is only stored over https. Chrome and Firefox make an exception for
+# http://localhost; Safari does not, so marking the auth cookies Secure in development
+# means Safari silently drops them and every reload logs the user back out.
+#
+# SameSite=None is itself invalid without Secure — browsers reject that pairing — so
+# the two have to move together.
+COOKIES_SECURE = os.getenv("ENV", "dev") == "prod"
+CROSS_SITE_SAMESITE = "None" if COOKIES_SECURE else "Lax"
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -96,7 +105,7 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES": "Bearer",
     "AUTH_COOKIE_REFRESH": "refresh",
-    "AUTH_COOKIE_SECURE": True,
+    "AUTH_COOKIE_SECURE": COOKIES_SECURE,
     "AUTH_COOKIE_HTTP_ONLY": True,
     "AUTH_COOKIE_SAMESITE": "Strict",
 }
@@ -193,11 +202,11 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_EXPOSE_HEADERS = ["Content-Type", "X-CSRFToken"]
 CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = COOKIES_SECURE
 CSRF_COOKIE_HTTP_ONLY = True
-CSRF_COOKIE_SAMESITE = "None"
-SESSION_COOKIE_SECURE = True
-SESSION_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
+SESSION_COOKIE_SECURE = COOKIES_SECURE
+SESSION_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 
 # Django REST Framework
 REST_FRAMEWORK = {
