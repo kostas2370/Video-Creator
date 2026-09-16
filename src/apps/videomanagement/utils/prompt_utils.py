@@ -63,5 +63,34 @@ def format_update_form(text: str, prompt: str) -> str:
     )
 
 
+def scene_text(sentence: dict) -> str:
+    """The text that identifies a scene.
+
+    Normally the narration. With narration switched off the script is not asked for a
+    spoken line at all, so the shot description stands in — Scene rows are looked up by
+    this text later, so it has to come from somewhere.
+    """
+    return (sentence.get("sentence") or sentence["image_description"]).strip()
+
+
 def format_dalle_prompt(title: str, image_description: str) -> str:
     return f"Title : {title} \nImage Description:{image_description}"
+
+
+def format_sora_prompt(title: str, image_description: str, style: str = "") -> str:
+    """Describe one shot for Sora.
+
+    Deliberately not format_dalle_prompt: its "Title / Image Description" scaffolding
+    is written for a still, and with no title it sends a stray empty label that adds
+    nothing for a video model. Sora wants plain prose describing the shot.
+
+    `style` is repeated on every shot of a video — each sentence is a separate job with
+    no memory of the last, so it is the only thing tying their look together.
+    """
+    parts = [f"Cinematic video shot: {image_description.strip()}"]
+    if title:
+        parts.append(f"From a video titled '{title}'.")
+    if style:
+        parts.append(style.strip())
+
+    return " ".join(parts)

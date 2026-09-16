@@ -9,6 +9,7 @@ import uuid
 import requests
 from django.conf import settings
 from openai import OpenAI
+from moviepy.editor import AudioFileClip, VideoFileClip
 from pytubefix import YouTube, Playlist
 from rest_framework import status
 from rest_framework.exceptions import APIException
@@ -17,8 +18,8 @@ from .bing_image_downloader import downloader
 from .exceptions import FileNotDownloadedException
 from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
-from .prompt_utils import format_dalle_prompt
-from .video_utils import add_text_to_video
+from .prompt_utils import format_dalle_prompt, format_sora_prompt, scene_text
+from .video_utils import add_text_to_video, check_if_video
 from ..models import Music, Scene, SceneImage, Video
 
 logger = logging.getLogger(__name__)
@@ -215,7 +216,9 @@ def download_music(url: str) -> str:
     return mus
 
 
-def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "") -> str:
+def generate_from_dalle(
+    prompt: str, dir_name: str, style: str, title: str = "", *args, **kwargs
+) -> str:
     """
     Generate an image using the DALL-E model.
 
@@ -274,6 +277,124 @@ def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "")
         image_file.write(base64.b64decode(response.data[0].b64_json))
 
     return rf"{dir_name}{x}.png"
+
+
+SORA_ALLOWED_SECONDS = (4, 8, 12)
+
+
+def still_from_video(path: str, dir_name: str) -> str:
+    """Save the last frame of `path` as a png, or return None if it is not a video.
+
+    Used as the style anchor for later Sora clips: the closing frame of the first clip
+    is what the next scene should still look like.
+    """
+    if not check_if_video(path):
+        return None
+
+    frame_path = f"{dir_name}{uuid.uuid4()}.png"
+    try:
+        with VideoFileClip(path) as clip:
+            # Not clip.duration: moviepy seeks just before the target and decodes
+            # forward, so a time within a frame or two of the end overshoots the last
+            # decodable frame and the read fails. Step back, then give way to earlier
+            # points if even that lands badly on a very short clip.
+            for t in (clip.duration - 0.5, clip.duration * 0.5, 0):
+                try:
+                    clip.save_frame(frame_path, t=max(0, t))
+                    return frame_path
+
+                except Exception as exc:
+                    logger.debug("No frame at %.2fs of %s: %s", t, path, exc)
+
+    except Exception as exc:
+        logger.warning("Could not open %s for a style anchor: %s", path, exc)
+        return None
+
+    logger.warning("Could not take a style anchor from %s", path)
+    return None
+
+
+def scene_narration_duration(scene: Scene) -> float:
+    """Seconds of narration recorded for `scene`, or 0 if it has no audio yet."""
+    if not scene.file:
+        return 0
+
+    try:
+        with AudioFileClip(scene.file.path) as audio:
+            return audio.duration
+
+    except Exception as exc:
+        logger.warning(
+            "Could not read narration length for scene %s: %s", scene.id, exc
+        )
+        return 0
+
+
+def generate_from_sora(
+    prompt: str,
+    dir_name: str,
+    style: str = "",
+    title: str = "",
+    duration: float = 0,
+    reference: str = None,
+    *args,
+    **kwargs,
+) -> str:
+    """
+    Generate a short video clip for one sentence with Sora.
+
+    Returns the path to an .mp4 rather than an image. process_scene already branches on
+    file type, so the rest of the pipeline treats it like any other scene visual: the
+    narration stays the source of truth for timing and handle_video fits the clip to it.
+
+    `duration` is the narration length for this sentence. Sora only renders 4, 8 or 12
+    second clips, so the shortest one that covers the narration is requested; anything
+    longer than 12s is covered by handle_video holding the final frame.
+
+    `reference` is a still that the clip should look like. Every sentence is its own
+    job with no memory of the last one, so settings.SORA_STYLE and this frame are what
+    keep a video from looking like a dozen unrelated stock shots.
+    """
+    logger.warning("API CALL IN SORA")
+
+    # No narration to fit means no duration is passed; fall back to the configured
+    # silent scene length instead of collapsing to the 4s minimum by accident.
+    wanted = duration or settings.SILENT_SCENE_SECONDS
+    seconds = next(
+        (s for s in SORA_ALLOWED_SECONDS if s >= wanted), SORA_ALLOWED_SECONDS[-1]
+    )
+    request = dict(
+        model=settings.SORA_MODEL,
+        prompt=format_sora_prompt(
+            title=title, image_description=prompt, style=settings.SORA_STYLE
+        ),
+        seconds=str(seconds),
+        size=settings.SORA_SIZE,
+    )
+
+    client = OpenAI(api_key=settings.OPEN_API_KEY)
+    if reference and os.path.isfile(reference):
+        with open(reference, "rb") as anchor:
+            video = client.videos.create_and_poll(input_reference=anchor, **request)
+    else:
+        video = client.videos.create_and_poll(**request)
+
+    if video.status != "completed":
+        reason = getattr(video, "error", None)
+        code = getattr(reason, "code", None) or "unknown"
+        message = getattr(reason, "message", None) or "no reason given"
+        logger.error(
+            "Sora job %s ended as %s: %s - %s", video.id, video.status, code, message
+        )
+        raise APIException(
+            detail=f"Sora did not return a video ({video.status}: {code} - {message})",
+            code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    filename = f"{dir_name}{uuid.uuid4()}.mp4"
+    client.videos.download_content(video.id, variant="video").write_to_file(filename)
+
+    return filename
 
 
 def generate_from_diffusion(
@@ -397,9 +518,10 @@ def create_image_scene(
     provider: str = None,
     style: str = "vivid",
     title: str = "",
+    reference: str = None,
     *args,
     **kwargs,
-) -> None:
+) -> str:
     """
     Create a scene with an image and text.
 
@@ -438,13 +560,21 @@ def create_image_scene(
     scene = Scene.objects.get(prompt=prompt, text=text.strip())
     try:
         downloaded_image = getattr(thismodule, modes.get(mode, "WEB").get(provider))(
-            image, f"{dir_name}/images/", style=style, title=title
+            image,
+            f"{dir_name}/images/",
+            style=style,
+            title=title,
+            # Video providers need to know how long this sentence is spoken for. The
+            # narration is already on disk by now — make_scenes_speech runs first.
+            duration=scene_narration_duration(scene),
+            reference=reference,
         )
     except Exception as ex:
         logger.error(ex)
         downloaded_image = None
 
     SceneImage.objects.create(scene=scene, file=downloaded_image, prompt=image)
+    return downloaded_image
 
 
 def create_image_scenes(
@@ -479,18 +609,27 @@ def create_image_scenes(
     """
 
     dir_name = video.dir_name
+    # Anchor every later clip to the look of the first one. Each Sora job is generated
+    # independently, so without a shared reference the scenes drift apart visually. The
+    # anchor is taken once and reused, rather than chained frame-to-frame, which would
+    # let the style wander a little further with every scene.
+    reference = None
     for scene in video.gpt_answer["scenes"]:
         for sentence in scene["sentences"]:
-            create_image_scene(
+            produced = create_image_scene(
                 prompt=video.prompt,
                 image=sentence["image_description"],
-                text=sentence["sentence"],
+                text=scene_text(sentence),
                 dir_name=dir_name,
                 mode=mode,
                 style=style,
                 title=video.title,
                 provider=provider,
+                reference=reference,
             )
+
+            if reference is None and produced:
+                reference = still_from_video(produced, f"{dir_name}/images/")
 
 
 def generate_new_image(
