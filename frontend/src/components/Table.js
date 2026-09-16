@@ -45,42 +45,42 @@ export function DefaultTable({ data, setVideos, loaded }) {
         videoInfo={videoInfo}
       />
 
-      <Card className="h-full w-full overflow-y-scroll">
+      <Card className="h-full w-full overflow-y-scroll dark:bg-gray-800">
         <table className="w-full h-full min-w-max table-fixed text-center">
           <thead>
             <tr>
-              <th className="border-b border-blue-gray-100 bg-blue-gray-50 pt-4 pb-4 text-center w-1/2">
+              <th className="border-b border-blue-gray-100 bg-blue-gray-50 dark:bg-gray-700 dark:border-gray-600 pt-4 pb-4 text-center w-1/2">
                 <Typography
                   variant="small"
                   color="blue-gray"
-                  className="font-normal leading-none opacity-70"
+                  className="font-normal leading-none opacity-70 dark:text-white"
                 >
                   Video Title
                 </Typography>
               </th>
-              <th className="border-b border-blue-gray-100 bg-blue-gray-50 pt-4 pb-4 text-center w-1/6">
+              <th className="border-b border-blue-gray-100 bg-blue-gray-50 dark:bg-gray-700 dark:border-gray-600 pt-4 pb-4 text-center w-1/6">
                 <Typography
                   variant="small"
                   color="blue-gray"
-                  className="font-normal leading-none opacity-70"
+                  className="font-normal leading-none opacity-70 dark:text-white"
                 >
                   Status
                 </Typography>
               </th>
-              <th className="border-b border-blue-gray-100 bg-blue-gray-50 pt-4 pb-4 text-center w-1/6">
+              <th className="border-b border-blue-gray-100 bg-blue-gray-50 dark:bg-gray-700 dark:border-gray-600 pt-4 pb-4 text-center w-1/6">
                 <Typography
                   variant="small"
                   color="blue-gray"
-                  className="font-normal leading-none opacity-70"
+                  className="font-normal leading-none opacity-70 dark:text-white"
                 >
                   Video Type
                 </Typography>
               </th>
-              <th className="border-b border-blue-gray-100 bg-blue-gray-50 pt-4 pb-4 text-center w-1/6">
+              <th className="border-b border-blue-gray-100 bg-blue-gray-50 dark:bg-gray-700 dark:border-gray-600 pt-4 pb-4 text-center w-1/6">
                 <Typography
                   variant="small"
                   color="blue-gray"
-                  className="font-normal leading-none opacity-70"
+                  className="font-normal leading-none opacity-70 dark:text-white"
                 >
                   Actions
                 </Typography>
@@ -88,7 +88,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
             </tr>
           </thead>
           <tbody>
-            {data.map(
+            {data?.map(
               (
                 { title, status, video_type, output, id, prompt, music, gpt_answer },
                 index
@@ -96,7 +96,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
                 const isLast = index === data.length - 1;
                 const classes = isLast
                   ? "p-4"
-                  : "p-4 border-b border-blue-gray-50";
+                  : "p-4 border-b border-blue-gray-50 dark:border-gray-700";
                 const isCompleted = status === "COMPLETED";
                 const isRenderable = isCompleted || status === "READY";
 
@@ -120,7 +120,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
                       <Typography
                         variant="small"
                         color="blue-gray"
-                        className="text-center font-bold"
+                        className="text-center font-bold dark:text-white"
                       >
                         {title}
                       </Typography>
@@ -129,7 +129,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
                       <Typography
                         variant="small"
                         color="blue-gray"
-                        className="font-normal text-center"
+                        className="font-normal text-center dark:text-white"
                       >
                         {status}
                       </Typography>
@@ -138,7 +138,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
                       <Typography
                         variant="small"
                         color="blue-gray"
-                        className="font-normal text-center"
+                        className="font-normal text-center dark:text-white"
                       >
                         {video_type}
                       </Typography>
@@ -147,7 +147,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
                       <Typography
                         variant="small"
                         color="blue-gray"
-                        className="font-medium text-center"
+                        className="font-medium text-center dark:text-white"
                       >
                         <div className="grid grid-cols-4">
                           <FaRegEye

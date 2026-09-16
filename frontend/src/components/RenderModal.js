@@ -73,7 +73,7 @@ export function RenderModal({
             id="renderModal"
             tabIndex="-1"
             aria-hidden="true"
-            className=" overflow-y-auto overflow-x-hidden fixed h-screen my-auto  flex items-center z-50 justify-center w-full md:inset-0 ackdrop-filter backdrop-blur-md  max-h-full"
+            className=" overflow-y-auto overflow-x-hidden fixed h-screen my-auto  flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md  max-h-full"
           >
             <div className="relative p-4 w-full max-w-md h-full md:h-auto">
               <div className="relative p-4 text-center bg-white rounded-lg shadow dark:bg-gray-800 sm:p-5">

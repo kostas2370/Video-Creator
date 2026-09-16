@@ -47,11 +47,11 @@ export const AssetPage = () => {
         setItems={setOutros}
       />
 
-      <div className="p-4">
-        <div className="grid grid-cols-2 gap-4 justify-center">
+      <div className="p-4 md:p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Intros Table */}
-          <div className="flex flex-col items-center">
-            <div className="flex justify-between items-center mb-4 w-full">
+          <div className="flex flex-col bg-white dark:bg-gray-800 dark:border dark:border-gray-700 rounded-lg shadow p-4">
+            <div className="flex flex-wrap gap-2 justify-between items-center mb-4 w-full">
               <h2 className="text-xl font-bold">Intros</h2>
               <div className="flex items-center space-x-2">
                 <button 
@@ -67,8 +67,8 @@ export const AssetPage = () => {
           </div>
 
           {/* Outros Table */}
-          <div className="flex flex-col items-center">
-            <div className="flex justify-between items-center mb-4 w-full">
+          <div className="flex flex-col bg-white dark:bg-gray-800 dark:border dark:border-gray-700 rounded-lg shadow p-4">
+            <div className="flex flex-wrap gap-2 justify-between items-center mb-4 w-full">
               <h2 className="text-xl font-bold">Outros</h2>
               <div className="flex items-center space-x-2">
                 <button 

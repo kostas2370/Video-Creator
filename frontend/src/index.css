@@ -5,3 +5,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* The app shell paints its own background, but that element does not cover the
+     overscroll area — rubber-band scrolling past the top or bottom showed the white
+     html/body behind it. Putting the colour on html covers that, and color-scheme
+     makes the native scrollbars and form controls match the theme. */
+  html {
+    @apply bg-gray-50;
+  }
+
+  html.dark {
+    @apply bg-gray-900;
+    color-scheme: dark;
+  }
+}

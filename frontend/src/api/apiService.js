@@ -112,7 +112,7 @@ export const renderVideo = async (id) => {
 export const generateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_GENERATE(id),data)}
 export const generateSceneImage = async (id, data) => {return postRequest(API_ENDPOINTS.SCENE_IMAGE_GENERATE(id), data)}
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
-export const getVoices = async () => {return getRequest(API_ENDPOINTS.GET_VOICES);}
+export const getVoices = async () => {return getRequest(API_ENDPOINTS.VOICES);}
 export const getIntro = async (search = null) => {return getRequest(API_ENDPOINTS.INTRO_GET(search));}
 export const getOutro = async (search = null) => {return getRequest(API_ENDPOINTS.OUTRO_GET(search));}
 export const getVideos = async (search = null, page = null) => {return getRequest(API_ENDPOINTS.VIDEOS_GET(search, page));}

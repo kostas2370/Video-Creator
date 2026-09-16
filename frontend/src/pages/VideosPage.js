@@ -23,7 +23,7 @@ export const Videos = () => {
     setVideos([])
     const response = await getVideos(debouncedSearchTerm, currentPage);
     if (response) {
-      setVideos(response.results);
+      setVideos(Array.isArray(response.results) ? response.results : []);
       setNextPage(response.next);
       setPreviousPage(response.previous);
     }
@@ -51,7 +51,7 @@ export const Videos = () => {
             type="text"
             placeholder="Search Videos"
             value={search}
-            className="pl-12 w-64 px-9 py-2  border rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+            className="pl-12 w-full sm:w-64 px-9 py-2  border rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
             onChange={(e) => setSearch(e.target.value)}
           />
           <div className="absolute inset-y-2 left-2 flex items-center pl-3 pointer-events-none">

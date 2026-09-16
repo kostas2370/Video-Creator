@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import Cookies from 'js-cookie';
 import useLogout from "../../hooks/useLogout";
-function Navbar() {
+import { RiMoonLine, RiSunLine } from "react-icons/ri";
+function Navbar({ theme, toggleTheme }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -134,6 +135,25 @@ function Navbar() {
               </div>
             </div>
             <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={
+                  theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+                }
+                title={
+                  theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+                }
+                className="relative mr-2 rounded-full bg-gray-800 p-1 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"
+              >
+                <span className="absolute -inset-1.5"></span>
+                {theme === "dark" ? (
+                  <RiSunLine className="h-6 w-6" />
+                ) : (
+                  <RiMoonLine className="h-6 w-6" />
+                )}
+              </button>
+
               <button
                 type="button"
                 className="relative rounded-full bg-gray-800 p-1 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"

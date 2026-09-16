@@ -8,6 +8,7 @@ import { HiOutlinePencilSquare } from "react-icons/hi2";
 import { deleteImageScene, deleteScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
+import { API_HOST } from "../endpoints";
 export const Scene = ({ scene, setUpdated, video_type }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
@@ -15,7 +16,8 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditImageModal, setShowEditImageModal] = useState(false);
 
-  const MEDIA_URL = "http://localhost:8000";
+  // Same host the API is on, so media loads whichever host the app was opened on.
+  const MEDIA_URL = API_HOST;
 
   return (
     <>
@@ -57,7 +59,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
         }}
         setUpdate={setUpdated}
       />
-      <div className="grid grid-cols-2 pt-4 border pl-4 ">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 px-4 border">
         <div className="relative">
           {video_type !== "TWITCH" ? (
             <>
@@ -85,9 +87,9 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
             </>
           ) : null}
 
-          <div className="relative w-9/12 h-5/6">
+          <div className="relative w-full">
             <textarea
-              className="object-cover h-40 w-80 resize-none p-2.5 text-sm rounded-lg border bg-gray-50 border-gray-300 text-gray-900 disabled:opacity-100 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+              className="w-full h-40 resize-none p-2.5 text-sm rounded-lg border bg-gray-50 border-gray-300 text-gray-900 disabled:opacity-100 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
               value={scene.text}
               required=""
               disabled
@@ -101,7 +103,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
               <video
                 controls
                 src={MEDIA_URL + scene.scene_image.file}
-                className="object-cover h-48 w-96 "
+                className="object-cover h-48 w-full md:w-96"
               ></video>
             </>
           ) : (
@@ -111,7 +113,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
                   <img
                     src={MEDIA_URL + scene.scene_image.file}
                     alt="Image Missing"
-                    className="object-cover h-48 w-96"
+                    className="object-cover h-48 w-full md:w-96"
                   />
                 </>
               ) : (
@@ -119,7 +121,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
                   <img
                     src="https://www.shutterstock.com/image-photo/white-cement-concrete-wall-texture-600nw-1891225786.jpg"
                     alt="Image Missing"
-                    className="object-cover h-48 w-96"
+                    className="object-cover h-48 w-full md:w-96"
                   />
                 </>
               )}
