@@ -1,62 +1,70 @@
-This is the new frontend for video creator :
+# Getting Started with Create React App
 
-Backend - repo : https://github.com/kostas2370/Video-Creator 
+This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-Samples : 
-https://www.youtube.com/watch?v=PvrX_jq4fv4
-https://www.youtube.com/watch?v=bNZvK68O-Rk
+## Available Scripts
 
-Login Page : 
-![image](https://github.com/user-attachments/assets/30b93680-59aa-4a68-9676-f3b572bb1dd2)
+In the project directory, you can run:
 
-Register Page : 
+### `npm start`
 
-![image](https://github.com/user-attachments/assets/1657ce0a-2837-4c9a-81b3-8edbf24b7a19)
+Runs the app in the development mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-Generate Page :
+The page will reload when you make changes.\
+You may also see any lint errors in the console.
 
-![image](https://github.com/user-attachments/assets/595f98ad-a95b-4290-a9e5-f84625ca9b02)
+### `npm test`
 
-Twitch Page :
+Launches the test runner in the interactive watch mode.\
+See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-![image](https://github.com/user-attachments/assets/06bee5dc-76bb-4d71-9e26-e4105ac743e4)
+### `npm run build`
 
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build for the best performance.
 
-Avatar Page : 
+The build is minified and the filenames include the hashes.\
+Your app is ready to be deployed!
 
-![image](https://github.com/user-attachments/assets/18aea552-e344-4816-ab71-f8025d0a394e)
+See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-Avatar Creation :
+### `npm run eject`
 
-![image](https://github.com/user-attachments/assets/de60006b-47cc-4485-b567-a93eaa700fab)
+**Note: this is a one-way operation. Once you `eject`, you can't go back!**
 
-Videos Page :
+If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
 
-![image](https://github.com/user-attachments/assets/7ca6171d-55c5-4c8f-959a-3700d3556e0d)
+Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
 
-Video View Modal :
+You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
 
-![image](https://github.com/user-attachments/assets/1fd5aabe-30aa-4646-a2eb-33de4ecbb6a1)
+## Learn More
 
-Video Edit Page :
+You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
-![image](https://github.com/user-attachments/assets/47839969-1a33-4631-b6f7-df76d853e8b8)
+To learn React, check out the [React documentation](https://reactjs.org/).
 
+### Code Splitting
 
-Video Config Modal :
+This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
 
-![image](https://github.com/user-attachments/assets/7f55dc19-2690-4c9f-bf11-c68457a9d651)
+### Analyzing the Bundle Size
 
+This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
 
-Edit Scene : 
-![image](https://github.com/user-attachments/assets/5647a192-1eea-4ce0-87b2-74cec52b61ae)
+### Making a Progressive Web App
 
-Edit Scene Image : 
+This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
 
-![image](https://github.com/user-attachments/assets/1258fef2-ae77-4e98-bfce-d120c38aac3b)
+### Advanced Configuration
 
-Add twitch Scene :
+This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
 
-![image](https://github.com/user-attachments/assets/07901142-02c8-4271-8ef5-3077a52f38ec)
+### Deployment
 
+This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
 
+### `npm run build` fails to minify
+
+This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)

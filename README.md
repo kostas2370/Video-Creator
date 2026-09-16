@@ -3,9 +3,16 @@
 ## Short Description
 Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60db) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
 
-## Frontend Repository
+## Frontend
 
-[Frontend Repository](https://github.com/kostas2370/video_creator_frontend)
+The React app lives in [`frontend/`](frontend/) and is part of this repository, so a
+change that spans the API and the UI is one commit and one review. It was previously
+a [separate repo](https://github.com/kostas2370/video_creator_frontend), kept for
+history.
+
+Docker serves it through nginx on the same origin as the API, which is what keeps the
+auth cookies working: they are `SameSite=Strict`, so a frontend on a different host or
+port never receives the refresh token and every reload logs the user out.
 ## Sample Videos
 
 - [Demo Video 1](https://www.youtube.com/watch?v=PvrX_jq4fv4)
@@ -120,6 +127,29 @@ There are two ways to run the project: manually or using Docker.
    ```shell
    docker-compose up --build
    ```
+
+This brings up the whole stack, frontend included:
+
+| | |
+| --- | --- |
+| App | <http://localhost:3000> |
+| API | <http://localhost:3000/api/> (also on `:8000` directly) |
+| Admin | <http://localhost:3000/admin/> |
+| Swagger | <http://localhost:3000/swagger/> |
+
+nginx serves the built app and proxies `/api`, `/admin`, `/swagger`, `/redoc` and
+`/media` to Django, so everything is one origin. The frontend image is a multi-stage
+build — node compiles the bundle and only the static output plus nginx is shipped, so
+it is around 100MB rather than the couple of GB an installed `node_modules` takes.
+
+To work on the frontend with hot reload, run it outside Docker instead:
+
+```shell
+cd frontend && npm install && npm start
+```
+
+CRA's dev server proxies `/api` to `localhost:8000` (see `proxy` in `package.json`),
+so the browser still sees a single origin and the cookies behave the same way.
 
 Everything above is handled inside the image: the ImageMagick policy is patched, a
 subtitle font is present, and the web container runs migrations and loads fixtures on
