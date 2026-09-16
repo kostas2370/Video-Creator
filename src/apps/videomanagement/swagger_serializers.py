@@ -1,13 +1,10 @@
 from django.conf import settings
 from rest_framework import serializers
 
-# Kept as the single source of truth for the default so the API and DEFAULT_GPT_MODEL
-# cannot drift apart.
 DEFAULT_GPT_MODEL = settings.DEFAULT_GPT_MODEL
 
-# Only models that answer over the Chat Completions endpoint belong here — that is what
-# gpt_utils calls. The `-pro` and `-codex` variants are deliberately left out: they are
-# served through the Responses API, so offering them would only produce 400s.
+# Chat Completions models only — that is what gpt_utils calls. The `-pro` and `-codex`
+# variants are served through the Responses API and would only 400 here.
 accepted_models = [
     # OpenAI — legacy, kept so existing callers do not break.
     "gpt-3.5-turbo",
@@ -48,9 +45,7 @@ accepted_models = [
     "gemini-1.0-pro",
 ]
 
-# A deployment that points DEFAULT_GPT_MODEL at something off this list would otherwise
-# advertise a default that is not one of its own choices, and reject it on any explicit
-# request. Treat the operator's pick as supported instead.
+# Otherwise a custom DEFAULT_GPT_MODEL would be advertised as the default yet rejected.
 if DEFAULT_GPT_MODEL not in accepted_models:
     accepted_models.append(DEFAULT_GPT_MODEL)
 

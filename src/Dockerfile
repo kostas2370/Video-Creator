@@ -28,11 +28,8 @@ RUN python -m pip install --upgrade pip
 # of it can ever run: no service in docker-compose reserves a GPU, and SadTalker
 # checks torch.cuda.is_available() and falls back to CPU. See inference.py.
 #
-# Pinned without the `+cpu` local version on purpose. Only the x86_64 wheels carry
-# that tag — the arm64 ones are plain `2.5.1`, so `==2.5.1+cpu` cannot resolve on
-# Apple Silicon at all. A bare `==2.5.1` matches both (PEP 440 ignores the local
-# version when the specifier omits it), and --index-url already guarantees the CPU
-# build because that index carries nothing else.
+# No `+cpu` suffix: only the x86_64 wheels carry that tag, so it cannot resolve on
+# arm64. A bare `==2.5.1` matches both, and --index-url already pins the CPU build.
 RUN pip install \
       torch==2.5.1 \
       torchvision==0.20.1 \
@@ -63,10 +60,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxrender1 \
   && rm -rf /var/lib/apt/lists/*
 
-# moviepy renders subtitles by writing the caption to a temp file and handing it to
-# ImageMagick as `@/tmp/<file>`, which Debian's shipped policy.xml forbids outright
-# ("attempt to perform an operation not allowed by the security policy"). That made
-# every TextClip fail. Drop only that one rule; the rest of the policy stays.
+# moviepy draws text by handing ImageMagick an `@/tmp/<file>` path, which Debian's
+# policy.xml forbids — failing every subtitle. Drop that one rule only.
 RUN for policy in /etc/ImageMagick-*/policy.xml; do \
       if [ -f "$policy" ]; then sed -i '/pattern="@\*"/d' "$policy"; fi; \
     done

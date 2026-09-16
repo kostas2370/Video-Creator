@@ -240,16 +240,14 @@ def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "")
     - This function uses the OpenAI API to generate an image with settings.IMAGE_MODEL.
     - The generated image is saved in the specified directory path.
     - The filename of the generated image is a UUID followed by '.png'.
-    - Named for DALL-E for backwards compatibility: the "DALL-E" provider key is stored
-      on existing videos and posted by existing clients, so it outlives the model itself.
+    - Named for DALL-E because that provider key is stored on existing videos.
     """
     logger.warning("API CALL IN OPENAI IMAGES")
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
 
     image_prompt = format_dalle_prompt(title=title, image_description=prompt)
-    # The gpt-image models have no `style` argument — that was DALL-E 3 only — so the
-    # caller's choice is folded into the prompt rather than silently dropped.
+    # gpt-image has no `style` argument (DALL-E 3 only), so fold it into the prompt.
     if style:
         image_prompt = f"{image_prompt}\nStyle: {style}"
 
@@ -259,13 +257,11 @@ def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "")
         size=settings.IMAGE_SIZE,
         quality=settings.IMAGE_QUALITY,
         n=1,
-        # Stated rather than assumed: the file below is written as .png, and the API
-        # documents no default for this.
+        # Stated, not assumed: the file below is written as .png.
         output_format="png",
     )
 
-    # gpt-image models always answer with base64 and never populate `url`, so there is
-    # nothing to download here the way there was with DALL-E.
+    # gpt-image always answers with base64 and never populates `url`.
     if not response.data or not response.data[0].b64_json:
         logger.error("Image model %s returned no image data", settings.IMAGE_MODEL)
         raise APIException(

@@ -47,8 +47,7 @@ def save(
 
     Notes:
     ------
-    - Local (coqui/TTS) synthesis was removed; every voice is now an API call. See
-      api_providers in mapper.py for the supported ones.
+    - Every voice is an API call; see api_providers in mapper.py.
     """
     if syn is None:
         return None
@@ -89,9 +88,7 @@ def tts_from_open_api(text, save_path, voice="onyx"):
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
-    # response_format is explicit because the API defaults to mp3, and the pipeline
-    # writes this to a .wav path — leaving mp3 bytes behind a .wav extension, which
-    # only worked because ffmpeg sniffs content rather than trusting the name.
+    # Explicit wav: the API defaults to mp3, which this writes to a .wav path.
     response = client.audio.speech.create(
         model="tts-1", voice=voice, input=text, response_format="wav"
     )

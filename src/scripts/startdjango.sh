@@ -4,10 +4,8 @@ set -o pipefail
 set -o nounset
 
 
-# The migrations are committed, so this is normally a no-op. The app labels stay
-# because a bare `makemigrations` silently skips any app whose migrations package is
-# missing — reporting "No changes detected" and leaving migrate with no tables to
-# create, which is how a fresh checkout used to fail on the loaddata below.
+# Normally a no-op now the migrations are committed. The app labels stay because a
+# bare `makemigrations` silently skips apps whose migrations package is missing.
 python manage.py makemigrations usermanagement videomanagement
 python manage.py migrate
 python manage.py loaddata fixtures/production_fixtures.json
