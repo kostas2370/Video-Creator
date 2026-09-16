@@ -14,10 +14,8 @@ export function useAxiosPrivate() {
         const requestIntercept = axiosPrivateInstance.interceptors.request.use(
             (config) => {
                 if (!config.headers["Authorization"]) {
-                    // The JWT lives in context only, and the API's access_token cookie
-                    // is SameSite=Strict so the browser never sends it cross-site.
-                    // Without this header the request goes out with no credentials at
-                    // all and every authenticated endpoint answers 401.
+                    // The JWT lives in context only — without this header the
+                    // request carries no credentials and the API answers 401.
                     if (access_token) {
                         config.headers["Authorization"] = `Bearer ${access_token}`;
                     }
@@ -38,8 +36,7 @@ export function useAxiosPrivate() {
                     prevRequest.sent = true;
                     const { csrfToken: newCSRFToken, accessToken: newAccessToken } = await refresh();
                     setAccessToken(newAccessToken);
-                    // The retry needs the *new* token on it too — setAccessToken only
-                    // updates context, which does not reach this already-built request.
+                    // setAccessToken only updates context, not this built request.
                     prevRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
                     prevRequest.headers['X-CSRFToken'] = newCSRFToken;
                     return axiosPrivateInstance(prevRequest);
