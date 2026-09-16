@@ -18,8 +18,7 @@ import google.generativeai as genai
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
 
-# Matched as prefixes, not substrings: the o-series names ("o1", "o3", "o4-mini") are
-# short enough that an `in` test would match them inside unrelated model names.
+# Prefixes, not substrings: "o1"/"o3" are short enough to match inside other names.
 model_calls = (
     ("claude", "claude_call"),
     ("gemini", "gemini_call"),
@@ -29,20 +28,16 @@ model_calls = (
     ("o4", "gpt_call"),
 )
 
-# Chat Completions renamed the output cap for the reasoning-era models: everything newer
-# than the gpt-4 family rejects `max_tokens` and expects `max_completion_tokens`. The
-# test names the *old* models on purpose — OpenAI keeps shipping new ones, and letting
-# them fall through to the new parameter means they work here without a code change.
+# Only the gpt-4 era still accepts `max_tokens`. Naming the old models rather than the
+# new ones means future releases work here without a code change.
 LEGACY_TOKEN_LIMIT_PREFIXES = ("gpt-3.5", "gpt-4")
 
 
 def token_limit_kwarg(model: str) -> dict:
     """Return the output-token cap under whichever name `model` accepts.
 
-    `max_completion_tokens` covers reasoning tokens as well as the visible reply, so the
-    newer models get MAX_TOKENS plus a separate reasoning allowance. Without it a model
-    that thinks for longer than MAX_TOKENS returns an empty message, which reads here as
-    unparsable JSON and burns all five retries at full price.
+    `max_completion_tokens` also covers reasoning tokens, so a model that thinks for
+    longer than MAX_TOKENS would otherwise return an empty message.
     """
     if model.startswith(LEGACY_TOKEN_LIMIT_PREFIXES):
         return {"max_tokens": settings.MAX_TOKENS}
@@ -309,8 +304,7 @@ def select_from_vision(prompt, images):
         dicts = {"type": "image_url", "image_url": {"url": x}}
         messages[0]["content"].append(dicts)
 
-    # gpt-4-vision-preview was retired; gpt-4o reads images natively and is the
-    # drop-in replacement for it.
+    # gpt-4-vision-preview was retired; gpt-4o reads images natively.
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages,

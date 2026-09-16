@@ -1,12 +1,10 @@
 services:
   db:
-    # 5.7 is amd64-only, so it has no image for Apple Silicon, and it went EOL in
-    # October 2023. 8.4 is the current LTS and ships a native linux/arm64 build.
+    # 5.7 is amd64-only (no Apple Silicon image) and EOL since October 2023.
     image: mysql:8.4
     restart: always
-    # Throwaway defaults so a blank .env still boots — MySQL refuses to initialise with
-    # no root password, and ENV=dev runs on sqlite anyway, so nothing connects here.
-    # A real .env overrides all four (`:-` substitutes on empty as well as unset).
+    # Throwaway defaults so a blank .env still boots; MySQL refuses to initialise
+    # without a root password. `:-` substitutes on empty as well as unset.
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devroot}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-video_creator}
@@ -52,9 +50,8 @@ services:
   celery-beat:
     build: .
     command: /startcelerybeat
-    # beat needs the django_celery_beat tables, but depends_on only waits for the
-    # containers to start, not for video_creator to finish migrating. On a cold boot
-    # it loses that race and exits; retrying is what lets it come up on its own.
+    # depends_on waits for the container, not for video_creator to finish migrating,
+    # so on a cold boot beat loses that race and needs to retry.
     restart: on-failure
     volumes:
       - .:/app

@@ -314,10 +314,8 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     if video.settings.get("subtitles", False) and subtitles:
         subs = concatenate_videoclips(subtitles, method="compose")
         video_height = final_video.size[1]
-        # Anchor off the clip's own height instead of a fixed offset. The old
-        # (60, height - 150) put the top of a 500px box 150px from the bottom, so the
-        # text — centred inside that box — rendered ~100px below the frame while the
-        # box's opaque top edge stayed visible as a black bar.
+        # Anchored off the clip's own height, so the text cannot fall out of frame
+        # when the box size changes.
         subtitle_bottom_margin = 60
         subtitle_y = max(0, video_height - subs.h - subtitle_bottom_margin)
         final_video = CompositeVideoClip(
@@ -366,10 +364,8 @@ def make_video(video: Video) -> Video:
         sound_list.append(audio)
 
         if video.settings.get("subtitles", False):
-            # create_subtitle_clip returns None when ImageMagick cannot render the
-            # text. Appending that None used to blow up concatenate_videoclips with
-            # "'NoneType' has no attribute 'duration'"; skipping it renders the video
-            # without that one subtitle instead of failing the whole job.
+            # None when ImageMagick cannot render the text — skip it rather than fail
+            # the whole render.
             subtitle = create_subtitle_clip(scene.text, audio.duration)
             if subtitle is not None:
                 subtitles.append(subtitle)
@@ -396,9 +392,8 @@ def make_video(video: Video) -> Video:
             background, final_audio, final_video, video, subtitles
         )
         final_video_path = f"{video.dir_name}/output_video.mp4"
-        # audio_codec is explicit because moviepy defaults it to libmp3lame, and mp3
-        # inside an mp4 is outside the standard profile: Safari and QuickTime play the
-        # picture and silently drop the audio track. aac is the safe pairing for mp4.
+        # Explicit aac: moviepy defaults to libmp3lame, and Safari and QuickTime
+        # silently drop an mp3 audio track inside an mp4.
         final_video.write_videofile(
             final_video_path,
             fps=24,
@@ -411,9 +406,7 @@ def make_video(video: Video) -> Video:
         video.status = "COMPLETED"
 
     finally:
-        # Cleanup must not raise: an exception here replaces the one that actually
-        # failed the render, which is how a subtitle problem surfaced as the useless
-        # "'NoneType' object has no attribute 'close'".
+        # Cleanup must not raise, or it replaces the exception that failed the render.
         for clip in sound_list + vids + subtitles + [final_audio, final_video]:
             if clip is None:
                 continue
@@ -451,18 +444,16 @@ def create_subtitle_clip(
     color : str, optional
         The color of the text (default: "white").
     bg_color : str, optional
-        The box background (default: "transparent"). An opaque colour here paints the
-        whole `size` rectangle over the picture, which is what produced the black band
-        along the bottom of the frame.
+        The box background (default: "transparent"). An opaque colour paints the whole
+        `size` rectangle over the picture.
     font : str, optional
         The ImageMagick font name. Defaults to settings.SUBTITLE_FONT.
     size : tuple, optional
         The subtitle box, (width, height) (default: (1600, 200)). `method="caption"`
-        centres the text vertically inside this box, so an over-tall box pushes the
-        text off-screen even while the box itself is still partly visible.
+        centres the text vertically inside it, so an over-tall box pushes the text
+        off-screen.
     stroke_color, stroke_width : optional
-        Outline around the glyphs. Needed once the background is transparent, so the
-        text stays readable over light imagery.
+        Glyph outline, which keeps the text readable over light imagery.
 
     Returns:
     --------

@@ -11,8 +11,6 @@ class Command(BaseCommand):
     help = "Setup the files you need like folders intros, outros etc"
 
     def handle(self, *args, **options):
-        # parents=True matters: `media` is gitignored, so on a fresh checkout it does
-        # not exist yet and a plain mkdir of media/videos raises FileNotFoundError.
         pathlib.Path("media/videos").mkdir(parents=True, exist_ok=True)
         try:
             if not Intro.objects.filter(name="basicintro").count():

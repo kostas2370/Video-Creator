@@ -7,7 +7,6 @@ import django_resized.forms
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -16,164 +15,494 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Avatar',
+            name="Avatar",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(default='Natasha', max_length=100)),
-                ('gender', models.CharField(max_length=10)),
-                ('file', django_resized.forms.ResizedImageField(crop=None, force_format='jpeg', keep_meta=True, quality=75, scale=None, size=[256, 256], upload_to='media/other/avatars')),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(default="Natasha", max_length=100)),
+                ("gender", models.CharField(max_length=10)),
+                (
+                    "file",
+                    django_resized.forms.ResizedImageField(
+                        crop=None,
+                        force_format="jpeg",
+                        keep_meta=True,
+                        quality=75,
+                        scale=None,
+                        size=[256, 256],
+                        upload_to="media/other/avatars",
+                    ),
+                ),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Background',
+            name="Background",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('category', models.CharField(choices=[('EDUCATIONAL', 'Educational'), ('GAMING', 'Gaming'), ('ADVERTISEMENT', 'Advertisement'), ('STORY', 'Story'), ('OTHER', 'Other')], max_length=30)),
-                ('name', models.CharField(max_length=100)),
-                ('file', models.FileField(upload_to='media/other/backgrounds')),
-                ('color', models.CharField(max_length=30)),
-                ('image_pos_top', models.IntegerField()),
-                ('image_pos_left', models.IntegerField()),
-                ('avatar_pos_top', models.IntegerField()),
-                ('avatar_pos_left', models.IntegerField()),
-                ('through', models.IntegerField(default=6)),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "category",
+                    models.CharField(
+                        choices=[
+                            ("EDUCATIONAL", "Educational"),
+                            ("GAMING", "Gaming"),
+                            ("ADVERTISEMENT", "Advertisement"),
+                            ("STORY", "Story"),
+                            ("OTHER", "Other"),
+                        ],
+                        max_length=30,
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("file", models.FileField(upload_to="media/other/backgrounds")),
+                ("color", models.CharField(max_length=30)),
+                ("image_pos_top", models.IntegerField()),
+                ("image_pos_left", models.IntegerField()),
+                ("avatar_pos_top", models.IntegerField()),
+                ("avatar_pos_left", models.IntegerField()),
+                ("through", models.IntegerField(default=6)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Intro',
+            name="Intro",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('file', models.FileField(upload_to='media/other/intros')),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("file", models.FileField(upload_to="media/other/intros")),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Music',
+            name="Music",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=140)),
-                ('file', models.FileField(upload_to='media/music')),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=140)),
+                ("file", models.FileField(upload_to="media/music")),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Outro',
+            name="Outro",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100)),
-                ('file', models.FileField(upload_to='media/other/outros')),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("file", models.FileField(upload_to="media/other/outros")),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Scene',
+            name="Scene",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('file', models.FileField(blank=True, max_length=2000, null=True, upload_to='media/speech')),
-                ('text', models.TextField()),
-                ('is_last', models.BooleanField(default=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "file",
+                    models.FileField(
+                        blank=True, max_length=2000, null=True, upload_to="media/speech"
+                    ),
+                ),
+                ("text", models.TextField()),
+                ("is_last", models.BooleanField(default=True)),
             ],
         ),
         migrations.CreateModel(
-            name='TemplatePrompt',
+            name="TemplatePrompt",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=20)),
-                ('category', models.CharField(choices=[('EDUCATIONAL', 'Educational'), ('GAMING', 'Gaming'), ('ADVERTISEMENT', 'Advertisement'), ('STORY', 'Story'), ('OTHER', 'Other')], max_length=20, null=True)),
-                ('format', models.TextField(blank=True)),
-                ('is_sentenced', models.BooleanField(default=False)),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=20)),
+                (
+                    "category",
+                    models.CharField(
+                        choices=[
+                            ("EDUCATIONAL", "Educational"),
+                            ("GAMING", "Gaming"),
+                            ("ADVERTISEMENT", "Advertisement"),
+                            ("STORY", "Story"),
+                            ("OTHER", "Other"),
+                        ],
+                        max_length=20,
+                        null=True,
+                    ),
+                ),
+                ("format", models.TextField(blank=True)),
+                ("is_sentenced", models.BooleanField(default=False)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='UserPrompt',
+            name="UserPrompt",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('prompt', models.TextField()),
-                ('template', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='videomanagement.templateprompt')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("prompt", models.TextField()),
+                (
+                    "template",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="videomanagement.templateprompt",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='VoiceModel',
+            name="VoiceModel",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(blank=True, max_length=200)),
-                ('provider', models.CharField(blank=True, max_length=100)),
-                ('type', models.CharField(choices=[('API', 'Api'), ('LOCAL', 'Local'), ('PYTTSX3', 'Pyttsx3')], max_length=10)),
-                ('sample', models.URLField(blank=True, max_length=1000, null=True)),
-                ('path', models.CharField(max_length=255)),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(blank=True, max_length=200)),
+                ("provider", models.CharField(blank=True, max_length=100)),
+                (
+                    "type",
+                    models.CharField(
+                        choices=[
+                            ("API", "Api"),
+                            ("LOCAL", "Local"),
+                            ("PYTTSX3", "Pyttsx3"),
+                        ],
+                        max_length=10,
+                    ),
+                ),
+                ("sample", models.URLField(blank=True, max_length=1000, null=True)),
+                ("path", models.CharField(max_length=255)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Video',
+            name="Video",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=50)),
-                ('url', models.URLField(blank=True)),
-                ('gpt_answer', models.TextField(blank=True, null=True)),
-                ('output', models.FileField(blank=True, max_length=2000, null=True, upload_to='media/output')),
-                ('dir_name', models.TextField(default='')),
-                ('status', models.CharField(choices=[('GENERATION', 'GENERATION'), ('READY', 'READY'), ('RENDERING', 'RENDERING'), ('COMPLETED', 'COMPLETED'), ('FAILED', 'FAILED')], default='RENDERING', max_length=20)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('video_type', models.CharField(choices=[('AI', 'AI'), ('TWITCH', 'TWITCH')], default='AI', max_length=20)),
-                ('mode', models.CharField(choices=[('AI', 'AI'), ('WEB', 'WEB')], default='WEB', max_length=30, null=True)),
-                ('settings', models.JSONField(blank=True, default={'avatar_position': 'right,top', 'subtitles': False}, null=True)),
-                ('avatar', models.ForeignKey(blank=True, db_constraint=False, default=None, null=True, on_delete=django.db.models.deletion.SET_NULL, to='videomanagement.avatar')),
-                ('background', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='videomanagement.background')),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
-                ('intro', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='videomanagement.intro')),
-                ('music', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='videomanagement.music')),
-                ('outro', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='videomanagement.outro')),
-                ('prompt', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='video_prompt', to='videomanagement.userprompt')),
-                ('voice_model', models.ForeignKey(db_constraint=False, default=1, null=True, on_delete=django.db.models.deletion.SET_NULL, to='videomanagement.voicemodel')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=50)),
+                ("url", models.URLField(blank=True)),
+                ("gpt_answer", models.TextField(blank=True, null=True)),
+                (
+                    "output",
+                    models.FileField(
+                        blank=True, max_length=2000, null=True, upload_to="media/output"
+                    ),
+                ),
+                ("dir_name", models.TextField(default="")),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("GENERATION", "GENERATION"),
+                            ("READY", "READY"),
+                            ("RENDERING", "RENDERING"),
+                            ("COMPLETED", "COMPLETED"),
+                            ("FAILED", "FAILED"),
+                        ],
+                        default="RENDERING",
+                        max_length=20,
+                    ),
+                ),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "video_type",
+                    models.CharField(
+                        choices=[("AI", "AI"), ("TWITCH", "TWITCH")],
+                        default="AI",
+                        max_length=20,
+                    ),
+                ),
+                (
+                    "mode",
+                    models.CharField(
+                        choices=[("AI", "AI"), ("WEB", "WEB")],
+                        default="WEB",
+                        max_length=30,
+                        null=True,
+                    ),
+                ),
+                (
+                    "settings",
+                    models.JSONField(
+                        blank=True,
+                        default={"avatar_position": "right,top", "subtitles": False},
+                        null=True,
+                    ),
+                ),
+                (
+                    "avatar",
+                    models.ForeignKey(
+                        blank=True,
+                        db_constraint=False,
+                        default=None,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="videomanagement.avatar",
+                    ),
+                ),
+                (
+                    "background",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="videomanagement.background",
+                    ),
+                ),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "intro",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="videomanagement.intro",
+                    ),
+                ),
+                (
+                    "music",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="videomanagement.music",
+                    ),
+                ),
+                (
+                    "outro",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="videomanagement.outro",
+                    ),
+                ),
+                (
+                    "prompt",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="video_prompt",
+                        to="videomanagement.userprompt",
+                    ),
+                ),
+                (
+                    "voice_model",
+                    models.ForeignKey(
+                        db_constraint=False,
+                        default=1,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="videomanagement.voicemodel",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='SceneImage',
+            name="SceneImage",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('file', models.FileField(blank=True, max_length=2000, null=True, upload_to='media/images')),
-                ('prompt', models.TextField(blank=True, default='', null=True)),
-                ('with_audio', models.BooleanField(default=False)),
-                ('scene', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='scene_images', to='videomanagement.scene')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "file",
+                    models.FileField(
+                        blank=True, max_length=2000, null=True, upload_to="media/images"
+                    ),
+                ),
+                ("prompt", models.TextField(blank=True, default="", null=True)),
+                ("with_audio", models.BooleanField(default=False)),
+                (
+                    "scene",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="scene_images",
+                        to="videomanagement.scene",
+                    ),
+                ),
             ],
         ),
         migrations.AddField(
-            model_name='scene',
-            name='prompt',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='scenes', to='videomanagement.userprompt'),
+            model_name="scene",
+            name="prompt",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="scenes",
+                to="videomanagement.userprompt",
+            ),
         ),
         migrations.AddField(
-            model_name='avatar',
-            name='voice',
-            field=models.ForeignKey(db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, to='videomanagement.voicemodel'),
+            model_name="avatar",
+            name="voice",
+            field=models.ForeignKey(
+                db_constraint=False,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="videomanagement.voicemodel",
+            ),
         ),
     ]
