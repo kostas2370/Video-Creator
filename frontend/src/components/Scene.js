@@ -87,7 +87,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
 
           <div className="relative w-9/12 h-5/6">
             <textarea
-              className="object-cover h-40 w-80 resize-none "
+              className="object-cover h-40 w-80 resize-none p-2.5 text-sm rounded-lg border bg-gray-50 border-gray-300 text-gray-900 disabled:opacity-100 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
               value={scene.text}
               required=""
               disabled

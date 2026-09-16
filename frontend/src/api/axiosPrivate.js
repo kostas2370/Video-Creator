@@ -1,6 +1,7 @@
 import axios from "axios"
 
-const API_URL = "http://127.0.0.1:8000/api/"
+// Must match API_BASE_URL in endpoints.js — see the SameSite note there.
+const API_URL = "http://localhost:8000/api/"
 
 export const axiosInstance = axios.create({
     baseURL: API_URL,

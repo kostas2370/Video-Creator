@@ -8,7 +8,10 @@ import { useAxiosPrivate } from '../hooks/useAxiosPrivate'
 export default function PersistLogin() {
 
     const refresh = useRefreshToken()
-    const { accessToken, setUser } = useAuth()
+    // access_token, not accessToken — that is the name AuthContext exposes. The
+    // camelCase spelling was undefined forever, so the guard below never short-
+    // circuited and every mount re-ran the refresh.
+    const { access_token, setUser } = useAuth()
     const [loading, setLoading] = useState(true)
     useAxiosPrivate()
 
@@ -26,7 +29,7 @@ export default function PersistLogin() {
             }
         }
 
-        !accessToken ? verifyUser() : setLoading(false)
+        !access_token ? verifyUser() : setLoading(false)
 
         return () => {
             isMounted = false
