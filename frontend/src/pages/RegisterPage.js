@@ -3,7 +3,7 @@ import PasswordChecklist from "react-password-checklist";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { REGISTER_URL } from "../endpoints";
-import axios from "axios";
+import { axiosInstance } from "../api/axiosPrivate";
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +40,7 @@ const Register = () => {
                     password: password
                   }
       
-      axios.post(REGISTER_URL, data).then(response => {
+      axiosInstance.post(REGISTER_URL, data).then(response => {
         toast.success("Register succesfully, check your email for the confirmation url");
         navigate("/login");
       }).catch(error => {
