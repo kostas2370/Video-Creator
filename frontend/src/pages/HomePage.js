@@ -210,8 +210,8 @@ const Home = () => {
                         className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         onChange={handleInputChange}
                       >
-                        {/* The first entry is what an untouched form submits, so it has
-                            to stay in sync with gpt_model in the formData defaults. */}
+                        {/* The select is uncontrolled: the first entry must stay in
+                            sync with gpt_model in the formData defaults. */}
                         <optgroup label="OpenAI">
                           <option value="gpt-5.4-mini">gpt-5.4-mini</option>
                           <option value="gpt-5.4">gpt-5.4</option>
@@ -290,10 +290,8 @@ const Home = () => {
                       >
                         {formData.image_mode === "AI" ? (
                           <>
-                            {/* The value stays "DALL-E": it is the provider key the
-                                backend's mapper looks up, and existing videos store
-                                it. Only the label follows the model, which is now
-                                gpt-image-2 — DALL-E itself has been retired. */}
+                            {/* Value stays "DALL-E" — the provider key the backend
+                                maps and existing videos store. Only the label moved. */}
                             <option value="DALL-E">OpenAI (gpt-image)</option>
                             <option value="midjourney">midjourney</option>
                             <option value="stable-diffusion">

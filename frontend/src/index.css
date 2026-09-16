@@ -1,15 +1,6 @@
-/* Tailwind entry point.
- *
- * This file used to carry ~1200 lines of pre-compiled Tailwind output committed below
- * these directives. That dump was the only thing styling the app, because the content
- * globs in tailwind.config.js pointed at ./pages and ./components instead of ./src and
- * matched no files. Any utility missing from the frozen dump therefore had no CSS at
- * all — which is why dark:bg-gray-600 and dark:border-gray-500 rendered as unstyled
- * white boxes across a dozen components.
- *
- * With the globs fixed, PostCSS regenerates utilities from the source on every build,
- * so a checked-in copy is redundant — and a stale copy silently shadowing freshly
- * generated rules is exactly the trap this walked into. Keep this directives-only.
+/* Directives only. This previously held ~1200 lines of pre-compiled Tailwind output,
+ * which silently shadowed the generated rules and left any class missing from it
+ * unstyled. PostCSS regenerates utilities from source, so keep it that way.
  */
 @tailwind base;
 @tailwind components;
