@@ -1,51 +1,43 @@
 from datetime import date
 from typing import Literal
-from django.contrib.auth import get_user_model
 
 from slugify import slugify
 
-from ..models import Video, UserPrompt
+from ..models import Video
 from ..utils.file_utils import generate_directory
 from ..utils.twitch import TwitchClient
 from ..utils.visual_utils import create_twitch_clip_scene
-from ..utils.cost_utils import calculate_total_cost
+from ..utils.cost_utils import charge_user
+
+
+def twitch_video_title(value: str) -> str:
+    return f"{value} {date.today()}"
 
 
 def generate_twitch_video(
+    video: Video,
     mode: Literal["game", "streamer"],
     value: str,
     amt: int = 10,
     started_at: str = "",
-    created_by: get_user_model() = None,
 ):
     """
     Generate a video based on clips fetched from Twitch.
 
     Args:
+        video (Video): The pending video created by `create_pending_video`.
         mode (Literal["game", "streamer"]): The mode of fetching clips, either "game" or "streamer".
         value (str): The value to search for, either the name of a game or a streamer.
         amt (int, optional): The number of clips to fetch. Defaults to 10.
         started_at (str, optional): The starting date/time from which to fetch clips. Defaults to "".
-        created_by (User, optional): The user that created the video
 
     Returns:
         Videos: The generated video instance.
     """
 
-    message = f"Mode : {mode} Value : {value}"
-    title = f"{value} {date.today()}"
-    dir_name = generate_directory(f"media/videos/{slugify(title)}")
-
-    user_prompt = UserPrompt.objects.create(template=None, prompt=f"{message}")
-
-    video = Video.objects.create(
-        prompt=user_prompt,
-        dir_name=dir_name,
-        title=title,
-        status="GENERATION",
-        video_type="TWITCH",
-        created_by=created_by,
-    )
+    dir_name = generate_directory(f"media/videos/{slugify(video.title)}")
+    video.dir_name = dir_name
+    video.save()
 
     client = TwitchClient(path=dir_name)
     client.set_headers()
@@ -69,6 +61,6 @@ def generate_twitch_video(
     video.status = "READY"
     video.save()
 
-    created_by.generation_limit_for_twitch -= calculate_total_cost(video)
-    created_by.save()
+    charge_user(video.created_by, "generation_limit_for_twitch", video)
+
     return video

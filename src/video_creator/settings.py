@@ -10,8 +10,10 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security
-SECRET_KEY = os.getenv(
-    "SECRET_KEY", "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
+# `or`, not a getenv default: .env_example ships this blank, and "" would override it.
+SECRET_KEY = (
+    os.getenv("SECRET_KEY")
+    or "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
 )
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
@@ -105,8 +107,31 @@ DJOSER = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = "redis://redis-stack-server:6379/0"
-CELERY_BROKER_URL = "redis://redis-stack-server:6379/0"
+# `or` rather than a getenv default: a key left blank in .env reads as "", which would
+# otherwise be handed to Celery as the broker URL.
+CELERY_BROKER_URL = (
+    os.getenv("CELERY_BROKER_URL") or "redis://redis-stack-server:6379/0"
+)
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
+
+# Generation and rendering are long and expensive. Acknowledge tasks only once they
+# finish so a worker that dies mid-render requeues its task instead of losing it, and
+# never let a worker hoard queued jobs it cannot start.
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TRACK_STARTED = True
+
+# A render that has not reported back within this many seconds is treated as dead by
+# `reap_stalled_videos` and flipped to FAILED.
+VIDEO_TASK_STALE_AFTER = int(os.getenv("VIDEO_TASK_STALE_AFTER") or 60 * 60 * 3)
+
+CELERY_BEAT_SCHEDULE = {
+    "reap-stalled-videos": {
+        "task": "apps.videomanagement.tasks.reap_stalled_videos",
+        "schedule": 15 * 60.0,
+    },
+}
 
 # Logging
 LOGGING = {
@@ -197,9 +222,22 @@ REST_FRAMEWORK = {
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
 GPT_OFFICIAL = True
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", 3900))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
+# Headroom for gpt-5/o-series thinking tokens, which bill against the same cap as the
+# reply. Applied only to those models — see gpt_utils.token_limit_kwarg.
+REASONING_TOKEN_ALLOWANCE = int(os.getenv("REASONING_TOKEN_ALLOWANCE") or 8000)
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
-DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL", "gpt-4o")
+DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini"
+
+# DALL-E was retired. These three move together: quality and size are validated per
+# model, so gpt-image-1 (fixed sizes only) needs the other two revisited.
+IMAGE_MODEL = os.getenv("IMAGE_MODEL") or "gpt-image-2"
+IMAGE_QUALITY = os.getenv("IMAGE_QUALITY") or "high"
+IMAGE_SIZE = os.getenv("IMAGE_SIZE") or "1792x1024"
+
+# As ImageMagick names it (`convert -list font`). The image carries only DejaVu;
+# "Arial" exists on macOS and Windows but not in debian-slim.
+SUBTITLE_FONT = os.getenv("SUBTITLE_FONT") or "DejaVu-Sans"
 
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 API_KEY = os.getenv("API_KEY")
