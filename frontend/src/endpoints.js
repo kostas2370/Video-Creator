@@ -5,7 +5,8 @@
 export const API_HOST = process.env.REACT_APP_API_HOST || ""
 
 export const API_BASE_URL = `${API_HOST}/api/`
-export const LOGIN_URL = API_BASE_URL+"login/"
-export const REFRESH_URL = API_BASE_URL+"token/refresh/"
+// Relative to API_BASE_URL, which is the axios baseURL — see api/axiosPrivate.
+export const LOGIN_URL = "login/"
+export const REFRESH_URL = "token/refresh/"
 
-export const REGISTER_URL = API_BASE_URL+"register/"
+export const REGISTER_URL = "register/"
