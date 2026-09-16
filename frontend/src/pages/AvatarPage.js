@@ -39,7 +39,7 @@ export const Avatar = () => {
             <input
               type="text"
               placeholder="Search Avatars"
-              className="pl-12 w-64 px-9 py-2  border rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="pl-12 w-full sm:w-64 px-9 py-2  border rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
               onChange={(e) => setSearch(e.target.value)}
             />
             <div className="absolute inset-y-2 left-2 flex items-center pl-3 pointer-events-none">
@@ -59,12 +59,12 @@ export const Avatar = () => {
         </div>
       </div>
       
-      <div className="bg-gray-100 p-2 grid  grid-cols-1  sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 ml-6 mr-6 mt-4 ">
+      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mx-6 mt-4">
         
         {!loading ? (<>{avatars?.length > 0 ? (
           <>
             {avatars?.map((avatar) => (
-              <div className="mt-4 ml-20">
+              <div className="flex h-full justify-center">
                 <Card
                   imageSrc={avatar.file}
                   title={avatar.name}
@@ -78,7 +78,7 @@ export const Avatar = () => {
           </>
         ) : (
           <>
-            <p className="text-center text-lg text-gray-700 className= mt-4 ml-20">
+            <p className="col-span-full text-center text-lg text-gray-700 dark:text-gray-300 py-8">
               Avatars are empty,{" "}
               <span className="text-blue-500 font-semibold">
                 create your avatars!

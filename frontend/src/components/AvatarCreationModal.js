@@ -20,7 +20,9 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
   useEffect(() => {
     const fetchVoiceOption = async () => {
       getVoices().then((response) => {
-        setVoices(response);
+        // getRequest swallows failures and resolves undefined, which used to crash
+        // the select below with "voices.map is not a function".
+        setVoices(Array.isArray(response) ? response : []);
       });
     };
     fetchVoiceOption();
@@ -56,7 +58,7 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
             id="crud-modal"
             tabIndex="-1"
             aria-hidden="false"
-            className=" overflow-y-auto overflow-x-hidden fixed h-screen  flex items-center z-50 justify-center w-full md:inset-0 ackdrop-filter backdrop-blur-md  max-h-full"
+            className=" overflow-y-auto overflow-x-hidden fixed h-screen  flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md  max-h-full"
           >
             <div className="relative p-4 w-full max-w-md max-h-full">
               <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
@@ -119,8 +121,10 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
                         onChange={(e) => setVoice(e.target.value)}
                       >
                         <option value="">Select Voice</option>
-                        {voices.map((voice) => (
-                          <option value={voice.id}>{voice.name}</option>
+                        {voices?.map((voice) => (
+                          <option key={voice.id} value={voice.id}>
+                            {voice.name}
+                          </option>
                         ))}
                       </select>
                       {voices?.map((item, index) => {

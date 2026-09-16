@@ -13,10 +13,12 @@ export const VideoInfoModal = ({
             id="crud-modal"
             tabIndex="-1"
             aria-hidden="false"
-            className=" overflow-y-auto overflow-x-hidden fixed h-screen  flex items-center z-50 justify-center  md:inset-0 ackdrop-filter backdrop-blur-md  max-h-full"
+            className="overflow-y-auto overflow-x-hidden fixed inset-0 w-full h-screen flex items-center z-50 justify-center backdrop-filter backdrop-blur-md max-h-full"
           >
-            <div className="relative p-4 w-full max-w-md max-h-full">
-              <div className="relative bg-white rounded-lg shadow dark:bg-gray-700 w-[600px]">
+            {/* The width belongs on the wrapper and the panel fills it. A fixed 600px
+                panel inside a max-w-md (448px) parent overflowed at every size. */}
+            <div className="relative p-4 w-full max-w-2xl max-h-full">
+              <div className="relative w-full bg-white rounded-lg shadow dark:bg-gray-700">
                 <div className="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center">
                     {videoInfo.title}

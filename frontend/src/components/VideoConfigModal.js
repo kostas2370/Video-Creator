@@ -27,9 +27,11 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
           getIntro(),
           getOutro(),
         ]);
-        setAvatars(avatarData);
-        setIntros(introData);
-        setOutros(outroData);
+        // getRequest resolves undefined when a request fails, and the selects below
+        // map straight over these.
+        setAvatars(Array.isArray(avatarData) ? avatarData : []);
+        setIntros(Array.isArray(introData) ? introData : []);
+        setOutros(Array.isArray(outroData) ? outroData : []);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -44,7 +46,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
 
   useEffect(() => {
     setIntro(info.intro);
-    intros.map((item) => {
+    intros?.map((item) => {
       if (info.intro === item.id) {
         setSelectedIntroFile(item?.file);
       }
@@ -53,7 +55,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
 
   useEffect(() => {
     setOutro(info.outro);
-    outros.map((item) => {
+    outros?.map((item) => {
       if (info.outro === item.id) {
         setSelectedOutroFile(item?.file);
       }
@@ -67,7 +69,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
 
   useEffect(() => {
     setAvatar(info.avatar);
-    avatars.map((item) => {
+    avatars?.map((item) => {
       if (info.avatar === item.id) {
         setSelectedAvatarFile(item?.file);
       }
@@ -99,7 +101,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
           id="crud-modal"
           tabIndex="-1"
           aria-hidden="false"
-          className="overflow-y-auto overflow-x-hidden fixed h-screen flex items-center z-50 justify-center w-full md:inset-0 backdrop-filter backdrop-blur-md bg-blue-gray-200 max-h-full"
+          className="overflow-y-auto overflow-x-hidden fixed h-screen flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md bg-blue-gray-200 max-h-full"
         >
           <div className="relative p-6 w-full  max-w-3xl max-h-full ">
             <div className="relative bg-white rounded-lg shadow dark:bg-gray-700 ">

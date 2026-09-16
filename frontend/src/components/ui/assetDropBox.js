@@ -50,7 +50,7 @@ export const AssetDropBox = ({ type, items, className, value, setValue,selectedF
             <source src={selectedFile} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
-        ) :<> {selectedFile && type === "avatar"?(<><img src={selectedFile} alt={"test"} className=" object-none p-2" /></>):null}</>}
+        ) :<> {selectedFile && type === "avatar"?(<><img src={selectedFile} alt={"test"} className="w-full h-40 object-contain p-2" /></>):null}</>}
       </div>
     </>
   );

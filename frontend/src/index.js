@@ -7,11 +7,14 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { BrowserRouter as Router } from "react-router-dom";
 import { AuthContextProvider } from "./store/AuthContext";
+import { applyTheme, initialTheme } from "./hooks/useTheme";
+
+// Before the first paint, so the page does not flash the wrong theme while React mounts.
+applyTheme(initialTheme());
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <Router>
-    <script src="https://cdn.tailwindcss.com"></script>
     <AuthContextProvider>
       <App />
       <ToastContainer />

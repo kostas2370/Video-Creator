@@ -36,7 +36,7 @@ export function AssetCreationModal({
             id="crud-modal"
             tabIndex="-1"
             aria-hidden="false"
-            className=" overflow-y-auto overflow-x-hidden fixed h-screen  flex items-center z-50 justify-center w-full md:inset-0 ackdrop-filter backdrop-blur-md  max-h-full"
+            className=" overflow-y-auto overflow-x-hidden fixed h-screen  flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md  max-h-full"
           >
             <div className="relative p-4 w-full max-w-md max-h-full">
               <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
