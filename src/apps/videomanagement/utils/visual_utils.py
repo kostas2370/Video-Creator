@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -9,6 +10,8 @@ import requests
 from django.conf import settings
 from openai import OpenAI
 from pytubefix import YouTube, Playlist
+from rest_framework import status
+from rest_framework.exceptions import APIException
 
 from .bing_image_downloader import downloader
 from .exceptions import FileNotDownloadedException
@@ -234,27 +237,41 @@ def generate_from_dalle(prompt: str, dir_name: str, style: str, title: str = "")
 
     Notes:
     ------
-    - This function uses the OpenAI API to generate an image using the DALL-E model.
+    - This function uses the OpenAI API to generate an image with settings.IMAGE_MODEL.
     - The generated image is saved in the specified directory path.
     - The filename of the generated image is a UUID followed by '.png'.
+    - Named for DALL-E because that provider key is stored on existing videos.
     """
-    logger.warning("API CALL IN DALL-E")
+    logger.warning("API CALL IN OPENAI IMAGES")
 
     client = OpenAI(api_key=settings.OPEN_API_KEY)
 
+    image_prompt = format_dalle_prompt(title=title, image_description=prompt)
+    # gpt-image has no `style` argument (DALL-E 3 only), so fold it into the prompt.
+    if style:
+        image_prompt = f"{image_prompt}\nStyle: {style}"
+
     response = client.images.generate(
-        model="dall-e-3",
-        prompt=format_dalle_prompt(title=title, image_description=prompt),
-        size="1792x1024",
-        quality="standard",
+        model=settings.IMAGE_MODEL,
+        prompt=image_prompt,
+        size=settings.IMAGE_SIZE,
+        quality=settings.IMAGE_QUALITY,
         n=1,
-        style=style,
+        # Stated, not assumed: the file below is written as .png.
+        output_format="png",
     )
 
-    image_url = response.data[0].url
-    response = requests.get(image_url)
+    # gpt-image always answers with base64 and never populates `url`.
+    if not response.data or not response.data[0].b64_json:
+        logger.error("Image model %s returned no image data", settings.IMAGE_MODEL)
+        raise APIException(
+            detail="The image model returned no image",
+            code=status.HTTP_400_BAD_REQUEST,
+        )
+
     x = str(uuid.uuid4())
-    open(rf"{dir_name}{x}.png", "wb").write(response.content)
+    with open(rf"{dir_name}{x}.png", "wb") as image_file:
+        image_file.write(base64.b64decode(response.data[0].b64_json))
 
     return rf"{dir_name}{x}.png"
 

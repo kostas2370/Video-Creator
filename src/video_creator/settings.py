@@ -10,8 +10,10 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security
-SECRET_KEY = os.getenv(
-    "SECRET_KEY", "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
+# `or`, not a getenv default: .env_example ships this blank, and "" would override it.
+SECRET_KEY = (
+    os.getenv("SECRET_KEY")
+    or "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
 )
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
@@ -220,9 +222,22 @@ REST_FRAMEWORK = {
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
 GPT_OFFICIAL = True
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", 3900))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
+# Headroom for gpt-5/o-series thinking tokens, which bill against the same cap as the
+# reply. Applied only to those models — see gpt_utils.token_limit_kwarg.
+REASONING_TOKEN_ALLOWANCE = int(os.getenv("REASONING_TOKEN_ALLOWANCE") or 8000)
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
-DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL", "gpt-4o")
+DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini"
+
+# DALL-E was retired. These three move together: quality and size are validated per
+# model, so gpt-image-1 (fixed sizes only) needs the other two revisited.
+IMAGE_MODEL = os.getenv("IMAGE_MODEL") or "gpt-image-2"
+IMAGE_QUALITY = os.getenv("IMAGE_QUALITY") or "high"
+IMAGE_SIZE = os.getenv("IMAGE_SIZE") or "1792x1024"
+
+# As ImageMagick names it (`convert -list font`). The image carries only DejaVu;
+# "Arial" exists on macOS and Windows but not in debian-slim.
+SUBTITLE_FONT = os.getenv("SUBTITLE_FONT") or "DejaVu-Sans"
 
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 API_KEY = os.getenv("API_KEY")

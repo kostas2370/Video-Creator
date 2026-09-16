@@ -1,0 +1,9 @@
+# Pins the torch stack that the Dockerfile installs from the CPU-only index, so
+# nothing in docker_requirements.txt can upgrade it and drag the ~2.5GB of nvidia-*
+# CUDA packages back into the image.
+#
+# No +cpu suffix: PEP 440 treats `==2.5.1` as matching the local version 2.5.1+cpu,
+# and leaving it off keeps the constraint usable outside Docker too.
+torch==2.5.1
+torchvision==0.20.1
+torchaudio==2.5.1

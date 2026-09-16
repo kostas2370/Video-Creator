@@ -1,5 +1,5 @@
 [
-   {
+  {
     "model": "videomanagement.voicemodel",
     "pk": 2,
     "fields": {
@@ -7,10 +7,10 @@
       "type": "API",
       "path": "alloy",
       "sample": "https://cdn.openai.com/API/docs/audio/alloy.wav",
-      "provider":"open_ai"
+      "provider": "open_ai"
     }
   },
-   {
+  {
     "model": "videomanagement.voicemodel",
     "pk": 3,
     "fields": {
@@ -18,7 +18,7 @@
       "type": "API",
       "path": "echo",
       "sample": "https://cdn.openai.com/API/docs/audio/echo.wav",
-      "provider":"open_ai"
+      "provider": "open_ai"
     }
   },
   {
@@ -29,10 +29,9 @@
       "type": "API",
       "path": "fable",
       "sample": "https://cdn.openai.com/API/docs/audio/fable.wav",
-      "provider":"open_ai"
+      "provider": "open_ai"
     }
   },
-
   {
     "model": "videomanagement.voicemodel",
     "pk": 5,
@@ -41,10 +40,10 @@
       "type": "API",
       "path": "onyx",
       "sample": "https://cdn.openai.com/API/docs/audio/onyx.wav",
-      "provider":"open_ai"
+      "provider": "open_ai"
     }
   },
-    {
+  {
     "model": "videomanagement.voicemodel",
     "pk": 6,
     "fields": {
@@ -52,11 +51,10 @@
       "type": "API",
       "path": "nova",
       "sample": "https://cdn.openai.com/API/docs/audio/nova.wav",
-      "provider":"open_ai"
+      "provider": "open_ai"
     }
   },
-
-    {
+  {
     "model": "videomanagement.voicemodel",
     "pk": 7,
     "fields": {
@@ -64,26 +62,7 @@
       "type": "API",
       "path": "shimmer",
       "sample": "https://cdn.openai.com/API/docs/audio/shimmer.wav",
-      "provider":"open_ai"
-    }
-  },  {
-    "model": "videomanagement.voicemodel",
-    "pk": 8,
-    "fields": {
-      "name": "tacotron",
-      "type": "LOCAL",
-      "path": "tts_models/en/ljspeech/tacotron2-DDC",
-      "provider":"local"
-    }
-  },
-    {
-    "model": "videomanagement.voicemodel",
-    "pk": 9,
-    "fields": {
-      "name": "jenny",
-      "type": "LOCAL",
-      "path": "tts_models/en/jenny/jenny",
-      "provider":"local"
+      "provider": "open_ai"
     }
   },
   {

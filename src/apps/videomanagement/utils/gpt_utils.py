@@ -18,7 +18,34 @@ import google.generativeai as genai
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
 
-model_calls = {"gpt": "gpt_call", "claude": "claude_call", "gemini": "gemini_call"}
+# Prefixes, not substrings: "o1"/"o3" are short enough to match inside other names.
+model_calls = (
+    ("claude", "claude_call"),
+    ("gemini", "gemini_call"),
+    ("gpt", "gpt_call"),
+    ("o1", "gpt_call"),
+    ("o3", "gpt_call"),
+    ("o4", "gpt_call"),
+)
+
+# Only the gpt-4 era still accepts `max_tokens`. Naming the old models rather than the
+# new ones means future releases work here without a code change.
+LEGACY_TOKEN_LIMIT_PREFIXES = ("gpt-3.5", "gpt-4")
+
+
+def token_limit_kwarg(model: str) -> dict:
+    """Return the output-token cap under whichever name `model` accepts.
+
+    `max_completion_tokens` also covers reasoning tokens, so a model that thinks for
+    longer than MAX_TOKENS would otherwise return an empty message.
+    """
+    if model.startswith(LEGACY_TOKEN_LIMIT_PREFIXES):
+        return {"max_tokens": settings.MAX_TOKENS}
+
+    return {
+        "max_completion_tokens": settings.MAX_TOKENS
+        + settings.REASONING_TOKEN_ALLOWANCE
+    }
 
 
 def check_json(json_file: json) -> bool:
@@ -64,15 +91,16 @@ def check_json(json_file: json) -> bool:
 def official_gpt_call(prompt: str, gpt_model=None):
     x = io.StringIO()
     logger.warning("API CALL IN OFFICIAL GPT")
+    model = gpt_model or settings.DEFAULT_GPT_MODEL
     try:
         client = OpenAI(api_key=settings.OPEN_API_KEY)
         stream = client.chat.completions.create(
-            model=settings.DEFAULT_GPT_MODEL if not gpt_model else gpt_model,
+            model=model,
             messages=[
                 {"role": "assistant", "content": prompt},
             ],
             stream=True,
-            max_tokens=settings.MAX_TOKENS,
+            **token_limit_kwarg(model),
         )
 
         for chunk in stream:
@@ -186,8 +214,8 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
     g4f.logging = True
     g4f.check_version = False
 
-    for key, call in model_calls.items():
-        if key in gpt_model:
+    for key, call in model_calls:
+        if (gpt_model or "").startswith(key):
             x = getattr(thismodule, call)(prompt, gpt_model)
             break
     else:
@@ -276,8 +304,9 @@ def select_from_vision(prompt, images):
         dicts = {"type": "image_url", "image_url": {"url": x}}
         messages[0]["content"].append(dicts)
 
+    # gpt-4-vision-preview was retired; gpt-4o reads images natively.
     response = client.chat.completions.create(
-        model="gpt-4-vision-preview",
+        model="gpt-4o",
         messages=messages,
         max_tokens=300,
     )
