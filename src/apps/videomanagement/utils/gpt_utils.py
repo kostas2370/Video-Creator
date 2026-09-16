@@ -22,10 +22,10 @@ thismodule = sys.modules[__name__]
 model_calls = (
     ("claude", "claude_call"),
     ("gemini", "gemini_call"),
-    ("gpt", "gpt_call"),
-    ("o1", "gpt_call"),
-    ("o3", "gpt_call"),
-    ("o4", "gpt_call"),
+    ("gpt", "official_gpt_call"),
+    ("o1", "official_gpt_call"),
+    ("o3", "official_gpt_call"),
+    ("o4", "official_gpt_call"),
 )
 
 # Only the gpt-4 era still accepts `max_tokens`. Naming the old models rather than the
@@ -113,27 +113,6 @@ def official_gpt_call(prompt: str, gpt_model=None):
     return x
 
 
-def g4f_gpt_call(prompt: str, gpt_model="gpt-4"):
-    x = io.StringIO()
-    logger.info("api call in gpt4free")
-    try:
-        gpt_model = g4f.models.gpt_4_turbo if gpt_model == "gpt-4" else "gpt-3.5-turbo"
-        response = g4f.ChatCompletion.create(
-            model=gpt_model,
-            messages=[{"content": prompt}],
-            stream=True,
-        )
-
-        for message in response:
-            x.write(message)
-
-    except Exception as err:
-        logger.error(err)
-        raise APIException(detail=err, code=status.HTTP_400_BAD_REQUEST)
-
-    return x
-
-
 def gemini_call(prompt: str, model="gemini-1.5-pro"):
     x = io.StringIO()
     try:
@@ -171,18 +150,9 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620"):
         raise APIException(err, code=status.HTTP_400_BAD_REQUEST)
 
 
-def gpt_call(prompt, gpt_model):
-    if not settings.GPT_OFFICIAL:
-        x = g4f_gpt_call(prompt=prompt, gpt_model=gpt_model)
-    else:
-        x = official_gpt_call(prompt=prompt, gpt_model=gpt_model)
-
-    return x
-
-
 def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
     """
-    Get a reply to a prompt from either GPT-4 Free or the OpenAI API.
+    Get a reply to a prompt from the model named by `gpt_model`.
 
     Parameters:
     -----------
@@ -208,18 +178,16 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
 
     Notes:
     ------
-    - This function interacts with either GPT-4 Free or the OpenAI API to generate replies to prompts.
+    - Routes to OpenAI, Claude or Gemini based on the model name.
     """
     time += 1
-    g4f.logging = True
-    g4f.check_version = False
 
     for key, call in model_calls:
         if (gpt_model or "").startswith(key):
             x = getattr(thismodule, call)(prompt, gpt_model)
             break
     else:
-        x = gpt_call(prompt, gpt_model="gpt-4")
+        x = official_gpt_call(prompt, gpt_model=settings.DEFAULT_GPT_MODEL)
 
     if reply_format == "json":
         x = x.getvalue()
