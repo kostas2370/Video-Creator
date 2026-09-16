@@ -13,7 +13,7 @@ from .models import (
     Background,
     Avatar,
 )
-from .utils.video_utils import make_video
+from .tasks import render_video_task
 
 
 class VideoAdmin(admin.ModelAdmin):
@@ -22,9 +22,9 @@ class VideoAdmin(admin.ModelAdmin):
         if len(queryset) > 1:
             return "You can only render 1 video per time"
 
-        make_video(queryset.first())
+        render_video_task.delay(video_id=queryset.first().pk)
 
-        return "Success"
+        return "Queued"
 
     # Register the action with the model
     actions = ["render_video"]

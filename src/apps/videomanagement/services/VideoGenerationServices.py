@@ -10,13 +10,40 @@ from ..utils.file_utils import generate_directory
 from ..utils.gpt_utils import get_reply
 from ..utils.prompt_utils import format_prompt
 from ..utils.visual_utils import create_image_scenes, download_music
-from ..utils.cost_utils import calculate_total_cost
+from ..utils.cost_utils import charge_user
 from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 
 
+def create_pending_video(
+    message: str,
+    created_by: get_user_model(),
+    video_type: Literal["AI", "TWITCH"] = "AI",
+    title: str = None,
+) -> Video:
+    """
+    Create the Video row that `generate_video` will later fill in.
+
+    This is the only part of generation that is cheap enough to run inside a request:
+    it gives the caller an id to poll while the real work happens on a worker. The
+    video starts in GENERATION with no `gpt_answer`; the title is a placeholder until
+    the model returns a real one.
+    """
+    user_prompt = UserPrompt.objects.create(template=None, prompt=f"{message}")
+
+    return Video.objects.create(
+        title=(title or message)[:50],
+        prompt=user_prompt,
+        dir_name="",
+        status="GENERATION",
+        video_type=video_type,
+        created_by=created_by,
+    )
+
+
 def generate_video(
+    video: Video,
     template_id: Union[str, int, None],
     message: str,
     gpt_model: Union[str, None],
@@ -31,7 +58,6 @@ def generate_video(
     voice_id: Union[int, None] = None,
     subtitles: bool = False,
     provider: Union[str, None] = None,
-    created_by: get_user_model() = None,
     avatar_position: str = "top,right",
 ) -> Video:
     """
@@ -39,6 +65,8 @@ def generate_video(
 
     Parameters:
     -----------
+    video : Video
+        The pending video created by `create_pending_video`, filled in here.
     template_id : Union[str, int, None]
         The ID of the template used for the video.
     message : str
@@ -67,8 +95,6 @@ def generate_video(
         Whether to include subtitles in the video.
     provider : Union[str, None], optional
         The provider for generating images.
-    created_by : int, optional
-        The ID of the user creating the video.
     avatar_position : str, optional
         The position of the avatar in the video (default is "top,right").
 
@@ -106,9 +132,10 @@ def generate_video(
 
     x = get_reply(prompt, gpt_model=gpt_model)
 
-    user_prompt = UserPrompt.objects.create(template=template, prompt=f"{message}")
+    user_prompt = video.prompt
+    user_prompt.template = template
     user_prompt.save()
-    logger.info(f"Created the user_prompt instance with id : {user_prompt.id}")
+    logger.info(f"Updated the user_prompt instance with id : {user_prompt.id}")
 
     dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
@@ -116,21 +143,17 @@ def generate_video(
         intro = Intro.objects.get(id=int(intro))
         outro = Outro.objects.get(id=int(outro))
 
-    vid = Video.objects.create(
-        title=x["title"],
-        prompt=user_prompt,
-        dir_name=dir_name,
-        gpt_answer=x,
-        background=background,
-        intro=intro,
-        outro=outro,
-        settings=dict(subtitles=subtitles, avatar_position=avatar_position),
-        status="GENERATION",
-        video_type="AI",
-        created_by=created_by,
-    )
+    vid = video
+    vid.title = x["title"][:50]
+    vid.dir_name = dir_name
+    vid.gpt_answer = x
+    vid.background = background
+    vid.intro = intro
+    vid.outro = outro
+    vid.settings = dict(subtitles=subtitles, avatar_position=avatar_position)
+    vid.save()
 
-    logger.info(f"Created the video instance with id : {vid.id}")
+    logger.info(f"Filled in the video instance with id : {vid.id}")
 
     if avatar_selection:
         selected_avatar = Avatar.select_avatar(selected=avatar_selection)
@@ -163,7 +186,6 @@ def generate_video(
     vid.status = "READY"
     vid.save()
 
-    created_by.generation_limit_for_ai -= calculate_total_cost(vid)
-    created_by.save()
+    charge_user(vid.created_by, "generation_limit_for_ai", vid)
 
     return vid
