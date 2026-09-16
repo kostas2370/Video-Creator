@@ -221,7 +221,6 @@ REST_FRAMEWORK = {
 
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
-GPT_OFFICIAL = True
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
 # Headroom for gpt-5/o-series thinking tokens, which bill against the same cap as the
 # reply. Applied only to those models — see gpt_utils.token_limit_kwarg.

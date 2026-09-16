@@ -114,7 +114,10 @@ def generate_video(
     template = TemplatePrompt.get_template(template_id)
     logger.info("Retrieved template")
 
-    template_format = template.format if template else default_format
+    # One format for every video, whatever the template: the pipeline downstream walks
+    # a fixed scenes -> sentences shape, so a template that redefined it would produce
+    # a reply the rest of the code cannot read. Templates contribute the genre only.
+    template_format = default_format
     category = (
         template.category
         if template

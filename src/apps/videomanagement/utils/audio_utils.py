@@ -2,7 +2,6 @@ import uuid
 
 from .tts_utils import save, ApiSyn
 from ..models import Scene, Video
-from .prompt_utils import determine_fields
 import os
 
 
@@ -38,27 +37,15 @@ def make_scenes_speech(video: Video) -> None:
     """
 
     voice_model = video.voice_model
-    gpt_answer = video.gpt_answer
-    first_scene = gpt_answer["scenes"][0]
-    search_field, narration_field = determine_fields(first_scene)
-    is_sentenced = (
-        True if video.prompt.template is None else video.prompt.template.is_sentenced
-    )
-
-    for j in gpt_answer["scenes"]:
-        if is_sentenced:
-            for index, sentence in enumerate(j[search_field]):
-                make_scene_speech(
-                    voice_model,
-                    video.dir_name,
-                    video.prompt,
-                    sentence[narration_field],
-                    index == len(j[search_field]) - 1,
-                )
-
-        else:
+    for scene in video.gpt_answer["scenes"]:
+        sentences = scene["sentences"]
+        for index, sentence in enumerate(sentences):
             make_scene_speech(
-                voice_model, video.dir_name, video.prompt, j["dialogue"], False
+                voice_model,
+                video.dir_name,
+                video.prompt,
+                sentence["sentence"],
+                index == len(sentences) - 1,
             )
 
 

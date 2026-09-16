@@ -17,7 +17,7 @@ from .bing_image_downloader import downloader
 from .exceptions import FileNotDownloadedException
 from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
-from .prompt_utils import format_dalle_prompt, determine_fields
+from .prompt_utils import format_dalle_prompt
 from .video_utils import add_text_to_video
 from ..models import Music, Scene, SceneImage, Video
 
@@ -478,35 +478,18 @@ def create_image_scenes(
     - The mode and style parameters determine the method and style of image creation.
     """
 
-    is_sentenced = (
-        True if video.prompt.template is None else video.prompt.template.is_sentenced
-    )
     dir_name = video.dir_name
-    first_scene = video.gpt_answer["scenes"][0]
-    search_field, narration_field = determine_fields(first_scene)
-    for j in video.gpt_answer["scenes"]:
-        if is_sentenced:
-            for x in j[search_field]:
-                create_image_scene(
-                    prompt=video.prompt,
-                    image=x["image_description"],
-                    text=x[narration_field],
-                    dir_name=dir_name,
-                    mode=mode,
-                    style=style,
-                    title=video.title,
-                    provider=provider,
-                )
-
-        else:
+    for scene in video.gpt_answer["scenes"]:
+        for sentence in scene["sentences"]:
             create_image_scene(
                 prompt=video.prompt,
-                image=j["image"],
-                text=j["dialogue"],
+                image=sentence["image_description"],
+                text=sentence["sentence"],
                 dir_name=dir_name,
                 mode=mode,
                 style=style,
                 title=video.title,
+                provider=provider,
             )
 
 
