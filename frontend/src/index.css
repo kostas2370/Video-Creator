@@ -1,0 +1,22 @@
+/* Directives only. This previously held ~1200 lines of pre-compiled Tailwind output,
+ * which silently shadowed the generated rules and left any class missing from it
+ * unstyled. PostCSS regenerates utilities from source, so keep it that way.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* The app shell paints its own background, but that element does not cover the
+     overscroll area — rubber-band scrolling past the top or bottom showed the white
+     html/body behind it. Putting the colour on html covers that, and color-scheme
+     makes the native scrollbars and form controls match the theme. */
+  html {
+    @apply bg-gray-50;
+  }
+
+  html.dark {
+    @apply bg-gray-900;
+    color-scheme: dark;
+  }
+}

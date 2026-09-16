@@ -25,6 +25,22 @@ services:
     env_file:
       - ./.env
 
+  frontend:
+    # The build context is the sibling frontend/ directory, not src/, because that is
+    # where the React app and its Dockerfile live.
+    build: ../frontend
+    restart: unless-stopped
+    # Published on 3000 so the app keeps the URL it has always had, and so the origin
+    # stays one that CSRF_TRUSTED_ORIGINS already names. nginx listens on 80 inside.
+    ports:
+      - "3000:80"
+    volumes:
+      # Read-only: nginx serves the rendered videos and images directly, but only the
+      # workers ever write them.
+      - ./media:/usr/share/nginx/media:ro
+    depends_on:
+      - video_creator
+
   redis-stack-server:
     image: redis/redis-stack-server:latest
     container_name: redis-stack-server

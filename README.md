@@ -3,9 +3,17 @@
 ## Short Description
 Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60db) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
 
-## Frontend Repository
+## Frontend
 
-[Frontend Repository](https://github.com/kostas2370/video_creator_frontend)
+The React app lives in [`frontend/`](frontend/) and is part of this repository, so a
+change that spans the API and the UI is one commit and one review. It was previously
+a [separate repo](https://github.com/kostas2370/video_creator_frontend), kept for
+history.
+
+Docker serves it through nginx on the same origin as the API, which is what keeps the
+auth cookies working: they are `SameSite=Strict`, so a frontend on a different host or
+port never receives the refresh token and every reload logs the user out.
+
 ## Sample Videos
 
 - [Demo Video 1](https://www.youtube.com/watch?v=PvrX_jq4fv4)
@@ -111,6 +119,17 @@ There are two ways to run the project: manually or using Docker.
    This imports your 60db voices into the database. Once imported, a 60db voice can be
    selected for a video just like any other voice — synthesis is routed automatically.
 
+7. In a second terminal, start the frontend:
+
+   ```shell
+   cd frontend && npm install && npm start
+   ```
+
+   It opens on <http://localhost:3000> and proxies `/api` to the Django server on
+   `:8000`, so the browser sees one origin and the auth cookies work. Open the app on
+   `localhost`, not `127.0.0.1` — they count as different sites, and the
+   `SameSite=Strict` refresh cookie would not be sent.
+
 ---
 
 ### Docker Installation
@@ -120,6 +139,36 @@ There are two ways to run the project: manually or using Docker.
    ```shell
    docker-compose up --build
    ```
+
+This brings up the whole stack, frontend included:
+
+| | |
+| --- | --- |
+| App | <http://localhost:3000> |
+| API | <http://localhost:3000/api/> (also on `:8000` directly) |
+| Admin | <http://localhost:3000/admin/> |
+| Swagger | <http://localhost:3000/swagger/> |
+
+nginx serves the built app and proxies `/api`, `/admin`, `/swagger` and `/redoc` to
+Django, so everything is one origin.
+
+Rendered videos, scene images and narration audio under `/media` are served by nginx
+straight off the bind mount rather than through Django. Django's development static
+view does not implement range requests, so a browser could not seek in a rendered
+video and had to download the whole file before playing it.
+
+The frontend image is a multi-stage build — node compiles the bundle and only the
+static output plus nginx is shipped, so it is around 100MB rather than the couple of
+GB an installed `node_modules` takes.
+
+To work on the frontend with hot reload, run it outside Docker instead:
+
+```shell
+cd frontend && npm install && npm start
+```
+
+CRA's dev server proxies `/api` to `localhost:8000` (see `proxy` in `package.json`),
+so the browser still sees a single origin and the cookies behave the same way.
 
 Everything above is handled inside the image: the ImageMagick policy is patched, a
 subtitle font is present, and the web container runs migrations and loads fixtures on
@@ -133,7 +182,8 @@ They are deliberately **not** baked into the image — that would add several GB
 
 ## Admin Panel
 
-- URL: [http://localhost:8000/admin](http://localhost:8000/admin)
+- URL: [http://localhost:3000/admin/](http://localhost:3000/admin/) under Docker, or
+  [http://localhost:8000/admin/](http://localhost:8000/admin/) against `runserver`.
 - Create your own account with `python manage.py createsuperuser`. The fixtures ship a
   superuser row, but only as a password *hash* — there is no plaintext for it, so it
   cannot be logged into.
@@ -148,7 +198,9 @@ They are deliberately **not** baked into the image — that would add several GB
 
 ## API Documentation
 
-You can find all API endpoints in Swagger: [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
+You can find all API endpoints in Swagger: [http://localhost:3000/swagger/](http://localhost:3000/swagger/)
+under Docker, or [http://localhost:8000/swagger/](http://localhost:8000/swagger/) against
+`runserver`.
 
 ---
 
@@ -171,6 +223,7 @@ For any inquiries or support, feel free to reach out:
 
 ## Recent Updates
 
+✅ Merged the frontend into this repository and added it to Docker, served on one origin\
 ✅ Migrated image generation from the retired DALL-E to the `gpt-image` models\
 ✅ Refreshed the OpenAI model list (gpt-4.1 / gpt-5 families and the o-series)\
 ✅ Dropped local coqui TTS — all voices are API-backed now, and the image is far smaller\
