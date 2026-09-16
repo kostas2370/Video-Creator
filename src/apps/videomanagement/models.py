@@ -13,7 +13,7 @@ TEMPLATE_CHOICES = (
     ("OTHER", "Other"),
 )
 
-MODEL_TYPE_CHOICES = (("API", "Api"), ("LOCAL", "Local"), ("PYTTSX3", "Pyttsx3"))
+MODEL_TYPE_CHOICES = (("API", "Api"),)
 
 VIDEO_STATUS = (
     ("GENERATION", "GENERATION"),
@@ -42,8 +42,6 @@ class AbstractModel(models.Model):
 class TemplatePrompt(AbstractModel):
     title = models.CharField(max_length=20, blank=False)
     category = models.CharField(choices=TEMPLATE_CHOICES, max_length=20, null=True)
-    format = models.TextField(blank=True)
-    is_sentenced = models.BooleanField(default=False)
     objects = models.Manager()
 
     def __str__(self):
