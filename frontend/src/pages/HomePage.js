@@ -29,6 +29,7 @@ const Home = () => {
     music: "",
     provider: "",
     subtitles: true,
+    narration: true,
     avatar_position:"top,left"
   });
 
@@ -39,7 +40,11 @@ const Home = () => {
  useEffect(() => () => pollRef.current?.cancel(), []);
 
   const handleInputChange = (event) => {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
+    if (type === "checkbox") {
+      setFormData((prevData) => ({ ...prevData, [name]: checked }));
+      return;
+    }
     if (name === "image_mode") {
       setFormData((prevData) => ({
         ...prevData,
@@ -293,6 +298,7 @@ const Home = () => {
                             {/* Value stays "DALL-E" — the provider key the backend
                                 maps and existing videos store. Only the label moved. */}
                             <option value="DALL-E">OpenAI (gpt-image)</option>
+                            <option value="sora">OpenAI Sora (video)</option>
                             <option value="midjourney">midjourney</option>
                             <option value="stable-diffusion">
                               stable-diffusion
@@ -306,6 +312,25 @@ const Home = () => {
                         )}
                       </select>
                     </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      name="narration"
+                      type="checkbox"
+                      id="narration"
+                      checked={formData.narration}
+                      onChange={handleInputChange}
+                      className="w-4 h-4 text-blue-600 bg-gray-50 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <label
+                      htmlFor="narration"
+                      className="text-sm font-medium text-gray-900 dark:text-white"
+                    >
+                      Narration
+                    </label>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      off = clips only, no voice or subtitles
+                    </span>
                   </div>
                   <div>
                     <label
