@@ -59,29 +59,30 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
         }}
         setUpdate={setUpdated}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 px-4 border">
+      <div className="mb-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:grid-cols-2 dark:border-gray-700 dark:bg-gray-800">
         <div className="relative">
           {video_type !== "TWITCH" ? (
             <>
-              <button
-                className="absolute top-2 right-4  p-2 pr-4 rounded-full bg-white hover:bg-gray-200"
-                onClick={(e) => {
-                  setShowEditModal(true);
-                }}
-              >
-                <FaPencilAlt className="text-blue-500" />
-              </button>
-
-              <button
-                  onClick={(e) => {
-                    setShowDeleteSceneModal(true);
-                  }}
-                  className="absolute top-12 right-4  p-2 pr-4 rounded-full bg-white hover:bg-gray-200"
+              <div className="absolute right-0 top-0 z-10 flex gap-2">
+                <button
+                  type="button"
+                  aria-label="Edit scene text"
+                  className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
+                  onClick={() => setShowEditModal(true)}
                 >
-                  <IoTrashBinSharp className="text-red-500" />
+                  <FaPencilAlt className="h-4 w-4 text-blue-500" />
                 </button>
+                <button
+                  type="button"
+                  aria-label="Delete scene"
+                  className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
+                  onClick={() => setShowDeleteSceneModal(true)}
+                >
+                  <IoTrashBinSharp className="h-4 w-4 text-red-500" />
+                </button>
+              </div>
 
-              <audio controls key={scene.file}>
+              <audio controls key={scene.file} className="mb-3 w-full">
                 <source src={MEDIA_URL + scene.file ?? ""} />
               </audio>
             </>
@@ -103,27 +104,23 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
               <video
                 controls
                 src={MEDIA_URL + scene.scene_image.file}
-                className="object-cover h-48 w-full md:w-96"
+                className="h-48 w-full rounded-lg object-cover"
               ></video>
             </>
           ) : (
             <>
               {scene.scene_image?.file ? (
-                <>
-                  <img
-                    src={MEDIA_URL + scene.scene_image.file}
-                    alt="Image Missing"
-                    className="object-cover h-48 w-full md:w-96"
-                  />
-                </>
+                <img
+                  src={MEDIA_URL + scene.scene_image.file}
+                  alt={scene.scene_image.prompt || "Scene image"}
+                  className="h-48 w-full rounded-lg object-cover"
+                />
               ) : (
-                <>
-                  <img
-                    src="https://www.shutterstock.com/image-photo/white-cement-concrete-wall-texture-600nw-1891225786.jpg"
-                    alt="Image Missing"
-                    className="object-cover h-48 w-full md:w-96"
-                  />
-                </>
+                /* Was a watermarked stock photo fetched from shutterstock.com just to
+                   fill the gap — an external request, and it read as a real image. */
+                <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-400">
+                  No image yet
+                </div>
               )}
             </>
           )}
@@ -133,7 +130,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
               <>
                 {video_type !== "TWITCH" ? (
                   <button
-                    className="bg-white p-2 pr-4 rounded-full shadow-lg hover:bg-gray-200"
+                    className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
                     onClick={(e) => {
                       setShowEditImageModal(true);
                     }}
@@ -145,7 +142,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
                   onClick={(e) => {
                     setShowDeleteModal(true);
                   }}
-                  className="bg-white p-2 rounded-full shadow-lg hover:bg-gray-200"
+                  className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
                 >
                   <IoTrashBinSharp className="text-red-500" />
                 </button>
@@ -155,7 +152,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
                 onClick={(e) => {
                   setShowEditImageModal(true);
                 }}
-                className="bg-white p-2 rounded-full shadow-lg hover:bg-gray-200"
+                className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
               >
                 <FaPlus className="text-orange-500" />
               </button>

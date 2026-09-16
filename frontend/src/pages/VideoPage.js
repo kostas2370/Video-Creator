@@ -96,31 +96,30 @@ export const Video = () => {
         {videoInfo?.scenes?.map((scene) => {
           return (
             <Scene
+              key={scene.id}
               scene={scene}
               setUpdated={setUpdated}
               video_type={videoInfo.video_type}
             />
           );
         })}
-        {videoInfo?.video_type === "TWITCH" ? (
-          <button className="bg-white p-2 pr-4 rounded-full shadow-lg hover:bg-gray-200 ">
-            <FaPlus
-              className="text-orange-500 w-5 h-5"
-              onClick={(e) => {
-                setShowAddSceneModal(true);
-              }}
-            />
-          </button>
-        ) : (
-          <button className="bg-white p-2 pr-4 rounded-full shadow-lg hover:bg-gray-200 ">
-            <FaPlus
-              className="text-orange-500 w-5 h-5"
-              onClick={(e) => {
-                setShowAddSceneModal(true);
-              }}
-            />
-          </button>
-        )}
+        {/* Both branches of this used to be identical, so a Twitch video opened the
+            AI scene modal and setShowAddTwitchSceneModal was never called anywhere —
+            TwitchSceneCreationModal was rendered but unreachable. The click also sat
+            on the icon rather than the button, so the padding was dead and the
+            keyboard could not activate it. */}
+        <button
+          type="button"
+          onClick={() =>
+            videoInfo?.video_type === "TWITCH"
+              ? setShowAddTwitchSceneModal(true)
+              : setShowAddSceneModal(true)
+          }
+          className="mb-4 flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white/50 px-5 py-2.5 text-sm font-medium text-gray-600 transition hover:border-orange-400 hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:border-orange-400 dark:hover:text-orange-400"
+        >
+          <FaPlus className="h-4 w-4 text-orange-500" />
+          Add scene
+        </button>
       </div>
     </>
   );
