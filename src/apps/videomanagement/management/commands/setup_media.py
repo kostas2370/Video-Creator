@@ -1,4 +1,3 @@
-import os
 import pathlib
 import urllib
 
@@ -12,8 +11,9 @@ class Command(BaseCommand):
     help = "Setup the files you need like folders intros, outros etc"
 
     def handle(self, *args, **options):
-        if not os.path.exists("media/videos/"):
-            os.mkdir("media/videos")
+        # parents=True matters: `media` is gitignored, so on a fresh checkout it does
+        # not exist yet and a plain mkdir of media/videos raises FileNotFoundError.
+        pathlib.Path("media/videos").mkdir(parents=True, exist_ok=True)
         try:
             if not Intro.objects.filter(name="basicintro").count():
                 intro = download_video(

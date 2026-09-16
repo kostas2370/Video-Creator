@@ -1,5 +1,3 @@
-coqui-tts @ git+https://github.com/idiap/coqui-ai-TTS.git@19fce2c87cf52f5896078811ac06ccf6cc7994b6
-
 Django==4.0.3
 djangorestframework==3.13.1
 Pillow==8.4.0

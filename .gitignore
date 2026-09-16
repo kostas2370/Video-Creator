@@ -164,8 +164,6 @@ src/apps/videomanagement/utils/SadTalker/results/
 
 src/apps/videomanagement/utils/SadTalker/venv/
 .mp4
-src/apps/usermanagement/migrations/
-src/apps/videomanagement/migrations/
 src/audio_list.txt
 
 

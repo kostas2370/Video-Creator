@@ -1,14 +1,58 @@
+from django.conf import settings
 from rest_framework import serializers
 
+# Kept as the single source of truth for the default so the API and DEFAULT_GPT_MODEL
+# cannot drift apart.
+DEFAULT_GPT_MODEL = settings.DEFAULT_GPT_MODEL
+
+# Only models that answer over the Chat Completions endpoint belong here — that is what
+# gpt_utils calls. The `-pro` and `-codex` variants are deliberately left out: they are
+# served through the Responses API, so offering them would only produce 400s.
 accepted_models = [
+    # OpenAI — legacy, kept so existing callers do not break.
     "gpt-3.5-turbo",
     "gpt-4",
+    "gpt-4-turbo",
     "gpt-4o",
+    "gpt-4o-mini",
+    # OpenAI — 4.1 family.
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    # OpenAI — 5 family and later.
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-5-chat-latest",
+    "gpt-5.1",
+    "gpt-5.1-chat-latest",
+    "gpt-5.2",
+    "gpt-5.2-chat-latest",
+    "gpt-5.3-chat-latest",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
+    "gpt-5.5",
+    "gpt-5.6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-6-astra",
+    # OpenAI — o-series reasoning models.
+    "o1",
+    "o3",
+    "o3-mini",
+    "o4-mini",
     "claude-3-5-sonnet-20240620",
     "gemini-1.5-pro",
     "gemini-1.5-flash",
     "gemini-1.0-pro",
 ]
+
+# A deployment that points DEFAULT_GPT_MODEL at something off this list would otherwise
+# advertise a default that is not one of its own choices, and reject it on any explicit
+# request. Treat the operator's pick as supported instead.
+if DEFAULT_GPT_MODEL not in accepted_models:
+    accepted_models.append(DEFAULT_GPT_MODEL)
 
 
 class GenerateSerializer(serializers.Serializer):
@@ -16,7 +60,7 @@ class GenerateSerializer(serializers.Serializer):
     template_id = serializers.CharField(required=False, max_length=20, default="")
     voice_id = serializers.CharField(required=False, max_length=20, default=None)
     gpt_model = serializers.ChoiceField(
-        required=False, choices=accepted_models, default="gpt-4o"
+        required=False, choices=accepted_models, default=DEFAULT_GPT_MODEL
     )
     image_mode = serializers.ChoiceField(
         required=False, choices=["AI", "WEB", False], default="WEB"

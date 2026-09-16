@@ -1,7 +1,7 @@
 # Viddie - AI-Powered Video Creation
 
 ## Short Description
-Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining GPT-4 for script generation, Conquis TTS for speech synthesis, DALL-E for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
+Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60db) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
 
 ## Frontend Repository
 
@@ -25,11 +25,18 @@ There are two ways to run the project: manually or using Docker.
 - Install the following dependencies:
   1. FFmpeg (Required for video rendering) - [Installation Guide](https://phoenixnap.com/kb/ffmpeg-windows)
   2. ImageMagick (Required for subtitles) - [Download](https://imagemagick.org/script/download.php#windows)
-  3. eSpeak-NG (Only required for some voice models) - [Download MSI](https://github.com/espeak-ng/espeak-ng/releases)
-     - If you don't want to install extra voice packages, use only:
-       ```
-       tts_models/en/ljspeech/tacotron2-DDC
-       ```
+
+     On Linux, the packaged `policy.xml` blocks the `@file` reads that moviepy uses to
+     draw text, so every subtitle fails with *"operation not allowed by the security
+     policy"*. Delete this line from `/etc/ImageMagick-*/policy.xml`:
+
+     ```xml
+     <policy domain="path" rights="none" pattern="@*"/>
+     ```
+
+     Subtitles are drawn with the font named by `SUBTITLE_FONT` (default
+     `DejaVu-Sans`). Run `convert -list font` to see what your install offers — on
+     macOS and Windows `Arial` works, in debian-slim only the DejaVu family exists.
 
 #### Installation Steps
 
@@ -47,23 +54,47 @@ There are two ways to run the project: manually or using Docker.
 
    This fills `checkpoints/` and `gfpgan/weights/` and skips anything already there, so it is safe to re-run if a download drops out. The files come from [Google Drive - Checkpoints](https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od) if you would rather fetch them by hand — note that the `gfpgan` subfolder belongs at `gfpgan/weights/`, not inside `checkpoints/`.
 
-3. Inside the viddie folder, create a `.env` file and add the following API keys:
+3. Inside the viddie folder, create a `.env` file (see `src/.env_example`) and add the
+   following API keys:
 
-   - `OPEN_API_KEY`
+   - `OPEN_API_KEY` — used for scripts, images and voices
    - `SEARCH_ENGINE_ID`
    - `API_KEY`
 
    *To find your Google search engine ID and API key, refer to this *[***YouTube Guide***](https://www.youtube.com/watch?v=D4tWHX2nCzQ\&t=127s)*.*
 
+   Every value is optional apart from those, and blank is treated the same as unset.
+   The ones worth knowing about:
+
+   | Variable | Default | Purpose |
+   | --- | --- | --- |
+   | `DEFAULT_GPT_MODEL` | `gpt-5.4-mini` | Script generation model |
+   | `MAX_TOKENS` | `3900` | Visible reply budget |
+   | `REASONING_TOKEN_ALLOWANCE` | `8000` | Extra budget for gpt-5/o-series thinking tokens, which bill against the same cap as the reply |
+   | `IMAGE_MODEL` | `gpt-image-2` | Image generation model (DALL-E is retired) |
+   | `IMAGE_QUALITY` / `IMAGE_SIZE` | `high` / `1792x1024` | Validated per model — change them together with `IMAGE_MODEL` |
+   | `SUBTITLE_FONT` | `DejaVu-Sans` | ImageMagick font name for subtitles |
+
 4. Run the following commands to set up the database and start the server:
 
    ```shell
-   py manage.py makemigrations
    py manage.py migrate
    py manage.py loaddata fixtures/fixtures.json
    py manage.py setup_media
+   py manage.py createsuperuser
    py manage.py runserver
    ```
+
+   Migrations are committed to the repo, so `migrate` is all you need. If you change a
+   model, generate them with the app labels — `makemigrations usermanagement
+   videomanagement` — since a bare `makemigrations` silently skips any app whose
+   `migrations/` package is missing and reports "No changes detected".
+
+   Voices are all API-backed — OpenAI, ElevenLabs or 60db. The fixtures load the six
+   OpenAI voices, so `OPEN_API_KEY` alone is enough to render speech. Local on-device
+   synthesis (coqui/TTS) has been removed: it pinned the project to a dependency tree
+   that no longer resolves on Python 3.9, and it was the single largest contributor to
+   the image size.
 
 5. (Optional) To enable ElevenLabs voices, add your `XI_API_KEY` in the `.env` file and run:
 
@@ -90,6 +121,10 @@ There are two ways to run the project: manually or using Docker.
    docker-compose up --build
    ```
 
+Everything above is handled inside the image: the ImageMagick policy is patched, a
+subtitle font is present, and the web container runs migrations and loads fixtures on
+start. The stack builds natively on both x86\_64 and arm64 (Apple Silicon).
+
 The model weights are downloaded for you: the celery worker runs `setup_checkpoints` before it starts consuming tasks, since it is the service that runs SadTalker. They land in `checkpoints/` and `gfpgan/weights/` on the host through the `.:/app` bind mount, so the first boot pays for the download once and every rebuild after that reuses it. Expect the worker to take several minutes to come up the first time.
 
 They are deliberately **not** baked into the image — that would add several GB to it, and they are not needed at build time.
@@ -99,9 +134,17 @@ They are deliberately **not** baked into the image — that would add several GB
 ## Admin Panel
 
 - URL: [http://localhost:8000/admin](http://localhost:8000/admin)
-- Login Credentials:
-  - Username: `admin`
-  - Password: `pass`
+- Create your own account with `python manage.py createsuperuser`. The fixtures ship a
+  superuser row, but only as a password *hash* — there is no plaintext for it, so it
+  cannot be logged into.
+
+> **Logging in through the frontend** needs `is_verified` on the user, which the API
+> login enforces and the admin does not. It is normally set by following a link emailed
+> at signup, so with no SMTP configured locally you have to set it yourself:
+>
+> ```shell
+> python manage.py shell -c "from apps.usermanagement.models import User; User.objects.update(is_verified=True)"
+> ```
 
 ## API Documentation
 
@@ -112,7 +155,7 @@ You can find all API endpoints in Swagger: [http://localhost:8000/swagger/](http
 ## Roadmap / To-Do List
 
 - [ ] Convert all `moviepy` functions to `FFmpeg` for better performance.
-- [ ] Add **Celery** support for asynchronous and scheduled tasks.
+- [x] Add **Celery** support for asynchronous and scheduled tasks.
 - [ ] Implement unit tests for models, functions, and views.
 
 ---
@@ -128,7 +171,12 @@ For any inquiries or support, feel free to reach out:
 
 ## Recent Updates
 
-✅ Fixed Conquis TTS Docker issue\
+✅ Migrated image generation from the retired DALL-E to the `gpt-image` models\
+✅ Refreshed the OpenAI model list (gpt-4.1 / gpt-5 families and the o-series)\
+✅ Dropped local coqui TTS — all voices are API-backed now, and the image is far smaller\
+✅ Builds and runs natively on arm64 (Apple Silicon) as well as x86\_64\
+✅ Fixed subtitles: they render over the video instead of as a black bar\
+✅ Fixed rendered audio being unplayable in Safari/QuickTime (mp3-in-mp4 → aac)\
 ✅ Added support for Gemini and Claude AI models\
 ✅ Integrated ElevenLabs API voices\
 ✅ Integrated 60db API voices\

@@ -7,7 +7,7 @@ ENV PIP_NO_CACHE_DIR=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential \
-      # two requirements are installed straight from git
+      # basicsr is installed straight from git
       git \
       # headers for any sdist that has no wheel for this interpreter
       libjpeg-dev \
@@ -27,10 +27,16 @@ RUN python -m pip install --upgrade pip
 # (cudnn 770MB + cublas 581MB + cusolver 338MB + the rest, roughly 2.5GB) and none
 # of it can ever run: no service in docker-compose reserves a GPU, and SadTalker
 # checks torch.cuda.is_available() and falls back to CPU. See inference.py.
+#
+# Pinned without the `+cpu` local version on purpose. Only the x86_64 wheels carry
+# that tag — the arm64 ones are plain `2.5.1`, so `==2.5.1+cpu` cannot resolve on
+# Apple Silicon at all. A bare `==2.5.1` matches both (PEP 440 ignores the local
+# version when the specifier omits it), and --index-url already guarantees the CPU
+# build because that index carries nothing else.
 RUN pip install \
-      torch==2.5.1+cpu \
-      torchvision==0.20.1+cpu \
-      torchaudio==2.5.1+cpu \
+      torch==2.5.1 \
+      torchvision==0.20.1 \
+      torchaudio==2.5.1 \
       --index-url https://download.pytorch.org/whl/cpu
 
 COPY requirements/docker_requirements.txt requirements/constraints.txt ./
@@ -49,7 +55,6 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
       imagemagick \
-      espeak-ng \
       # opencv needs these; the slim image does not carry them
       libgl1 \
       libglib2.0-0 \
@@ -57,6 +62,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxext6 \
       libxrender1 \
   && rm -rf /var/lib/apt/lists/*
+
+# moviepy renders subtitles by writing the caption to a temp file and handing it to
+# ImageMagick as `@/tmp/<file>`, which Debian's shipped policy.xml forbids outright
+# ("attempt to perform an operation not allowed by the security policy"). That made
+# every TextClip fail. Drop only that one rule; the rest of the policy stays.
+RUN for policy in /etc/ImageMagick-*/policy.xml; do \
+      if [ -f "$policy" ]; then sed -i '/pattern="@\*"/d' "$policy"; fi; \
+    done
 
 COPY --from=builder /opt/venv /opt/venv
 
