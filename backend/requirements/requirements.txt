@@ -1,18 +1,3 @@
-# The one requirements file — used by the Docker image and by CI.
-#
-# Install it with the constraints file alongside, always:
-#
-#     PIP_CONSTRAINT=requirements/constraints.txt pip install -r requirements/requirements.txt
-#
-# constraints.txt stays separate because it is a different mechanism: it pins the torch
-# stack across the whole resolution, transitive dependencies included, which a
-# requirements file cannot do. Without it, coqui-tts/basicsr/facexlib/gfpgan quietly
-# pull a CUDA build of torch over the CPU one and add ~2.5GB of nvidia-* packages.
-
-# Django stack
-# Django is held at 4.0.3 deliberately. DRF 3.13.1 imports
-# django.http.multipartparser.parse_header, which Django removed in 4.2, so anything
-# that drags Django up breaks every request. Bump the two together or not at all.
 Django==4.0.3
 djangorestframework==3.13.1
 Pillow==8.4.0
@@ -38,8 +23,6 @@ python-slugify == 8.0.1
 drf-yasg
 django-resized
 django-filter
-# Provides both django_lifecycle and the django_lifecycle_checks app in INSTALLED_APPS.
-# 1.2 is the floor: the Video model's hooks use django_lifecycle.conditions.
 django-lifecycle>=1.2
 
 # Media and rendering
@@ -75,10 +58,4 @@ curl_cffi
 google-generativeai
 anthropic
 
-# Tests. Kept here rather than in a second file so there is only one list to maintain;
-# it is a small pure-Python package and costs the image next to nothing.
-#
-# Pinned, and it has to stay pinned: model-bakery 1.18 and later require Django >= 4.2,
-# so pip silently upgrades the Django==4.0.3 above and DRF then dies on the
-# parse_header import described there.
 model-bakery==1.17.0

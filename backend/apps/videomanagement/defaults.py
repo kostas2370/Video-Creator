@@ -1,8 +1,3 @@
-# The script brief, assembled from two choices: whether the visuals are stills or
-# footage, and whether anything is spoken. The JSON shape stays the same either way —
-# scenes -> sentences -> image_description — so the pipeline reads one structure.
-# VideoGenerationServices picks the combination.
-
 _STILL_BRIEF = """
 Organise the scenario into scenes. Each scene is made up of sentences. For every
 sentence, write {parts}.
