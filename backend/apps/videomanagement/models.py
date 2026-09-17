@@ -5,6 +5,10 @@ from random import randint
 from typing import Union
 from django_resized import ResizedImageField
 
+from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
+from django_lifecycle.conditions import WhenFieldValueChangesTo
+from apps.usermanagement.tasks import send_email
+
 TEMPLATE_CHOICES = (
     ("EDUCATIONAL", "Educational"),
     ("GAMING", "Gaming"),
@@ -199,7 +203,7 @@ class Outro(AbstractModel):
     objects = models.Manager()
 
 
-class Video(AbstractModel):
+class Video(LifecycleModelMixin, AbstractModel):
     title = models.CharField(max_length=50, blank=False)
     url = models.URLField(blank=True)
     gpt_answer = models.TextField(blank=True, null=True)
@@ -241,3 +245,21 @@ class Video(AbstractModel):
 
     def __str__(self):
         return f"{self.title}"
+
+    @hook(
+        AFTER_UPDATE,
+        on_commit=True,
+        condition=WhenFieldValueChangesTo("status", "COMPLETED"),
+    )
+    def send_video_completed_email(self):
+        message = f"Your video {self.title} has been completed. You can download it from {self.url}"
+        send_email.delay(self.created_by.email, "Video Completed", message)
+
+    @hook(
+        AFTER_UPDATE,
+        on_commit=True,
+        condition=WhenFieldValueChangesTo("status", "FAILED"),
+    )
+    def send_video_failed_email(self):
+        message = f"Your video {self.title} has failed. Please try again."
+        send_email.delay(self.created_by.email, "Video Failed", message)

@@ -51,8 +51,12 @@ There are two ways to run the project: manually or using Docker.
 1. Navigate to the viddie folder and install dependencies:
 
    ```shell
-   pip install -r requirements/requirements.txt
+   PIP_CONSTRAINT=requirements/constraints.txt pip install -r requirements/requirements.txt
    ```
+
+   The constraints file holds torch to the CPU build. Without it, several of the
+   SadTalker dependencies pull a CUDA build in and add roughly 2.5GB of `nvidia-*`
+   packages that nothing here can use.
 
 2. Download the SadTalker and GFPGAN model weights:
 
