@@ -3,7 +3,7 @@
 *.pot
 *.pyc
 __pycache__
-src/db.sqlite3
+backend/db.sqlite3
 media
 
 # Backup files #
@@ -142,28 +142,28 @@ uv.lock
 
 .idea
 
-src/media/
-src/venv/
-src/db.sqlite3
+backend/media/
+backend/venv/
+backend/db.sqlite3
 
 *.pyc
 .env
 .wav
 
-src/gfpgan/weights/
+backend/gfpgan/weights/
 .tar
 .safetensors
-src/checkpoints
+backend/checkpoints
 .pth
-src/results
-src/gfpgan/
-src/apps/videomanagement/utils/SadTalker/docs/
-src/apps/videomanagement/utils/SadTalker/examples/
-src/apps/videomanagement/utils/SadTalker/gfpgan/
-src/apps/videomanagement/utils/SadTalker/results/
+backend/results
+backend/gfpgan/
+backend/apps/videomanagement/utils/SadTalker/docs/
+backend/apps/videomanagement/utils/SadTalker/examples/
+backend/apps/videomanagement/utils/SadTalker/gfpgan/
+backend/apps/videomanagement/utils/SadTalker/results/
 
-src/apps/videomanagement/utils/SadTalker/venv/
+backend/apps/videomanagement/utils/SadTalker/venv/
 .mp4
-src/audio_list.txt
+backend/audio_list.txt
 
 
