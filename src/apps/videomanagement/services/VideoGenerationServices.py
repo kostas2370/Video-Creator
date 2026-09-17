@@ -3,7 +3,8 @@ from typing import Union, Literal
 
 from slugify import slugify
 
-from ..defaults import default_format
+from ..defaults import script_format
+from ..utils.mapper import video_providers
 from ..models import TemplatePrompt, Video, VoiceModel, UserPrompt, Avatar, Intro, Outro
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
@@ -57,6 +58,7 @@ def generate_video(
     outro: str = None,
     voice_id: Union[int, None] = None,
     subtitles: bool = False,
+    narration: bool = True,
     provider: Union[str, None] = None,
     avatar_position: str = "top,right",
 ) -> Video:
@@ -93,6 +95,9 @@ def generate_video(
         The ID of the voice model to be used.
     subtitles : bool, optional
         Whether to include subtitles in the video.
+    narration : bool, optional
+        Whether to speak the script. With narration off no voice track is produced and
+        the scene visuals are concatenated at their own length.
     provider : Union[str, None], optional
         The provider for generating images.
     avatar_position : str, optional
@@ -114,7 +119,14 @@ def generate_video(
     template = TemplatePrompt.get_template(template_id)
     logger.info("Retrieved template")
 
-    template_format = template.format if template else default_format
+    # One shape for every video, whatever the template: the pipeline downstream walks a
+    # fixed scenes -> sentences reply, so a template that redefined it would produce
+    # something the rest of the code cannot read. Templates contribute the genre only.
+    # The brief for image_description does vary — a video provider is asked for a shot
+    # with motion, which is wasted on a still model and vice versa.
+    template_format = script_format(
+        video=provider in video_providers, narration=narration
+    )
     category = (
         template.category
         if template
@@ -150,7 +162,9 @@ def generate_video(
     vid.background = background
     vid.intro = intro
     vid.outro = outro
-    vid.settings = dict(subtitles=subtitles, avatar_position=avatar_position)
+    vid.settings = dict(
+        subtitles=subtitles, narration=narration, avatar_position=avatar_position
+    )
     vid.save()
 
     logger.info(f"Filled in the video instance with id : {vid.id}")

@@ -117,10 +117,13 @@ class LoginView(generics.GenericAPIView):
             user.save()
 
         response = Response(serializer.data, status=status.HTTP_200_OK)
+        # max_age, not expires: expires takes a date, and handing it a timedelta
+        # stringifies to "0:30:00", which no browser can parse — the cookie then
+        # silently degrades to a session cookie.
         response.set_cookie(
             "access_token",
             serializer.data["tokens"]["access"],
-            expires=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],
+            max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
             httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
             secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
             samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
@@ -129,7 +132,7 @@ class LoginView(generics.GenericAPIView):
         response.set_cookie(
             "refresh_token",
             serializer.data["tokens"]["refresh"],
-            expires=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+            max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
             samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
             httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
             secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
@@ -162,7 +165,9 @@ class CookieTokenRefreshView(jwt_views.TokenRefreshView):
             response.set_cookie(
                 key="access_token",
                 value=response.data["access"],
-                expires=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+                max_age=int(
+                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
+                ),
                 secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
                 httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
             )
