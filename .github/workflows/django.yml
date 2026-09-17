@@ -31,7 +31,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: pip
-        cache-dependency-path: backend/requirements/test_requirements.txt
+        cache-dependency-path: backend/requirements/requirements.txt
 
     # The default PyPI wheels drag the CUDA runtime in as separate nvidia-* packages,
     # roughly 2.5GB that a CI runner has no use for. Installed first, and pinned by
@@ -45,10 +45,11 @@ jobs:
           torchaudio==2.5.1 \
           --index-url https://download.pytorch.org/whl/cpu
 
-    # test_requirements pulls in production_requirements and adds what only the tests
-    # need, so the suite can run here without those packages reaching the image.
+    # One requirements file for the image and for CI, so what the suite runs against is
+    # what ships. constraints.txt is applied here too — it is what holds torch to the
+    # CPU build installed above.
     - name: Install dependencies
-      run: pip install -r backend/requirements/test_requirements.txt
+      run: pip install -r backend/requirements/requirements.txt
       env:
         PIP_CONSTRAINT: backend/requirements/constraints.txt
 

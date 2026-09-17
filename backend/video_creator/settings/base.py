@@ -1,13 +1,18 @@
+"""Settings shared by every environment.
+
+Nothing here should differ between a laptop and production — anything that does belongs
+in local.py or production.py, which import this module and override.
+
+The .env file is already loaded by the package __init__, so os.getenv works below.
+"""
+
 from pathlib import Path
 import os
-from dotenv import load_dotenv
 from datetime import timedelta
 
-# Load environment variables
-load_dotenv()
-
 # Paths
-BASE_DIR = Path(__file__).resolve().parent.parent
+# settings/ is a package now, so BASE_DIR is three parents up rather than two.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Security
 # `or`, not a getenv default: .env_example ships this blank, and "" would override it.
@@ -15,17 +20,11 @@ SECRET_KEY = (
     os.getenv("SECRET_KEY")
     or "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
 )
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
 
-# A Secure cookie is only stored over https. Chrome and Firefox make an exception for
-# http://localhost; Safari does not, so marking the auth cookies Secure in development
-# means Safari silently drops them and every reload logs the user back out.
-#
-# SameSite=None is itself invalid without Secure — browsers reject that pairing — so
-# the two have to move together.
-COOKIES_SECURE = os.getenv("ENV", "dev") == "prod"
-CROSS_SITE_SAMESITE = "None" if COOKIES_SECURE else "Lax"
+# Development-safe defaults. production.py flips both, along with every cookie setting
+# derived from them further down — see the note there.
+COOKIES_SECURE = False
+CROSS_SITE_SAMESITE = "Lax"
 
 # Application definition
 INSTALLED_APPS = [
@@ -46,6 +45,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_yasg",
     "django_filters",
+    "django_lifecycle_checks",
 ]
 
 # Middleware
@@ -64,26 +64,6 @@ INTERNAL_IPS = ["127.0.0.1", "::1"]
 
 # URL configuration
 ROOT_URLCONF = "video_creator.urls"
-
-# Database
-if os.getenv("ENV", "dev") == "prod":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": os.getenv("MYSQL_DATABASE", "db"),
-            "USER": os.getenv("MYSQL_USER"),
-            "PASSWORD": os.getenv("MYSQL_PASSWORD"),
-            "HOST": os.getenv("MYSQL_HOST"),
-            "PORT": "3307",
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
 
 # Authentication
 AUTH_USER_MODEL = "usermanagement.User"
@@ -143,6 +123,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # Logging
+# The root level is per-environment; local.py turns it down to INFO.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -186,9 +167,8 @@ TEMPLATES = [
 ]
 
 # Email Configuration
-EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
-)
+# The backend itself is per-environment: local.py prints to the terminal, production.py
+# talks to a real SMTP server. These are the credentials that server needs.
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")

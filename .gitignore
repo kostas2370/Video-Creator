@@ -167,3 +167,6 @@ backend/apps/videomanagement/utils/SadTalker/venv/
 backend/audio_list.txt
 
 
+
+# collectstatic target for ENV=prod
+backend/staticfiles/
