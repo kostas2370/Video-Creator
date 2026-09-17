@@ -40,6 +40,24 @@ def check_if_video(path: str) -> bool:
     return file_extension in supported_video_extensions
 
 
+def clip_audio(scene_image: SceneImage):
+    """
+    The scene visual's own soundtrack, for a video clip that is meant to be heard.
+
+    Returns None for a still, for a clip flagged silent, or when the file carries no
+    audio track at all.
+    """
+    if not scene_image or not scene_image.with_audio or not scene_image.file:
+        return None
+
+    try:
+        return VideoFileClip(scene_image.file.path).audio
+
+    except Exception as e:
+        logger.error(f"Error processing scene image audio: {e}")
+        return None
+
+
 def handle_audio(scene: Scene, scene_image: SceneImage):
     """
     Processes and returns the appropriate audio clip based on the given scene and scene image.
@@ -63,18 +81,11 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
         except Exception as e:
             logger.error(f"Error loading scene audio: {e}")
 
-    if scene_image and scene_image.with_audio:
-        try:
-            dump_video = VideoFileClip(scene_image.file.path)
-            scene_audio = dump_video.audio
-            if audio:
-                audio = CompositeAudioClip([audio, scene_audio])
-            else:
-                audio = scene_audio
-        except Exception as e:
-            logger.error(f"Error processing scene image audio: {e}")
+    scene_audio = clip_audio(scene_image)
+    if scene_audio is not None:
+        audio = CompositeAudioClip([audio, scene_audio]) if audio else scene_audio
 
-    if scene_image and scene.is_last and not scene_image.with_audio:
+    if scene_image and scene.is_last and not scene_image.with_audio and audio:
         audio = concatenate_audioclips([audio, silent, silent])
 
     if audio is None:
@@ -375,18 +386,21 @@ def make_video(video: Video) -> Video:
     background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 
-    # Narration off means the clips are simply concatenated at their own length. There
-    # is then nothing to time subtitles against either, so they are skipped too.
+    # Narration off means the clips are simply concatenated at their own length, each
+    # keeping whatever sound it came with. There is then no spoken line to time
+    # subtitles against either, so they are skipped too.
     narration = video.settings.get("narration", True)
 
     for scene in scenes:
         scene_image = SceneImage.objects.filter(scene=scene).first()
-        audio = handle_audio(scene, scene_image) if narration else None
+        audio = (
+            handle_audio(scene, scene_image) if narration else clip_audio(scene_image)
+        )
 
         if audio is not None:
             sound_list.append(audio)
 
-            if video.settings.get("subtitles", False):
+            if narration and video.settings.get("subtitles", False):
                 # None when ImageMagick cannot render the text — skip it rather than
                 # fail the whole render.
                 subtitle = create_subtitle_clip(scene.text, audio.duration)
