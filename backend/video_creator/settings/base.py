@@ -1,11 +1,3 @@
-"""Settings shared by every environment.
-
-Nothing here should differ between a laptop and production — anything that does belongs
-in local.py or production.py, which import this module and override.
-
-The .env file is already loaded by the package __init__, so os.getenv works below.
-"""
-
 from pathlib import Path
 import os
 from datetime import timedelta
