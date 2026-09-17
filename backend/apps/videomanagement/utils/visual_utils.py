@@ -62,7 +62,9 @@ def download_playlist(url: str, category: str) -> None:
 
             os.rename(song, new_file)
 
-            Music.objects.create(name=stream.title, file=new_file, category=category)
+            # No category kwarg: Music has no such field, so every save raised a
+            # TypeError and the whole playlist was silently dropped.
+            Music.objects.create(name=stream.title, file=new_file)
 
         except FileNotDownloadedException:
             logger.error("Error downloading song")
@@ -212,7 +214,7 @@ def download_music(url: str) -> str:
     filename = str(uuid.uuid4())
     new_file = f"media/music/{filename}.mp3"
     os.rename(video, new_file)
-    mus = Music.objects.create(name=yt.title, file=new_file, category="ΟΤΗΕR")
+    mus = Music.objects.create(name=yt.title, file=new_file)
     return mus
 
 
