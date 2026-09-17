@@ -26,7 +26,7 @@ services:
       - ./.env
 
   frontend:
-    # The build context is the sibling frontend/ directory, not src/, because that is
+    # The build context is the sibling frontend/ directory, not backend/, because that is
     # where the React app and its Dockerfile live.
     build: ../frontend
     restart: unless-stopped
