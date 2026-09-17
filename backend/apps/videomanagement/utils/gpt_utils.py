@@ -191,9 +191,13 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
 
     if reply_format == "json":
         x = x.getvalue()
-        x = x[x.index("{") : len(x) - (x[::-1].index("}"))]
 
         try:
+            # Inside the try: a reply with no braces at all — a refusal, or plain
+            # prose — makes index() raise, and that has to come back as the same
+            # APIException as any other unparsable reply rather than a 500.
+            x = x[x.index("{") : len(x) - (x[::-1].index("}"))]
+
             js = json.loads(x)
             if not check_json(js):
                 raise InvalidJsonFormatException()

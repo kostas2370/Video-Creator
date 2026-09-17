@@ -105,7 +105,12 @@ class SceneView(viewsets.GenericViewSet):
     def generate_image_scene(self, request, pk):
         img = SceneImage.objects.filter(scene_id=pk).first()
         image_description = request.data.get("image_description")
-        video = Video.objects.filter(prompt__scene__sceneimage=img).distinct().first()
+        # prompt__scenes__scene_images, spelled with the related_names the models
+        # actually declare. The old prompt__scene__sceneimage matched no relation and
+        # raised a FieldError, so this endpoint answered 500 every time.
+        video = (
+            Video.objects.filter(prompt__scenes__scene_images=img).distinct().first()
+        )
 
         if not image_description:
             return Response(

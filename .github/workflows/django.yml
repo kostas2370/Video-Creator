@@ -31,7 +31,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: pip
-        cache-dependency-path: backend/requirements/production_requirements.txt
+        cache-dependency-path: backend/requirements/test_requirements.txt
 
     # The default PyPI wheels drag the CUDA runtime in as separate nvidia-* packages,
     # roughly 2.5GB that a CI runner has no use for. Installed first, and pinned by
@@ -45,8 +45,10 @@ jobs:
           torchaudio==2.5.1 \
           --index-url https://download.pytorch.org/whl/cpu
 
+    # test_requirements pulls in production_requirements and adds what only the tests
+    # need, so the suite can run here without those packages reaching the image.
     - name: Install dependencies
-      run: pip install -r backend/requirements/production_requirements.txt
+      run: pip install -r backend/requirements/test_requirements.txt
       env:
         PIP_CONSTRAINT: backend/requirements/constraints.txt
 
@@ -61,3 +63,9 @@ jobs:
 
     - name: Django system checks
       run: python backend/manage.py check
+
+    # The tests package is named explicitly rather than letting discovery walk the app:
+    # the vendored SadTalker checkout ships test_options.py files that match the default
+    # pattern and cannot be imported on their own.
+    - name: Run tests
+      run: python backend/manage.py test apps.videomanagement.tests
