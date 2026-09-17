@@ -17,13 +17,13 @@ class Command(BaseCommand):
                 intro = download_video(
                     "https://www.youtube.com/watch?v=fQaEv_odk0w", "media/other/intros/"
                 )
-                Intro.objects.create(category="OTHER", name="basicintro", file=intro)
+                Intro.objects.create(name="basicintro", file=intro)
 
             if not Outro.objects.filter(name="basicoutro").count():
                 outro = download_video(
                     "https://www.youtube.com/watch?v=YqB62GjZqC0", "media/other/outros/"
                 )
-                Outro.objects.create(category="OTHER", name="basicoutro", file=outro)
+                Outro.objects.create(name="basicoutro", file=outro)
 
             if not Background.objects.filter(name="basicbackground").count():
                 pathlib.Path("media/other/backgrounds").mkdir(
