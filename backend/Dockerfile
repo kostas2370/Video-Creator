@@ -36,11 +36,11 @@ RUN pip install \
       torchaudio==2.5.1 \
       --index-url https://download.pytorch.org/whl/cpu
 
-COPY requirements/docker_requirements.txt requirements/constraints.txt ./
+COPY requirements/requirements.txt requirements/constraints.txt ./
 
 # The constraints stop coqui-tts, basicsr, facexlib or gfpgan quietly pulling a
 # CUDA build of torch back in over the CPU one.
-RUN PIP_CONSTRAINT=constraints.txt pip install -r docker_requirements.txt
+RUN PIP_CONSTRAINT=constraints.txt pip install -r requirements.txt
 
 
 FROM python:3.9-slim
