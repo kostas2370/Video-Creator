@@ -278,6 +278,14 @@ class HandleVideoTests(SimpleTestCase):
 
 
 class ProcessSceneTests(SimpleTestCase):
+    def setUp(self):
+        # process_scene builds its black fallback before it looks at the file type, and
+        # reads assets/black.jpg from the working directory to do it. Stubbed here so
+        # the tests do not depend on where the runner was started from.
+        patcher = patch.object(video_utils, "ImageClip", return_value=FakeClip())
+        self.image_clip = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_sends_a_still_to_handle_image(self):
         scene_image = baker.prepare_recipe("videomanagement.scene_image")
 
