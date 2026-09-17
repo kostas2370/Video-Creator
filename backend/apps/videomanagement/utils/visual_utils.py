@@ -519,6 +519,7 @@ def create_image_scene(
     style: str = "vivid",
     title: str = "",
     reference: str = None,
+    with_audio: bool = False,
     *args,
     **kwargs,
 ) -> str:
@@ -543,6 +544,9 @@ def create_image_scene(
         The style for image generation (applicable if mode is not "WEB"). Default is an empty string.
     title : str, optional
         The title for the image (applicable if mode is not "WEB"). Default is an empty string.
+    with_audio : bool, optional
+        Whether the scene should play the visual's own sound. Only ever true for a
+        generated video clip — a still has nothing to play.
 
     Returns:
     --------
@@ -573,7 +577,14 @@ def create_image_scene(
         logger.error(ex)
         downloaded_image = None
 
-    SceneImage.objects.create(scene=scene, file=downloaded_image, prompt=image)
+    SceneImage.objects.create(
+        scene=scene,
+        file=downloaded_image,
+        prompt=image,
+        with_audio=bool(
+            with_audio and downloaded_image and check_if_video(downloaded_image)
+        ),
+    )
     return downloaded_image
 
 
@@ -609,6 +620,9 @@ def create_image_scenes(
     """
 
     dir_name = video.dir_name
+    # With narration off there is no voice track, so a generated clip keeps its own
+    # sound instead of being rendered silent.
+    with_audio = not (video.settings or {}).get("narration", True)
     # Anchor every later clip to the look of the first one. Each Sora job is generated
     # independently, so without a shared reference the scenes drift apart visually. The
     # anchor is taken once and reused, rather than chained frame-to-frame, which would
@@ -626,6 +640,7 @@ def create_image_scenes(
                 title=video.title,
                 provider=provider,
                 reference=reference,
+                with_audio=with_audio,
             )
 
             if reference is None and produced:
