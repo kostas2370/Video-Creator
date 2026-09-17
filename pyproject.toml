@@ -68,7 +68,7 @@ dependencies = [
 
 
 [tool.setuptools]
-packages = ["src"]
+packages = ["backend"]
 
 [tool.ruff]
-exclude = ["src/apps/videomanagement/utils/SadTalker"]
+exclude = ["backend/apps/videomanagement/utils/SadTalker"]

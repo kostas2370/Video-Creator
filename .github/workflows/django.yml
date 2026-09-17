@@ -24,9 +24,9 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r src/requirements/production_requirements.txt
-        python src/manage.py makemigrations
-        python src/manage.py migrate
+        pip install -r backend/requirements/production_requirements.txt
+        python backend/manage.py makemigrations
+        python backend/manage.py migrate
 
         
 
