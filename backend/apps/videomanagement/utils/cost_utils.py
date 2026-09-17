@@ -30,8 +30,15 @@ def calculate_total_cost(video):
         total_cost += 0.12 + scene_count * costs.get(
             f"scene_{video.voice_model.type}", 0
         )
+        # An image that failed to generate is stored as "", not NULL: create_image_scene
+        # writes None into the FileField and Django prepares that as an empty string.
+        # `exclude(file=None)` alone therefore excluded nothing and billed the user for
+        # images they never got.
         scene_images_count = (
-            SceneImage.objects.filter(scene__in=scenes).exclude(file=None).count()
+            SceneImage.objects.filter(scene__in=scenes)
+            .exclude(file="")
+            .exclude(file=None)
+            .count()
         )
         total_cost += scene_images_count * costs.get(f"scene_image_{video.mode}", 0)
 

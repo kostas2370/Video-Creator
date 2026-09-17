@@ -1,0 +1,5 @@
+-r production_requirements.txt
+
+# Pinned: 1.18 and later require Django >= 4.2, and installing one would quietly drag
+# the pinned Django 4.0.3 up with it.
+model-bakery==1.17.0
