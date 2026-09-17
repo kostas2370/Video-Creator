@@ -299,7 +299,10 @@ def handle_background(duration, background, final_video):
 
     bg_clip = bg_clip.set_duration(duration).resize((1920, 1080))
     mask_color = [int(x) for x in background.color.split(",")]
-    threshold = float(background.threshold) / 255.0
+    # Background.through, not .threshold: the model has no `threshold` field, so every
+    # render with a background died here with an AttributeError. `through` is the
+    # masking threshold — nothing else reads it, and setup_media seeds it as one.
+    threshold = float(background.through) / 255.0
     masked_clip = final_video.fx(vfx.mask_color, color=mask_color, thr=threshold, s=7)
     final_video = CompositeVideoClip(
         [bg_clip, masked_clip.set_duration(duration)]
