@@ -51,7 +51,7 @@ export const EditSceneModal = ({
           id="crud-modal"
           tabIndex="-1"
           aria-hidden="false"
-          className="overflow-y-auto overflow-x-hidden fixed h-screen flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md max-h-full bg-gray-200 bg-opacity-50"
+          className="overflow-y-auto overflow-x-hidden fixed h-screen flex items-center z-50 justify-center w-full inset-0 backdrop-blur-md max-h-full"
         >
           <div className="relative p-6 w-full max-w-3xl max-h-full bg-blue-gray-200">
             <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
