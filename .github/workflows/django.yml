@@ -16,17 +16,48 @@ jobs:
         python-version: [3.9]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+
+    # Importing the Django app reaches moviepy, which looks for an ffmpeg binary at
+    # import time, and opencv, which needs libGL. Installed explicitly rather than
+    # relying on whatever the runner image happens to ship.
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq --no-install-recommends ffmpeg libgl1 libglib2.0-0
+
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Dependencies
+        cache: pip
+        cache-dependency-path: backend/requirements/production_requirements.txt
+
+    # The default PyPI wheels drag the CUDA runtime in as separate nvidia-* packages,
+    # roughly 2.5GB that a CI runner has no use for. Installed first, and pinned by
+    # constraints.txt below, so nothing later pulls a CUDA build back over it.
+    - name: Install CPU-only torch
       run: |
         python -m pip install --upgrade pip
-        pip install -r backend/requirements/production_requirements.txt
-        python backend/manage.py makemigrations
-        python backend/manage.py migrate
+        pip install \
+          torch==2.5.1 \
+          torchvision==0.20.1 \
+          torchaudio==2.5.1 \
+          --index-url https://download.pytorch.org/whl/cpu
 
-        
+    - name: Install dependencies
+      run: pip install -r backend/requirements/production_requirements.txt
+      env:
+        PIP_CONSTRAINT: backend/requirements/constraints.txt
 
+    # --check rather than plain makemigrations: the migrations are committed, so this
+    # should find nothing. Generating them here instead would hide a model change that
+    # someone forgot to make a migration for.
+    - name: Check migrations are up to date
+      run: python backend/manage.py makemigrations --check --dry-run
+
+    - name: Run migrations
+      run: python backend/manage.py migrate
+
+    - name: Django system checks
+      run: python backend/manage.py check
