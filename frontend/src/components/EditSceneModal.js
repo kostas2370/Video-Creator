@@ -53,7 +53,7 @@ export const EditSceneModal = ({
           aria-hidden="false"
           className="overflow-y-auto overflow-x-hidden fixed h-screen flex items-center z-50 justify-center w-full inset-0 backdrop-blur-md max-h-full"
         >
-          <div className="relative p-6 w-full max-w-3xl max-h-full bg-blue-gray-200">
+          <div className="relative p-6 w-full max-w-3xl max-h-full">
             <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
               <div className="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center w-full">
