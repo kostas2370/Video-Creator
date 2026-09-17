@@ -1,19 +1,25 @@
 import uuid
 
+from .prompt_utils import scene_text
 from .tts_utils import save, ApiSyn
 from ..models import Scene, Video
-from .prompt_utils import determine_fields
 import os
 
 
-def make_scene_speech(voice_model, dir_name, prompt, text, is_last) -> Scene:
-    filename = str(uuid.uuid4())
-    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
-    sound = save(syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav")
-    scene = Scene.objects.create(
+def make_scene_speech(
+    voice_model, dir_name, prompt, text, is_last, narrate=True
+) -> Scene:
+    # The Scene row is created either way — the rest of the pipeline keys off it, and
+    # create_image_scene looks it up by text. Only the audio is optional.
+    sound = None
+    if narrate:
+        filename = str(uuid.uuid4())
+        syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
+        sound = save(syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav")
+
+    return Scene.objects.create(
         file=sound, prompt=prompt, text=text.strip(), is_last=is_last
     )
-    return scene
 
 
 def make_scenes_speech(video: Video) -> None:
@@ -38,27 +44,17 @@ def make_scenes_speech(video: Video) -> None:
     """
 
     voice_model = video.voice_model
-    gpt_answer = video.gpt_answer
-    first_scene = gpt_answer["scenes"][0]
-    search_field, narration_field = determine_fields(first_scene)
-    is_sentenced = (
-        True if video.prompt.template is None else video.prompt.template.is_sentenced
-    )
-
-    for j in gpt_answer["scenes"]:
-        if is_sentenced:
-            for index, sentence in enumerate(j[search_field]):
-                make_scene_speech(
-                    voice_model,
-                    video.dir_name,
-                    video.prompt,
-                    sentence[narration_field],
-                    index == len(j[search_field]) - 1,
-                )
-
-        else:
+    narrate = video.settings.get("narration", True)
+    for scene in video.gpt_answer["scenes"]:
+        sentences = scene["sentences"]
+        for index, sentence in enumerate(sentences):
             make_scene_speech(
-                voice_model, video.dir_name, video.prompt, j["dialogue"], False
+                voice_model,
+                video.dir_name,
+                video.prompt,
+                scene_text(sentence),
+                index == len(sentences) - 1,
+                narrate=narrate,
             )
 
 

@@ -105,7 +105,9 @@ def handle_image(audio, scene_image, background):
         ).save(scene_image.file.path)
     try:
         image = ImageClip(scene_image.file.path)
-        image = image.set_duration(audio.duration)
+        image = image.set_duration(
+            audio.duration if audio else settings.SILENT_SCENE_SECONDS
+        )
         image = image.fadein(image.duration * 0.2).fadeout(image.duration * 0.2)
     except Exception as exc:
         raise Exception(f"Error handling image: {exc}")
@@ -130,8 +132,19 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
     except Exception as e:
         raise ValueError(f"Error loading video file at {scene_image.file.path}: {e}")
 
-    if vid_scene.duration > audio.duration:
+    if audio is None:
+        # No narration: the clip's own length is the scene's length.
+        pass
+
+    elif vid_scene.duration > audio.duration:
         vid_scene = vid_scene.subclip(0, audio.duration)
+
+    elif vid_scene.duration < audio.duration:
+        # Otherwise the narration outruns the picture and the scene ends early. Sora
+        # caps a clip at 12 seconds, so any sentence longer than that lands here.
+        vid_scene = vid_scene.fx(
+            vfx.freeze, t="end", total_duration=audio.duration
+        ).set_duration(audio.duration)
 
     vid_scene = vid_scene.fadein(vid_scene.duration * 0.2).fadeout(
         vid_scene.duration * 0.2
@@ -158,7 +171,9 @@ def process_scene(scene_image: SceneImage, audio, background: Background):
         VideoFileClip: The processed visual clip for the scene, which may be a black video, an image clip,
                        or a video clip based on the scene image file type.
     """
-    black_clip = ImageClip("assets/black.jpg").set_duration(audio.duration)
+    black_clip = ImageClip("assets/black.jpg").set_duration(
+        audio.duration if audio else settings.SILENT_SCENE_SECONDS
+    )
 
     file_path = scene_image.file.path
 
@@ -219,7 +234,7 @@ def handle_avatar_video(video, final_video):
     return final_video
 
 
-def handle_music(video, final_audio):
+def handle_music(video, final_audio, duration):
     """
     Adds background music to the final audio, adjusting the volume and applying fade-in and fade-out effects.
 
@@ -236,24 +251,21 @@ def handle_music(video, final_audio):
     music_volume = video.settings.get("music_volume", 0.07)
     music = music.volumex(music_volume)
 
-    if music.duration < final_audio.duration:
-        loop_count = int(final_audio.duration // music.duration) + 1
-        music = concatenate_audioclips([music] * loop_count).subclip(
-            0, final_audio.duration
-        )
+    if music.duration < duration:
+        loop_count = int(duration // music.duration) + 1
+        music = concatenate_audioclips([music] * loop_count).subclip(0, duration)
 
     else:
-        music = music.subclip(0, final_audio.duration)
+        music = music.subclip(0, duration)
 
-    fade_duration = min(4, final_audio.duration * 0.1)
+    fade_duration = min(4, duration * 0.1)
     music = music.audio_fadein(fade_duration).audio_fadeout(fade_duration)
 
-    final_audio = CompositeAudioClip([final_audio, music])
+    # With narration switched off the music is the whole soundtrack.
+    return CompositeAudioClip([final_audio, music]) if final_audio else music
 
-    return final_audio
 
-
-def handle_background(final_audio, background, final_video):
+def handle_background(duration, background, final_video):
     """
     Adds a background effect to a video clip based on the specified color and threshold.
 
@@ -274,12 +286,12 @@ def handle_background(final_audio, background, final_video):
     else:
         bg_clip = VideoFileClip(background.file.path).without_audio()
 
-    bg_clip = bg_clip.set_duration(final_audio.duration).resize((1920, 1080))
+    bg_clip = bg_clip.set_duration(duration).resize((1920, 1080))
     mask_color = [int(x) for x in background.color.split(",")]
     threshold = float(background.threshold) / 255.0
     masked_clip = final_video.fx(vfx.mask_color, color=mask_color, thr=threshold, s=7)
     final_video = CompositeVideoClip(
-        [bg_clip, masked_clip.set_duration(final_audio.duration)]
+        [bg_clip, masked_clip.set_duration(duration)]
     ).crossfadein(2)
 
     return final_video
@@ -301,12 +313,17 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     Returns:
         VideoFileClip: The fully processed final video clip with all specified components added.
     """
-    final_video = handle_background(final_audio, background, final_video)
+    # Without narration there is no audio to hang the timeline on, so the assembled
+    # picture defines it instead.
+    duration = final_audio.duration if final_audio else final_video.duration
+
+    final_video = handle_background(duration, background, final_video)
 
     if getattr(video, "music", None):
-        final_audio = handle_music(video, final_audio)
+        final_audio = handle_music(video, final_audio, duration)
 
-    final_video = final_video.set_audio(final_audio)
+    if final_audio:
+        final_video = final_video.set_audio(final_audio)
 
     if getattr(video, "avatar", None):
         final_video = handle_avatar_video(video, final_video)
@@ -358,17 +375,23 @@ def make_video(video: Video) -> Video:
     background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 
+    # Narration off means the clips are simply concatenated at their own length. There
+    # is then nothing to time subtitles against either, so they are skipped too.
+    narration = video.settings.get("narration", True)
+
     for scene in scenes:
         scene_image = SceneImage.objects.filter(scene=scene).first()
-        audio = handle_audio(scene, scene_image)
-        sound_list.append(audio)
+        audio = handle_audio(scene, scene_image) if narration else None
 
-        if video.settings.get("subtitles", False):
-            # None when ImageMagick cannot render the text — skip it rather than fail
-            # the whole render.
-            subtitle = create_subtitle_clip(scene.text, audio.duration)
-            if subtitle is not None:
-                subtitles.append(subtitle)
+        if audio is not None:
+            sound_list.append(audio)
+
+            if video.settings.get("subtitles", False):
+                # None when ImageMagick cannot render the text — skip it rather than
+                # fail the whole render.
+                subtitle = create_subtitle_clip(scene.text, audio.duration)
+                if subtitle is not None:
+                    subtitles.append(subtitle)
 
         vids.append(process_scene(scene_image, audio, background))
 
@@ -384,9 +407,9 @@ def make_video(video: Video) -> Video:
                 top=background.image_pos_top, left=background.image_pos_left, opacity=4
             ).set_position("center")
 
-        final_audio = concatenate_audioclips(sound_list)
-        final_audio_path = f"{video.dir_name}/output_audio.wav"
-        final_audio.write_audiofile(final_audio_path)
+        if sound_list:
+            final_audio = concatenate_audioclips(sound_list)
+            final_audio.write_audiofile(f"{video.dir_name}/output_audio.wav")
 
         final_video = handle_final_video(
             background, final_audio, final_video, video, subtitles
