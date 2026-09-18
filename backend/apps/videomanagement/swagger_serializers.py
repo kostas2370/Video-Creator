@@ -46,14 +46,18 @@ if DEFAULT_GPT_MODEL not in accepted_models:
 class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required=True, max_length=2000)
     template_id = serializers.CharField(required=False, max_length=20, default="")
-    voice_id = serializers.CharField(required=False, max_length=20, default=None)
+    voice_id = serializers.CharField(
+        required=False, max_length=20, default=None, allow_blank=True, allow_null=True
+    )
     gpt_model = serializers.ChoiceField(
         required=False, choices=accepted_models, default=DEFAULT_GPT_MODEL
     )
     image_mode = serializers.ChoiceField(
         required=False, choices=["AI", "WEB", False], default="WEB"
     )
-    avatar_selection = serializers.CharField(required=False, max_length=30, default="")
+    avatar_selection = serializers.CharField(
+        required=False, max_length=30, default="", allow_blank=True, allow_null=True
+    )
     style = serializers.ChoiceField(
         required=False, choices=["vivid", "natural"], default="vivid"
     )

@@ -16,7 +16,9 @@ class Command(BaseCommand):
 
         voices = get_voices_from_60db()
         for voice in voices:
-            voice_exists = VoiceModel.objects.filter(name=voice["name"]).count() > 0
+            voice_exists = VoiceModel.objects.filter(
+                created_by=None, provider="60db", path=voice["voice_id"]
+            ).exists()
             if voice_exists:
                 continue
 

@@ -170,9 +170,9 @@ def generate_video(
 
     else:
         voice_model = (
-            VoiceModel.objects.get(id=voice_id)
+            VoiceModel.available_to(vid.created_by).get(id=voice_id)
             if voice_id
-            else VoiceModel.select_voice()
+            else VoiceModel.select_voice(vid.created_by)
         )
 
     vid.voice_model = voice_model

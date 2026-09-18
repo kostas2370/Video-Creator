@@ -17,7 +17,7 @@ KEY_FIELDS = (
 )
 
 
-class ApiKeysSerializer(serializers.ModelSerializer):    
+class ApiKeysSerializer(serializers.ModelSerializer):
     use_service_api_keys = serializers.BooleanField(
         source="user.use_service_api_keys", required=False
     )
