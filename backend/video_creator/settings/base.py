@@ -168,6 +168,14 @@ EMAIL_PORT = os.getenv("EMAIL_PORT", 587)
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 
+# Where the password-reset link in that email points. The token is redeemed by the
+# React app (which POSTs it back to /api/password_reset/confirm/), not by Django, so
+# this is the frontend's origin rather than the API's — and it cannot come from the
+# request, since the signal also fires from the admin and from management commands.
+# The default is the local dev server; production.py falls back to ALLOWED_HOSTS.
+FRONTEND_URL = (os.getenv("FRONTEND_URL") or "http://localhost:3000").rstrip("/")
+PASSWORD_RESET_PATH = os.getenv("PASSWORD_RESET_PATH") or "/reset-password"
+
 # CORS and CSRF
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True

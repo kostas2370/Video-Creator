@@ -4,6 +4,8 @@ import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import Login from "./pages/LoginPage";
 import Home from "./pages/HomePage";
 import Register from "./pages/RegisterPage";
+import ForgotPassword from "./pages/ForgotPasswordPage";
+import ResetPassword from "./pages/ResetPasswordPage";
 import Navbar from "./components/ui/myNavBar";
 import Twitch from "./pages/TwitchPage";
 import { Avatar } from "./pages/AvatarPage";
@@ -25,7 +27,9 @@ function App() {
   const shouldShowNavbar =
     location.pathname !== "/login/" &&
     location.pathname !== "/register" &&
-    location.pathname !== "/login";
+    location.pathname !== "/login" &&
+    !location.pathname.startsWith("/forgot-password") &&
+    !location.pathname.startsWith("/reset-password");
 
   return (
     // The shell carries the page background and default text colour. Several pages
@@ -48,6 +52,11 @@ function App() {
             element={access_token ? <Home /> : <Navigate to="/login" replace />}
           />
           <Route path="/register/" element={<Register />} />
+          {/* Both are reached while signed out — the second from the link emailed by
+              the password_reset_token_created signal, whose path is PASSWORD_RESET_PATH
+              on the backend. Keep the two in step. */}
+          <Route path="/forgot-password/" element={<ForgotPassword />} />
+          <Route path="/reset-password/" element={<ResetPassword />} />
           <Route
             path="/twitch/"
             element={
