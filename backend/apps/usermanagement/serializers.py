@@ -40,11 +40,14 @@ class UserSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
+    remember_me = serializers.BooleanField(
+        write_only=True, required=False, default=False
+    )
     tokens = serializers.DictField(read_only=True)
 
     class Meta:
         model = get_user_model()
-        fields = ("username", "password", "tokens")
+        fields = ("username", "password", "remember_me", "tokens")
 
     def validate(self, attrs):
         request = self.context["request"]
@@ -62,7 +65,12 @@ class LoginSerializer(serializers.ModelSerializer):
             raise AuthenticationFailed(
                 "You have to verify your account to be able to have access to your account"
             )
-        return {"tokens": auser.get_tokens()}
+        remember_me = attrs.get("remember_me", False)
+
+        return {
+            "tokens": auser.get_tokens(remember_me=remember_me),
+            "remember_me": remember_me,
+        }
 
 
 class VerifySerializer(serializers.Serializer):

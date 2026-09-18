@@ -12,6 +12,7 @@ import { axiosInstance } from "../api/axiosPrivate";
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   
   const { setAccessToken, setCSRFToken } = useAuth()
 
@@ -44,6 +45,7 @@ const Login = () => {
       const data = {
         username: username,
         password: password,
+        remember_me: rememberMe,
       };
 
       axiosInstance
@@ -140,7 +142,8 @@ const Login = () => {
                         aria-describedby="remember"
                         type="checkbox"
                         className="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-primary-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-primary-600 dark:ring-offset-gray-800"
-                        required=""
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
                       ></input>
                     </div>
                     <div className="ml-3 text-sm">

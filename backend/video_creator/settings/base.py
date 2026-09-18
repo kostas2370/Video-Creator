@@ -88,6 +88,8 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_SAMESITE": "Strict",
 }
 
+REMEMBER_ME_REFRESH_LIFETIME = timedelta(days=int(os.getenv("REMEMBER_ME_DAYS") or 30))
+
 # Djoser Configuration
 DJOSER = {
     "LOGIN_FIELD": "username",
