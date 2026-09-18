@@ -401,12 +401,12 @@ class LibraryViewTests(ApiTestCase):
 
         self.assertEqual([a["id"] for a in response.data], [mine.id])
 
-    @override_settings(OPEN_API_KEY="service-openai")
     def test_voices_are_shared_by_everyone(self):
         baker.make_recipe("videomanagement.voice_model", _quantity=2)
 
         self.assertEqual(len(self.client.get("/api/voices/").data), 2)
 
+    @override_settings(OPEN_API_KEY="")
     def test_no_voices_are_offered_when_no_key_reaches_their_provider(self):
         baker.make_recipe("videomanagement.voice_model", _quantity=2)
 

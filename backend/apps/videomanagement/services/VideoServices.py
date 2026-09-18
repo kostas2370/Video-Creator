@@ -52,12 +52,16 @@ def video_update(
             for scene in scenes:
                 update_scene(scene)
     try:
-        video.intro = None if intro in (None, "", "null") else Intro.objects.get(id=intro)
+        video.intro = (
+            None if intro in (None, "", "null") else Intro.objects.get(id=intro)
+        )
     except Intro.DoesNotExist:
         raise APIException("Intro with that id does not Exists !")
 
     try:
-        video.outro = None if outro in (None, "", "null") else Outro.objects.get(id=outro)
+        video.outro = (
+            None if outro in (None, "", "null") else Outro.objects.get(id=outro)
+        )
     except Outro.DoesNotExist:
         raise APIException("Outro with that id does not Exists !")
 

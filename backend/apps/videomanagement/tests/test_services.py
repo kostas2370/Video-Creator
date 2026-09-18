@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from model_bakery import baker
 from rest_framework.exceptions import APIException, ValidationError
 
@@ -61,7 +61,6 @@ class CreatePendingVideoTests(TestCase):
         self.assertEqual(video.video_type, "TWITCH")
 
 
-@override_settings(OPEN_API_KEY="service-openai")
 class GenerateVideoTests(TestCase):
     def setUp(self):
         self.user = baker.make_recipe("usermanagement.user")

@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from model_bakery import baker
 
 from ..models import Avatar, Background, TemplatePrompt, VoiceModel
@@ -30,7 +30,6 @@ class GetTemplateTests(TestCase):
         self.assertIsNone(TemplatePrompt.get_template(""))
 
 
-@override_settings(OPEN_API_KEY="service-openai")
 class SelectVoiceTests(TestCase):
     def test_picks_one_of_the_voices_on_file(self):
         voices = baker.make_recipe("videomanagement.voice_model", _quantity=3)

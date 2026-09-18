@@ -175,9 +175,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4", user=None)
             x = getattr(thismodule, call)(prompt, gpt_model, user=user)
             break
     else:
-        x = official_gpt_call(
-            prompt, gpt_model=settings.DEFAULT_GPT_MODEL, user=user
-        )
+        x = official_gpt_call(prompt, gpt_model=settings.DEFAULT_GPT_MODEL, user=user)
 
     if reply_format == "json":
         x = x.getvalue()
