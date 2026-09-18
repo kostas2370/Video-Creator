@@ -199,6 +199,8 @@ REST_FRAMEWORK = {
 
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
+TEST_RUNNER = "video_creator.test_runner.NoServiceKeysRunner"
+
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
 REASONING_TOKEN_ALLOWANCE = int(os.getenv("REASONING_TOKEN_ALLOWANCE") or 8000)
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
