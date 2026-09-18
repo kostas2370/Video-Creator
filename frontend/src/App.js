@@ -13,6 +13,7 @@ import { Videos } from "./pages/VideosPage";
 import { Video } from "./pages/VideoPage";
 import useAuth from "./hooks/useAuth";
 import { AssetPage } from "./pages/AssetPage";
+import { ApiKeys } from "./pages/ApiKeysPage";
 import { useAxiosPrivate } from "./hooks/useAxiosPrivate";
 import useRefreshToken from "./hooks/useRefreshToken";
 import PersistLogin from "./components/PersistLogin";
@@ -85,6 +86,12 @@ function App() {
             path="/assets/"
             element={
               access_token ? <AssetPage /> : <Navigate to="/login" replace />
+            }
+          />
+          <Route
+            path="/api-keys/"
+            element={
+              access_token ? <ApiKeys /> : <Navigate to="/login" replace />
             }
           />
           <Route

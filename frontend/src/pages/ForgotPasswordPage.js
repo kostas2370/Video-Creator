@@ -24,9 +24,6 @@ const ForgotPassword = () => {
     try {
       await axiosInstance.post(PASSWORD_RESET_URL, { email: email.trim() });
     } catch (error) {
-      // An unknown address answers 400 here. Treated as success on purpose: telling
-      // the visitor which addresses have accounts is exactly what this form must not
-      // do. Anything that is not a rejected request is a real failure worth showing.
       if (!error?.response) {
         toast.error("Server is down !");
         setIsSending(false);

@@ -142,7 +142,7 @@ def generate_video(
         target_audience=target_audience,
     )
 
-    x = get_reply(prompt, gpt_model=gpt_model)
+    x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
 
     user_prompt = video.prompt
     user_prompt.template = template
