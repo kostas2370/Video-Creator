@@ -7,7 +7,6 @@ import encrypted_model_fields.fields
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -16,27 +15,97 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='ApiKeys',
+            name="ApiKeys",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('openai_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('anthropic_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('gemini_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('elevenlabs_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('sixtydb_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('diffusion_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('midjourney_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('google_search_key', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('google_search_engine_id', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('twitch_client_id', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('twitch_client_secret', encrypted_model_fields.fields.EncryptedCharField(blank=True, default='')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='api_keys', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "openai_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "anthropic_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "gemini_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "elevenlabs_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "sixtydb_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "diffusion_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "midjourney_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "google_search_key",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "google_search_engine_id",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "twitch_client_id",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                (
+                    "twitch_client_secret",
+                    encrypted_model_fields.fields.EncryptedCharField(
+                        blank=True, default=""
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="api_keys",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'API keys',
-                'verbose_name_plural': 'API keys',
+                "verbose_name": "API keys",
+                "verbose_name_plural": "API keys",
             },
         ),
     ]

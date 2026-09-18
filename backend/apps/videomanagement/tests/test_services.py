@@ -93,6 +93,24 @@ class GenerateVideoTests(TestCase):
         params.update(kwargs)
         return generate_video(video=self.video, **params)
 
+    def test_uses_the_voice_that_was_chosen(self):
+        chosen = baker.make_recipe("videomanagement.voice_model", name="nova")
+
+        video = self.generate(avatar_selection="", voice_id=chosen.id)
+
+        self.assertEqual(video.voice_model, chosen)
+
+    def test_picks_a_voice_when_none_was_chosen(self):
+        video = self.generate(avatar_selection="", voice_id="")
+
+        self.assertIsNotNone(video.voice_model)
+
+    def test_a_blank_avatar_does_not_send_generation_looking_for_one(self):
+        video = self.generate(avatar_selection="", voice_id=self.voice.id)
+
+        self.assertIsNone(video.avatar)
+        self.assertEqual(video.voice_model, self.voice)
+
     def test_fills_the_video_in_and_leaves_it_ready(self):
         video = self.generate()
 

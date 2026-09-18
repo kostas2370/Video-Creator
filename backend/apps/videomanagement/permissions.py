@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 from .models import Scene, SceneImage, Video
 
 
@@ -14,6 +14,14 @@ class IsOwnerPermission(BasePermission):
             obj = Video.objects.get(prompt_id=obj.scene.prompt.id)
 
         return obj.created_by == request.user or request.user.is_superuser
+
+
+class IsOwnerOrReadOnlyPermission(IsOwnerPermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return True
+
+        return super().has_object_permission(request, view, obj)
 
 
 class BaseGenerationLimitPermission(BasePermission):

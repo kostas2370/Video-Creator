@@ -14,5 +14,8 @@ urlpatterns = [
     path("token/refresh/", CookieTokenRefreshView.as_view()),
     path("register/", UserRegisterView.as_view(), name="register"),
     path("email-verify/", VerifyEmail.as_view(), name="email-verify"),
-    path("password_reset/", include('django_rest_passwordreset.urls', namespace='password_reset'),)
+    path(
+        "password_reset/",
+        include("django_rest_passwordreset.urls", namespace="password_reset"),
+    ),
 ]

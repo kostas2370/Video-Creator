@@ -7,6 +7,7 @@ from django_resized import ResizedImageField
 
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
 from django_lifecycle.conditions import WhenFieldValueChangesTo
+from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.tasks import send_email
 
 TEMPLATE_CHOICES = (
@@ -18,6 +19,14 @@ TEMPLATE_CHOICES = (
 )
 
 MODEL_TYPE_CHOICES = (("API", "Api"),)
+
+VOICE_PROVIDER_KEYS = {
+    "open_ai": Provider.OPENAI,
+    "eleven_labs": Provider.ELEVENLABS,
+    "60db": Provider.SIXTYDB,
+}
+
+ACCOUNT_SCOPED_VOICE_PROVIDERS = ("eleven_labs", "60db")
 
 VIDEO_STATUS = (
     ("GENERATION", "GENERATION"),
@@ -124,9 +133,37 @@ class VoiceModel(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_voice() -> VoiceModel:
-        voice = VoiceModel.objects.all()
-        return voice[randint(0, voice.count() - 1)]
+    def available_to(user) -> models.QuerySet:
+        playable = [
+            provider
+            for provider, key in VOICE_PROVIDER_KEYS.items()
+            if ApiKeys.key_for(user, key)
+        ]
+
+        spending_own_keys = (
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and not user.use_service_api_keys
+        )
+
+        shared = models.Q(created_by=None)
+        if spending_own_keys:
+            scope = (
+                shared & ~models.Q(provider__in=ACCOUNT_SCOPED_VOICE_PROVIDERS)
+            ) | models.Q(created_by=user)
+        else:
+            scope = shared
+
+        return VoiceModel.objects.filter(scope, provider__in=playable)
+
+    @staticmethod
+    def select_voice(user=None) -> VoiceModel:
+        voice = VoiceModel.available_to(user)
+        count = voice.count()
+        if count == 0:
+            return None
+
+        return voice[randint(0, count - 1)]
 
 
 class Avatar(AbstractModel):

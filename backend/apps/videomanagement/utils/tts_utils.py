@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Union
 import logging
 import requests
-from django.conf import settings
 from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
