@@ -13,7 +13,6 @@ const Twitch = () => {
   const [video_id, setVideo_id]= useState("")
   const pollRef = useRef(null);
 
-  // Stop watching if the user navigates away mid-generation.
   useEffect(() => () => pollRef.current?.cancel(), []);
 
 
@@ -33,7 +32,6 @@ const Twitch = () => {
     }
     setIsLoading(true);
 
-    // 202 + an empty video: the clips are downloaded by a worker, so watch the id.
     const response = await generateTwitchVideo(formData);
 
     if (!response?.video?.id) {
@@ -87,8 +85,6 @@ const Twitch = () => {
       <ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id}/>
 
       <section className="bg-gray-50 dark:bg-gray-900">
-        {/* Not the login page's md:h-screen/lg:py-0 — that layout assumes no navbar,
-            so here it overran the viewport by the bar's height and sat flush under it. */}
         <div className="flex flex-col items-center justify-center px-6 py-8 mx-auto md:min-h-[calc(100vh-4rem)]">
           <div className="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:bg-gray-800 dark:border-gray-700">
             <div className="p-6 space-y-2 md:space-y-6 sm:p-9">

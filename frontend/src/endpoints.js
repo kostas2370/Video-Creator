@@ -1,5 +1,4 @@
 
-// for the case where the API really does live somewhere else.
 export const API_HOST = process.env.REACT_APP_API_HOST || ""
 
 export const API_BASE_URL = `${API_HOST}/api/`

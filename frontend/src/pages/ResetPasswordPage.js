@@ -17,8 +17,6 @@ const ResetPassword = () => {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [passwordValidation, setPasswordValidation] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  // "checking" until the backend has had its say on the token, so the form is never
-  // filled in against a link that was already used or has expired.
   const [tokenState, setTokenState] = useState("checking");
 
   const navigate = useNavigate();
@@ -33,8 +31,6 @@ const ResetPassword = () => {
       .post(PASSWORD_RESET_VALIDATE_URL, { token })
       .then(() => setTokenState("valid"))
       .catch((error) => {
-        // No response at all is the server being down, not a bad token — let the
-        // visitor try the form rather than telling them their link is broken.
         setTokenState(error?.response ? "invalid" : "valid");
       });
   }, [token]);
@@ -61,8 +57,6 @@ const ResetPassword = () => {
           toast.error("Server is down !");
           return;
         }
-        // DRF answers with either {"password": [...]} from the validators or
-        // {"detail": "..."} when the token went stale between the check and the save.
         const message =
           data.password?.[0] || data.detail || "Could not reset your password";
         toast.error(message);

@@ -14,8 +14,6 @@ export function useAxiosPrivate() {
         const requestIntercept = axiosPrivateInstance.interceptors.request.use(
             (config) => {
                 if (!config.headers["Authorization"]) {
-                    // The JWT lives in context only — without this header the
-                    // request carries no credentials and the API answers 401.
                     if (access_token) {
                         config.headers["Authorization"] = `Bearer ${access_token}`;
                     }
@@ -31,17 +29,16 @@ export function useAxiosPrivate() {
             async (error) => {
                 const status = error?.response?.status;
                 const prevRequest = error?.config;
-                
+
                 if ((status === 403 || status === 401) && !prevRequest?.sent) {
                     prevRequest.sent = true;
                     const { csrfToken: newCSRFToken, accessToken: newAccessToken } = await refresh();
                     setAccessToken(newAccessToken);
-                    // setAccessToken only updates context, not this built request.
                     prevRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
                     prevRequest.headers['X-CSRFToken'] = newCSRFToken;
                     return axiosPrivateInstance(prevRequest);
                 }
-         
+
                   else if (status === 400) {
                     toast.error("400 Bad Request !");
                 } else if (status === 404) {

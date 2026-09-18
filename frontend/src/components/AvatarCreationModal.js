@@ -20,8 +20,6 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
   useEffect(() => {
     const fetchVoiceOption = async () => {
       getVoices().then((response) => {
-        // getRequest swallows failures and resolves undefined, which used to crash
-        // the select below with "voices.map is not a function".
         setVoices(Array.isArray(response) ? response : []);
       });
     };
@@ -40,7 +38,7 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
 
     createAvatar(formData).then((response) => {
       if (response){
-     
+
         setAvatars(prevAvatars => [...prevAvatars, response]);
         toast.success("Avatar got created sucessfully !");
           setShowModal(false)
@@ -95,7 +93,7 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
                         Gender
                       </label>
                       <select
-                        
+
                         id="category"
                         className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                         onChange={(e) => setGender(e.target.value)}
@@ -152,7 +150,7 @@ export const AvatarCreationModal = ({ showModal, setShowModal, setAvatars }) => 
                   <button
                     type="submit"
                     className="text-white inline-flex items-center bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                    
+
                   >
                     <svg
                       className="me-1 -ms-1 w-5 h-5"

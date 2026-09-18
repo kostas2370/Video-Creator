@@ -12,8 +12,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
   const [title, setTitle] = useState(null);
   const [intro, setIntro] = useState(null);
   const [outro, setOutro] = useState(null);
-  const [subtitles, setSubtitles] = useState(false); // New state for subtitles
-  const [avatarPosition, setAvatarPosition] = useState("right,top"); // New state for avatar position
+  const [subtitles, setSubtitles] = useState(false);
+  const [avatarPosition, setAvatarPosition] = useState("right,top");
 
   const [selectedIntroFile, setSelectedIntroFile] = useState(null);
   const [selectedOutroFile, setSelectedOutroFile] = useState(null);
@@ -27,8 +27,6 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
           getIntro(),
           getOutro(),
         ]);
-        // getRequest resolves undefined when a request fails, and the selects below
-        // map straight over these.
         setAvatars(Array.isArray(avatarData) ? avatarData : []);
         setIntros(Array.isArray(introData) ? introData : []);
         setOutros(Array.isArray(outroData) ? outroData : []);

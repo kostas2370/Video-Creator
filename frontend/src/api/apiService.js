@@ -1,4 +1,4 @@
-import { axiosPrivateInstance } from "./axiosPrivate"; 
+import { axiosPrivateInstance } from "./axiosPrivate";
 
 const API_ENDPOINTS = {
     INTRO: 'intro/',
@@ -18,7 +18,7 @@ const API_ENDPOINTS = {
     RENDER: (id) => `video/${id}/render_video/`,
     SCENE_GENERATE : (id) => `scene/${id}/generate/`,
     SCENE_IMAGE_GENERATE : (id) => `scene/${id}/generate_image_scene/`,
-    
+
     INTRO_GET: (search = null) => `intro/${search ? `?search=${search}` : ''}`,
     OUTRO_GET: (search = null) => `outro/${search ? `?search=${search}` : ''}`,
     VIDEOS_GET: (search = null, page = null, id = null) => {
@@ -43,7 +43,7 @@ const getRequest = async (url, params = {}, axiosInstance = axiosPrivateInstance
     try {
         const queryString = new URLSearchParams(params).toString();
         const fullUrl = queryString ? `${url}?${queryString}` : url;
-        
+
         const response = await axiosInstance.get(fullUrl);
         return response.data;
     } catch (error) {
@@ -96,9 +96,6 @@ export const deleteScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SC
 
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
 export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data, axiosPrivateInstance, JSON_CONFIG)}
-// Not patchRequest: this one has to tell a refusal (409, the video is not in a
-// renderable state) apart from the request never landing, and patchRequest collapses
-// both into undefined. Returns {ok, data} or {ok, status, message}.
 export const renderVideo = async (id) => {
     try {
         const response = await axiosPrivateInstance.patch(API_ENDPOINTS.RENDER(id), {});
@@ -160,7 +157,7 @@ export const updateSceneImage = async (id,scene_image_id, data) => {
 
         }
         const response = await axiosPrivateInstance.post(url, data);
-      
+
         return response.data
 
     }catch (error){
