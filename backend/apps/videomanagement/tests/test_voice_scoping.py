@@ -7,14 +7,11 @@ from ..models import VoiceModel
 
 URL = "/api/voices/"
 
-SERVICE_KEYS = dict(OPEN_API_KEY="service-openai", XI_API_KEY="service-xi")
-
 
 def a_voice(**kwargs):
     return baker.make_recipe("videomanagement.voice_model", **kwargs)
 
 
-@override_settings(**SERVICE_KEYS)
 class AvailableToTests(TestCase):
     def setUp(self):
         self.user = baker.make_recipe("usermanagement.user")
@@ -89,11 +86,9 @@ class KeyGatedVoiceTests(TestCase):
         self.assertNotIn(self.openai, visible)
         self.assertIn(self.labs, visible)
 
-    @override_settings(**SERVICE_KEYS)
     def test_shows_them_once_the_service_key_is_there(self):
         self.assertIn(self.openai, VoiceModel.available_to(self.user))
 
-    @override_settings(**SERVICE_KEYS)
     def test_hides_the_openai_voices_when_your_own_keys_have_no_openai_key(self):
         user = self.opt_out_with(openai_key="", elevenlabs_key="xi-mine")
         mine = a_voice(provider="eleven_labs", name="MyClone", created_by=user)
@@ -119,17 +114,14 @@ class KeyGatedVoiceTests(TestCase):
 
         self.assertCountEqual(VoiceModel.available_to(user), [self.openai, mine])
 
-    @override_settings(**SERVICE_KEYS)
     def test_hides_the_services_elevenlabs_voices_once_you_spend_your_own_keys(self):
         user = self.opt_out_with(openai_key="sk-mine", elevenlabs_key="xi-mine")
 
         self.assertNotIn(self.labs, VoiceModel.available_to(user))
 
-    @override_settings(**SERVICE_KEYS)
     def test_keeps_the_services_elevenlabs_voices_while_on_the_service_keys(self):
         self.assertIn(self.labs, VoiceModel.available_to(self.user))
 
-    @override_settings(**SERVICE_KEYS)
     def test_keeps_the_shared_openai_voices_either_way(self):
         self.assertIn(self.openai, VoiceModel.available_to(self.user))
 
@@ -142,14 +134,12 @@ class KeyGatedVoiceTests(TestCase):
         self.assertEqual(list(VoiceModel.available_to(self.user)), [])
         self.assertIsNone(VoiceModel.select_voice(self.user))
 
-    @override_settings(**SERVICE_KEYS)
     def test_hides_a_voice_whose_provider_cannot_be_synthesised_at_all(self):
         orphan = a_voice(provider="some_dead_provider", created_by=None)
 
         self.assertNotIn(orphan, VoiceModel.available_to(self.user))
 
 
-@override_settings(**SERVICE_KEYS)
 class VoiceViewTests(TestCase):
     def setUp(self):
         self.user = baker.make_recipe("usermanagement.user")

@@ -15,9 +15,10 @@ SECRET_KEY = (
     or "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
 )
 
-FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY") or base64.urlsafe_b64encode(
-    hashlib.sha256(SECRET_KEY.encode()).digest()
-).decode()
+FIELD_ENCRYPTION_KEY = (
+    os.getenv("FIELD_ENCRYPTION_KEY")
+    or base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest()).decode()
+)
 
 COOKIES_SECURE = False
 CROSS_SITE_SAMESITE = "Lax"
@@ -199,7 +200,7 @@ REST_FRAMEWORK = {
 
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
-TEST_RUNNER = "video_creator.test_runner.NoServiceKeysRunner"
+TEST_RUNNER = "video_creator.test_runner.ServiceKeysRunner"
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
 REASONING_TOKEN_ALLOWANCE = int(os.getenv("REASONING_TOKEN_ALLOWANCE") or 8000)
