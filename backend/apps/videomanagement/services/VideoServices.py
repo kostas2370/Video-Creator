@@ -35,17 +35,10 @@ def video_update(
         Videos: The updated video instance.
     """
 
-    # VideoUpdateSerializer defaults title to None, so a PATCH that only changes the
-    # avatar would otherwise blank a NOT NULL column.
     if title:
         video.title = title
 
-    if (
-        avatar == "None"
-        or avatar == ""
-        or video.video_type == "TWITCH"
-        or avatar is None
-    ):
+    if video.video_type == "TWITCH" or avatar in (None, "", "None"):
         video.avatar = None
 
     else:
@@ -58,29 +51,17 @@ def video_update(
             scenes = video.prompt.scenes.all()
             for scene in scenes:
                 update_scene(scene)
-
-    # `not intro`, rather than a list of the falsy spellings: the serializer defaults
-    # both of these to None when they are left out of the request, and None passed
-    # neither of the old checks — so every PATCH that did not name an intro ran
-    # Intro.objects.get(id=None) and came back as "Intro with that id does not Exists".
     try:
-        video.intro = Intro.objects.get(id=intro) if intro and intro != "null" else None
+        video.intro = None if intro in (None, "", "null") else Intro.objects.get(id=intro)
     except Intro.DoesNotExist:
         raise APIException("Intro with that id does not Exists !")
 
     try:
-        video.outro = Outro.objects.get(id=outro) if outro and outro != "null" else None
+        video.outro = None if outro in (None, "", "null") else Outro.objects.get(id=outro)
     except Outro.DoesNotExist:
         raise APIException("Outro with that id does not Exists !")
 
     if video.video_type != "TWITCH":
-        # VideoUpdateSerializer parses this with a BooleanField, so what arrives here
-        # is a bool and the old `subtitles == "true"` was never true — subtitles could
-        # not be switched on through the API at all. A string is still accepted for
-        # any caller that reaches the service directly.
-        if not isinstance(subtitles, bool):
-            subtitles = str(subtitles).lower() == "true"
-
         video.settings = dict(subtitles=subtitles, avatar_position=avatar_position)
 
     video.save()

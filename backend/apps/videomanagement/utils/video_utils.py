@@ -144,15 +144,12 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
         raise ValueError(f"Error loading video file at {scene_image.file.path}: {e}")
 
     if audio is None:
-        # No narration: the clip's own length is the scene's length.
         pass
 
     elif vid_scene.duration > audio.duration:
         vid_scene = vid_scene.subclip(0, audio.duration)
 
     elif vid_scene.duration < audio.duration:
-        # Otherwise the narration outruns the picture and the scene ends early. Sora
-        # caps a clip at 12 seconds, so any sentence longer than that lands here.
         vid_scene = vid_scene.fx(
             vfx.freeze, t="end", total_duration=audio.duration
         ).set_duration(audio.duration)
@@ -299,9 +296,6 @@ def handle_background(duration, background, final_video):
 
     bg_clip = bg_clip.set_duration(duration).resize((1920, 1080))
     mask_color = [int(x) for x in background.color.split(",")]
-    # Background.through, not .threshold: the model has no `threshold` field, so every
-    # render with a background died here with an AttributeError. `through` is the
-    # masking threshold — nothing else reads it, and setup_media seeds it as one.
     threshold = float(background.through) / 255.0
     masked_clip = final_video.fx(vfx.mask_color, color=mask_color, thr=threshold, s=7)
     final_video = CompositeVideoClip(
@@ -327,10 +321,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     Returns:
         VideoFileClip: The fully processed final video clip with all specified components added.
     """
-    # Without narration there is no audio to hang the timeline on, so the assembled
-    # picture defines it instead.
     duration = final_audio.duration if final_audio else final_video.duration
-
     final_video = handle_background(duration, background, final_video)
 
     if getattr(video, "music", None):
@@ -345,8 +336,6 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     if video.settings.get("subtitles", False) and subtitles:
         subs = concatenate_videoclips(subtitles, method="compose")
         video_height = final_video.size[1]
-        # Anchored off the clip's own height, so the text cannot fall out of frame
-        # when the box size changes.
         subtitle_bottom_margin = 60
         subtitle_y = max(0, video_height - subs.h - subtitle_bottom_margin)
         final_video = CompositeVideoClip(
@@ -389,9 +378,6 @@ def make_video(video: Video) -> Video:
     background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 
-    # Narration off means the clips are simply concatenated at their own length, each
-    # keeping whatever sound it came with. There is then no spoken line to time
-    # subtitles against either, so they are skipped too.
     narration = video.settings.get("narration", True)
 
     for scene in scenes:
@@ -404,8 +390,6 @@ def make_video(video: Video) -> Video:
             sound_list.append(audio)
 
             if narration and video.settings.get("subtitles", False):
-                # None when ImageMagick cannot render the text — skip it rather than
-                # fail the whole render.
                 subtitle = create_subtitle_clip(scene.text, audio.duration)
                 if subtitle is not None:
                     subtitles.append(subtitle)
@@ -446,7 +430,6 @@ def make_video(video: Video) -> Video:
         video.status = "COMPLETED"
 
     finally:
-        # Cleanup must not raise, or it replaces the exception that failed the render.
         for clip in sound_list + vids + subtitles + [final_audio, final_video]:
             if clip is None:
                 continue

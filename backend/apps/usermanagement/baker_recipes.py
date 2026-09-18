@@ -1,9 +1,3 @@
-"""Recipes for the accounts that own videos and pay for generation.
-
-The two limit fields start high enough to clear every generation permission, so a test
-that cares about a limit sets it explicitly and the rest do not have to think about it.
-"""
-
 from model_bakery.recipe import Recipe, seq
 
 from .models import User

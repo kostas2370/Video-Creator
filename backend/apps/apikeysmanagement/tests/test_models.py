@@ -31,7 +31,6 @@ class EncryptionTests(TestCase):
         )
 
     def test_two_users_with_the_same_key_do_not_store_the_same_bytes(self):
-        """Fernet salts every token, so identical keys are not correlatable in a dump."""
         first = baker.make_recipe("apikeysmanagement.api_keys", openai_key="sk-same")
         second = baker.make_recipe("apikeysmanagement.api_keys", openai_key="sk-same")
 
@@ -87,11 +86,9 @@ class KeyForTests(TestCase):
         )
 
     def test_gives_a_signed_out_caller_nothing(self):
-        # Not even the service key: there is no account to bill it to.
         self.assertIsNone(ApiKeys.key_for(AnonymousUser(), Provider.OPENAI))
 
     def test_gives_an_internal_caller_the_service_key(self):
-        # No user at all is a management command or a script, not a signed-out person.
         self.assertEqual(
             ApiKeys.key_for(None, Provider.OPENAI), "service-openai-key"
         )

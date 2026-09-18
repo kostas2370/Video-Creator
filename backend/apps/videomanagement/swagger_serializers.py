@@ -117,9 +117,15 @@ class TwitchSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
-    avatar = serializers.CharField(required=False, default=None, allow_null=True)
-    intro = serializers.CharField(required=False, default=None, allow_null=True)
-    outro = serializers.CharField(required=False, default=None, allow_null=True)
+    avatar = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True
+    )
+    intro = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True
+    )
+    outro = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True
+    )
     title = serializers.CharField(required=False, default=None)
     subtitles = serializers.BooleanField(required=False, default=None)
     avatar_position = serializers.ChoiceField(

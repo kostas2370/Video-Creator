@@ -203,7 +203,7 @@ def download_music(url: str) -> str:
     - If the same music is already downloaded, it returns the existing Music object without downloading again.
     """
 
-    if url is None or url == "None" or url == "":
+    if url in (None, "", "None"):
         return None
 
     yt = YouTube(url)
@@ -271,7 +271,6 @@ def generate_from_dalle(
         size=settings.IMAGE_SIZE,
         quality=settings.IMAGE_QUALITY,
         n=1,
-        # Stated, not assumed: the file below is written as .png.
         output_format="png",
     )
 
@@ -305,10 +304,6 @@ def still_from_video(path: str, dir_name: str) -> str:
     frame_path = f"{dir_name}{uuid.uuid4()}.png"
     try:
         with VideoFileClip(path) as clip:
-            # Not clip.duration: moviepy seeks just before the target and decodes
-            # forward, so a time within a frame or two of the end overshoots the last
-            # decodable frame and the read fails. Step back, then give way to earlier
-            # points if even that lands badly on a very short clip.
             for t in (clip.duration - 0.5, clip.duration * 0.5, 0):
                 try:
                     clip.save_frame(frame_path, t=max(0, t))
@@ -583,12 +578,8 @@ def create_image_scene(
             f"{dir_name}/images/",
             style=style,
             title=title,
-            # Video providers need to know how long this sentence is spoken for. The
-            # narration is already on disk by now — make_scenes_speech runs first.
             duration=scene_narration_duration(scene),
             reference=reference,
-            # Whose key pays for this provider. Every generator takes it, and the
-            # ones that need no key swallow it through **kwargs.
             user=user,
         )
     except Exception as ex:
@@ -638,13 +629,7 @@ def create_image_scenes(
     """
 
     dir_name = video.dir_name
-    # With narration off there is no voice track, so a generated clip keeps its own
-    # sound instead of being rendered silent.
     with_audio = not (video.settings or {}).get("narration", True)
-    # Anchor every later clip to the look of the first one. Each Sora job is generated
-    # independently, so without a shared reference the scenes drift apart visually. The
-    # anchor is taken once and reused, rather than chained frame-to-frame, which would
-    # let the style wander a little further with every scene.
     reference = None
     for scene in video.gpt_answer["scenes"]:
         for sentence in scene["sentences"]:

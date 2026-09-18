@@ -19,8 +19,6 @@ from ..utils.tts_utils import (
 
 
 class SaveTests(SimpleTestCase):
-    """save() picks the provider a voice names and hands back the path it wrote to."""
-
     def test_returns_none_when_there_is_no_voice(self):
         # Narration off: make_scene_speech asks for no audio at all.
         self.assertIsNone(save(None, "hello", "out.wav"))

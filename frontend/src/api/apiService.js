@@ -70,9 +70,11 @@ const deleteRequest = async (url, axiosInstance = axiosPrivateInstance) => {
     }
 }
 
-const patchRequest = async (url,data, axiosInstance = axiosPrivateInstance) => {
+const JSON_CONFIG = { headers: { "Content-Type": "application/json" } };
+
+const patchRequest = async (url,data, axiosInstance = axiosPrivateInstance, config = {}) => {
     try {
-        const response = await axiosInstance.patch(url,data);
+        const response = await axiosInstance.patch(url,data, config);
         return response.data;
     } catch (error) {
         console.error(`Error deleting data from ${url}:`, error);
@@ -93,7 +95,7 @@ export const deleteImageScene = async (id) =>  {return deleteRequest(API_ENDPOIN
 export const deleteScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_SELECT(id))}
 
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
-export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data)}
+export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data, axiosPrivateInstance, JSON_CONFIG)}
 // Not patchRequest: this one has to tell a refusal (409, the video is not in a
 // renderable state) apart from the request never landing, and patchRequest collapses
 // both into undefined. Returns {ok, data} or {ok, status, message}.
@@ -111,12 +113,6 @@ export const renderVideo = async (id) => {
     }
 }
 
-// Not the helpers above: a key that failed to save has to be told apart from one that
-// saved, and they collapse every failure into undefined — which on this page would read
-// as "nothing to report" and leave the user believing their key is stored. Each of these
-// returns {ok: true, data} or {ok: false, message}. The body goes as JSON rather than the
-// instance default of multipart, so use_service_api_keys arrives as a boolean instead of
-// the string "false", which is truthy on the way in.
 const apiKeysRequest = async (method, data = undefined) => {
     try {
         const response = await axiosPrivateInstance.request({
@@ -132,8 +128,6 @@ const apiKeysRequest = async (method, data = undefined) => {
     }
 };
 
-// DRF answers a rejected field as {field: ["why"]}, and everything else as a string or
-// nothing at all. Flatten whichever shape came back into one line for the toast.
 const firstErrorMessage = (error) => {
     const data = error?.response?.data;
     if (!data) return "The server could not be reached";

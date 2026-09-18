@@ -9,8 +9,6 @@ import os
 def make_scene_speech(
     voice_model, dir_name, prompt, text, is_last, narrate=True, user=None
 ) -> Scene:
-    # The Scene row is created either way — the rest of the pipeline keys off it, and
-    # create_image_scene looks it up by text. Only the audio is optional.
     sound = None
     if narrate:
         filename = str(uuid.uuid4())

@@ -6,8 +6,6 @@ import { getApiKeys, updateApiKeys, deleteApiKeys } from "../api/apiService";
 import { ClearApiKeysModal } from "../components/ClearApiKeysModal";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
-// The field names are the serializer's, so each input patches straight through. The
-// labels are the ones the Provider choices use on the backend — worth keeping in step.
 const KEY_GROUPS = [
   {
     title: "Text and voice",
@@ -54,15 +52,10 @@ const KEY_FIELDS = KEY_GROUPS.flatMap((group) =>
 
 const EMPTY_KEYS = Object.fromEntries(KEY_FIELDS.map((name) => [name, ""]));
 
-// What ApiKeys.mask on the backend makes of a key, which is all this page ever sees.
 const MASK_EXAMPLE = "sk-••••••••ijkl";
 
 export const ApiKeys = () => {
-  // What the server holds, masked (`sk-••••••••ijkl`) — never the key itself, so an
-  // input can be pre-filled with it. It goes in the placeholder instead.
   const [saved, setSaved] = useState(EMPTY_KEYS);
-  // Only the fields the user has actually typed into. Anything absent is left untouched
-  // by the PATCH, which is what keeps saving one key from wiping the other ten.
   const [drafts, setDrafts] = useState({});
   const [revealed, setRevealed] = useState({});
   const [useServiceKeys, setUseServiceKeys] = useState(true);
@@ -102,8 +95,6 @@ export const ApiKeys = () => {
     };
   }, []);
 
-  // A field only counts as changed when it says something new: emptying an input that
-  // was already empty is not a request to clear anything.
   const changed = Object.entries(drafts).filter(([name, value]) =>
     value.trim() === "" ? Boolean(saved[name]) : true
   );
@@ -147,8 +138,6 @@ export const ApiKeys = () => {
   };
 
   const handleModeChange = async (nextUseServiceKeys) => {
-    // Optimistic: the switch has to move under the cursor. It is put back if the
-    // request is refused, so the page never claims a mode the backend did not take.
     const previous = useServiceKeys;
     setUseServiceKeys(nextUseServiceKeys);
     setIsSwitching(true);
@@ -182,8 +171,6 @@ export const ApiKeys = () => {
       return;
     }
 
-    // The row is gone; the next GET recreates an empty one. Mirroring that here saves
-    // a round trip and keeps the placeholders from still showing masked keys.
     setSaved(EMPTY_KEYS);
     setDrafts({});
     setRevealed({});
