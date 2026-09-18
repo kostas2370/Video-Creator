@@ -117,13 +117,19 @@ class LoginView(generics.GenericAPIView):
             user.save()
 
         response = Response(serializer.data, status=status.HTTP_200_OK)
-        # max_age, not expires: expires takes a date, and handing it a timedelta
-        # stringifies to "0:30:00", which no browser can parse — the cookie then
-        # silently degrades to a session cookie.
+
+        remember_me = serializer.validated_data.get("remember_me", False)
+        access_max_age = refresh_max_age = None
+        if remember_me:
+            access_max_age = int(
+                settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()
+            )
+            refresh_max_age = int(settings.REMEMBER_ME_REFRESH_LIFETIME.total_seconds())
+
         response.set_cookie(
             "access_token",
             serializer.data["tokens"]["access"],
-            max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+            max_age=access_max_age,
             httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
             secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
             samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
@@ -132,7 +138,7 @@ class LoginView(generics.GenericAPIView):
         response.set_cookie(
             "refresh_token",
             serializer.data["tokens"]["refresh"],
-            max_age=int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
+            max_age=refresh_max_age,
             samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
             httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
             secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
@@ -155,21 +161,25 @@ class CookieTokenRefreshView(jwt_views.TokenRefreshView):
             return super().finalize_response(request, response, *args, **kwargs)
 
         try:
-            tokens.RefreshToken(refresh)
+            token = tokens.RefreshToken(refresh)
         except TokenError:
             response.data = {"Message": "This token has expired"}
             response.status_code = 400
             return super().finalize_response(request, response, *args, **kwargs)
 
         if "access" in response.data:
+            remember_me = bool(token.get("remember_me", False))
             response.set_cookie(
                 key="access_token",
                 value=response.data["access"],
                 max_age=int(
-                    settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()
-                ),
+                    settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()
+                )
+                if remember_me
+                else None,
                 secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
                 httponly=settings.SIMPLE_JWT["AUTH_COOKIE_HTTP_ONLY"],
+                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
             )
 
         response["X-CSRFToken"] = request.COOKIES.get("csrftoken", "")
