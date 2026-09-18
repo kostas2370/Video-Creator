@@ -69,4 +69,4 @@ jobs:
     # the vendored SadTalker checkout ships test_options.py files that match the default
     # pattern and cannot be imported on their own.
     - name: Run tests
-      run: python backend/manage.py test apps.videomanagement.tests apps.apikeysmanagement.tests
+      run: python backend/manage.py test apps.videomanagement.tests apps.apikeysmanagement.tests apps.usermanagement.tests

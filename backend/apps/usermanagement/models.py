@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import PermissionsMixin
@@ -33,10 +34,15 @@ class User(AbstractUser, PermissionsMixin):
     def email_user(self, subject, message, from_email=None, **kwargs):
         send_mail(subject, message, from_email, [self.email], **kwargs)
 
-    def get_tokens(self):
+    def get_tokens(self, remember_me: bool = False):
         tokens = RefreshToken.for_user(self)
+        access = str(tokens.access_token)
 
-        return {"access": str(tokens.access_token), "refresh": str(tokens)}
+        if remember_me:
+            tokens["remember_me"] = True
+            tokens.set_exp(lifetime=settings.REMEMBER_ME_REFRESH_LIFETIME)
+
+        return {"access": access, "refresh": str(tokens)}
 
 
 class Login(models.Model):
