@@ -5,3 +5,6 @@ class ApikeysmanagementConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.apikeysmanagement"
     verbose_name = "API keys"
+
+    def ready(self):
+        from . import signals  # noqa: F401

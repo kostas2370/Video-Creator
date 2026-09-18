@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getAvatars } from "../api/apiService";
+import { getAvatars, getVoices } from "../api/apiService";
 import { toast } from "react-toastify";
 import { generateVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
@@ -12,6 +12,7 @@ const Home = () => {
     setOpen(data);
   };
   const [avatars, setAvatars] = useState([]);
+  const [voices, setVoices] = useState([]);
   const [settings, setSettings] = useState(false);
   const [open, setOpen] = useState(false);
   const [video_id, setVideo_id] = useState("");
@@ -20,7 +21,8 @@ const Home = () => {
 
   const [formData, setFormData] = useState({
     template_id: "",
-    avatar_selection: null,
+    avatar_selection: "",
+    voice_id: "",
     message: "",
     target_audience: "",
     image_mode: "WEB",
@@ -50,6 +52,12 @@ const Home = () => {
         [name]: value,
         provider: value === "AI" ? "DALL-E" : "bing",
       }));
+    } else if (name === "avatar_selection") {
+      setFormData((prevData) => ({
+        ...prevData,
+        [name]: value,
+        voice_id: value ? "" : prevData.voice_id,
+      }));
     } else {
       setFormData({ ...formData, [name]: value });
     }
@@ -59,6 +67,10 @@ const Home = () => {
     const fetchOptions = async () => {
       axiosPrivateInstance.get("avatars/").then((response) => {
         setAvatars(response.data);
+      });
+
+      getVoices().then((response) => {
+        setVoices(Array.isArray(response) ? response : []);
       });
     };
 
@@ -198,6 +210,32 @@ const Home = () => {
                           </option>
                         ))}
                       </select>
+
+                      {!formData.avatar_selection && (
+                        <div className="mt-4">
+                          <label
+                            htmlFor="voice_id"
+                            className="block text-sm font-medium text-gray-900 dark:text-white"
+                          >
+                            Voice
+                          </label>
+                          <select
+                            name="voice_id"
+                            id="voice_id"
+                            value={formData.voice_id}
+                            className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                            onChange={handleInputChange}
+                          >
+                            <option value="">Any voice</option>
+                            {voices?.map((voice) => (
+                              <option key={voice.id} value={voice.id}>
+                                {voice.name}
+                                {voice.provider ? ` (${voice.provider})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                     <div className="w-1/2">
                       <label

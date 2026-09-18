@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 
 from django_filters.rest_framework import DjangoFilterBackend
-from ..permissions import IsOwnerPermission
+from ..permissions import IsOwnerOrReadOnlyPermission, IsOwnerPermission
 from rest_framework.permissions import IsAuthenticated
 
 from ..models import (
@@ -72,6 +72,10 @@ class MusicView(viewsets.ModelViewSet):
 class VoiceView(viewsets.ModelViewSet):
     serializer_class = VoiceModelSerializer
     queryset = VoiceModel.objects.all()
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnlyPermission]
+
+    def get_queryset(self):
+        return VoiceModel.available_to(self.request.user)
 
 
 class AvatarView(viewsets.ModelViewSet):
