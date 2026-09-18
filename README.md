@@ -73,6 +73,12 @@ There are two ways to run the project: manually or using Docker.
    - `SEARCH_ENGINE_ID`
    - `API_KEY`
 
+   These are the *service* keys — the ones the server spends on behalf of everyone.
+   Users can instead supply their own from the app, without touching `.env`; see
+   [API keys](#api-keys). The service keys are still worth setting, because they are
+   what new accounts use by default and what the `setup_elevenlabs` and `setup_60db`
+   commands read.
+
    *To find your Google search engine ID and API key, refer to this *[***YouTube Guide***](https://www.youtube.com/watch?v=D4tWHX2nCzQ\&t=127s)*.*
 
    Every value is optional apart from those, and blank is treated the same as unset.
@@ -200,6 +206,65 @@ They are deliberately **not** baked into the image — that would add several GB
 > python manage.py shell -c "from apps.usermanagement.models import User; User.objects.update(is_verified=True)"
 > ```
 
+## API keys
+
+Keys do not have to live in `.env`. Signed in, open the avatar menu in the top right
+and choose **API keys** (<http://localhost:3000/api-keys/>) to manage your own from the
+browser.
+
+The page has one switch at the top that decides whose keys generation spends:
+
+| Switch | What gets used |
+| --- | --- |
+| **Use my own keys** — off (default) | The service keys from `.env`. Anything you saved is kept but unused. |
+| **Use my own keys** — on | Only the keys saved on this page. |
+
+Below it, every provider the pipeline can reach: OpenAI, Anthropic, Google Gemini,
+ElevenLabs, 60dB, Stable Diffusion, Midjourney, Google Custom Search (key and engine
+id), and the Twitch client id and secret. Each field saves on its own, so filling one
+in never disturbs the rest, and **Clear** empties a single provider while **Remove all
+my keys** wipes every one of them.
+
+Two things to know before switching over:
+
+- **There is no fallback.** With your own keys selected, a provider you left blank has
+  no key at all — it does not quietly fall back to the service key, and the steps that
+  need it will fail. Fill in every provider you actually use.
+- **Keys are write-only.** They are stored encrypted and never sent back to the
+  browser; a saved key only ever shows masked, as `sk-••••••••ijkl`. That also means
+  there is no way to read one back out of the UI — if you lose the original, replace it.
+
+### Keys and voices
+
+The voices you can pick follow the keys you hold, so the list never offers something
+that would fail at synthesis:
+
+- **A provider with no key is hidden.** No OpenAI key — service or your own, whichever
+  the switch selects — and the OpenAI voices disappear from the picker, from the "Any
+  voice" fallback, and from a hand-crafted API request. Clear every key and the list is
+  empty.
+- **Saving an ElevenLabs or 60dB key imports that account's voices.** A background job
+  picks them up a moment after you save, so they appear on the next reload. They are
+  yours: nobody else sees them, and re-saving the same key does not duplicate them.
+- **Voices follow the account that owns them, in both directions.** An ElevenLabs
+  `voice_id` belongs to the account that minted it, so the picker only ever shows the
+  ones your current key can actually reach: your imported voices while the switch is
+  on *Use my own keys*, and the ones `setup_elevenlabs`/`setup_60db` imported with the
+  service key while it is off. Neither set is offered with the wrong key behind it.
+
+The OpenAI voices the fixtures ship are shared with everyone, because `alloy` and the
+rest are built-in names that work with any OpenAI key — unlike an ElevenLabs voice,
+which is minted inside one account.
+
+Encryption uses `FIELD_ENCRYPTION_KEY`, which is derived from `SECRET_KEY` when it is
+not set. That is fine locally, but on anything you intend to keep, set it explicitly
+and never change it afterwards — rotating it (or rotating `SECRET_KEY` while it is
+unset) makes every stored key undecryptable. Generate one with:
+
+```shell
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
 ## API Documentation
 
 You can find all API endpoints in Swagger: [http://localhost:3000/swagger/](http://localhost:3000/swagger/)
@@ -212,7 +277,7 @@ under Docker, or [http://localhost:8000/swagger/](http://localhost:8000/swagger/
 
 - [ ] Convert all `moviepy` functions to `FFmpeg` for better performance.
 - [x] Add **Celery** support for asynchronous and scheduled tasks.
-- [ ] Implement unit tests for models, functions, and views.
+- [x] Implement unit tests for models, functions, and views.
 
 ---
 
@@ -227,6 +292,10 @@ For any inquiries or support, feel free to reach out:
 
 ## Recent Updates
 
+✅ Added per-user API keys, managed from the app and stored encrypted, so a user can spend their own quota instead of the service keys\
+✅ Voices now follow your keys — your ElevenLabs/60db voices import themselves, and a provider you hold no key for is hidden instead of failing mid-render\
+✅ Added a voice picker to the generation form for videos made without an avatar\
+✅ Added password reset by email\
 ✅ Merged the frontend into this repository and added it to Docker, served on one origin\
 ✅ Migrated image generation from the retired DALL-E to the `gpt-image` models\
 ✅ Refreshed the OpenAI model list (gpt-4.1 / gpt-5 families and the o-series)\

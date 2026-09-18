@@ -21,7 +21,6 @@ class Provider(models.TextChoices):
 
 
 class ApiKeys(models.Model):
-
     user = models.OneToOneField(
         get_user_model(), on_delete=models.CASCADE, related_name="api_keys"
     )
@@ -34,9 +33,7 @@ class ApiKeys(models.Model):
     diffusion_key = EncryptedCharField(max_length=255, blank=True, default="")
     midjourney_key = EncryptedCharField(max_length=255, blank=True, default="")
     google_search_key = EncryptedCharField(max_length=255, blank=True, default="")
-    google_search_engine_id = EncryptedCharField(
-        max_length=255, blank=True, default=""
-    )
+    google_search_engine_id = EncryptedCharField(max_length=255, blank=True, default="")
     twitch_client_id = EncryptedCharField(max_length=255, blank=True, default="")
     twitch_client_secret = EncryptedCharField(max_length=255, blank=True, default="")
 

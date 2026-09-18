@@ -26,9 +26,7 @@ class EncryptionTests(TestCase):
             "apikeysmanagement.api_keys", openai_key="sk-super-secret"
         )
 
-        self.assertEqual(
-            ApiKeys.objects.get(pk=keys.pk).openai_key, "sk-super-secret"
-        )
+        self.assertEqual(ApiKeys.objects.get(pk=keys.pk).openai_key, "sk-super-secret")
 
     def test_two_users_with_the_same_key_do_not_store_the_same_bytes(self):
         first = baker.make_recipe("apikeysmanagement.api_keys", openai_key="sk-same")
@@ -72,9 +70,7 @@ class KeyForTests(TestCase):
         self.assertIsNone(ApiKeys.key_for(self.opted_out(), Provider.ELEVENLABS))
 
     def test_is_nothing_for_an_opted_out_user_with_no_keys_at_all(self):
-        stranger = baker.make_recipe(
-            "usermanagement.user", use_service_api_keys=False
-        )
+        stranger = baker.make_recipe("usermanagement.user", use_service_api_keys=False)
 
         self.assertIsNone(ApiKeys.key_for(stranger, Provider.OPENAI))
 
@@ -89,9 +85,7 @@ class KeyForTests(TestCase):
         self.assertIsNone(ApiKeys.key_for(AnonymousUser(), Provider.OPENAI))
 
     def test_gives_an_internal_caller_the_service_key(self):
-        self.assertEqual(
-            ApiKeys.key_for(None, Provider.OPENAI), "service-openai-key"
-        )
+        self.assertEqual(ApiKeys.key_for(None, Provider.OPENAI), "service-openai-key")
 
     @override_settings(OPEN_API_KEY="")
     def test_is_nothing_when_the_service_has_no_key_either(self):
