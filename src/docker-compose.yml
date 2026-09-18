@@ -1,0 +1,66 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devroot}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-video_creator}
+      MYSQL_USER: ${MYSQL_USER:-video_creator}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-devpassword}
+    ports:
+      - "3307:3307"
+
+  video_creator:
+    build: .
+    stdin_open: true
+    tty : true
+    command: /startdjango
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+
+  frontend:
+    restart: unless-stopped
+   
+    ports:
+      - "3000:80"
+    volumes:
+      - ./media:/usr/share/nginx/media:ro
+    depends_on:
+      - video_creator
+
+  redis-stack-server:
+    image: redis/redis-stack-server:latest
+    container_name: redis-stack-server
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+
+  celery:
+    build: .
+    command: /startceleryworker
+
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    depends_on:
+      - redis-stack-server
+      - db
+
+  celery-beat:
+    build: .
+    command: /startcelerybeat
+    restart: on-failure
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    depends_on:
+      - redis-stack-server
+      - db
+

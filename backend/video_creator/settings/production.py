@@ -1,7 +1,7 @@
 import os
 
 from .base import *  # noqa: F401,F403
-from .base import BASE_DIR, SIMPLE_JWT
+from .base import BASE_DIR, FRONTEND_URL, SIMPLE_JWT
 
 DEBUG = False
 
@@ -36,6 +36,13 @@ DATABASES = {
 
 EMAIL_BACKEND = (
     os.getenv("EMAIL_BACKEND") or "django.core.mail.backends.smtp.EmailBackend"
+)
+
+# base.py defaults this to the local dev server, which would email dead reset links in
+# prod. With FRONTEND_URL unset, guess https:// the first concrete ALLOWED_HOSTS entry —
+# a wildcard-only list leaves the base default, and is worth setting explicitly.
+FRONTEND_URL = (os.getenv("FRONTEND_URL") or "").rstrip("/") or next(
+    (f"https://{host}" for host in ALLOWED_HOSTS if "*" not in host), FRONTEND_URL
 )
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
