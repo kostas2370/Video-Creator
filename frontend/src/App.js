@@ -21,8 +21,6 @@ import useTheme from "./hooks/useTheme";
 function App() {
   const location = useLocation();
   const { access_token } = useAuth();
-  // Lives here rather than in the navbar so the theme still applies on the login and
-  // register pages, where the navbar is not rendered.
   const { theme, toggleTheme } = useTheme();
 
   const shouldShowNavbar =
@@ -33,9 +31,6 @@ function App() {
     !location.pathname.startsWith("/reset-password");
 
   return (
-    // The shell carries the page background and default text colour. Several pages
-    // render a bare fragment with no background of their own, which left them white
-    // under a dark navbar; pages that set their own background still win over this.
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white">
       {shouldShowNavbar ? (
         <Navbar theme={theme} toggleTheme={toggleTheme} />
@@ -53,9 +48,6 @@ function App() {
             element={access_token ? <Home /> : <Navigate to="/login" replace />}
           />
           <Route path="/register/" element={<Register />} />
-          {/* Both are reached while signed out — the second from the link emailed by
-              the password_reset_token_created signal, whose path is PASSWORD_RESET_PATH
-              on the backend. Keep the two in step. */}
           <Route path="/forgot-password/" element={<ForgotPassword />} />
           <Route path="/reset-password/" element={<ResetPassword />} />
           <Route

@@ -19,16 +19,12 @@ export const Card = ({ imageSrc, title, audioSrc, id , avatars, setAvatars }) =>
         />
       )}
       <div className="group relative flex h-full w-full max-w-xs flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800">
-        {/* A fixed ratio keeps every card the same height whatever the source image
-            is, and object-top crops from the feet rather than the face. */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100 dark:bg-gray-900">
           <img
             src={imageSrc}
             alt={title}
             className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
           />
-          {/* A real button, so it is keyboard reachable — it used to be a bare icon
-              with an onClick. Revealed on hover, but always visible once focused. */}
           <button
             type="button"
             aria-label={`Delete ${title}`}

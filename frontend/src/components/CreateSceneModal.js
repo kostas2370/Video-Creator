@@ -39,7 +39,7 @@ export const SceneCreationModal = ({
         setShowModal(false);
       }
     });
-    
+
   };
 
   return (
@@ -62,7 +62,6 @@ export const SceneCreationModal = ({
                 </div>
                 <form className="p-4 md:p-5" onSubmit={onSubmit}>
                   <div className="grid gap-4 mb-4 grid-cols-2">
-                    {/* Text input */}
                     <div className="col-span-2">
                       <label
                         htmlFor="text"
