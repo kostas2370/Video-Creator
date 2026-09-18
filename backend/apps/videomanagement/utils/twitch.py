@@ -3,9 +3,9 @@ import uuid
 import logging
 from typing import Union
 import requests
-from django.conf import settings
 from rest_framework.exceptions import APIException
 
+from apps.apikeysmanagement.models import ApiKeys, Provider
 from .exceptions import (
     GameNotFound,
     InvalidTwitchToken,
@@ -28,7 +28,7 @@ class TwitchClient:
         The headers for authentication, including the Bearer token and Client ID.
     """
 
-    def __init__(self, path):
+    def __init__(self, path, user=None):
         """
         Initialize the TwitchClient with a specified path for downloading clips.
 
@@ -39,6 +39,7 @@ class TwitchClient:
         """
 
         self.path = path
+        self.user = user
         self.headers = None
 
     def set_headers(self) -> dict:
@@ -61,8 +62,10 @@ class TwitchClient:
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
         }
+        client_id = ApiKeys.key_for(self.user, Provider.TWITCH_CLIENT)
         data = (
-            f"client_id={settings.TWITCH_CLIENT}&client_secret={settings.TWITCH_CLIENT_SECRET}"
+            f"client_id={client_id}"
+            f"&client_secret={ApiKeys.key_for(self.user, Provider.TWITCH_SECRET)}"
             f"&grant_type=client_credentials"
         )
 
@@ -81,12 +84,9 @@ class TwitchClient:
         bearer = response.json()["access_token"]
         self.headers = {
             "Authorization": f"Bearer {bearer}",
-            "Client-Id": settings.TWITCH_CLIENT,
+            "Client-Id": client_id,
         }
-        return {
-            "Authorization": f"Bearer {bearer}",
-            "Client-Id": settings.TWITCH_CLIENT,
-        }
+        return dict(self.headers)
 
     def get_game_id(self, name: str) -> str:
         """

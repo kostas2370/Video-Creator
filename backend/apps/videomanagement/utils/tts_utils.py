@@ -8,6 +8,7 @@ from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
 from .mapper import api_providers
+from apps.apikeysmanagement.models import ApiKeys, Provider
 import sys
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class ApiSyn:
 
 
 def save(
-    syn: Union[ApiSyn, None], text: str = "", save_path: str = ""
+    syn: Union[ApiSyn, None], text: str = "", save_path: str = "", user=None
 ) -> Union[str, None]:
     """
     Save synthesized audio to a file.
@@ -60,12 +61,12 @@ def save(
             code=status.HTTP_400_BAD_REQUEST,
         )
 
-    getattr(thismodule, provider)(text, save_path, syn.path)
+    getattr(thismodule, provider)(text, save_path, syn.path, user=user)
 
     return save_path
 
 
-def tts_from_open_api(text, save_path, voice="onyx"):
+def tts_from_open_api(text, save_path, voice="onyx", user=None):
     """
     Generate speech audio from text using the OpenAI TTS API.
 
@@ -87,7 +88,7 @@ def tts_from_open_api(text, save_path, voice="onyx"):
     """
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
-    client = OpenAI(api_key=settings.OPEN_API_KEY)
+    client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
     # Explicit wav: the API defaults to mp3, which this writes to a .wav path.
     response = client.audio.speech.create(
         model="tts-1", voice=voice, input=text, response_format="wav"
@@ -97,7 +98,7 @@ def tts_from_open_api(text, save_path, voice="onyx"):
     return response
 
 
-def tts_from_eleven_labs(text, save_path, voice):
+def tts_from_eleven_labs(text, save_path, voice, user=None):
     """
     Generate speech audio from text using the Eleven Labs Text-to-Speech (TTS) API.
 
@@ -125,7 +126,7 @@ def tts_from_eleven_labs(text, save_path, voice):
     headers = {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
-        "xi-api-key": settings.XI_API_KEY,
+        "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
     }
     data = {
         "text": text,
@@ -148,7 +149,7 @@ def tts_from_eleven_labs(text, save_path, voice):
     return response
 
 
-def tts_from_60db(text, save_path, voice):
+def tts_from_60db(text, save_path, voice, user=None):
     """
     Generate speech audio from text using the 60db Text-to-Speech (TTS) API.
 
@@ -179,7 +180,7 @@ def tts_from_60db(text, save_path, voice):
     url = "https://api.60db.ai/tts-synthesize"
 
     headers = {
-        "Authorization": f"Bearer {settings.SIXTYDB_API_KEY}",
+        "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
         "Content-Type": "application/json",
     }
     data = {

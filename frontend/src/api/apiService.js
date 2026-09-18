@@ -32,7 +32,8 @@ const API_ENDPOINTS = {
         if (page) params.push(`page=${encodeURIComponent(page)}`);
         return params.length > 0 ? `${url}?${params.join('&')}` : url;
     },
-    GET_AVATARS: (name = null) => `avatars/${name ? `?search=${name}` : ''}`
+    GET_AVATARS: (name = null) => `avatars/${name ? `?search=${name}` : ''}`,
+    API_KEYS: 'api_keys/'
 
 
 };
@@ -109,6 +110,44 @@ export const renderVideo = async (id) => {
         };
     }
 }
+
+// Not the helpers above: a key that failed to save has to be told apart from one that
+// saved, and they collapse every failure into undefined — which on this page would read
+// as "nothing to report" and leave the user believing their key is stored. Each of these
+// returns {ok: true, data} or {ok: false, message}. The body goes as JSON rather than the
+// instance default of multipart, so use_service_api_keys arrives as a boolean instead of
+// the string "false", which is truthy on the way in.
+const apiKeysRequest = async (method, data = undefined) => {
+    try {
+        const response = await axiosPrivateInstance.request({
+            url: API_ENDPOINTS.API_KEYS,
+            method,
+            data,
+            headers: { "Content-Type": "application/json" },
+        });
+        return { ok: true, data: response.data };
+    } catch (error) {
+        console.error(`Error on ${method} ${API_ENDPOINTS.API_KEYS}:`, error);
+        return { ok: false, message: firstErrorMessage(error) };
+    }
+};
+
+// DRF answers a rejected field as {field: ["why"]}, and everything else as a string or
+// nothing at all. Flatten whichever shape came back into one line for the toast.
+const firstErrorMessage = (error) => {
+    const data = error?.response?.data;
+    if (!data) return "The server could not be reached";
+    if (typeof data === "string") return data;
+
+    const [field, detail] = Object.entries(data)[0] ?? [];
+    if (!field) return "The request was refused";
+    return Array.isArray(detail) ? `${field}: ${detail[0]}` : `${field}: ${detail}`;
+};
+
+export const getApiKeys = async () => {return apiKeysRequest("get")}
+export const updateApiKeys = async (data) => {return apiKeysRequest("patch", data)}
+export const deleteApiKeys = async () => {return apiKeysRequest("delete")}
+
 export const generateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_GENERATE(id),data)}
 export const generateSceneImage = async (id, data) => {return postRequest(API_ENDPOINTS.SCENE_IMAGE_GENERATE(id), data)}
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
