@@ -8,7 +8,7 @@ set -o nounset
 # bare `makemigrations` silently skips apps whose migrations package is missing.
 python manage.py makemigrations usermanagement videomanagement
 python manage.py migrate
-python manage.py loaddata fixtures/production_fixtures.json
+python manage.py loaddata fixtures/fixtures.json
 python manage.py setup_media
 python manage.py setup_elevenlabs
 
