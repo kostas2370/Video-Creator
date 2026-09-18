@@ -102,6 +102,11 @@ There are two ways to run the project: manually or using Docker.
    videomanagement` — since a bare `makemigrations` silently skips any app whose
    `migrations/` package is missing and reports "No changes detected".
 
+   `fixtures.json` carries the voice catalogue and nothing else — no accounts — so
+   `createsuperuser` above is what gives you a login. See
+   [Creating a superuser](#creating-a-superuser) if you would rather not answer its
+   prompts.
+
    Voices are all API-backed — OpenAI, ElevenLabs or 60db. The fixtures load the six
    OpenAI voices, so `OPEN_API_KEY` alone is enough to render speech. Local on-device
    synthesis (coqui/TTS) has been removed: it pinned the project to a dependency tree
@@ -188,17 +193,44 @@ They are deliberately **not** baked into the image — that would add several GB
 
 - URL: [http://localhost:3000/admin/](http://localhost:3000/admin/) under Docker, or
   [http://localhost:8000/admin/](http://localhost:8000/admin/) against `runserver`.
-- Create your own account with `python manage.py createsuperuser`. The fixtures ship a
-  superuser row, but only as a password *hash* — there is no plaintext for it, so it
-  cannot be logged into.
+- The fixtures ship no accounts, so create your own — see below.
 
-> **Logging in through the frontend** needs `is_verified` on the user, which the API
-> login enforces and the admin does not. It is normally set by following a link emailed
-> at signup, so with no SMTP configured locally you have to set it yourself:
->
-> ```shell
-> python manage.py shell -c "from apps.usermanagement.models import User; User.objects.update(is_verified=True)"
-> ```
+## Creating a superuser
+
+`createsuperuser` prompts for a username, email and password:
+
+```shell
+python manage.py createsuperuser
+```
+
+That is enough for the admin, but **not** to sign in through the app: the API login
+also requires `is_verified`, which is normally set by following a link emailed at
+signup and so never gets set with no SMTP configured locally. This one-liner creates
+the account and verifies it in a single step:
+
+```shell
+python manage.py shell -c "
+from apps.usermanagement.models import User
+User.objects.create_superuser(
+    username='admin',
+    email='admin@example.com',
+    password='change-me',
+    is_verified=True,
+)
+"
+```
+
+Under Docker, run it in the web container:
+
+```shell
+docker compose exec video_creator python manage.py shell -c "..."
+```
+
+To verify an account you already made, rather than creating one:
+
+```shell
+python manage.py shell -c "from apps.usermanagement.models import User; User.objects.update(is_verified=True)"
+```
 
 ## API Documentation
 
