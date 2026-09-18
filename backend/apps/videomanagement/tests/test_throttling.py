@@ -13,7 +13,6 @@ from ..throttling import (
 
 class RateTests(TestCase):
     def test_each_action_is_capped_at_what_it_costs_to_run(self):
-        # A full render is the most expensive thing a worker does, so it is the rarest.
         self.assertEqual(GenerateRateThrottle.rate, "2/hour")
         self.assertEqual(TwitchGenerateRateThrottle.rate, "6/hour")
         self.assertEqual(RenderRateThrottle.rate, "1/day")

@@ -290,7 +290,7 @@ class VideoUpdateTests(TestCase):
             self.video,
             title="t",
             avatar=None,
-            subtitles="true",
+            subtitles=True,
             avatar_position="left,top",
         )
 

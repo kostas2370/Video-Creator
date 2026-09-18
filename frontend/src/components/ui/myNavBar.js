@@ -213,8 +213,6 @@ function Navbar({ theme, toggleTheme }) {
                     >
                       Your Profile
                     </a>
-                    {/* Account-level rather than per-video, so it sits in this menu
-                        instead of the nav bar, which is already full. */}
                     <NavLink
                       to="/api-keys/"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

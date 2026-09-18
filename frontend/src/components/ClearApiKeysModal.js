@@ -1,9 +1,6 @@
 import React from "react";
 import { CloseModalButton } from "./ui/CloseModalButton";
 
-// The DELETE on /api/api_keys/ drops every provider at once and cannot be undone, so it
-// asks first. Kept apart from DeleteModal, which deletes one row out of a list and takes
-// an id and a setItems the keys page has nothing to hand it.
 export function ClearApiKeysModal({ showModal, setShowModal, onConfirm, isClearing }) {
   if (!showModal) {
     return <></>;

@@ -1,5 +1,3 @@
-"""End-to-end through /api/api_keys/."""
-
 import json
 
 from django.test import TestCase
@@ -80,7 +78,6 @@ class ApiKeysViewTests(TestCase):
 
         self.client.patch(URL, {"openai_key": "sk-mine"}, format="json")
 
-        # The URL carries no id, so the only row this user can touch is their own.
         self.assertEqual(ApiKeys.objects.get(user=stranger).openai_key, "sk-theirs")
         self.assertEqual(ApiKeys.objects.get(user=self.user).openai_key, "sk-mine")
 

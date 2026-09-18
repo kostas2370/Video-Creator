@@ -27,8 +27,6 @@ from .doubles import FakeAudio
 
 
 class SceneNarrationDurationTests(TestCase):
-    """How long a sentence is spoken for — what a video provider is asked to cover."""
-
     def test_reads_the_length_of_the_recorded_line(self):
         scene = baker.make_recipe("videomanagement.narrated_scene")
 
@@ -53,8 +51,6 @@ class SceneNarrationDurationTests(TestCase):
 
 
 class GenerateFromSoraTests(SimpleTestCase):
-    """Sora renders 4, 8 or 12 second clips, so the request has to pick one."""
-
     def setUp(self):
         self.video = MagicMock(status="completed", id="vid_1")
         self.client = MagicMock()
@@ -210,8 +206,6 @@ class DownloadImageTests(SimpleTestCase):
 
 
 class StillFromVideoTests(SimpleTestCase):
-    """The style anchor later Sora shots are matched against."""
-
     def test_is_nothing_for_a_still(self):
         self.assertIsNone(still_from_video("a.png", "images/"))
 
@@ -224,7 +218,6 @@ class StillFromVideoTests(SimpleTestCase):
             path = still_from_video("a.mp4", "images/")
 
         self.assertTrue(path.endswith(".png"))
-        # Stepped back from the very end: moviepy overshoots the last decodable frame.
         self.assertEqual(clip.save_frame.call_args.kwargs["t"], 7.5)
 
     def test_tries_earlier_points_when_the_end_of_a_short_clip_will_not_decode(self):
@@ -253,8 +246,6 @@ class StillFromVideoTests(SimpleTestCase):
 
 
 class CreateImageSceneTests(TestCase):
-    """One sentence's visual, and whether the scene is meant to play its sound."""
-
     def setUp(self):
         self.video = baker.make_recipe("videomanagement.video")
         self.scene = baker.make_recipe(
@@ -395,9 +386,6 @@ class CreateImageScenesTests(TestCase):
         create, still = self.run_with(
             create_image_scene="images/a.mp4", still_from_video="images/anchor.png"
         )
-
-        # Taken once and reused, rather than chained frame to frame, which would let
-        # the style wander further with every scene.
         self.assertEqual(still.call_count, 1)
         self.assertIsNone(create.call_args_list[0].kwargs["reference"])
         self.assertEqual(

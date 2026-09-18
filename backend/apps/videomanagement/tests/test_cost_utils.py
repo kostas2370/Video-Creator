@@ -19,8 +19,6 @@ class CalculateTotalCostTests(TestCase):
 
     def test_charges_the_base_rate_plus_a_rate_per_scene_and_per_image(self):
         self.add_scenes(2, with_images=2)
-
-        # 0.12 base + 2 API scenes at 0.02 + 2 WEB images at 0.04
         self.assertAlmostEqual(calculate_total_cost(self.video), 0.24)
 
     def test_does_not_charge_for_a_scene_image_that_was_never_generated(self):
@@ -31,7 +29,6 @@ class CalculateTotalCostTests(TestCase):
             file=None,
         )
 
-        # The image row exists but holds no file, so only the scene itself is billed.
         self.assertAlmostEqual(calculate_total_cost(self.video), 0.14)
 
     def test_charges_the_ai_image_rate_for_an_ai_video(self):
@@ -64,9 +61,6 @@ class ChargeUserTests(TestCase):
         self.assertAlmostEqual(self.user.generation_limit_for_ai, 9.88)
 
     def test_writes_the_deduction_in_the_database_rather_than_the_whole_row(self):
-        # Two workers finishing at once must not overwrite each other's deduction, so
-        # the balance is moved with an F() expression. A stale in-memory copy of the
-        # user proves it: saving it would clobber the other charge.
         stale = type(self.user).objects.get(pk=self.user.pk)
 
         charge_user(self.user, "generation_limit_for_ai", self.video)

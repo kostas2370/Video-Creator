@@ -1,13 +1,3 @@
-"""Recipes for the rows the pipeline works on.
-
-Only the fields the code under test actually reads are pinned here; everything else is
-left to model_bakery, so adding a column does not mean revisiting every test. Recipes
-that differ only by a flag are derived with `.extend()` rather than spelled out again.
-
-File fields hold a path rather than real bytes: nothing in the pipeline opens them
-without going through moviepy, ffmpeg or an HTTP client, all of which the tests stub.
-"""
-
 from model_bakery.recipe import Recipe, foreign_key
 
 from .models import (
@@ -32,7 +22,6 @@ template_prompt = Recipe(
 
 user_prompt = Recipe(UserPrompt, prompt="a prompt")
 
-# type="API" is the only choice the model offers, and cost_utils keys off it.
 voice_model = Recipe(
     VoiceModel,
     name="a voice",
@@ -80,7 +69,6 @@ narrated_scene = scene.extend(file="media/speech/line.wav")
 
 last_scene = scene.extend(is_last=True)
 
-# A still.
 scene_image = Recipe(
     SceneImage,
     scene=foreign_key(scene),
@@ -89,8 +77,6 @@ scene_image = Recipe(
     with_audio=False,
 )
 
-# A generated clip. Silent unless the video was made without narration, which is what
-# `video_scene_image_with_audio` stands in for.
 video_scene_image = scene_image.extend(file="media/images/clip.mp4")
 
 video_scene_image_with_audio = video_scene_image.extend(with_audio=True)
