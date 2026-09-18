@@ -246,9 +246,11 @@ that would fail at synthesis:
 - **Saving an ElevenLabs or 60dB key imports that account's voices.** A background job
   picks them up a moment after you save, so they appear on the next reload. They are
   yours: nobody else sees them, and re-saving the same key does not duplicate them.
-- **Your own voices only count while you are spending your own keys.** An ElevenLabs
-  `voice_id` belongs to the account that made it, so with the switch back on the
-  service keys, your imported voices are hidden rather than sent with the wrong key.
+- **Voices follow the account that owns them, in both directions.** An ElevenLabs
+  `voice_id` belongs to the account that minted it, so the picker only ever shows the
+  ones your current key can actually reach: your imported voices while the switch is
+  on *Use my own keys*, and the ones `setup_elevenlabs`/`setup_60db` imported with the
+  service key while it is off. Neither set is offered with the wrong key behind it.
 
 The OpenAI voices the fixtures ship are shared with everyone, because `alloy` and the
 rest are built-in names that work with any OpenAI key — unlike an ElevenLabs voice,

@@ -20,6 +20,14 @@ TEMPLATE_CHOICES = (
 
 MODEL_TYPE_CHOICES = (("API", "Api"),)
 
+VOICE_PROVIDER_KEYS = {
+    "open_ai": Provider.OPENAI,
+    "eleven_labs": Provider.ELEVENLABS,
+    "60db": Provider.SIXTYDB,
+}
+
+ACCOUNT_SCOPED_VOICE_PROVIDERS = ("eleven_labs", "60db")
+
 VIDEO_STATUS = (
     ("GENERATION", "GENERATION"),
     ("READY", "READY"),
@@ -126,20 +134,25 @@ class VoiceModel(AbstractModel):
 
     @staticmethod
     def available_to(user) -> models.QuerySet:
-        provider_keys = {
-            "open_ai": Provider.OPENAI,
-            "eleven_labs": Provider.ELEVENLABS,
-            "60db": Provider.SIXTYDB,
-        }
         playable = [
             provider
-            for provider, key in provider_keys.items()
+            for provider, key in VOICE_PROVIDER_KEYS.items()
             if ApiKeys.key_for(user, key)
         ]
 
-        scope = models.Q(created_by=None)
-        if user is not None and not user.use_service_api_keys:
-            scope |= models.Q(created_by=user)
+        spending_own_keys = (
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and not user.use_service_api_keys
+        )
+
+        shared = models.Q(created_by=None)
+        if spending_own_keys:
+            scope = (
+                shared & ~models.Q(provider__in=ACCOUNT_SCOPED_VOICE_PROVIDERS)
+            ) | models.Q(created_by=user)
+        else:
+            scope = shared
 
         return VoiceModel.objects.filter(scope, provider__in=playable)
 

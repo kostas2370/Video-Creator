@@ -1,3 +1,4 @@
+from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, override_settings
 from model_bakery import baker
 from rest_framework.test import APIClient
@@ -59,6 +60,9 @@ class AvailableToTests(TestCase):
     def test_gives_a_signed_out_caller_nothing(self):
         self.assertEqual(list(VoiceModel.available_to(None)), [self.shared])
 
+    def test_survives_an_anonymous_caller(self):
+        self.assertEqual(list(VoiceModel.available_to(AnonymousUser())), [])
+
     def test_select_voice_never_picks_a_voice_the_user_cannot_spend(self):
         self.theirs.delete()
         self.shared.delete()
@@ -92,11 +96,12 @@ class KeyGatedVoiceTests(TestCase):
     @override_settings(**SERVICE_KEYS)
     def test_hides_the_openai_voices_when_your_own_keys_have_no_openai_key(self):
         user = self.opt_out_with(openai_key="", elevenlabs_key="xi-mine")
+        mine = a_voice(provider="eleven_labs", name="MyClone", created_by=user)
 
         visible = VoiceModel.available_to(user)
 
         self.assertNotIn(self.openai, visible)
-        self.assertIn(self.labs, visible)
+        self.assertIn(mine, visible)
 
     @override_settings(OPEN_API_KEY="", XI_API_KEY="")
     def test_shows_the_openai_voices_when_your_own_openai_key_is_set(self):
@@ -110,8 +115,27 @@ class KeyGatedVoiceTests(TestCase):
     @override_settings(OPEN_API_KEY="", XI_API_KEY="")
     def test_your_own_key_unlocks_a_provider_the_service_cannot_reach(self):
         user = self.opt_out_with(openai_key="sk-mine", elevenlabs_key="xi-mine")
+        mine = a_voice(provider="eleven_labs", name="MyClone", created_by=user)
 
-        self.assertCountEqual(VoiceModel.available_to(user), [self.openai, self.labs])
+        self.assertCountEqual(VoiceModel.available_to(user), [self.openai, mine])
+
+    @override_settings(**SERVICE_KEYS)
+    def test_hides_the_services_elevenlabs_voices_once_you_spend_your_own_keys(self):
+        user = self.opt_out_with(openai_key="sk-mine", elevenlabs_key="xi-mine")
+
+        self.assertNotIn(self.labs, VoiceModel.available_to(user))
+
+    @override_settings(**SERVICE_KEYS)
+    def test_keeps_the_services_elevenlabs_voices_while_on_the_service_keys(self):
+        self.assertIn(self.labs, VoiceModel.available_to(self.user))
+
+    @override_settings(**SERVICE_KEYS)
+    def test_keeps_the_shared_openai_voices_either_way(self):
+        self.assertIn(self.openai, VoiceModel.available_to(self.user))
+
+        user = self.opt_out_with(openai_key="sk-mine")
+
+        self.assertIn(self.openai, VoiceModel.available_to(user))
 
     @override_settings(OPEN_API_KEY="", XI_API_KEY="")
     def test_offers_nothing_when_no_key_reaches_any_provider(self):
