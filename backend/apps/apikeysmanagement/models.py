@@ -6,10 +6,6 @@ from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
 from functools import partial
-from .tasks import import_user_voices
-
-from django.db import transaction
-
 
 class Provider(models.TextChoices):
     OPENAI = "OPENAI", "OpenAI"
@@ -108,6 +104,8 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
     @hook(AFTER_UPDATE, on_commit=True)
     def update_user_voices(self):
+        from .tasks import import_user_voices
+
         for field, provider in VOICE_KEY_FIELDS.items():
             if self.has_changed(field) and getattr(self, field):
                 import_user_voices.delay(self.user_id, provider)
