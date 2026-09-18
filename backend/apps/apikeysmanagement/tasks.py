@@ -3,7 +3,6 @@ import logging
 from celery import shared_task
 from django.contrib.auth import get_user_model
 
-from apps.videomanagement.models import VoiceModel
 from apps.videomanagement.utils import gpt_utils
 
 from .models import Provider
@@ -18,6 +17,9 @@ VOICE_IMPORTS = {
 
 @shared_task
 def import_user_voices(user_id: int, provider: str):
+    # Local import prevents circular import when models.py imports tasks.py
+    from apps.videomanagement.models import VoiceModel
+
     provider_name, fetcher = VOICE_IMPORTS[provider]
     user = get_user_model().objects.filter(pk=user_id).first()
     if user is None:
