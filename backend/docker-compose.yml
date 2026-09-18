@@ -1,10 +1,7 @@
 services:
   db:
-    # 5.7 is amd64-only (no Apple Silicon image) and EOL since October 2023.
     image: mysql:8.4
     restart: always
-    # Throwaway defaults so a blank .env still boots; MySQL refuses to initialise
-    # without a root password. `:-` substitutes on empty as well as unset.
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-devroot}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-video_creator}
@@ -26,17 +23,11 @@ services:
       - ./.env
 
   frontend:
-    # The build context is the sibling frontend/ directory, not backend/, because that is
-    # where the React app and its Dockerfile live.
     build: ../frontend
     restart: unless-stopped
-    # Published on 3000 so the app keeps the URL it has always had, and so the origin
-    # stays one that CSRF_TRUSTED_ORIGINS already names. nginx listens on 80 inside.
     ports:
       - "3000:80"
     volumes:
-      # Read-only: nginx serves the rendered videos and images directly, but only the
-      # workers ever write them.
       - ./media:/usr/share/nginx/media:ro
     depends_on:
       - video_creator
@@ -55,8 +46,6 @@ services:
 
     volumes:
       - .:/app
-    # The worker now runs generation and rendering, so it needs the same API keys and
-    # database settings as the web container.
     env_file:
       - ./.env
     depends_on:
@@ -66,8 +55,6 @@ services:
   celery-beat:
     build: .
     command: /startcelerybeat
-    # depends_on waits for the container, not for video_creator to finish migrating,
-    # so on a cold boot beat loses that race and needs to retry.
     restart: on-failure
     volumes:
       - .:/app
@@ -76,4 +63,3 @@ services:
     depends_on:
       - redis-stack-server
       - db
-
