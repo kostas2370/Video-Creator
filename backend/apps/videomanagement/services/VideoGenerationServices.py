@@ -118,12 +118,6 @@ def generate_video(
 
     template = TemplatePrompt.get_template(template_id)
     logger.info("Retrieved template")
-
-    # One shape for every video, whatever the template: the pipeline downstream walks a
-    # fixed scenes -> sentences reply, so a template that redefined it would produce
-    # something the rest of the code cannot read. Templates contribute the genre only.
-    # The brief for image_description does vary — a video provider is asked for a shot
-    # with motion, which is wasted on a still model and vice versa.
     template_format = script_format(
         video=provider in video_providers, narration=narration
     )
@@ -142,7 +136,7 @@ def generate_video(
         target_audience=target_audience,
     )
 
-    x = get_reply(prompt, gpt_model=gpt_model)
+    x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
 
     user_prompt = video.prompt
     user_prompt.template = template

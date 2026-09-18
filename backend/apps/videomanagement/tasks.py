@@ -1,17 +1,3 @@
-"""
-Background jobs for the long-running parts of the pipeline.
-
-Generation and rendering take minutes and cannot run inside a request: the proxy
-times out, the worker process stays pinned for the duration, and a killed process
-leaves the row stranded mid-status. Each task below owns one video and is
-responsible for leaving it in a terminal status (READY / COMPLETED / FAILED)
-whatever happens, so a client can poll `GET /video/{id}/` and always learn the
-outcome.
-
-Service imports are deliberately function-local: they pull in moviepy, TTS and
-torch, and only the worker should pay for that at import time.
-"""
-
 import logging
 from datetime import timedelta
 
@@ -23,7 +9,6 @@ from .models import Video
 
 logger = logging.getLogger(__name__)
 
-#: Statuses that mean "a worker is supposed to be holding this right now".
 IN_FLIGHT_STATUSES = ("GENERATION", "RENDERING")
 
 
@@ -33,7 +18,6 @@ def _mark_failed(video: Video) -> None:
 
 @shared_task(bind=True)
 def generate_video_task(self, video_id: int, **params):
-    """Run AI generation for a video already created in GENERATION status."""
     from .services.VideoGenerationServices import generate_video
 
     video = Video.objects.get(pk=video_id)
@@ -51,7 +35,6 @@ def generate_video_task(self, video_id: int, **params):
 
 @shared_task(bind=True)
 def generate_twitch_video_task(self, video_id: int, **params):
-    """Run Twitch clip collection for a video already created in GENERATION status."""
     from .services.TwitchGenerationService import generate_twitch_video
 
     video = Video.objects.get(pk=video_id)
@@ -69,7 +52,6 @@ def generate_twitch_video_task(self, video_id: int, **params):
 
 @shared_task(bind=True)
 def render_video_task(self, video_id: int):
-    """Render the final mp4. `make_video` moves the video to RENDERING itself."""
     from .utils.video_utils import make_video
 
     video = Video.objects.get(pk=video_id)
@@ -87,7 +69,6 @@ def render_video_task(self, video_id: int):
 
 @shared_task(bind=True)
 def regenerate_video_task(self, video_id: int):
-    """Re-run scene audio and imagery for an existing video."""
     from .services.VideoServices import video_regenerate
 
     video = Video.objects.get(pk=video_id)

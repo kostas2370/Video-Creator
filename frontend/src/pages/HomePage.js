@@ -36,7 +36,6 @@ const Home = () => {
  const axiosPrivateInstance = useAxiosPrivate()
  const pollRef = useRef(null);
 
- // Stop watching if the user navigates away mid-generation.
  useEffect(() => () => pollRef.current?.cancel(), []);
 
   const handleInputChange = (event) => {
@@ -74,8 +73,6 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    // The API only queues the job and answers 202 with an empty video, so the id it
-    // hands back has to be watched until a worker finishes filling it in.
     const response = await generateVideo(formData);
 
     if (!response?.video?.id) {
@@ -215,8 +212,6 @@ const Home = () => {
                         className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         onChange={handleInputChange}
                       >
-                        {/* The select is uncontrolled: the first entry must stay in
-                            sync with gpt_model in the formData defaults. */}
                         <optgroup label="OpenAI">
                           <option value="gpt-5.4-mini">gpt-5.4-mini</option>
                           <option value="gpt-5.4">gpt-5.4</option>
@@ -295,8 +290,6 @@ const Home = () => {
                       >
                         {formData.image_mode === "AI" ? (
                           <>
-                            {/* Value stays "DALL-E" — the provider key the backend
-                                maps and existing videos store. Only the label moved. */}
                             <option value="DALL-E">OpenAI (gpt-image)</option>
                             <option value="sora">OpenAI Sora (video)</option>
                             <option value="midjourney">midjourney</option>

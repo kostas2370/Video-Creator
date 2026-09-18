@@ -7,15 +7,15 @@ import os
 
 
 def make_scene_speech(
-    voice_model, dir_name, prompt, text, is_last, narrate=True
+    voice_model, dir_name, prompt, text, is_last, narrate=True, user=None
 ) -> Scene:
-    # The Scene row is created either way — the rest of the pipeline keys off it, and
-    # create_image_scene looks it up by text. Only the audio is optional.
     sound = None
     if narrate:
         filename = str(uuid.uuid4())
         syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
-        sound = save(syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav")
+        sound = save(
+            syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav", user=user
+        )
 
     return Scene.objects.create(
         file=sound, prompt=prompt, text=text.strip(), is_last=is_last
@@ -55,6 +55,7 @@ def make_scenes_speech(video: Video) -> None:
                 scene_text(sentence),
                 index == len(sentences) - 1,
                 narrate=narrate,
+                user=video.created_by,
             )
 
 
@@ -90,6 +91,11 @@ def update_scene(scene: Scene) -> None:
 
     filename = str(uuid.uuid4())
 
-    sound = save(syn, scene.text, save_path=f"{dir_name}/dialogues/{filename}.wav")
+    sound = save(
+        syn,
+        scene.text,
+        save_path=f"{dir_name}/dialogues/{filename}.wav",
+        user=video.created_by,
+    )
     scene.file = sound
     scene.save()

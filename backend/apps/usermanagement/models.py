@@ -13,6 +13,7 @@ class User(AbstractUser, PermissionsMixin):
     is_verified = models.BooleanField(default=False)
     generation_limit_for_ai = models.FloatField(default=0)
     generation_limit_for_twitch = models.FloatField(default=0)
+    use_service_api_keys = models.BooleanField(default=True)
 
     REQUIRED_FIELDS = ["email"]
 

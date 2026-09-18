@@ -3,20 +3,15 @@ from rest_framework import serializers
 
 DEFAULT_GPT_MODEL = settings.DEFAULT_GPT_MODEL
 
-# Chat Completions models only — that is what gpt_utils calls. The `-pro` and `-codex`
-# variants are served through the Responses API and would only 400 here.
 accepted_models = [
-    # OpenAI — legacy, kept so existing callers do not break.
     "gpt-3.5-turbo",
     "gpt-4",
     "gpt-4-turbo",
     "gpt-4o",
     "gpt-4o-mini",
-    # OpenAI — 4.1 family.
     "gpt-4.1",
     "gpt-4.1-mini",
     "gpt-4.1-nano",
-    # OpenAI — 5 family and later.
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
@@ -34,7 +29,6 @@ accepted_models = [
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "gpt-6-astra",
-    # OpenAI — o-series reasoning models.
     "o1",
     "o3",
     "o3-mini",
@@ -45,7 +39,6 @@ accepted_models = [
     "gemini-1.0-pro",
 ]
 
-# Otherwise a custom DEFAULT_GPT_MODEL would be advertised as the default yet rejected.
 if DEFAULT_GPT_MODEL not in accepted_models:
     accepted_models.append(DEFAULT_GPT_MODEL)
 
@@ -72,13 +65,8 @@ class GenerateSerializer(serializers.Serializer):
     intro = serializers.CharField(required=False, max_length=10, default=None)
     outro = serializers.CharField(required=False, max_length=10, default=None)
     subtitles = serializers.BooleanField(required=False, default=False)
-    # False renders the scene visuals back to back with no spoken narration, so the
-    # clips run at their own length instead of being fitted to a voice track.
     narration = serializers.BooleanField(required=False, default=True)
     provider = serializers.CharField(required=False, default=None)
-    # HiddenField, not IntegerField: the default is a User object, so a client that
-    # posted `created_by` used to both break the service and attribute the video (and
-    # its cost) to another account. A HiddenField is never read from the payload.
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     avatar_position = serializers.CharField(required=False, default="right,top")
 
@@ -129,9 +117,15 @@ class TwitchSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
-    avatar = serializers.CharField(required=False, default=None, allow_null=True)
-    intro = serializers.CharField(required=False, default=None, allow_null=True)
-    outro = serializers.CharField(required=False, default=None, allow_null=True)
+    avatar = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True
+    )
+    intro = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True
+    )
+    outro = serializers.CharField(
+        required=False, default=None, allow_null=True, allow_blank=True
+    )
     title = serializers.CharField(required=False, default=None)
     subtitles = serializers.BooleanField(required=False, default=None)
     avatar_position = serializers.ChoiceField(

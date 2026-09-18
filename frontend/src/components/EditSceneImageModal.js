@@ -73,7 +73,6 @@ export const EditSceneImageModal = ({
               </div>
               <div className="p-4 md:p-5">
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  {/* Left side with the image and checkbox */}
                   <div className="col-span-2 sm:col-span-1">
                     <img
                       src={scene_info.image}
@@ -97,7 +96,6 @@ export const EditSceneImageModal = ({
                     </div>
                   </div>
 
-                  {/* Right side with the image input and text area */}
                   <div className="col-span-2 sm:col-span-1">
                     <div className="mb-4">
                       <label

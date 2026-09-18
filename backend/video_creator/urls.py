@@ -34,6 +34,7 @@ urlpatterns = [
     path("api/auth/", include("djoser.urls")),
     path("api/auth/", include("djoser.urls.jwt")),
     path("api/", include("apps.usermanagement.urls")),
+    path("api/", include("apps.apikeysmanagement.urls")),
     path("api/", include("apps.videomanagement.urls")),
 ]
 

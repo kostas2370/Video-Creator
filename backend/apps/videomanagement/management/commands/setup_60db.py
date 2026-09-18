@@ -1,5 +1,6 @@
-from django.conf import settings
 from django.core.management import BaseCommand
+
+from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ...models import VoiceModel
 from ...utils.gpt_utils import get_voices_from_60db
@@ -9,7 +10,7 @@ class Command(BaseCommand):
     help = "Setup the 60db voices"
 
     def handle(self, *args, **options):
-        if not settings.SIXTYDB_API_KEY:
+        if not ApiKeys.key_for(None, Provider.SIXTYDB):
             self.stderr.write(self.style.ERROR("You need to add the SIXTYDB_API_KEY"))
             return
 

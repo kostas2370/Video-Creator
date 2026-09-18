@@ -19,8 +19,6 @@ export const Video = () => {
   const [showAddTwitchSceneModal, setShowAddTwitchSceneModal] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
 
-  // getVideo resolves undefined when the request fails, which would blank the state
-  // and break the scenes map below, so only adopt a response that came back.
   useEffect(() => {
     if (!updated) {
       getVideo(videoId).then((response) => {
@@ -103,11 +101,6 @@ export const Video = () => {
             />
           );
         })}
-        {/* Both branches of this used to be identical, so a Twitch video opened the
-            AI scene modal and setShowAddTwitchSceneModal was never called anywhere —
-            TwitchSceneCreationModal was rendered but unreachable. The click also sat
-            on the icon rather than the button, so the padding was dead and the
-            keyboard could not activate it. */}
         <button
           type="button"
           onClick={() =>

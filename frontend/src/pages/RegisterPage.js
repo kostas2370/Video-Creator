@@ -11,7 +11,7 @@ const Register = () => {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [passwordValidation, setPasswordValidation] = useState(false);
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     var token = localStorage.getItem("token");
     if (token) {
@@ -34,20 +34,19 @@ const Register = () => {
         toast.error("Your password must follow the strenght rules!");
         return;
       }
-      
+
       const data = {username:username,
                     email:email,
                     password: password
                   }
-      
+
       axiosInstance.post(REGISTER_URL, data).then(response => {
         toast.success("Register succesfully, check your email for the confirmation url");
         navigate("/login");
       }).catch(error => {
-        // Handle errors
         console.error('An error occurred:', error);
       });
-      
+
 
 
     } catch (error) {}

@@ -6,8 +6,6 @@ from ..defaults import script_format
 
 
 class ScriptFormatTests(SimpleTestCase):
-    """The brief the script model is handed, for each visual/narration combination."""
-
     def test_asks_for_a_still_by_default(self):
         brief = script_format()
 

@@ -21,7 +21,7 @@ export const Avatar = () => {
 
     });
   }, [debouncedSearchTerm])
- 
+
 
   return (
     <>
@@ -33,7 +33,6 @@ export const Avatar = () => {
           setAvatars={setAvatars}
         />
 
-        {/* Search bar and Create button */}
         <div className="flex justify-end items-center mt-4 gap-2 backdrop-filter ">
           <div className="relative">
             <input
@@ -45,11 +44,11 @@ export const Avatar = () => {
             <div className="absolute inset-y-2 left-2 flex items-center pl-3 pointer-events-none">
               <Search
                 className="text-gray-500"
-                
+
               />
             </div>
           </div>
-   
+
           <button
             onClick={(e) => setshowModal(true)}
             className="bg-gray-800 text-white font-bold py-2 px-8 rounded-r-lg hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 "
@@ -58,9 +57,9 @@ export const Avatar = () => {
           </button>
         </div>
       </div>
-      
+
       <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 mx-6 mt-4">
-        
+
         {!loading ? (<>{avatars?.length > 0 ? (
           <>
             {avatars?.map((avatar) => (
@@ -86,7 +85,7 @@ export const Avatar = () => {
             </p>
           </>
         )}</>) : null}
-        
+
       </div>
     </>
   );

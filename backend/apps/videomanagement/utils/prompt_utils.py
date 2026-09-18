@@ -78,15 +78,6 @@ def format_dalle_prompt(title: str, image_description: str) -> str:
 
 
 def format_sora_prompt(title: str, image_description: str, style: str = "") -> str:
-    """Describe one shot for Sora.
-
-    Deliberately not format_dalle_prompt: its "Title / Image Description" scaffolding
-    is written for a still, and with no title it sends a stray empty label that adds
-    nothing for a video model. Sora wants plain prose describing the shot.
-
-    `style` is repeated on every shot of a video — each sentence is a separate job with
-    no memory of the last, so it is the only thing tying their look together.
-    """
     parts = [f"Cinematic video shot: {image_description.strip()}"]
     if title:
         parts.append(f"From a video titled '{title}'.")

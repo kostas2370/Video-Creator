@@ -1,12 +1,6 @@
-"""Settings shared by every environment.
-
-Nothing here should differ between a laptop and production — anything that does belongs
-in local.py or production.py, which import this module and override.
-
-The .env file is already loaded by the package __init__, so os.getenv works below.
-"""
-
 from pathlib import Path
+import base64
+import hashlib
 import os
 from datetime import timedelta
 
@@ -21,8 +15,10 @@ SECRET_KEY = (
     or "django-insecure-@e9r=i^wken32@o7$@wu=fuz$az=*m%72qoplrcsoc-b5cm&&_"
 )
 
-# Development-safe defaults. production.py flips both, along with every cookie setting
-# derived from them further down — see the note there.
+FIELD_ENCRYPTION_KEY = os.getenv("FIELD_ENCRYPTION_KEY") or base64.urlsafe_b64encode(
+    hashlib.sha256(SECRET_KEY.encode()).digest()
+).decode()
+
 COOKIES_SECURE = False
 CROSS_SITE_SAMESITE = "Lax"
 
@@ -41,6 +37,8 @@ INSTALLED_APPS = [
     "djoser",
     "apps.usermanagement",
     "apps.videomanagement",
+    "apps.apikeysmanagement",
+    "encrypted_model_fields",
     "django_rest_passwordreset",
     "corsheaders",
     "drf_yasg",
@@ -95,24 +93,15 @@ DJOSER = {
     "LOGIN_FIELD": "username",
 }
 
-# Celery Configuration
-# `or` rather than a getenv default: a key left blank in .env reads as "", which would
-# otherwise be handed to Celery as the broker URL.
 CELERY_BROKER_URL = (
     os.getenv("CELERY_BROKER_URL") or "redis://redis-stack-server:6379/0"
 )
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
 
-# Generation and rendering are long and expensive. Acknowledge tasks only once they
-# finish so a worker that dies mid-render requeues its task instead of losing it, and
-# never let a worker hoard queued jobs it cannot start.
-CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TRACK_STARTED = True
 
-# A render that has not reported back within this many seconds is treated as dead by
-# `reap_stalled_videos` and flipped to FAILED.
 VIDEO_TASK_STALE_AFTER = int(os.getenv("VIDEO_TASK_STALE_AFTER") or 60 * 60 * 3)
 
 CELERY_BEAT_SCHEDULE = {
@@ -166,15 +155,15 @@ TEMPLATES = [
     },
 ]
 
-# Email Configuration
-# The backend itself is per-environment: local.py prints to the terminal, production.py
-# talks to a real SMTP server. These are the credentials that server needs.
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 EMAIL_PORT = os.getenv("EMAIL_PORT", 587)
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
+
+FRONTEND_URL = (os.getenv("FRONTEND_URL") or "http://localhost:3000").rstrip("/")
+PASSWORD_RESET_PATH = os.getenv("PASSWORD_RESET_PATH") or "/reset-password"
 
 # CORS and CSRF
 CORS_ALLOW_ALL_ORIGINS = True
@@ -211,37 +200,17 @@ REST_FRAMEWORK = {
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
-# Headroom for gpt-5/o-series thinking tokens, which bill against the same cap as the
-# reply. Applied only to those models — see gpt_utils.token_limit_kwarg.
 REASONING_TOKEN_ALLOWANCE = int(os.getenv("REASONING_TOKEN_ALLOWANCE") or 8000)
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
 DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini"
 
-# DALL-E was retired. These three move together: quality and size are validated per
-# model, so gpt-image-1 (fixed sizes only) needs the other two revisited.
 IMAGE_MODEL = os.getenv("IMAGE_MODEL") or "gpt-image-2"
 IMAGE_QUALITY = os.getenv("IMAGE_QUALITY") or "high"
 IMAGE_SIZE = os.getenv("IMAGE_SIZE") or "1792x1024"
 
-# Sora, used by the "sora" AI image provider to give each sentence a moving clip
-# instead of a still. Billed per second of output, so it costs far more than an image.
-# `seconds` is picked per sentence from the narration length — the API only accepts
-# 4, 8 or 12.
-#
-# Size is validated twice by the API: against the shared enum (720x1280, 1280x720,
-# 1024x1792, 1792x1024) and then against the model. sora-2 takes only the 720p pair;
-# the 1024x1792/1792x1024 pair needs sora-2-pro. 1280x720 is 16:9, the same shape as
-# the rendered video, so it scales up without cropping.
 SORA_MODEL = os.getenv("SORA_MODEL") or "sora-2"
 SORA_SIZE = os.getenv("SORA_SIZE") or "1280x720"
-
-# Appended to every Sora prompt so the clips in one video look like each other rather
-# than like a dozen unrelated stock shots. Sora sees each sentence as an independent
-# job, so without this the style resets every time.
-# How long a scene runs when narration is switched off and nothing else sets a length.
-# Sora clips bring their own duration, so this only covers stills and the black
-# fallback; it is also the clip length asked of Sora when there is no narration to fit.
-SILENT_SCENE_SECONDS = int(os.getenv("SILENT_SCENE_SECONDS") or 7)
+SILENT_SCENE_SECONDS = int(os.getenv("SILENT_SCENE_SECONDS") or 30)
 
 SORA_STYLE = os.getenv("SORA_STYLE") or (
     "Consistent look across the whole video: natural lighting, shallow depth of field, "
@@ -249,7 +218,7 @@ SORA_STYLE = os.getenv("SORA_STYLE") or (
 )
 
 # As ImageMagick names it (`convert -list font`). The image carries only DejaVu;
-# "Arial" exists on macOS and Windows but not in debian-slim.
+# "Arial" exists on macOS and Windows but not in debian-slims.
 SUBTITLE_FONT = os.getenv("SUBTITLE_FONT") or "DejaVu-Sans"
 
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")

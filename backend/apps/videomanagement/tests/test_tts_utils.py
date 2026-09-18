@@ -19,8 +19,6 @@ from ..utils.tts_utils import (
 
 
 class SaveTests(SimpleTestCase):
-    """save() picks the provider a voice names and hands back the path it wrote to."""
-
     def test_returns_none_when_there_is_no_voice(self):
         # Narration off: make_scene_speech asks for no audio at all.
         self.assertIsNone(save(None, "hello", "out.wav"))
@@ -31,7 +29,7 @@ class SaveTests(SimpleTestCase):
         with patch.object(tts_utils, "tts_from_eleven_labs") as eleven:
             self.assertEqual(save(syn, "hello", "out.wav"), "out.wav")
 
-        eleven.assert_called_once_with("hello", "out.wav", "a-voice-id")
+        eleven.assert_called_once_with("hello", "out.wav", "a-voice-id", user=None)
 
     def test_routes_each_supported_provider_to_its_own_function(self):
         for provider, function in (

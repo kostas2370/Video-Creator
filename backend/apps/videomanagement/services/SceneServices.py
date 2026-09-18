@@ -58,7 +58,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
     scene = None
 
     if video.video_type == "TWITCH":
-        client = TwitchClient(video.dir_name)
+        client = TwitchClient(video.dir_name, user=video.created_by)
         client.set_headers()
         try:
             clip = client.get_clip_by_url(serializer.data.get("url"))
@@ -78,6 +78,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
                 video.prompt,
                 serializer.data["text"],
                 serializer.data["is_last"],
+                user=video.created_by,
             )
 
         except Exception as exc:
@@ -100,6 +101,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
                 dir_name=video.dir_name,
                 mode=video.mode,
                 title=video.title,
+                user=video.created_by,
             )
 
     return scene

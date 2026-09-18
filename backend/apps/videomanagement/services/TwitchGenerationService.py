@@ -39,7 +39,7 @@ def generate_twitch_video(
     video.dir_name = dir_name
     video.save()
 
-    client = TwitchClient(path=dir_name)
+    client = TwitchClient(path=dir_name, user=video.created_by)
     client.set_headers()
     value = (
         client.get_streamer_id(value)
