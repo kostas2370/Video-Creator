@@ -4,6 +4,11 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField
+from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
+from functools import partial
+from .tasks import import_user_voices
+
+from django.db import transaction
 
 
 class Provider(models.TextChoices):
@@ -20,7 +25,13 @@ class Provider(models.TextChoices):
     TWITCH_SECRET = "TWITCH_SECRET", "Twitch client secret"
 
 
-class ApiKeys(models.Model):
+VOICE_KEY_FIELDS = {
+    "elevenlabs_key": Provider.ELEVENLABS,
+    "sixtydb_key": Provider.SIXTYDB,
+}
+
+
+class ApiKeys(LifecycleModelMixin, models.Model):
     user = models.OneToOneField(
         get_user_model(), on_delete=models.CASCADE, related_name="api_keys"
     )
@@ -93,5 +104,10 @@ class ApiKeys(models.Model):
 
         if len(value) < 12:
             return "•" * 8
-
         return f"{value[:3]}{'•' * 8}{value[-4:]}"
+
+    @hook(AFTER_UPDATE, on_commit=True)
+    def update_user_voices(self):
+        for field, provider in VOICE_KEY_FIELDS.items():
+            if self.has_changed(field) and getattr(self, field):
+                import_user_voices.delay(self.user_id, provider)
