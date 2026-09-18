@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.conf import settings
 from django.test import TestCase, override_settings
@@ -17,6 +18,10 @@ class RememberMeTests(TestCase):
         self.user.set_password(PASSWORD)
         self.user.save()
         self.client = APIClient()
+
+        notify = patch("apps.usermanagement.views.send_email.delay")
+        self.send_email = notify.start()
+        self.addCleanup(notify.stop)
 
     def login(self, **extra):
         return self.client.post(
