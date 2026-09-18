@@ -1,5 +1,6 @@
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -78,7 +79,9 @@ class SceneView(viewsets.GenericViewSet):
     def change_image_scene(self, request, pk):
         scene_image = request.GET.get("scene_image")
         image = request.FILES.get("image")
-        with_audio = request.data.get("with_audio", False)
+        with_audio = serializers.BooleanField(default=False).to_internal_value(
+            request.data.get("with_audio", False)
+        )
 
         if scene_image:
             img = SceneImage.objects.get(id=scene_image)

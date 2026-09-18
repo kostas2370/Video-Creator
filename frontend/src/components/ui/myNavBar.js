@@ -213,15 +213,16 @@ function Navbar({ theme, toggleTheme }) {
                     >
                       Your Profile
                     </a>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-sm text-gray-700"
+                    <NavLink
+                      to="/api-keys/"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       role="menuitem"
                       tabIndex="-1"
                       id="user-menu-item-1"
+                      onClick={() => setIsUserMenuOpen(false)}
                     >
-                      Settings
-                    </a>
+                      API keys
+                    </NavLink>
 
                     <NavLink
                       to="/login/"

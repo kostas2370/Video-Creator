@@ -18,6 +18,7 @@ from .bing_image_downloader import downloader
 from .exceptions import FileNotDownloadedException
 from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
+from apps.apikeysmanagement.models import ApiKeys, Provider
 from .prompt_utils import format_dalle_prompt, format_sora_prompt, scene_text
 from .video_utils import add_text_to_video, check_if_video
 from ..models import Music, Scene, SceneImage, Video
@@ -115,7 +116,9 @@ def download_image(
         logger.error(f"Error downloading image with query {query} Error {exc}")
 
 
-def download_image_from_google(q: str, path: str, amt: int = 1, *args, **kwargs) -> str:
+def download_image_from_google(
+    q: str, path: str, amt: int = 1, user=None, *args, **kwargs
+) -> str:
     """
     Download images from Google using a downloader.
 
@@ -144,7 +147,7 @@ def download_image_from_google(q: str, path: str, amt: int = 1, *args, **kwargs)
     """
     try:
         logger.info("Downloading image from google")
-        return google_downloader.download(q=q, path=path, amt=amt)
+        return google_downloader.download(q=q, path=path, amt=amt, user=user)
 
     except Exception as exc:
         logger.error(f"Error downloading image with query {q} Error {exc}")
@@ -200,7 +203,7 @@ def download_music(url: str) -> str:
     - If the same music is already downloaded, it returns the existing Music object without downloading again.
     """
 
-    if url is None or url == "None" or url == "":
+    if url in (None, "", "None"):
         return None
 
     yt = YouTube(url)
@@ -219,7 +222,13 @@ def download_music(url: str) -> str:
 
 
 def generate_from_dalle(
-    prompt: str, dir_name: str, style: str, title: str = "", *args, **kwargs
+    prompt: str,
+    dir_name: str,
+    style: str,
+    title: str = "",
+    user=None,
+    *args,
+    **kwargs,
 ) -> str:
     """
     Generate an image using the DALL-E model.
@@ -249,7 +258,7 @@ def generate_from_dalle(
     """
     logger.warning("API CALL IN OPENAI IMAGES")
 
-    client = OpenAI(api_key=settings.OPEN_API_KEY)
+    client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
 
     image_prompt = format_dalle_prompt(title=title, image_description=prompt)
     # gpt-image has no `style` argument (DALL-E 3 only), so fold it into the prompt.
@@ -262,7 +271,6 @@ def generate_from_dalle(
         size=settings.IMAGE_SIZE,
         quality=settings.IMAGE_QUALITY,
         n=1,
-        # Stated, not assumed: the file below is written as .png.
         output_format="png",
     )
 
@@ -296,10 +304,6 @@ def still_from_video(path: str, dir_name: str) -> str:
     frame_path = f"{dir_name}{uuid.uuid4()}.png"
     try:
         with VideoFileClip(path) as clip:
-            # Not clip.duration: moviepy seeks just before the target and decodes
-            # forward, so a time within a frame or two of the end overshoots the last
-            # decodable frame and the read fails. Step back, then give way to earlier
-            # points if even that lands badly on a very short clip.
             for t in (clip.duration - 0.5, clip.duration * 0.5, 0):
                 try:
                     clip.save_frame(frame_path, t=max(0, t))
@@ -339,6 +343,7 @@ def generate_from_sora(
     title: str = "",
     duration: float = 0,
     reference: str = None,
+    user=None,
     *args,
     **kwargs,
 ) -> str:
@@ -374,7 +379,7 @@ def generate_from_sora(
         size=settings.SORA_SIZE,
     )
 
-    client = OpenAI(api_key=settings.OPEN_API_KEY)
+    client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
     if reference and os.path.isfile(reference):
         with open(reference, "rb") as anchor:
             video = client.videos.create_and_poll(input_reference=anchor, **request)
@@ -400,7 +405,7 @@ def generate_from_sora(
 
 
 def generate_from_diffusion(
-    prompt: str, dir_name: str, title: str = "", *args, **kwargs
+    prompt: str, dir_name: str, title: str = "", user=None, *args, **kwargs
 ):
     """
     Generate an image using the Diffusion model.
@@ -430,14 +435,15 @@ def generate_from_diffusion(
 
     url = "https://stablediffusionapi.com/api/v3/text2img"
 
-    if not settings.DIFFUSION_KEY:
+    diffusion_key = ApiKeys.key_for(user, Provider.STABLE_DIFFUSION)
+    if not diffusion_key:
         logger.error("Tried to call diffusion but no api key")
         return
 
     logger.warning("Api call in diffusion")
     payload = json.dumps(
         {
-            "key": settings.DIFFUSION_KEY,
+            "key": diffusion_key,
             "prompt": format_dalle_prompt(title=title, image_description=prompt),
             "negative_prompt": None,
             "width": "1024",
@@ -458,7 +464,7 @@ def generate_from_diffusion(
 
 
 def generate_from_midjourney(
-    prompt: str, dir_name: str, title: str = "", *args, **kwargs
+    prompt: str, dir_name: str, title: str = "", user=None, *args, **kwargs
 ):
     """
     Generate an image using the Midjourney API.
@@ -484,13 +490,14 @@ def generate_from_midjourney(
     - The generated image is saved in the specified directory path.
     - The filename of the generated image is a UUID followed by '.png'.
     """
-    if not settings.MIDJOURNEY_KEY:
+    midjourney_key = ApiKeys.key_for(user, Provider.MIDJOURNEY)
+    if not midjourney_key:
         logger.error("Tried to call MIDJOURNEY but no api key")
         return
 
     logger.warning("Api call in midjourney")
     payload = {"prompt": format_dalle_prompt(title, prompt)}
-    headers = {"Authorization": f"Bearer {settings.MIDJOURNEY_KEY}"}
+    headers = {"Authorization": f"Bearer {midjourney_key}"}
     response = requests.post(
         "https://api.mymidjourney.ai/api/v1/midjourney/imagine",
         headers=headers,
@@ -522,6 +529,7 @@ def create_image_scene(
     title: str = "",
     reference: str = None,
     with_audio: bool = False,
+    user=None,
     *args,
     **kwargs,
 ) -> str:
@@ -570,10 +578,9 @@ def create_image_scene(
             f"{dir_name}/images/",
             style=style,
             title=title,
-            # Video providers need to know how long this sentence is spoken for. The
-            # narration is already on disk by now — make_scenes_speech runs first.
             duration=scene_narration_duration(scene),
             reference=reference,
+            user=user,
         )
     except Exception as ex:
         logger.error(ex)
@@ -622,13 +629,7 @@ def create_image_scenes(
     """
 
     dir_name = video.dir_name
-    # With narration off there is no voice track, so a generated clip keeps its own
-    # sound instead of being rendered silent.
     with_audio = not (video.settings or {}).get("narration", True)
-    # Anchor every later clip to the look of the first one. Each Sora job is generated
-    # independently, so without a shared reference the scenes drift apart visually. The
-    # anchor is taken once and reused, rather than chained frame-to-frame, which would
-    # let the style wander a little further with every scene.
     reference = None
     for scene in video.gpt_answer["scenes"]:
         for sentence in scene["sentences"]:
@@ -643,6 +644,7 @@ def create_image_scenes(
                 provider=provider,
                 reference=reference,
                 with_audio=with_audio,
+                user=video.created_by,
             )
 
             if reference is None and produced:
@@ -684,6 +686,7 @@ def generate_new_image(
             f"{video.dir_name}/images/",
             style=style,
             title=video.title,
+            user=video.created_by,
             *args,
             **kwargs,
         )

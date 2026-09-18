@@ -28,8 +28,6 @@ class VideoView(viewsets.ModelViewSet):
     queryset = Video.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["title"]
-    # DjangoFilterBackend was enabled but had no fields to act on. Status is what a
-    # client needs now that videos are visible while a worker is still on them.
     filterset_fields = ["status", "video_type"]
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
@@ -40,10 +38,6 @@ class VideoView(viewsets.ModelViewSet):
             .order_by("-id")
             .select_related("music", "prompt")
         )
-
-        # Detail routes have to reach a video the moment it exists, so a client can
-        # poll it while a worker is still filling it in. The list keeps its old
-        # behaviour of hiding videos that have no gpt_answer yet.
         if self.action == "list":
             queryset = queryset.exclude(gpt_answer=None)
 

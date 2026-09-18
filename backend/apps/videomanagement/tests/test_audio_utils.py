@@ -25,8 +25,6 @@ class MakeSceneSpeechTests(TestCase):
         self.assertEqual(save.call_args.args[1], " hello ")
 
     def test_still_creates_the_scene_when_nothing_is_narrated(self):
-        # The rest of the pipeline keys off the Scene row — create_image_scene looks it
-        # up by text — so only the audio is optional.
         with patch.object(audio_utils, "save") as save:
             scene = make_scene_speech(
                 self.voice, "media/videos/v", self.prompt, "hello", False, narrate=False

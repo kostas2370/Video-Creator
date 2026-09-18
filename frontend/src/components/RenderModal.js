@@ -13,7 +13,6 @@ export function RenderModal({
   name,
   onFinished,
 }) {
-  // VideoPage mounts this modal without setItems, so every write has to be guarded.
   const pollRef = useRef(null);
 
   useEffect(() => () => pollRef.current?.cancel(), []);
@@ -31,8 +30,6 @@ export function RenderModal({
     const response = await renderVideo(id);
 
     if (!response.ok) {
-      // 409 means the video is not READY/COMPLETED — a real answer, not a failure to
-      // render, so the row keeps whatever status it already had.
       toast.error(response.message);
       return;
     }
@@ -61,7 +58,6 @@ export function RenderModal({
       toast.error("The render failed, probably you have to generate a new one");
     }
 
-    // VideoPage has no item list to patch and refetches the whole video instead.
     if (onFinished) onFinished(video);
   };
 

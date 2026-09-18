@@ -22,15 +22,12 @@ from .doubles import FakeAudio, FakeClip
 
 
 def a_clip(audio=None):
-    """A stand-in for a moviepy VideoFileClip carrying (or missing) an audio track."""
     clip = MagicMock()
     clip.audio = audio
     return clip
 
 
 class ClipAudioTests(SimpleTestCase):
-    """clip_audio: a scene visual's own soundtrack, when it is meant to be heard."""
-
     def test_returns_the_clips_audio_when_the_scene_is_flagged_with_audio(self):
         track = MagicMock()
         scene_image = baker.prepare_recipe(
@@ -51,7 +48,6 @@ class ClipAudioTests(SimpleTestCase):
         ) as video_file_clip:
             self.assertIsNone(clip_audio(scene_image))
 
-        # Not flagged, so the file is never opened at all.
         video_file_clip.assert_not_called()
 
     def test_returns_none_without_a_scene_image(self):
@@ -89,8 +85,6 @@ class ClipAudioTests(SimpleTestCase):
 
 
 class HandleAudioTests(SimpleTestCase):
-    """handle_audio: what a narrated scene's soundtrack is built from."""
-
     def setUp(self):
         self.silence = MagicMock(name="silence")
         patcher = patch(
@@ -126,8 +120,6 @@ class HandleAudioTests(SimpleTestCase):
         self.assertEqual(tail, [self.silence, self.silence])
 
     def test_does_not_pad_a_last_scene_that_plays_its_own_audio(self):
-        # The clip's own track already runs to the end of the picture, so the two
-        # extra beats of silence would show up as a hang.
         scene = baker.prepare_recipe("videomanagement.last_scene")
         scene_image = baker.prepare_recipe(
             "videomanagement.video_scene_image_with_audio"
@@ -232,8 +224,6 @@ class HandleImageTests(SimpleTestCase):
 
 
 class HandleVideoTests(SimpleTestCase):
-    """handle_video fits a clip to the narration, since the voice sets the timing."""
-
     def setUp(self):
         self.scene_image = baker.prepare_recipe("videomanagement.video_scene_image")
 
@@ -249,7 +239,6 @@ class HandleVideoTests(SimpleTestCase):
         self.assertIn("subclip", fitted.effects)
 
     def test_freezes_the_last_frame_when_the_narration_outruns_the_clip(self):
-        # Sora caps a clip at 12 seconds, so a longer sentence lands here.
         fitted = self.fit(12.0, FakeAudio(duration=20.0))
 
         self.assertEqual(fitted.duration, 20.0)
@@ -267,8 +256,6 @@ class HandleVideoTests(SimpleTestCase):
         self.assertNotIn("subclip", fitted.effects)
 
     def test_always_strips_the_clips_own_audio(self):
-        # Sound reaches the mix through clip_audio, never through the picture, or it
-        # would play twice.
         self.assertIn("without_audio", self.fit(6.0, FakeAudio(6.0)).effects)
 
     def test_raises_a_useful_error_when_the_file_will_not_open(self):
@@ -279,9 +266,6 @@ class HandleVideoTests(SimpleTestCase):
 
 class ProcessSceneTests(SimpleTestCase):
     def setUp(self):
-        # process_scene builds its black fallback before it looks at the file type, and
-        # reads assets/black.jpg from the working directory to do it. Stubbed here so
-        # the tests do not depend on where the runner was started from.
         patcher = patch.object(video_utils, "ImageClip", return_value=FakeClip())
         self.image_clip = patcher.start()
         self.addCleanup(patcher.stop)

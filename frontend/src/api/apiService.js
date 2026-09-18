@@ -1,4 +1,4 @@
-import { axiosPrivateInstance } from "./axiosPrivate"; 
+import { axiosPrivateInstance } from "./axiosPrivate";
 
 const API_ENDPOINTS = {
     INTRO: 'intro/',
@@ -18,7 +18,7 @@ const API_ENDPOINTS = {
     RENDER: (id) => `video/${id}/render_video/`,
     SCENE_GENERATE : (id) => `scene/${id}/generate/`,
     SCENE_IMAGE_GENERATE : (id) => `scene/${id}/generate_image_scene/`,
-    
+
     INTRO_GET: (search = null) => `intro/${search ? `?search=${search}` : ''}`,
     OUTRO_GET: (search = null) => `outro/${search ? `?search=${search}` : ''}`,
     VIDEOS_GET: (search = null, page = null, id = null) => {
@@ -32,7 +32,8 @@ const API_ENDPOINTS = {
         if (page) params.push(`page=${encodeURIComponent(page)}`);
         return params.length > 0 ? `${url}?${params.join('&')}` : url;
     },
-    GET_AVATARS: (name = null) => `avatars/${name ? `?search=${name}` : ''}`
+    GET_AVATARS: (name = null) => `avatars/${name ? `?search=${name}` : ''}`,
+    API_KEYS: 'api_keys/'
 
 
 };
@@ -42,7 +43,7 @@ const getRequest = async (url, params = {}, axiosInstance = axiosPrivateInstance
     try {
         const queryString = new URLSearchParams(params).toString();
         const fullUrl = queryString ? `${url}?${queryString}` : url;
-        
+
         const response = await axiosInstance.get(fullUrl);
         return response.data;
     } catch (error) {
@@ -69,9 +70,11 @@ const deleteRequest = async (url, axiosInstance = axiosPrivateInstance) => {
     }
 }
 
-const patchRequest = async (url,data, axiosInstance = axiosPrivateInstance) => {
+const JSON_CONFIG = { headers: { "Content-Type": "application/json" } };
+
+const patchRequest = async (url,data, axiosInstance = axiosPrivateInstance, config = {}) => {
     try {
-        const response = await axiosInstance.patch(url,data);
+        const response = await axiosInstance.patch(url,data, config);
         return response.data;
     } catch (error) {
         console.error(`Error deleting data from ${url}:`, error);
@@ -92,10 +95,7 @@ export const deleteImageScene = async (id) =>  {return deleteRequest(API_ENDPOIN
 export const deleteScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_SELECT(id))}
 
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
-export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data)}
-// Not patchRequest: this one has to tell a refusal (409, the video is not in a
-// renderable state) apart from the request never landing, and patchRequest collapses
-// both into undefined. Returns {ok, data} or {ok, status, message}.
+export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data, axiosPrivateInstance, JSON_CONFIG)}
 export const renderVideo = async (id) => {
     try {
         const response = await axiosPrivateInstance.patch(API_ENDPOINTS.RENDER(id), {});
@@ -109,6 +109,36 @@ export const renderVideo = async (id) => {
         };
     }
 }
+
+const apiKeysRequest = async (method, data = undefined) => {
+    try {
+        const response = await axiosPrivateInstance.request({
+            url: API_ENDPOINTS.API_KEYS,
+            method,
+            data,
+            headers: { "Content-Type": "application/json" },
+        });
+        return { ok: true, data: response.data };
+    } catch (error) {
+        console.error(`Error on ${method} ${API_ENDPOINTS.API_KEYS}:`, error);
+        return { ok: false, message: firstErrorMessage(error) };
+    }
+};
+
+const firstErrorMessage = (error) => {
+    const data = error?.response?.data;
+    if (!data) return "The server could not be reached";
+    if (typeof data === "string") return data;
+
+    const [field, detail] = Object.entries(data)[0] ?? [];
+    if (!field) return "The request was refused";
+    return Array.isArray(detail) ? `${field}: ${detail[0]}` : `${field}: ${detail}`;
+};
+
+export const getApiKeys = async () => {return apiKeysRequest("get")}
+export const updateApiKeys = async (data) => {return apiKeysRequest("patch", data)}
+export const deleteApiKeys = async () => {return apiKeysRequest("delete")}
+
 export const generateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_GENERATE(id),data)}
 export const generateSceneImage = async (id, data) => {return postRequest(API_ENDPOINTS.SCENE_IMAGE_GENERATE(id), data)}
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
@@ -127,7 +157,7 @@ export const updateSceneImage = async (id,scene_image_id, data) => {
 
         }
         const response = await axiosPrivateInstance.post(url, data);
-      
+
         return response.data
 
     }catch (error){

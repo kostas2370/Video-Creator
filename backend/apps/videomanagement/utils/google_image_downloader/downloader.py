@@ -8,18 +8,22 @@ from django.conf import settings
 from requests import Response
 
 from ..gpt_utils import select_from_vision
+from apps.apikeysmanagement.models import ApiKeys, Provider
 
 logger = logging.getLogger(__name__)
 
 
-def build_payload(query: str, start: int = 1, num: int = 1, **params) -> dict:
-    if not settings.API_KEY:
+def build_payload(
+    query: str, start: int = 1, num: int = 1, user=None, **params
+) -> dict:
+    key = ApiKeys.key_for(user, Provider.GOOGLE_SEARCH)
+    if not key:
         raise Exception("Google api key is missing")
 
     payload = {
-        "key": settings.API_KEY,
+        "key": key,
         "q": query,
-        "cx": settings.SEARCH_ENGINE_ID,
+        "cx": ApiKeys.key_for(user, Provider.GOOGLE_SEARCH_ENGINE_ID),
         "start": start,
         "num": num,
         "searchType": "image",
@@ -41,8 +45,8 @@ def make_request(payload: dict) -> Response:
     return response
 
 
-def download(q: str, amt: int = 1, path: str = "") -> Union[str, None]:
-    payload = build_payload(q, num=amt)
+def download(q: str, amt: int = 1, path: str = "", user=None) -> Union[str, None]:
+    payload = build_payload(q, num=amt, user=user)
     try:
         response = make_request(payload)
 
@@ -59,7 +63,7 @@ def download(q: str, amt: int = 1, path: str = "") -> Union[str, None]:
     image_url = (
         data["items"][0]["link"]
         if len(urls) == 1 or not settings.VISION_SELECTION
-        else data["items"][select_from_vision(q, urls)]["link"]
+        else data["items"][select_from_vision(q, urls, user=user)]["link"]
     )
 
     filename = str(uuid.uuid4())

@@ -13,12 +13,12 @@ from rest_framework import status
 
 
 from .exceptions import InvalidJsonFormatException
+from apps.apikeysmanagement.models import ApiKeys, Provider
 import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
 
-# Prefixes, not substrings: "o1"/"o3" are short enough to match inside other names.
 model_calls = (
     ("claude", "claude_call"),
     ("gemini", "gemini_call"),
@@ -28,20 +28,8 @@ model_calls = (
     ("o4", "official_gpt_call"),
 )
 
-# Only the gpt-4 era still accepts `max_tokens`. Naming the old models rather than the
-# new ones means future releases work here without a code change.
-LEGACY_TOKEN_LIMIT_PREFIXES = ("gpt-3.5", "gpt-4")
-
 
 def token_limit_kwarg(model: str) -> dict:
-    """Return the output-token cap under whichever name `model` accepts.
-
-    `max_completion_tokens` also covers reasoning tokens, so a model that thinks for
-    longer than MAX_TOKENS would otherwise return an empty message.
-    """
-    if model.startswith(LEGACY_TOKEN_LIMIT_PREFIXES):
-        return {"max_tokens": settings.MAX_TOKENS}
-
     return {
         "max_completion_tokens": settings.MAX_TOKENS
         + settings.REASONING_TOKEN_ALLOWANCE
@@ -88,12 +76,12 @@ def check_json(json_file: json) -> bool:
     return True
 
 
-def official_gpt_call(prompt: str, gpt_model=None):
+def official_gpt_call(prompt: str, gpt_model=None, user=None):
     x = io.StringIO()
     logger.warning("API CALL IN OFFICIAL GPT")
     model = gpt_model or settings.DEFAULT_GPT_MODEL
     try:
-        client = OpenAI(api_key=settings.OPEN_API_KEY)
+        client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
         stream = client.chat.completions.create(
             model=model,
             messages=[
@@ -113,10 +101,10 @@ def official_gpt_call(prompt: str, gpt_model=None):
     return x
 
 
-def gemini_call(prompt: str, model="gemini-1.5-pro"):
+def gemini_call(prompt: str, model="gemini-1.5-pro", user=None):
     x = io.StringIO()
     try:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
+        genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
         model = genai.GenerativeModel(model)
         response = model.generate_content(prompt)
         for chunk in response:
@@ -129,10 +117,10 @@ def gemini_call(prompt: str, model="gemini-1.5-pro"):
     return x
 
 
-def claude_call(prompt: str, model="claude-3-5-sonnet-20240620"):
+def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None):
     x = io.StringIO()
     try:
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))
         message = client.messages.create(
             model=model,
             max_tokens=1000,
@@ -150,7 +138,7 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620"):
         raise APIException(err, code=status.HTTP_400_BAD_REQUEST)
 
 
-def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
+def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4", user=None):
     """
     Get a reply to a prompt from the model named by `gpt_model`.
 
@@ -184,10 +172,12 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
 
     for key, call in model_calls:
         if (gpt_model or "").startswith(key):
-            x = getattr(thismodule, call)(prompt, gpt_model)
+            x = getattr(thismodule, call)(prompt, gpt_model, user=user)
             break
     else:
-        x = official_gpt_call(prompt, gpt_model=settings.DEFAULT_GPT_MODEL)
+        x = official_gpt_call(
+            prompt, gpt_model=settings.DEFAULT_GPT_MODEL, user=user
+        )
 
     if reply_format == "json":
         x = x.getvalue()
@@ -210,7 +200,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4"):
                     "Max gpt limit is 5 , try again with different prompt !!"
                 )
 
-            return get_reply(prompt, time=time, gpt_model=gpt_model)
+            return get_reply(prompt, time=time, gpt_model=gpt_model, user=user)
 
         except Exception as exc:
             logger.error(exc)
@@ -253,10 +243,10 @@ def get_update_sentence(prompt):
     return x.getvalue()
 
 
-def select_from_vision(prompt, images):
+def select_from_vision(prompt, images, user=None):
     logger.warning("API CALL IN OFFICIAL GPT vision")
 
-    client = OpenAI(api_key=settings.OPEN_API_KEY)
+    client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
 
     messages = [
         {
@@ -289,11 +279,11 @@ def select_from_vision(prompt, images):
     return x
 
 
-def get_voices_from_labs():
+def get_voices_from_labs(user=None):
     url = "https://api.elevenlabs.io/v1/voices"
     headers = {
         "Accept": "application/json",
-        "xi-api-key": settings.XI_API_KEY,
+        "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
         "Content-Type": "application/json",
     }
 
@@ -301,11 +291,11 @@ def get_voices_from_labs():
     return response.json()["voices"]
 
 
-def get_voices_from_60db():
+def get_voices_from_60db(user=None):
     url = "https://api.60db.ai/myvoices"
     headers = {
         "Accept": "application/json",
-        "Authorization": f"Bearer {settings.SIXTYDB_API_KEY}",
+        "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
         "Content-Type": "application/json",
     }
 

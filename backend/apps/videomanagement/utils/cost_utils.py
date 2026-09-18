@@ -30,10 +30,6 @@ def calculate_total_cost(video):
         total_cost += 0.12 + scene_count * costs.get(
             f"scene_{video.voice_model.type}", 0
         )
-        # An image that failed to generate is stored as "", not NULL: create_image_scene
-        # writes None into the FileField and Django prepares that as an empty string.
-        # `exclude(file=None)` alone therefore excluded nothing and billed the user for
-        # images they never got.
         scene_images_count = (
             SceneImage.objects.filter(scene__in=scenes)
             .exclude(file="")
@@ -46,14 +42,6 @@ def calculate_total_cost(video):
 
 
 def charge_user(user, limit_field: str, video) -> float:
-    """
-    Deduct the cost of `video` from `user`'s balance in a single UPDATE.
-
-    Generation now runs on workers, so several jobs for the same user can finish at
-    once. A read-modify-write (`user.x -= cost; user.save()`) would let those
-    concurrent finishes overwrite each other's deduction and would also rewrite every
-    other field on the row, so the update is pushed into the database with F().
-    """
     if user is None:
         return 0
 

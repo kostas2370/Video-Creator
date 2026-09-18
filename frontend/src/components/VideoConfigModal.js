@@ -12,8 +12,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
   const [title, setTitle] = useState(null);
   const [intro, setIntro] = useState(null);
   const [outro, setOutro] = useState(null);
-  const [subtitles, setSubtitles] = useState(false); // New state for subtitles
-  const [avatarPosition, setAvatarPosition] = useState("right,top"); // New state for avatar position
+  const [subtitles, setSubtitles] = useState(false);
+  const [avatarPosition, setAvatarPosition] = useState("right,top");
 
   const [selectedIntroFile, setSelectedIntroFile] = useState(null);
   const [selectedOutroFile, setSelectedOutroFile] = useState(null);
@@ -27,8 +27,6 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
           getIntro(),
           getOutro(),
         ]);
-        // getRequest resolves undefined when a request fails, and the selects below
-        // map straight over these.
         setAvatars(Array.isArray(avatarData) ? avatarData : []);
         setIntros(Array.isArray(introData) ? introData : []);
         setOutros(Array.isArray(outroData) ? outroData : []);
@@ -64,7 +62,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
 
   useEffect(() => {
     setAvatarPosition(info?.settings?.avatar_position);
-    setSubtitles(info?.settings?.subtitles === "true");
+    setSubtitles(info?.settings?.subtitles === true);
   }, [info.settings]);
 
   useEffect(() => {
@@ -78,15 +76,14 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
 
   const onSubmit = (event) => {
     event.preventDefault();
-    const formData = new FormData();
-    formData.append("intro", intro);
-    formData.append("outro", outro);
-    formData.append("title", title);
-    formData.append("avatar", avatar);
-    formData.append("subtitles", subtitles); // Add subtitles to form data
-    formData.append("avatar_position", avatarPosition); // Add avatar position to form data
-
-    updateVideo(info.id, formData).then((response) => {
+    updateVideo(info.id, {
+      intro,
+      outro,
+      title,
+      avatar,
+      subtitles,
+      avatar_position: avatarPosition,
+    }).then((response) => {
       if (response) {
         toast.success("Video updated successfully!");
         setShowModal(false);

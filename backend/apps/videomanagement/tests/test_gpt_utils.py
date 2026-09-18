@@ -39,16 +39,12 @@ def a_stream(*contents):
 
 class TokenLimitKwargTests(SimpleTestCase):
     @override_settings(MAX_TOKENS=1000, REASONING_TOKEN_ALLOWANCE=500)
-    def test_uses_max_tokens_for_the_gpt_4_era(self):
-        self.assertEqual(token_limit_kwarg("gpt-4-turbo"), {"max_tokens": 1000})
-        self.assertEqual(token_limit_kwarg("gpt-3.5-turbo"), {"max_tokens": 1000})
-
-    @override_settings(MAX_TOKENS=1000, REASONING_TOKEN_ALLOWANCE=500)
-    def test_adds_a_reasoning_allowance_for_newer_models(self):
-        # max_completion_tokens also covers reasoning tokens, so a model that thinks
-        # for longer than MAX_TOKENS would otherwise return an empty message.
-        self.assertEqual(token_limit_kwarg("gpt-5"), {"max_completion_tokens": 1500})
-        self.assertEqual(token_limit_kwarg("o3-mini"), {"max_completion_tokens": 1500})
+    def test_caps_every_model_with_a_reasoning_allowance_on_top(self):
+        for model in ("gpt-4-turbo", "gpt-3.5-turbo", "gpt-5", "o3-mini"):
+            with self.subTest(model=model):
+                self.assertEqual(
+                    token_limit_kwarg(model), {"max_completion_tokens": 1500}
+                )
 
 
 class CheckJsonTests(SimpleTestCase):

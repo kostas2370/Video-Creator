@@ -16,7 +16,6 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditImageModal, setShowEditImageModal] = useState(false);
 
-  // Same host the API is on, so media loads whichever host the app was opened on.
   const MEDIA_URL = API_HOST;
 
   return (
@@ -116,8 +115,6 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
                   className="h-48 w-full rounded-lg object-cover"
                 />
               ) : (
-                /* Was a watermarked stock photo fetched from shutterstock.com just to
-                   fill the gap — an external request, and it read as a real image. */
                 <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-400">
                   No image yet
                 </div>
@@ -160,7 +157,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
           </div>
         </div>
       </div>
-      
+
     </>
   );
 };
