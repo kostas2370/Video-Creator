@@ -18,8 +18,6 @@ from ..tasks import (
 
 
 class TaskFailureTests(TestCase):
-    """Whatever happens, the row must not be left mid-status: a client polls it."""
-
     def setUp(self):
         self.video = baker.make_recipe("videomanagement.video", status="GENERATION")
 

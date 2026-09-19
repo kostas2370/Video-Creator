@@ -1,7 +1,6 @@
 modes = {
     "AI": {
         "DALL-E": "generate_from_dalle",
-        # Returns a short clip per sentence instead of a still. Billed per second.
         "sora": "generate_from_sora",
         "stable-diffusion": "generate_from_diffusion",
         "midjourney": "generate_from_midjourney",

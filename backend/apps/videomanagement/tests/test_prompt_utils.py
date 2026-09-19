@@ -56,28 +56,26 @@ class SceneTextTests(SimpleTestCase):
 
 class FormatSoraPromptTests(SimpleTestCase):
     def test_describes_the_shot_in_prose(self):
-        prompt = format_sora_prompt(title="", image_description=" a cat naps ")
+        prompt = format_sora_prompt(image_description=" a cat naps")
 
-        self.assertEqual(prompt, "Cinematic video shot: a cat naps")
+        self.assertEqual(prompt, "Cinematic video shot: a cat naps.")
 
     def test_names_the_video_when_there_is_a_title(self):
-        prompt = format_sora_prompt(title="Cats", image_description="a cat naps")
+        prompt = format_sora_prompt(image_description="a cat naps", title="Cats")
 
-        self.assertIn("From a video titled 'Cats'.", prompt)
+        self.assertIn("Shot from the video titled 'Cats'.", prompt)
 
-    def test_repeats_the_style_on_every_shot(self):
-        # The only thing tying separate Sora jobs together visually.
+    def test_includes_the_style_in_the_description(self):
         prompt = format_sora_prompt(
-            title="Cats", image_description="a cat naps", style=" warm film grain "
+            image_description="a cat naps", style="warm film grain"
         )
 
-        self.assertTrue(prompt.endswith("warm film grain"))
+        self.assertIn("rendered in a warm film grain visual style", prompt)
 
     def test_omits_an_empty_title_rather_than_sending_a_stray_label(self):
-        prompt = format_sora_prompt(title="", image_description="a cat naps")
+        prompt = format_sora_prompt(image_description="a cat naps", title="")
 
         self.assertNotIn("titled", prompt)
-
 
 class OtherPromptTests(SimpleTestCase):
     def test_dalle_prompt_labels_the_title_and_description(self):

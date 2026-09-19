@@ -4,20 +4,6 @@ from dataclasses import dataclass
 
 from django.core.management import BaseCommand
 
-# The SadTalker and GFPGAN weights the render pipeline needs, and where each one has
-# to land. The two destinations are not interchangeable:
-#
-#   checkpoints/    - every path in SadTalker's init_path.py is built from
-#                     checkpoint_dir, which lip() leaves at its './checkpoints'
-#                     default, resolved against the working directory.
-#   gfpgan/weights/ - face_enhancer.py looks here first and only falls back to
-#                     'checkpoints/' for the bare model name; anything it cannot find
-#                     it silently re-downloads from GitHub on every render.
-#
-# Both are relative to the working directory, which is /app in the containers - the
-# `.:/app` bind mount - so a download here lands on the host and survives rebuilds.
-
-
 @dataclass(frozen=True)
 class Checkpoint:
     name: str
@@ -120,9 +106,6 @@ class Command(BaseCommand):
             os.makedirs(checkpoint.dest_dir, exist_ok=True)
             self.stdout.write(f"downloading: {path}")
 
-            # Download beside the target and rename into place, so an interrupted run
-            # never leaves a half-written file that the next start would treat as
-            # present. os.replace is atomic within a filesystem.
             handle, tmp_path = tempfile.mkstemp(
                 dir=checkpoint.dest_dir, prefix=f".{checkpoint.name}.", suffix=".part"
             )
