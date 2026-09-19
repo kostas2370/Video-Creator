@@ -88,7 +88,6 @@ def tts_from_open_api(text, save_path, voice="onyx", user=None):
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
-    # Explicit wav: the API defaults to mp3, which this writes to a .wav path.
     response = client.audio.speech.create(
         model="tts-1", voice=voice, input=text, response_format="wav"
     )
