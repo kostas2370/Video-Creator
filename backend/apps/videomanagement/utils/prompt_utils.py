@@ -45,13 +45,16 @@ def format_prompt(
         target_audience = " Select an appropriate target audience."
 
     output = (
-        f"This is a request from Viddie application \n"
-        f"Write a scenario titled ' {title} ', that I will use to create a video required by my user\n"
+        f"This is a request from Viddie application.\n"
+        f"Write a scenario titled '{title}', that I will use to create a video required by my user.\n"
         f"The script should obey the following specifications:\n"
-        f"Video genre : {template_category} \n"
+        f"Video genre : {template_category}\n"
         f"The audience : {target_audience}\n"
-        f"Viddie's user prompt : {userprompt}  \n"
-        f"Structure : {template_format}"
+        f"Viddie's user prompt : {userprompt}\n"
+        f"Structure : {template_format}\n\n"
+        f"IMPORTANT INSTRUCTIONS FOR SCENES:\n"
+        f"- Provide vivid, highly detailed visual descriptions for every shot.\n"
+        f"- Ensure each scene visually flows logically into the next one (continuous motion, environment, and lighting)."
     )
     return output
 
@@ -77,11 +80,32 @@ def format_dalle_prompt(title: str, image_description: str) -> str:
     return f"Title : {title} \nImage Description:{image_description}"
 
 
-def format_sora_prompt(title: str, image_description: str, style: str = "") -> str:
-    parts = [f"Cinematic video shot: {image_description.strip()}"]
-    if title:
-        parts.append(f"From a video titled '{title}'.")
+def format_sora_prompt(
+    image_description: str,
+    next_scene_description: str = "",
+    title: str = "",
+    style: str = "",
+    camera_movement: str = "",
+) -> str:
+    """Formats a highly detailed prompt for video generation (e.g., Sora),
+
+    incorporating next-scene context for narrative and visual continuity.
+    """
+    parts = []
+    main_desc = image_description.strip()
     if style:
-        parts.append(style.strip())
+        main_desc += f", rendered in a {style.strip()} visual style"
+    parts.append(f"Cinematic video shot: {main_desc}.")
+
+    if camera_movement:
+        parts.append(f"Camera movement: {camera_movement.strip()}.")
+
+    if next_scene_description:
+        parts.append(
+            f"Seamlessly transition towards the upcoming scene: {next_scene_description.strip()}. "
+            f"Maintain consistent lighting, character features, and subject motion."
+        )
+    if title:
+        parts.append(f"Shot from the video titled '{title}'.")
 
     return " ".join(parts)

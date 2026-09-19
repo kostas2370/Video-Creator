@@ -298,7 +298,6 @@ class ProcessSceneTests(SimpleTestCase):
         self.assertEqual(black.duration, 3.0)
 
     def test_falls_back_to_black_when_the_visual_fails_to_load(self):
-        # One unreadable scene must not take the whole render down with it.
         scene_image = baker.prepare_recipe("videomanagement.video_scene_image")
         black = FakeClip()
 
@@ -442,8 +441,6 @@ class CreateSubtitleClipTests(SimpleTestCase):
 
 
 class MakeVideoTests(TestCase):
-    """The render itself, with every moviepy call stubbed out."""
-
     def setUp(self):
         self.video = baker.make_recipe("videomanagement.video", status="READY")
         self.scenes = baker.make_recipe(
