@@ -17,7 +17,6 @@ from .models import (
 template_prompt = Recipe(
     TemplatePrompt,
     title="a template",
-    category="EDUCATIONAL",
 )
 
 user_prompt = Recipe(UserPrompt, prompt="a prompt")

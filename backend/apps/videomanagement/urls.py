@@ -16,7 +16,6 @@ from django.urls import path
 router = routers.DefaultRouter()
 
 
-router.register("generate", GenerateView)
 router.register("video", VideoView)
 router.register("avatars", AvatarView)
 router.register("voices", VoiceView)
@@ -28,6 +27,7 @@ router.register("outro", OutroView)
 
 urlpatterns = [
     path("twitch_generate/", generate_twitch),
+    path("generate/", GenerateView.as_view(), name="generate"),
 ]
 
 
