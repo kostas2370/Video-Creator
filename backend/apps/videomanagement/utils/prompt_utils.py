@@ -1,6 +1,6 @@
 def format_prompt(
     template_format: str,
-    template_category: str,
+    genre: str,
     userprompt: str = "",
     title: str = "",
     target_audience: str = "",
@@ -12,7 +12,7 @@ def format_prompt(
     -----------
     template_format : str
         The structure/format of the video script.
-    template_category : str
+    genre : str
         The genre/category of the video.
     userprompt : str, optional
         The user's prompt or request. Default is an empty string.
@@ -48,7 +48,7 @@ def format_prompt(
         f"This is a request from Viddie application.\n"
         f"Write a scenario titled '{title}', that I will use to create a video required by my user.\n"
         f"The script should obey the following specifications:\n"
-        f"Video genre : {template_category}\n"
+        f"Video genre : {genre}\n"
         f"The audience : {target_audience}\n"
         f"Viddie's user prompt : {userprompt}\n"
         f"Structure : {template_format}\n\n"

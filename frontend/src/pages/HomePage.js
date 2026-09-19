@@ -20,7 +20,7 @@ const Home = () => {
 
 
   const [formData, setFormData] = useState({
-    template_id: "",
+    genre: "",
     avatar_selection: "",
     voice_id: "",
     message: "",
@@ -174,15 +174,15 @@ const Home = () => {
                     </div>
                     <div className="w-1/2">
                       <label
-                        htmlFor="template_id"
+                        htmlFor="genre"
                         className="block text-sm font-medium text-gray-900 dark:text-white"
                       >
                         Genre
                       </label>
                       <input
-                        name="template_id"
+                        name="genre"
                         type="text"
-                        id="template_id"
+                        id="genre"
                         placeholder="Comedy"
                         className="w-full p-2.5 mt-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         onChange={handleInputChange}

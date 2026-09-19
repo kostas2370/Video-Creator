@@ -81,7 +81,7 @@ class GenerateVideoTests(TestCase):
 
     def generate(self, **kwargs):
         params = dict(
-            template_id="",
+            genre="",
             message="cats",
             gpt_model="gpt-4",
             image_mode="WEB",

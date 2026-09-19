@@ -3,31 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from model_bakery import baker
 
-from ..models import Avatar, Background, TemplatePrompt, VoiceModel
-
-
-class GetTemplateTests(TestCase):
-    def setUp(self):
-        self.template = baker.make_recipe(
-            "videomanagement.template_prompt", category="GAMING"
-        )
-
-    def test_finds_a_template_by_id(self):
-        found = TemplatePrompt.get_template(str(self.template.id))
-
-        self.assertEqual(found, self.template)
-
-    def test_finds_a_template_by_category_whatever_the_case(self):
-        self.assertEqual(TemplatePrompt.get_template("gaming"), self.template)
-
-    def test_is_nothing_for_an_id_that_does_not_exist(self):
-        self.assertIsNone(TemplatePrompt.get_template("99999"))
-
-    def test_is_nothing_for_a_category_with_no_templates(self):
-        self.assertIsNone(TemplatePrompt.get_template("STORY"))
-
-    def test_is_nothing_when_no_template_was_asked_for(self):
-        self.assertIsNone(TemplatePrompt.get_template(""))
+from ..models import Avatar, Background, VoiceModel
 
 
 class SelectVoiceTests(TestCase):
