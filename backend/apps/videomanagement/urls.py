@@ -4,7 +4,7 @@ from .views.general_views import (
     AvatarView,
     VoiceView,
     SceneImageView,
-    TemplatePromptView
+    TemplatePromptView,
 )
 from .views.generate_view import GenerateView
 from .views.scene_view import SceneView

@@ -77,6 +77,7 @@ class FormatSoraPromptTests(SimpleTestCase):
 
         self.assertNotIn("titled", prompt)
 
+
 class OtherPromptTests(SimpleTestCase):
     def test_dalle_prompt_labels_the_title_and_description(self):
         prompt = format_dalle_prompt(title="Cats", image_description="a cat naps")

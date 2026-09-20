@@ -47,27 +47,20 @@ class AbstractModel(models.Model):
 
 class TemplatePrompt(AbstractModel):
     title = models.CharField(max_length=50, unique=True, blank=False)
-    
+
     # Preset generation fields with choices
     message = models.TextField(max_length=2000, blank=True, default="")
     voice_id = models.CharField(max_length=20, blank=True, null=True, default=None)
     gpt_model = models.CharField(
-        max_length=50, 
-        choices=GPT_MODEL_CHOICES, 
-        default=settings.DEFAULT_GPT_MODEL, 
-        blank=True
+        max_length=50,
+        choices=GPT_MODEL_CHOICES,
+        default=settings.DEFAULT_GPT_MODEL,
+        blank=True,
     )
     image_mode = models.CharField(
-        max_length=20, 
-        choices=IMAGE_MODE, 
-        default="WEB", 
-        blank=True
+        max_length=20, choices=IMAGE_MODE, default="WEB", blank=True
     )
-    style = models.CharField(
-        max_length=20, 
-        default="vivid", 
-        blank=True
-    )    
+    style = models.CharField(max_length=20, default="vivid", blank=True)
     music = models.CharField(max_length=500, blank=True, default="")
     target_audience = models.CharField(max_length=30, blank=True, default="")
     subtitles = models.BooleanField(default=False)
@@ -78,22 +71,39 @@ class TemplatePrompt(AbstractModel):
 
     # Foreign Key Relations
     avatar_selection = models.ForeignKey(
-        "Avatar", on_delete=models.SET_NULL, null=True, blank=True, related_name="template_prompts"
+        "Avatar",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
     )
     background = models.ForeignKey(
-        "Background", on_delete=models.SET_NULL, null=True, blank=True, related_name="template_prompts"
+        "Background",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
     )
     intro = models.ForeignKey(
-        "Intro", on_delete=models.SET_NULL, null=True, blank=True, related_name="template_prompts"
+        "Intro",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
     )
     outro = models.ForeignKey(
-        "Outro", on_delete=models.SET_NULL, null=True, blank=True, related_name="template_prompts"
+        "Outro",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
     )
 
     objects = models.Manager()
 
     def __str__(self):
         return self.title
+
 
 class Music(AbstractModel):
     name = models.CharField(max_length=140, blank=False)

@@ -46,7 +46,6 @@ outro = Recipe(Outro, name="an outro", file="media/other/outros/outro.mp4")
 
 background = Recipe(
     Background,
-    category="EDUCATIONAL",
     name="a background",
     file="media/other/backgrounds/bg.jpg",
     color="0,255,0",

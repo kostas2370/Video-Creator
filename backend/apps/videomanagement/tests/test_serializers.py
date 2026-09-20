@@ -13,8 +13,9 @@ from ..swagger_serializers import (
     GenerateSerializer,
     TwitchSerializer,
     VideoUpdateSerializer,
-    accepted_models,
 )
+
+from django.conf import settings
 
 
 class SceneSerializerTests(TestCase):
@@ -100,7 +101,7 @@ class GenerateSerializerTests(SerializerWithRequest):
         # Otherwise a custom DEFAULT_GPT_MODEL would be offered and then rejected.
         from django.conf import settings
 
-        self.assertIn(settings.DEFAULT_GPT_MODEL, accepted_models)
+        self.assertIn(settings.DEFAULT_GPT_MODEL, settings.ACCEPTED_MODELS)
 
     def test_never_reads_the_owner_from_the_payload(self):
         # A client that posted created_by used to attribute the video, and its cost,

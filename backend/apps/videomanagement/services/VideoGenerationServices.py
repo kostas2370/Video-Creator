@@ -22,7 +22,7 @@ def create_pending_video(
     created_by: get_user_model(),
     video_type: Literal["AI", "TWITCH"] = "AI",
     title: str = None,
-    genre: str = ""
+    genre: str = "",
 ) -> Video:
     """
     Create the Video row that `generate_video` will later fill in.
@@ -41,8 +41,7 @@ def create_pending_video(
         status="GENERATION",
         video_type=video_type,
         created_by=created_by,
-        genre=genre
-
+        genre=genre,
     )
 
 
@@ -63,7 +62,7 @@ def generate_video(
     narration: bool = True,
     provider: Union[str, None] = None,
     avatar_position: str = "top,right",
-    genre: str =""
+    genre: str = "",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -123,7 +122,6 @@ def generate_video(
     template_format = script_format(
         video=provider in video_providers, narration=narration
     )
- 
 
     prompt = format_prompt(
         template_format=template_format,

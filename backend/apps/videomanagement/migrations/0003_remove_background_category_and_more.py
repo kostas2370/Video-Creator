@@ -4,27 +4,26 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('videomanagement', '0002_remove_templateprompt_format_and_more'),
+        ("videomanagement", "0002_remove_templateprompt_format_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='background',
-            name='category',
+            model_name="background",
+            name="category",
         ),
         migrations.RemoveField(
-            model_name='templateprompt',
-            name='category',
+            model_name="templateprompt",
+            name="category",
         ),
         migrations.RemoveField(
-            model_name='userprompt',
-            name='template',
+            model_name="userprompt",
+            name="template",
         ),
         migrations.AddField(
-            model_name='video',
-            name='genre',
+            model_name="video",
+            name="genre",
             field=models.CharField(blank=True, max_length=20, null=True),
         ),
     ]
