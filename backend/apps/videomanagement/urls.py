@@ -4,6 +4,7 @@ from .views.general_views import (
     AvatarView,
     VoiceView,
     SceneImageView,
+    TemplatePromptView
 )
 from .views.generate_view import GenerateView
 from .views.scene_view import SceneView
@@ -23,6 +24,7 @@ router.register("scene", SceneView)
 router.register("scene_image", SceneImageView)
 router.register("intro", IntroView)
 router.register("outro", OutroView)
+router.register("template", TemplatePromptView)
 
 
 urlpatterns = [

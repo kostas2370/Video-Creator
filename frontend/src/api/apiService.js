@@ -18,7 +18,7 @@ const API_ENDPOINTS = {
     RENDER: (id) => `video/${id}/render_video/`,
     SCENE_GENERATE : (id) => `scene/${id}/generate/`,
     SCENE_IMAGE_GENERATE : (id) => `scene/${id}/generate_image_scene/`,
-
+    TEMPLATES : 'template/' ,
     INTRO_GET: (search = null) => `intro/${search ? `?search=${search}` : ''}`,
     OUTRO_GET: (search = null) => `outro/${search ? `?search=${search}` : ''}`,
     VIDEOS_GET: (search = null, page = null, id = null) => {
@@ -143,6 +143,7 @@ export const generateScene = async (id, data) => {return patchRequest(API_ENDPOI
 export const generateSceneImage = async (id, data) => {return postRequest(API_ENDPOINTS.SCENE_IMAGE_GENERATE(id), data)}
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
 export const getVoices = async () => {return getRequest(API_ENDPOINTS.VOICES);}
+export const getTemplates = async () => {return getRequest(API_ENDPOINTS.TEMPLATES)}
 export const getIntro = async (search = null) => {return getRequest(API_ENDPOINTS.INTRO_GET(search));}
 export const getOutro = async (search = null) => {return getRequest(API_ENDPOINTS.OUTRO_GET(search));}
 export const getVideos = async (search = null, page = null) => {return getRequest(API_ENDPOINTS.VIDEOS_GET(search, page));}
