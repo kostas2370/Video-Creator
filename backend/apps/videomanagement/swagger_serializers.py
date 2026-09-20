@@ -1,13 +1,16 @@
 from django.conf import settings
 from rest_framework import serializers
 
+
 class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required=True, max_length=2000)
     voice_id = serializers.CharField(
         required=False, max_length=20, default=None, allow_blank=True, allow_null=True
     )
     gpt_model = serializers.ChoiceField(
-        required=False, choices=settings.ACCEPTED_MODELS, default=settings.DEFAULT_GPT_MODEL
+        required=False,
+        choices=settings.ACCEPTED_MODELS,
+        default=settings.DEFAULT_GPT_MODEL,
     )
     image_mode = serializers.ChoiceField(
         required=False, choices=["AI", "WEB", False], default="WEB"

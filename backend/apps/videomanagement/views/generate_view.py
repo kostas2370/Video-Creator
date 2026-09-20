@@ -17,14 +17,17 @@ class GenerateView(APIView):
 
     @swagger_auto_schema(...)
     def post(self, request):
-        serializer = GenerateSerializer(data=request.data, context={'request': request})
+        serializer = GenerateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
         params = dict(serializer.validated_data)
         created_by = params.pop("created_by")
 
         video = create_pending_video(
-            message=params["message"], created_by=created_by, video_type="AI", genre=params.get("genre")
+            message=params["message"],
+            created_by=created_by,
+            video_type="AI",
+            genre=params.get("genre"),
         )
         generate_video_task.delay(video_id=video.id, **params)
 
