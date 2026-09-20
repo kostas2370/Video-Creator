@@ -38,7 +38,7 @@ class SelectAvatarTests(TestCase):
 
 class SelectBackgroundTests(TestCase):
     def test_picks_from_the_category_that_was_asked_for(self):
-        wanted = baker.make_recipe("videomanagement.background", category="GAMING")
+        wanted = baker.make_recipe("videomanagement.background")
         baker.make_recipe("videomanagement.background", category="STORY")
 
         self.assertEqual(Background.select_background("GAMING"), wanted)
