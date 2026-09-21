@@ -57,6 +57,13 @@ class AvatarSerializerTests(TestCase):
 
         self.assertEqual(AvatarSerializer(natasha).data["sample"], natasha.voice.sample)
 
+    def test_survives_an_avatar_whose_voice_has_been_deleted(self):
+        orphan = avatar.make()
+        orphan.voice.delete()
+        orphan.refresh_from_db()
+
+        self.assertEqual(AvatarSerializer(orphan).data["sample"], "")
+
 
 class SerializerWithRequest(TestCase):
     """created_by is a HiddenField fed by the request, so one has to be in context."""

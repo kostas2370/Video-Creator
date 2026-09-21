@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import urllib.request
 import uuid
 
@@ -66,6 +67,6 @@ def generate_from_diffusion(
 
     response = requests.post(url, headers=headers, data=payload)
     image = response.json()["output"][0]
-    filename = str(uuid.uuid4())
-    urllib.request.urlretrieve(image, f"{dir_name}\\{filename}.png")
-    return f"{dir_name}\\{filename}.png"
+    saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
+    urllib.request.urlretrieve(image, saved)
+    return saved

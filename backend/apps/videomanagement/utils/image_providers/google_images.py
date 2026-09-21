@@ -1,4 +1,5 @@
 import logging
+import os
 import urllib.request
 import uuid
 from typing import Union
@@ -67,13 +68,13 @@ def download(q: str, amt: int = 1, path: str = "", user=None) -> Union[str, None
         else data["items"][select_from_vision(q, urls, user=user)]["link"]
     )
 
-    filename = str(uuid.uuid4())
     filetype = (
         ".png" if "png" in image_url else ".gif" if "gif" in image_url else ".jpg"
     )
-    urllib.request.urlretrieve(image_url, f"{path}\\{filename}{filetype}")
+    saved = os.path.join(path, f"{uuid.uuid4()}{filetype}")
+    urllib.request.urlretrieve(image_url, saved)
 
-    return f"{path}\\{filename}{filetype}"
+    return saved
 
 
 def download_image_from_google(
