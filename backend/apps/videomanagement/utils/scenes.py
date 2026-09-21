@@ -4,7 +4,7 @@ import uuid
 from moviepy.editor import AudioFileClip, VideoFileClip
 
 from .image_providers import resolve
-from .prompt_utils import scene_text
+from .prompt_utils import script_lines
 from .composer.overlay import add_text_to_video
 from .file_utils import check_if_video, stored_file_exists
 from ..models import Scene, SceneImage, Video
@@ -182,27 +182,27 @@ def create_image_scenes(
     dir_name = video.dir_name
     with_audio = not (video.settings or {}).get("narration", True)
     reference = None
-    for scene in video.gpt_answer["scenes"]:
-        for sentence in scene["sentences"]:
-            if already_illustrated(video, scene_text(sentence)):
-                continue
 
-            produced = create_image_scene(
-                prompt=video.prompt,
-                image=sentence["image_description"],
-                text=scene_text(sentence),
-                dir_name=dir_name,
-                mode=mode,
-                style=style,
-                title=video.title,
-                provider=provider,
-                reference=reference,
-                with_audio=with_audio,
-                user=video.created_by,
-            )
+    for line in script_lines(video.gpt_answer):
+        if already_illustrated(video, line.text):
+            continue
 
-            if reference is None and produced:
-                reference = still_from_video(produced, f"{dir_name}/images/")
+        produced = create_image_scene(
+            prompt=video.prompt,
+            image=line.image_description,
+            text=line.text,
+            dir_name=dir_name,
+            mode=mode,
+            style=style,
+            title=video.title,
+            provider=provider,
+            reference=reference,
+            with_audio=with_audio,
+            user=video.created_by,
+        )
+
+        if reference is None and produced:
+            reference = still_from_video(produced, f"{dir_name}/images/")
 
 
 def generate_new_image(
