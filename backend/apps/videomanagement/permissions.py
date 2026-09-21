@@ -4,7 +4,7 @@ from .models import Scene, SceneImage, Video
 
 class IsOwnerPermission(BasePermission):
     def has_object_permission(self, request, view, obj):
-        if not request.user.is_authenticated and not request.user.is_active:
+        if not request.user.is_authenticated or not request.user.is_active:
             return False
 
         if isinstance(obj, Scene):

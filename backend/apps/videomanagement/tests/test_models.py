@@ -8,7 +8,27 @@ from ..baker_recipes import (
     video,
     voice_model,
 )
-from ..models import Avatar, Background, VoiceModel
+from ..models import Avatar, Background, UserPrompt, Video, VoiceModel
+
+
+class VideoDefaultsTests(TestCase):
+    def test_a_new_video_points_at_no_voice_rather_than_at_row_1(self):
+        fresh = Video.objects.create(
+            title="cats", prompt=UserPrompt.objects.create(prompt="cats")
+        )
+
+        self.assertIsNone(fresh.voice_model_id)
+        self.assertIsNone(fresh.voice_model)
+
+    def test_each_video_gets_its_own_settings_dict(self):
+        first, second = Video(), Video()
+
+        self.assertIsNot(first.settings, second.settings)
+
+        first.settings["subtitles"] = True
+
+        self.assertFalse(second.settings["subtitles"])
+        self.assertFalse(Video().settings["subtitles"])
 
 
 class SelectVoiceTests(TestCase):

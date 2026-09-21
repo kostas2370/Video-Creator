@@ -47,6 +47,19 @@ class IsOwnerPermissionTests(PermissionTestCase):
     def test_keeps_an_anonymous_visitor_out(self):
         self.assertFalse(self.check(AnonymousUser(), self.video))
 
+    def test_keeps_a_deactivated_owner_out(self):
+        self.owner.is_active = False
+        self.owner.save()
+
+        self.assertFalse(self.check(self.owner, self.video))
+
+    def test_keeps_a_deactivated_superuser_out(self):
+        admin = superuser.make()
+        admin.is_active = False
+        admin.save()
+
+        self.assertFalse(self.check(admin, self.video))
+
     def test_resolves_a_scene_back_to_the_video_that_owns_it(self):
         line = scene.make(prompt=self.video.prompt)
 

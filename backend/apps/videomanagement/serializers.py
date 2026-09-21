@@ -42,11 +42,9 @@ class SceneSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_scene_image(self, obj):
-        img = SceneImage.objects.filter(scene_id=obj.id)
-        if img.count() == 0:
-            return ""
+        image = next(iter(obj.scene_images.all()), None)
 
-        return SceneImageSerializer(img.first()).data
+        return SceneImageSerializer(image).data if image else ""
 
 
 class VoiceModelSerializer(serializers.ModelSerializer):
@@ -70,7 +68,7 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_sample(self, obj):
-        return obj.voice.sample
+        return obj.voice.sample if obj.voice else ""
 
 
 class UserPromptSerializer(serializers.ModelSerializer):

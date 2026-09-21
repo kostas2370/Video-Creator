@@ -1,4 +1,5 @@
 import logging
+import os
 import urllib.request
 import uuid
 
@@ -61,6 +62,6 @@ def generate_from_midjourney(
         headers,
     ).json()["uri"]
 
-    filename = str(uuid.uuid4())
-    urllib.request.urlretrieve(image, f"{dir_name}\\{filename}.png")
-    return f"{dir_name}\\{filename}.png"
+    saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
+    urllib.request.urlretrieve(image, saved)
+    return saved
