@@ -19,6 +19,7 @@ const API_ENDPOINTS = {
     SCENE_GENERATE : (id) => `scenes/${id}/generate/`,
     SCENE_IMAGE_GENERATE : (id) => `scenes/${id}/generate_image_scene/`,
     TEMPLATES : 'templates/' ,
+    TEMPLATE_SELECT: (id) => `templates/${id}/`,
     INTRO_GET: (search = null) => `intros/${search ? `?search=${search}` : ''}`,
     OUTRO_GET: (search = null) => `outros/${search ? `?search=${search}` : ''}`,
     VIDEOS_GET: (search = null, page = null, id = null) => {
@@ -93,6 +94,7 @@ export const deleteIntro = async (id) => {return deleteRequest(API_ENDPOINTS.INT
 export const deleteOutro = async (id) => {return deleteRequest(API_ENDPOINTS.OUTRO_SELECT(id))}
 export const deleteImageScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_IMAGE_SELECT(id))}
 export const deleteScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_SELECT(id))}
+export const deleteTemplate = async (id) => {return deleteRequest(API_ENDPOINTS.TEMPLATE_SELECT(id))}
 
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
 export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data, axiosPrivateInstance, JSON_CONFIG)}
@@ -144,6 +146,22 @@ export const generateSceneImage = async (id, data) => {return postRequest(API_EN
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
 export const getVoices = async () => {return getRequest(API_ENDPOINTS.VOICES);}
 export const getTemplates = async () => {return getRequest(API_ENDPOINTS.TEMPLATES)}
+export const createTemplate = async (data) => {
+    try {
+        const response = await axiosPrivateInstance.post(API_ENDPOINTS.TEMPLATES, data);
+        return { ok: true, template: response.data };
+    } catch (error) {
+        console.error("Error saving the template:", error);
+        const detail = error?.response?.data;
+        const firstField = detail && Object.values(detail)[0];
+        return {
+            ok: false,
+            status: error?.response?.status,
+            message: (Array.isArray(firstField) ? firstField[0] : firstField)
+                || "The template could not be saved",
+        };
+    }
+}
 export const getIntro = async (search = null) => {return getRequest(API_ENDPOINTS.INTRO_GET(search));}
 export const getOutro = async (search = null) => {return getRequest(API_ENDPOINTS.OUTRO_GET(search));}
 export const getVideos = async (search = null, page = null) => {return getRequest(API_ENDPOINTS.VIDEOS_GET(search, page));}
