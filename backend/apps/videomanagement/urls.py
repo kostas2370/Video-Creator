@@ -4,6 +4,7 @@ from .views.general_views import (
     AvatarView,
     VoiceView,
     SceneImageView,
+    TemplatePromptView,
 )
 from .views.generate_view import GenerateView
 from .views.scene_view import SceneView
@@ -16,18 +17,19 @@ from django.urls import path
 router = routers.DefaultRouter()
 
 
-router.register("generate", GenerateView)
-router.register("video", VideoView)
+router.register("videos", VideoView)
 router.register("avatars", AvatarView)
 router.register("voices", VoiceView)
-router.register("scene", SceneView)
-router.register("scene_image", SceneImageView)
-router.register("intro", IntroView)
-router.register("outro", OutroView)
+router.register("scenes", SceneView)
+router.register("scene_images", SceneImageView)
+router.register("intros", IntroView)
+router.register("outros", OutroView)
+router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
-    path("twitch_generate/", generate_twitch),
+    path("twitch_generate/", generate_twitch, name="twitch_generate"),
+    path("generate/", GenerateView.as_view(), name="generate"),
 ]
 
 

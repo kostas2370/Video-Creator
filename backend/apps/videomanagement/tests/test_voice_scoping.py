@@ -1,30 +1,31 @@
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, override_settings
-from model_bakery import baker
+from django.urls import reverse
 from rest_framework.test import APIClient
 
-from ..models import VoiceModel
+from apps.apikeysmanagement.baker_recipes import api_keys
+from apps.usermanagement.baker_recipes import superuser, user
 
-URL = "/api/voices/"
+from ..baker_recipes import voice_model
+from ..models import VoiceModel
 
 
 def a_voice(**kwargs):
-    return baker.make_recipe("videomanagement.voice_model", **kwargs)
+    return voice_model.make(**kwargs)
 
 
 class AvailableToTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
+        self.user = user.make()
         self.shared = a_voice(created_by=None)
         self.mine = a_voice(created_by=self.user, provider="eleven_labs")
         self.theirs = a_voice(
-            created_by=baker.make_recipe("usermanagement.user"),
+            created_by=user.make(),
             provider="eleven_labs",
         )
 
     def opted_out(self, **keys):
-        baker.make_recipe(
-            "apikeysmanagement.api_keys",
+        api_keys.make(
             user=self.user,
             **{"openai_key": "sk-mine", "elevenlabs_key": "xi-mine", **keys},
         )
@@ -69,12 +70,12 @@ class AvailableToTests(TestCase):
 
 class KeyGatedVoiceTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
+        self.user = user.make()
         self.openai = a_voice(provider="open_ai", name="alloy", created_by=None)
         self.labs = a_voice(provider="eleven_labs", name="Rachel", created_by=None)
 
     def opt_out_with(self, **keys):
-        baker.make_recipe("apikeysmanagement.api_keys", user=self.user, **keys)
+        api_keys.make(user=self.user, **keys)
         self.user.use_service_api_keys = False
         self.user.save(update_fields=["use_service_api_keys"])
         return self.user
@@ -142,9 +143,8 @@ class KeyGatedVoiceTests(TestCase):
 
 class VoiceViewTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
-        baker.make_recipe(
-            "apikeysmanagement.api_keys",
+        self.user = user.make()
+        api_keys.make(
             user=self.user,
             openai_key="sk-mine",
             elevenlabs_key="xi-mine",
@@ -156,35 +156,41 @@ class VoiceViewTests(TestCase):
         self.client.force_authenticate(self.user)
 
         self.shared = a_voice(created_by=None)
-        self.theirs = a_voice(created_by=baker.make_recipe("usermanagement.user"))
+        self.theirs = a_voice(created_by=user.make())
 
     def test_lists_the_shared_voices_and_your_own_only(self):
         mine = a_voice(created_by=self.user)
 
-        ids = [voice["id"] for voice in self.client.get(URL).data]
+        ids = [
+            voice["id"] for voice in self.client.get(reverse("voicemodel-list")).data
+        ]
 
         self.assertCountEqual(ids, [self.shared.id, mine.id])
 
     def test_will_not_serve_another_users_voice(self):
-        self.assertEqual(self.client.get(f"{URL}{self.theirs.id}/").status_code, 404)
+        response = self.client.get(reverse("voicemodel-detail", args=[self.theirs.id]))
+
+        self.assertEqual(response.status_code, 404)
 
     def test_will_not_let_anyone_delete_a_shared_voice(self):
-        self.client.delete(f"{URL}{self.shared.id}/")
+        self.client.delete(reverse("voicemodel-detail", args=[self.shared.id]))
 
         self.assertTrue(VoiceModel.objects.filter(pk=self.shared.pk).exists())
 
     def test_lets_you_delete_your_own(self):
         mine = a_voice(created_by=self.user)
 
-        self.assertEqual(self.client.delete(f"{URL}{mine.id}/").status_code, 204)
+        response = self.client.delete(reverse("voicemodel-detail", args=[mine.id]))
+
+        self.assertEqual(response.status_code, 204)
 
     @override_settings(OPEN_API_KEY="", XI_API_KEY="")
     def test_offers_a_superuser_nothing_they_have_no_key_for(self):
-        superuser = baker.make_recipe("usermanagement.superuser")
-        superuser.use_service_api_keys = False
-        superuser.save(update_fields=["use_service_api_keys"])
+        admin = superuser.make()
+        admin.use_service_api_keys = False
+        admin.save(update_fields=["use_service_api_keys"])
 
         client = APIClient()
-        client.force_authenticate(superuser)
+        client.force_authenticate(admin)
 
-        self.assertEqual(client.get(URL).data, [])
+        self.assertEqual(client.get(reverse("voicemodel-list")).data, [])

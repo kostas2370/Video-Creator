@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getAvatars, getVoices } from "../api/apiService";
+import { getAvatars, getTemplates, getVoices } from "../api/apiService";
 import { toast } from "react-toastify";
 import { generateVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
@@ -7,20 +7,24 @@ import { LoadingButton } from "../components/ui/LoadingButton";
 import { ProceedModal } from "../components/ProceedModal";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
+const inputClassName =
+  "w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500";
+
 const Home = () => {
   const isOpenFunction = (data) => {
     setOpen(data);
   };
   const [avatars, setAvatars] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [voices, setVoices] = useState([]);
   const [settings, setSettings] = useState(false);
   const [open, setOpen] = useState(false);
   const [video_id, setVideo_id] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-
   const [formData, setFormData] = useState({
-    template_id: "",
+    genre: "",
+    template: "",
     avatar_selection: "",
     voice_id: "",
     message: "",
@@ -32,20 +36,54 @@ const Home = () => {
     provider: "",
     subtitles: true,
     narration: true,
-    avatar_position:"top,left"
+    avatar_position: "top,left",
   });
 
- const axiosPrivateInstance = useAxiosPrivate()
- const pollRef = useRef(null);
+  const axiosPrivateInstance = useAxiosPrivate();
+  const pollRef = useRef(null);
 
- useEffect(() => () => pollRef.current?.cancel(), []);
+  useEffect(() => () => pollRef.current?.cancel(), []);
 
   const handleInputChange = (event) => {
     const { name, value, type, checked } = event.target;
+
     if (type === "checkbox") {
       setFormData((prevData) => ({ ...prevData, [name]: checked }));
       return;
     }
+
+    if (name === "template") {
+      const selectedTemplate = templates.find(
+        (t) => String(t.id) === String(value)
+      );
+
+      if (selectedTemplate) {
+        setFormData((prevData) => ({
+          ...prevData,
+          template: selectedTemplate.id,
+          message: selectedTemplate.message ?? prevData.message,
+          genre: selectedTemplate.genre ?? "",
+          target_audience: selectedTemplate.target_audience ?? "",
+          avatar_selection: selectedTemplate.avatar_selection ?? "",
+          voice_id: selectedTemplate.voice_id ?? "",
+          gpt_model: selectedTemplate.gpt_model ?? prevData.gpt_model,
+          image_mode: selectedTemplate.image_mode ?? prevData.image_mode,
+          style: selectedTemplate.style ?? prevData.style,
+          music: selectedTemplate.music ?? "",
+          provider:
+            selectedTemplate.provider ??
+            (selectedTemplate.image_mode === "AI" ? "DALL-E" : "bing"),
+          subtitles: selectedTemplate.subtitles ?? prevData.subtitles,
+          narration: selectedTemplate.narration ?? prevData.narration,
+          avatar_position:
+            selectedTemplate.avatar_position ?? prevData.avatar_position,
+        }));
+      } else {
+        setFormData((prevData) => ({ ...prevData, template: "" }));
+      }
+      return;
+    }
+
     if (name === "image_mode") {
       setFormData((prevData) => ({
         ...prevData,
@@ -59,7 +97,7 @@ const Home = () => {
         voice_id: value ? "" : prevData.voice_id,
       }));
     } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData((prevData) => ({ ...prevData, [name]: value }));
     }
   };
 
@@ -71,6 +109,9 @@ const Home = () => {
 
       getVoices().then((response) => {
         setVoices(Array.isArray(response) ? response : []);
+      });
+      getTemplates().then((response) => {
+        setTemplates(Array.isArray(response) ? response : []);
       });
     };
 
@@ -136,7 +177,8 @@ const Home = () => {
               <textarea
                 name="message"
                 id="message"
-                className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                value={formData.message}
+                className={inputClassName}
                 placeholder="Make me a video about potatoes"
                 rows="6"
                 required
@@ -155,6 +197,31 @@ const Home = () => {
             {settings && (
               <div className="p-4 mt-4 bg-white rounded shadow-md dark:bg-gray-700">
                 <div className="flex flex-col space-y-4">
+                  {/* Template - Full width row */}
+                  <div className="w-full">
+                    <label
+                      htmlFor="template"
+                      className="block text-sm font-medium text-gray-900 dark:text-white"
+                    >
+                      Template
+                    </label>
+                    <select
+                      name="template"
+                      id="template"
+                      value={formData.template}
+                      className={inputClassName}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">None</option>
+                      {templates?.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Target Audience & Genre row */}
                   <div className="flex space-x-4">
                     <div className="w-1/2">
                       <label
@@ -167,28 +234,31 @@ const Home = () => {
                         name="target_audience"
                         type="text"
                         id="target_audience"
+                        value={formData.target_audience}
                         placeholder="Teens"
-                        className="w-full p-2.5 mt-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        className={inputClassName}
                         onChange={handleInputChange}
                       />
                     </div>
                     <div className="w-1/2">
                       <label
-                        htmlFor="template_id"
+                        htmlFor="genre"
                         className="block text-sm font-medium text-gray-900 dark:text-white"
                       >
                         Genre
                       </label>
                       <input
-                        name="template_id"
+                        name="genre"
                         type="text"
-                        id="template_id"
+                        id="genre"
+                        value={formData.genre}
                         placeholder="Comedy"
-                        className="w-full p-2.5 mt-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        className={inputClassName}
                         onChange={handleInputChange}
                       />
                     </div>
                   </div>
+
                   <div className="flex space-x-4">
                     <div className="w-1/2">
                       <label
@@ -200,7 +270,8 @@ const Home = () => {
                       <select
                         name="avatar_selection"
                         id="avatar_selection"
-                        className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                        value={formData.avatar_selection}
+                        className={inputClassName}
                         onChange={handleInputChange}
                       >
                         <option value="">No Avatar</option>
@@ -223,7 +294,7 @@ const Home = () => {
                             name="voice_id"
                             id="voice_id"
                             value={formData.voice_id}
-                            className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                            className={inputClassName}
                             onChange={handleInputChange}
                           >
                             <option value="">Any voice</option>
@@ -247,7 +318,8 @@ const Home = () => {
                       <select
                         name="gpt_model"
                         id="gpt_model"
-                        className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                        value={formData.gpt_model}
+                        className={inputClassName}
                         onChange={handleInputChange}
                       >
                         <optgroup label="OpenAI">
@@ -306,7 +378,8 @@ const Home = () => {
                       <select
                         name="image_mode"
                         id="image_mode"
-                        className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                        value={formData.image_mode}
+                        className={inputClassName}
                         onChange={handleInputChange}
                       >
                         <option value="WEB">WEB</option>
@@ -323,7 +396,8 @@ const Home = () => {
                       <select
                         name="provider"
                         id="provider"
-                        className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                        value={formData.provider}
+                        className={inputClassName}
                         onChange={handleInputChange}
                       >
                         {formData.image_mode === "AI" ? (
@@ -374,8 +448,9 @@ const Home = () => {
                       type="url"
                       name="music"
                       id="music"
+                      value={formData.music}
                       placeholder="https://www.youtube.com/watch?v=JaZgHHDS5x0&list=RDJaZgHHDS5x0"
-                      className="w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                      className={inputClassName}
                       onChange={handleInputChange}
                     />
                   </div>

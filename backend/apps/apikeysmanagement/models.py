@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
-from functools import partial
+
 
 class Provider(models.TextChoices):
     OPENAI = "OPENAI", "OpenAI"

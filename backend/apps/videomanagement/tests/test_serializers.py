@@ -1,7 +1,9 @@
 from django.test import TestCase
-from model_bakery import baker
 from rest_framework.test import APIRequestFactory
 
+from apps.usermanagement.baker_recipes import user
+
+from ..baker_recipes import avatar, music, scene, scene_image, video
 from ..serializers import (
     AvatarSerializer,
     SceneSerializer,
@@ -13,57 +15,54 @@ from ..swagger_serializers import (
     GenerateSerializer,
     TwitchSerializer,
     VideoUpdateSerializer,
-    accepted_models,
 )
 
 
 class SceneSerializerTests(TestCase):
     def test_carries_the_scenes_visual_alongside_it(self):
-        scene = baker.make_recipe("videomanagement.scene")
-        baker.make_recipe("videomanagement.scene_image", scene=scene)
+        line = scene.make()
+        scene_image.make(scene=line)
 
-        data = SceneSerializer(scene).data
+        data = SceneSerializer(line).data
 
         self.assertEqual(data["scene_image"]["prompt"], "an image description")
 
     def test_reports_no_visual_rather_than_failing_when_there_is_none(self):
-        scene = baker.make_recipe("videomanagement.scene")
+        line = scene.make()
 
-        self.assertEqual(SceneSerializer(scene).data["scene_image"], "")
+        self.assertEqual(SceneSerializer(line).data["scene_image"], "")
 
 
 class VideoSerializerTests(TestCase):
     def test_names_the_music_rather_than_nesting_it(self):
-        video = baker.make_recipe(
-            "videomanagement.video", music=baker.make_recipe("videomanagement.music")
-        )
+        with_music = video.make(music=music.make())
 
-        self.assertEqual(VideoSerializer(video).data["music"], "a song")
+        self.assertEqual(VideoSerializer(with_music).data["music"], "a song")
 
     def test_reports_no_music_rather_than_null(self):
-        video = baker.make_recipe("videomanagement.video", music=None)
+        silent = video.make(music=None)
 
-        self.assertEqual(VideoSerializer(video).data["music"], "")
+        self.assertEqual(VideoSerializer(silent).data["music"], "")
 
     def test_the_detail_view_carries_every_scene(self):
-        video = baker.make_recipe("videomanagement.video")
-        baker.make_recipe("videomanagement.scene", prompt=video.prompt, _quantity=3)
+        with_scenes = video.make()
+        scene.make(prompt=with_scenes.prompt, _quantity=3)
 
-        self.assertEqual(len(VideoNestedSerializer(video).data["scenes"]), 3)
+        self.assertEqual(len(VideoNestedSerializer(with_scenes).data["scenes"]), 3)
 
 
 class AvatarSerializerTests(TestCase):
     def test_offers_the_voices_sample_so_a_client_can_play_it(self):
-        avatar = baker.make_recipe("videomanagement.avatar")
+        natasha = avatar.make()
 
-        self.assertEqual(AvatarSerializer(avatar).data["sample"], avatar.voice.sample)
+        self.assertEqual(AvatarSerializer(natasha).data["sample"], natasha.voice.sample)
 
 
 class SerializerWithRequest(TestCase):
     """created_by is a HiddenField fed by the request, so one has to be in context."""
 
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
+        self.user = user.make()
         request = APIRequestFactory().post("/")
         request.user = self.user
         self.context = {"request": request}
@@ -100,12 +99,12 @@ class GenerateSerializerTests(SerializerWithRequest):
         # Otherwise a custom DEFAULT_GPT_MODEL would be offered and then rejected.
         from django.conf import settings
 
-        self.assertIn(settings.DEFAULT_GPT_MODEL, accepted_models)
+        self.assertIn(settings.DEFAULT_GPT_MODEL, settings.ACCEPTED_MODELS)
 
     def test_never_reads_the_owner_from_the_payload(self):
         # A client that posted created_by used to attribute the video, and its cost,
         # to another account.
-        stranger = baker.make_recipe("usermanagement.user")
+        stranger = user.make()
 
         serializer = self.valid(created_by=stranger.id)
 

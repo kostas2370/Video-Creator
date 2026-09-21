@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from django.core.management import BaseCommand
 
+
 @dataclass(frozen=True)
 class Checkpoint:
     name: str

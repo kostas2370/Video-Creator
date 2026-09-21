@@ -4,19 +4,11 @@ from django.contrib.auth import get_user_model
 from random import randint
 from typing import Union
 from django_resized import ResizedImageField
-
+from django.conf import settings
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
 from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.tasks import send_email
-
-TEMPLATE_CHOICES = (
-    ("EDUCATIONAL", "Educational"),
-    ("GAMING", "Gaming"),
-    ("ADVERTISEMENT", "Advertisement"),
-    ("STORY", "Story"),
-    ("OTHER", "Other"),
-)
 
 MODEL_TYPE_CHOICES = (("API", "Api"),)
 
@@ -26,6 +18,7 @@ VOICE_PROVIDER_KEYS = {
     "60db": Provider.SIXTYDB,
 }
 
+GPT_MODEL_CHOICES = [(model, model) for model in settings.ACCEPTED_MODELS]
 ACCOUNT_SCOPED_VOICE_PROVIDERS = ("eleven_labs", "60db")
 
 VIDEO_STATUS = (
@@ -53,25 +46,63 @@ class AbstractModel(models.Model):
 
 
 class TemplatePrompt(AbstractModel):
-    title = models.CharField(max_length=20, blank=False)
-    category = models.CharField(choices=TEMPLATE_CHOICES, max_length=20, null=True)
+    title = models.CharField(max_length=50, unique=True, blank=False)
+
+    # Preset generation fields with choices
+    message = models.TextField(max_length=2000, blank=True, default="")
+    voice_id = models.CharField(max_length=20, blank=True, null=True, default=None)
+    gpt_model = models.CharField(
+        max_length=50,
+        choices=GPT_MODEL_CHOICES,
+        default=settings.DEFAULT_GPT_MODEL,
+        blank=True,
+    )
+    image_mode = models.CharField(
+        max_length=20, choices=IMAGE_MODE, default="WEB", blank=True
+    )
+    style = models.CharField(max_length=20, default="vivid", blank=True)
+    music = models.CharField(max_length=500, blank=True, default="")
+    target_audience = models.CharField(max_length=30, blank=True, default="")
+    subtitles = models.BooleanField(default=False)
+    narration = models.BooleanField(default=True)
+    provider = models.CharField(max_length=50, blank=True, null=True, default=None)
+    avatar_position = models.CharField(max_length=50, blank=True, default="right,top")
+    genre = models.CharField(max_length=50, blank=True, default="")
+
+    # Foreign Key Relations
+    avatar_selection = models.ForeignKey(
+        "Avatar",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
+    )
+    background = models.ForeignKey(
+        "Background",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
+    )
+    intro = models.ForeignKey(
+        "Intro",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
+    )
+    outro = models.ForeignKey(
+        "Outro",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_prompts",
+    )
+
     objects = models.Manager()
 
     def __str__(self):
         return self.title
-
-    @staticmethod
-    def get_template(template_select: str) -> Union[TemplatePrompt, None]:
-        if template_select.isnumeric():
-            template = TemplatePrompt.objects.filter(id=template_select)
-
-        elif len(template_select) > 0:
-            template = TemplatePrompt.objects.filter(category=template_select.upper())
-
-        else:
-            template = None
-
-        return template.first() if template and template.count() > 0 else None
 
 
 class Music(AbstractModel):
@@ -84,9 +115,6 @@ class Music(AbstractModel):
 
 
 class UserPrompt(models.Model):
-    template = models.ForeignKey(
-        TemplatePrompt, on_delete=models.CASCADE, blank=True, null=True
-    )
     prompt = models.TextField(blank=False)
     objects = models.Manager()
 
@@ -204,7 +232,6 @@ class Avatar(AbstractModel):
 
 
 class Background(AbstractModel):
-    category = models.CharField(max_length=30, choices=TEMPLATE_CHOICES)
     name = models.CharField(max_length=100)
     file = models.FileField(upload_to="media/other/backgrounds")
     color = models.CharField(max_length=30)
@@ -219,13 +246,10 @@ class Background(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_background(category: str = None) -> Background:
-        if category is not None:
-            back = Background.objects.filter(category=category)
-        else:
-            back = Background.objects.all()
+    def select_background() -> Background:
+        back = Background.objects.all()
 
-        return back[randint(0, back.count() - 1)]
+        return back[randint(0, back.count() - 1)] if back.exists() else None
 
 
 class Intro(AbstractModel):
@@ -247,6 +271,7 @@ class Video(LifecycleModelMixin, AbstractModel):
     prompt = models.ForeignKey(
         UserPrompt, related_name="video_prompt", on_delete=models.CASCADE
     )
+    genre = models.CharField(blank=True, null=True, max_length=20)
     output = models.FileField(
         upload_to="media/output", blank=True, null=True, max_length=2000
     )

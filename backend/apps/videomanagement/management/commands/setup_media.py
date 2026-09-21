@@ -35,7 +35,6 @@ class Command(BaseCommand):
                 )
 
                 Background.objects.create(
-                    category="OTHER",
                     name="basicbackground",
                     file="media/other/backgrounds/back.png",
                     color="0,163,232",

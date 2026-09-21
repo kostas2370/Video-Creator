@@ -1,46 +1,31 @@
 from unittest.mock import patch
 
 from django.test import TestCase
-from model_bakery import baker
 
-from ..models import Avatar, Background, TemplatePrompt, VoiceModel
+from apps.usermanagement.baker_recipes import user
 
-
-class GetTemplateTests(TestCase):
-    def setUp(self):
-        self.template = baker.make_recipe(
-            "videomanagement.template_prompt", category="GAMING"
-        )
-
-    def test_finds_a_template_by_id(self):
-        found = TemplatePrompt.get_template(str(self.template.id))
-
-        self.assertEqual(found, self.template)
-
-    def test_finds_a_template_by_category_whatever_the_case(self):
-        self.assertEqual(TemplatePrompt.get_template("gaming"), self.template)
-
-    def test_is_nothing_for_an_id_that_does_not_exist(self):
-        self.assertIsNone(TemplatePrompt.get_template("99999"))
-
-    def test_is_nothing_for_a_category_with_no_templates(self):
-        self.assertIsNone(TemplatePrompt.get_template("STORY"))
-
-    def test_is_nothing_when_no_template_was_asked_for(self):
-        self.assertIsNone(TemplatePrompt.get_template(""))
+from ..baker_recipes import (
+    avatar,
+    background,
+    music,
+    template_prompt,
+    video,
+    voice_model,
+)
+from ..models import Avatar, Background, VoiceModel
 
 
 class SelectVoiceTests(TestCase):
     def test_picks_one_of_the_voices_on_file(self):
-        voices = baker.make_recipe("videomanagement.voice_model", _quantity=3)
+        voices = voice_model.make(_quantity=3)
 
         self.assertIn(VoiceModel.select_voice(), voices)
 
 
 class SelectAvatarTests(TestCase):
     def setUp(self):
-        self.voice = baker.make_recipe("videomanagement.voice_model")
-        self.avatar = baker.make_recipe("videomanagement.avatar", voice=self.voice)
+        self.voice = voice_model.make()
+        self.avatar = avatar.make(voice=self.voice)
 
     def test_returns_the_avatar_that_was_asked_for(self):
         self.assertEqual(Avatar.select_avatar(selected=self.avatar.id), self.avatar)
@@ -52,8 +37,8 @@ class SelectAvatarTests(TestCase):
         self.assertEqual(Avatar.select_avatar(), self.avatar)
 
     def test_picks_at_random_from_the_ones_that_share_a_voice(self):
-        other_voice = baker.make_recipe("videomanagement.voice_model")
-        baker.make_recipe("videomanagement.avatar", voice=other_voice)
+        other_voice = voice_model.make()
+        avatar.make(voice=other_voice)
 
         picked = Avatar.select_avatar(selected="random", voice_model=self.voice)
 
@@ -61,16 +46,13 @@ class SelectAvatarTests(TestCase):
 
 
 class SelectBackgroundTests(TestCase):
-    def test_picks_from_the_category_that_was_asked_for(self):
-        wanted = baker.make_recipe("videomanagement.background", category="GAMING")
-        baker.make_recipe("videomanagement.background", category="STORY")
-
-        self.assertEqual(Background.select_background("GAMING"), wanted)
-
-    def test_picks_from_all_of_them_when_no_category_was_asked_for(self):
-        backgrounds = baker.make_recipe("videomanagement.background", _quantity=3)
+    def test_picks_one_of_the_backgrounds_on_file(self):
+        backgrounds = background.make(_quantity=3)
 
         self.assertIn(Background.select_background(), backgrounds)
+
+    def test_is_nothing_when_there_is_no_background_to_pick(self):
+        self.assertIsNone(Background.select_background())
 
 
 class StringRepresentationTests(TestCase):
@@ -78,47 +60,43 @@ class StringRepresentationTests(TestCase):
 
     def test_models_are_named_by_the_field_a_person_would_recognise(self):
         for recipe, attribute in (
-            ("videomanagement.template_prompt", "title"),
-            ("videomanagement.music", "name"),
-            ("videomanagement.voice_model", "name"),
-            ("videomanagement.avatar", "name"),
-            ("videomanagement.background", "name"),
-            ("videomanagement.video", "title"),
+            (template_prompt, "title"),
+            (music, "name"),
+            (voice_model, "name"),
+            (avatar, "name"),
+            (background, "name"),
+            (video, "title"),
         ):
-            with self.subTest(recipe=recipe):
-                instance = baker.prepare_recipe(recipe)
+            instance = recipe.prepare()
+            with self.subTest(model=type(instance).__name__):
                 self.assertEqual(str(instance), getattr(instance, attribute))
 
 
 class UserTests(TestCase):
     def test_issues_a_usable_token_pair(self):
-        user = baker.make_recipe("usermanagement.user")
-
-        tokens = user.get_tokens()
+        tokens = user.make().get_tokens()
 
         self.assertIn("access", tokens)
         self.assertIn("refresh", tokens)
 
     def test_reports_both_halves_of_the_name(self):
-        user = baker.prepare_recipe(
-            "usermanagement.user", first_name="Ada", last_name="Lovelace"
-        )
+        ada = user.prepare(first_name="Ada", last_name="Lovelace")
 
-        self.assertEqual(user.get_full_name(), "Ada Lovelace")
-        self.assertEqual(user.get_short_name(), "Ada")
+        self.assertEqual(ada.get_full_name(), "Ada Lovelace")
+        self.assertEqual(ada.get_short_name(), "Ada")
 
     def test_normalises_the_email_domain_on_clean(self):
-        user = baker.prepare_recipe("usermanagement.user", email="Ada@EXAMPLE.TEST")
+        ada = user.prepare(email="Ada@EXAMPLE.TEST")
 
-        user.clean()
+        ada.clean()
 
-        self.assertEqual(user.email, "Ada@example.test")
+        self.assertEqual(ada.email, "Ada@example.test")
 
     def test_sends_mail_to_the_users_own_address(self):
-        user = baker.make_recipe("usermanagement.user", email="ada@example.test")
+        ada = user.make(email="ada@example.test")
 
         with patch("apps.usermanagement.models.send_mail") as send:
-            user.email_user("subject", "body")
+            ada.email_user("subject", "body")
 
         self.assertEqual(send.call_args.args[3], ["ada@example.test"])
 
