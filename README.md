@@ -3,6 +3,8 @@
 ## Short Description
 Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60db) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
 
+![The generation form](docs/screenshots/generate.png)
+
 ## Frontend
 
 The React app lives in [`frontend/`](frontend/) and is part of this repository, so a
@@ -201,6 +203,8 @@ They are deliberately **not** baked into the image — that would add several GB
   [http://localhost:8000/admin/](http://localhost:8000/admin/) against `runserver`.
 - The fixtures ship no accounts, so create your own — see below.
 
+![The Django admin](docs/screenshots/admin.png)
+
 ## Creating a superuser
 
 `createsuperuser` prompts for a username, email and password:
@@ -243,6 +247,8 @@ python manage.py shell -c "from apps.usermanagement.models import User; User.obj
 Keys do not have to live in `.env`. Signed in, open the avatar menu in the top right
 and choose **API keys** (<http://localhost:3000/api-keys/>) to manage your own from the
 browser.
+
+![The API keys page](docs/screenshots/api-keys.png)
 
 The page has one switch at the top that decides whose keys generation spends:
 
@@ -297,11 +303,48 @@ unset) makes every stored key undecryptable. Generate one with:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
+## Templates
+
+A template is a saved copy of the generation form — the prompt and every setting under
+it. Fill the form in, open **More settings**, and use **Save as template** beside
+*Generate Video* to name and keep it. Picking it from the **Template** dropdown later
+fills the whole form back in, and the trash button next to that dropdown deletes the
+one currently selected.
+
+![Naming a template](docs/screenshots/save-template.png)
+
+Picking one fills the form back in, and the trash button beside the dropdown removes it:
+
+![A saved template selected, with the delete button beside it](docs/screenshots/template-saved.png)
+
+Templates are per user: nobody else sees yours, and two people can each keep one called
+*Shorts* without colliding. A name has to be unique within your own templates, so saving
+over an existing name is refused rather than silently replacing it — delete the old one
+first, or pick another name.
+
+## Your videos
+
+Everything you have generated, with its status while it is still being worked on. From
+here you can open a video, edit its scenes, regenerate it or delete it.
+
+![The videos list](docs/screenshots/videos.png)
+
+## Twitch compilations
+
+**Twitch Generation** builds a compilation from Twitch clips rather than from a written
+prompt — give it a game or a streamer and it picks the clips, titles them and stitches
+them together. It needs `TWITCH_CLIENT` and `TWITCH_CLIENT_SECRET`, either in `.env` or
+saved on the [API keys](#api-keys) page.
+
+![The Twitch compilation form](docs/screenshots/twitch.png)
+
 ## API Documentation
 
 You can find all API endpoints in Swagger: [http://localhost:3000/swagger/](http://localhost:3000/swagger/)
 under Docker, or [http://localhost:8000/swagger/](http://localhost:8000/swagger/) against
 `runserver`.
+
+![Swagger](docs/screenshots/swagger.png)
 
 ---
 
@@ -324,6 +367,9 @@ For any inquiries or support, feel free to reach out:
 
 ## Recent Updates
 
+✅ Save the generation form as a named template and pick it again later, with a delete button beside the picker\
+✅ Fixed the "video completed" and "video failed" emails, which went out addressed to the subject line rather than to you\
+✅ Fixed pressing render on a finished video reporting success before the render had started\
 ✅ Added per-user API keys, managed from the app and stored encrypted, so a user can spend their own quota instead of the service keys\
 ✅ Voices now follow your keys — your ElevenLabs/60db voices import themselves, and a provider you hold no key for is hidden instead of failing mid-render\
 ✅ Added a voice picker to the generation form for videos made without an avatar\
