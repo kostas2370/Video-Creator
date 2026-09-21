@@ -4,13 +4,14 @@ from typing import Union, Literal
 from slugify import slugify
 
 from ..defaults import script_format
-from ..utils.mapper import video_providers
+from ..utils.image_providers import VIDEO_PROVIDERS
 from ..models import Video, VoiceModel, UserPrompt, Avatar, Intro, Outro
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..utils.gpt_utils import get_reply
 from ..utils.prompt_utils import format_prompt
-from ..utils.visual_utils import create_image_scenes, download_music
+from ..utils.media import download_music
+from ..utils.scenes import create_image_scenes
 from ..utils.cost_utils import charge_user
 from django.contrib.auth import get_user_model
 
@@ -120,7 +121,7 @@ def generate_video(
 
     logger.info("Retrieved template")
     template_format = script_format(
-        video=provider in video_providers, narration=narration
+        video=provider in VIDEO_PROVIDERS, narration=narration
     )
 
     prompt = format_prompt(
