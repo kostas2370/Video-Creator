@@ -11,7 +11,7 @@ from ..models import Scene, SceneImage, Video
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
-from ..utils.visual_utils import generate_new_image
+from ..utils.scenes import generate_new_image
 from ..permissions import IsOwnerPermission, SceneGenerationLimitPermission
 
 scene_id = openapi.Parameter(
