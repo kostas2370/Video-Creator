@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import APIException
 
-from ..utils import gpt_utils
-from ..utils.gpt_utils import (
+from ..utils import llm
+from ..utils.llm import (
     check_json,
     claude_call,
     gemini_call,
@@ -70,7 +70,7 @@ class OfficialGptCallTests(SimpleTestCase):
         client = MagicMock()
         client.chat.completions.create.return_value = a_stream("he", "llo", None)
 
-        with patch.object(gpt_utils, "OpenAI", return_value=client):
+        with patch.object(llm, "OpenAI", return_value=client):
             self.assertEqual(official_gpt_call("a prompt").getvalue(), "hello")
 
     @override_settings(OPEN_API_KEY="key", MAX_TOKENS=100, DEFAULT_GPT_MODEL="gpt-4")
@@ -78,7 +78,7 @@ class OfficialGptCallTests(SimpleTestCase):
         client = MagicMock()
         client.chat.completions.create.return_value = a_stream("hi")
 
-        with patch.object(gpt_utils, "OpenAI", return_value=client):
+        with patch.object(llm, "OpenAI", return_value=client):
             official_gpt_call("a prompt", gpt_model="gpt-5")
 
         self.assertIn(
@@ -90,7 +90,7 @@ class OfficialGptCallTests(SimpleTestCase):
         client = MagicMock()
         client.chat.completions.create.return_value = a_stream("hi")
 
-        with patch.object(gpt_utils, "OpenAI", return_value=client):
+        with patch.object(llm, "OpenAI", return_value=client):
             official_gpt_call("a prompt")
 
         self.assertEqual(
@@ -102,7 +102,7 @@ class OfficialGptCallTests(SimpleTestCase):
         client = MagicMock()
         client.chat.completions.create.side_effect = RuntimeError("upstream is down")
 
-        with patch.object(gpt_utils, "OpenAI", return_value=client):
+        with patch.object(llm, "OpenAI", return_value=client):
             with self.assertRaises(APIException):
                 official_gpt_call("a prompt")
 
@@ -113,13 +113,13 @@ class ClaudeCallTests(SimpleTestCase):
         client = MagicMock()
         client.messages.create.return_value.content = [MagicMock(text="hello")]
 
-        with patch.object(gpt_utils.anthropic, "Anthropic", return_value=client):
+        with patch.object(llm.anthropic, "Anthropic", return_value=client):
             self.assertEqual(claude_call("a prompt").getvalue(), "hello")
 
     @override_settings(ANTHROPIC_API_KEY="key")
     def test_turns_a_provider_failure_into_an_api_exception(self):
         with patch.object(
-            gpt_utils.anthropic, "Anthropic", side_effect=RuntimeError("no key")
+            llm.anthropic, "Anthropic", side_effect=RuntimeError("no key")
         ):
             with self.assertRaises(APIException):
                 claude_call("a prompt")
@@ -132,16 +132,14 @@ class GeminiCallTests(SimpleTestCase):
         model.generate_content.return_value = ["he", "llo"]
 
         with (
-            patch.object(gpt_utils.genai, "configure"),
-            patch.object(gpt_utils.genai, "GenerativeModel", return_value=model),
+            patch.object(llm.genai, "configure"),
+            patch.object(llm.genai, "GenerativeModel", return_value=model),
         ):
             self.assertEqual(gemini_call("a prompt").getvalue(), "hello")
 
     @override_settings(GEMINI_API_KEY="key")
     def test_turns_a_provider_failure_into_an_api_exception(self):
-        with patch.object(
-            gpt_utils.genai, "configure", side_effect=RuntimeError("no key")
-        ):
+        with patch.object(llm.genai, "configure", side_effect=RuntimeError("no key")):
             with self.assertRaises(APIException):
                 gemini_call("a prompt")
 
@@ -152,13 +150,13 @@ class GetReplyRoutingTests(SimpleTestCase):
     def route(self, gpt_model):
         with (
             patch.object(
-                gpt_utils, "official_gpt_call", return_value=io.StringIO(A_SCRIPT)
+                llm, "official_gpt_call", return_value=io.StringIO(A_SCRIPT)
             ) as openai,
             patch.object(
-                gpt_utils, "claude_call", return_value=io.StringIO(A_SCRIPT)
+                llm, "claude_call", return_value=io.StringIO(A_SCRIPT)
             ) as claude,
             patch.object(
-                gpt_utils, "gemini_call", return_value=io.StringIO(A_SCRIPT)
+                llm, "gemini_call", return_value=io.StringIO(A_SCRIPT)
             ) as gemini,
         ):
             get_reply("a prompt", gpt_model=gpt_model)
@@ -192,7 +190,7 @@ class GetReplyRoutingTests(SimpleTestCase):
 class GetReplyParsingTests(SimpleTestCase):
     def reply(self, *payloads, **kwargs):
         streams = [io.StringIO(payload) for payload in payloads]
-        with patch.object(gpt_utils, "official_gpt_call", side_effect=streams) as call:
+        with patch.object(llm, "official_gpt_call", side_effect=streams) as call:
             result = get_reply("a prompt", gpt_model="gpt-4", **kwargs)
 
         return result, call
@@ -226,7 +224,7 @@ class GetReplyParsingTests(SimpleTestCase):
 
     def test_returns_the_raw_stream_when_no_json_was_asked_for(self):
         stream = io.StringIO("just words")
-        with patch.object(gpt_utils, "official_gpt_call", return_value=stream):
+        with patch.object(llm, "official_gpt_call", return_value=stream):
             result = get_reply("a prompt", reply_format="text", gpt_model="gpt-4")
 
         self.assertIs(result, stream)
@@ -235,7 +233,7 @@ class GetReplyParsingTests(SimpleTestCase):
 class GetUpdateSentenceTests(SimpleTestCase):
     def test_joins_the_streamed_rewrite(self):
         with patch.object(
-            gpt_utils.g4f.ChatCompletion, "create", return_value=["a ", "rewrite"]
+            llm.g4f.ChatCompletion, "create", return_value=["a ", "rewrite"]
         ):
             self.assertEqual(get_update_sentence("a prompt"), "a rewrite")
 
@@ -245,7 +243,7 @@ class SelectFromVisionTests(SimpleTestCase):
         client = MagicMock()
         client.chat.completions.create.return_value.choices[0].message.content = text
 
-        with patch.object(gpt_utils, "OpenAI", return_value=client):
+        with patch.object(llm, "OpenAI", return_value=client):
             return select_from_vision("a cat", ["a.png", "b.png", "c.png"]), client
 
     @override_settings(OPEN_API_KEY="key")

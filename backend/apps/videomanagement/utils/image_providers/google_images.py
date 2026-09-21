@@ -9,7 +9,7 @@ from requests import Response
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
-from ..gpt_utils import select_from_vision
+from ..llm import select_from_vision
 
 logger = logging.getLogger(__name__)
 
