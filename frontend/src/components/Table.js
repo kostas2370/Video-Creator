@@ -1,12 +1,13 @@
 import { Card, Typography } from "@material-tailwind/react";
 import { useState } from "react";
-import { FaRegEye, FaPencilAlt } from "react-icons/fa";
+import { FaRegEye, FaPencilAlt, FaRedo } from "react-icons/fa";
 import { RiDeleteBin6Fill } from "react-icons/ri";
 import { DeleteModal } from "./DeleteModal";
 import { deleteVideo } from "../api/apiService";
 import { VideoInfoModal } from "./VideoInfoModal";
 import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "./RenderModal";
+import { ResumeModal } from "./ResumeModal";
 import { useNavigate } from "react-router-dom";
 
 const TABLE_HEAD = ["Video Title", "Status", "Video Type", "Actions"];
@@ -15,6 +16,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
   const navigate = useNavigate();
 
   const [id, setId] = useState("");
@@ -37,6 +39,14 @@ export function DefaultTable({ data, setVideos, loaded }) {
         id={id}
         setItems={setVideos}
         name="video"
+      />
+
+      <ResumeModal
+        showModal={showResumeModal}
+        setShowModal={setShowResumeModal}
+        id={id}
+        setItems={setVideos}
+        name="this video"
       />
 
       <VideoInfoModal
@@ -114,6 +124,11 @@ export function DefaultTable({ data, setVideos, loaded }) {
                     ? "text-red-500 hover:text-red-300"
                     : "text-gray-400 disabled";
 
+                const isResumable = status === "FAILED";
+                const resumeIcon = isResumable
+                  ? "text-green-500 hover:text-green-300"
+                  : "text-gray-400 disabled";
+
                 return (
                   <tr key={title}>
                     <td className={`${classes} w-1/2`}>
@@ -149,7 +164,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
                         color="blue-gray"
                         className="font-medium text-center dark:text-white"
                       >
-                        <div className="grid grid-cols-4">
+                        <div className="grid grid-cols-5">
                           <FaRegEye
                             className="w-5 h-5 text-blue-500 hover:text-blue-300"
                             onClick={(e) => {
@@ -177,6 +192,20 @@ export function DefaultTable({ data, setVideos, loaded }) {
                               }
                             }}
                             className={`w-5 h-5 ${renderIconColor}`}
+                          />
+                          <FaRedo
+                            title={
+                              isResumable
+                                ? "Carry on generating this video"
+                                : "Only a failed generation can be carried on"
+                            }
+                            className={`w-5 h-5 ${resumeIcon}`}
+                            onClick={(event) => {
+                              if (isResumable) {
+                                setId(id);
+                                setShowResumeModal(true);
+                              }
+                            }}
                           />
                           <RiDeleteBin6Fill
                             className={`w-5 h-5 ${deleteIcon} text-center`}
