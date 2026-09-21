@@ -4,7 +4,7 @@ import urllib
 from django.core.management import BaseCommand
 
 from ...models import Intro, Outro, Background
-from ...utils.visual_utils import download_video
+from ...utils.media import download_video
 
 
 class Command(BaseCommand):

@@ -4,7 +4,6 @@ import logging
 import sys
 
 import g4f
-import requests
 from django.conf import settings
 from openai import OpenAI
 import anthropic

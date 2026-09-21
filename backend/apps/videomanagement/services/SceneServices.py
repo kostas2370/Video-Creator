@@ -7,7 +7,7 @@ from ..utils.audio_utils import update_scene as update
 from ..utils.gpt_utils import get_update_sentence
 from ..utils.prompt_utils import format_update_form
 from ..utils.twitch import TwitchClient
-from ..utils.visual_utils import create_twitch_clip_scene, create_image_scene
+from ..utils.scenes import create_twitch_clip_scene, create_image_scene
 from ..utils.audio_utils import make_scene_speech
 
 logger = logging.getLogger(__name__)
