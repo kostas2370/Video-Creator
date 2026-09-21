@@ -18,7 +18,6 @@ from ..tasks import (
     resume_video_task,
     generate_video_task,
     reap_stalled_videos,
-    regenerate_video_task,
     render_video_task,
 )
 
@@ -71,17 +70,6 @@ class TaskFailureTests(TestCase):
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "FAILED")
 
-    def test_regeneration_leaves_the_video_failed_and_re_raises(self):
-        with patch(
-            "apps.videomanagement.services.VideoServices.video_regenerate",
-            side_effect=RuntimeError("no voice"),
-        ):
-            with self.assertRaises(RuntimeError):
-                regenerate_video_task(video_id=self.video.id)
-
-        self.video.refresh_from_db()
-        self.assertEqual(self.video.status, "FAILED")
-
 
 class TaskSuccessTests(TestCase):
     def setUp(self):
@@ -123,15 +111,6 @@ class TaskSuccessTests(TestCase):
         self.assertEqual(returned, self.video.id)
         self.assertEqual(generate.call_args.kwargs["channel"], "a streamer")
         self.assertEqual(generate.call_args.kwargs["video"].pk, self.video.pk)
-
-    def test_regeneration_hands_the_video_to_the_service(self):
-        with patch(
-            "apps.videomanagement.services.VideoServices.video_regenerate"
-        ) as regenerate:
-            returned = regenerate_video_task(video_id=self.video.id)
-
-        self.assertEqual(returned, self.video.id)
-        self.assertEqual(regenerate.call_args.args[0].pk, self.video.pk)
 
 
 class ImportUserVoicesTests(TestCase):

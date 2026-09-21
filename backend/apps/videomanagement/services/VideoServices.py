@@ -1,12 +1,9 @@
 import logging
-import os
 from rest_framework.exceptions import APIException
 
-from django.db import transaction
 
 from ..models import Video, Avatar, Intro, Outro
 from ..utils.audio_utils import update_scene
-from ..utils.scenes import generate_new_image
 
 logger = logging.getLogger(__name__)
 
@@ -71,20 +68,3 @@ def video_update(
     video.save()
 
     return video
-
-
-def video_regenerate(video: Video) -> None:
-    with transaction.atomic():
-        for scene in video.prompt.scenes.all():
-            update_scene(scene)
-
-            for scene_image in scene.scene_images.all():
-                generate_new_image(scene_image=scene_image, video=video)
-
-        if video.avatar and os.path.exists(
-            rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4"
-        ):
-            os.remove(rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4")
-
-        video.status = "READY"
-        video.save()

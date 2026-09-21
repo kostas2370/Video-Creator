@@ -11,14 +11,13 @@ from ...baker_recipes import (
     intro,
     outro,
     scene,
-    scene_image,
     twitch_video,
     video,
 )
 from ...services import (
     VideoServices,
 )
-from ...services.VideoServices import video_regenerate, video_update
+from ...services.VideoServices import video_update
 
 
 class VideoUpdateTests(TestCase):
@@ -98,22 +97,3 @@ class VideoUpdateTests(TestCase):
     def test_reports_an_outro_that_does_not_exist(self):
         with self.assertRaises(APIException):
             video_update(self.video, title="t", avatar=None, outro="99999")
-
-
-class VideoRegenerateTests(TestCase):
-    def test_re_records_every_line_and_regenerates_every_image(self):
-        completed = video.make(status="COMPLETED")
-        scenes = scene.make(prompt=completed.prompt, _quantity=2)
-        for line in scenes:
-            scene_image.make(scene=line)
-
-        with (
-            patch.object(VideoServices, "update_scene") as resynthesise,
-            patch.object(VideoServices, "generate_new_image") as regenerate,
-        ):
-            video_regenerate(completed)
-
-        self.assertEqual(resynthesise.call_count, 2)
-        self.assertEqual(regenerate.call_count, 2)
-        completed.refresh_from_db()
-        self.assertEqual(completed.status, "READY")

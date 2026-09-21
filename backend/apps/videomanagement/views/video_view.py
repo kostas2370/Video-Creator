@@ -16,7 +16,7 @@ from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
 from ..services.VideoServices import video_update
 from ..services.SceneServices import create_scene
-from ..tasks import regenerate_video_task, render_video_task, resume_video_task
+from ..tasks import render_video_task, resume_video_task
 from ..throttling import RenderRateThrottle
 from ..permissions import IsOwnerPermission
 
@@ -69,30 +69,6 @@ class VideoView(viewsets.ModelViewSet):
         logger.info(f"Video with id {pk}  got updated successfully")
         return Response(
             {"message": "Updated Success", "video": VideoNestedSerializer(outcome).data}
-        )
-
-    @swagger_auto_schema(
-        operation_description="Queues regeneration of the scene audio and imagery. Returns 202; "
-        "poll GET /video/{id}/ until its status becomes READY or FAILED.",
-        method="PATCH",
-    )
-    @action(detail=True, methods=["PATCH"])
-    def video_regenerate(self, _, pk):
-        video = self.get_object()
-        video.status = "GENERATION"
-        video.save()
-        regenerate_video_task.delay(video_id=video.id)
-        logger.info(f"Video with id {pk} was queued for regeneration")
-
-        return Response(
-            {
-                # "Message" is the key this endpoint has always returned; kept so an
-                # existing client's toast does not go blank.
-                "Message": f"Video with id {pk} was queued for regeneration",
-                "message": f"Video with id {pk} was queued for regeneration",
-                "video": VideoSerializer(video).data,
-            },
-            status=status.HTTP_202_ACCEPTED,
         )
 
     @swagger_auto_schema(

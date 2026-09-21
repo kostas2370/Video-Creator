@@ -165,21 +165,6 @@ class RenderViewTests(ApiTestCase):
                 delay.assert_not_called()
 
 
-class RegenerateViewTests(ApiTestCase):
-    def test_queues_regeneration_and_moves_the_video_back_to_generation(self):
-        video = self.video_for(status="COMPLETED")
-
-        with patch("apps.videomanagement.tasks.regenerate_video_task.delay") as delay:
-            response = self.client.patch(
-                reverse("video-video-regenerate", args=[video.id])
-            )
-
-        self.assertEqual(response.status_code, 202)
-        delay.assert_called_once_with(video_id=video.id)
-        video.refresh_from_db()
-        self.assertEqual(video.status, "GENERATION")
-
-
 class AddSceneViewTests(ApiTestCase):
     def test_adds_a_scene_to_a_video(self):
         video_row = self.video_for()
