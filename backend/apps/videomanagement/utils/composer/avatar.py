@@ -1,7 +1,6 @@
 import os
 import shlex
 import subprocess
-import uuid
 import logging
 
 from moviepy.editor import (
@@ -111,61 +110,3 @@ def handle_avatar_video(video, final_video):
 
     final_video = CompositeVideoClip([final_video, avatar_vid], size=(1920, 1080))
     return final_video
-
-
-def split_video_and_mp3(video_path: str) -> tuple[str, str]:
-    """
-    Split a video file into separate video and audio files.
-
-    Parameters:
-    -----------
-    video_path : str
-        The file path to the original video file.
-
-    Returns:
-    --------
-    tuple[str, str]
-        A tuple containing the file paths to the saved audio (mp3) and video (mp4) files.
-
-    Detailed Steps:
-    ---------------
-    1. Determine the folder to save the new audio and video files.
-    2. Load the video file using VideoFileClip.
-    3. Generate unique file names for the audio and video files.
-    4. Extract and save the audio from the video as an mp3 file.
-    5. Remove the audio from the video and save the new video file.
-    6. Remove the original video file.
-    7. Return the paths to the saved audio and video files.
-
-    Notes:
-    ------
-    - Requires the moviepy library.
-    - The function assumes the existence of 'dialogues' and
-     'images' directories within the folder of the original video file.
-    - The original video file is deleted after processing.
-    """
-
-    folder_to_save = os.path.split(os.path.abspath(video_path))[0]
-    video = VideoFileClip(video_path)
-
-    audio_save = f"{str(folder_to_save)}/dialogues/{str(uuid.uuid4())}.mp3"
-    video_save = f"{str(folder_to_save)}/images/{str(uuid.uuid4())}.mp4"
-
-    try:
-        video = VideoFileClip(video_path)
-        video.audio.write_audiofile(audio_save)
-        video_without_audio = video.set_audio(None)
-        video_without_audio.write_videofile(video_save, codec="libx264", audio=False)
-
-    except Exception as e:
-        logger.error(f"Error processing video '{video_path}': {e}")
-        return "", ""
-
-    finally:
-        if "video" in locals():
-            video.close()
-        if "video_without_audio" in locals():
-            video_without_audio.close()
-        os.remove(video_path)
-
-    return audio_save, video_save
