@@ -341,6 +341,14 @@ here you can open a video, edit its scenes, regenerate it or delete it.
 
 ![The videos list](docs/screenshots/videos.png)
 
+A generation that stopped early is not a dead end. The green action carries it on from
+where it got to — only the lines with no narration and the shots with no image are made
+again, so nothing already generated is paid for twice.
+
+![The resume action on a failed video](docs/screenshots/videos-resume.png)
+
+![Confirming a resume](docs/screenshots/modal-resume.png)
+
 ## Editing a video
 
 Open a video from the list and every scene is there to change before you render: the
