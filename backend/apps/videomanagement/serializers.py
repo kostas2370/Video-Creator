@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 
 from .models import (
     TemplatePrompt,
@@ -15,9 +16,18 @@ from .models import (
 
 
 class TemplatePromptsSerializer(serializers.ModelSerializer):
+    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
     class Meta:
         model = TemplatePrompt
         fields = "__all__"
+        validators = [
+            UniqueTogetherValidator(
+                queryset=TemplatePrompt.objects.all(),
+                fields=["created_by", "title"],
+                message="You already have a template with this name.",
+            )
+        ]
 
 
 class MusicSerializer(serializers.ModelSerializer):
