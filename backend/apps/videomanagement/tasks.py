@@ -61,7 +61,7 @@ def generate_twitch_video_task(self, video_id: int, **params):
 
 @shared_task(bind=True)
 def render_video_task(self, video_id: int):
-    from .utils.video_utils import make_video
+    from .utils.composer.render import make_video
 
     video = Video.objects.get(pk=video_id)
 

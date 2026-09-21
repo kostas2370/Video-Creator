@@ -5,7 +5,8 @@ from moviepy.editor import AudioFileClip, VideoFileClip
 
 from .image_providers import resolve
 from .prompt_utils import scene_text
-from .video_utils import add_text_to_video, check_if_video
+from .composer.overlay import add_text_to_video
+from .file_utils import check_if_video
 from ..models import Scene, SceneImage, Video
 
 logger = logging.getLogger(__name__)
