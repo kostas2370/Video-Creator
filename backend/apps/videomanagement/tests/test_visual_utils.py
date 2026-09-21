@@ -5,9 +5,16 @@ import tempfile
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
-from model_bakery import baker
 from rest_framework.exceptions import APIException
 
+from ..baker_recipes import (
+    music,
+    narrated_scene,
+    scene,
+    scene_image,
+    user_prompt,
+    video,
+)
 from ..models import Music, Scene, SceneImage
 from ..utils import visual_utils
 from ..utils.visual_utils import (
@@ -28,7 +35,7 @@ from .doubles import FakeAudio
 
 class SceneNarrationDurationTests(TestCase):
     def test_reads_the_length_of_the_recorded_line(self):
-        scene = baker.make_recipe("videomanagement.narrated_scene")
+        scene = narrated_scene.make()
 
         with patch.object(
             visual_utils, "AudioFileClip", return_value=FakeAudio(duration=6.5)
@@ -36,15 +43,15 @@ class SceneNarrationDurationTests(TestCase):
             self.assertEqual(scene_narration_duration(scene), 6.5)
 
     def test_is_zero_when_nothing_was_narrated(self):
-        scene = baker.make_recipe("videomanagement.scene", file=None)
+        silent = scene.make(file=None)
 
         with patch.object(visual_utils, "AudioFileClip") as audio:
-            self.assertEqual(scene_narration_duration(scene), 0)
+            self.assertEqual(scene_narration_duration(silent), 0)
 
         audio.assert_not_called()
 
     def test_is_zero_when_the_recording_cannot_be_read(self):
-        scene = baker.make_recipe("videomanagement.narrated_scene")
+        scene = narrated_scene.make()
 
         with patch.object(visual_utils, "AudioFileClip", side_effect=OSError("bad")):
             self.assertEqual(scene_narration_duration(scene), 0)
@@ -247,10 +254,8 @@ class StillFromVideoTests(SimpleTestCase):
 
 class CreateImageSceneTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video")
-        self.scene = baker.make_recipe(
-            "videomanagement.scene", prompt=self.video.prompt, text="a sentence"
-        )
+        self.video = video.make()
+        self.scene = scene.make(prompt=self.video.prompt, text="a sentence")
 
     def build(self, produced, **kwargs):
         with (
@@ -327,7 +332,7 @@ class CreateImageSceneTests(TestCase):
 
 class CreateImageScenesTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video")
+        self.video = video.make()
         self.video.gpt_answer = {
             "scenes": [
                 {
@@ -400,8 +405,8 @@ class CreateImageScenesTests(TestCase):
 
 class GenerateNewImageTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video", mode="AI")
-        self.scene_image = baker.make_recipe("videomanagement.scene_image")
+        self.video = video.make(mode="AI")
+        self.scene_image = scene_image.make()
 
     def test_replaces_the_file_with_the_newly_generated_one(self):
         with patch.object(
@@ -437,7 +442,7 @@ class DownloadMusicTests(TestCase):
                 self.assertIsNone(download_music(url))
 
     def test_reuses_music_that_was_already_downloaded(self):
-        existing = baker.make_recipe("videomanagement.music", name="a song")
+        existing = music.make(name="a song")
         youtube = MagicMock()
         youtube.streams.filter.return_value.first.return_value.title = "a song"
 
@@ -465,7 +470,7 @@ class DownloadMusicTests(TestCase):
 
 class CreateTwitchClipSceneTests(TestCase):
     def test_stores_the_clip_as_a_last_scene_that_plays_its_own_sound(self):
-        prompt = baker.make_recipe("videomanagement.user_prompt")
+        prompt = user_prompt.make()
 
         with patch.object(
             visual_utils, "add_text_to_video", return_value="clips/titled.mp4"

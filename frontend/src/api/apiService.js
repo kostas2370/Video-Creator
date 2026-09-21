@@ -1,28 +1,28 @@
 import { axiosPrivateInstance } from "./axiosPrivate";
 
 const API_ENDPOINTS = {
-    INTRO: 'intro/',
-    OUTRO: 'outro/',
+    INTRO: 'intros/',
+    OUTRO: 'outros/',
     GENERATE: 'generate/',
     TWITCH_GENERATE: 'twitch_generate/',
     AVATAR: 'avatars/',
     LOGOUT: 'logout/',
     VOICES: 'voices/',
-    SCENE: (id) => `video/${id}/add_scene/`,
+    SCENE: (id) => `videos/${id}/add_scene/`,
     AVATAR_SELECT: (id) => `avatars/${id}/`,
-    VIDEO_SELECT: (id) => `video/${id}/`,
-    INTRO_SELECT: (id) => `intro/${id}/`,
-    OUTRO_SELECT: (id) => `outro/${id}/`,
-    SCENE_SELECT: (id) => `scene/${id}/`,
-    SCENE_IMAGE_SELECT: (id) => `scene_image/${id}/`,
-    RENDER: (id) => `video/${id}/render_video/`,
-    SCENE_GENERATE : (id) => `scene/${id}/generate/`,
-    SCENE_IMAGE_GENERATE : (id) => `scene/${id}/generate_image_scene/`,
-    TEMPLATES : 'template/' ,
-    INTRO_GET: (search = null) => `intro/${search ? `?search=${search}` : ''}`,
-    OUTRO_GET: (search = null) => `outro/${search ? `?search=${search}` : ''}`,
+    VIDEO_SELECT: (id) => `videos/${id}/`,
+    INTRO_SELECT: (id) => `intros/${id}/`,
+    OUTRO_SELECT: (id) => `outros/${id}/`,
+    SCENE_SELECT: (id) => `scenes/${id}/`,
+    SCENE_IMAGE_SELECT: (id) => `scene_images/${id}/`,
+    RENDER: (id) => `videos/${id}/render_video/`,
+    SCENE_GENERATE : (id) => `scenes/${id}/generate/`,
+    SCENE_IMAGE_GENERATE : (id) => `scenes/${id}/generate_image_scene/`,
+    TEMPLATES : 'templates/' ,
+    INTRO_GET: (search = null) => `intros/${search ? `?search=${search}` : ''}`,
+    OUTRO_GET: (search = null) => `outros/${search ? `?search=${search}` : ''}`,
     VIDEOS_GET: (search = null, page = null, id = null) => {
-        let url = 'video/';
+        let url = 'videos/';
         if (id){
             return url+id+"/"
         }
@@ -152,7 +152,7 @@ export const getVideo = async (id) => {return getRequest(API_ENDPOINTS.VIDEO_SEL
 export const updateSceneImage = async (id,scene_image_id, data) => {
 
     try{
-        var url = "scene/" + id +"/change_image_scene/"
+        var url = "scenes/" + id +"/change_image_scene/"
         if (scene_image_id){
             url = url + "?scene_image=" + scene_image_id;
 

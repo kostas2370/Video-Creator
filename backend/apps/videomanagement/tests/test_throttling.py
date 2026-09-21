@@ -1,8 +1,10 @@
 from unittest.mock import patch
 
 from django.test import TestCase
-from model_bakery import baker
+from django.urls import reverse
 from rest_framework.test import APIClient
+
+from apps.usermanagement.baker_recipes import superuser, user
 
 from ..throttling import (
     GenerateRateThrottle,
@@ -23,28 +25,28 @@ class ThrottleTests(TestCase):
         self.client = APIClient()
         self.addCleanup(GenerateRateThrottle().cache.clear)
 
-    def generate_as(self, user):
-        self.client.force_authenticate(user)
+    def generate_as(self, caller):
+        self.client.force_authenticate(caller)
         with patch("apps.videomanagement.tasks.generate_video_task.delay"):
-            return self.client.post("/api/generate/", {"message": "cats"})
+            return self.client.post(reverse("generate"), {"message": "cats"})
 
     def test_turns_a_user_away_once_they_have_used_their_allowance(self):
-        user = baker.make_recipe("usermanagement.user")
+        caller = user.make()
 
-        statuses = [self.generate_as(user).status_code for _ in range(3)]
+        statuses = [self.generate_as(caller).status_code for _ in range(3)]
 
         self.assertEqual(statuses, [202, 202, 429])
 
     def test_never_throttles_a_superuser(self):
-        superuser = baker.make_recipe("usermanagement.superuser")
+        admin = superuser.make()
 
-        statuses = [self.generate_as(superuser).status_code for _ in range(3)]
+        statuses = [self.generate_as(admin).status_code for _ in range(3)]
 
         self.assertEqual(statuses, [202, 202, 202])
 
     def test_one_users_allowance_is_their_own(self):
-        first = baker.make_recipe("usermanagement.user")
-        second = baker.make_recipe("usermanagement.user")
+        first = user.make()
+        second = user.make()
 
         for _ in range(2):
             self.generate_as(first)
