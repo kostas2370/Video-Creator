@@ -4,11 +4,11 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, TestCase
 
-from ..baker_recipes import narrated_scene, scene, scene_image, user_prompt, video
-from ..models import Scene, SceneImage
-from ..utils import scenes as scenes_utils
-from ..utils.image_providers import bing, openai_images
-from ..utils.scenes import (
+from ...baker_recipes import narrated_scene, scene, scene_image, user_prompt, video
+from ...models import Scene, SceneImage
+from ...utils import scenes as scenes_utils
+from ...utils.image_providers import bing, openai_images
+from ...utils.scenes import (
     create_image_scene,
     create_image_scenes,
     create_twitch_clip_scene,
@@ -16,7 +16,7 @@ from ..utils.scenes import (
     scene_narration_duration,
     still_from_video,
 )
-from .doubles import FakeAudio
+from ..doubles import FakeAudio
 
 
 class SceneNarrationDurationTests(TestCase):

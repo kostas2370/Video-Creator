@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
 
-from ..baker_recipes import (
+from ...baker_recipes import (
     background,
     last_scene,
     scene,
@@ -10,15 +10,15 @@ from ..baker_recipes import (
     video_scene_image,
     video_scene_image_with_audio,
 )
-from ..utils.composer import clips
-from ..utils.composer.clips import (
+from ...utils.composer import clips
+from ...utils.composer.clips import (
     clip_audio,
     handle_audio,
     handle_image,
     handle_video,
     process_scene,
 )
-from .doubles import FakeAudio, FakeClip
+from ..doubles import FakeAudio, FakeClip
 
 
 def a_clip(audio=None):

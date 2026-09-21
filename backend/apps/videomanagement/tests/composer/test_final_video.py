@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from ..baker_recipes import avatar, background, intro, music, outro, video
-from ..utils.composer import render
-from ..utils.composer.render import handle_final_video
-from .doubles import FakeAudio, FakeClip
+from ...baker_recipes import avatar, background, intro, music, outro, video
+from ...utils.composer import render
+from ...utils.composer.render import handle_final_video
+from ..doubles import FakeAudio, FakeClip
 
 
 class HandleFinalVideoTests(TestCase):

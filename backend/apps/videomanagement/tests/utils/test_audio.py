@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from ..baker_recipes import scene, user_prompt, video, voice_model
-from ..models import Scene
-from ..utils import audio_utils
-from ..utils.audio_utils import make_scene_speech, make_scenes_speech, update_scene
+from ...baker_recipes import scene, user_prompt, video, voice_model
+from ...models import Scene
+from ...utils import audio_utils
+from ...utils.audio_utils import make_scene_speech, make_scenes_speech, update_scene
 
 
 class MakeSceneSpeechTests(TestCase):
