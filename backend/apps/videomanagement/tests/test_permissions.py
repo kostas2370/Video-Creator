@@ -48,8 +48,6 @@ class IsOwnerPermissionTests(PermissionTestCase):
         self.assertFalse(self.check(AnonymousUser(), self.video))
 
     def test_keeps_a_deactivated_owner_out(self):
-        # Their token outlives the deactivation, so this is the only thing standing
-        # between a disabled account and its own videos.
         self.owner.is_active = False
         self.owner.save()
 

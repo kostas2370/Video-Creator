@@ -15,8 +15,6 @@ from ..models import SceneImage, Video
 
 
 class VideoDetailQueryTests(TestCase):
-    """The nested detail used to cost two queries per scene."""
-
     def setUp(self):
         self.user = user.make()
         self.client = APIClient()
@@ -247,8 +245,6 @@ class RenderViewTests(ApiTestCase):
         delay.assert_called_once()
 
     def test_marks_the_video_rendering_before_the_worker_picks_it_up(self):
-        # A client that polls straight after the 202 would otherwise read the status
-        # left by the last render and call this render finished before it started.
         rendered = self.video_for(status="COMPLETED")
 
         response, _ = self.render(rendered)

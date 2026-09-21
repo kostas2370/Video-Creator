@@ -42,8 +42,6 @@ class SceneSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_scene_image(self, obj):
-        # Iterated rather than .first()ed: first() re-queries even against a
-        # prefetched relation, which is what made this two queries per scene.
         image = next(iter(obj.scene_images.all()), None)
 
         return SceneImageSerializer(image).data if image else ""
@@ -70,8 +68,6 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_sample(self, obj):
-        # voice is SET_NULL, so deleting a VoiceModel leaves every avatar that used
-        # it pointing at nothing.
         return obj.voice.sample if obj.voice else ""
 
 

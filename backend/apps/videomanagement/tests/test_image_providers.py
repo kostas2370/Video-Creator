@@ -172,13 +172,6 @@ class DownloadImageTests(SimpleTestCase):
 
 
 class SavedPathTests(SimpleTestCase):
-    """The provider is handed a directory and has to put the file inside it.
-
-    These three used to join with a literal backslash, which on Linux is an ordinary
-    filename character: the visual landed next to the images directory as a file
-    called "\\<uuid>.png" rather than in it.
-    """
-
     DIR = "media/videos/a video/images/"
 
     def assert_saved_into_the_directory(self, saved):
