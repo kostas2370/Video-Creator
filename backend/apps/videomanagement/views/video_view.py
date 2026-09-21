@@ -16,7 +16,7 @@ from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
 from ..services.VideoServices import video_update
 from ..services.SceneServices import create_scene
-from ..tasks import regenerate_video_task, render_video_task
+from ..tasks import regenerate_video_task, render_video_task, resume_video_task
 from ..throttling import RenderRateThrottle
 from ..permissions import IsOwnerPermission
 
@@ -90,6 +90,48 @@ class VideoView(viewsets.ModelViewSet):
                 # existing client's toast does not go blank.
                 "Message": f"Video with id {pk} was queued for regeneration",
                 "message": f"Video with id {pk} was queued for regeneration",
+                "video": VideoSerializer(video).data,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    @swagger_auto_schema(
+        operation_description="Queues the unfinished part of a generation that stopped "
+        "early. Only the scenes with no narration and the sentences with no visual are "
+        "worked on again, so nothing already produced is paid for twice. Returns 202; "
+        "poll GET /video/{id}/ until its status becomes READY or FAILED.",
+        method="PATCH",
+    )
+    @action(detail=True, methods=["PATCH"])
+    def resume(self, _, pk):
+        video = self.get_object()
+
+        if video.status not in {"FAILED", "READY"}:
+            return Response(
+                {
+                    "message": f"Video with id {pk} is {video.status} and has nothing "
+                    "to resume yet"
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        if not video.gpt_answer or not video.dir_name:
+            return Response(
+                {
+                    "message": f"Video with id {pk} never got a script, so there is "
+                    "nothing to carry on from. Generate it again."
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        video.status = "GENERATION"
+        video.save()
+        resume_video_task.delay(video_id=video.id)
+        logger.info(f"Video with id {pk} was queued to resume")
+
+        return Response(
+            {
+                "message": "The generation has been queued to carry on",
                 "video": VideoSerializer(video).data,
             },
             status=status.HTTP_202_ACCEPTED,

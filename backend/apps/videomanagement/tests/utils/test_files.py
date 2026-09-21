@@ -1,6 +1,8 @@
 import os
 import tempfile
+from types import SimpleNamespace
 
+from django.core.exceptions import SuspiciousFileOperation
 from django.test import SimpleTestCase
 
 from ...utils.file_utils import (
@@ -8,6 +10,7 @@ from ...utils.file_utils import (
     check_if_video,
     check_which_file_exists,
     generate_directory,
+    stored_file_exists,
 )
 
 
@@ -80,3 +83,25 @@ class FileTypeTests(SimpleTestCase):
     def test_recognises_neither_for_anything_else(self):
         self.assertFalse(check_if_image("a.wav"))
         self.assertFalse(check_if_video("a.wav"))
+
+
+class StoredFileExistsTests(SimpleTestCase):
+    def test_an_empty_field_has_nothing_behind_it(self):
+        self.assertFalse(stored_file_exists(None))
+        self.assertFalse(stored_file_exists(""))
+
+    def test_a_path_outside_the_media_root_counts_as_missing(self):
+        class Refuses(SimpleNamespace):
+            @property
+            def path(self):
+                raise SuspiciousFileOperation("outside the base path")
+
+        self.assertFalse(stored_file_exists(Refuses()))
+
+    def test_a_field_with_no_file_behind_it_counts_as_missing(self):
+        class Unset(SimpleNamespace):
+            @property
+            def path(self):
+                raise ValueError("no file associated")
+
+        self.assertFalse(stored_file_exists(Unset()))

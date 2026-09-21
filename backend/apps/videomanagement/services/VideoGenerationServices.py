@@ -14,6 +14,8 @@ from ..utils.media import download_music
 from ..utils.scenes import create_image_scenes
 from ..utils.cost_utils import charge_user
 from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.exceptions import APIException
 
 logger = logging.getLogger(__name__)
 
@@ -131,13 +133,17 @@ def generate_video(
         target_audience=target_audience,
     )
 
-    x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
+    if video.gpt_answer and video.dir_name:
+        logger.info("Resuming video %s from the script it already has", video.id)
+        x = video.gpt_answer
+        dir_name = video.dir_name
+    else:
+        x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
+        dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     user_prompt = video.prompt
     user_prompt.save()
     logger.info(f"Updated the user_prompt instance with id : {user_prompt.id}")
-
-    dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     if intro and outro:
         intro = Intro.objects.get(id=int(intro))
@@ -151,7 +157,11 @@ def generate_video(
     vid.intro = intro
     vid.outro = outro
     vid.settings = dict(
-        subtitles=subtitles, narration=narration, avatar_position=avatar_position
+        subtitles=subtitles,
+        narration=narration,
+        avatar_position=avatar_position,
+        style=style,
+        provider=provider,
     )
     vid.save()
 
@@ -191,3 +201,39 @@ def generate_video(
     charge_user(vid.created_by, "generation_limit_for_ai", vid)
 
     return vid
+
+
+def resume_video(video: Video) -> Video:
+    """Fill in whatever generation did not finish, without paying for it twice.
+
+    Everything a resume needs is on the row already, so it takes no parameters: the
+    script, the directory, the voice and the image mode were all settled on the first
+    run. Only the scenes with no narration and the sentences with no visual are worked
+    on again.
+    """
+    if not video.gpt_answer or not video.dir_name:
+        raise APIException(
+            detail="This video never got far enough to resume. Generate it again.",
+            code=status.HTTP_409_CONFLICT,
+        )
+
+    choices = video.settings or {}
+    video.status = "GENERATION"
+    video.save()
+
+    make_scenes_speech(video)
+    logger.info("Filled in the missing narration for video %s", video.id)
+
+    if video.mode:
+        create_image_scenes(
+            video,
+            mode=video.mode,
+            style=choices.get("style", "natural"),
+            provider=choices.get("provider"),
+        )
+        logger.info("Filled in the missing visuals for video %s", video.id)
+
+    video.status = "READY"
+    video.save()
+
+    return video

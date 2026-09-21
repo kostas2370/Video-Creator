@@ -6,7 +6,7 @@ from moviepy.editor import AudioFileClip, VideoFileClip
 from .image_providers import resolve
 from .prompt_utils import scene_text
 from .composer.overlay import add_text_to_video
-from .file_utils import check_if_video
+from .file_utils import check_if_video, stored_file_exists
 from ..models import Scene, SceneImage, Video
 
 logger = logging.getLogger(__name__)
@@ -140,6 +140,14 @@ def create_image_scene(
     return downloaded_image
 
 
+def already_illustrated(video: Video, text: str) -> bool:
+    image = SceneImage.objects.filter(
+        scene__prompt=video.prompt, scene__text=text.strip()
+    ).first()
+
+    return bool(image) and stored_file_exists(image.file)
+
+
 def create_image_scenes(
     video: Video,
     mode: str = "WEB",
@@ -176,6 +184,9 @@ def create_image_scenes(
     reference = None
     for scene in video.gpt_answer["scenes"]:
         for sentence in scene["sentences"]:
+            if already_illustrated(video, scene_text(sentence)):
+                continue
+
             produced = create_image_scene(
                 prompt=video.prompt,
                 image=sentence["image_description"],
