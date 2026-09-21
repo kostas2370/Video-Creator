@@ -3,18 +3,18 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.test import TestCase, override_settings
-from model_bakery import baker
+from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-URL = "/api/login/"
+from ..baker_recipes import user
 
 PASSWORD = "a-very-good-password"
 
 
 class RememberMeTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
+        self.user = user.make()
         self.user.set_password(PASSWORD)
         self.user.save()
         self.client = APIClient()
@@ -25,7 +25,7 @@ class RememberMeTests(TestCase):
 
     def login(self, **extra):
         return self.client.post(
-            URL,
+            reverse("login"),
             {"username": self.user.username, "password": PASSWORD, **extra},
             format="json",
         )
@@ -88,7 +88,7 @@ class RememberMeTests(TestCase):
     def refresh(self, login_response):
         client = APIClient()
         client.cookies["refresh_token"] = login_response.cookies["refresh_token"].value
-        return client.post("/api/token/refresh/")
+        return client.post(reverse("token_refresh"))
 
     def test_refreshing_a_remembered_session_keeps_the_cookie_persistent(self):
         refreshed = self.refresh(self.login(remember_me=True))
@@ -110,7 +110,7 @@ class RememberMeTests(TestCase):
 
     def test_a_string_from_a_form_post_still_counts(self):
         response = self.client.post(
-            URL,
+            reverse("login"),
             {
                 "username": self.user.username,
                 "password": PASSWORD,

@@ -13,7 +13,7 @@ class FormatPromptTests(SimpleTestCase):
     def test_carries_every_part_of_the_brief_into_the_prompt(self):
         prompt = format_prompt(
             template_format="a structure",
-            template_category="EDUCATIONAL",
+            genre="EDUCATIONAL",
             userprompt="explain photosynthesis",
             title="How Plants Eat",
             target_audience="children",
@@ -26,12 +26,12 @@ class FormatPromptTests(SimpleTestCase):
         self.assertIn("children", prompt)
 
     def test_hands_the_title_back_to_the_model_when_none_was_given(self):
-        prompt = format_prompt(template_format="", template_category="")
+        prompt = format_prompt(template_format="", genre="")
 
         self.assertIn("The title will be selected by you", prompt)
 
     def test_hands_the_audience_back_to_the_model_when_none_was_given(self):
-        prompt = format_prompt(template_format="", template_category="")
+        prompt = format_prompt(template_format="", genre="")
 
         self.assertIn("Select an appropriate target audience", prompt)
 
@@ -76,6 +76,7 @@ class FormatSoraPromptTests(SimpleTestCase):
         prompt = format_sora_prompt(image_description="a cat naps", title="")
 
         self.assertNotIn("titled", prompt)
+
 
 class OtherPromptTests(SimpleTestCase):
     def test_dalle_prompt_labels_the_title_and_description(self):

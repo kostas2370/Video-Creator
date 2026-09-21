@@ -5,7 +5,7 @@ from slugify import slugify
 
 from ..defaults import script_format
 from ..utils.mapper import video_providers
-from ..models import TemplatePrompt, Video, VoiceModel, UserPrompt, Avatar, Intro, Outro
+from ..models import Video, VoiceModel, UserPrompt, Avatar, Intro, Outro
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..utils.gpt_utils import get_reply
@@ -22,6 +22,7 @@ def create_pending_video(
     created_by: get_user_model(),
     video_type: Literal["AI", "TWITCH"] = "AI",
     title: str = None,
+    genre: str = "",
 ) -> Video:
     """
     Create the Video row that `generate_video` will later fill in.
@@ -31,7 +32,7 @@ def create_pending_video(
     video starts in GENERATION with no `gpt_answer`; the title is a placeholder until
     the model returns a real one.
     """
-    user_prompt = UserPrompt.objects.create(template=None, prompt=f"{message}")
+    user_prompt = UserPrompt.objects.create(prompt=f"{message}")
 
     return Video.objects.create(
         title=(title or message)[:50],
@@ -40,12 +41,12 @@ def create_pending_video(
         status="GENERATION",
         video_type=video_type,
         created_by=created_by,
+        genre=genre,
     )
 
 
 def generate_video(
     video: Video,
-    template_id: Union[str, int, None],
     message: str,
     gpt_model: Union[str, None],
     image_mode: Union[str, bool, Literal["WEB", "AI"]],
@@ -61,6 +62,7 @@ def generate_video(
     narration: bool = True,
     provider: Union[str, None] = None,
     avatar_position: str = "top,right",
+    genre: str = "",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -69,8 +71,8 @@ def generate_video(
     -----------
     video : Video
         The pending video created by `create_pending_video`, filled in here.
-    template_id : Union[str, int, None]
-        The ID of the template used for the video.
+    genre :str
+        The genre for the video.
     message : str
         The main message or prompt for the video.
     gpt_model : Union[str, None]
@@ -116,22 +118,14 @@ def generate_video(
     """
     avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else None
 
-    template = TemplatePrompt.get_template(template_id)
     logger.info("Retrieved template")
     template_format = script_format(
         video=provider in video_providers, narration=narration
     )
-    category = (
-        template.category
-        if template
-        else template_id
-        if len(template_id) > 0 and not template_id.isnumeric()
-        else ""
-    )
 
     prompt = format_prompt(
         template_format=template_format,
-        template_category=category,
+        genre=genre,
         userprompt=message,
         target_audience=target_audience,
     )
@@ -139,7 +133,6 @@ def generate_video(
     x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
 
     user_prompt = video.prompt
-    user_prompt.template = template
     user_prompt.save()
     logger.info(f"Updated the user_prompt instance with id : {user_prompt.id}")
 

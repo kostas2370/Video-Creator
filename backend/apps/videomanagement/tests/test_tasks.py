@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
-from model_bakery import baker
 
+from ..baker_recipes import video
 from ..models import Video
 from ..tasks import (
     generate_twitch_video_task,
@@ -19,7 +19,7 @@ from ..tasks import (
 
 class TaskFailureTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video", status="GENERATION")
+        self.video = video.make(status="GENERATION")
 
     def test_generation_leaves_the_video_failed_and_re_raises(self):
         with patch(
@@ -68,7 +68,7 @@ class TaskFailureTests(TestCase):
 
 class TaskSuccessTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video", status="GENERATION")
+        self.video = video.make(status="GENERATION")
 
     def test_generation_hands_its_parameters_to_the_service(self):
         with patch(
@@ -91,12 +91,12 @@ class ReapStalledVideosTests(TestCase):
     """A task killed without unwinding never reaches its own except clause."""
 
     def stale(self, status, age_seconds):
-        video = baker.make_recipe("videomanagement.video", status=status)
+        stalled = video.make(status=status)
         # updated_at is auto_now, so it has to be written past the ORM.
-        Video.objects.filter(pk=video.pk).update(
+        Video.objects.filter(pk=stalled.pk).update(
             updated_at=timezone.now() - timedelta(seconds=age_seconds)
         )
-        return video
+        return stalled
 
     @override_settings(VIDEO_TASK_STALE_AFTER=3600)
     def test_fails_a_video_no_worker_can_still_be_holding(self):

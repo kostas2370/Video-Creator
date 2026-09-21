@@ -1,16 +1,16 @@
 from django.contrib.auth.models import AnonymousUser
 from django.db import connection
 from django.test import TestCase, override_settings
-from model_bakery import baker
 
+from apps.usermanagement.baker_recipes import user
+
+from ..baker_recipes import api_keys
 from ..models import ApiKeys, Provider
 
 
 class EncryptionTests(TestCase):
     def test_the_key_is_not_readable_in_the_table(self):
-        keys = baker.make_recipe(
-            "apikeysmanagement.api_keys", openai_key="sk-super-secret"
-        )
+        keys = api_keys.make(openai_key="sk-super-secret")
 
         with connection.cursor() as cursor:
             cursor.execute(
@@ -22,15 +22,13 @@ class EncryptionTests(TestCase):
         self.assertNotIn("sk-super-secret", stored)
 
     def test_the_key_comes_back_intact(self):
-        keys = baker.make_recipe(
-            "apikeysmanagement.api_keys", openai_key="sk-super-secret"
-        )
+        keys = api_keys.make(openai_key="sk-super-secret")
 
         self.assertEqual(ApiKeys.objects.get(pk=keys.pk).openai_key, "sk-super-secret")
 
     def test_two_users_with_the_same_key_do_not_store_the_same_bytes(self):
-        first = baker.make_recipe("apikeysmanagement.api_keys", openai_key="sk-same")
-        second = baker.make_recipe("apikeysmanagement.api_keys", openai_key="sk-same")
+        first = api_keys.make(openai_key="sk-same")
+        second = api_keys.make(openai_key="sk-same")
 
         with connection.cursor() as cursor:
             cursor.execute(
@@ -45,8 +43,7 @@ class EncryptionTests(TestCase):
 @override_settings(OPEN_API_KEY="service-openai-key", XI_API_KEY="service-xi-key")
 class KeyForTests(TestCase):
     def setUp(self):
-        self.keys = baker.make_recipe(
-            "apikeysmanagement.api_keys",
+        self.keys = api_keys.make(
             openai_key="sk-mine",
             elevenlabs_key="",
         )
@@ -70,12 +67,12 @@ class KeyForTests(TestCase):
         self.assertIsNone(ApiKeys.key_for(self.opted_out(), Provider.ELEVENLABS))
 
     def test_is_nothing_for_an_opted_out_user_with_no_keys_at_all(self):
-        stranger = baker.make_recipe("usermanagement.user", use_service_api_keys=False)
+        stranger = user.make(use_service_api_keys=False)
 
         self.assertIsNone(ApiKeys.key_for(stranger, Provider.OPENAI))
 
     def test_uses_the_service_key_for_a_user_who_saved_nothing(self):
-        stranger = baker.make_recipe("usermanagement.user")
+        stranger = user.make()
 
         self.assertEqual(
             ApiKeys.key_for(stranger, Provider.OPENAI), "service-openai-key"
@@ -89,7 +86,7 @@ class KeyForTests(TestCase):
 
     @override_settings(OPEN_API_KEY="")
     def test_is_nothing_when_the_service_has_no_key_either(self):
-        stranger = baker.make_recipe("usermanagement.user")
+        stranger = user.make()
 
         self.assertIsNone(ApiKeys.key_for(stranger, Provider.OPENAI))
 

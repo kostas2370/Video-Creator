@@ -1,20 +1,17 @@
 from unittest.mock import patch
 
 from django.test import TestCase
-from model_bakery import baker
-from rest_framework.test import APIClient
 
+from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.models import VoiceModel
 
-from ..models import ApiKeys, Provider
+from ..models import Provider
 from ..tasks import import_user_voices
-
-URL = "/api/api_keys/"
 
 
 class ImportUserVoicesTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
+        self.user = user.make()
 
     def labs_returns(self, *voices):
         return patch(
@@ -45,7 +42,7 @@ class ImportUserVoicesTests(TestCase):
         self.assertEqual(VoiceModel.objects.filter(path="abc").count(), 1)
 
     def test_two_users_can_hold_a_voice_of_the_same_name(self):
-        stranger = baker.make_recipe("usermanagement.user")
+        stranger = user.make()
         voices = [{"name": "Rachel", "voice_id": "abc", "preview_url": ""}]
 
         with self.labs_returns(*voices):
