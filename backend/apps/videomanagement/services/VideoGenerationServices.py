@@ -8,7 +8,7 @@ from ..utils.image_providers import VIDEO_PROVIDERS
 from ..models import Video, VoiceModel, UserPrompt, Avatar, Intro, Outro
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
-from ..utils.gpt_utils import get_reply
+from ..utils.llm import get_reply
 from ..utils.prompt_utils import format_prompt
 from ..utils.media import download_music
 from ..utils.scenes import create_image_scenes
