@@ -58,8 +58,6 @@ class AvatarSerializerTests(TestCase):
         self.assertEqual(AvatarSerializer(natasha).data["sample"], natasha.voice.sample)
 
     def test_survives_an_avatar_whose_voice_has_been_deleted(self):
-        # voice is SET_NULL: deleting the VoiceModel used to take the whole avatar
-        # list down with it for everyone who had picked that voice.
         orphan = avatar.make()
         orphan.voice.delete()
         orphan.refresh_from_db()

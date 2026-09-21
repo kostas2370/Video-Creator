@@ -13,8 +13,6 @@ from ..models import Avatar, Background, UserPrompt, Video, VoiceModel
 
 class VideoDefaultsTests(TestCase):
     def test_a_new_video_points_at_no_voice_rather_than_at_row_1(self):
-        # The field used to default to the literal pk 1, and db_constraint is off, so
-        # a fresh install wrote every video against a VoiceModel that did not exist.
         fresh = Video.objects.create(
             title="cats", prompt=UserPrompt.objects.create(prompt="cats")
         )
@@ -23,9 +21,6 @@ class VideoDefaultsTests(TestCase):
         self.assertIsNone(fresh.voice_model)
 
     def test_each_video_gets_its_own_settings_dict(self):
-        # A non-callable default is one dict shared by every instance, so editing one
-        # video's settings in place would rewrite the default for every video made
-        # afterwards in the same process.
         first, second = Video(), Video()
 
         self.assertIsNot(first.settings, second.settings)

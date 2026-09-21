@@ -49,8 +49,6 @@ class MakeVideoTests(TestCase):
         self.assertIn("write_videofile", self.final.effects)
 
     def test_renders_a_video_the_view_has_already_marked_rendering(self):
-        # render_video marks the row before queueing, so the worker always finds it
-        # in RENDERING rather than in the state the client asked from.
         self.video.status = "RENDERING"
         self.video.save()
 

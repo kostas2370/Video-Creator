@@ -113,9 +113,6 @@ class VideoView(viewsets.ModelViewSet):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # Marked before the task is queued, not inside it: until a worker picks the
-        # job up the row still reads COMPLETED from the last render, and a client that
-        # polls straight after the 202 would read that as this render having finished.
         vid.status = "RENDERING"
         vid.save()
 

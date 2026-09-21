@@ -19,12 +19,6 @@ VIDEO_PROVIDERS = {"sora"}
 
 
 def resolve(mode: str, provider: str = None):
-    """Look the provider's entry point up at call time.
-
-    Held as (module, name) rather than the function itself so that patching a provider
-    module swaps what the pipeline calls, and so that adding a provider is one line
-    here plus its own module.
-    """
     entry = PROVIDERS.get(mode, {}).get(provider or DEFAULT_PROVIDERS.get(mode))
     if entry is None:
         return None
