@@ -16,6 +16,7 @@ const API_ENDPOINTS = {
     SCENE_SELECT: (id) => `scenes/${id}/`,
     SCENE_IMAGE_SELECT: (id) => `scene_images/${id}/`,
     RENDER: (id) => `videos/${id}/render_video/`,
+    RESUME: (id) => `videos/${id}/resume/`,
     SCENE_GENERATE : (id) => `scenes/${id}/generate/`,
     SCENE_IMAGE_GENERATE : (id) => `scenes/${id}/generate_image_scene/`,
     TEMPLATES : 'templates/' ,
@@ -98,6 +99,20 @@ export const deleteTemplate = async (id) => {return deleteRequest(API_ENDPOINTS.
 
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
 export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data, axiosPrivateInstance, JSON_CONFIG)}
+export const resumeVideo = async (id) => {
+    try {
+        const response = await axiosPrivateInstance.patch(API_ENDPOINTS.RESUME(id), {});
+        return { ok: true, data: response.data };
+    } catch (error) {
+        console.error(`Error resuming the generation of video ${id}:`, error);
+        return {
+            ok: false,
+            status: error?.response?.status,
+            message: error?.response?.data?.message || "The generation could not be resumed",
+        };
+    }
+}
+
 export const renderVideo = async (id) => {
     try {
         const response = await axiosPrivateInstance.patch(API_ENDPOINTS.RENDER(id), {});
