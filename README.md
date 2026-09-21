@@ -263,6 +263,8 @@ id), and the Twitch client id and secret. Each field saves on its own, so fillin
 in never disturbs the rest, and **Clear** empties a single provider while **Remove all
 my keys** wipes every one of them.
 
+![Removing every saved key](docs/screenshots/modal-clear-keys.png)
+
 Two things to know before switching over:
 
 - **There is no fallback.** With your own keys selected, a provider you left blank has
@@ -328,6 +330,38 @@ Everything you have generated, with its status while it is still being worked on
 here you can open a video, edit its scenes, regenerate it or delete it.
 
 ![The videos list](docs/screenshots/videos.png)
+
+## Editing a video
+
+Open a video from the list and every scene is there to change before you render: the
+narration line and its audio, the image behind it, and the order they play in. Scenes
+can be added, edited, regenerated or removed one at a time, so a single bad shot does
+not mean generating the whole thing again.
+
+![Editing a generated video scene by scene](docs/screenshots/video-edit.png)
+
+The gear beside the title opens the video's own settings — intro, outro, avatar and
+subtitles — and the processor icon next to it queues the render.
+
+| | |
+| --- | --- |
+| ![Video settings](docs/screenshots/modal-video-config.png) | ![Queue a render](docs/screenshots/modal-render.png) |
+| **Video settings** — intro, outro, avatar, subtitles | **Render** — queues the job and follows it to COMPLETED |
+| ![Edit a scene](docs/screenshots/modal-edit-scene.png) | ![Edit a scene image](docs/screenshots/modal-edit-image.png) |
+| **Edit scene** — rewrite the line and resynthesise it | **Edit scene image** — replace it, or regenerate from a new description |
+| ![Add a scene](docs/screenshots/modal-add-scene.png) | ![Delete a scene](docs/screenshots/modal-delete-scene.png) |
+| **Add scene** — write a line and upload or generate its visual | **Delete** — the same confirmation guards scenes, images, videos and assets |
+
+## Avatars and assets
+
+An avatar is a face plus the voice that speaks for it; SadTalker animates it against
+the narration. Intros, outros and music live under **My assets** and are picked per
+video.
+
+| | |
+| --- | --- |
+| ![Create a new avatar](docs/screenshots/modal-new-avatar.png) | ![Add an asset](docs/screenshots/modal-new-asset.png) |
+| **New avatar** — name, gender, voice and a face to animate | **New asset** — an intro, outro or backing track |
 
 ## Twitch compilations
 
