@@ -277,7 +277,11 @@ class Video(LifecycleModelMixin, AbstractModel):
     )
     dir_name = models.TextField(default="")
     voice_model = models.ForeignKey(
-        VoiceModel, on_delete=models.SET_NULL, null=True, default=1, db_constraint=False
+        VoiceModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_constraint=False,
     )
     avatar = models.ForeignKey(
         Avatar,
