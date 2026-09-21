@@ -19,6 +19,7 @@ const API_ENDPOINTS = {
     SCENE_GENERATE : (id) => `scenes/${id}/generate/`,
     SCENE_IMAGE_GENERATE : (id) => `scenes/${id}/generate_image_scene/`,
     TEMPLATES : 'templates/' ,
+    TEMPLATE_SELECT: (id) => `templates/${id}/`,
     INTRO_GET: (search = null) => `intros/${search ? `?search=${search}` : ''}`,
     OUTRO_GET: (search = null) => `outros/${search ? `?search=${search}` : ''}`,
     VIDEOS_GET: (search = null, page = null, id = null) => {
@@ -93,6 +94,7 @@ export const deleteIntro = async (id) => {return deleteRequest(API_ENDPOINTS.INT
 export const deleteOutro = async (id) => {return deleteRequest(API_ENDPOINTS.OUTRO_SELECT(id))}
 export const deleteImageScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_IMAGE_SELECT(id))}
 export const deleteScene = async (id) =>  {return deleteRequest(API_ENDPOINTS.SCENE_SELECT(id))}
+export const deleteTemplate = async (id) => {return deleteRequest(API_ENDPOINTS.TEMPLATE_SELECT(id))}
 
 export const updateScene = async (id, data) => {return patchRequest(API_ENDPOINTS.SCENE_SELECT(id),data)}
 export const updateVideo = async (id,data) => {return patchRequest(API_ENDPOINTS.VIDEO_SELECT(id), data, axiosPrivateInstance, JSON_CONFIG)}
