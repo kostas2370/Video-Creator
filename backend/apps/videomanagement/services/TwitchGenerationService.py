@@ -6,7 +6,7 @@ from slugify import slugify
 from ..models import Video
 from ..utils.file_utils import generate_directory
 from ..utils.twitch import TwitchClient
-from ..utils.visual_utils import create_twitch_clip_scene
+from ..utils.scenes import create_twitch_clip_scene
 from ..utils.cost_utils import charge_user
 
 

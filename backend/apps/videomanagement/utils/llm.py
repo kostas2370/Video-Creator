@@ -4,7 +4,6 @@ import logging
 import sys
 
 import g4f
-import requests
 from django.conf import settings
 from openai import OpenAI
 import anthropic
@@ -275,27 +274,3 @@ def select_from_vision(prompt, images, user=None):
     x = 0 if "1" in x else 1 if "2" in x else 2
 
     return x
-
-
-def get_voices_from_labs(user=None):
-    url = "https://api.elevenlabs.io/v1/voices"
-    headers = {
-        "Accept": "application/json",
-        "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
-        "Content-Type": "application/json",
-    }
-
-    response = requests.get(url, headers=headers)
-    return response.json()["voices"]
-
-
-def get_voices_from_60db(user=None):
-    url = "https://api.60db.ai/myvoices"
-    headers = {
-        "Accept": "application/json",
-        "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
-        "Content-Type": "application/json",
-    }
-
-    response = requests.get(url, headers=headers)
-    return response.json()["data"]

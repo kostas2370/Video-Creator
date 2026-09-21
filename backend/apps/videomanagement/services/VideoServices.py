@@ -6,7 +6,7 @@ from django.db import transaction
 
 from ..models import Video, Avatar, Intro, Outro
 from ..utils.audio_utils import update_scene
-from ..utils.visual_utils import generate_new_image
+from ..utils.scenes import generate_new_image
 
 logger = logging.getLogger(__name__)
 

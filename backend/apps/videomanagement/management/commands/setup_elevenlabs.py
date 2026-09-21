@@ -3,7 +3,7 @@ from django.core.management import BaseCommand
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ...models import VoiceModel
-from ...utils.gpt_utils import get_voices_from_labs
+from ...utils.tts_utils import get_voices_from_labs
 
 
 class Command(BaseCommand):

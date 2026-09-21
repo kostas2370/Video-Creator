@@ -6,12 +6,17 @@ import requests
 from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
-from .mapper import api_providers
 from apps.apikeysmanagement.models import ApiKeys, Provider
 import sys
 
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
+
+api_providers = {
+    "open_ai": "tts_from_open_api",
+    "eleven_labs": "tts_from_eleven_labs",
+    "60db": "tts_from_60db",
+}
 
 
 @dataclass
@@ -47,7 +52,7 @@ def save(
 
     Notes:
     ------
-    - Every voice is an API call; see api_providers in mapper.py.
+    - Every voice is an API call; see api_providers above.
     """
     if syn is None:
         return None
@@ -207,3 +212,27 @@ def tts_from_60db(text, save_path, voice, user=None):
         logger.error(exc)
 
     return response
+
+
+def get_voices_from_labs(user=None):
+    url = "https://api.elevenlabs.io/v1/voices"
+    headers = {
+        "Accept": "application/json",
+        "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
+        "Content-Type": "application/json",
+    }
+
+    response = requests.get(url, headers=headers)
+    return response.json()["voices"]
+
+
+def get_voices_from_60db(user=None):
+    url = "https://api.60db.ai/myvoices"
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.get(url, headers=headers)
+    return response.json()["data"]
