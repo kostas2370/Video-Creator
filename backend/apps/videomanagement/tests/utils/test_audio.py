@@ -50,35 +50,38 @@ class MakeScenesSpeechTests(TestCase):
             ]
         }
 
-    def test_narrates_every_sentence_of_every_scene(self):
-        with patch.object(audio_utils, "make_scene_speech") as make:
+    def narrate(self):
+        with patch.object(audio_utils, "narrate_scene") as spoken:
             make_scenes_speech(self.video)
 
-        self.assertEqual(make.call_count, 3)
+        return spoken
+
+    def lines(self):
+        return list(self.video.prompt.scenes.order_by("id"))
+
+    def test_makes_a_scene_for_every_sentence_of_every_scene(self):
+        self.narrate()
+
+        self.assertEqual([line.text for line in self.lines()], ["one", "two", "three"])
 
     def test_marks_only_the_last_sentence_of_each_scene_as_last(self):
-        with patch.object(audio_utils, "make_scene_speech") as make:
-            make_scenes_speech(self.video)
+        self.narrate()
 
-        self.assertEqual(
-            [call.args[4] for call in make.call_args_list], [False, True, True]
-        )
+        self.assertEqual([line.is_last for line in self.lines()], [False, True, True])
 
-    def test_passes_the_videos_narration_setting_down(self):
+    def test_narrates_every_line_it_made(self):
+        self.assertEqual(self.narrate().call_count, 3)
+
+    def test_says_nothing_aloud_when_narration_is_off(self):
         self.video.settings = dict(narration=False)
 
-        with patch.object(audio_utils, "make_scene_speech") as make:
-            make_scenes_speech(self.video)
-
-        self.assertIs(make.call_args.kwargs["narrate"], False)
+        self.narrate().assert_not_called()
+        self.assertEqual(len(self.lines()), 3)
 
     def test_narrates_by_default_when_the_setting_is_absent(self):
         self.video.settings = {}
 
-        with patch.object(audio_utils, "make_scene_speech") as make:
-            make_scenes_speech(self.video)
-
-        self.assertIs(make.call_args.kwargs["narrate"], True)
+        self.assertEqual(self.narrate().call_count, 3)
 
 
 class UpdateSceneTests(TestCase):
