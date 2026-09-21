@@ -71,4 +71,4 @@ dependencies = [
 packages = ["backend"]
 
 [tool.ruff]
-exclude = ["backend/apps/videomanagement/utils/SadTalker"]
+exclude = ["backend/vendor"]

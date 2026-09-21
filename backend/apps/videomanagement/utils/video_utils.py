@@ -20,7 +20,7 @@ from moviepy.editor import (
     TextClip,
 )
 
-from .SadTalker.inference import lip
+from vendor.sadtalker.inference import lip
 from ..models import Avatar, SceneImage, Background, Scene, Video
 from .exceptions import RenderFailedException
 

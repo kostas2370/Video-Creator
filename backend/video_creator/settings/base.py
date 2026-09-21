@@ -238,7 +238,7 @@ XI_API_KEY = os.getenv("XI_API_KEY")
 SIXTYDB_API_KEY = os.getenv("SIXTYDB_API_KEY")
 DIFFUSION_KEY = os.getenv("DIFFUSION_KEY")
 MIDJOURNEY_KEY = os.getenv("MIDJOURNEY_KEY")
-CONFIG_PATH = "apps/videomanagement/utils/SadTalker/src/config"
+CONFIG_PATH = "vendor/sadtalker/src/config"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")

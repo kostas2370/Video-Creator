@@ -14,7 +14,7 @@ from pytubefix import YouTube, Playlist
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from .bing_image_downloader import downloader
+from vendor.bing_image_downloader import downloader
 from .exceptions import FileNotDownloadedException
 from .google_image_downloader import downloader as google_downloader
 from .mapper import modes, default_providers
