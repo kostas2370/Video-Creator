@@ -219,6 +219,26 @@ class RenderViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 202)
         delay.assert_called_once()
 
+    def test_marks_the_video_rendering_before_the_worker_picks_it_up(self):
+        # A client that polls straight after the 202 would otherwise read the status
+        # left by the last render and call this render finished before it started.
+        rendered = self.video_for(status="COMPLETED")
+
+        response, _ = self.render(rendered)
+
+        rendered.refresh_from_db()
+        self.assertEqual(rendered.status, "RENDERING")
+        self.assertEqual(response.data["video"]["status"], "RENDERING")
+
+    def test_refuses_a_second_render_while_the_first_is_still_queued(self):
+        rendered = self.video_for(status="COMPLETED")
+        self.render(rendered)
+
+        response, delay = self.render(rendered)
+
+        self.assertEqual(response.status_code, 409)
+        delay.assert_not_called()
+
     def test_refuses_to_render_a_video_a_worker_has_not_finished(self):
         for status in ("GENERATION", "RENDERING", "FAILED"):
             with self.subTest(status=status):
