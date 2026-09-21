@@ -1,6 +1,6 @@
-from model_bakery.recipe import Recipe, seq
+from model_bakery.recipe import Recipe, foreign_key, seq
 
-from .models import User
+from .models import Login, User
 
 user = Recipe(
     User,
@@ -19,3 +19,7 @@ broke_user = user.extend(
 )
 
 superuser = user.extend(is_superuser=True, is_staff=True)
+
+unverified_user = user.extend(is_verified=False)
+
+login = Recipe(Login, user=foreign_key(user), ip="1.2.3.4")

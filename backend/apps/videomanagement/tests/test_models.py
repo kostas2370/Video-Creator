@@ -1,8 +1,4 @@
-from unittest.mock import patch
-
 from django.test import TestCase
-
-from apps.usermanagement.baker_recipes import user
 
 from ..baker_recipes import (
     avatar,
@@ -70,50 +66,3 @@ class StringRepresentationTests(TestCase):
             instance = recipe.prepare()
             with self.subTest(model=type(instance).__name__):
                 self.assertEqual(str(instance), getattr(instance, attribute))
-
-
-class UserTests(TestCase):
-    def test_issues_a_usable_token_pair(self):
-        tokens = user.make().get_tokens()
-
-        self.assertIn("access", tokens)
-        self.assertIn("refresh", tokens)
-
-    def test_reports_both_halves_of_the_name(self):
-        ada = user.prepare(first_name="Ada", last_name="Lovelace")
-
-        self.assertEqual(ada.get_full_name(), "Ada Lovelace")
-        self.assertEqual(ada.get_short_name(), "Ada")
-
-    def test_normalises_the_email_domain_on_clean(self):
-        ada = user.prepare(email="Ada@EXAMPLE.TEST")
-
-        ada.clean()
-
-        self.assertEqual(ada.email, "Ada@example.test")
-
-    def test_sends_mail_to_the_users_own_address(self):
-        ada = user.make(email="ada@example.test")
-
-        with patch("apps.usermanagement.models.send_mail") as send:
-            ada.email_user("subject", "body")
-
-        self.assertEqual(send.call_args.args[3], ["ada@example.test"])
-
-
-class LoginTests(TestCase):
-    def test_reads_the_client_ip_from_the_forwarding_header_when_there_is_one(self):
-        from apps.usermanagement.models import Login
-
-        request = type("Request", (), {})()
-        request.META = {"HTTP_X_FORWARDED_FOR": "1.2.3.4, 5.6.7.8"}
-
-        self.assertEqual(Login.get_user_ip(request), "1.2.3.4")
-
-    def test_falls_back_to_the_socket_address(self):
-        from apps.usermanagement.models import Login
-
-        request = type("Request", (), {})()
-        request.META = {"REMOTE_ADDR": "9.9.9.9"}
-
-        self.assertEqual(Login.get_user_ip(request), "9.9.9.9")

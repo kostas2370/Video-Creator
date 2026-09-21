@@ -100,13 +100,14 @@ class LoginView(generics.GenericAPIView):
             data=request.data, context={"request": request}
         )
 
-        user = get_user_model().objects.get(username=request.data.get("username"))
-
         serializer.is_valid(raise_exception=True)
+
+        user = get_user_model().objects.get(username=request.data.get("username"))
         user_ip = Login.get_user_ip(request)
 
         login, created = Login.objects.get_or_create(user=user, ip=user_ip)
         login.count += 1
+        login.save(update_fields=["count"])
 
         if created:
             send_email.delay(
@@ -114,7 +115,6 @@ class LoginView(generics.GenericAPIView):
                 user.email,
                 f"Someone with this ip : {user_ip} accessed your account,",
             )
-            user.save()
 
         response = Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -189,8 +189,11 @@ class CookieTokenRefreshView(jwt_views.TokenRefreshView):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
+    refresh_token = request.COOKIES.get("refresh_token")
+    if not refresh_token:
+        raise ParseError("Invalid token")
+
     try:
-        refresh_token = request.COOKIES.get("refresh_token")
         token = tokens.RefreshToken(refresh_token)
         token.blacklist()
         res = Response()
