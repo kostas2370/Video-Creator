@@ -11,6 +11,8 @@ from rest_framework.exceptions import APIException
 from ..utils import tts_utils
 from ..utils.tts_utils import (
     ApiSyn,
+    get_voices_from_60db,
+    get_voices_from_labs,
     save,
     tts_from_60db,
     tts_from_eleven_labs,
@@ -136,3 +138,25 @@ class SixtyDbTtsTests(SimpleTestCase):
             self.assertIs(tts_from_60db("hello", self.out, "v"), response)
 
         self.assertFalse(os.path.exists(self.out))
+
+
+class VoiceListingTests(SimpleTestCase):
+    @override_settings(XI_API_KEY="key")
+    def test_reads_the_voices_out_of_the_eleven_labs_payload(self):
+        response = MagicMock()
+        response.json.return_value = {"voices": [{"voice_id": "abc"}]}
+
+        with patch.object(tts_utils.requests, "get", return_value=response) as get:
+            self.assertEqual(get_voices_from_labs(), [{"voice_id": "abc"}])
+
+        self.assertEqual(get.call_args.kwargs["headers"]["xi-api-key"], "key")
+
+    @override_settings(SIXTYDB_API_KEY="key")
+    def test_reads_the_voices_out_of_the_60db_payload(self):
+        response = MagicMock()
+        response.json.return_value = {"data": [{"voice_id": "abc"}]}
+
+        with patch.object(tts_utils.requests, "get", return_value=response) as get:
+            self.assertEqual(get_voices_from_60db(), [{"voice_id": "abc"}])
+
+        self.assertEqual(get.call_args.kwargs["headers"]["Authorization"], "Bearer key")

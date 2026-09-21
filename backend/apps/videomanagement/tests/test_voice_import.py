@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
+from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.models import VoiceModel
 
-from ..models import Provider
+from ..models import VoiceModel
 from ..tasks import import_user_voices
 
 
@@ -15,7 +15,7 @@ class ImportUserVoicesTests(TestCase):
 
     def labs_returns(self, *voices):
         return patch(
-            "apps.videomanagement.utils.gpt_utils.get_voices_from_labs",
+            "apps.videomanagement.utils.tts_utils.get_voices_from_labs",
             return_value=list(voices),
         )
 
