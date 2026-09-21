@@ -41,6 +41,9 @@ class VideoView(viewsets.ModelViewSet):
         if self.action == "list":
             queryset = queryset.exclude(gpt_answer=None)
 
+        if self.action == "retrieve":
+            queryset = queryset.prefetch_related("prompt__scenes__scene_images")
+
         return queryset
 
     def get_serializer_class(self):

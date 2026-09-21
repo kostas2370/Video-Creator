@@ -42,11 +42,11 @@ class SceneSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_scene_image(self, obj):
-        img = SceneImage.objects.filter(scene_id=obj.id)
-        if img.count() == 0:
-            return ""
+        # Iterated rather than .first()ed: first() re-queries even against a
+        # prefetched relation, which is what made this two queries per scene.
+        image = next(iter(obj.scene_images.all()), None)
 
-        return SceneImageSerializer(img.first()).data
+        return SceneImageSerializer(image).data if image else ""
 
 
 class VoiceModelSerializer(serializers.ModelSerializer):
