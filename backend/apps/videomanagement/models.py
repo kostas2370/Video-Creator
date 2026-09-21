@@ -322,8 +322,11 @@ class Video(LifecycleModelMixin, AbstractModel):
         condition=WhenFieldValueChangesTo("status", "COMPLETED"),
     )
     def send_video_completed_email(self):
-        message = f"Your video {self.title} has been completed. You can download it from {self.url}"
-        send_email.delay(self.created_by.email, "Video Completed", message)
+        self.email_owner(
+            "Video Completed",
+            f"Your video {self.title} has been completed. "
+            f"You can download it from {self.url}",
+        )
 
     @hook(
         AFTER_UPDATE,
@@ -331,5 +334,12 @@ class Video(LifecycleModelMixin, AbstractModel):
         condition=WhenFieldValueChangesTo("status", "FAILED"),
     )
     def send_video_failed_email(self):
-        message = f"Your video {self.title} has failed. Please try again."
-        send_email.delay(self.created_by.email, "Video Failed", message)
+        self.email_owner(
+            "Video Failed", f"Your video {self.title} has failed. Please try again."
+        )
+
+    def email_owner(self, subject: str, message: str) -> None:
+        if not self.created_by:
+            return
+
+        send_email.delay(name=subject, email=self.created_by.email, text=message)

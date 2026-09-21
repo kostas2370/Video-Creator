@@ -6,10 +6,15 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from apps.apikeysmanagement.models import Provider
+from apps.usermanagement.baker_recipes import user
+
 from ..baker_recipes import video
-from ..models import Video
+from ..models import Video, VoiceModel
+from ..utils import tts_utils
 from ..tasks import (
     generate_twitch_video_task,
+    import_user_voices,
     generate_video_task,
     reap_stalled_videos,
     regenerate_video_task,
@@ -85,6 +90,84 @@ class TaskSuccessTests(TestCase):
             self.assertEqual(render_video_task(video_id=self.video.id), self.video.id)
 
         self.assertEqual(render.call_args.args[0].pk, self.video.pk)
+
+    def test_twitch_generation_hands_its_parameters_to_the_service(self):
+        with patch(
+            "apps.videomanagement.services.TwitchGenerationService.generate_twitch_video"
+        ) as generate:
+            returned = generate_twitch_video_task(
+                video_id=self.video.id, channel="a streamer"
+            )
+
+        self.assertEqual(returned, self.video.id)
+        self.assertEqual(generate.call_args.kwargs["channel"], "a streamer")
+        self.assertEqual(generate.call_args.kwargs["video"].pk, self.video.pk)
+
+    def test_regeneration_hands_the_video_to_the_service(self):
+        with patch(
+            "apps.videomanagement.services.VideoServices.video_regenerate"
+        ) as regenerate:
+            returned = regenerate_video_task(video_id=self.video.id)
+
+        self.assertEqual(returned, self.video.id)
+        self.assertEqual(regenerate.call_args.args[0].pk, self.video.pk)
+
+
+class ImportUserVoicesTests(TestCase):
+    def setUp(self):
+        self.user = user.make()
+
+    def labs_returns(self, *voices):
+        return patch(
+            "apps.videomanagement.utils.tts_utils.get_voices_from_labs",
+            return_value=list(voices),
+        )
+
+    def test_imports_the_voices_against_the_user_who_owns_the_key(self):
+        with self.labs_returns(
+            {"name": "Rachel", "voice_id": "abc", "preview_url": "https://a.test/x"}
+        ):
+            added = import_user_voices(self.user.id, Provider.ELEVENLABS)
+
+        voice = VoiceModel.objects.get(path="abc")
+        self.assertEqual(added, 1)
+        self.assertEqual(voice.created_by, self.user)
+        self.assertEqual(voice.provider, "eleven_labs")
+        self.assertEqual(voice.type, "API")
+
+    def test_running_it_twice_does_not_duplicate_anything(self):
+        voices = [{"name": "Rachel", "voice_id": "abc", "preview_url": ""}]
+
+        with self.labs_returns(*voices):
+            import_user_voices(self.user.id, Provider.ELEVENLABS)
+            added = import_user_voices(self.user.id, Provider.ELEVENLABS)
+
+        self.assertEqual(added, 0)
+        self.assertEqual(VoiceModel.objects.filter(path="abc").count(), 1)
+
+    def test_two_users_can_hold_a_voice_of_the_same_name(self):
+        stranger = user.make()
+        voices = [{"name": "Rachel", "voice_id": "abc", "preview_url": ""}]
+
+        with self.labs_returns(*voices):
+            import_user_voices(self.user.id, Provider.ELEVENLABS)
+            import_user_voices(stranger.id, Provider.ELEVENLABS)
+
+        self.assertEqual(VoiceModel.objects.filter(name="Rachel").count(), 2)
+
+    def test_does_nothing_for_a_user_who_no_longer_exists(self):
+        self.assertEqual(import_user_voices(999999, Provider.ELEVENLABS), 0)
+
+    def test_a_provider_that_will_not_answer_fails_the_import(self):
+        owner = user.make()
+
+        with patch.object(
+            tts_utils, "get_voices_from_labs", side_effect=RuntimeError("401")
+        ):
+            with self.assertRaises(RuntimeError):
+                import_user_voices(owner.id, Provider.ELEVENLABS)
+
+        self.assertEqual(VoiceModel.objects.count(), 0)
 
 
 class ReapStalledVideosTests(TestCase):

@@ -3,14 +3,14 @@ from rest_framework.test import APIRequestFactory
 
 from apps.usermanagement.baker_recipes import user
 
-from ..baker_recipes import avatar, music, scene, scene_image, video
-from ..serializers import (
+from ...baker_recipes import avatar, music, scene, scene_image, video
+from ...serializers import (
     AvatarSerializer,
     SceneSerializer,
     VideoNestedSerializer,
     VideoSerializer,
 )
-from ..swagger_serializers import (
+from ...swagger_serializers import (
     AddSceneSerializer,
     GenerateSerializer,
     TwitchSerializer,

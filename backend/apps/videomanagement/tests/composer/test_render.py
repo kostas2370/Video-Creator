@@ -2,17 +2,17 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from ..baker_recipes import (
+from ...baker_recipes import (
     narrated_scene,
     scene,
     scene_image,
     video,
     video_scene_image_with_audio,
 )
-from ..utils.composer import render
-from ..utils.composer.render import make_video
-from ..utils.exceptions import RenderFailedException
-from .doubles import FakeAudio, FakeClip
+from ...utils.composer import render
+from ...utils.composer.render import make_video
+from ...utils.exceptions import RenderFailedException
+from ..doubles import FakeAudio, FakeClip
 
 
 class MakeVideoTests(TestCase):

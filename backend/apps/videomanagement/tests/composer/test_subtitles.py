@@ -2,9 +2,9 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase, override_settings
 
-from ..utils.composer import subtitles
-from ..utils.composer.subtitles import create_subtitle_clip
-from .doubles import FakeClip
+from ...utils.composer import subtitles
+from ...utils.composer.subtitles import create_subtitle_clip
+from ..doubles import FakeClip
 
 
 class CreateSubtitleClipTests(SimpleTestCase):

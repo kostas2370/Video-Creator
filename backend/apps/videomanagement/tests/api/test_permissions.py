@@ -4,8 +4,8 @@ from rest_framework.test import APIRequestFactory
 
 from apps.usermanagement.baker_recipes import superuser, user
 
-from ..baker_recipes import scene, scene_image, video
-from ..permissions import (
+from ...baker_recipes import scene, scene_image, video
+from ...permissions import (
     AiGenerationLimitPermission,
     IsOwnerPermission,
     SceneGenerationLimitPermission,
