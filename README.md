@@ -23,9 +23,92 @@ port never receives the refresh token and every reload logs the user out.
 
 ---
 
+## Configuration
+
+Both installs read the same `.env` in `backend/` (see `backend/.env_example`).
+Three keys are worth setting before you start:
+
+- `OPEN_API_KEY` — used for scripts, images and voices
+- `SEARCH_ENGINE_ID`
+- `API_KEY`
+
+These are the *service* keys — the ones the server spends on behalf of everyone.
+Users can instead supply their own from the app, without touching `.env`; see
+[API keys](#api-keys). The service keys are still worth setting, because they are
+what new accounts use by default and what the `setup_elevenlabs` and `setup_60db`
+commands read.
+
+*To find your Google search engine ID and API key, refer to this *[***YouTube Guide***](https://www.youtube.com/watch?v=D4tWHX2nCzQ\&t=127s)*.*
+
+Every value is optional apart from those, and blank is treated the same as unset.
+The ones worth knowing about:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DEFAULT_GPT_MODEL` | `gpt-5.4-mini` | Script generation model |
+| `MAX_TOKENS` | `3900` | Visible reply budget |
+| `REASONING_TOKEN_ALLOWANCE` | `8000` | Extra budget for gpt-5/o-series thinking tokens, which bill against the same cap as the reply |
+| `IMAGE_MODEL` | `gpt-image-2` | Image generation model (DALL-E is retired) |
+| `IMAGE_QUALITY` / `IMAGE_SIZE` | `high` / `1792x1024` | Validated per model — change them together with `IMAGE_MODEL` |
+| `SUBTITLE_FONT` | `DejaVu-Sans` | ImageMagick font name for subtitles |
+
+---
+
 ## How to Run the Project
 
-There are two ways to run the project: manually or using Docker.
+Docker is the fastest way in and the one most people should use: it brings up the
+API, the worker, the database and the frontend together, patches the ImageMagick
+policy, ships a subtitle font and downloads the model weights for you. Install it
+by hand if you would rather run the services yourself.
+
+### Docker Installation
+
+1. Create the `.env` file as described under [Configuration](#configuration).
+2. Navigate to the backend folder and run:
+   ```shell
+   docker-compose up --build
+   ```
+
+This brings up the whole stack, frontend included:
+
+| | |
+| --- | --- |
+| App | <http://localhost:3000> |
+| API | <http://localhost:3000/api/> (also on `:8000` directly) |
+| Admin | <http://localhost:3000/admin/> |
+| Swagger | <http://localhost:3000/swagger/> |
+
+nginx serves the built app and proxies `/api`, `/admin`, `/swagger` and `/redoc` to
+Django, so everything is one origin.
+
+Rendered videos, scene images and narration audio under `/media` are served by nginx
+straight off the bind mount rather than through Django. Django's development static
+view does not implement range requests, so a browser could not seek in a rendered
+video and had to download the whole file before playing it.
+
+The frontend image is a multi-stage build — node compiles the bundle and only the
+static output plus nginx is shipped, so it is around 100MB rather than the couple of
+GB an installed `node_modules` takes.
+
+To work on the frontend with hot reload, run it outside Docker instead:
+
+```shell
+cd frontend && npm install && npm start
+```
+
+CRA's dev server proxies `/api` to `localhost:8000` (see `proxy` in `package.json`),
+so the browser still sees a single origin and the cookies behave the same way.
+
+Everything above is handled inside the image: the ImageMagick policy is patched, a
+subtitle font is present, and the web container runs migrations and loads fixtures on
+start. The stack builds natively on both x86\_64 and arm64 (Apple Silicon).
+
+The model weights are downloaded for you: the celery worker runs `setup_checkpoints` before it starts consuming tasks, since it is the service that runs SadTalker. They land in `checkpoints/` and `gfpgan/weights/` on the host through the `.:/app` bind mount, so the first boot pays for the download once and every rebuild after that reuses it. Expect the worker to take several minutes to come up the first time.
+
+They are deliberately **not** baked into the image — that would add several GB to it, and they are not needed at build time.
+
+
+---
 
 ### Manual Installation
 
@@ -68,32 +151,7 @@ There are two ways to run the project: manually or using Docker.
 
    This fills `checkpoints/` and `gfpgan/weights/` and skips anything already there, so it is safe to re-run if a download drops out. The files come from [Google Drive - Checkpoints](https://drive.google.com/drive/u/1/folders/1Fp4sjMi6U3bQaKmQQe04qeXzk7quu0Od) if you would rather fetch them by hand — note that the `gfpgan` subfolder belongs at `gfpgan/weights/`, not inside `checkpoints/`.
 
-3. Inside the viddie folder, create a `.env` file (see `backend/.env_example`) and add the
-   following API keys:
-
-   - `OPEN_API_KEY` — used for scripts, images and voices
-   - `SEARCH_ENGINE_ID`
-   - `API_KEY`
-
-   These are the *service* keys — the ones the server spends on behalf of everyone.
-   Users can instead supply their own from the app, without touching `.env`; see
-   [API keys](#api-keys). The service keys are still worth setting, because they are
-   what new accounts use by default and what the `setup_elevenlabs` and `setup_60db`
-   commands read.
-
-   *To find your Google search engine ID and API key, refer to this *[***YouTube Guide***](https://www.youtube.com/watch?v=D4tWHX2nCzQ\&t=127s)*.*
-
-   Every value is optional apart from those, and blank is treated the same as unset.
-   The ones worth knowing about:
-
-   | Variable | Default | Purpose |
-   | --- | --- | --- |
-   | `DEFAULT_GPT_MODEL` | `gpt-5.4-mini` | Script generation model |
-   | `MAX_TOKENS` | `3900` | Visible reply budget |
-   | `REASONING_TOKEN_ALLOWANCE` | `8000` | Extra budget for gpt-5/o-series thinking tokens, which bill against the same cap as the reply |
-   | `IMAGE_MODEL` | `gpt-image-2` | Image generation model (DALL-E is retired) |
-   | `IMAGE_QUALITY` / `IMAGE_SIZE` | `high` / `1792x1024` | Validated per model — change them together with `IMAGE_MODEL` |
-   | `SUBTITLE_FONT` | `DejaVu-Sans` | ImageMagick font name for subtitles |
+3. Create the `.env` file described under [Configuration](#configuration).
 
 4. Run the following commands to set up the database and start the server:
 
@@ -146,54 +204,6 @@ There are two ways to run the project: manually or using Docker.
    `:8000`, so the browser sees one origin and the auth cookies work. Open the app on
    `localhost`, not `127.0.0.1` — they count as different sites, and the
    `SameSite=Strict` refresh cookie would not be sent.
-
----
-
-### Docker Installation
-
-1. Create the `.env` file and add your OPEN\_API\_KEY, SEARCH\_ENGINE\_ID, API\_KEY as per `.env_example`.
-2. Navigate to the backend folder and run:
-   ```shell
-   docker-compose up --build
-   ```
-
-This brings up the whole stack, frontend included:
-
-| | |
-| --- | --- |
-| App | <http://localhost:3000> |
-| API | <http://localhost:3000/api/> (also on `:8000` directly) |
-| Admin | <http://localhost:3000/admin/> |
-| Swagger | <http://localhost:3000/swagger/> |
-
-nginx serves the built app and proxies `/api`, `/admin`, `/swagger` and `/redoc` to
-Django, so everything is one origin.
-
-Rendered videos, scene images and narration audio under `/media` are served by nginx
-straight off the bind mount rather than through Django. Django's development static
-view does not implement range requests, so a browser could not seek in a rendered
-video and had to download the whole file before playing it.
-
-The frontend image is a multi-stage build — node compiles the bundle and only the
-static output plus nginx is shipped, so it is around 100MB rather than the couple of
-GB an installed `node_modules` takes.
-
-To work on the frontend with hot reload, run it outside Docker instead:
-
-```shell
-cd frontend && npm install && npm start
-```
-
-CRA's dev server proxies `/api` to `localhost:8000` (see `proxy` in `package.json`),
-so the browser still sees a single origin and the cookies behave the same way.
-
-Everything above is handled inside the image: the ImageMagick policy is patched, a
-subtitle font is present, and the web container runs migrations and loads fixtures on
-start. The stack builds natively on both x86\_64 and arm64 (Apple Silicon).
-
-The model weights are downloaded for you: the celery worker runs `setup_checkpoints` before it starts consuming tasks, since it is the service that runs SadTalker. They land in `checkpoints/` and `gfpgan/weights/` on the host through the `.:/app` bind mount, so the first boot pays for the download once and every rebuild after that reuses it. Expect the worker to take several minutes to come up the first time.
-
-They are deliberately **not** baked into the image — that would add several GB to it, and they are not needed at build time.
 
 ---
 
