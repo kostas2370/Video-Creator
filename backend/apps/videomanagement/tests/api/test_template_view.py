@@ -7,13 +7,15 @@ from ...models import TemplatePrompt
 from .base import ApiTestCase
 
 
-class SaveTemplateTests(ApiTestCase):
+class TemplateApiTestCase(ApiTestCase):
     def save(self, **overrides):
         payload = {"title": "Shorts", "message": "make me a short", "image_mode": "AI"}
         payload.update(overrides)
 
         return self.client.post(reverse("templateprompt-list"), payload, format="json")
 
+
+class SaveTemplateTests(TemplateApiTestCase):
     def test_keeps_the_saved_preset_against_the_caller(self):
         response = self.save()
 
@@ -65,3 +67,26 @@ class SaveTemplateTests(ApiTestCase):
 
         self.assertEqual(response.status_code, 201, response.data)
         self.assertIsNone(TemplatePrompt.objects.get(title="Shorts").avatar_selection)
+
+
+class DeleteTemplateTests(TemplateApiTestCase):
+    def delete(self, template):
+        return self.client.delete(reverse("templateprompt-detail", args=[template.id]))
+
+    def test_the_owner_can_throw_their_preset_away(self):
+        mine = template_prompt.make(title="Shorts", created_by=self.user)
+
+        self.assertEqual(self.delete(mine).status_code, 204)
+        self.assertFalse(TemplatePrompt.objects.filter(pk=mine.pk).exists())
+
+    def test_a_stranger_cannot_throw_it_away(self):
+        theirs = template_prompt.make(title="Shorts", created_by=user.make())
+
+        self.assertEqual(self.delete(theirs).status_code, 404)
+        self.assertTrue(TemplatePrompt.objects.filter(pk=theirs.pk).exists())
+
+    def test_the_name_is_free_again_afterwards(self):
+        mine = template_prompt.make(title="Shorts", created_by=self.user)
+        self.delete(mine)
+
+        self.assertEqual(self.save().status_code, 201)

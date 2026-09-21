@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getAvatars, getTemplates, getVoices } from "../api/apiService";
 import { toast } from "react-toastify";
-import { generateVideo } from "../api/apiService";
+import { deleteTemplate, generateVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
 import { LoadingButton } from "../components/ui/LoadingButton";
 import { ProceedModal } from "../components/ProceedModal";
 import { SaveTemplateModal } from "../components/SaveTemplateModal";
+import { DeleteModal } from "../components/DeleteModal";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 const inputClassName =
@@ -23,6 +24,7 @@ const Home = () => {
   const [video_id, setVideo_id] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
 
   const [formData, setFormData] = useState({
     genre: "",
@@ -124,6 +126,15 @@ const Home = () => {
     Object.entries(formData).filter(([field]) => field !== "template")
   );
 
+  const selectedTemplate = templates.find(
+    (t) => String(t.id) === String(formData.template)
+  );
+
+  const dropTemplate = (updater) => {
+    setTemplates(updater);
+    setFormData((prevData) => ({ ...prevData, template: "" }));
+  };
+
   const handleTemplateSaved = (saved) => {
     setTemplates((prevTemplates) => [...prevTemplates, saved]);
     setFormData((prevData) => ({ ...prevData, template: saved.id }));
@@ -178,6 +189,14 @@ const Home = () => {
         settings={settingsForTemplate}
         onSaved={handleTemplateSaved}
       />
+      <DeleteModal
+        showModal={deletingTemplate}
+        setShowModal={setDeletingTemplate}
+        id={selectedTemplate?.id}
+        name={selectedTemplate?.title}
+        setItems={dropTemplate}
+        deleteFunction={deleteTemplate}
+      />
       <div className="w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-800 dark:border dark:border-gray-700">
         <div className="p-6 sm:p-8 space-y-6">
           <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
@@ -222,20 +241,47 @@ const Home = () => {
                     >
                       Template
                     </label>
-                    <select
-                      name="template"
-                      id="template"
-                      value={formData.template}
-                      className={inputClassName}
-                      onChange={handleInputChange}
-                    >
-                      <option value="">None</option>
-                      {templates?.map((template) => (
-                        <option key={template.id} value={template.id}>
-                          {template.title}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-end space-x-2">
+                      <select
+                        name="template"
+                        id="template"
+                        value={formData.template}
+                        className={inputClassName}
+                        onChange={handleInputChange}
+                      >
+                        <option value="">None</option>
+                        {templates?.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.title}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        title={
+                          selectedTemplate
+                            ? `Delete ${selectedTemplate.title}`
+                            : "Pick a template to delete it"
+                        }
+                        disabled={!selectedTemplate}
+                        className="shrink-0 p-2.5 text-red-600 border border-red-300 rounded-lg hover:bg-red-600 hover:text-white focus:ring-4 focus:outline-none focus:ring-red-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-red-600 dark:text-red-400 dark:border-red-500 dark:hover:bg-red-600 dark:hover:text-white dark:focus:ring-red-800"
+                        onClick={() => setDeletingTemplate(true)}
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          ></path>
+                        </svg>
+                        <span className="sr-only">Delete template</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Target Audience & Genre row */}
