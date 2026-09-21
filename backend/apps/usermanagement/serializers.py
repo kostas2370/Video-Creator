@@ -54,9 +54,6 @@ class LoginSerializer(serializers.ModelSerializer):
         username = attrs.get("username", "")
         password = attrs.get("password", "")
 
-        if not username:
-            raise AuthenticationFailed("Υou need to add username")
-
         auser = authenticate(username=username, password=password, request=request)
 
         if not auser:
