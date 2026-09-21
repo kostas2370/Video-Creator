@@ -45,7 +45,7 @@ class TaskFailureTests(TestCase):
 
     def test_rendering_leaves_the_video_failed_and_re_raises(self):
         with patch(
-            "apps.videomanagement.utils.video_utils.make_video",
+            "apps.videomanagement.utils.composer.render.make_video",
             side_effect=RuntimeError("the encoder died"),
         ):
             with self.assertRaises(RuntimeError):
@@ -81,7 +81,7 @@ class TaskSuccessTests(TestCase):
         self.assertEqual(generate.call_args.kwargs["video"].pk, self.video.pk)
 
     def test_rendering_hands_the_video_to_make_video(self):
-        with patch("apps.videomanagement.utils.video_utils.make_video") as render:
+        with patch("apps.videomanagement.utils.composer.render.make_video") as render:
             self.assertEqual(render_video_task(video_id=self.video.id), self.video.id)
 
         self.assertEqual(render.call_args.args[0].pk, self.video.pk)

@@ -3,7 +3,12 @@ import tempfile
 
 from django.test import SimpleTestCase
 
-from ..utils.file_utils import check_which_file_exists, generate_directory
+from ..utils.file_utils import (
+    check_if_image,
+    check_if_video,
+    check_which_file_exists,
+    generate_directory,
+)
 
 
 class GenerateDirectoryTests(SimpleTestCase):
@@ -57,3 +62,21 @@ class CheckWhichFileExistsTests(SimpleTestCase):
 
     def test_returns_none_for_an_empty_list(self):
         self.assertIsNone(check_which_file_exists([]))
+
+
+class FileTypeTests(SimpleTestCase):
+    def test_recognises_stills_by_extension_whatever_the_case(self):
+        for path in ("a.jpg", "a.JPEG", "a/b.PNG"):
+            with self.subTest(path=path):
+                self.assertTrue(check_if_image(path))
+                self.assertFalse(check_if_video(path))
+
+    def test_recognises_footage_by_extension(self):
+        for path in ("a.mp4", "a/b.AVI"):
+            with self.subTest(path=path):
+                self.assertTrue(check_if_video(path))
+                self.assertFalse(check_if_image(path))
+
+    def test_recognises_neither_for_anything_else(self):
+        self.assertFalse(check_if_image("a.wav"))
+        self.assertFalse(check_if_video("a.wav"))

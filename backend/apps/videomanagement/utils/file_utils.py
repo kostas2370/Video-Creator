@@ -62,3 +62,15 @@ def check_which_file_exists(images: list) -> Union[str, None]:
             return i
 
     return None
+
+
+def check_if_image(path: str) -> bool:
+    supported_image_extensions = {".jpg", ".jpeg", ".png"}
+    file_extension = os.path.splitext(path)[1].lower()
+    return file_extension in supported_image_extensions
+
+
+def check_if_video(path: str) -> bool:
+    supported_video_extensions = {".mp4", ".avi"}
+    file_extension = os.path.splitext(path)[1].lower()
+    return file_extension in supported_video_extensions
