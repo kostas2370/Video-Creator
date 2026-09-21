@@ -1,6 +1,8 @@
 import os
 from typing import Union
 
+from django.core.exceptions import SuspiciousFileOperation
+
 
 def generate_directory(name: str, x: int = 0) -> str:
     """
@@ -74,3 +76,20 @@ def check_if_video(path: str) -> bool:
     supported_video_extensions = {".mp4", ".avi"}
     file_extension = os.path.splitext(path)[1].lower()
     return file_extension in supported_video_extensions
+
+
+def stored_file_exists(field) -> bool:
+    """Whether a FileField actually has bytes behind it.
+
+    A field can be set and the file still be gone: the eleven_labs and 60db calls
+    swallow their own errors, and a half-finished generation leaves rows pointing at
+    files that were never written. `path` also refuses anything outside MEDIA_ROOT,
+    which counts as not there rather than as a crash.
+    """
+    if not field:
+        return False
+
+    try:
+        return os.path.exists(field.path)
+    except (ValueError, SuspiciousFileOperation):
+        return False

@@ -1,9 +1,31 @@
+import logging
+import os
 import uuid
 
 from .prompt_utils import scene_text
+from .file_utils import stored_file_exists
 from .tts_utils import save, ApiSyn
 from ..models import Scene, Video
-import os
+
+
+logger = logging.getLogger(__name__)
+
+
+def has_narration(scene: Scene) -> bool:
+    return stored_file_exists(scene.file)
+
+
+def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
+    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
+    scene.file = save(
+        syn,
+        scene.text,
+        save_path=f"{dir_name}/dialogues/{uuid.uuid4()}.wav",
+        user=user,
+    )
+    scene.save()
+
+    return scene
 
 
 def make_scene_speech(
@@ -45,18 +67,40 @@ def make_scenes_speech(video: Video) -> None:
 
     voice_model = video.voice_model
     narrate = video.settings.get("narration", True)
+    existing = {s.text: s for s in video.prompt.scenes.all()}
+
     for scene in video.gpt_answer["scenes"]:
         sentences = scene["sentences"]
         for index, sentence in enumerate(sentences):
-            make_scene_speech(
-                voice_model,
-                video.dir_name,
-                video.prompt,
-                scene_text(sentence),
-                index == len(sentences) - 1,
-                narrate=narrate,
-                user=video.created_by,
-            )
+            text = scene_text(sentence)
+            is_last = index == len(sentences) - 1
+            line = existing.get(text.strip())
+
+            if line is None:
+                try:
+                    make_scene_speech(
+                        voice_model,
+                        video.dir_name,
+                        video.prompt,
+                        text,
+                        is_last,
+                        narrate=narrate,
+                        user=video.created_by,
+                    )
+                except Exception:
+                    logger.exception("Could not narrate %r", text[:40])
+                    Scene.objects.create(
+                        prompt=video.prompt, text=text.strip(), is_last=is_last
+                    )
+                continue
+
+            if not narrate or has_narration(line):
+                continue
+
+            try:
+                narrate_scene(line, voice_model, video.dir_name, user=video.created_by)
+            except Exception:
+                logger.exception("Could not narrate scene %s", line.pk)
 
 
 def update_scene(scene: Scene) -> None:

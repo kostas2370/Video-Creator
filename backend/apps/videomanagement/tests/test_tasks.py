@@ -15,6 +15,7 @@ from ..utils import tts_utils
 from ..tasks import (
     generate_twitch_video_task,
     import_user_voices,
+    resume_video_task,
     generate_video_task,
     reap_stalled_videos,
     regenerate_video_task,
@@ -59,6 +60,17 @@ class TaskFailureTests(TestCase):
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "FAILED")
 
+    def test_resuming_leaves_the_video_failed_and_re_raises(self):
+        with patch(
+            "apps.videomanagement.services.VideoGenerationServices.resume_video",
+            side_effect=RuntimeError("the provider is still down"),
+        ):
+            with self.assertRaises(RuntimeError):
+                resume_video_task(video_id=self.video.id)
+
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.status, "FAILED")
+
     def test_regeneration_leaves_the_video_failed_and_re_raises(self):
         with patch(
             "apps.videomanagement.services.VideoServices.video_regenerate",
@@ -90,6 +102,15 @@ class TaskSuccessTests(TestCase):
             self.assertEqual(render_video_task(video_id=self.video.id), self.video.id)
 
         self.assertEqual(render.call_args.args[0].pk, self.video.pk)
+
+    def test_resuming_hands_the_video_to_the_service(self):
+        with patch(
+            "apps.videomanagement.services.VideoGenerationServices.resume_video"
+        ) as resume:
+            returned = resume_video_task(video_id=self.video.id)
+
+        self.assertEqual(returned, self.video.id)
+        self.assertEqual(resume.call_args.args[0].pk, self.video.pk)
 
     def test_twitch_generation_hands_its_parameters_to_the_service(self):
         with patch(
