@@ -82,7 +82,7 @@ def make_video(video: Video) -> Video:
         Videos: The updated video object with output file path and status.
     """
 
-    if video.status not in {"READY", "COMPLETED"}:
+    if video.status not in {"READY", "COMPLETED", "RENDERING"}:
         raise RenderFailedException("Video is not in a renderable state.")
 
     video.status = "RENDERING"
