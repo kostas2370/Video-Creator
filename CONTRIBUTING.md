@@ -46,8 +46,19 @@ For frontend work you want hot reload, which Docker does not give you. See
 backend/
   apps/
     usermanagement/      accounts, auth, JWT, password reset
-    videomanagement/     the generation pipeline, scenes, rendering, Twitch
     apikeysmanagement/   per-user provider API keys, stored encrypted
+    videomanagement/     the generation pipeline, scenes, rendering, Twitch
+      services/          one module per orchestration entry point
+      utils/
+        llm.py           OpenAI, Claude and Gemini calls
+        tts_utils.py     speech synthesis and voice listings
+        media.py         YouTube downloads
+        scenes.py        turns a script into Scene and SceneImage rows
+        image_providers/ one module per provider, behind resolve()
+        composer/        the moviepy pipeline, one module per stage
+      tests/             mirrors the app: api/, services/, utils/,
+                         composer/, image_providers/
+  vendor/                third-party checkouts
   video_creator/         settings, root urlconf
   requirements/          requirements.txt + constraints.txt
 frontend/
@@ -57,9 +68,15 @@ frontend/
   src/hooks/             auth, theme, debounce, axios interceptors
 ```
 
-`backend/apps/videomanagement/utils/SadTalker/` is **vendored third-party code**. It is
-excluded from linting in `pyproject.toml` and should not be reformatted, restyled or
-tidied up. Patch it only when fixing something that actually breaks.
+`backend/vendor/` is **vendored third-party code** — the SadTalker checkout and the
+Bing image downloader. It is excluded from linting in `pyproject.toml` and should not be
+reformatted, restyled or tidied up. Patch it only when fixing something that actually
+breaks. Nothing else belongs there: `image_providers/google_images.py` looks vendored
+but is this project's own Google Custom Search client.
+
+An image provider is a module under `utils/image_providers/` plus one line in the
+`PROVIDERS` registry in its `__init__.py`. `resolve()` looks the entry point up at call
+time, so patching a provider module in a test swaps what the pipeline calls.
 
 ---
 
@@ -80,29 +97,37 @@ python backend/manage.py makemigrations --check --dry-run
 python backend/manage.py check
 
 # 4. Tests
-python backend/manage.py test apps.videomanagement.tests apps.apikeysmanagement.tests
+python backend/manage.py test apps.videomanagement apps.apikeysmanagement apps.usermanagement
 ```
 
 ### Running the tests
 
-**Name the `tests` packages explicitly.** A bare `manage.py test` — or naming the app
-rather than its tests package, as in `manage.py test apps.videomanagement` — walks into
-the vendored SadTalker checkout, which ships `test_options.py` files that match the
-default discovery pattern and cannot be imported standalone. You get two
-`unittest.loader._FailedTest` errors that have nothing to do with your change:
+**Name the apps.** A bare `manage.py test` walks the whole tree and reaches
+`backend/vendor/`, which ships third-party `test_options.py` files that match the
+default discovery pattern and cannot be imported standalone:
 
 ```shell
 # Right
-python backend/manage.py test apps.videomanagement.tests apps.apikeysmanagement.tests
+python backend/manage.py test apps.videomanagement apps.apikeysmanagement apps.usermanagement
 
-# Wrong — two spurious SadTalker import errors
+# Wrong — spurious import errors from vendor/
 python backend/manage.py test
+```
+
+The `videomanagement` tests mirror the app, so an area can be run on its own while you
+work on it:
+
+```shell
+python backend/manage.py test apps.videomanagement.tests.composer          # the render pipeline
+python backend/manage.py test apps.videomanagement.tests.api               # views, serializers, permissions
+python backend/manage.py test apps.videomanagement.tests.services
+python backend/manage.py test apps.videomanagement.tests.image_providers
 ```
 
 Under Docker, run it in the web container:
 
 ```shell
-docker compose exec video_creator python manage.py test apps.videomanagement.tests apps.apikeysmanagement.tests
+docker compose exec video_creator python manage.py test apps.videomanagement apps.apikeysmanagement apps.usermanagement
 ```
 
 New behaviour needs a test. The suite stubs every call out to a model provider — no
