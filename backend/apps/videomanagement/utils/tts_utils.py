@@ -207,3 +207,27 @@ def tts_from_60db(text, save_path, voice, user=None):
         logger.error(exc)
 
     return response
+
+
+def get_voices_from_labs(user=None):
+    url = "https://api.elevenlabs.io/v1/voices"
+    headers = {
+        "Accept": "application/json",
+        "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
+        "Content-Type": "application/json",
+    }
+
+    response = requests.get(url, headers=headers)
+    return response.json()["voices"]
+
+
+def get_voices_from_60db(user=None):
+    url = "https://api.60db.ai/myvoices"
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.get(url, headers=headers)
+    return response.json()["data"]

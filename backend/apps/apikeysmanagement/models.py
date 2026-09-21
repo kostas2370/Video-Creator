@@ -104,7 +104,7 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
     @hook(AFTER_UPDATE, on_commit=True)
     def update_user_voices(self):
-        from .tasks import import_user_voices
+        from apps.videomanagement.tasks import import_user_voices
 
         for field, provider in VOICE_KEY_FIELDS.items():
             if self.has_changed(field) and getattr(self, field):

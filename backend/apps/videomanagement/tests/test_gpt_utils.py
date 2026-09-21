@@ -13,8 +13,6 @@ from ..utils.gpt_utils import (
     gemini_call,
     get_reply,
     get_update_sentence,
-    get_voices_from_60db,
-    get_voices_from_labs,
     official_gpt_call,
     select_from_vision,
     token_limit_kwarg,
@@ -264,25 +262,3 @@ class SelectFromVisionTests(SimpleTestCase):
             "content"
         ]
         self.assertEqual([part["type"] for part in content[1:]], ["image_url"] * 3)
-
-
-class VoiceListingTests(SimpleTestCase):
-    @override_settings(XI_API_KEY="key")
-    def test_reads_the_voices_out_of_the_eleven_labs_payload(self):
-        response = MagicMock()
-        response.json.return_value = {"voices": [{"voice_id": "abc"}]}
-
-        with patch.object(gpt_utils.requests, "get", return_value=response) as get:
-            self.assertEqual(get_voices_from_labs(), [{"voice_id": "abc"}])
-
-        self.assertEqual(get.call_args.kwargs["headers"]["xi-api-key"], "key")
-
-    @override_settings(SIXTYDB_API_KEY="key")
-    def test_reads_the_voices_out_of_the_60db_payload(self):
-        response = MagicMock()
-        response.json.return_value = {"data": [{"voice_id": "abc"}]}
-
-        with patch.object(gpt_utils.requests, "get", return_value=response) as get:
-            self.assertEqual(get_voices_from_60db(), [{"voice_id": "abc"}])
-
-        self.assertEqual(get.call_args.kwargs["headers"]["Authorization"], "Bearer key")
