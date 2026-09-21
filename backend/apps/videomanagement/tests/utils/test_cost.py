@@ -2,8 +2,8 @@ from django.test import TestCase
 
 from apps.usermanagement.baker_recipes import user
 
-from ..baker_recipes import scene, scene_image, twitch_video, video
-from ..utils.cost_utils import calculate_total_cost, charge_user
+from ...baker_recipes import scene, scene_image, twitch_video, video
+from ...utils.cost_utils import calculate_total_cost, charge_user
 
 
 class CalculateTotalCostTests(TestCase):

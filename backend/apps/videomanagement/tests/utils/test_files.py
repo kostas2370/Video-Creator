@@ -3,7 +3,7 @@ import tempfile
 
 from django.test import SimpleTestCase
 
-from ..utils.file_utils import (
+from ...utils.file_utils import (
     check_if_image,
     check_if_video,
     check_which_file_exists,

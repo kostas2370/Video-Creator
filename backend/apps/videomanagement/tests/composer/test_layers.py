@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from ..baker_recipes import background, music, video
-from ..utils.composer import layers
-from ..utils.composer.layers import handle_background, handle_music
-from .doubles import FakeAudio, FakeClip
+from ...baker_recipes import background, music, video
+from ...utils.composer import layers
+from ...utils.composer.layers import handle_background, handle_music
+from ..doubles import FakeAudio, FakeClip
 
 
 class HandleMusicTests(SimpleTestCase):

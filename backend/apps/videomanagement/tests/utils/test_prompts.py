@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from ..utils.prompt_utils import (
+from ...utils.prompt_utils import (
     format_dalle_prompt,
     format_prompt,
     format_sora_prompt,

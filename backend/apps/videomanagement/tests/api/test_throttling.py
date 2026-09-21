@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 
 from apps.usermanagement.baker_recipes import superuser, user
 
-from ..throttling import (
+from ...throttling import (
     GenerateRateThrottle,
     RenderRateThrottle,
     TwitchGenerateRateThrottle,

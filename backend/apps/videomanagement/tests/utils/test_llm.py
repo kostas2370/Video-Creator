@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import APIException
 
-from ..utils import llm
-from ..utils.llm import (
+from ...utils import llm
+from ...utils.llm import (
     check_json,
     claude_call,
     gemini_call,
