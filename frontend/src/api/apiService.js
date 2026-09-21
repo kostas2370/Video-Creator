@@ -144,6 +144,22 @@ export const generateSceneImage = async (id, data) => {return postRequest(API_EN
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
 export const getVoices = async () => {return getRequest(API_ENDPOINTS.VOICES);}
 export const getTemplates = async () => {return getRequest(API_ENDPOINTS.TEMPLATES)}
+export const createTemplate = async (data) => {
+    try {
+        const response = await axiosPrivateInstance.post(API_ENDPOINTS.TEMPLATES, data);
+        return { ok: true, template: response.data };
+    } catch (error) {
+        console.error("Error saving the template:", error);
+        const detail = error?.response?.data;
+        const firstField = detail && Object.values(detail)[0];
+        return {
+            ok: false,
+            status: error?.response?.status,
+            message: (Array.isArray(firstField) ? firstField[0] : firstField)
+                || "The template could not be saved",
+        };
+    }
+}
 export const getIntro = async (search = null) => {return getRequest(API_ENDPOINTS.INTRO_GET(search));}
 export const getOutro = async (search = null) => {return getRequest(API_ENDPOINTS.OUTRO_GET(search));}
 export const getVideos = async (search = null, page = null) => {return getRequest(API_ENDPOINTS.VIDEOS_GET(search, page));}

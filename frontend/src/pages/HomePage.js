@@ -5,6 +5,7 @@ import { generateVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
 import { LoadingButton } from "../components/ui/LoadingButton";
 import { ProceedModal } from "../components/ProceedModal";
+import { SaveTemplateModal } from "../components/SaveTemplateModal";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 const inputClassName =
@@ -21,6 +22,7 @@ const Home = () => {
   const [open, setOpen] = useState(false);
   const [video_id, setVideo_id] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const [formData, setFormData] = useState({
     genre: "",
@@ -118,6 +120,15 @@ const Home = () => {
     fetchOptions();
   }, []);
 
+  const settingsForTemplate = Object.fromEntries(
+    Object.entries(formData).filter(([field]) => field !== "template")
+  );
+
+  const handleTemplateSaved = (saved) => {
+    setTemplates((prevTemplates) => [...prevTemplates, saved]);
+    setFormData((prevData) => ({ ...prevData, template: saved.id }));
+  };
+
   const handleGenerate = async (e) => {
     e.preventDefault();
     if (formData.message.trim() === "") {
@@ -161,6 +172,12 @@ const Home = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} />
+      <SaveTemplateModal
+        showModal={savingTemplate}
+        setShowModal={setSavingTemplate}
+        settings={settingsForTemplate}
+        onSaved={handleTemplateSaved}
+      />
       <div className="w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-800 dark:border dark:border-gray-700">
         <div className="p-6 sm:p-8 space-y-6">
           <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
@@ -457,7 +474,20 @@ const Home = () => {
                 </div>
               </div>
             )}
-            <LoadingButton isLoading={isLoading} />
+            <div className="flex items-center space-x-3">
+              <div className="flex-1">
+                <LoadingButton isLoading={isLoading} />
+              </div>
+              {!isLoading && (
+                <button
+                  type="button"
+                  className="shrink-0 text-blue-700 border border-blue-700 hover:bg-blue-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-500 dark:hover:text-white dark:focus:ring-blue-800"
+                  onClick={() => setSavingTemplate(true)}
+                >
+                  Save as template
+                </button>
+              )}
+            </div>
           </form>
         </div>
       </div>

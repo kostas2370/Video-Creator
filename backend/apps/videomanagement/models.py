@@ -50,7 +50,7 @@ class AbstractModel(models.Model):
 
 
 class TemplatePrompt(AbstractModel):
-    title = models.CharField(max_length=50, unique=True, blank=False)
+    title = models.CharField(max_length=50, blank=False)
 
     # Preset generation fields with choices
     message = models.TextField(max_length=2000, blank=True, default="")
@@ -104,6 +104,13 @@ class TemplatePrompt(AbstractModel):
     )
 
     objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["created_by", "title"], name="unique_template_title_per_owner"
+            )
+        ]
 
     def __str__(self):
         return self.title
