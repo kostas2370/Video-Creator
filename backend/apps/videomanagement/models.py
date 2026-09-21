@@ -35,6 +35,10 @@ IMAGE_MODE = (("AI", "AI"), ("WEB", "WEB"))
 VIDEO_TYPE = (("AI", "AI"), ("TWITCH", "TWITCH"))
 
 
+def default_video_settings() -> dict:
+    return {"subtitles": False, "avatar_position": "right,top"}
+
+
 class AbstractModel(models.Model):
     created_by = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE, blank=True, null=True
@@ -304,7 +308,7 @@ class Video(LifecycleModelMixin, AbstractModel):
     settings = models.JSONField(
         null=True,
         blank=True,
-        default=dict(subtitles=False, avatar_position="right,top"),
+        default=default_video_settings,
     )
 
     objects = models.Manager()
