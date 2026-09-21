@@ -6,14 +6,14 @@ import requests
 from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import APIException
 
-from ..utils import twitch
-from ..utils.exceptions import (
+from ...utils import twitch
+from ...utils.exceptions import (
     GameNotFound,
     HeaderInitiationException,
     InvalidTwitchToken,
     StreamerNotFound,
 )
-from ..utils.twitch import TwitchClient
+from ...utils.twitch import TwitchClient
 
 
 def a_response(payload=None, status_code=200):

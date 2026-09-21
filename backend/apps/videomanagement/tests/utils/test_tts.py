@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, mock_open, patch
 from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import APIException
 
-from ..utils import tts_utils
-from ..utils.tts_utils import (
+from ...utils import tts_utils
+from ...utils.tts_utils import (
     ApiSyn,
     get_voices_from_60db,
     get_voices_from_labs,

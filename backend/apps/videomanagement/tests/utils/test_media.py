@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
-from ..baker_recipes import music
-from ..models import Music
-from ..utils import media
-from ..utils.media import download_music
+from ...baker_recipes import music
+from ...models import Music
+from ...utils import media
+from ...utils.media import download_music
 
 
 class DownloadMusicTests(TestCase):
