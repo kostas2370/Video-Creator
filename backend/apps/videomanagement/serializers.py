@@ -70,7 +70,9 @@ class AvatarSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_sample(self, obj):
-        return obj.voice.sample
+        # voice is SET_NULL, so deleting a VoiceModel leaves every avatar that used
+        # it pointing at nothing.
+        return obj.voice.sample if obj.voice else ""
 
 
 class UserPromptSerializer(serializers.ModelSerializer):
