@@ -1,13 +1,21 @@
 """Every provider call is stubbed: no OpenAI, Bing or Google request is made."""
 
 import base64
+import os
 import tempfile
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import APIException
 
-from ..utils.image_providers import bing, google_images, openai_images, sora
+from ..utils.image_providers import (
+    bing,
+    diffusion,
+    google_images,
+    midjourney,
+    openai_images,
+    sora,
+)
 from ..utils.image_providers.bing import download_image
 from ..utils.image_providers.google_images import download_image_from_google
 from ..utils.image_providers.openai_images import generate_from_dalle
@@ -161,3 +169,61 @@ class DownloadImageTests(SimpleTestCase):
     def test_returns_nothing_when_google_fails(self):
         with patch.object(google_images, "download", side_effect=RuntimeError("429")):
             self.assertIsNone(download_image_from_google("a cat", "images/"))
+
+
+class SavedPathTests(SimpleTestCase):
+    """The provider is handed a directory and has to put the file inside it.
+
+    These three used to join with a literal backslash, which on Linux is an ordinary
+    filename character: the visual landed next to the images directory as a file
+    called "\\<uuid>.png" rather than in it.
+    """
+
+    DIR = "media/videos/a video/images/"
+
+    def assert_saved_into_the_directory(self, saved):
+        self.assertNotIn("\\", saved)
+        self.assertEqual(os.path.dirname(saved), self.DIR.rstrip("/"))
+
+    def test_diffusion_saves_into_the_directory_it_was_given(self):
+        response = MagicMock()
+        response.json.return_value = {"output": ["https://img.test/a.png"]}
+
+        with (
+            patch.object(diffusion.requests, "post", return_value=response),
+            patch.object(diffusion.urllib.request, "urlretrieve") as retrieve,
+        ):
+            saved = diffusion.generate_from_diffusion("a cat", self.DIR)
+
+        self.assert_saved_into_the_directory(saved)
+        self.assertEqual(retrieve.call_args.args[1], saved)
+
+    def test_midjourney_saves_into_the_directory_it_was_given(self):
+        queued = MagicMock()
+        queued.json.return_value = {"success": True, "messageId": "m1"}
+        finished = MagicMock()
+        finished.json.return_value = {"uri": "https://img.test/a.png"}
+
+        with (
+            patch.object(midjourney.requests, "post", return_value=queued),
+            patch.object(midjourney.requests, "get", return_value=finished),
+            patch.object(midjourney.urllib.request, "urlretrieve") as retrieve,
+        ):
+            saved = midjourney.generate_from_midjourney("a cat", self.DIR)
+
+        self.assert_saved_into_the_directory(saved)
+        self.assertEqual(retrieve.call_args.args[1], saved)
+
+    def test_google_saves_into_the_directory_it_was_given(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {"items": [{"link": "https://img.test/a.jpg"}]}
+
+        with (
+            patch.object(google_images, "make_request", return_value=response),
+            patch.object(google_images.urllib.request, "urlretrieve") as retrieve,
+        ):
+            saved = google_images.download("a cat", path=self.DIR)
+
+        self.assert_saved_into_the_directory(saved)
+        self.assertEqual(retrieve.call_args.args[1], saved)
