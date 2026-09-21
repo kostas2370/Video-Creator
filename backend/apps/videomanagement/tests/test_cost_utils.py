@@ -1,19 +1,19 @@
 from django.test import TestCase
-from model_bakery import baker
 
+from apps.usermanagement.baker_recipes import user
+
+from ..baker_recipes import scene, scene_image, twitch_video, video
 from ..utils.cost_utils import calculate_total_cost, charge_user
 
 
 class CalculateTotalCostTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video", mode="WEB")
+        self.video = video.make(mode="WEB")
 
     def add_scenes(self, count, with_images=0):
-        scenes = baker.make_recipe(
-            "videomanagement.scene", prompt=self.video.prompt, _quantity=count
-        )
-        for scene in scenes[:with_images]:
-            baker.make_recipe("videomanagement.scene_image", scene=scene)
+        scenes = scene.make(prompt=self.video.prompt, _quantity=count)
+        for line in scenes[:with_images]:
+            scene_image.make(scene=line)
 
         return scenes
 
@@ -23,8 +23,7 @@ class CalculateTotalCostTests(TestCase):
 
     def test_does_not_charge_for_a_scene_image_that_was_never_generated(self):
         self.add_scenes(1)
-        baker.make_recipe(
-            "videomanagement.scene_image",
+        scene_image.make(
             scene=self.video.prompt.scenes.first(),
             file=None,
         )
@@ -38,10 +37,10 @@ class CalculateTotalCostTests(TestCase):
         self.assertAlmostEqual(calculate_total_cost(self.video), 0.22)
 
     def test_charges_the_twitch_rate_per_clip(self):
-        video = baker.make_recipe("videomanagement.twitch_video")
-        baker.make_recipe("videomanagement.scene", prompt=video.prompt, _quantity=3)
+        clips = twitch_video.make()
+        scene.make(prompt=clips.prompt, _quantity=3)
 
-        self.assertAlmostEqual(calculate_total_cost(video), 0.05 + 3 * 0.08)
+        self.assertAlmostEqual(calculate_total_cost(clips), 0.05 + 3 * 0.08)
 
     def test_costs_nothing_before_any_scene_exists(self):
         self.assertAlmostEqual(calculate_total_cost(self.video), 0.12)
@@ -49,10 +48,8 @@ class CalculateTotalCostTests(TestCase):
 
 class ChargeUserTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user", generation_limit_for_ai=10)
-        self.video = baker.make_recipe(
-            "videomanagement.video", created_by=self.user, mode="WEB"
-        )
+        self.user = user.make(generation_limit_for_ai=10)
+        self.video = video.make(created_by=self.user, mode="WEB")
 
     def test_deducts_the_videos_cost_and_refreshes_the_in_memory_balance(self):
         charged = charge_user(self.user, "generation_limit_for_ai", self.video)

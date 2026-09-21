@@ -246,13 +246,10 @@ class Background(AbstractModel):
         return self.name
 
     @staticmethod
-    def select_background(category: str = None) -> Background:
-        if category is not None:
-            back = Background.objects.filter(category=category)
-        else:
-            back = Background.objects.all()
+    def select_background() -> Background:
+        back = Background.objects.all()
 
-        return back[randint(0, back.count() - 1)]
+        return back[randint(0, back.count() - 1)] if back.exists() else None
 
 
 class Intro(AbstractModel):

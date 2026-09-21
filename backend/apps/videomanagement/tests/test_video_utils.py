@@ -1,8 +1,18 @@
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
-from model_bakery import baker
 
+from ..baker_recipes import (
+    background,
+    last_scene,
+    music,
+    narrated_scene,
+    scene,
+    scene_image,
+    video,
+    video_scene_image,
+    video_scene_image_with_audio,
+)
 from ..utils import video_utils
 from ..utils.exceptions import RenderFailedException
 from ..utils.video_utils import (
@@ -30,9 +40,7 @@ def a_clip(audio=None):
 class ClipAudioTests(SimpleTestCase):
     def test_returns_the_clips_audio_when_the_scene_is_flagged_with_audio(self):
         track = MagicMock()
-        scene_image = baker.prepare_recipe(
-            "videomanagement.video_scene_image_with_audio"
-        )
+        scene_image = video_scene_image_with_audio.prepare()
 
         with patch(
             "apps.videomanagement.utils.video_utils.VideoFileClip",
@@ -41,7 +49,7 @@ class ClipAudioTests(SimpleTestCase):
             self.assertIs(clip_audio(scene_image), track)
 
     def test_returns_none_for_a_silent_clip(self):
-        scene_image = baker.prepare_recipe("videomanagement.video_scene_image")
+        scene_image = video_scene_image.prepare()
 
         with patch(
             "apps.videomanagement.utils.video_utils.VideoFileClip"
@@ -54,16 +62,12 @@ class ClipAudioTests(SimpleTestCase):
         self.assertIsNone(clip_audio(None))
 
     def test_returns_none_when_the_scene_image_has_no_file(self):
-        scene_image = baker.prepare_recipe(
-            "videomanagement.video_scene_image_with_audio", file=None
-        )
+        scene_image = video_scene_image_with_audio.prepare(file=None)
 
         self.assertIsNone(clip_audio(scene_image))
 
     def test_returns_none_when_the_file_carries_no_audio_track(self):
-        scene_image = baker.prepare_recipe(
-            "videomanagement.video_scene_image_with_audio"
-        )
+        scene_image = video_scene_image_with_audio.prepare()
 
         with patch(
             "apps.videomanagement.utils.video_utils.VideoFileClip",
@@ -72,9 +76,7 @@ class ClipAudioTests(SimpleTestCase):
             self.assertIsNone(clip_audio(scene_image))
 
     def test_returns_none_when_the_file_cannot_be_opened(self):
-        scene_image = baker.prepare_recipe(
-            "videomanagement.video_scene_image_with_audio"
-        )
+        scene_image = video_scene_image_with_audio.prepare()
 
         with patch(
             "apps.videomanagement.utils.video_utils.VideoFileClip",
@@ -97,33 +99,29 @@ class HandleAudioTests(SimpleTestCase):
     def test_falls_back_to_silence_when_the_scene_has_neither_narration_nor_a_clip(
         self,
     ):
-        scene = baker.prepare_recipe("videomanagement.scene")
-        scene_image = baker.prepare_recipe("videomanagement.scene_image")
+        line = scene.prepare()
+        image = scene_image.prepare()
 
-        self.assertIs(handle_audio(scene, scene_image), self.silence)
+        self.assertIs(handle_audio(line, image), self.silence)
 
     def test_pads_the_last_silent_scene_so_the_video_does_not_cut_off(self):
-        scene = baker.prepare_recipe(
-            "videomanagement.last_scene", file="media/speech/line.wav"
-        )
-        scene_image = baker.prepare_recipe("videomanagement.scene_image")
+        line = last_scene.prepare(file="media/speech/line.wav")
+        image = scene_image.prepare()
         padded = MagicMock(name="padded")
 
         with patch(
             "apps.videomanagement.utils.video_utils.concatenate_audioclips",
             return_value=padded,
         ) as concatenate:
-            self.assertIs(handle_audio(scene, scene_image), padded)
+            self.assertIs(handle_audio(line, image), padded)
 
         narration, *tail = concatenate.call_args.args[0]
         self.assertIs(narration, self.silence)  # the patched AudioFileClip
         self.assertEqual(tail, [self.silence, self.silence])
 
     def test_does_not_pad_a_last_scene_that_plays_its_own_audio(self):
-        scene = baker.prepare_recipe("videomanagement.last_scene")
-        scene_image = baker.prepare_recipe(
-            "videomanagement.video_scene_image_with_audio"
-        )
+        scene = last_scene.prepare()
+        scene_image = video_scene_image_with_audio.prepare()
         track = MagicMock(name="track")
 
         with (
@@ -140,12 +138,8 @@ class HandleAudioTests(SimpleTestCase):
         concatenate.assert_not_called()
 
     def test_mixes_the_clips_own_audio_over_the_narration(self):
-        scene = baker.prepare_recipe(
-            "videomanagement.scene", file="media/speech/line.wav"
-        )
-        scene_image = baker.prepare_recipe(
-            "videomanagement.video_scene_image_with_audio"
-        )
+        line = scene.prepare(file="media/speech/line.wav")
+        image = video_scene_image_with_audio.prepare()
         track = MagicMock(name="track")
         mixed = MagicMock(name="mixed")
 
@@ -159,7 +153,7 @@ class HandleAudioTests(SimpleTestCase):
                 return_value=mixed,
             ) as composite,
         ):
-            self.assertIs(handle_audio(scene, scene_image), mixed)
+            self.assertIs(handle_audio(line, image), mixed)
 
         self.assertEqual(composite.call_args.args[0][1], track)
 
@@ -184,7 +178,7 @@ class FileTypeTests(SimpleTestCase):
 
 class HandleImageTests(SimpleTestCase):
     def setUp(self):
-        self.scene_image = baker.prepare_recipe("videomanagement.scene_image")
+        self.scene_image = scene_image.prepare()
 
     def test_holds_the_still_for_as_long_as_the_narration_runs(self):
         clip = FakeClip()
@@ -208,12 +202,12 @@ class HandleImageTests(SimpleTestCase):
         opened = MagicMock()
         opened.convert.return_value.resize.return_value = opened
 
-        background = baker.prepare_recipe("videomanagement.background")
+        behind = background.prepare()
         with (
             patch.object(video_utils, "ImageClip", return_value=clip),
             patch.object(video_utils.Image, "open", return_value=opened),
         ):
-            handle_image(FakeAudio(), self.scene_image, background)
+            handle_image(FakeAudio(), self.scene_image, behind)
 
         opened.convert.return_value.resize.assert_called_once_with((650, 325))
 
@@ -225,7 +219,7 @@ class HandleImageTests(SimpleTestCase):
 
 class HandleVideoTests(SimpleTestCase):
     def setUp(self):
-        self.scene_image = baker.prepare_recipe("videomanagement.video_scene_image")
+        self.scene_image = video_scene_image.prepare()
 
     def fit(self, clip_duration, audio):
         clip = FakeClip(duration=clip_duration)
@@ -271,15 +265,15 @@ class ProcessSceneTests(SimpleTestCase):
         self.addCleanup(patcher.stop)
 
     def test_sends_a_still_to_handle_image(self):
-        scene_image = baker.prepare_recipe("videomanagement.scene_image")
+        image = scene_image.prepare()
 
         with patch.object(video_utils, "handle_image") as handle:
-            process_scene(scene_image, FakeAudio(), None)
+            process_scene(image, FakeAudio(), None)
 
         handle.assert_called_once()
 
     def test_sends_footage_to_handle_video(self):
-        scene_image = baker.prepare_recipe("videomanagement.video_scene_image")
+        scene_image = video_scene_image.prepare()
 
         with patch.object(video_utils, "handle_video") as handle:
             process_scene(scene_image, FakeAudio(), None)
@@ -287,18 +281,16 @@ class ProcessSceneTests(SimpleTestCase):
         handle.assert_called_once()
 
     def test_falls_back_to_black_for_an_unsupported_file_type(self):
-        scene_image = baker.prepare_recipe(
-            "videomanagement.scene_image", file="media/images/notes.txt"
-        )
+        image = scene_image.prepare(file="media/images/notes.txt")
         black = FakeClip()
 
         with patch.object(video_utils, "ImageClip", return_value=black):
-            self.assertIs(process_scene(scene_image, FakeAudio(3.0), None), black)
+            self.assertIs(process_scene(image, FakeAudio(3.0), None), black)
 
         self.assertEqual(black.duration, 3.0)
 
     def test_falls_back_to_black_when_the_visual_fails_to_load(self):
-        scene_image = baker.prepare_recipe("videomanagement.video_scene_image")
+        scene_image = video_scene_image.prepare()
         black = FakeClip()
 
         with (
@@ -310,8 +302,8 @@ class ProcessSceneTests(SimpleTestCase):
 
 class HandleMusicTests(SimpleTestCase):
     def setUp(self):
-        self.video = baker.prepare_recipe("videomanagement.video")
-        self.video.music = baker.prepare_recipe("videomanagement.music")
+        self.video = video.prepare()
+        self.video.music = music.prepare()
 
     def test_loops_music_that_is_shorter_than_the_video(self):
         music = FakeAudio(duration=10.0)
@@ -375,47 +367,43 @@ class HandleBackgroundTests(SimpleTestCase):
         self.assertEqual(clip.effects, ["resize"])
 
     def test_composites_the_video_over_a_still_background(self):
-        background = baker.prepare_recipe("videomanagement.background")
+        behind = background.prepare()
         composited = FakeClip()
 
         with (
             patch.object(video_utils, "ImageClip", return_value=FakeClip()) as image,
-            patch.object(video_utils, "VideoFileClip") as video,
+            patch.object(video_utils, "VideoFileClip") as footage,
             patch.object(video_utils, "CompositeVideoClip", return_value=composited),
         ):
-            handle_background(10.0, background, FakeClip())
+            handle_background(10.0, behind, FakeClip())
 
         image.assert_called_once()
-        video.assert_not_called()
+        footage.assert_not_called()
 
     def test_composites_the_video_over_a_moving_background(self):
-        background = baker.prepare_recipe(
-            "videomanagement.background", file="media/other/backgrounds/bg.mp4"
-        )
+        behind = background.prepare(file="media/other/backgrounds/bg.mp4")
 
         with (
             patch.object(video_utils, "ImageClip") as image,
             patch.object(
                 video_utils, "VideoFileClip", return_value=FakeClip()
-            ) as video,
+            ) as footage,
             patch.object(video_utils, "CompositeVideoClip", return_value=FakeClip()),
         ):
-            handle_background(10.0, background, FakeClip())
+            handle_background(10.0, behind, FakeClip())
 
-        video.assert_called_once()
+        footage.assert_called_once()
         image.assert_not_called()
 
     def test_keys_out_the_colour_the_background_names(self):
-        background = baker.prepare_recipe(
-            "videomanagement.background", color="0,255,0", through=100
-        )
+        behind = background.prepare(color="0,255,0", through=100)
         final = FakeClip()
 
         with (
             patch.object(video_utils, "ImageClip", return_value=FakeClip()),
             patch.object(video_utils, "CompositeVideoClip", return_value=FakeClip()),
         ):
-            handle_background(10.0, background, final)
+            handle_background(10.0, behind, final)
 
         self.assertIn("fx", [e.split(":")[0] for e in final.effects])
 
@@ -442,12 +430,10 @@ class CreateSubtitleClipTests(SimpleTestCase):
 
 class MakeVideoTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video", status="READY")
-        self.scenes = baker.make_recipe(
-            "videomanagement.narrated_scene", prompt=self.video.prompt, _quantity=2
-        )
-        for scene in self.scenes:
-            baker.make_recipe("videomanagement.scene_image", scene=scene)
+        self.video = video.make(status="READY")
+        self.scenes = narrated_scene.make(prompt=self.video.prompt, _quantity=2)
+        for line in self.scenes:
+            scene_image.make(scene=line)
 
         self.final = FakeClip()
         patches = {
@@ -502,8 +488,8 @@ class MakeVideoTests(TestCase):
         self.video.settings = dict(subtitles=False, narration=False)
         self.video.save()
         self.video.prompt.scenes.all().delete()
-        scene = baker.make_recipe("videomanagement.scene", prompt=self.video.prompt)
-        baker.make_recipe("videomanagement.video_scene_image_with_audio", scene=scene)
+        line = scene.make(prompt=self.video.prompt)
+        video_scene_image_with_audio.make(scene=line)
 
         with patch.object(video_utils, "clip_audio", return_value=FakeAudio()) as clip:
             make_video(self.video)

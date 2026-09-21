@@ -3,9 +3,20 @@
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
-from model_bakery import baker
 from rest_framework.exceptions import APIException, ValidationError
 
+from apps.usermanagement.baker_recipes import user
+
+from ..baker_recipes import (
+    avatar,
+    intro,
+    outro,
+    scene,
+    scene_image,
+    twitch_video,
+    video,
+    voice_model,
+)
 from ..models import SceneImage
 from ..services import (
     SceneServices,
@@ -33,7 +44,7 @@ class CreatePendingVideoTests(TestCase):
     """The only part of generation cheap enough to run inside a request."""
 
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
+        self.user = user.make()
 
     def test_hands_back_a_video_the_client_can_poll_immediately(self):
         video = create_pending_video("make me a video", created_by=self.user)
@@ -63,8 +74,8 @@ class CreatePendingVideoTests(TestCase):
 
 class GenerateVideoTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
-        self.voice = baker.make_recipe("videomanagement.voice_model")
+        self.user = user.make()
+        self.voice = voice_model.make()
         self.video = create_pending_video("cats", created_by=self.user)
 
         for name, value in (
@@ -94,7 +105,7 @@ class GenerateVideoTests(TestCase):
         return generate_video(video=self.video, **params)
 
     def test_uses_the_voice_that_was_chosen(self):
-        chosen = baker.make_recipe("videomanagement.voice_model", name="nova")
+        chosen = voice_model.make(name="nova")
 
         video = self.generate(avatar_selection="", voice_id=chosen.id)
 
@@ -153,12 +164,12 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(calls, ["speech", "images"])
 
     def test_uses_the_avatars_own_voice_when_an_avatar_was_picked(self):
-        avatar = baker.make_recipe("videomanagement.avatar")
+        picked = avatar.make()
 
-        video = self.generate(avatar_selection=str(avatar.id))
+        video = self.generate(avatar_selection=str(picked.id))
 
-        self.assertEqual(video.avatar, avatar)
-        self.assertEqual(video.voice_model, avatar.voice)
+        self.assertEqual(video.avatar, picked)
+        self.assertEqual(video.voice_model, picked.voice)
 
     def test_skips_the_visuals_entirely_when_no_image_mode_was_asked_for(self):
         self.generate(image_mode=False)
@@ -180,76 +191,76 @@ class GenerateVideoTests(TestCase):
 
 class GenerateSceneTests(TestCase):
     def test_asks_the_model_for_a_rewrite(self):
-        scene = baker.make_recipe("videomanagement.scene", text="the old line")
+        line = scene.make(text="the old line")
 
         with patch.object(
             SceneServices, "get_update_sentence", return_value="a new line"
         ) as rewrite:
-            self.assertEqual(generate_scene("make it funnier", scene), "a new line")
+            self.assertEqual(generate_scene("make it funnier", line), "a new line")
 
         self.assertIn("the old line", rewrite.call_args.args[0])
 
     def test_does_not_call_the_model_when_the_text_is_unchanged(self):
-        scene = baker.make_recipe("videomanagement.scene", text=" the old line ")
+        line = scene.make(text=" the old line ")
 
         with patch.object(SceneServices, "get_update_sentence") as rewrite:
-            self.assertEqual(generate_scene("the old line", scene), "the old line")
+            self.assertEqual(generate_scene("the old line", line), "the old line")
 
         rewrite.assert_not_called()
 
 
 class UpdateSceneServiceTests(TestCase):
     def test_stores_the_new_text_and_resynthesises_the_line(self):
-        scene = baker.make_recipe("videomanagement.scene", text="the old line")
+        line = scene.make(text="the old line")
 
         with patch.object(SceneServices, "update") as resynthesise:
-            self.assertEqual(update_scene("a new line", scene), "a new line")
+            self.assertEqual(update_scene("a new line", line), "a new line")
 
-        resynthesise.assert_called_once_with(scene)
+        resynthesise.assert_called_once_with(line)
 
     def test_keeps_the_old_text_when_the_new_one_is_blank(self):
-        scene = baker.make_recipe("videomanagement.scene", text="the old line")
+        line = scene.make(text="the old line")
 
         with patch.object(SceneServices, "update"):
-            self.assertEqual(update_scene("", scene), "the old line")
+            self.assertEqual(update_scene("", line), "the old line")
 
 
 class CreateSceneTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video")
+        self.video = video.make()
 
     def test_adds_a_narrated_scene_to_an_ai_video(self):
-        scene = baker.prepare_recipe("videomanagement.scene", text="a new line")
+        line = scene.prepare(text="a new line")
 
         with patch.object(
-            SceneServices, "make_scene_speech", return_value=scene
+            SceneServices, "make_scene_speech", return_value=line
         ) as speech:
             created = create_scene(
                 self.video, {"text": "a new line", "is_last": True}, files={}
             )
 
-        self.assertIs(created, scene)
+        self.assertIs(created, line)
         self.assertEqual(speech.call_args.args[3], "a new line")
 
     def test_attaches_an_uploaded_image_to_the_new_scene(self):
-        scene = baker.make_recipe("videomanagement.scene", prompt=self.video.prompt)
+        line = scene.make(prompt=self.video.prompt)
 
-        with patch.object(SceneServices, "make_scene_speech", return_value=scene):
+        with patch.object(SceneServices, "make_scene_speech", return_value=line):
             create_scene(
                 self.video,
                 {"text": "a new line", "with_audio": True},
                 files={"image": "media/images/uploaded.png"},
             )
 
-        scene_image = SceneImage.objects.get(scene=scene)
-        self.assertEqual(scene_image.file, "media/images/uploaded.png")
-        self.assertTrue(scene_image.with_audio)
+        image = SceneImage.objects.get(scene=line)
+        self.assertEqual(image.file, "media/images/uploaded.png")
+        self.assertTrue(image.with_audio)
 
     def test_generates_an_image_when_one_was_described_instead(self):
-        scene = baker.make_recipe("videomanagement.scene", prompt=self.video.prompt)
+        line = scene.make(prompt=self.video.prompt)
 
         with (
-            patch.object(SceneServices, "make_scene_speech", return_value=scene),
+            patch.object(SceneServices, "make_scene_speech", return_value=line),
             patch.object(SceneServices, "create_image_scene") as generate,
         ):
             create_scene(
@@ -265,7 +276,7 @@ class CreateSceneTests(TestCase):
             create_scene(self.video, {"is_last": False}, files={})
 
     def test_adds_a_clip_to_a_twitch_video(self):
-        video = baker.make_recipe("videomanagement.twitch_video")
+        video = twitch_video.make()
         client = MagicMock()
         client.get_clip_by_url.return_value = [{"title": "a clip"}]
         client.download_clip.return_value = "clips/raw.mp4"
@@ -279,13 +290,13 @@ class CreateSceneTests(TestCase):
         create.assert_called_once_with("clips/raw.mp4", "a clip", video.prompt)
 
     def test_rejects_a_twitch_scene_with_no_url(self):
-        video = baker.make_recipe("videomanagement.twitch_video")
+        video = twitch_video.make()
 
         with self.assertRaises(ValidationError):
             create_scene(video, {"text": "a line"}, files={})
 
     def test_reports_a_twitch_clip_that_cannot_be_fetched(self):
-        video = baker.make_recipe("videomanagement.twitch_video")
+        video = twitch_video.make()
         client = MagicMock()
         client.get_clip_by_url.side_effect = RuntimeError("gone")
 
@@ -296,7 +307,7 @@ class CreateSceneTests(TestCase):
 
 class VideoUpdateTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video")
+        self.video = video.make()
 
     def test_renames_the_video(self):
         updated = video_update(self.video, title="A New Name", avatar=None)
@@ -317,7 +328,7 @@ class VideoUpdateTests(TestCase):
         )
 
     def test_clears_the_avatar_when_none_was_chosen(self):
-        self.video.avatar = baker.make_recipe("videomanagement.avatar")
+        self.video.avatar = avatar.make()
 
         for choice in (None, "", "None"):
             with self.subTest(choice=choice):
@@ -326,43 +337,43 @@ class VideoUpdateTests(TestCase):
                 )
 
     def test_re_records_every_line_when_the_avatar_brings_a_new_voice(self):
-        avatar = baker.make_recipe("videomanagement.avatar")
-        baker.make_recipe(
-            "videomanagement.scene", prompt=self.video.prompt, _quantity=2
-        )
+        picked = avatar.make()
+        scene.make(prompt=self.video.prompt, _quantity=2)
 
         with patch.object(VideoServices, "update_scene") as resynthesise:
-            updated = video_update(self.video, title="t", avatar=str(avatar.id))
+            updated = video_update(self.video, title="t", avatar=str(picked.id))
 
-        self.assertEqual(updated.voice_model, avatar.voice)
+        self.assertEqual(updated.voice_model, picked.voice)
         self.assertEqual(resynthesise.call_count, 2)
 
     def test_leaves_the_recordings_alone_when_the_voice_is_unchanged(self):
-        avatar = baker.make_recipe(
-            "videomanagement.avatar", voice=self.video.voice_model
-        )
+        picked = avatar.make(voice=self.video.voice_model)
 
         with patch.object(VideoServices, "update_scene") as resynthesise:
-            video_update(self.video, title="t", avatar=str(avatar.id))
+            video_update(self.video, title="t", avatar=str(picked.id))
 
         resynthesise.assert_not_called()
 
     def test_never_gives_a_twitch_video_an_avatar(self):
-        video = baker.make_recipe("videomanagement.twitch_video")
-        avatar = baker.make_recipe("videomanagement.avatar")
+        clips = twitch_video.make()
+        picked = avatar.make()
 
-        self.assertIsNone(video_update(video, title="t", avatar=str(avatar.id)).avatar)
+        self.assertIsNone(video_update(clips, title="t", avatar=str(picked.id)).avatar)
 
     def test_attaches_the_intro_and_outro_that_were_chosen(self):
-        intro = baker.make_recipe("videomanagement.intro")
-        outro = baker.make_recipe("videomanagement.outro")
+        opening = intro.make()
+        closing = outro.make()
 
         updated = video_update(
-            self.video, title="t", avatar=None, intro=str(intro.id), outro=str(outro.id)
+            self.video,
+            title="t",
+            avatar=None,
+            intro=str(opening.id),
+            outro=str(closing.id),
         )
 
-        self.assertEqual(updated.intro, intro)
-        self.assertEqual(updated.outro, outro)
+        self.assertEqual(updated.intro, opening)
+        self.assertEqual(updated.outro, closing)
 
     def test_reports_an_intro_that_does_not_exist(self):
         with self.assertRaises(APIException):
@@ -375,28 +386,26 @@ class VideoUpdateTests(TestCase):
 
 class VideoRegenerateTests(TestCase):
     def test_re_records_every_line_and_regenerates_every_image(self):
-        video = baker.make_recipe("videomanagement.video", status="COMPLETED")
-        scenes = baker.make_recipe(
-            "videomanagement.scene", prompt=video.prompt, _quantity=2
-        )
-        for scene in scenes:
-            baker.make_recipe("videomanagement.scene_image", scene=scene)
+        completed = video.make(status="COMPLETED")
+        scenes = scene.make(prompt=completed.prompt, _quantity=2)
+        for line in scenes:
+            scene_image.make(scene=line)
 
         with (
             patch.object(VideoServices, "update_scene") as resynthesise,
             patch.object(VideoServices, "generate_new_image") as regenerate,
         ):
-            video_regenerate(video)
+            video_regenerate(completed)
 
         self.assertEqual(resynthesise.call_count, 2)
         self.assertEqual(regenerate.call_count, 2)
-        video.refresh_from_db()
-        self.assertEqual(video.status, "READY")
+        completed.refresh_from_db()
+        self.assertEqual(completed.status, "READY")
 
 
 class TwitchGenerationTests(TestCase):
     def setUp(self):
-        self.user = baker.make_recipe("usermanagement.user")
+        self.user = user.make()
         self.video = create_pending_video(
             "clips", created_by=self.user, video_type="TWITCH", title="Fortnite"
         )

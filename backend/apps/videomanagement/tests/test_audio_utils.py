@@ -1,8 +1,8 @@
 from unittest.mock import patch
 
 from django.test import TestCase
-from model_bakery import baker
 
+from ..baker_recipes import scene, user_prompt, video, voice_model
 from ..models import Scene
 from ..utils import audio_utils
 from ..utils.audio_utils import make_scene_speech, make_scenes_speech, update_scene
@@ -10,8 +10,8 @@ from ..utils.audio_utils import make_scene_speech, make_scenes_speech, update_sc
 
 class MakeSceneSpeechTests(TestCase):
     def setUp(self):
-        self.voice = baker.make_recipe("videomanagement.voice_model")
-        self.prompt = baker.make_recipe("videomanagement.user_prompt")
+        self.voice = voice_model.make()
+        self.prompt = user_prompt.make()
 
     def test_synthesises_the_line_and_hangs_it_on_the_scene(self):
         with patch.object(audio_utils, "save", return_value="dialogues/a.wav") as save:
@@ -37,7 +37,7 @@ class MakeSceneSpeechTests(TestCase):
 
 class MakeScenesSpeechTests(TestCase):
     def setUp(self):
-        self.video = baker.make_recipe("videomanagement.video")
+        self.video = video.make()
         self.video.gpt_answer = {
             "scenes": [
                 {
@@ -83,15 +83,15 @@ class MakeScenesSpeechTests(TestCase):
 
 class UpdateSceneTests(TestCase):
     def test_resynthesises_the_line_and_saves_the_new_file(self):
-        video = baker.make_recipe("videomanagement.video", avatar=None)
-        scene = baker.make_recipe("videomanagement.scene", prompt=video.prompt)
+        narrated = video.make(avatar=None)
+        line = scene.make(prompt=narrated.prompt)
 
         with (
             patch.object(audio_utils, "ApiSyn"),
             patch.object(audio_utils, "save", return_value="dialogues/new.wav") as save,
         ):
-            update_scene(scene)
+            update_scene(line)
 
-        scene.refresh_from_db()
-        self.assertEqual(scene.file, "dialogues/new.wav")
-        self.assertEqual(save.call_args.args[1], scene.text)
+        line.refresh_from_db()
+        self.assertEqual(line.file, "dialogues/new.wav")
+        self.assertEqual(save.call_args.args[1], line.text)
