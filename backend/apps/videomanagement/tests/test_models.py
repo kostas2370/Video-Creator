@@ -22,6 +22,19 @@ class VideoDefaultsTests(TestCase):
         self.assertIsNone(fresh.voice_model_id)
         self.assertIsNone(fresh.voice_model)
 
+    def test_each_video_gets_its_own_settings_dict(self):
+        # A non-callable default is one dict shared by every instance, so editing one
+        # video's settings in place would rewrite the default for every video made
+        # afterwards in the same process.
+        first, second = Video(), Video()
+
+        self.assertIsNot(first.settings, second.settings)
+
+        first.settings["subtitles"] = True
+
+        self.assertFalse(second.settings["subtitles"])
+        self.assertFalse(Video().settings["subtitles"])
+
 
 class SelectVoiceTests(TestCase):
     def test_picks_one_of_the_voices_on_file(self):
