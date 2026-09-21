@@ -2,7 +2,9 @@
 
 from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework.test import APIClient
 
@@ -10,6 +12,31 @@ from apps.usermanagement.baker_recipes import broke_user, superuser, user
 
 from ..baker_recipes import avatar, intro, scene, scene_image, video, voice_model
 from ..models import SceneImage, Video
+
+
+class VideoDetailQueryTests(TestCase):
+    """The nested detail used to cost two queries per scene."""
+
+    def setUp(self):
+        self.user = user.make()
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def queries_for(self, scene_count):
+        detailed = video.make(created_by=self.user)
+        for line in scene.make(prompt=detailed.prompt, _quantity=scene_count):
+            scene_image.make(scene=line)
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse("video-detail", args=[detailed.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["scenes"]), scene_count)
+
+        return len(queries)
+
+    def test_costs_the_same_whether_a_video_has_two_scenes_or_twenty(self):
+        self.assertEqual(self.queries_for(2), self.queries_for(20))
 
 
 class ApiTestCase(TestCase):
