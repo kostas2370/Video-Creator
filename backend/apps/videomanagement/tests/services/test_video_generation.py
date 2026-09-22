@@ -3,17 +3,23 @@
 from unittest.mock import patch
 
 from django.test import TestCase
+from rest_framework.exceptions import APIException
 
 from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import (
     avatar,
+    video,
     voice_model,
 )
 from ...services import (
     VideoGenerationServices,
 )
-from ...services.VideoGenerationServices import create_pending_video, generate_video
+from ...services.VideoGenerationServices import (
+    create_pending_video,
+    generate_video,
+    resume_video,
+)
 
 
 A_SCRIPT = {
@@ -124,7 +130,13 @@ class GenerateVideoTests(TestCase):
 
         self.assertEqual(
             video.settings,
-            dict(subtitles=True, narration=False, avatar_position="left,top"),
+            dict(
+                subtitles=True,
+                narration=False,
+                avatar_position="left,top",
+                style="vivid",
+                provider=None,
+            ),
         )
 
     def test_asks_for_a_still_brief_for_an_image_provider(self):
@@ -174,3 +186,56 @@ class GenerateVideoTests(TestCase):
         self.download_music.side_effect = RuntimeError("video unavailable")
 
         self.assertEqual(self.generate().status, "READY")
+
+
+class ResumeGenerationTests(TestCase):
+    def setUp(self):
+        self.user = user.make()
+        self.video = video.make(
+            created_by=self.user,
+            status="FAILED",
+            mode="WEB",
+            gpt_answer=A_SCRIPT,
+            dir_name="media/videos/cats",
+            settings=dict(narration=True, style="vivid", provider="bing"),
+        )
+
+        for name in ("make_scenes_speech", "create_image_scenes"):
+            patcher = patch.object(VideoGenerationServices, name)
+            setattr(self, name, patcher.start())
+            self.addCleanup(patcher.stop)
+
+    def test_carries_on_from_the_script_it_already_has(self):
+        with patch.object(VideoGenerationServices, "get_reply") as asked:
+            resumed = resume_video(self.video)
+
+        asked.assert_not_called()
+        self.assertEqual(resumed.gpt_answer, A_SCRIPT)
+        self.assertEqual(resumed.status, "READY")
+
+    def test_fills_in_the_narration_and_the_visuals_again(self):
+        resume_video(self.video)
+
+        self.make_scenes_speech.assert_called_once()
+        self.create_image_scenes.assert_called_once()
+
+    def test_asks_the_provider_the_first_run_chose(self):
+        resume_video(self.video)
+
+        self.assertEqual(self.create_image_scenes.call_args.kwargs["provider"], "bing")
+        self.assertEqual(self.create_image_scenes.call_args.kwargs["style"], "vivid")
+
+    def test_leaves_the_visuals_alone_for_a_video_that_asked_for_none(self):
+        self.video.mode = None
+        self.video.save()
+
+        resume_video(self.video)
+
+        self.create_image_scenes.assert_not_called()
+
+    def test_refuses_a_video_that_never_got_a_script(self):
+        self.video.gpt_answer = None
+        self.video.save()
+
+        with self.assertRaises(APIException):
+            resume_video(self.video)

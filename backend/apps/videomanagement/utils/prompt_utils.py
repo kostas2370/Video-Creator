@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+from typing import Iterator
+
+
 def format_prompt(
     template_format: str,
     genre: str,
@@ -74,6 +78,24 @@ def scene_text(sentence: dict) -> str:
     this text later, so it has to come from somewhere.
     """
     return (sentence.get("sentence") or sentence["image_description"]).strip()
+
+
+@dataclass(frozen=True)
+class ScriptLine:
+    text: str
+    image_description: str
+    is_last: bool
+
+
+def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
+    for scene in gpt_answer["scenes"]:
+        sentences = scene["sentences"]
+        for index, sentence in enumerate(sentences):
+            yield ScriptLine(
+                text=scene_text(sentence),
+                image_description=sentence["image_description"],
+                is_last=index == len(sentences) - 1,
+            )
 
 
 def format_dalle_prompt(title: str, image_description: str) -> str:

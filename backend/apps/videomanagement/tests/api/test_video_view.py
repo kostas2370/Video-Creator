@@ -165,21 +165,6 @@ class RenderViewTests(ApiTestCase):
                 delay.assert_not_called()
 
 
-class RegenerateViewTests(ApiTestCase):
-    def test_queues_regeneration_and_moves_the_video_back_to_generation(self):
-        video = self.video_for(status="COMPLETED")
-
-        with patch("apps.videomanagement.tasks.regenerate_video_task.delay") as delay:
-            response = self.client.patch(
-                reverse("video-video-regenerate", args=[video.id])
-            )
-
-        self.assertEqual(response.status_code, 202)
-        delay.assert_called_once_with(video_id=video.id)
-        video.refresh_from_db()
-        self.assertEqual(video.status, "GENERATION")
-
-
 class AddSceneViewTests(ApiTestCase):
     def test_adds_a_scene_to_a_video(self):
         video_row = self.video_for()
@@ -195,3 +180,63 @@ class AddSceneViewTests(ApiTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["scene"]["text"], added.text)
+
+
+class ResumeViewTests(ApiTestCase):
+    def resume(self, video):
+        with patch("apps.videomanagement.tasks.resume_video_task.delay") as delay:
+            response = self.client.patch(reverse("video-resume", args=[video.id]))
+
+        return response, delay
+
+    def a_failed_video(self, **kwargs):
+        return self.video_for(
+            status="FAILED",
+            gpt_answer={"title": "Cats", "scenes": []},
+            dir_name="media/videos/cats",
+            **kwargs,
+        )
+
+    def test_carries_on_a_generation_that_stopped_early(self):
+        stalled = self.a_failed_video()
+
+        response, delay = self.resume(stalled)
+
+        self.assertEqual(response.status_code, 202)
+        delay.assert_called_once()
+
+    def test_marks_it_generating_before_the_worker_picks_it_up(self):
+        stalled = self.a_failed_video()
+
+        self.resume(stalled)
+
+        stalled.refresh_from_db()
+        self.assertEqual(stalled.status, "GENERATION")
+
+    def test_refuses_a_video_that_never_got_a_script(self):
+        empty = self.video_for(status="FAILED", gpt_answer=None)
+
+        response, delay = self.resume(empty)
+
+        self.assertEqual(response.status_code, 409)
+        delay.assert_not_called()
+
+    def test_refuses_a_video_a_worker_is_still_on(self):
+        for status_name in ("GENERATION", "RENDERING"):
+            with self.subTest(status=status_name):
+                busy = self.a_failed_video()
+                busy.status = status_name
+                busy.save()
+
+                response, delay = self.resume(busy)
+
+                self.assertEqual(response.status_code, 409)
+                delay.assert_not_called()
+
+    def test_a_stranger_cannot_resume_it(self):
+        theirs = self.a_failed_video(owner=user.make())
+
+        response, delay = self.resume(theirs)
+
+        self.assertEqual(response.status_code, 404)
+        delay.assert_not_called()

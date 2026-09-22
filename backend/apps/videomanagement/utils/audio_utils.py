@@ -1,9 +1,31 @@
+import logging
+import os
 import uuid
 
-from .prompt_utils import scene_text
+from .prompt_utils import script_lines
+from .file_utils import stored_file_exists
 from .tts_utils import save, ApiSyn
 from ..models import Scene, Video
-import os
+
+
+logger = logging.getLogger(__name__)
+
+
+def has_narration(scene: Scene) -> bool:
+    return stored_file_exists(scene.file)
+
+
+def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
+    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
+    scene.file = save(
+        syn,
+        scene.text,
+        save_path=f"{dir_name}/dialogues/{uuid.uuid4()}.wav",
+        user=user,
+    )
+    scene.save()
+
+    return scene
 
 
 def make_scene_speech(
@@ -45,18 +67,20 @@ def make_scenes_speech(video: Video) -> None:
 
     voice_model = video.voice_model
     narrate = video.settings.get("narration", True)
-    for scene in video.gpt_answer["scenes"]:
-        sentences = scene["sentences"]
-        for index, sentence in enumerate(sentences):
-            make_scene_speech(
-                voice_model,
-                video.dir_name,
-                video.prompt,
-                scene_text(sentence),
-                index == len(sentences) - 1,
-                narrate=narrate,
-                user=video.created_by,
-            )
+    existing = {scene.text: scene for scene in video.prompt.scenes.all()}
+
+    for line in script_lines(video.gpt_answer):
+        scene = existing.get(line.text) or Scene.objects.create(
+            prompt=video.prompt, text=line.text, is_last=line.is_last
+        )
+
+        if not narrate or has_narration(scene):
+            continue
+
+        try:
+            narrate_scene(scene, voice_model, video.dir_name, user=video.created_by)
+        except Exception:
+            logger.exception("Could not narrate scene %s", scene.pk)
 
 
 def update_scene(scene: Scene) -> None:

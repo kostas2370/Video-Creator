@@ -20,6 +20,14 @@ from ...utils.tts_utils import (
 )
 
 
+def wrote(path, data=b"RIFF"):
+    def write(*args, **kwargs):
+        with open(path, "wb") as f:
+            f.write(data)
+
+    return write
+
+
 class SaveTests(SimpleTestCase):
     def test_returns_none_when_there_is_no_voice(self):
         # Narration off: make_scene_speech asks for no audio at all.
@@ -27,11 +35,23 @@ class SaveTests(SimpleTestCase):
 
     def test_routes_to_the_provider_the_voice_names(self):
         syn = ApiSyn(provider="eleven_labs", path="a-voice-id")
+        out = os.path.join(tempfile.mkdtemp(), "out.wav")
 
-        with patch.object(tts_utils, "tts_from_eleven_labs") as eleven:
-            self.assertEqual(save(syn, "hello", "out.wav"), "out.wav")
+        with patch.object(
+            tts_utils, "tts_from_eleven_labs", side_effect=wrote(out)
+        ) as eleven:
+            self.assertEqual(save(syn, "hello", out), out)
 
-        eleven.assert_called_once_with("hello", "out.wav", "a-voice-id", user=None)
+        eleven.assert_called_once_with("hello", out, "a-voice-id", user=None)
+
+    def test_hands_back_nothing_when_the_provider_wrote_no_audio(self):
+        # The eleven_labs and 60db calls swallow their own errors, so a failed
+        # synthesis would otherwise leave a scene pointing at a file that is not there.
+        syn = ApiSyn(provider="eleven_labs", path="a-voice-id")
+        out = os.path.join(tempfile.mkdtemp(), "missing.wav")
+
+        with patch.object(tts_utils, "tts_from_eleven_labs"):
+            self.assertIsNone(save(syn, "hello", out))
 
     def test_routes_each_supported_provider_to_its_own_function(self):
         for provider, function in (
