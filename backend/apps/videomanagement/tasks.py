@@ -60,6 +60,23 @@ def generate_twitch_video_task(self, video_id: int, **params):
 
 
 @shared_task(bind=True)
+def resume_video_task(self, video_id: int):
+    from .services.VideoGenerationServices import resume_video
+
+    video = Video.objects.get(pk=video_id)
+
+    try:
+        resume_video(video)
+    except Exception:
+        logger.exception("Resume failed for video %s", video_id)
+        _mark_failed(video)
+        raise
+
+    logger.info("Resume finished for video %s", video_id)
+    return video_id
+
+
+@shared_task(bind=True)
 def render_video_task(self, video_id: int):
     from .utils.composer.render import make_video
 
@@ -73,23 +90,6 @@ def render_video_task(self, video_id: int):
         raise
 
     logger.info("Render finished for video %s", video_id)
-    return video_id
-
-
-@shared_task(bind=True)
-def regenerate_video_task(self, video_id: int):
-    from .services.VideoServices import video_regenerate
-
-    video = Video.objects.get(pk=video_id)
-
-    try:
-        video_regenerate(video)
-    except Exception:
-        logger.exception("Regeneration failed for video %s", video_id)
-        _mark_failed(video)
-        raise
-
-    logger.info("Regeneration finished for video %s", video_id)
     return video_id
 
 

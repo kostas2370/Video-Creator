@@ -1,4 +1,5 @@
 import base64
+import os
 from dataclasses import dataclass
 from typing import Union
 import logging
@@ -66,6 +67,10 @@ def save(
         )
 
     getattr(thismodule, provider)(text, save_path, syn.path, user=user)
+
+    if not os.path.exists(save_path):
+        logger.error("%s wrote no audio for %r", syn.provider, save_path)
+        return None
 
     return save_path
 

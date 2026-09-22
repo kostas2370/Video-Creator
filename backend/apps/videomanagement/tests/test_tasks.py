@@ -15,9 +15,9 @@ from ..utils import tts_utils
 from ..tasks import (
     generate_twitch_video_task,
     import_user_voices,
+    resume_video_task,
     generate_video_task,
     reap_stalled_videos,
-    regenerate_video_task,
     render_video_task,
 )
 
@@ -59,13 +59,13 @@ class TaskFailureTests(TestCase):
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "FAILED")
 
-    def test_regeneration_leaves_the_video_failed_and_re_raises(self):
+    def test_resuming_leaves_the_video_failed_and_re_raises(self):
         with patch(
-            "apps.videomanagement.services.VideoServices.video_regenerate",
-            side_effect=RuntimeError("no voice"),
+            "apps.videomanagement.services.VideoGenerationServices.resume_video",
+            side_effect=RuntimeError("the provider is still down"),
         ):
             with self.assertRaises(RuntimeError):
-                regenerate_video_task(video_id=self.video.id)
+                resume_video_task(video_id=self.video.id)
 
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "FAILED")
@@ -91,6 +91,15 @@ class TaskSuccessTests(TestCase):
 
         self.assertEqual(render.call_args.args[0].pk, self.video.pk)
 
+    def test_resuming_hands_the_video_to_the_service(self):
+        with patch(
+            "apps.videomanagement.services.VideoGenerationServices.resume_video"
+        ) as resume:
+            returned = resume_video_task(video_id=self.video.id)
+
+        self.assertEqual(returned, self.video.id)
+        self.assertEqual(resume.call_args.args[0].pk, self.video.pk)
+
     def test_twitch_generation_hands_its_parameters_to_the_service(self):
         with patch(
             "apps.videomanagement.services.TwitchGenerationService.generate_twitch_video"
@@ -102,15 +111,6 @@ class TaskSuccessTests(TestCase):
         self.assertEqual(returned, self.video.id)
         self.assertEqual(generate.call_args.kwargs["channel"], "a streamer")
         self.assertEqual(generate.call_args.kwargs["video"].pk, self.video.pk)
-
-    def test_regeneration_hands_the_video_to_the_service(self):
-        with patch(
-            "apps.videomanagement.services.VideoServices.video_regenerate"
-        ) as regenerate:
-            returned = regenerate_video_task(video_id=self.video.id)
-
-        self.assertEqual(returned, self.video.id)
-        self.assertEqual(regenerate.call_args.args[0].pk, self.video.pk)
 
 
 class ImportUserVoicesTests(TestCase):
