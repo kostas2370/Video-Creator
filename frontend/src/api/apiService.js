@@ -1,4 +1,21 @@
+import { toast } from "react-toastify";
 import { axiosPrivateInstance } from "./axiosPrivate";
+
+const firstErrorMessage = (error) => {
+    const data = error?.response?.data;
+    if (!data) return "The server could not be reached";
+    if (typeof data === "string") return data;
+
+    const [field, detail] = Object.entries(data)[0] ?? [];
+    if (!field) return "The request was refused";
+    return Array.isArray(detail) ? `${field}: ${detail[0]}` : `${field}: ${detail}`;
+};
+
+const reportFailure = (error, action) => {
+    const message = firstErrorMessage(error);
+    console.error(`${action}:`, error);
+    toast.error(message, { toastId: `${action}:${message}` });
+};
 
 const API_ENDPOINTS = {
     INTRO: 'intros/',
@@ -52,7 +69,7 @@ const getRequest = async (url, params = {}, axiosInstance = axiosPrivateInstance
         const response = await axiosInstance.get(fullUrl);
         return response.data;
     } catch (error) {
-        console.error(`Error fetching data from ${url}:`, error);
+        reportFailure(error, `Could not load ${url}`);
     }
 }
 
@@ -62,7 +79,7 @@ const postRequest = async (url, data) => {
         const response = await axiosPrivateInstance.post(url, data);
         return response.data;
     } catch (error) {
-        console.error('Error fetching data:', error);
+        reportFailure(error, `Could not save to ${url}`);
     }
 };
 
@@ -71,7 +88,7 @@ const deleteRequest = async (url, axiosInstance = axiosPrivateInstance) => {
         const response = await axiosInstance.delete(url);
         return response.data;
     } catch (error) {
-        console.error(`Error deleting data from ${url}:`, error);
+        reportFailure(error, `Could not delete ${url}`);
     }
 }
 
@@ -82,7 +99,7 @@ const patchRequest = async (url,data, axiosInstance = axiosPrivateInstance, conf
         const response = await axiosInstance.patch(url,data, config);
         return response.data;
     } catch (error) {
-        console.error(`Error deleting data from ${url}:`, error);
+        reportFailure(error, `Could not update ${url}`);
     }
 }
 
@@ -145,16 +162,6 @@ const apiKeysRequest = async (method, data = undefined) => {
     }
 };
 
-const firstErrorMessage = (error) => {
-    const data = error?.response?.data;
-    if (!data) return "The server could not be reached";
-    if (typeof data === "string") return data;
-
-    const [field, detail] = Object.entries(data)[0] ?? [];
-    if (!field) return "The request was refused";
-    return Array.isArray(detail) ? `${field}: ${detail[0]}` : `${field}: ${detail}`;
-};
-
 export const getApiKeys = async () => {return apiKeysRequest("get")}
 export const updateApiKeys = async (data) => {return apiKeysRequest("patch", data)}
 export const deleteApiKeys = async () => {return apiKeysRequest("delete")}
@@ -187,7 +194,7 @@ export const getIntro = async (search = null) => {return getRequest(API_ENDPOINT
 export const getOutro = async (search = null) => {return getRequest(API_ENDPOINTS.OUTRO_GET(search));}
 export const getVideos = async (search = null, page = null) => {return getRequest(API_ENDPOINTS.VIDEOS_GET(search, page));}
 export const getAvatars = async (name = null) => {return getRequest(API_ENDPOINTS.GET_AVATARS(name));}
-export const getVideo = async (id) => {return getRequest(API_ENDPOINTS.VIDEO_SELECT(id=id))};
+export const getVideo = async (id) => {return getRequest(API_ENDPOINTS.VIDEO_SELECT(id))};
 export const updateSceneImage = async (id,scene_image_id, data) => {
 
     try{
@@ -201,6 +208,6 @@ export const updateSceneImage = async (id,scene_image_id, data) => {
         return response.data
 
     }catch (error){
-        console.error('Error fetching data:', error);
+        reportFailure(error, "Could not change the scene image");
     }
 }
