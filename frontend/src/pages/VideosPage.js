@@ -16,6 +16,7 @@ export const Videos = () => {
   const [previousPage, setPreviousPage] = useState(null);
   const [nextPage, setNextPage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
 
 
   const fetchVideos = async () => {
@@ -27,6 +28,7 @@ export const Videos = () => {
       setNextPage(response.next);
       setPreviousPage(response.previous);
     }
+    setFailed(!response);
     setIsLoading(false);
   };
 
@@ -61,9 +63,24 @@ export const Videos = () => {
       </div>
 
       <div className="flex flex-col items-center  px-6 py-8 mx-auto md:h-3/5 lg:py-0  lg:h-3/5 w-3/4  mt-4">
-      
-          <DefaultTable data={videos} setVideos={setVideos} loaded={isLoading}/>
-     
+
+          {failed && !isLoading ? (
+            <div className="w-full rounded-lg border border-red-300 bg-red-50 p-6 text-center dark:border-red-700 dark:bg-red-900/30">
+              <p className="font-medium text-red-700 dark:text-red-200">
+                Your videos could not be loaded.
+              </p>
+              <button
+                type="button"
+                onClick={fetchVideos}
+                className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Try again
+              </button>
+            </div>
+          ) : (
+            <DefaultTable data={videos} setVideos={setVideos} loaded={isLoading}/>
+          )}
+
         <div className="flex flex-col-2 gap-8 mt-4 pb-4 ">
           {previousPage && !isLoading ? (
             <button
