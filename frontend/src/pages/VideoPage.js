@@ -7,6 +7,8 @@ import { VideoConfigModal } from "../components/VideoConfigModal";
 import { Scene } from "../components/Scene";
 import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "../components/RenderModal";
+import { ResumeModal } from "../components/ResumeModal";
+import { FaRedo } from "react-icons/fa";
 import { TwitchSceneCreationModal } from "../components/CreateTwitchSceneModal";
 import { SceneCreationModal } from "../components/CreateSceneModal";
 
@@ -18,6 +20,7 @@ export const Video = () => {
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [showAddTwitchSceneModal, setShowAddTwitchSceneModal] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
 
   useEffect(() => {
     if (!updated) {
@@ -34,6 +37,10 @@ export const Video = () => {
       });
     }
   }, [updated]);
+
+  const isRenderable =
+    videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED";
+  const isResumable = videoInfo?.status === "FAILED";
 
   return (
     <>
@@ -73,22 +80,53 @@ export const Video = () => {
         onFinished={() => setUpdated(true)}
       />
 
-      <div className="flex flex-col items-center">
-        <div className="flex items-center gap-4">
-          <h1 className="pt-4 pb-4 font-bold">{videoInfo?.title}</h1>
-          <IoIosSettings
-            onClick={(e) => {
-              setShowConfigModal(true);
-            }}
-            className="font-black ml-auto w-6 h-6 text-black  hover:text-gray-400"
-          />
+      <ResumeModal
+        showModal={showResumeModal}
+        setShowModal={setShowResumeModal}
+        id={videoId}
+        name={videoInfo?.title}
+        onFinished={() => setUpdated(true)}
+      />
 
-          <GiProcessor
-            className={`w-5 h-5 text-purple-500 hover:text-red-300`}
-            onClick={(e) => {
-              setShowRenderModal(true);
-            }}
-          />
+      <div className="flex flex-col items-center">
+        <div className="flex items-center gap-2">
+          <h1 className="pt-4 pb-4 font-bold">{videoInfo?.title}</h1>
+          <button
+            type="button"
+            disabled={!isRenderable}
+            title={
+              isRenderable
+                ? "Render video"
+                : `Cannot render while ${videoInfo?.status}`
+            }
+            onClick={() => setShowRenderModal(true)}
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <GiProcessor className="h-4 w-4" />
+            Render
+          </button>
+
+          {isResumable ? (
+            <button
+              type="button"
+              title="Carry on generating this video"
+              onClick={() => setShowResumeModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+            >
+              <FaRedo className="h-4 w-4" />
+              Carry on
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            aria-label="Video settings"
+            title="Video settings"
+            onClick={() => setShowConfigModal(true)}
+            className="rounded-full bg-white/90 p-2 shadow transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 dark:bg-gray-900/80 dark:hover:bg-gray-900"
+          >
+            <IoIosSettings className="h-5 w-5 text-gray-700 dark:text-gray-200" />
+          </button>
         </div>
 
         {videoInfo?.scenes?.map((scene) => {
