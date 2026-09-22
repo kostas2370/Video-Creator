@@ -1,4 +1,3 @@
-import { toast } from "react-toastify";
 import { useEffect } from 'react';
 import useAuth from "./useAuth";
 import useRefreshToken from "./useRefreshToken";
@@ -6,7 +5,7 @@ import { axiosPrivateInstance } from "../api/axiosPrivate";
 
 export function useAxiosPrivate() {
 
-    const { access_token, setAccessToken, csrftoken, user } = useAuth();
+    const { access_token, setAccessToken, csrftoken } = useAuth();
     const refresh = useRefreshToken();
 
     useEffect(() => {
@@ -39,19 +38,6 @@ export function useAxiosPrivate() {
                     return axiosPrivateInstance(prevRequest);
                 }
 
-                  else if (status === 400) {
-                    toast.error("400 Bad Request !");
-                } else if (status === 404) {
-                    toast.error("404 Not Found !");
-                } else if (status === 403) {
-                    toast.error("No permission !");
-                }
-                  else if (status === 429) {
-                    toast.error("Too many requests !");
-                }else{
-                    toast.error("Internal Server Error");
-
-                }
                 return Promise.reject(error);
             }
         );

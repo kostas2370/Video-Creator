@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { getVideo } from "../api/apiService";
 import { IoIosSettings } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
@@ -15,28 +15,27 @@ import { SceneCreationModal } from "../components/CreateSceneModal";
 export const Video = () => {
   const { videoId } = useParams();
   const [videoInfo, setVideoInfo] = useState({ title: "re", scenes: [] });
-  const [updated, setUpdated] = useState(false);
+  const [refresh, setRefresh] = useState(0);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [showAddTwitchSceneModal, setShowAddTwitchSceneModal] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
 
+  const setUpdated = useCallback(() => setRefresh((count) => count + 1), []);
+
   useEffect(() => {
-    if (!updated) {
-      getVideo(videoId).then((response) => {
-        if (response) setVideoInfo(response);
-      });
-    }
-  }, []);
-  useEffect(() => {
-    if (updated) {
-      getVideo(videoId).then((response) => {
-        if (response) setVideoInfo(response);
-        setUpdated(false);
-      });
-    }
-  }, [updated]);
+    let cancelled = false;
+
+    getVideo(videoId).then((response) => {
+      if (cancelled) return;
+      if (response) setVideoInfo(response);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId, refresh]);
 
   const isRenderable =
     videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED";
