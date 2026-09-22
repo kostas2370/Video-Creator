@@ -315,6 +315,16 @@ unset) makes every stored key undecryptable. Generate one with:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
+## Notifications
+
+Generation and rendering take minutes, so the bell in the top right tells you when one
+of your videos is done — or when it stopped. Each entry links to the video it is about,
+and the badge counts what you have not read yet.
+
+![The notification bell](docs/screenshots/bell-open.png)
+
+You still get the same thing by email, so closing the tab is safe either way.
+
 ## Templates
 
 A template is a saved copy of the generation form — the prompt and every setting under

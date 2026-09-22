@@ -7,6 +7,7 @@ from rest_framework_simplejwt import (
     exceptions as jwt_exceptions,
 )
 
+from .models import Notification
 from .utils import check_conditions
 
 
@@ -85,3 +86,10 @@ class CookieTokenRefreshSerializer(jwt_serializers.TokenRefreshSerializer):
             raise jwt_exceptions.InvalidToken(
                 "No valid token found in cookie 'refresh'"
             )
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["id", "title", "message", "link", "read", "created_at"]
+        read_only_fields = ["id", "title", "message", "link", "created_at"]
