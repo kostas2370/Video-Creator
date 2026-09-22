@@ -35,7 +35,10 @@ const API_ENDPOINTS = {
         return params.length > 0 ? `${url}?${params.join('&')}` : url;
     },
     GET_AVATARS: (name = null) => `avatars/${name ? `?search=${name}` : ''}`,
-    API_KEYS: 'api_keys/'
+    API_KEYS: 'api_keys/',
+    NOTIFICATIONS: 'notifications/',
+    NOTIFICATION_SELECT: (id) => `notifications/${id}/`,
+    NOTIFICATIONS_READ_ALL: 'notifications/read_all/',
 
 
 };
@@ -161,6 +164,9 @@ export const generateSceneImage = async (id, data) => {return postRequest(API_EN
 export const logout = async () => {return postRequest(API_ENDPOINTS.LOGOUT)}
 export const getVoices = async () => {return getRequest(API_ENDPOINTS.VOICES);}
 export const getTemplates = async () => {return getRequest(API_ENDPOINTS.TEMPLATES)}
+export const getNotifications = async () => {return getRequest(API_ENDPOINTS.NOTIFICATIONS)}
+export const markNotificationRead = async (id) => {return patchRequest(API_ENDPOINTS.NOTIFICATION_SELECT(id), { read: true }, axiosPrivateInstance, JSON_CONFIG)}
+export const markAllNotificationsRead = async () => {return patchRequest(API_ENDPOINTS.NOTIFICATIONS_READ_ALL, {}, axiosPrivateInstance, JSON_CONFIG)}
 export const createTemplate = async (data) => {
     try {
         const response = await axiosPrivateInstance.post(API_ENDPOINTS.TEMPLATES, data);
