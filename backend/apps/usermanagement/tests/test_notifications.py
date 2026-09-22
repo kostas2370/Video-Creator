@@ -104,6 +104,10 @@ class VideoNotificationTests(TestCase):
         self.owner = user.make()
         self.video = video.make(created_by=self.owner, status="RENDERING")
 
+        notify = patch("apps.videomanagement.models.send_email.delay")
+        self.send_email = notify.start()
+        self.addCleanup(notify.stop)
+
     def settle(self, status, on=None):
         target = on or self.video
         target.status = status
