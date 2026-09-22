@@ -43,7 +43,7 @@ const Home = () => {
     avatar_position: "top,left",
   });
 
-  const axiosPrivateInstance = useAxiosPrivate();
+  useAxiosPrivate();
   const pollRef = useRef(null);
 
   useEffect(() => () => pollRef.current?.cancel(), []);
@@ -107,8 +107,8 @@ const Home = () => {
 
   useEffect(() => {
     const fetchOptions = async () => {
-      axiosPrivateInstance.get("avatars/").then((response) => {
-        setAvatars(response.data);
+      getAvatars().then((response) => {
+        setAvatars(Array.isArray(response) ? response : []);
       });
 
       getVoices().then((response) => {

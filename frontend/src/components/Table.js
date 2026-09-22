@@ -119,7 +119,7 @@ export function DefaultTable({ data, setVideos, loaded }) {
                 const isResumable = status === "FAILED";
 
                 return (
-                  <tr key={title}>
+                  <tr key={id}>
                     <td className={`${classes} w-1/2`}>
                       <Typography
                         variant="small"
