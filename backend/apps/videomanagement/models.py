@@ -8,6 +8,7 @@ from django.conf import settings
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
 from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
 
 MODEL_TYPE_CHOICES = (("API", "Api"),)
@@ -329,7 +330,7 @@ class Video(LifecycleModelMixin, AbstractModel):
         condition=WhenFieldValueChangesTo("status", "COMPLETED"),
     )
     def send_video_completed_email(self):
-        self.email_owner(
+        self.tell_owner(
             "Video Completed",
             f"Your video {self.title} has been completed. "
             f"You can download it from {self.url}",
@@ -341,12 +342,18 @@ class Video(LifecycleModelMixin, AbstractModel):
         condition=WhenFieldValueChangesTo("status", "FAILED"),
     )
     def send_video_failed_email(self):
-        self.email_owner(
+        self.tell_owner(
             "Video Failed", f"Your video {self.title} has failed. Please try again."
         )
 
-    def email_owner(self, subject: str, message: str) -> None:
+    def tell_owner(self, subject: str, message: str) -> None:
         if not self.created_by:
             return
 
+        Notification.objects.create(
+            user=self.created_by,
+            title=subject,
+            message=message,
+            link=f"/videos/{self.pk}/",
+        )
         send_email.delay(name=subject, email=self.created_by.email, text=message)

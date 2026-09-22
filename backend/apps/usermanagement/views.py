@@ -10,16 +10,19 @@ from django.core.mail import send_mail
 
 from rest_framework_simplejwt import views as jwt_views
 from rest_framework import generics
+from rest_framework import mixins
 from rest_framework import status
+from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ParseError
 from rest_framework_simplejwt import tokens
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.exceptions import TokenError
 
-from .models import Login
+from .models import Login, Notification
 from .serializers import (
+    NotificationSerializer,
     RegisterSerializer,
     UserSerializer,
     LoginSerializer,
@@ -212,3 +215,30 @@ def logout_view(request):
     except Exception as exc:
         logger.error(exc)
         raise ParseError("Invalid token")
+
+
+class NotificationView(
+    mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
+):
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        notifications = self.get_queryset()
+
+        return Response(
+            {
+                "unread": notifications.filter(read=False).count(),
+                "results": self.get_serializer(notifications[:30], many=True).data,
+            }
+        )
+
+    @action(detail=False, methods=["PATCH"])
+    def read_all(self, request):
+        marked = self.get_queryset().filter(read=False).update(read=True)
+
+        return Response({"read": marked})

@@ -1,12 +1,18 @@
 from django.urls import path, include
+from rest_framework import routers
 
 from .views import (
     LoginView,
+    NotificationView,
     logout_view,
     CookieTokenRefreshView,
     UserRegisterView,
     VerifyEmail,
 )
+
+router = routers.DefaultRouter()
+router.register("notifications", NotificationView, basename="notification")
+
 
 urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
@@ -19,3 +25,5 @@ urlpatterns = [
         include("django_rest_passwordreset.urls", namespace="password_reset"),
     ),
 ]
+
+urlpatterns += router.urls
