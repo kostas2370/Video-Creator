@@ -1,8 +1,14 @@
-from django.test import TestCase
+from datetime import timedelta
+from unittest.mock import patch
+
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.videomanagement.baker_recipes import video
+from apps.videomanagement.models import Video
+from apps.videomanagement.tasks import reap_stalled_videos, render_video_task
 
 from ..baker_recipes import user
 from ..models import Notification
@@ -130,3 +136,29 @@ class VideoNotificationTests(TestCase):
         self.settle("COMPLETED", on=orphan)
 
         self.assertFalse(Notification.objects.exists())
+
+    def test_a_video_a_worker_gave_up_on_tells_its_owner(self):
+        with patch(
+            "apps.videomanagement.utils.composer.render.make_video",
+            side_effect=RuntimeError("the encoder died"),
+        ):
+            with self.assertRaises(RuntimeError):
+                with self.captureOnCommitCallbacks(execute=True):
+                    render_video_task(video_id=self.video.id)
+
+        self.assertEqual(
+            Notification.objects.get(user=self.owner).title, "Video Failed"
+        )
+
+    @override_settings(VIDEO_TASK_STALE_AFTER=3600)
+    def test_a_reaped_video_tells_its_owner(self):
+        Video.objects.filter(pk=self.video.pk).update(
+            updated_at=timezone.now() - timedelta(seconds=7200)
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            reap_stalled_videos()
+
+        self.assertEqual(
+            Notification.objects.get(user=self.owner).title, "Video Failed"
+        )

@@ -21,8 +21,13 @@ VOICE_IMPORTS = {
 }
 
 
-def _mark_failed(video: Video) -> None:
-    Video.objects.filter(pk=video.pk).update(status="FAILED")
+def _mark_failed(video_id: int) -> None:
+    video = Video.objects.filter(pk=video_id).first()
+    if video is None:
+        return
+
+    video.status = "FAILED"
+    video.save()
 
 
 @shared_task(bind=True)
@@ -35,7 +40,7 @@ def generate_video_task(self, video_id: int, **params):
         generate_video(video=video, **params)
     except Exception:
         logger.exception("Generation failed for video %s", video_id)
-        _mark_failed(video)
+        _mark_failed(video_id)
         raise
 
     logger.info("Generation finished for video %s", video_id)
@@ -52,7 +57,7 @@ def generate_twitch_video_task(self, video_id: int, **params):
         generate_twitch_video(video=video, **params)
     except Exception:
         logger.exception("Twitch generation failed for video %s", video_id)
-        _mark_failed(video)
+        _mark_failed(video_id)
         raise
 
     logger.info("Twitch generation finished for video %s", video_id)
@@ -69,7 +74,7 @@ def resume_video_task(self, video_id: int):
         resume_video(video)
     except Exception:
         logger.exception("Resume failed for video %s", video_id)
-        _mark_failed(video)
+        _mark_failed(video_id)
         raise
 
     logger.info("Resume finished for video %s", video_id)
@@ -86,7 +91,7 @@ def render_video_task(self, video_id: int):
         make_video(video)
     except Exception:
         logger.exception("Render failed for video %s", video_id)
-        _mark_failed(video)
+        _mark_failed(video_id)
         raise
 
     logger.info("Render finished for video %s", video_id)
@@ -111,7 +116,9 @@ def reap_stalled_videos():
     if not ids:
         return 0
 
-    stalled.update(status="FAILED")
+    for video_id in ids:
+        _mark_failed(video_id)
+
     logger.warning("Reaped %s stalled videos: %s", len(ids), ids)
 
     return len(ids)
