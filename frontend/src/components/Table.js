@@ -1,5 +1,7 @@
 import { Card, Typography } from "@material-tailwind/react";
 import { useState } from "react";
+import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
+import { HiOutlineEllipsisVertical } from "react-icons/hi2";
 import { FaRegEye, FaPencilAlt, FaRedo } from "react-icons/fa";
 import { RiDeleteBin6Fill } from "react-icons/ri";
 import { DeleteModal } from "./DeleteModal";
@@ -11,6 +13,9 @@ import { ResumeModal } from "./ResumeModal";
 import { useNavigate } from "react-router-dom";
 
 const TABLE_HEAD = ["Video Title", "Status", "Video Type", "Actions"];
+
+const menuItemClass =
+  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 data-[focus]:bg-gray-100 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-gray-200 dark:data-[focus]:bg-gray-700";
 
 export function DefaultTable({ data, setVideos, loaded }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -109,25 +114,9 @@ export function DefaultTable({ data, setVideos, loaded }) {
                   : "p-4 border-b border-blue-gray-50 dark:border-gray-700";
                 const isCompleted = status === "COMPLETED";
                 const isRenderable = isCompleted || status === "READY";
-
-                const renderIconColor = isRenderable
-                  ? "text-purple-500 hover:text-red-300"
-                  : "text-gray-400 ";
-
-                const pencilIcon =
-                  status === "READY" || isCompleted
-                    ? "text-orange-500 hover:text-orange-300"
-                    : "text-gray-400 disabled";
-
-                const deleteIcon =
-                  status !== "RENDERING"
-                    ? "text-red-500 hover:text-red-300"
-                    : "text-gray-400 disabled";
-
+                const isEditable = isRenderable;
+                const isDeletable = status !== "RENDERING";
                 const isResumable = status === "FAILED";
-                const resumeIcon = isResumable
-                  ? "text-green-500 hover:text-green-300"
-                  : "text-gray-400 disabled";
 
                 return (
                   <tr key={title}>
@@ -159,65 +148,106 @@ export function DefaultTable({ data, setVideos, loaded }) {
                       </Typography>
                     </td>
                     <td className={`${classes} w-1/6`}>
-                      <Typography
-                        variant="small"
-                        color="blue-gray"
-                        className="font-medium text-center dark:text-white"
-                      >
-                        <div className="grid grid-cols-5">
-                          <FaRegEye
-                            className="w-5 h-5 text-blue-500 hover:text-blue-300"
-                            onClick={(e) => {
-                              setVideoInfo({
-                                title: title,
-                                prompt: prompt,
-                                gpt_answer: gpt_answer,
-                                music: music,
-                                output: output,
-                              });
-                              setShowVideoModal(true);
-                            }}
-                          />
-                          <FaPencilAlt
-                            className={`w-5 h-5 ${pencilIcon}`}
-                            onClick={(event) => {
-                              navigate("/videos/" + id + "/");
-                            }}
-                          />
-                          <GiProcessor
-                            onClick={(event) => {
-                              if (status !== "RENDERING" && status !== "FAILED") {
+                      <Menu as="div" className="relative inline-block text-left">
+                        <MenuButton
+                          aria-label={`Actions for ${title}`}
+                          className="rounded-full p-2 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:hover:bg-gray-700"
+                        >
+                          <HiOutlineEllipsisVertical className="h-5 w-5 text-gray-700 dark:text-gray-200" />
+                        </MenuButton>
+                        <MenuItems
+                          anchor="bottom end"
+                          className="z-50 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+                        >
+                          <MenuItem>
+                            <button
+                              className={menuItemClass}
+                              onClick={() => {
+                                setVideoInfo({
+                                  title: title,
+                                  prompt: prompt,
+                                  gpt_answer: gpt_answer,
+                                  music: music,
+                                  output: output,
+                                });
+                                setShowVideoModal(true);
+                              }}
+                            >
+                              <FaRegEye className="h-4 w-4 text-blue-500" />
+                              Video details
+                            </button>
+                          </MenuItem>
+
+                          <MenuItem disabled={!isEditable}>
+                            <button
+                              className={menuItemClass}
+                              title={
+                                isEditable
+                                  ? "Open the scenes of this video"
+                                  : `Cannot edit while ${status}`
+                              }
+                              onClick={() => navigate("/videos/" + id + "/")}
+                            >
+                              <FaPencilAlt className="h-4 w-4 text-orange-500" />
+                              Edit scenes
+                            </button>
+                          </MenuItem>
+
+                          <MenuItem disabled={!isRenderable}>
+                            <button
+                              className={menuItemClass}
+                              title={
+                                isRenderable
+                                  ? "Render this video"
+                                  : `Cannot render while ${status}`
+                              }
+                              onClick={() => {
                                 setId(id);
                                 setShowRenderModal(true);
+                              }}
+                            >
+                              <GiProcessor className="h-4 w-4 text-purple-500" />
+                              Render
+                            </button>
+                          </MenuItem>
+
+                          {isResumable ? (
+                            <MenuItem>
+                              <button
+                                className={menuItemClass}
+                                title="Carry on generating this video"
+                                onClick={() => {
+                                  setId(id);
+                                  setShowResumeModal(true);
+                                }}
+                              >
+                                <FaRedo className="h-4 w-4 text-green-500" />
+                                Carry on generating
+                              </button>
+                            </MenuItem>
+                          ) : null}
+
+                          <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
+
+                          <MenuItem disabled={!isDeletable}>
+                            <button
+                              className={`${menuItemClass} text-red-600 dark:text-red-400`}
+                              title={
+                                isDeletable
+                                  ? "Delete this video"
+                                  : `Cannot delete while ${status}`
                               }
-                            }}
-                            className={`w-5 h-5 ${renderIconColor}`}
-                          />
-                          <FaRedo
-                            title={
-                              isResumable
-                                ? "Carry on generating this video"
-                                : "Only a failed generation can be carried on"
-                            }
-                            className={`w-5 h-5 ${resumeIcon}`}
-                            onClick={(event) => {
-                              if (isResumable) {
+                              onClick={() => {
                                 setId(id);
-                                setShowResumeModal(true);
-                              }
-                            }}
-                          />
-                          <RiDeleteBin6Fill
-                            className={`w-5 h-5 ${deleteIcon} text-center`}
-                            onClick={(event) => {
-                              if (status !== "RENDERING") {
                                 setShowDeleteModal(true);
-                                setId(id);
-                              }
-                            }}
-                          />
-                        </div>
-                      </Typography>
+                              }}
+                            >
+                              <RiDeleteBin6Fill className="h-4 w-4" />
+                              Delete
+                            </button>
+                          </MenuItem>
+                        </MenuItems>
+                      </Menu>
                     </td>
                   </tr>
                 );

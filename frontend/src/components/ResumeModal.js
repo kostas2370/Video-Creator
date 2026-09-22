@@ -5,7 +5,14 @@ import { pollVideo } from "../api/pollVideo";
 import { FaRedo } from "react-icons/fa";
 import { CloseModalButton } from "./ui/CloseModalButton";
 
-export function ResumeModal({ showModal, setShowModal, id, setItems, name }) {
+export function ResumeModal({
+  showModal,
+  setShowModal,
+  id,
+  setItems,
+  name,
+  onFinished,
+}) {
   const pollRef = useRef(null);
 
   useEffect(() => () => pollRef.current?.cancel(), []);
@@ -47,10 +54,11 @@ export function ResumeModal({ showModal, setShowModal, id, setItems, name }) {
 
     if (video.status === "FAILED") {
       toast.error("It stopped again. The provider may still be unavailable.");
-      return;
+    } else {
+      toast.success("The video is ready to render");
     }
 
-    toast.success("The video is ready to render");
+    if (onFinished) onFinished(video);
   };
 
   if (!showModal) {

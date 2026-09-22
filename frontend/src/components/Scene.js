@@ -1,10 +1,11 @@
 import { useParams } from "react-router-dom";
 import React, { useState, useEffect } from "react";
+import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import { FaPencilAlt } from "react-icons/fa";
 import { IoTrashBinSharp } from "react-icons/io5";
 import { DeleteModal } from "./DeleteModal";
 import { FaPlus } from "react-icons/fa6";
-import { HiOutlinePencilSquare } from "react-icons/hi2";
+import { HiOutlinePencilSquare, HiOutlineEllipsisVertical } from "react-icons/hi2";
 import { deleteImageScene, deleteScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
@@ -122,39 +123,53 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
             </>
           )}
 
-          <div className="absolute top-2 right-2 flex space-x-2 ">
-            {scene.scene_image?.file ? (
-              <>
-                {video_type !== "TWITCH" ? (
+          <Menu as="div" className="absolute top-2 right-2 z-10">
+            <MenuButton
+              aria-label="Image actions"
+              className="rounded-full bg-white/90 p-2 shadow transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 dark:bg-gray-900/80 dark:hover:bg-gray-900"
+            >
+              <HiOutlineEllipsisVertical className="h-5 w-5 text-gray-700 dark:text-gray-200" />
+            </MenuButton>
+            <MenuItems
+              anchor="bottom end"
+              className="mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+            >
+              {scene.scene_image?.file ? (
+                <>
+                  {video_type !== "TWITCH" ? (
+                    <MenuItem>
+                      <button
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 data-[focus]:bg-gray-100 dark:text-gray-200 dark:data-[focus]:bg-gray-700"
+                        onClick={() => setShowEditImageModal(true)}
+                      >
+                        <HiOutlinePencilSquare className="h-4 w-4 text-green-500" />
+                        Edit image
+                      </button>
+                    </MenuItem>
+                  ) : null}
+                  <MenuItem>
+                    <button
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 data-[focus]:bg-gray-100 dark:data-[focus]:bg-gray-700"
+                      onClick={() => setShowDeleteModal(true)}
+                    >
+                      <IoTrashBinSharp className="h-4 w-4" />
+                      Delete image
+                    </button>
+                  </MenuItem>
+                </>
+              ) : (
+                <MenuItem>
                   <button
-                    className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
-                    onClick={(e) => {
-                      setShowEditImageModal(true);
-                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 data-[focus]:bg-gray-100 dark:text-gray-200 dark:data-[focus]:bg-gray-700"
+                    onClick={() => setShowEditImageModal(true)}
                   >
-                    <HiOutlinePencilSquare className="text-green-500 w-5 h-5" />
+                    <FaPlus className="h-4 w-4 text-orange-500" />
+                    Add image
                   </button>
-                ) : null}
-                <button
-                  onClick={(e) => {
-                    setShowDeleteModal(true);
-                  }}
-                  className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
-                >
-                  <IoTrashBinSharp className="text-red-500" />
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={(e) => {
-                  setShowEditImageModal(true);
-                }}
-                className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
-              >
-                <FaPlus className="text-orange-500" />
-              </button>
-            )}
-          </div>
+                </MenuItem>
+              )}
+            </MenuItems>
+          </Menu>
         </div>
       </div>
 
