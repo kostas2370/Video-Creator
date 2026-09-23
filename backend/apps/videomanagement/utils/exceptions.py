@@ -4,11 +4,13 @@ from rest_framework.exceptions import APIException
 class InvalidJsonFormatException(Exception):
     def __init__(self):
         self.message = "Invalid Json Format"
+        super().__init__(self.message)
 
 
 class FileNotDownloadedException(Exception):
     def __init__(self):
         self.message = "could not download the video"
+        super().__init__(self.message)
 
 
 class GameNotFound(APIException):
