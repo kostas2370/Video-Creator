@@ -170,18 +170,30 @@ class HandleImageTests(SimpleTestCase):
         self.assertEqual(image.duration, 7)
 
     def test_shrinks_the_still_to_sit_inside_a_background(self):
-        clip = FakeClip(size=(1000, 500))
-        opened = MagicMock()
-        opened.convert.return_value.resize.return_value = opened
-
+        still = MagicMock()
         behind = background.prepare()
-        with (
-            patch.object(clips, "ImageClip", return_value=clip),
-            patch.object(clips.Image, "open", return_value=opened),
+
+        with patch.object(
+            clips, "ImageClip", side_effect=[still, FakeClip(size=(1000, 500))]
         ):
             handle_image(FakeAudio(), self.scene_image, behind)
 
-        opened.convert.return_value.resize.assert_called_once_with((650, 325))
+        still.resize.assert_called_once_with((650, 325))
+
+    def test_leaves_the_source_still_on_disk_untouched(self):
+        behind = background.prepare()
+
+        with (
+            patch.object(
+                clips,
+                "ImageClip",
+                side_effect=[MagicMock(), FakeClip(size=(1000, 500))],
+            ),
+            patch("PIL.Image.open") as opened,
+        ):
+            handle_image(FakeAudio(), self.scene_image, behind)
+
+        opened.assert_not_called()
 
     def test_raises_when_the_still_cannot_be_opened(self):
         with patch.object(clips, "ImageClip", side_effect=OSError("corrupt")):
@@ -270,3 +282,16 @@ class ProcessSceneTests(SimpleTestCase):
             patch.object(clips, "handle_video", side_effect=ValueError("bad")),
         ):
             self.assertIs(process_scene(scene_image, FakeAudio(3.0), None), black)
+
+    def test_falls_back_to_black_without_a_scene_image(self):
+        black = FakeClip()
+
+        with patch.object(clips, "ImageClip", return_value=black):
+            self.assertIs(process_scene(None, FakeAudio(3.0), None), black)
+
+    def test_falls_back_to_black_when_the_provider_left_no_file(self):
+        image = scene_image.prepare(file=None)
+        black = FakeClip()
+
+        with patch.object(clips, "ImageClip", return_value=black):
+            self.assertIs(process_scene(image, FakeAudio(3.0), None), black)

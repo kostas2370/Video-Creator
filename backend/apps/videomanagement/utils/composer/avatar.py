@@ -92,13 +92,18 @@ def handle_avatar_video(video, final_video):
                        and fade-out effects applied.
     """
 
-    avatar_video = f"{os.getcwd()}/{video.dir_name}/output_avatar.mp4"
+    avatar_video = os.path.join(os.getcwd(), video.dir_name, "output_avatar.mp4")
 
-    if not os.path.exists(f"{os.getcwd()}/{video.dir_name}/output_avatar.mp4"):
+    if not os.path.exists(avatar_video):
         logger.info("Start creating the avatar video")
         avatar_video = create_avatar_video(video.avatar, video.dir_name)
 
-    position = tuple(video.settings.get("avatar_position", "right,top").split(","))
+    if not avatar_video or not os.path.exists(avatar_video):
+        logger.error("No avatar video for %s; rendering without it", video.pk)
+        return final_video
+
+    settings = video.settings or {}
+    position = tuple(settings.get("avatar_position", "right,top").split(","))
     avatar_vid = (
         VideoFileClip(avatar_video)
         .without_audio()
