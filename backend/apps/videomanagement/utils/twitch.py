@@ -119,7 +119,6 @@ class TwitchClient:
             url = f"https://api.twitch.tv/helix/games?name={name}"
             req = requests.get(url, headers=self.headers)
             req.raise_for_status()
-            return req.json().get("data")[0].get("id")
 
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 400:
@@ -129,6 +128,12 @@ class TwitchClient:
                 raise InvalidTwitchToken
 
             raise APIException(err.response)
+
+        data = req.json().get("data") or []
+        if not data:
+            raise GameNotFound
+
+        return data[0].get("id")
 
     def get_streamer_id(self, name: str) -> str:
         """
@@ -151,22 +156,29 @@ class TwitchClient:
         InvalidTwitchToken
             If the Twitch token is invalid.
         """
-        req = None
+        if self.headers is None:
+            raise HeaderInitiationException
+
         try:
             url = f"https://api.twitch.tv/helix/users?login={name}"
             req = requests.get(url, headers=self.headers)
             req.raise_for_status()
-            return req.json().get("data")[0].get("id")
 
         except requests.exceptions.HTTPError as err:
             logger.error(err)
-            if err.response.status_code == 400 or len(req.json()["data"]) == 0:
+            if err.response.status_code == 400:
                 raise StreamerNotFound
 
-            if err.response.status_code.status_code == 401:
+            if err.response.status_code == 401:
                 raise InvalidTwitchToken
 
             raise APIException(err.response)
+
+        data = req.json().get("data") or []
+        if not data:
+            raise StreamerNotFound
+
+        return data[0].get("id")
 
     def get_clips(self, value: str, mode="game", start_date: str = ""):
         """

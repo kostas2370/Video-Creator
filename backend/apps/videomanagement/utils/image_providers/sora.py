@@ -53,7 +53,7 @@ def generate_from_sora(
     request = dict(
         model=settings.SORA_MODEL,
         prompt=format_sora_prompt(
-            title=title, image_description=prompt, style=settings.SORA_STYLE
+            title=title, image_description=prompt, style=style or settings.SORA_STYLE
         ),
         seconds=str(seconds),
         size=settings.SORA_SIZE,
