@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import { PASSWORD_RESET_URL } from "../endpoints";
@@ -106,12 +106,12 @@ const ForgotPassword = () => {
                     <span className="text-gray-600">
                       Remembered your password?{" "}
                     </span>
-                    <a
-                      onClick={() => navigate("/login/")}
+                    <Link
+                      to="/login/"
                       className="text-blue-600 hover:text-blue-800 cursor-pointer"
                     >
                       Sign in
-                    </a>
+                    </Link>
                   </div>
                 </form>
               )}
