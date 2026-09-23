@@ -7,7 +7,7 @@ export const AssetDropBox = ({ type, items, className, value, setValue,selectedF
     const selectedValue = event.target.value;
     setValue(selectedValue);
     if (selectedValue) {
-      items.map((item) => {
+      items.forEach((item) => {
         if (selectedValue === item.id.toString()) {
           setSelectedFile(item?.file);
         }
