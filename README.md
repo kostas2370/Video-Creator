@@ -400,6 +400,14 @@ saved on the [API keys](#api-keys) page.
 
 ![The Twitch compilation form](docs/screenshots/twitch.png)
 
+## Architecture
+
+For how a request becomes a video — the generation and render pipelines, the status
+state machine, resume, and where to add a provider — see
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
+
 ## API Documentation
 
 You can find all API endpoints in Swagger: [http://localhost:3000/swagger/](http://localhost:3000/swagger/)
