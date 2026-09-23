@@ -3,6 +3,7 @@ import os
 import urllib.request
 import uuid
 from typing import Union
+from urllib.parse import urlparse
 
 import requests
 from django.conf import settings
@@ -56,21 +57,21 @@ def download(q: str, amt: int = 1, path: str = "", user=None) -> Union[str, None
         logger.error(exc)
         return None
 
-    if response.status_code != 200:
-        raise Exception("Couldn't find images")
+    items = response.json().get("items") or []
+    if not items:
+        logger.error("Google found no images for %r", q)
+        return None
 
-    data = response.json()
-    urls = [item["link"] for item in data["items"]]
+    urls = [item["link"] for item in items]
 
     image_url = (
-        data["items"][0]["link"]
+        urls[0]
         if len(urls) == 1 or not settings.VISION_SELECTION
-        else data["items"][select_from_vision(q, urls, user=user)]["link"]
+        else urls[select_from_vision(q, urls, user=user)]
     )
 
-    filetype = (
-        ".png" if "png" in image_url else ".gif" if "gif" in image_url else ".jpg"
-    )
+    extension = os.path.splitext(urlparse(image_url).path)[1].lower()
+    filetype = extension if extension in {".png", ".gif", ".jpg", ".jpeg"} else ".jpg"
     saved = os.path.join(path, f"{uuid.uuid4()}{filetype}")
     urllib.request.urlretrieve(image_url, saved)
 
@@ -112,3 +113,4 @@ def download_image_from_google(
 
     except Exception as exc:
         logger.error(f"Error downloading image with query {q} Error {exc}")
+        return None

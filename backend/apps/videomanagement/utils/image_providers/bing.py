@@ -1,4 +1,5 @@
 import logging
+from typing import Union
 
 from vendor.bing_image_downloader import downloader
 
@@ -7,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def download_image(
     query: str, path: str, amount: int = 1, *args, **kwargs
-) -> list[str]:
+) -> Union[str, None]:
     """
     Download images from Bing using a downloader.
 
@@ -24,8 +25,8 @@ def download_image(
 
     Returns:
     --------
-    list of str
-        The list of paths to the downloaded images.
+    str or None
+        The path to the first downloaded image, or None if the download failed.
 
     Notes:
     ------
@@ -48,3 +49,4 @@ def download_image(
 
     except Exception as exc:
         logger.error(f"Error downloading image with query {query} Error {exc}")
+        return None

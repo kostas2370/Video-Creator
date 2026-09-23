@@ -66,7 +66,13 @@ def generate_from_diffusion(
     headers = {"Content-Type": "application/json"}
 
     response = requests.post(url, headers=headers, data=payload)
-    image = response.json()["output"][0]
+    body = response.json()
+    output = body.get("output") or []
+
+    if not output:
+        logger.error("Diffusion returned no image: %s", body.get("status"))
+        return
+
     saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
-    urllib.request.urlretrieve(image, saved)
+    urllib.request.urlretrieve(output[0], saved)
     return saved

@@ -54,7 +54,8 @@ def check_json(json_file: json) -> bool:
     1. Check if the 'scenes' key exists in the JSON file.
     2. Check if the 'title' key exists in the JSON file.
     3. Check if the 'scenes' list is not empty.
-    4. Check if the 'scene' key exists in the first item of the 'scenes' list.
+    4. Check every scene for 'scene' and a non-empty 'sentences'.
+    5. Check every sentence for 'image_description'.
 
     Notes:
     ------
@@ -69,8 +70,17 @@ def check_json(json_file: json) -> bool:
     if len(json_file["scenes"]) == 0:
         return False
 
-    if "scene" not in json_file["scenes"][0]:
-        return False
+    for scene in json_file["scenes"]:
+        if "scene" not in scene:
+            return False
+
+        sentences = scene.get("sentences")
+        if not sentences:
+            return False
+
+        for sentence in sentences:
+            if "image_description" not in sentence:
+                return False
 
     return True
 
@@ -84,7 +94,7 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None):
         stream = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "assistant", "content": prompt},
+                {"role": "user", "content": prompt},
             ],
             stream=True,
             **token_limit_kwarg(model),
@@ -104,10 +114,8 @@ def gemini_call(prompt: str, model="gemini-1.5-pro", user=None):
     x = io.StringIO()
     try:
         genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
-        model = genai.GenerativeModel(model)
-        response = model.generate_content(prompt)
-        for chunk in response:
-            x.write(chunk)
+        client = genai.GenerativeModel(model)
+        x.write(client.generate_content(prompt).text)
 
     except Exception as err:
         logger.error(err)
@@ -122,12 +130,9 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None):
         client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))
         message = client.messages.create(
             model=model,
-            max_tokens=1000,
+            max_tokens=settings.MAX_TOKENS,
             temperature=0,
-            system="You are a world-class poet. Respond only with short poems.",
-            messages=[
-                {"role": "assistant", "content": [{"type": "text", "text": prompt}]}
-            ],
+            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
         )
 
         x.write(message.content[0].text)
@@ -269,7 +274,7 @@ def select_from_vision(prompt, images, user=None):
         messages=messages,
         max_tokens=300,
     )
-    x = response.choices[0].message.content
+    x = response.choices[0].message.content or ""
 
     x = 0 if "1" in x else 1 if "2" in x else 2
 
