@@ -15,7 +15,7 @@ export const Avatar = () => {
   useEffect(() => {
     setLoading(true)
 
-    getAvatars(search).then((response) => {
+    getAvatars(debouncedSearchTerm).then((response) => {
       setAvatars(response);
       setLoading(false)
 
