@@ -8,12 +8,10 @@ from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
 
-from .models import Video, VoiceModel
+from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel
 from .utils import tts_utils
 
 logger = logging.getLogger(__name__)
-
-IN_FLIGHT_STATUSES = ("GENERATION", "RENDERING")
 
 VOICE_IMPORTS = {
     Provider.ELEVENLABS: ("eleven_labs", "get_voices_from_labs"),
@@ -26,7 +24,7 @@ def _mark_failed(video_id: int) -> None:
     if video is None:
         return
 
-    video.status = "FAILED"
+    video.status = VideoStatus.FAILED
     video.save()
 
 

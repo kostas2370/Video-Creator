@@ -5,7 +5,15 @@ from slugify import slugify
 
 from ..defaults import script_format
 from ..utils.image_providers import VIDEO_PROVIDERS
-from ..models import Video, VoiceModel, UserPrompt, Avatar, Intro, Outro
+from ..models import (
+    Video,
+    VideoStatus,
+    VoiceModel,
+    UserPrompt,
+    Avatar,
+    Intro,
+    Outro,
+)
 from ..utils.audio_utils import make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..utils.llm import get_reply
@@ -41,7 +49,7 @@ def create_pending_video(
         title=(title or message)[:50],
         prompt=user_prompt,
         dir_name="",
-        status="GENERATION",
+        status=VideoStatus.GENERATION,
         video_type=video_type,
         created_by=created_by,
         genre=genre,
@@ -195,7 +203,7 @@ def generate_video(
         create_image_scenes(vid, mode=image_mode, style=style, provider=provider)
         logger.info(f"Generated the images for the video with id : {vid.id}")
 
-    vid.status = "READY"
+    vid.status = VideoStatus.READY
     vid.save()
 
     charge_user(vid.created_by, "generation_limit_for_ai", vid)
@@ -218,7 +226,7 @@ def resume_video(video: Video) -> Video:
         )
 
     choices = video.settings or {}
-    video.status = "GENERATION"
+    video.status = VideoStatus.GENERATION
     video.save()
 
     make_scenes_speech(video)
@@ -233,7 +241,7 @@ def resume_video(video: Video) -> Video:
         )
         logger.info("Filled in the missing visuals for video %s", video.id)
 
-    video.status = "READY"
+    video.status = VideoStatus.READY
     video.save()
 
     return video
