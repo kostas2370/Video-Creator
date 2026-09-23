@@ -3,7 +3,7 @@ from typing import Literal
 
 from slugify import slugify
 
-from ..models import Video
+from ..models import Video, VideoStatus
 from ..utils.file_utils import generate_directory
 from ..utils.twitch import TwitchClient
 from ..utils.scenes import create_twitch_clip_scene
@@ -58,7 +58,7 @@ def generate_twitch_video(
         description += f"{count + 1} {clip.get('title')} : {clip.get('url')} \n"
 
     video.gpt_answer = description
-    video.status = "READY"
+    video.status = VideoStatus.READY
     video.save()
 
     charge_user(video.created_by, "generation_limit_for_twitch", video)
