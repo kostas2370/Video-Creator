@@ -12,15 +12,21 @@ def enforce_csrf(request):
 class CustomAuthentication(jwt_authentication.JWTAuthentication):
     def authenticate(self, request):
         header = self.get_header(request)
-        raw_token = request.COOKIES.get("access_token") or None
+        candidates = [
+            request.COOKIES.get("access_token") or None,
+            self.get_raw_token(header) if header is not None else None,
+        ]
 
-        if header is None and raw_token is None:
-            return None
+        for raw_token in candidates:
+            if raw_token is None:
+                continue
 
-        if raw_token is None:
-            raw_token = self.get_raw_token(header)
+            try:
+                validated_token = self.get_validated_token(raw_token)
+            except rest_exceptions.AuthenticationFailed:
+                continue
 
-        validated_token = self.get_validated_token(raw_token)
+            # enforce_csrf(request)
+            return self.get_user(validated_token), validated_token
 
-        # enforce_csrf(request)
-        return self.get_user(validated_token), validated_token
+        return None

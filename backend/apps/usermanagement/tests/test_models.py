@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
 from django.conf import settings
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from ..baker_recipes import login, user
@@ -79,6 +80,13 @@ class GetTokensTests(TestCase):
             lifetime, settings.REMEMBER_ME_REFRESH_LIFETIME.total_seconds()
         )
 
+    def test_the_row_that_guards_a_remembered_token_outlives_the_token(self):
+        token = RefreshToken(self.user.get_tokens(remember_me=True)["refresh"])
+
+        outstanding = OutstandingToken.objects.get(jti=token["jti"])
+
+        self.assertEqual(outstanding.expires_at.timestamp(), token["exp"])
+
     def test_the_access_token_keeps_its_own_lifetime_either_way(self):
         for remember_me in (False, True):
             with self.subTest(remember_me=remember_me):
@@ -98,10 +106,21 @@ class LoginTests(TestCase):
         request.META = meta
         return request
 
-    def test_reads_the_client_ip_from_the_forwarding_header_when_there_is_one(self):
-        request = self.request_with(HTTP_X_FORWARDED_FOR="1.2.3.4, 5.6.7.8")
+    @override_settings(TRUSTED_PROXY_HOPS=0)
+    def test_ignores_a_forwarding_header_no_proxy_of_ours_wrote(self):
+        request = self.request_with(
+            HTTP_X_FORWARDED_FOR="1.2.3.4", REMOTE_ADDR="9.9.9.9"
+        )
 
-        self.assertEqual(Login.get_user_ip(request), "1.2.3.4")
+        self.assertEqual(Login.get_user_ip(request), "9.9.9.9")
+
+    @override_settings(TRUSTED_PROXY_HOPS=1)
+    def test_reads_the_address_our_own_proxy_appended(self):
+        request = self.request_with(
+            HTTP_X_FORWARDED_FOR="1.2.3.4, 5.6.7.8", REMOTE_ADDR="10.0.0.1"
+        )
+
+        self.assertEqual(Login.get_user_ip(request), "5.6.7.8")
 
     def test_falls_back_to_the_socket_address(self):
         request = self.request_with(REMOTE_ADDR="9.9.9.9")

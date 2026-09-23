@@ -31,6 +31,9 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return super().validate(attrs)
 
+    def create(self, validated_data):
+        return get_user_model().objects.create_user(**validated_data)
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

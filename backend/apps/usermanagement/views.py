@@ -5,6 +5,7 @@ from django.middleware import csrf
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.shortcuts import get_current_site
+from django.db.models import F
 from django.urls import reverse
 from django.core.mail import send_mail
 
@@ -40,16 +41,15 @@ class UserRegisterView(generics.GenericAPIView):
     authentication_classes = []
 
     def post(self, request):
-        if get_user_model().objects.all().count() > settings.USER_LIMIT:
-            return Response({"message": "User limit reached, contact the admin !"})
+        if get_user_model().objects.all().count() >= settings.USER_LIMIT:
+            return Response(
+                {"message": "User limit reached, contact the admin !"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-
-        user = get_user_model().objects.get(email=serializer.data["email"])
-        user.set_password(request.data["password"])
-        user.save()
+        user = serializer.save()
 
         token = tokens.RefreshToken.for_user(user).access_token
 
@@ -82,7 +82,10 @@ class VerifyEmail(generics.GenericAPIView):
         except jwt.DecodeError:
             return Response({"error": "Invalid Token"}, status=400)
 
-        user = get_user_model().objects.get(id=load["user_id"])
+        user = get_user_model().objects.filter(id=load["user_id"]).first()
+        if user is None:
+            return Response({"error": "Invalid Token"}, status=400)
+
         if user.is_verified:
             return Response(
                 {"error": "User is already verified"},
@@ -109,8 +112,7 @@ class LoginView(generics.GenericAPIView):
         user_ip = Login.get_user_ip(request)
 
         login, created = Login.objects.get_or_create(user=user, ip=user_ip)
-        login.count += 1
-        login.save(update_fields=["count"])
+        Login.objects.filter(pk=login.pk).update(count=F("count") + 1)
 
         if created:
             send_email.delay(
@@ -190,7 +192,7 @@ class CookieTokenRefreshView(jwt_views.TokenRefreshView):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def logout_view(request):
     refresh_token = request.COOKIES.get("refresh_token")
     if not refresh_token:

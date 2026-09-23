@@ -85,10 +85,17 @@ class UserRegisterViewTests(TestCase):
 
         response = self.register()
 
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(
             response.data["message"], "User limit reached, contact the admin !"
         )
         self.assertFalse(User.objects.filter(username="ada").exists())
+
+    @override_settings(USER_LIMIT=1)
+    def test_counts_the_last_seat_as_taken(self):
+        user.make()
+
+        self.assertEqual(self.register().status_code, 403)
 
     def test_is_open_to_a_caller_who_is_not_signed_in(self):
         self.assertEqual(self.register().status_code, 201)

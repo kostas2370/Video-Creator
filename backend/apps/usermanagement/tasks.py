@@ -1,9 +1,6 @@
 from celery import shared_task
-from channels.layers import get_channel_layer
 from django.conf import settings
 from django.core.mail import send_mail
-
-channel_layer = get_channel_layer()
 
 
 @shared_task
