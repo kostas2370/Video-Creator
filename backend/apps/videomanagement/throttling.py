@@ -10,12 +10,20 @@ class BaseThrottle(UserRateThrottle):
 
 
 class GenerateRateThrottle(BaseThrottle):
+    scope = "generate"
     rate = "2/hour"
 
 
 class TwitchGenerateRateThrottle(BaseThrottle):
+    scope = "twitch_generate"
     rate = "6/hour"
 
 
+class ResumeRateThrottle(BaseThrottle):
+    scope = "resume"
+    rate = "2/hour"
+
+
 class RenderRateThrottle(BaseThrottle):
+    scope = "render"
     rate = "1/day"
