@@ -34,7 +34,13 @@ class SceneImageView(viewsets.GenericViewSet):
 
     def destroy(self, request, pk):
         obj = self.get_object()
-        video = Video.objects.get(prompt=obj.scene.prompt)
+        video = Video.objects.filter(prompt_id=obj.scene.prompt_id).first()
+
+        if video is None:
+            return Response(
+                {"message": "The video this image belongs to is gone"}, status=404
+            )
+
         if video.video_type == "AI":
             obj.file = None
             obj.save()
@@ -42,7 +48,7 @@ class SceneImageView(viewsets.GenericViewSet):
         if video.video_type == "TWITCH":
             obj.scene.delete()
 
-        return Response({"message": "scene image deleted !"}, status=204)
+        return Response(status=204)
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
