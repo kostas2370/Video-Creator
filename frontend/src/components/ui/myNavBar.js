@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { NotificationBell } from "./NotificationBell";
 import { NavLink } from "react-router-dom";
-import Cookies from 'js-cookie';
 import useLogout from "../../hooks/useLogout";
 import { RiMoonLine, RiSunLine } from "react-icons/ri";
 function Navbar({ theme, toggleTheme }) {

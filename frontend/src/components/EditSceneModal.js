@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {  updateScene, generateScene } from "../api/apiService";
 import { toast } from "react-toastify";
 import ReactLoading from "react-loading";
