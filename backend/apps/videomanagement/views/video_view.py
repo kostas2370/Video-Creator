@@ -4,7 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework import viewsets
-from rest_framework.decorators import action, throttle_classes
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 
@@ -17,8 +17,8 @@ from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerialize
 from ..services.VideoServices import video_update
 from ..services.SceneServices import create_scene
 from ..tasks import render_video_task, resume_video_task
-from ..throttling import RenderRateThrottle
-from ..permissions import IsOwnerPermission
+from ..throttling import RenderRateThrottle, ResumeRateThrottle
+from ..permissions import AiGenerationLimitPermission, IsOwnerPermission
 
 logger = logging.getLogger(__name__)
 
@@ -78,18 +78,18 @@ class VideoView(viewsets.ModelViewSet):
         "poll GET /video/{id}/ until its status becomes READY or FAILED.",
         method="PATCH",
     )
-    @action(detail=True, methods=["PATCH"])
+    @action(
+        detail=True,
+        methods=["PATCH"],
+        throttle_classes=[ResumeRateThrottle],
+        permission_classes=[
+            IsAuthenticated,
+            IsOwnerPermission,
+            AiGenerationLimitPermission,
+        ],
+    )
     def resume(self, _, pk):
         video = self.get_object()
-
-        if video.status not in {"FAILED", "READY"}:
-            return Response(
-                {
-                    "message": f"Video with id {pk} is {video.status} and has nothing "
-                    "to resume yet"
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
 
         if not video.gpt_answer or not video.dir_name:
             return Response(
@@ -100,8 +100,21 @@ class VideoView(viewsets.ModelViewSet):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        video.status = "GENERATION"
-        video.save()
+        claimed = Video.objects.filter(
+            pk=video.pk, status__in=["FAILED", "READY"]
+        ).update(status="GENERATION")
+
+        if not claimed:
+            video.refresh_from_db()
+            return Response(
+                {
+                    "message": f"Video with id {pk} is {video.status} and has nothing "
+                    "to resume yet"
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        video.refresh_from_db()
         resume_video_task.delay(video_id=video.id)
         logger.info(f"Video with id {pk} was queued to resume")
 
@@ -118,12 +131,16 @@ class VideoView(viewsets.ModelViewSet):
         "until its status becomes COMPLETED or FAILED, then read `output`.",
         method="PATCH",
     )
-    @action(detail=True, methods=["PATCH"])
-    @throttle_classes([RenderRateThrottle])
+    @action(detail=True, methods=["PATCH"], throttle_classes=[RenderRateThrottle])
     def render_video(self, _, pk):
         vid = self.get_object()
 
-        if vid.status not in {"READY", "COMPLETED"}:
+        claimed = Video.objects.filter(
+            pk=vid.pk, status__in=["READY", "COMPLETED"]
+        ).update(status="RENDERING")
+
+        if not claimed:
+            vid.refresh_from_db()
             return Response(
                 {
                     "message": f"Video with id {pk} is {vid.status} and cannot be rendered yet"
@@ -131,8 +148,7 @@ class VideoView(viewsets.ModelViewSet):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        vid.status = "RENDERING"
-        vid.save()
+        vid.refresh_from_db()
 
         render_video_task.delay(video_id=vid.id)
         logger.info(f"Video with id {pk} was queued for rendering")
