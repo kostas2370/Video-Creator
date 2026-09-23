@@ -47,7 +47,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     if getattr(video, "avatar", None):
         final_video = handle_avatar_video(video, final_video)
 
-    if video.settings.get("subtitles", False) and subtitles:
+    if (video.settings or {}).get("subtitles", False) and subtitles:
         subs = concatenate_videoclips(subtitles, method="compose")
         video_height = final_video.size[1]
         subtitle_bottom_margin = 60
@@ -92,7 +92,8 @@ def make_video(video: Video) -> Video:
     background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 
-    narration = video.settings.get("narration", True)
+    choices = video.settings or {}
+    narration = choices.get("narration", True)
 
     for scene in scenes:
         scene_image = SceneImage.objects.filter(scene=scene).first()
@@ -103,7 +104,7 @@ def make_video(video: Video) -> Video:
         if audio is not None:
             sound_list.append(audio)
 
-            if narration and video.settings.get("subtitles", False):
+            if narration and choices.get("subtitles", False):
                 subtitle = create_subtitle_clip(scene.text, audio.duration)
                 if subtitle is not None:
                     subtitles.append(subtitle)
