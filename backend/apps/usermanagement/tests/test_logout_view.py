@@ -49,9 +49,18 @@ class LogoutViewTests(TestCase):
 
         self.assertEqual(self.logout(str(refresh)).status_code, 400)
 
-    def test_is_closed_to_anyone_not_signed_in(self):
+    def test_still_works_once_the_access_token_has_expired(self):
+        refresh = RefreshToken.for_user(self.user)
         self.client.force_authenticate(None)
 
-        self.assertEqual(
-            self.logout(str(RefreshToken.for_user(self.user))).status_code, 401
+        response = self.logout(str(refresh))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            BlacklistedToken.objects.filter(token__jti=refresh["jti"]).exists()
         )
+
+    def test_refuses_an_unauthenticated_caller_with_no_refresh_token(self):
+        self.client.force_authenticate(None)
+
+        self.assertEqual(self.logout().status_code, 400)

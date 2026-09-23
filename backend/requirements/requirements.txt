@@ -9,6 +9,7 @@ PyJWT==2.4.0
 django_celery_beat
 django_cleanup
 djoser
+djangorestframework-simplejwt
 django-taggit
 channels-redis
 celery[redis]

@@ -1,9 +1,12 @@
+from datetime import datetime, timezone
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import PermissionsMixin
 from django.core.mail import send_mail
 from django.db import models
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
@@ -41,25 +44,30 @@ class User(AbstractUser, PermissionsMixin):
         if remember_me:
             tokens["remember_me"] = True
             tokens.set_exp(lifetime=settings.REMEMBER_ME_REFRESH_LIFETIME)
+            OutstandingToken.objects.filter(jti=tokens["jti"]).update(
+                expires_at=datetime.fromtimestamp(tokens["exp"], tz=timezone.utc)
+            )
 
         return {"access": access, "refresh": str(tokens)}
 
 
 class Login(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    ip = models.CharField(max_length=15)
+    ip = models.GenericIPAddressField()
     date = models.DateTimeField(auto_now_add=True)
     count = models.PositiveIntegerField(default=0)
 
     @staticmethod
     def get_user_ip(req):
-        x_forwarded_for = req.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0]
-        else:
-            ip = req.META.get("REMOTE_ADDR")
+        hops = settings.TRUSTED_PROXY_HOPS
+        forwarded = req.META.get("HTTP_X_FORWARDED_FOR") if hops else None
 
-        return ip
+        if forwarded:
+            chain = [part.strip() for part in forwarded.split(",") if part.strip()]
+            if chain:
+                return chain[-min(hops, len(chain))]
+
+        return req.META.get("REMOTE_ADDR")
 
     def __str__(self):
         return self.user.username + " (" + self.ip + ") at " + str(self.date)
