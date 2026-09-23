@@ -13,7 +13,7 @@ class SceneViewTests(ApiTestCase):
     def setUp(self):
         super().setUp()
         self.video = self.video_for()
-        self.scene = scene.make(prompt=self.video.prompt, text="the old line")
+        self.scene = scene.make(video=self.video, text="the old line")
 
     def test_rewrites_a_line_and_charges_for_it(self):
         before = self.user.generation_limit_for_ai
@@ -97,11 +97,11 @@ class SceneViewTests(ApiTestCase):
         response = self.client.delete(reverse("scene-detail", args=[self.scene.id]))
 
         self.assertEqual(response.status_code, 204)
-        self.assertFalse(self.video.prompt.scenes.filter(pk=self.scene.pk).exists())
+        self.assertFalse(self.video.scenes.filter(pk=self.scene.pk).exists())
 
     def test_will_not_touch_a_scene_of_someone_elses_video(self):
         stranger_video = self.video_for(owner=user.make())
-        theirs = scene.make(prompt=stranger_video.prompt)
+        theirs = scene.make(video=stranger_video)
 
         response = self.client.delete(reverse("scene-detail", args=[theirs.id]))
 
@@ -111,7 +111,7 @@ class SceneViewTests(ApiTestCase):
 class SceneImageViewTests(ApiTestCase):
     def test_clears_the_file_of_an_ai_videos_image_but_keeps_the_scene(self):
         video_row = self.video_for()
-        line = scene.make(prompt=video_row.prompt)
+        line = scene.make(video=video_row)
         image = scene_image.make(scene=line)
 
         response = self.client.delete(reverse("sceneimage-detail", args=[image.id]))
@@ -123,9 +123,9 @@ class SceneImageViewTests(ApiTestCase):
     def test_removes_the_whole_scene_of_a_twitch_video(self):
         # The clip is the scene, so an empty one would render as a black gap.
         video_row = self.video_for(video_type="TWITCH")
-        clip = scene.make(prompt=video_row.prompt)
+        clip = scene.make(video=video_row)
         image = scene_image.make(scene=clip)
 
         self.client.delete(reverse("sceneimage-detail", args=[image.id]))
 
-        self.assertFalse(video_row.prompt.scenes.filter(pk=clip.pk).exists())
+        self.assertFalse(video_row.scenes.filter(pk=clip.pk).exists())

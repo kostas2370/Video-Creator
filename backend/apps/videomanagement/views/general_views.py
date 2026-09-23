@@ -14,7 +14,6 @@ from ..models import (
     VoiceModel,
     Avatar,
     SceneImage,
-    Video,
 )
 from ..serializers import (
     TemplatePromptsSerializer,
@@ -34,12 +33,7 @@ class SceneImageView(viewsets.GenericViewSet):
 
     def destroy(self, request, pk):
         obj = self.get_object()
-        video = Video.objects.filter(prompt_id=obj.scene.prompt_id).first()
-
-        if video is None:
-            return Response(
-                {"message": "The video this image belongs to is gone"}, status=404
-            )
+        video = obj.scene.video
 
         if video.video_type == "AI":
             obj.file = None

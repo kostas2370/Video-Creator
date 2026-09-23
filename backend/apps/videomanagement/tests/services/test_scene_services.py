@@ -72,7 +72,7 @@ class CreateSceneTests(TestCase):
         self.assertEqual(speech.call_args.args[3], "a new line")
 
     def test_attaches_an_uploaded_image_to_the_new_scene(self):
-        line = scene.make(prompt=self.video.prompt)
+        line = scene.make(video=self.video)
 
         with patch.object(SceneServices, "make_scene_speech", return_value=line):
             create_scene(
@@ -86,7 +86,7 @@ class CreateSceneTests(TestCase):
         self.assertTrue(image.with_audio)
 
     def test_generates_an_image_when_one_was_described_instead(self):
-        line = scene.make(prompt=self.video.prompt)
+        line = scene.make(video=self.video)
 
         with (
             patch.object(SceneServices, "make_scene_speech", return_value=line),
@@ -116,7 +116,7 @@ class CreateSceneTests(TestCase):
         ):
             create_scene(video, {"url": "https://clips.twitch.tv/abc"}, files={})
 
-        create.assert_called_once_with("clips/raw.mp4", "a clip", video.prompt)
+        create.assert_called_once_with("clips/raw.mp4", "a clip", video)
 
     def test_rejects_a_twitch_scene_with_no_url(self):
         video = twitch_video.make()

@@ -61,13 +61,13 @@ class IsOwnerPermissionTests(PermissionTestCase):
         self.assertFalse(self.check(admin, self.video))
 
     def test_resolves_a_scene_back_to_the_video_that_owns_it(self):
-        line = scene.make(prompt=self.video.prompt)
+        line = scene.make(video=self.video)
 
         self.assertTrue(self.check(self.owner, line))
         self.assertFalse(self.check(self.stranger, line))
 
     def test_resolves_a_scene_image_back_to_the_video_that_owns_it(self):
-        line = scene.make(prompt=self.video.prompt)
+        line = scene.make(video=self.video)
         image = scene_image.make(scene=line)
 
         self.assertTrue(self.check(self.owner, image))

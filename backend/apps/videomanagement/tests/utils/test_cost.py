@@ -11,7 +11,7 @@ class CalculateTotalCostTests(TestCase):
         self.video = video.make(mode="WEB")
 
     def add_scenes(self, count, with_images=0):
-        scenes = scene.make(prompt=self.video.prompt, _quantity=count)
+        scenes = scene.make(video=self.video, _quantity=count)
         for line in scenes[:with_images]:
             scene_image.make(scene=line)
 
@@ -24,7 +24,7 @@ class CalculateTotalCostTests(TestCase):
     def test_does_not_charge_for_a_scene_image_that_was_never_generated(self):
         self.add_scenes(1)
         scene_image.make(
-            scene=self.video.prompt.scenes.first(),
+            scene=self.video.scenes.first(),
             file=None,
         )
 
@@ -38,7 +38,7 @@ class CalculateTotalCostTests(TestCase):
 
     def test_charges_the_twitch_rate_per_clip(self):
         clips = twitch_video.make()
-        scene.make(prompt=clips.prompt, _quantity=3)
+        scene.make(video=clips, _quantity=3)
 
         self.assertAlmostEqual(calculate_total_cost(clips), 0.05 + 3 * 0.08)
 

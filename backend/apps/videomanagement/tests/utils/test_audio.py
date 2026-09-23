@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from ...baker_recipes import scene, user_prompt, video, voice_model
+from ...baker_recipes import scene, video, voice_model
 from ...models import Scene
 from ...utils import audio_utils
 from ...utils.audio_utils import make_scene_speech, make_scenes_speech, update_scene
@@ -11,12 +11,12 @@ from ...utils.audio_utils import make_scene_speech, make_scenes_speech, update_s
 class MakeSceneSpeechTests(TestCase):
     def setUp(self):
         self.voice = voice_model.make()
-        self.prompt = user_prompt.make()
+        self.video = video.make()
 
     def test_synthesises_the_line_and_hangs_it_on_the_scene(self):
         with patch.object(audio_utils, "save", return_value="dialogues/a.wav") as save:
             scene = make_scene_speech(
-                self.voice, "media/videos/v", self.prompt, " hello ", is_last=True
+                self.voice, "media/videos/v", self.video, " hello ", is_last=True
             )
 
         self.assertEqual(scene.file, "dialogues/a.wav")
@@ -27,7 +27,7 @@ class MakeSceneSpeechTests(TestCase):
     def test_still_creates_the_scene_when_nothing_is_narrated(self):
         with patch.object(audio_utils, "save") as save:
             scene = make_scene_speech(
-                self.voice, "media/videos/v", self.prompt, "hello", False, narrate=False
+                self.voice, "media/videos/v", self.video, "hello", False, narrate=False
             )
 
         save.assert_not_called()
@@ -57,7 +57,7 @@ class MakeScenesSpeechTests(TestCase):
         return spoken
 
     def lines(self):
-        return list(self.video.prompt.scenes.order_by("id"))
+        return list(self.video.scenes.order_by("id"))
 
     def test_makes_a_scene_for_every_sentence_of_every_scene(self):
         self.narrate()
@@ -87,7 +87,7 @@ class MakeScenesSpeechTests(TestCase):
 class UpdateSceneTests(TestCase):
     def test_resynthesises_the_line_and_saves_the_new_file(self):
         narrated = video.make(avatar=None)
-        line = scene.make(prompt=narrated.prompt)
+        line = scene.make(video=narrated)
 
         with (
             patch.object(audio_utils, "ApiSyn"),
