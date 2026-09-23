@@ -20,7 +20,7 @@ class VideoDetailQueryTests(TestCase):
 
     def queries_for(self, scene_count):
         detailed = video.make(created_by=self.user)
-        for line in scene.make(prompt=detailed.prompt, _quantity=scene_count):
+        for line in scene.make(video=detailed, _quantity=scene_count):
             scene_image.make(scene=line)
 
         with CaptureQueriesContext(connection) as queries:
@@ -168,7 +168,7 @@ class RenderViewTests(ApiTestCase):
 class AddSceneViewTests(ApiTestCase):
     def test_adds_a_scene_to_a_video(self):
         video_row = self.video_for()
-        added = scene.make(prompt=video_row.prompt)
+        added = scene.make(video=video_row)
 
         with patch(
             "apps.videomanagement.services.SceneServices.make_scene_speech",

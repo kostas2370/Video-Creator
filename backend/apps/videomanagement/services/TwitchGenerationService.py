@@ -54,7 +54,7 @@ def generate_twitch_video(
         if downloaded_clip is None:
             continue
 
-        create_twitch_clip_scene(downloaded_clip, clip.get("title"), video.prompt)
+        create_twitch_clip_scene(downloaded_clip, clip.get("title"), video)
         description += f"{count + 1} {clip.get('title')} : {clip.get('url')} \n"
 
     video.gpt_answer = description

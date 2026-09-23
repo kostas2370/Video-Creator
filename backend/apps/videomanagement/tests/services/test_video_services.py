@@ -53,7 +53,7 @@ class VideoUpdateTests(TestCase):
 
     def test_re_records_every_line_when_the_avatar_brings_a_new_voice(self):
         picked = avatar.make()
-        scene.make(prompt=self.video.prompt, _quantity=2)
+        scene.make(video=self.video, _quantity=2)
 
         with patch.object(VideoServices, "update_scene") as resynthesise:
             updated = video_update(self.video, title="t", avatar=str(picked.id))

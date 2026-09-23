@@ -55,9 +55,29 @@ background = Recipe(
     avatar_pos_left=40,
 )
 
+video = Recipe(
+    Video,
+    prompt=foreign_key(user_prompt),
+    voice_model=foreign_key(voice_model),
+    title="a video",
+    dir_name="media/videos/a-video",
+    gpt_answer="{}",
+    status="READY",
+    video_type="AI",
+    mode="WEB",
+    settings=lambda: dict(subtitles=False, narration=True),
+)
+
+silent_video = video.extend(settings=lambda: dict(subtitles=False, narration=False))
+
+subtitled_video = video.extend(settings=lambda: dict(subtitles=True, narration=True))
+
+twitch_video = video.extend(video_type="TWITCH", gpt_answer="Source : \n")
+
+
 scene = Recipe(
     Scene,
-    prompt=foreign_key(user_prompt),
+    video=foreign_key(video),
     text="a sentence",
     file=None,
     is_last=False,
@@ -78,22 +98,3 @@ scene_image = Recipe(
 video_scene_image = scene_image.extend(file="media/images/clip.mp4")
 
 video_scene_image_with_audio = video_scene_image.extend(with_audio=True)
-
-video = Recipe(
-    Video,
-    prompt=foreign_key(user_prompt),
-    voice_model=foreign_key(voice_model),
-    title="a video",
-    dir_name="media/videos/a-video",
-    gpt_answer="{}",
-    status="READY",
-    video_type="AI",
-    mode="WEB",
-    settings=lambda: dict(subtitles=False, narration=True),
-)
-
-silent_video = video.extend(settings=lambda: dict(subtitles=False, narration=False))
-
-subtitled_video = video.extend(settings=lambda: dict(subtitles=True, narration=True))
-
-twitch_video = video.extend(video_type="TWITCH", gpt_answer="Source : \n")

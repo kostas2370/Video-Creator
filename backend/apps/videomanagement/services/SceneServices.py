@@ -63,9 +63,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
         try:
             clip = client.get_clip_by_url(serializer.data.get("url"))
             downloaded_clip = client.download_clip(clip[0])
-            create_twitch_clip_scene(
-                downloaded_clip, clip[0].get("title"), video.prompt
-            )
+            create_twitch_clip_scene(downloaded_clip, clip[0].get("title"), video)
 
         except Exception as esc:
             raise APIException(str(esc), code=400)
@@ -75,7 +73,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
             scene = make_scene_speech(
                 video.voice_model,
                 video.dir_name,
-                video.prompt,
+                video,
                 serializer.data["text"],
                 serializer.data["is_last"],
                 user=video.created_by,
@@ -95,7 +93,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
 
         if serializer.data.get("image_description"):
             create_image_scene(
-                prompt=video.prompt,
+                video=video,
                 image=serializer.data["image_description"],
                 text=scene.text,
                 dir_name=video.dir_name,
