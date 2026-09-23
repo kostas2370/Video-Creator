@@ -15,6 +15,7 @@ from ..models import (
     Avatar,
     SceneImage,
     Video,
+    VideoType,
 )
 from ..serializers import (
     TemplatePromptsSerializer,
@@ -41,11 +42,11 @@ class SceneImageView(viewsets.GenericViewSet):
                 {"message": "The video this image belongs to is gone"}, status=404
             )
 
-        if video.video_type == "AI":
+        if video.video_type == VideoType.AI:
             obj.file = None
             obj.save()
 
-        if video.video_type == "TWITCH":
+        if video.video_type == VideoType.TWITCH:
             obj.scene.delete()
 
         return Response(status=204)
