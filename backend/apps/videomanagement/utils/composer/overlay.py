@@ -55,12 +55,16 @@ def add_text_to_video(
     base_dir, ext = os.path.splitext(video)
     output_video = f"{base_dir}_{uuid.uuid4().hex}.mp4"
 
+    text_path = f"{base_dir}_{uuid.uuid4().hex}.txt"
+    with open(text_path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
     command = [
         "ffmpeg",
         "-i",
         video,
         "-vf",
-        f"drawtext=fontsize={fontsize}:fontcolor={fontcolor}:text='{text}':"
+        f"drawtext=fontsize={fontsize}:fontcolor={fontcolor}:textfile={text_path}:"
         f"x={x}:y={y}:shadowcolor=black:shadowx=2:shadowy=2:"
         f"box=1:boxcolor=black@0.5:boxborderw=10",
         "-y",
@@ -80,3 +84,7 @@ def add_text_to_video(
     except Exception as e:
         logger.error(f"Error processing video: {e}")
         return ""
+
+    finally:
+        if os.path.exists(text_path):
+            os.remove(text_path)
