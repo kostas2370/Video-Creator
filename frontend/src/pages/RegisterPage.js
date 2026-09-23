@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import PasswordChecklist from "react-password-checklist";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { REGISTER_URL } from "../endpoints";
 import { axiosInstance } from "../api/axiosPrivate";
 const Register = () => {
@@ -17,7 +17,7 @@ const Register = () => {
     if (token) {
       navigate("/");
     }
-  }, []);
+  }, [navigate]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -170,12 +170,12 @@ const Register = () => {
                 </button>
                 <div className="mt-4 text-center">
                   <span className="text-gray-600">Already an account? </span>
-                  <a
-                    onClick={() => {navigate("/login/")}}
+                  <Link
+                    to="/login/"
                     className="text-blue-600 hover:text-blue-800 cursor-pointer"
                   >
                     Sign in
-                  </a>
+                  </Link>
                 </div>
               </form>
             </div>
