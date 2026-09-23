@@ -50,17 +50,25 @@ def generate_from_midjourney(
     response = requests.post(
         "https://api.mymidjourney.ai/api/v1/midjourney/imagine",
         headers=headers,
-        data=payload,
+        json=payload,
     ).json()
 
-    if not response["success"]:
-        logger.error("Failed to generate image with midjourney")
+    if not response.get("success"):
+        logger.error("Failed to generate image with midjourney: %s", response)
         return
 
-    image = requests.get(
-        f"https://api.mymidjourney.ai/api/v1/midjourney/message/{response['messageId']}",
-        headers,
-    ).json()["uri"]
+    image = (
+        requests.get(
+            f"https://api.mymidjourney.ai/api/v1/midjourney/message/{response['messageId']}",
+            headers=headers,
+        )
+        .json()
+        .get("uri")
+    )
+
+    if not image:
+        logger.error("Midjourney returned no image for %s", response["messageId"])
+        return
 
     saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
     urllib.request.urlretrieve(image, saved)

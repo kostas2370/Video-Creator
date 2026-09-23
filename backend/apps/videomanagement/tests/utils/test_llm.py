@@ -45,11 +45,20 @@ class TokenLimitKwargTests(SimpleTestCase):
                 )
 
 
+def a_reply(*scenes):
+    return {"title": "t", "scenes": list(scenes)}
+
+
+def a_scene(*sentences):
+    return {"scene": "one", "sentences": list(sentences)}
+
+
+A_SENTENCE = {"sentence": "hello", "image_description": "a cat"}
+
+
 class CheckJsonTests(SimpleTestCase):
     def test_accepts_a_reply_with_the_shape_the_pipeline_walks(self):
-        self.assertTrue(
-            check_json({"title": "t", "scenes": [{"scene": "one", "sentences": []}]})
-        )
+        self.assertTrue(check_json(a_reply(a_scene(A_SENTENCE))))
 
     def test_rejects_a_reply_with_no_scenes_key(self):
         self.assertFalse(check_json({"title": "t"}))
@@ -62,6 +71,18 @@ class CheckJsonTests(SimpleTestCase):
 
     def test_rejects_scenes_that_are_not_labelled(self):
         self.assertFalse(check_json({"title": "t", "scenes": [{"sentences": []}]}))
+
+    def test_rejects_a_scene_with_no_sentences(self):
+        self.assertFalse(check_json(a_reply({"scene": "one"})))
+        self.assertFalse(check_json(a_reply(a_scene())))
+
+    def test_rejects_a_sentence_with_nothing_to_illustrate(self):
+        self.assertFalse(check_json(a_reply(a_scene({"sentence": "hello"}))))
+
+    def test_rejects_a_later_scene_that_is_malformed(self):
+        self.assertFalse(
+            check_json(a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []}))
+        )
 
 
 class OfficialGptCallTests(SimpleTestCase):
@@ -127,9 +148,9 @@ class ClaudeCallTests(SimpleTestCase):
 
 class GeminiCallTests(SimpleTestCase):
     @override_settings(GEMINI_API_KEY="key")
-    def test_joins_the_streamed_chunks(self):
+    def test_returns_the_reply_text(self):
         model = MagicMock()
-        model.generate_content.return_value = ["he", "llo"]
+        model.generate_content.return_value = MagicMock(text="hello")
 
         with (
             patch.object(llm.genai, "configure"),
