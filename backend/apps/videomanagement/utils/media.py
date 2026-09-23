@@ -35,12 +35,15 @@ def download_playlist(url: str, category: str) -> None:
 
     playlist = Playlist(url)
     for music in playlist.videos:
-        stream = music.streams.filter(only_audio=True).first()
         try:
+            stream = music.streams.filter(only_audio=True).first()
+            if stream is None:
+                raise FileNotDownloadedException()
+
             filename = str(uuid.uuid4())
             song = stream.download("media/music")
             new_file = f"media/music/{filename}.mp3"
-            if not os.path.isfile(song):
+            if not song or not os.path.isfile(song):
                 raise FileNotDownloadedException()
 
             os.rename(song, new_file)
@@ -49,8 +52,8 @@ def download_playlist(url: str, category: str) -> None:
             # TypeError and the whole playlist was silently dropped.
             Music.objects.create(name=stream.title, file=new_file)
 
-        except FileNotDownloadedException:
-            logger.error("Error downloading song")
+        except Exception as exc:
+            logger.error("Error downloading song: %s", exc)
 
 
 def download_video(url: str, dir_name: str, *args, **kwargs) -> str:
@@ -78,8 +81,8 @@ def download_video(url: str, dir_name: str, *args, **kwargs) -> str:
 
     yt = YouTube(url)
     video = yt.streams.get_highest_resolution()
-    video.download(dir_name)
-    return f"{dir_name}{yt.title}.mp4"
+
+    return video.download(dir_name)
 
 
 def download_music(url: str) -> str:
