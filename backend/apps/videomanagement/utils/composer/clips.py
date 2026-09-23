@@ -1,5 +1,4 @@
 import logging
-from PIL import Image
 
 from django.conf import settings
 from moviepy.editor import (
@@ -48,8 +47,6 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
                        the scene image's audio, and silence if applicable.
     """
 
-    silent = AudioFileClip("assets/blank.wav")
-
     audio = None
 
     if scene.file:
@@ -63,10 +60,16 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
         audio = CompositeAudioClip([audio, scene_audio]) if audio else scene_audio
 
     if scene_image and scene.is_last and not scene_image.with_audio and audio:
-        audio = concatenate_audioclips([audio, silent, silent])
+        return concatenate_audioclips(
+            [
+                audio,
+                AudioFileClip("assets/blank.wav"),
+                AudioFileClip("assets/blank.wav"),
+            ]
+        )
 
     if audio is None:
-        audio = silent
+        return AudioFileClip("assets/blank.wav")
 
     return audio
 
@@ -85,14 +88,13 @@ def handle_image(audio, scene_image, background):
         ImageClip: The processed image clip for the scene, which may include resizing, duration adjustment,
                    and fade effects, or a default black image clip in case of an error.
     """
-    if background:
-        clip = ImageClip(background.file.path)
-        w, h = clip.size
-        Image.open(scene_image.file.path).convert("RGB").resize(
-            (int(w * 0.65), int(h * 0.65))
-        ).save(scene_image.file.path)
     try:
         image = ImageClip(scene_image.file.path)
+
+        if background:
+            w, h = ImageClip(background.file.path).size
+            image = image.resize((int(w * 0.65), int(h * 0.65)))
+
         image = image.set_duration(
             audio.duration if audio else settings.SILENT_SCENE_SECONDS
         )
@@ -120,16 +122,14 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
     except Exception as e:
         raise ValueError(f"Error loading video file at {scene_image.file.path}: {e}")
 
-    if audio is None:
-        pass
+    if audio is not None:
+        if vid_scene.duration > audio.duration:
+            vid_scene = vid_scene.subclip(0, audio.duration)
 
-    elif vid_scene.duration > audio.duration:
-        vid_scene = vid_scene.subclip(0, audio.duration)
-
-    elif vid_scene.duration < audio.duration:
-        vid_scene = vid_scene.fx(
-            vfx.freeze, t="end", total_duration=audio.duration
-        ).set_duration(audio.duration)
+        elif vid_scene.duration < audio.duration:
+            vid_scene = vid_scene.fx(
+                vfx.freeze, t="end", total_duration=audio.duration
+            ).set_duration(audio.duration)
 
     vid_scene = vid_scene.fadein(vid_scene.duration * 0.2).fadeout(
         vid_scene.duration * 0.2
@@ -160,15 +160,16 @@ def process_scene(scene_image: SceneImage, audio, background: Background):
         audio.duration if audio else settings.SILENT_SCENE_SECONDS
     )
 
-    file_path = scene_image.file.path
-
     if not scene_image or not scene_image.file:
         return black_clip
+
+    file_path = scene_image.file.path
+
     try:
-        if check_if_image(scene_image.file.path):
+        if check_if_image(file_path):
             return handle_image(audio, scene_image, background)
 
-        if check_if_video(scene_image.file.path):
+        if check_if_video(file_path):
             return handle_video(audio, scene_image)
 
     except Exception as exc:

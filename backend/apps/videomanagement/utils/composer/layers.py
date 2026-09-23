@@ -28,7 +28,7 @@ def handle_music(video, final_audio, duration):
     """
 
     music = AudioFileClip(video.music.file.path)
-    music_volume = video.settings.get("music_volume", 0.07)
+    music_volume = (video.settings or {}).get("music_volume", 0.07)
     music = music.volumex(music_volume)
 
     if music.duration < duration:
