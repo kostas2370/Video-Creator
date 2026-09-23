@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
@@ -56,10 +56,17 @@ class LoginViewTests(TestCase):
 
         self.assertTrue(Login.objects.filter(user=self.user, ip="9.9.9.9").exists())
 
-    def test_reads_the_address_from_the_forwarding_header_when_there_is_one(self):
+    @override_settings(TRUSTED_PROXY_HOPS=1)
+    def test_reads_the_address_our_own_proxy_appended(self):
         self.login(HTTP_X_FORWARDED_FOR="1.2.3.4, 5.6.7.8", REMOTE_ADDR="9.9.9.9")
 
-        self.assertTrue(Login.objects.filter(user=self.user, ip="1.2.3.4").exists())
+        self.assertTrue(Login.objects.filter(user=self.user, ip="5.6.7.8").exists())
+
+    @override_settings(TRUSTED_PROXY_HOPS=0)
+    def test_ignores_a_forwarding_header_no_proxy_of_ours_wrote(self):
+        self.login(HTTP_X_FORWARDED_FOR="1.2.3.4", REMOTE_ADDR="9.9.9.9")
+
+        self.assertTrue(Login.objects.filter(user=self.user, ip="9.9.9.9").exists())
 
     def test_warns_the_owner_the_first_time_an_address_is_seen(self):
         self.login(REMOTE_ADDR="9.9.9.9")
