@@ -89,6 +89,10 @@ class GetStreamerIdTests(ClientWithHeaders):
         ):
             self.assertEqual(self.client.get_streamer_id("someone"), "1234")
 
+    def test_refuses_to_call_before_the_token_is_fetched(self):
+        with self.assertRaises(HeaderInitiationException):
+            TwitchClient("media/videos/v").get_streamer_id("someone")
+
     def test_reports_an_unknown_streamer(self):
         with patch.object(
             twitch.requests,
@@ -97,6 +101,22 @@ class GetStreamerIdTests(ClientWithHeaders):
         ):
             with self.assertRaises(StreamerNotFound):
                 self.client.get_streamer_id("nobody")
+
+    def test_reports_a_name_twitch_answers_with_an_empty_list(self):
+        with patch.object(
+            twitch.requests, "get", return_value=a_response({"data": []})
+        ):
+            with self.assertRaises(StreamerNotFound):
+                self.client.get_streamer_id("nobody")
+
+    def test_reports_an_expired_token(self):
+        with patch.object(
+            twitch.requests,
+            "get",
+            return_value=a_response({"data": []}, status_code=401),
+        ):
+            with self.assertRaises(InvalidTwitchToken):
+                self.client.get_streamer_id("someone")
 
 
 class GetClipsTests(ClientWithHeaders):
