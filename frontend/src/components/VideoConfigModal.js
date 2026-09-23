@@ -44,21 +44,21 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
 
   useEffect(() => {
     setIntro(info.intro);
-    intros?.map((item) => {
+    intros?.forEach((item) => {
       if (info.intro === item.id) {
         setSelectedIntroFile(item?.file);
       }
     });
-  }, [info.intro]);
+  }, [info.intro, intros]);
 
   useEffect(() => {
     setOutro(info.outro);
-    outros?.map((item) => {
+    outros?.forEach((item) => {
       if (info.outro === item.id) {
         setSelectedOutroFile(item?.file);
       }
     });
-  }, [info.outro]);
+  }, [info.outro, outros]);
 
   useEffect(() => {
     setAvatarPosition(info?.settings?.avatar_position);
@@ -67,12 +67,12 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
 
   useEffect(() => {
     setAvatar(info.avatar);
-    avatars?.map((item) => {
+    avatars?.forEach((item) => {
       if (info.avatar === item.id) {
         setSelectedAvatarFile(item?.file);
       }
     });
-  }, [info.avatar]);
+  }, [info.avatar, avatars]);
 
   const onSubmit = (event) => {
     event.preventDefault();

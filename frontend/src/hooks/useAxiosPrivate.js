@@ -46,7 +46,7 @@ export function useAxiosPrivate() {
             axiosPrivateInstance.interceptors.request.eject(requestIntercept);
             axiosPrivateInstance.interceptors.response.eject(responseIntercept);
         };
-    }, [access_token , setAccessToken]);
+    }, [access_token, csrftoken, refresh, setAccessToken]);
 
     return axiosPrivateInstance;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { DefaultTable } from "../components/Table";
 import { getVideos } from "../api/apiService";
 import { Search } from "@rsuite/icons";
@@ -19,7 +19,7 @@ export const Videos = () => {
   const [failed, setFailed] = useState(false);
 
 
-  const fetchVideos = async () => {
+  const fetchVideos = useCallback(async () => {
     setIsLoading(true);
     setVideos([])
     const response = await getVideos(debouncedSearchTerm, currentPage);
@@ -30,7 +30,7 @@ export const Videos = () => {
     }
     setFailed(!response);
     setIsLoading(false);
-  };
+  }, [debouncedSearchTerm, currentPage]);
 
   useEffect(() => {
     if (debouncedSearchTerm !== searchParam.get("search")) {
@@ -39,7 +39,8 @@ export const Videos = () => {
     setSearchParam({ page: currentPage, search: debouncedSearchTerm });
 
     fetchVideos();
-  }, [debouncedSearchTerm, currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchTerm, currentPage, fetchVideos]);
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
