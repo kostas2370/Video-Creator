@@ -203,6 +203,7 @@ REST_FRAMEWORK = {
 
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
+TRUSTED_PROXY_HOPS = int(os.getenv("TRUSTED_PROXY_HOPS") or 0)
 TEST_RUNNER = "video_creator.test_runner.ServiceKeysRunner"
 
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
