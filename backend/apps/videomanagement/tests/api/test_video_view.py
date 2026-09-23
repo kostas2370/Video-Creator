@@ -6,7 +6,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from apps.usermanagement.baker_recipes import user
+from apps.usermanagement.baker_recipes import broke_user, user
 
 from ...baker_recipes import scene, scene_image, video
 from .base import ApiTestCase
@@ -239,4 +239,23 @@ class ResumeViewTests(ApiTestCase):
         response, delay = self.resume(theirs)
 
         self.assertEqual(response.status_code, 404)
+        delay.assert_not_called()
+
+    def test_refuses_someone_who_has_spent_their_allowance(self):
+        broke = broke_user.make()
+        stalled = self.a_failed_video(owner=broke)
+        self.client.force_authenticate(broke)
+
+        response, delay = self.resume(stalled)
+
+        self.assertEqual(response.status_code, 403)
+        delay.assert_not_called()
+
+    def test_a_second_resume_finds_nothing_left_to_claim(self):
+        stalled = self.a_failed_video()
+        self.resume(stalled)
+
+        response, delay = self.resume(stalled)
+
+        self.assertEqual(response.status_code, 409)
         delay.assert_not_called()

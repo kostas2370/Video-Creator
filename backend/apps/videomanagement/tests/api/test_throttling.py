@@ -6,9 +6,12 @@ from rest_framework.test import APIClient
 
 from apps.usermanagement.baker_recipes import superuser, user
 
+from ...baker_recipes import video
+from ...models import Video
 from ...throttling import (
     GenerateRateThrottle,
     RenderRateThrottle,
+    ResumeRateThrottle,
     TwitchGenerateRateThrottle,
 )
 
@@ -17,7 +20,18 @@ class RateTests(TestCase):
     def test_each_action_is_capped_at_what_it_costs_to_run(self):
         self.assertEqual(GenerateRateThrottle.rate, "2/hour")
         self.assertEqual(TwitchGenerateRateThrottle.rate, "6/hour")
+        self.assertEqual(ResumeRateThrottle.rate, "2/hour")
         self.assertEqual(RenderRateThrottle.rate, "1/day")
+
+    def test_each_action_counts_against_its_own_allowance(self):
+        scopes = [
+            GenerateRateThrottle.scope,
+            TwitchGenerateRateThrottle.scope,
+            ResumeRateThrottle.scope,
+            RenderRateThrottle.scope,
+        ]
+
+        self.assertEqual(len(set(scopes)), len(scopes))
 
 
 class ThrottleTests(TestCase):
@@ -52,3 +66,37 @@ class ThrottleTests(TestCase):
             self.generate_as(first)
 
         self.assertEqual(self.generate_as(second).status_code, 202)
+
+
+class RenderThrottleTests(TestCase):
+    def setUp(self):
+        self.caller = user.make()
+        self.client = APIClient()
+        self.client.force_authenticate(self.caller)
+        self.addCleanup(RenderRateThrottle().cache.clear)
+
+    def render(self, finished):
+        Video.objects.filter(pk=finished.pk).update(status="COMPLETED")
+        with patch("apps.videomanagement.tasks.render_video_task.delay"):
+            return self.client.patch(
+                reverse("video-render-video", args=[finished.id])
+            )
+
+    def generate(self):
+        with patch("apps.videomanagement.tasks.generate_video_task.delay"):
+            return self.client.post(reverse("generate"), {"message": "cats"})
+
+    def test_a_second_render_within_the_day_is_turned_away(self):
+        mine = video.make(created_by=self.caller, status="COMPLETED")
+
+        statuses = [self.render(mine).status_code for _ in range(2)]
+
+        self.assertEqual(statuses, [202, 429])
+
+    def test_generating_does_not_spend_the_render_allowance(self):
+        self.addCleanup(GenerateRateThrottle().cache.clear)
+        mine = video.make(created_by=self.caller, status="COMPLETED")
+
+        self.generate()
+
+        self.assertEqual(self.render(mine).status_code, 202)
