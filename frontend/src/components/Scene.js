@@ -1,5 +1,4 @@
-import { useParams } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import { FaPencilAlt } from "react-icons/fa";
 import { IoTrashBinSharp } from "react-icons/io5";

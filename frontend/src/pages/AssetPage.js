@@ -6,7 +6,6 @@ import { AssetCreationModal } from "../components/AssetCreationModal";
 import { createIntro, createOutro } from "../api/apiService";
 import { deleteIntro, deleteOutro } from "../api/apiService";
 import { useDebounce } from "../hooks/useDebounce";
-import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 export const AssetPage = () => {
   const [intros, setIntros] = useState([]);
@@ -19,13 +18,13 @@ export const AssetPage = () => {
   const debouncedSearchIntroTerm = useDebounce(searchIntro, 500);
   const debouncedSearchOutroTerm = useDebounce(searchOutro, 500);
   useEffect(() => {
-    getIntro(searchIntro).then((response) => {
+    getIntro(debouncedSearchIntroTerm).then((response) => {
       setIntros(response);
     });
   }, [debouncedSearchIntroTerm]);
 
   useEffect(() => {
-    getOutro(searchOutro).then((response) => {
+    getOutro(debouncedSearchOutroTerm).then((response) => {
       setOutros(response);
     });
   }, [debouncedSearchOutroTerm]);

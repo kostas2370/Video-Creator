@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { RiDeleteBin6Fill } from "react-icons/ri";
 import { DeleteModal } from "../DeleteModal";
 import { deleteAvatar } from "../../api/apiService";

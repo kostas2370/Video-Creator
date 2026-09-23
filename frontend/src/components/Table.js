@@ -12,7 +12,6 @@ import { RenderModal } from "./RenderModal";
 import { ResumeModal } from "./ResumeModal";
 import { useNavigate } from "react-router-dom";
 
-const TABLE_HEAD = ["Video Title", "Status", "Video Type", "Actions"];
 
 const menuItemClass =
   "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 data-[focus]:bg-gray-100 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-gray-200 dark:data-[focus]:bg-gray-700";
