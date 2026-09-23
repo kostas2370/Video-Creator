@@ -39,7 +39,7 @@ class VideoView(viewsets.ModelViewSet):
             .select_related("music", "prompt")
         )
         if self.action == "list":
-            queryset = queryset.exclude(gpt_answer=None)
+            queryset = queryset.exclude(gpt_answer__isnull=True)
 
         if self.action == "retrieve":
             queryset = queryset.prefetch_related("prompt__scenes__scene_images")

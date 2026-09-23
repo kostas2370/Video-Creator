@@ -108,7 +108,11 @@ def create_image_scene(
     - If an exception occurs during image downloading or creation, it is logged,
       and the scene is created with a None image.
     """
-    scene = Scene.objects.get(prompt=prompt, text=text.strip())
+    scene = Scene.objects.filter(prompt=prompt, text=text.strip()).first()
+    if scene is None:
+        logger.error("No scene for %r; skipping its visual", text[:60])
+        return None
+
     generate = resolve(mode, provider)
 
     if generate is None:
@@ -226,7 +230,7 @@ def generate_new_image(
         The updated scene image object with the new image.
 
     """
-    generate = resolve(video.mode)
+    generate = resolve(video.mode, (video.settings or {}).get("provider"))
 
     if generate is None:
         logger.error(f"Invalid video mode or provider not found for video {video.id}.")
@@ -236,10 +240,10 @@ def generate_new_image(
         img = generate(
             scene_image.prompt,
             f"{video.dir_name}/images/",
+            *args,
             style=style,
             title=video.title,
             user=video.created_by,
-            *args,
             **kwargs,
         )
 

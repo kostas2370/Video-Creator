@@ -66,7 +66,7 @@ def make_scenes_speech(video: Video) -> None:
     """
 
     voice_model = video.voice_model
-    narrate = video.settings.get("narration", True)
+    narrate = (video.settings or {}).get("narration", True)
     existing = {scene.text: scene for scene in video.prompt.scenes.all()}
 
     for line in script_lines(video.gpt_answer):
@@ -102,14 +102,17 @@ def update_scene(scene: Scene) -> None:
     - It retrieves the associated video and voice model information to perform the speech synthesis.
     - The updated audio file is saved in the scene's directory.
     """
-    video = Video.objects.get(prompt__id=scene.prompt.id)
+    video = Video.objects.filter(prompt__id=scene.prompt.id).first()
+    if video is None:
+        logger.error("Scene %s belongs to no video; not re-narrating it", scene.pk)
+        return
+
     dir_name = video.dir_name
     voice_model = video.voice_model
 
-    if video.avatar and os.path.exists(
-        rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4"
-    ):
-        os.remove(rf"{os.getcwd()}\{video.dir_name}\output_avatar.mp4")
+    avatar_video = os.path.join(os.getcwd(), video.dir_name, "output_avatar.mp4")
+    if video.avatar and os.path.exists(avatar_video):
+        os.remove(avatar_video)
 
     syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
 
