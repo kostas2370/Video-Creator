@@ -27,9 +27,8 @@ def calculate_total_cost(video):
         total_cost += 0.05 + scene_count * costs.get("twitch_scene", 0)
 
     if video.video_type == "AI":
-        total_cost += 0.12 + scene_count * costs.get(
-            f"scene_{video.voice_model.type}", 0
-        )
+        voice_type = getattr(video.voice_model, "type", None)
+        total_cost += 0.12 + scene_count * costs.get(f"scene_{voice_type}", 0)
         scene_images_count = (
             SceneImage.objects.filter(scene__in=scenes)
             .exclude(file="")

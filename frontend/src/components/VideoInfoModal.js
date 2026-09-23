@@ -1,4 +1,11 @@
 import { CloseModalButton } from "./ui/CloseModalButton";
+
+const readableScript = (answer) => {
+  if (!answer) return "";
+
+  return typeof answer === "string" ? answer : JSON.stringify(answer, null, 2);
+};
+
 export const VideoInfoModal = ({
   showModal,
   setShowModal,
@@ -80,7 +87,7 @@ export const VideoInfoModal = ({
                         name="name"
                         id="name"
                         className="bg-gray-50 border border-gray-300 h-52 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 resize-none  dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                        value={videoInfo.gpt_answer}
+                        value={readableScript(videoInfo.gpt_answer)}
                         readOnly
                         disabled
                       />

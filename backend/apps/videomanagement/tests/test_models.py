@@ -31,6 +31,37 @@ class VideoDefaultsTests(TestCase):
         self.assertFalse(Video().settings["subtitles"])
 
 
+class GptAnswerTests(TestCase):
+    def test_the_script_survives_a_round_trip_through_the_database(self):
+        script = {
+            "title": "Cats",
+            "scenes": [
+                {
+                    "scene": "one",
+                    "sentences": [{"sentence": "hello", "image_description": "a cat"}],
+                }
+            ],
+        }
+        made = video.make(gpt_answer=script)
+
+        reloaded = Video.objects.get(pk=made.pk)
+
+        self.assertEqual(reloaded.gpt_answer, script)
+        self.assertEqual(reloaded.gpt_answer["scenes"][0]["scene"], "one")
+
+    def test_a_twitch_description_stays_the_string_it_was(self):
+        made = video.make(gpt_answer="Source : \nhttps://clips.twitch.tv/abc")
+
+        reloaded = Video.objects.get(pk=made.pk)
+
+        self.assertEqual(reloaded.gpt_answer, "Source : \nhttps://clips.twitch.tv/abc")
+
+    def test_a_video_with_no_script_reloads_as_none(self):
+        made = video.make(gpt_answer=None)
+
+        self.assertIsNone(Video.objects.get(pk=made.pk).gpt_answer)
+
+
 class SelectVoiceTests(TestCase):
     def test_picks_one_of_the_voices_on_file(self):
         voices = voice_model.make(_quantity=3)

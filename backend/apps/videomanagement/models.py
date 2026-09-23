@@ -279,7 +279,7 @@ class Outro(AbstractModel):
 class Video(LifecycleModelMixin, AbstractModel):
     title = models.CharField(max_length=50, blank=False)
     url = models.URLField(blank=True)
-    gpt_answer = models.TextField(blank=True, null=True)
+    gpt_answer = models.JSONField(blank=True, null=True)
     prompt = models.ForeignKey(
         UserPrompt, related_name="video_prompt", on_delete=models.CASCADE
     )
