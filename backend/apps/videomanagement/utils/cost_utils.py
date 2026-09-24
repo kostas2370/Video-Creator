@@ -3,7 +3,7 @@ import logging
 from django.contrib.auth import get_user_model
 from django.db.models import F
 
-from ..models import SceneImage
+from ..models import SceneImage, VideoType
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,10 @@ def calculate_total_cost(video):
     scenes = video.scenes.all()
     scene_count = scenes.count()
 
-    if video.video_type == "TWITCH":
+    if video.video_type == VideoType.TWITCH:
         total_cost += 0.05 + scene_count * costs.get("twitch_scene", 0)
 
-    if video.video_type == "AI":
+    if video.video_type == VideoType.AI:
         voice_type = getattr(video.voice_model, "type", None)
         total_cost += 0.12 + scene_count * costs.get(f"scene_{voice_type}", 0)
         scene_images_count = (

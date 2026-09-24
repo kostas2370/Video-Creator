@@ -36,8 +36,10 @@ export const Dropzone = ({ onUpload }) => {
           }  `}
         >
           {isDragActive
-            && ("Leave Your File Here")
-            ||  fileName === ""  ? "Drag and drop your files here "  : "You uploaded " + fileName} 
+            ? "Leave Your File Here"
+            : fileName === ""
+              ? "Drag and drop your files here "
+              : "You uploaded " + fileName}
         </p>
       </div>
     );

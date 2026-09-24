@@ -2,7 +2,7 @@ import logging
 from rest_framework.exceptions import APIException
 
 
-from ..models import Video, Avatar, Intro, Outro
+from ..models import Video, VideoType, Avatar, Intro, Outro
 from ..utils.audio_utils import update_scene
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def video_update(
     if title:
         video.title = title
 
-    if video.video_type == "TWITCH" or avatar in (None, "", "None"):
+    if video.video_type == VideoType.TWITCH or avatar in (None, "", "None"):
         video.avatar = None
 
     else:
@@ -62,7 +62,7 @@ def video_update(
     except Outro.DoesNotExist:
         raise APIException("Outro with that id does not Exists !")
 
-    if video.video_type != "TWITCH":
+    if video.video_type != VideoType.TWITCH:
         video.settings = dict(subtitles=subtitles, avatar_position=avatar_position)
 
     video.save()

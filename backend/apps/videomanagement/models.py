@@ -11,7 +11,35 @@ from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
 
-MODEL_TYPE_CHOICES = (("API", "Api"),)
+
+class VoiceModelType(models.TextChoices):
+    API = "API", "Api"
+
+
+class VideoStatus(models.TextChoices):
+    GENERATION = "GENERATION", "GENERATION"
+    READY = "READY", "READY"
+    RENDERING = "RENDERING", "RENDERING"
+    COMPLETED = "COMPLETED", "COMPLETED"
+    FAILED = "FAILED", "FAILED"
+
+
+class ImageMode(models.TextChoices):
+    AI = "AI", "AI"
+    WEB = "WEB", "WEB"
+
+
+class VideoType(models.TextChoices):
+    AI = "AI", "AI"
+    TWITCH = "TWITCH", "TWITCH"
+
+
+IN_FLIGHT_STATUSES = (VideoStatus.GENERATION, VideoStatus.RENDERING)
+RENDERABLE_STATUSES = (
+    VideoStatus.READY,
+    VideoStatus.COMPLETED,
+    VideoStatus.RENDERING,
+)
 
 VOICE_PROVIDER_KEYS = {
     "open_ai": Provider.OPENAI,
@@ -21,19 +49,6 @@ VOICE_PROVIDER_KEYS = {
 
 GPT_MODEL_CHOICES = [(model, model) for model in settings.ACCEPTED_MODELS]
 ACCOUNT_SCOPED_VOICE_PROVIDERS = ("eleven_labs", "60db")
-
-VIDEO_STATUS = (
-    ("GENERATION", "GENERATION"),
-    ("READY", "READY"),
-    ("RENDERING", "RENDERING"),
-    ("COMPLETED", "COMPLETED"),
-    ("FAILED", "FAILED"),
-)
-
-
-IMAGE_MODE = (("AI", "AI"), ("WEB", "WEB"))
-
-VIDEO_TYPE = (("AI", "AI"), ("TWITCH", "TWITCH"))
 
 
 def default_video_settings() -> dict:
@@ -63,7 +78,7 @@ class TemplatePrompt(AbstractModel):
         blank=True,
     )
     image_mode = models.CharField(
-        max_length=20, choices=IMAGE_MODE, default="WEB", blank=True
+        max_length=20, choices=ImageMode.choices, default=ImageMode.WEB, blank=True
     )
     style = models.CharField(max_length=20, default="vivid", blank=True)
     music = models.CharField(max_length=500, blank=True, default="")
@@ -162,7 +177,7 @@ class SceneImage(models.Model):
 class VoiceModel(AbstractModel):
     name = models.CharField(max_length=200, blank=True)
     provider = models.CharField(max_length=100, blank=True)
-    type = models.CharField(max_length=10, choices=MODEL_TYPE_CHOICES)
+    type = models.CharField(max_length=10, choices=VoiceModelType.choices)
     sample = models.URLField(blank=True, null=True, max_length=1000)
     path = models.CharField(max_length=255, blank=False)
     objects = models.Manager()
@@ -301,7 +316,9 @@ class Video(LifecycleModelMixin, AbstractModel):
         blank=True,
         db_constraint=False,
     )
-    status = models.CharField(max_length=20, choices=VIDEO_STATUS, default="RENDERING")
+    status = models.CharField(
+        max_length=20, choices=VideoStatus.choices, default=VideoStatus.RENDERING
+    )
     updated_at = models.DateTimeField(auto_now=True)
     music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
     background = models.ForeignKey(
@@ -309,8 +326,12 @@ class Video(LifecycleModelMixin, AbstractModel):
     )
     intro = models.ForeignKey(Intro, blank=True, null=True, on_delete=models.SET_NULL)
     outro = models.ForeignKey(Outro, blank=True, null=True, on_delete=models.SET_NULL)
-    video_type = models.CharField(max_length=20, default="AI", choices=VIDEO_TYPE)
-    mode = models.CharField(max_length=30, choices=IMAGE_MODE, default="WEB", null=True)
+    video_type = models.CharField(
+        max_length=20, default=VideoType.AI, choices=VideoType.choices
+    )
+    mode = models.CharField(
+        max_length=30, choices=ImageMode.choices, default=ImageMode.WEB, null=True
+    )
     settings = models.JSONField(
         null=True,
         blank=True,
@@ -325,7 +346,7 @@ class Video(LifecycleModelMixin, AbstractModel):
     @hook(
         AFTER_UPDATE,
         on_commit=True,
-        condition=WhenFieldValueChangesTo("status", "COMPLETED"),
+        condition=WhenFieldValueChangesTo("status", VideoStatus.COMPLETED),
     )
     def send_video_completed_email(self):
         self.tell_owner(
@@ -337,7 +358,7 @@ class Video(LifecycleModelMixin, AbstractModel):
     @hook(
         AFTER_UPDATE,
         on_commit=True,
-        condition=WhenFieldValueChangesTo("status", "FAILED"),
+        condition=WhenFieldValueChangesTo("status", VideoStatus.FAILED),
     )
     def send_video_failed_email(self):
         self.tell_owner(

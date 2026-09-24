@@ -14,6 +14,8 @@ from ..models import (
     VoiceModel,
     Avatar,
     SceneImage,
+    Video,
+    VideoType,
 )
 from ..serializers import (
     TemplatePromptsSerializer,
@@ -35,11 +37,11 @@ class SceneImageView(viewsets.GenericViewSet):
         obj = self.get_object()
         video = obj.scene.video
 
-        if video.video_type == "AI":
+        if video.video_type == VideoType.AI:
             obj.file = None
             obj.save()
 
-        if video.video_type == "TWITCH":
+        if video.video_type == VideoType.TWITCH:
             obj.scene.delete()
 
         return Response(status=204)
