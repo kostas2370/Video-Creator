@@ -15,9 +15,7 @@ class MakeSceneSpeechTests(TestCase):
 
     def test_synthesises_the_line_and_hangs_it_on_the_scene(self):
         with patch.object(audio_utils, "save", return_value="dialogues/a.wav") as save:
-            scene = make_scene_speech(
-                self.voice, "media/videos/v", self.video, " hello ", is_last=True
-            )
+            scene = make_scene_speech(self.video, " hello ", is_last=True)
 
         self.assertEqual(scene.file, "dialogues/a.wav")
         self.assertEqual(scene.text, "hello")
@@ -26,9 +24,7 @@ class MakeSceneSpeechTests(TestCase):
 
     def test_still_creates_the_scene_when_nothing_is_narrated(self):
         with patch.object(audio_utils, "save") as save:
-            scene = make_scene_speech(
-                self.voice, "media/videos/v", self.video, "hello", False, narrate=False
-            )
+            scene = make_scene_speech(self.video, "hello", False, narrate=False)
 
         save.assert_not_called()
         self.assertFalse(scene.file)

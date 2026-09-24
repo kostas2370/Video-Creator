@@ -71,12 +71,9 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
     if video.video_type == "AI":
         try:
             scene = make_scene_speech(
-                video.voice_model,
-                video.dir_name,
                 video,
                 serializer.data["text"],
                 serializer.data["is_last"],
-                user=video.created_by,
             )
 
         except Exception as exc:
