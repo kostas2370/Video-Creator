@@ -46,7 +46,7 @@ class VideoSerializerTests(TestCase):
 
     def test_the_detail_view_carries_every_scene(self):
         with_scenes = video.make()
-        scene.make(prompt=with_scenes.prompt, _quantity=3)
+        scene.make(video=with_scenes, _quantity=3)
 
         self.assertEqual(len(VideoNestedSerializer(with_scenes).data["scenes"]), 3)
 

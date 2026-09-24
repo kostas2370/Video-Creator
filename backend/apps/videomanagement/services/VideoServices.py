@@ -45,7 +45,7 @@ def video_update(
         if video.voice_model != selected_avatar.voice:
             video.voice_model = selected_avatar.voice
             video.save()
-            scenes = video.prompt.scenes.all()
+            scenes = video.scenes.all()
             for scene in scenes:
                 update_scene(scene)
     try:

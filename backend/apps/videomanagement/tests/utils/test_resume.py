@@ -66,17 +66,17 @@ class ResumeNarrationTests(TestCase):
 
     def test_narrates_every_line_on_the_first_run(self):
         self.assertEqual(self.narrate().call_count, 2)
-        self.assertEqual(Scene.objects.filter(prompt=self.video.prompt).count(), 2)
+        self.assertEqual(Scene.objects.filter(video=self.video).count(), 2)
 
     def test_does_not_narrate_or_duplicate_anything_on_a_second_run(self):
         self.narrate()
 
         self.assertEqual(self.narrate().call_count, 0)
-        self.assertEqual(Scene.objects.filter(prompt=self.video.prompt).count(), 2)
+        self.assertEqual(Scene.objects.filter(video=self.video).count(), 2)
 
     def test_narrates_only_the_line_whose_audio_never_landed(self):
         self.narrate()
-        missing = Scene.objects.filter(prompt=self.video.prompt).first()
+        missing = Scene.objects.filter(video=self.video).first()
         os.remove(missing.file.path)
 
         self.assertEqual(self.narrate().call_count, 1)
@@ -94,7 +94,7 @@ class ResumeNarrationTests(TestCase):
         with patch("apps.videomanagement.utils.audio_utils.save", side_effect=flaky):
             make_scenes_speech(self.video)
 
-        self.assertEqual(Scene.objects.filter(prompt=self.video.prompt).count(), 2)
+        self.assertEqual(Scene.objects.filter(video=self.video).count(), 2)
 
 
 class ResumeVisualsTests(TestCase):
@@ -109,16 +109,14 @@ class ResumeVisualsTests(TestCase):
             settings=dict(narration=True),
         )
         for sentence in A_SCRIPT["scenes"][0]["sentences"]:
-            Scene.objects.create(prompt=self.video.prompt, text=sentence["sentence"])
+            Scene.objects.create(video=self.video, text=sentence["sentence"])
 
     def illustrate(self):
         def produce(*args, **kwargs):
             path = os.path.join(self.dir, f"{slugify(kwargs['image'])}.png")
             with open(f"{django_settings.BASE_DIR}/{path}", "wb") as f:
                 f.write(b"PNG")
-            scene = Scene.objects.get(
-                prompt=self.video.prompt, text=kwargs["text"].strip()
-            )
+            scene = Scene.objects.get(video=self.video, text=kwargs["text"].strip())
             SceneImage.objects.create(scene=scene, file=path, prompt=kwargs["image"])
             return path
 

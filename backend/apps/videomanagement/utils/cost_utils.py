@@ -20,7 +20,7 @@ costs = {
 
 def calculate_total_cost(video):
     total_cost = 0
-    scenes = video.prompt.scenes.all()
+    scenes = video.scenes.all()
     scene_count = scenes.count()
 
     if video.video_type == VideoType.TWITCH:

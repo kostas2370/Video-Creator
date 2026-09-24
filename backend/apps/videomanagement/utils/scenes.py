@@ -57,7 +57,7 @@ def scene_narration_duration(scene: Scene) -> float:
 
 
 def create_image_scene(
-    prompt: str,
+    video: Video,
     image: str,
     text: str,
     dir_name: str,
@@ -76,8 +76,8 @@ def create_image_scene(
 
     Parameters:
     -----------
-    prompt : str
-        The prompt associated with the scene.
+    video : Video
+        The video the scene belongs to.
     image : str
         The image URL or path.
     text : str
@@ -108,7 +108,7 @@ def create_image_scene(
     - If an exception occurs during image downloading or creation, it is logged,
       and the scene is created with a None image.
     """
-    scene = Scene.objects.filter(prompt=prompt, text=text.strip()).first()
+    scene = Scene.objects.filter(video=video, text=text.strip()).first()
     if scene is None:
         logger.error("No scene for %r; skipping its visual", text[:60])
         return None
@@ -146,7 +146,7 @@ def create_image_scene(
 
 def already_illustrated(video: Video, text: str) -> bool:
     image = SceneImage.objects.filter(
-        scene__prompt=video.prompt, scene__text=text.strip()
+        scene__video=video, scene__text=text.strip()
     ).first()
 
     return bool(image) and stored_file_exists(image.file)
@@ -192,7 +192,7 @@ def create_image_scenes(
             continue
 
         produced = create_image_scene(
-            prompt=video.prompt,
+            video=video,
             image=line.image_description,
             text=line.text,
             dir_name=dir_name,
@@ -258,7 +258,7 @@ def generate_new_image(
     return scene_image
 
 
-def create_twitch_clip_scene(clip: str, title: str, prompt: str) -> None:
+def create_twitch_clip_scene(clip: str, title: str, video: Video) -> None:
     """
     Create a scene for a Twitch clip.
 
@@ -268,8 +268,8 @@ def create_twitch_clip_scene(clip: str, title: str, prompt: str) -> None:
         The path to the Twitch clip.
     title : str
         The title of the Twitch clip.
-    prompt : str
-        The prompt associated with the Twitch clip.
+    video : Video
+        The video the clip's scene belongs to.
 
     Returns:
     --------
@@ -283,7 +283,7 @@ def create_twitch_clip_scene(clip: str, title: str, prompt: str) -> None:
 
     edited_video = add_text_to_video(clip, title)
 
-    curr_scene = Scene.objects.create(prompt=prompt, text=title, is_last=True)
+    curr_scene = Scene.objects.create(video=video, text=title, is_last=True)
 
     SceneImage.objects.create(
         scene=curr_scene, file=edited_video, prompt="twitch video", with_audio=True

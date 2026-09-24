@@ -8,7 +8,9 @@ from .base import BASE_DIR, FRONTEND_URL, SIMPLE_JWT
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    host.strip() for host in (os.getenv("ALLOWED_HOSTS") or "").split(",") if host.strip()
+    host.strip()
+    for host in (os.getenv("ALLOWED_HOSTS") or "").split(",")
+    if host.strip()
 ]
 
 if not ALLOWED_HOSTS:

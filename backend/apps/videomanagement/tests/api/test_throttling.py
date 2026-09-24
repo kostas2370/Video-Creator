@@ -78,9 +78,7 @@ class RenderThrottleTests(TestCase):
     def render(self, finished):
         Video.objects.filter(pk=finished.pk).update(status="COMPLETED")
         with patch("apps.videomanagement.tasks.render_video_task.delay"):
-            return self.client.patch(
-                reverse("video-render-video", args=[finished.id])
-            )
+            return self.client.patch(reverse("video-render-video", args=[finished.id]))
 
     def generate(self):
         with patch("apps.videomanagement.tasks.generate_video_task.delay"):
