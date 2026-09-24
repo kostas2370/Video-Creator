@@ -68,6 +68,9 @@ frontend/
   src/hooks/             auth, theme, debounce, axios interceptors
 ```
 
+For how the pipeline actually runs — the request/worker split, the status state
+machine, resume and the render stages — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 `backend/vendor/` is **vendored third-party code** — the SadTalker checkout and the
 Bing image downloader. It is excluded from linting in `pyproject.toml` and should not be
 reformatted, restyled or tidied up. Patch it only when fixing something that actually

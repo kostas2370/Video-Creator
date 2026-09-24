@@ -10,7 +10,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Video
+from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
 from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
@@ -101,8 +101,8 @@ class VideoView(viewsets.ModelViewSet):
             )
 
         claimed = Video.objects.filter(
-            pk=video.pk, status__in=["FAILED", "READY"]
-        ).update(status="GENERATION")
+            pk=video.pk, status__in=[VideoStatus.FAILED, VideoStatus.READY]
+        ).update(status=VideoStatus.GENERATION)
 
         if not claimed:
             video.refresh_from_db()
@@ -136,8 +136,8 @@ class VideoView(viewsets.ModelViewSet):
         vid = self.get_object()
 
         claimed = Video.objects.filter(
-            pk=vid.pk, status__in=["READY", "COMPLETED"]
-        ).update(status="RENDERING")
+            pk=vid.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED]
+        ).update(status=VideoStatus.RENDERING)
 
         if not claimed:
             vid.refresh_from_db()

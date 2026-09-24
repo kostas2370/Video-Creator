@@ -1,7 +1,7 @@
 from rest_framework.exceptions import APIException
 import logging
 
-from ..models import Scene, Video, SceneImage
+from ..models import Scene, Video, VideoType, SceneImage
 from ..swagger_serializers import AddSceneSerializer
 from ..utils.audio_utils import update_scene as update
 from ..utils.llm import get_update_sentence
@@ -57,7 +57,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
     serializer.is_valid(raise_exception=True)
     scene = None
 
-    if video.video_type == "TWITCH":
+    if video.video_type == VideoType.TWITCH:
         client = TwitchClient(video.dir_name, user=video.created_by)
         client.set_headers()
         try:
@@ -68,7 +68,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
         except Exception as esc:
             raise APIException(str(esc), code=400)
 
-    if video.video_type == "AI":
+    if video.video_type == VideoType.AI:
         try:
             scene = make_scene_speech(
                 video,

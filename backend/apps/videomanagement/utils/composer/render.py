@@ -9,7 +9,14 @@ from moviepy.editor import (
     CompositeVideoClip,
 )
 
-from ...models import SceneImage, Background, Scene, Video
+from ...models import (
+    RENDERABLE_STATUSES,
+    SceneImage,
+    Background,
+    Scene,
+    Video,
+    VideoStatus,
+)
 from ..exceptions import RenderFailedException
 from .avatar import handle_avatar_video
 from .clips import clip_audio, handle_audio, process_scene
@@ -82,10 +89,10 @@ def make_video(video: Video) -> Video:
         Videos: The updated video object with output file path and status.
     """
 
-    if video.status not in {"READY", "COMPLETED", "RENDERING"}:
+    if video.status not in RENDERABLE_STATUSES:
         raise RenderFailedException("Video is not in a renderable state.")
 
-    video.status = "RENDERING"
+    video.status = VideoStatus.RENDERING
     video.save()
 
     scenes: Union[QuerySet, list[Scene]] = video.scenes.all()
@@ -142,7 +149,7 @@ def make_video(video: Video) -> Video:
         )
 
         video.output = final_video_path
-        video.status = "COMPLETED"
+        video.status = VideoStatus.COMPLETED
 
     finally:
         for clip in sound_list + vids + subtitles + [final_audio, final_video]:
