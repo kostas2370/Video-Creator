@@ -150,9 +150,7 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
-    prompt = models.ForeignKey(
-        UserPrompt, on_delete=models.CASCADE, related_name="scenes"
-    )
+    video = models.ForeignKey("Video", on_delete=models.CASCADE, related_name="scenes")
     file = models.FileField(
         upload_to="media/speech", blank=True, null=True, max_length=2000
     )

@@ -1,5 +1,5 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
-from .models import Scene, SceneImage, Video
+from .models import Scene, SceneImage
 
 
 class IsOwnerPermission(BasePermission):
@@ -8,10 +8,10 @@ class IsOwnerPermission(BasePermission):
             return False
 
         if isinstance(obj, Scene):
-            obj = Video.objects.filter(prompt_id=obj.prompt_id).first()
+            obj = obj.video
 
         if isinstance(obj, SceneImage):
-            obj = Video.objects.filter(prompt_id=obj.scene.prompt_id).first()
+            obj = obj.scene.video
 
         if obj is None:
             return False

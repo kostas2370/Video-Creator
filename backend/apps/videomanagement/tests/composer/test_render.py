@@ -18,7 +18,7 @@ from ..doubles import FakeAudio, FakeClip
 class MakeVideoTests(TestCase):
     def setUp(self):
         self.video = video.make(status="READY")
-        self.scenes = narrated_scene.make(prompt=self.video.prompt, _quantity=2)
+        self.scenes = narrated_scene.make(video=self.video, _quantity=2)
         for line in self.scenes:
             scene_image.make(scene=line)
 
@@ -65,7 +65,7 @@ class MakeVideoTests(TestCase):
             make_video(self.video)
 
     def test_refuses_to_render_when_no_scene_produced_a_clip(self):
-        self.video.prompt.scenes.all().delete()
+        self.video.scenes.all().delete()
 
         with self.assertRaises(RenderFailedException):
             make_video(self.video)
@@ -83,8 +83,8 @@ class MakeVideoTests(TestCase):
     def test_keeps_the_clips_own_sound_when_the_video_has_no_narration(self):
         self.video.settings = dict(subtitles=False, narration=False)
         self.video.save()
-        self.video.prompt.scenes.all().delete()
-        line = scene.make(prompt=self.video.prompt)
+        self.video.scenes.all().delete()
+        line = scene.make(video=self.video)
         video_scene_image_with_audio.make(scene=line)
 
         with patch.object(render, "clip_audio", return_value=FakeAudio()) as clip:

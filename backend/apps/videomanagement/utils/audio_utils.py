@@ -28,19 +28,20 @@ def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
     return scene
 
 
-def make_scene_speech(
-    voice_model, dir_name, prompt, text, is_last, narrate=True, user=None
-) -> Scene:
+def make_scene_speech(video, text, is_last, narrate=True) -> Scene:
     sound = None
     if narrate:
         filename = str(uuid.uuid4())
-        syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
+        syn = ApiSyn(provider=video.voice_model.provider, path=video.voice_model.path)
         sound = save(
-            syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav", user=user
+            syn,
+            text,
+            save_path=f"{video.dir_name}/dialogues/{filename}.wav",
+            user=video.created_by,
         )
 
     return Scene.objects.create(
-        file=sound, prompt=prompt, text=text.strip(), is_last=is_last
+        file=sound, video=video, text=text.strip(), is_last=is_last
     )
 
 
@@ -67,11 +68,11 @@ def make_scenes_speech(video: Video) -> None:
 
     voice_model = video.voice_model
     narrate = (video.settings or {}).get("narration", True)
-    existing = {scene.text: scene for scene in video.prompt.scenes.all()}
+    existing = {scene.text: scene for scene in video.scenes.all()}
 
     for line in script_lines(video.gpt_answer):
         scene = existing.get(line.text) or Scene.objects.create(
-            prompt=video.prompt, text=line.text, is_last=line.is_last
+            video=video, text=line.text, is_last=line.is_last
         )
 
         if not narrate or has_narration(scene):
@@ -102,11 +103,7 @@ def update_scene(scene: Scene) -> None:
     - It retrieves the associated video and voice model information to perform the speech synthesis.
     - The updated audio file is saved in the scene's directory.
     """
-    video = Video.objects.filter(prompt__id=scene.prompt.id).first()
-    if video is None:
-        logger.error("Scene %s belongs to no video; not re-narrating it", scene.pk)
-        return
-
+    video = scene.video
     dir_name = video.dir_name
     voice_model = video.voice_model
 

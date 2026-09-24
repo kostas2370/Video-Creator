@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, TestCase
 
-from ...baker_recipes import narrated_scene, scene, scene_image, user_prompt, video
+from ...baker_recipes import narrated_scene, scene, scene_image, video
 from ...models import Scene, SceneImage
 from ...utils import scenes as scenes_utils
 from ...utils.image_providers import bing, openai_images
@@ -86,7 +86,7 @@ class StillFromVideoTests(SimpleTestCase):
 class CreateImageSceneTests(TestCase):
     def setUp(self):
         self.video = video.make()
-        self.scene = scene.make(prompt=self.video.prompt, text="a sentence")
+        self.scene = scene.make(video=self.video, text="a sentence")
 
     def build(self, produced, **kwargs):
         with (
@@ -94,7 +94,7 @@ class CreateImageSceneTests(TestCase):
             patch.object(scenes_utils, "scene_narration_duration", return_value=4.0),
         ):
             create_image_scene(
-                prompt=self.video.prompt,
+                video=self.video,
                 image="a cat",
                 text="a sentence",
                 dir_name=self.video.dir_name,
@@ -119,7 +119,7 @@ class CreateImageSceneTests(TestCase):
             patch.object(scenes_utils, "scene_narration_duration", return_value=0),
         ):
             create_image_scene(
-                prompt=self.video.prompt,
+                video=self.video,
                 image="a cat",
                 text="a sentence",
                 dir_name=self.video.dir_name,
@@ -135,7 +135,7 @@ class CreateImageSceneTests(TestCase):
             patch.object(scenes_utils, "scene_narration_duration", return_value=6.5),
         ):
             create_image_scene(
-                prompt=self.video.prompt,
+                video=self.video,
                 image="a cat",
                 text="a sentence",
                 dir_name=self.video.dir_name,
@@ -266,14 +266,14 @@ class GenerateNewImageTests(TestCase):
 
 class CreateTwitchClipSceneTests(TestCase):
     def test_stores_the_clip_as_a_last_scene_that_plays_its_own_sound(self):
-        prompt = user_prompt.make()
+        clips = video.make()
 
         with patch.object(
             scenes_utils, "add_text_to_video", return_value="clips/titled.mp4"
         ):
-            create_twitch_clip_scene("clips/raw.mp4", "a clip title", prompt)
+            create_twitch_clip_scene("clips/raw.mp4", "a clip title", clips)
 
-        scene = Scene.objects.get(prompt=prompt)
+        scene = Scene.objects.get(video=clips)
         scene_image = SceneImage.objects.get(scene=scene)
         self.assertEqual(scene.text, "a clip title")
         self.assertTrue(scene.is_last)

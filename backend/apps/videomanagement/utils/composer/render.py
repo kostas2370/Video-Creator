@@ -95,7 +95,7 @@ def make_video(video: Video) -> Video:
     video.status = VideoStatus.RENDERING
     video.save()
 
-    scenes: Union[QuerySet, list[Scene]] = video.prompt.scenes.all()
+    scenes: Union[QuerySet, list[Scene]] = video.scenes.all()
     background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 

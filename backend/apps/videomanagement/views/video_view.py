@@ -42,7 +42,7 @@ class VideoView(viewsets.ModelViewSet):
             queryset = queryset.exclude(gpt_answer__isnull=True)
 
         if self.action == "retrieve":
-            queryset = queryset.prefetch_related("prompt__scenes__scene_images")
+            queryset = queryset.prefetch_related("scenes__scene_images")
 
         return queryset
 
