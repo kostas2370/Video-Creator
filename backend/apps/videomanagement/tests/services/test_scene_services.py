@@ -69,7 +69,7 @@ class CreateSceneTests(TestCase):
             )
 
         self.assertIs(created, line)
-        self.assertEqual(speech.call_args.args[3], "a new line")
+        self.assertEqual(speech.call_args.args[1], "a new line")
 
     def test_attaches_an_uploaded_image_to_the_new_scene(self):
         line = scene.make(video=self.video)

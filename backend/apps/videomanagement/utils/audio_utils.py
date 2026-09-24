@@ -28,15 +28,16 @@ def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
     return scene
 
 
-def make_scene_speech(
-    voice_model, dir_name, video, text, is_last, narrate=True, user=None
-) -> Scene:
+def make_scene_speech(video, text, is_last, narrate=True) -> Scene:
     sound = None
     if narrate:
         filename = str(uuid.uuid4())
-        syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
+        syn = ApiSyn(provider=video.voice_model.provider, path=video.voice_model.path)
         sound = save(
-            syn, text, save_path=f"{dir_name}/dialogues/{filename}.wav", user=user
+            syn,
+            text,
+            save_path=f"{video.dir_name}/dialogues/{filename}.wav",
+            user=video.created_by,
         )
 
     return Scene.objects.create(
