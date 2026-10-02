@@ -1,14 +1,46 @@
 import logging
 import os
 import uuid
+from typing import Union
 
 from .prompt_utils import script_lines
 from .file_utils import stored_file_exists
-from .tts_utils import save, ApiSyn
-from ..models import Scene, Video
+from .tts_utils import (
+    ApiSyn,
+    tts_from_open_api,
+    tts_from_eleven_labs,
+    tts_from_60db,
+    tts_from_custom_provider,
+)
+from ..models import Scene, Video, VoiceModelType
 
 
 logger = logging.getLogger(__name__)
+
+
+def save(
+    syn: Union[ApiSyn, None], text: str = "", save_path: str = "", user=None
+) -> Union[str, None]:
+    if not syn:
+        return None
+
+    if syn.provider == "open_ai":
+        tts_from_open_api(text, save_path, syn.path, user=user)
+    elif syn.provider == "eleven_labs":
+        tts_from_eleven_labs(text, save_path, syn.path, user=user)
+    elif syn.provider == "60db":
+        tts_from_60db(text, save_path, syn.path, user=user)
+    else:
+        provider_name = syn.custom_provider_name or syn.provider
+        tts_from_custom_provider(
+            text, save_path, syn.path, user=user, custom_provider_name=provider_name
+        )
+
+    if not os.path.exists(save_path):
+        logger.error("%s wrote no audio for %r", syn.provider, save_path)
+        return None
+
+    return save_path
 
 
 def has_narration(scene: Scene) -> bool:
@@ -16,11 +48,24 @@ def has_narration(scene: Scene) -> bool:
 
 
 def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
-    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
+    """
+    Narrates an existing scene and updates its file path in the database.
+    Supports both standard API providers and user custom providers.
+    """
+    if not voice_model:
+        return scene
+
+    syn = ApiSyn(
+        provider=voice_model.provider,
+        path=voice_model.path,
+        custom_provider_name=voice_model.provider if voice_model.type == VoiceModelType.CUSTOM_API else None,
+    )
+
+    filename = str(uuid.uuid4())
     scene.file = save(
         syn,
         scene.text,
-        save_path=f"{dir_name}/dialogues/{uuid.uuid4()}.wav",
+        save_path=f"{dir_name}/dialogues/{filename}.wav",
         user=user,
     )
     scene.save()
@@ -28,21 +73,18 @@ def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
     return scene
 
 
-def make_scene_speech(video, text, is_last, narrate=True) -> Scene:
-    sound = None
-    if narrate:
-        filename = str(uuid.uuid4())
-        syn = ApiSyn(provider=video.voice_model.provider, path=video.voice_model.path)
-        sound = save(
-            syn,
-            text,
-            save_path=f"{video.dir_name}/dialogues/{filename}.wav",
-            user=video.created_by,
-        )
-
-    return Scene.objects.create(
-        file=sound, video=video, text=text.strip(), is_last=is_last
+def make_scene_speech(video: Video, text: str, is_last: bool, narrate: bool = True) -> Scene:
+    """
+    Creates a new Scene in the database and optionally narrate it using narrate_scene.
+    """
+    scene = Scene.objects.create(
+        file=None, video=video, text=text.strip(), is_last=is_last
     )
+
+    if narrate and video.voice_model:
+        narrate_scene(scene, video.voice_model, video.dir_name, user=video.created_by)
+
+    return scene
 
 
 def make_scenes_speech(video: Video) -> None:
@@ -51,21 +93,13 @@ def make_scenes_speech(video: Video) -> None:
 
     Parameters:
     -----------
-    video : Videos
+    video : Video
         The video object containing information about the scenes and speech generation settings.
 
     Returns:
     --------
     None
-
-    Notes:
-    ------
-    - This function generates speech audio files for each scene in the video based on the provided GPT-3.5 answer.
-    - The speech synthesis can be performed using either a local model or an API, depending on the settings in
-      the video object.
-    - Each scene's dialogue or narration text is converted to speech and saved as a WAV file in the video's directory.
     """
-
     voice_model = video.voice_model
     narrate = (video.settings or {}).get("narration", True)
     existing = {scene.text: scene for scene in video.scenes.all()}
@@ -87,21 +121,7 @@ def make_scenes_speech(video: Video) -> None:
 def update_scene(scene: Scene) -> None:
     """
     Update the speech audio file for a given scene.
-
-    Parameters:
-    -----------
-    scene : Scene
-        The scene object to be updated.
-
-    Returns:
-    --------
-    None
-
-    Notes:
-    ------
-    - This function updates the speech audio file for the provided scene.
-    - It retrieves the associated video and voice model information to perform the speech synthesis.
-    - The updated audio file is saved in the scene's directory.
+    Removes cached avatar video output if it exists and regenerates audio.
     """
     video = scene.video
     dir_name = video.dir_name
@@ -111,15 +131,4 @@ def update_scene(scene: Scene) -> None:
     if video.avatar and os.path.exists(avatar_video):
         os.remove(avatar_video)
 
-    syn = ApiSyn(provider=voice_model.provider, path=voice_model.path)
-
-    filename = str(uuid.uuid4())
-
-    sound = save(
-        syn,
-        scene.text,
-        save_path=f"{dir_name}/dialogues/{filename}.wav",
-        user=video.created_by,
-    )
-    scene.file = sound
-    scene.save()
+    narrate_scene(scene, voice_model, dir_name, user=video.created_by)

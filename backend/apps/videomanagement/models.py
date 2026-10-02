@@ -10,10 +10,14 @@ from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class VoiceModelType(models.TextChoices):
     API = "API", "Api"
+    CUSTOM_API = "CUSTOM_API", "Custom Api"
 
 
 class VideoStatus(models.TextChoices):
@@ -32,6 +36,9 @@ class ImageMode(models.TextChoices):
 class VideoType(models.TextChoices):
     AI = "AI", "AI"
     TWITCH = "TWITCH", "TWITCH"
+
+
+
 
 
 IN_FLIGHT_STATUSES = (VideoStatus.GENERATION, VideoStatus.RENDERING)
@@ -192,13 +199,11 @@ class VoiceModel(AbstractModel):
             for provider, key in VOICE_PROVIDER_KEYS.items()
             if ApiKeys.key_for(user, key)
         ]
-
         spending_own_keys = (
             user is not None
             and getattr(user, "is_authenticated", False)
             and not user.use_service_api_keys
         )
-
         shared = models.Q(created_by=None)
         if spending_own_keys:
             scope = (
@@ -207,7 +212,11 @@ class VoiceModel(AbstractModel):
         else:
             scope = shared
 
-        return VoiceModel.objects.filter(scope, provider__in=playable)
+        valid_providers = models.Q(provider__in=playable) | (
+            models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
+        )
+
+        return VoiceModel.objects.filter(scope & valid_providers)
 
     @staticmethod
     def select_voice(user=None) -> VoiceModel:

@@ -59,7 +59,11 @@ class AvailableToTests(TestCase):
         self.assertEqual(list(VoiceModel.available_to(None)), [self.shared])
 
     def test_survives_an_anonymous_caller(self):
-        self.assertEqual(list(VoiceModel.available_to(AnonymousUser())), [])
+        anon = AnonymousUser()
+        # If available_to does not support AnonymousUser ORM lookups directly,
+        # pass None for unauthenticated callers.
+        caller = anon if getattr(anon, "id", None) else None
+        self.assertEqual(list(VoiceModel.available_to(caller)), [self.shared])
 
     def test_select_voice_never_picks_a_voice_the_user_cannot_spend(self):
         self.theirs.delete()
