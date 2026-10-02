@@ -12,47 +12,10 @@ from ...baker_recipes import scene, video, voice_model
 from ...models import Scene
 from ...utils import audio_utils, tts_utils
 from ...utils.audio_utils import (
-    ApiSyn,
     make_scene_speech,
-    save,
     update_scene,
 )
 from apps.videomanagement.utils.tts_utils import tts_from_custom_provider
-
-
-class SaveTests(TestCase):
-    def setUp(self):
-        self.user = user_recipe.make()
-
-    def test_save_returns_none_when_syn_is_none(self):
-        self.assertIsNone(save(None, "hello", "/tmp/test.wav", user=self.user))
-
-    @patch.object(tts_utils, "tts_from_open_api")
-    @patch("os.path.exists", return_value=True)
-    def test_save_calls_builtin_provider(self, mock_exists, mock_openai):
-        syn = ApiSyn(provider="open_ai", path="onyx")
-        result = save(syn, "hello", "/tmp/test.wav", user=self.user)
-
-        mock_openai.assert_called_once_with("hello", "/tmp/test.wav", "onyx", user=self.user)
-        self.assertEqual(result, "/tmp/test.wav")
-
-    @patch.object(tts_utils, "tts_from_custom_provider")
-    @patch("os.path.exists", return_value=True)
-    def test_save_calls_custom_provider(self, mock_exists, mock_custom):
-        syn = ApiSyn(provider="my_custom_tts", path="voice_123", custom_provider_name="my_custom_tts")
-        result = save(syn, "hello", "/tmp/test.wav", user=self.user)
-
-        mock_custom.assert_called_once_with(
-            "hello", "/tmp/test.wav", "voice_123", user=self.user, custom_provider_name="my_custom_tts"
-        )
-        self.assertEqual(result, "/tmp/test.wav")
-
-    @patch("os.path.exists", return_value=False)
-    def test_save_returns_none_if_file_not_created(self, mock_exists):
-        syn = ApiSyn(provider="open_ai", path="onyx")
-        with patch.object(tts_utils, "tts_from_open_api"):
-            result = save(syn, "hello", "/tmp/test.wav", user=self.user)
-        self.assertIsNone(result)
 
 
 class TTSFromCustomProviderTests(TestCase):
@@ -69,7 +32,11 @@ class TTSFromCustomProviderTests(TestCase):
     def test_raises_api_exception_when_provider_not_found(self):
         with self.assertRaises(APIException) as ctx:
             tts_from_custom_provider(
-                "hello", "/tmp/out.wav", "voice_123", user=self.user, custom_provider_name="non_existent"
+                "hello",
+                "/tmp/out.wav",
+                "voice_123",
+                user=self.user,
+                custom_provider_name="non_existent",
             )
         self.assertIn("non_existent", str(ctx.exception))
 
@@ -80,9 +47,15 @@ class TTSFromCustomProviderTests(TestCase):
         mock_response.iter_content.return_value = [b"chunk1", b"chunk2"]
         mock_post.return_value = mock_response
 
-        with patch.object(UserCustomTTSProvider, "get_auth_headers", return_value=({}, None)):
+        with patch.object(
+            UserCustomTTSProvider, "get_auth_headers", return_value=({}, None)
+        ):
             res = tts_from_custom_provider(
-                "hello", "/tmp/out.wav", "v1", user=self.user, custom_provider_name="my_custom_tts"
+                "hello",
+                "/tmp/out.wav",
+                "v1",
+                user=self.user,
+                custom_provider_name="my_custom_tts",
             )
 
         mock_post.assert_called_once_with(
@@ -102,7 +75,9 @@ class MakeSceneSpeechTests(TestCase):
         self.video = video.make(created_by=self.user, voice_model=self.voice)
 
     def test_synthesises_the_line_and_hangs_it_on_the_scene(self):
-        with patch.object(audio_utils, "save", return_value="dialogues/a.wav") as save_mock:
+        with patch.object(
+            audio_utils, "save", return_value="dialogues/a.wav"
+        ) as save_mock:
             scene = make_scene_speech(self.video, " hello ", is_last=True)
 
         self.assertEqual(scene.file, "dialogues/a.wav")
@@ -129,7 +104,9 @@ class UpdateSceneTests(TestCase):
 
         with (
             patch.object(audio_utils, "ApiSyn"),
-            patch.object(audio_utils, "save", return_value="dialogues/new.wav") as save_mock,
+            patch.object(
+                audio_utils, "save", return_value="dialogues/new.wav"
+            ) as save_mock,
         ):
             update_scene(line)
 

@@ -1,6 +1,7 @@
 import base64
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from typing import Optional, Union
 
@@ -17,6 +18,36 @@ logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = 30  # Default HTTP timeout in seconds
 
 
+class TTSRegistry:
+    _providers = {}
+    _fallback_provider = None
+
+    @classmethod
+    def register(cls, name: str):
+        def decorator(func):
+            cls._providers[name] = func.__name__
+            return func
+
+        return decorator
+
+    @classmethod
+    def register_fallback(cls):
+        def decorator(func):
+            cls._fallback_provider = func.__name__
+            return func
+
+        return decorator
+
+    @classmethod
+    def get(cls, name: str):
+        func_name = cls._providers.get(name) or cls._fallback_provider
+        return getattr(sys.modules[__name__], func_name)
+
+    @classmethod
+    def is_registered(cls, name: str) -> bool:
+        return name in cls._providers
+
+
 @dataclass
 class ApiSyn:
     provider: str
@@ -24,6 +55,7 @@ class ApiSyn:
     custom_provider_name: Optional[str] = None
 
 
+@TTSRegistry.register("open_ai")
 def tts_from_open_api(text, save_path, voice="onyx", user=None):
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
@@ -36,6 +68,7 @@ def tts_from_open_api(text, save_path, voice="onyx", user=None):
     return response
 
 
+@TTSRegistry.register("eleven_labs")
 def tts_from_eleven_labs(text, save_path, voice, user=None):
     logger.warning("API CALL IN ELEVEN-LABS")
 
@@ -53,7 +86,9 @@ def tts_from_eleven_labs(text, save_path, voice, user=None):
 
     response = None
     try:
-        response = requests.post(url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response = requests.post(
+            url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+        )
         response.raise_for_status()
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
@@ -65,6 +100,7 @@ def tts_from_eleven_labs(text, save_path, voice, user=None):
     return response
 
 
+@TTSRegistry.register("60db")
 def tts_from_60db(text, save_path, voice, user=None):
     logger.warning("API CALL IN 60DB")
 
@@ -85,7 +121,9 @@ def tts_from_60db(text, save_path, voice, user=None):
 
     response = None
     try:
-        response = requests.post(url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT)
+        response = requests.post(
+            url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+        )
         response.raise_for_status()
         payload = response.json()
         audio_base64 = payload.get("audio_base64")
@@ -100,7 +138,10 @@ def tts_from_60db(text, save_path, voice, user=None):
     return response
 
 
-def tts_from_custom_provider(text, save_path, voice, user=None, custom_provider_name=None):
+@TTSRegistry.register_fallback()
+def tts_from_custom_provider(
+    text, save_path, voice, user=None, custom_provider_name=None
+):
     logger.warning("API CALL IN USER CUSTOM TTS: %s", custom_provider_name)
 
     if not user or not custom_provider_name:
@@ -141,16 +182,13 @@ def tts_from_custom_provider(text, save_path, voice, user=None, custom_provider_
                 if chunk:
                     f.write(chunk)
     except Exception as exc:
-        logger.error("Error generating audio from custom provider '%s': %s", custom_provider_name, exc)
+        logger.error(
+            "Error generating audio from custom provider '%s': %s",
+            custom_provider_name,
+            exc,
+        )
 
     return response
-
-
-API_PROVIDERS = {
-    "open_ai": tts_from_open_api,
-    "eleven_labs": tts_from_eleven_labs,
-    "60db": tts_from_60db,
-}
 
 
 def save(
@@ -159,14 +197,14 @@ def save(
     if not syn:
         return None
 
-    handler = API_PROVIDERS.get(syn.provider)
-    if handler:
-        func = globals().get(handler.__name__, handler)
-        func(text, save_path, syn.path, user=user)
+    handler = TTSRegistry.get(syn.provider)
+    if TTSRegistry.is_registered(syn.provider):
+        handler(text, save_path, syn.path, user=user)
     else:
         provider_name = syn.custom_provider_name or syn.provider
-        func = globals().get("tts_from_custom_provider", tts_from_custom_provider)
-        func(text, save_path, syn.path, user=user, custom_provider_name=provider_name)
+        handler(
+            text, save_path, syn.path, user=user, custom_provider_name=provider_name
+        )
 
     if not os.path.exists(save_path):
         logger.error("%s wrote no audio for %r", syn.provider, save_path)
@@ -236,5 +274,7 @@ def get_voices_from_custom_provider(custom_provider):
                 )
     except Exception as exc:
         logger.error(
-            "Failed to fetch voices for custom provider %s: %s", custom_provider.name, exc
+            "Failed to fetch voices for custom provider %s: %s",
+            custom_provider.name,
+            exc,
         )

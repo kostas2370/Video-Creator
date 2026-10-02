@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('videomanagement', '0009_scene_video'),
+        ("videomanagement", "0009_scene_video"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='voicemodel',
-            name='type',
-            field=models.CharField(choices=[('API', 'Api'), ('CUSTOM_API', 'Custom Api')], max_length=10),
+            model_name="voicemodel",
+            name="type",
+            field=models.CharField(
+                choices=[("API", "Api"), ("CUSTOM_API", "Custom Api")], max_length=10
+            ),
         ),
     ]

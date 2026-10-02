@@ -32,7 +32,9 @@ def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
     syn = ApiSyn(
         provider=voice_model.provider,
         path=voice_model.path,
-        custom_provider_name=voice_model.provider if voice_model.type == VoiceModelType.CUSTOM_API else None,
+        custom_provider_name=voice_model.provider
+        if voice_model.type == VoiceModelType.CUSTOM_API
+        else None,
     )
 
     filename = str(uuid.uuid4())
@@ -47,7 +49,9 @@ def narrate_scene(scene: Scene, voice_model, dir_name, user=None) -> Scene:
     return scene
 
 
-def make_scene_speech(video: Video, text: str, is_last: bool, narrate: bool = True) -> Scene:
+def make_scene_speech(
+    video: Video, text: str, is_last: bool, narrate: bool = True
+) -> Scene:
     """
     Creates a new Scene in the database and optionally narrate it using narrate_scene.
     """
