@@ -10,7 +10,7 @@ from apps.apikeysmanagement.models import UserCustomTTSProvider
 from apps.usermanagement.baker_recipes import user as user_recipe
 from ...baker_recipes import scene, video, voice_model
 from ...models import Scene
-from ...utils import audio_utils
+from ...utils import audio_utils, tts_utils
 from ...utils.audio_utils import (
     ApiSyn,
     make_scene_speech,
@@ -27,7 +27,7 @@ class SaveTests(TestCase):
     def test_save_returns_none_when_syn_is_none(self):
         self.assertIsNone(save(None, "hello", "/tmp/test.wav", user=self.user))
 
-    @patch.object(audio_utils, "tts_from_open_api")
+    @patch.object(tts_utils, "tts_from_open_api")
     @patch("os.path.exists", return_value=True)
     def test_save_calls_builtin_provider(self, mock_exists, mock_openai):
         syn = ApiSyn(provider="open_ai", path="onyx")
@@ -36,7 +36,7 @@ class SaveTests(TestCase):
         mock_openai.assert_called_once_with("hello", "/tmp/test.wav", "onyx", user=self.user)
         self.assertEqual(result, "/tmp/test.wav")
 
-    @patch.object(audio_utils, "tts_from_custom_provider")
+    @patch.object(tts_utils, "tts_from_custom_provider")
     @patch("os.path.exists", return_value=True)
     def test_save_calls_custom_provider(self, mock_exists, mock_custom):
         syn = ApiSyn(provider="my_custom_tts", path="voice_123", custom_provider_name="my_custom_tts")
@@ -50,7 +50,7 @@ class SaveTests(TestCase):
     @patch("os.path.exists", return_value=False)
     def test_save_returns_none_if_file_not_created(self, mock_exists):
         syn = ApiSyn(provider="open_ai", path="onyx")
-        with patch.object(audio_utils, "tts_from_open_api"):
+        with patch.object(tts_utils, "tts_from_open_api"):
             result = save(syn, "hello", "/tmp/test.wav", user=self.user)
         self.assertIsNone(result)
 
