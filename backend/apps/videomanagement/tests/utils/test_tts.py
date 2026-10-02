@@ -1,4 +1,3 @@
-"""No network and no files: every provider call is stubbed and writes go to a tmpdir."""
 
 import base64
 import os
