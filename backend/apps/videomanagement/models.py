@@ -38,9 +38,6 @@ class VideoType(models.TextChoices):
     TWITCH = "TWITCH", "TWITCH"
 
 
-
-
-
 IN_FLIGHT_STATUSES = (VideoStatus.GENERATION, VideoStatus.RENDERING)
 RENDERABLE_STATUSES = (
     VideoStatus.READY,

@@ -178,4 +178,5 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
     @hook(AFTER_CREATE, on_commit=True)
     def create_voices(self):
         from apps.videomanagement.utils.tts_utils import get_voices_from_custom_provider
+
         get_voices_from_custom_provider(self)

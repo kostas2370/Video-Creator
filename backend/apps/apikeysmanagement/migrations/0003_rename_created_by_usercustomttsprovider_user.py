@@ -4,15 +4,14 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('apikeysmanagement', '0002_usercustomttsprovider'),
+        ("apikeysmanagement", "0002_usercustomttsprovider"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='usercustomttsprovider',
-            old_name='created_by',
-            new_name='user',
+            model_name="usercustomttsprovider",
+            old_name="created_by",
+            new_name="user",
         ),
     ]
