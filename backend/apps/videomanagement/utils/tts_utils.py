@@ -41,11 +41,12 @@ class TTSRegistry:
     @classmethod
     def get(cls, name: str):
         func_name = cls._providers.get(name) or cls._fallback_provider
+        if not func_name:
+            raise APIException(
+                detail=f"No handler registered for provider '{name}'.",
+                code=status.HTTP_400_BAD_REQUEST,
+            )
         return getattr(sys.modules[__name__], func_name)
-
-    @classmethod
-    def is_registered(cls, name: str) -> bool:
-        return name in cls._providers
 
 
 @dataclass
@@ -56,7 +57,7 @@ class ApiSyn:
 
 
 @TTSRegistry.register("open_ai")
-def tts_from_open_api(text, save_path, voice="onyx", user=None):
+def tts_from_open_api(text, save_path, voice="onyx", user=None, **kwargs):
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
@@ -69,7 +70,7 @@ def tts_from_open_api(text, save_path, voice="onyx", user=None):
 
 
 @TTSRegistry.register("eleven_labs")
-def tts_from_eleven_labs(text, save_path, voice, user=None):
+def tts_from_eleven_labs(text, save_path, voice, user=None, **kwargs):
     logger.warning("API CALL IN ELEVEN-LABS")
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
@@ -101,7 +102,7 @@ def tts_from_eleven_labs(text, save_path, voice, user=None):
 
 
 @TTSRegistry.register("60db")
-def tts_from_60db(text, save_path, voice, user=None):
+def tts_from_60db(text, save_path, voice, user=None, **kwargs):
     logger.warning("API CALL IN 60DB")
 
     url = "https://api.60db.ai/tts-synthesize"
@@ -140,7 +141,7 @@ def tts_from_60db(text, save_path, voice, user=None):
 
 @TTSRegistry.register_fallback()
 def tts_from_custom_provider(
-    text, save_path, voice, user=None, custom_provider_name=None
+    text, save_path, voice, user=None, custom_provider_name=None, **kwargs
 ):
     logger.warning("API CALL IN USER CUSTOM TTS: %s", custom_provider_name)
 
@@ -198,13 +199,13 @@ def save(
         return None
 
     handler = TTSRegistry.get(syn.provider)
-    if TTSRegistry.is_registered(syn.provider):
-        handler(text, save_path, syn.path, user=user)
-    else:
-        provider_name = syn.custom_provider_name or syn.provider
-        handler(
-            text, save_path, syn.path, user=user, custom_provider_name=provider_name
-        )
+    handler(
+        text,
+        save_path,
+        syn.path,
+        user=user,
+        custom_provider_name=syn.custom_provider_name or syn.provider,
+    )
 
     if not os.path.exists(save_path):
         logger.error("%s wrote no audio for %r", syn.provider, save_path)
