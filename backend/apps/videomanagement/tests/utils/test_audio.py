@@ -10,7 +10,7 @@ from apps.apikeysmanagement.models import UserCustomTTSProvider
 from apps.usermanagement.baker_recipes import user as user_recipe
 from ...baker_recipes import scene, video, voice_model
 from ...models import Scene
-from ...utils import audio_utils, tts_utils
+from ...utils import audio_utils
 from ...utils.audio_utils import (
     make_scene_speech,
     update_scene,
@@ -36,7 +36,7 @@ class TTSFromCustomProviderTests(TestCase):
                 "/tmp/out.wav",
                 "voice_123",
                 user=self.user,
-                custom_provider_name="non_existent",
+                provider_name="non_existent",
             )
         self.assertIn("non_existent", str(ctx.exception))
 
@@ -55,7 +55,7 @@ class TTSFromCustomProviderTests(TestCase):
                 "/tmp/out.wav",
                 "v1",
                 user=self.user,
-                custom_provider_name="my_custom_tts",
+                provider_name="my_custom_tts",
             )
 
         mock_post.assert_called_once_with(
