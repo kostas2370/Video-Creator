@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 import requests
 from openai import OpenAI
@@ -15,7 +15,7 @@ from apps.videomanagement.models import VoiceModel, VoiceModelType
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT = 30  # Default HTTP timeout in seconds
+DEFAULT_TIMEOUT = 30
 
 
 class TTSRegistry:
@@ -42,22 +42,20 @@ class TTSRegistry:
     def get(cls, name: str):
         func_name = cls._providers.get(name) or cls._fallback_provider
         if not func_name:
-            raise APIException(
-                detail=f"No handler registered for provider '{name}'.",
-                code=status.HTTP_400_BAD_REQUEST,
-            )
-        return getattr(sys.modules[__name__], func_name)
+            return None
+        return getattr(sys.modules[__name__], func_name, None)
 
 
 @dataclass
 class ApiSyn:
     provider: str
     path: str
-    custom_provider_name: Optional[str] = None
 
 
 @TTSRegistry.register("open_ai")
-def tts_from_open_api(text, save_path, voice="onyx", user=None, **kwargs):
+def tts_from_open_api(
+    text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
+) -> Any:
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
@@ -70,7 +68,9 @@ def tts_from_open_api(text, save_path, voice="onyx", user=None, **kwargs):
 
 
 @TTSRegistry.register("eleven_labs")
-def tts_from_eleven_labs(text, save_path, voice, user=None, **kwargs):
+def tts_from_eleven_labs(
+    text: str, save_path: str, voice: str, user=None, **kwargs
+) -> Optional[requests.Response]:
     logger.warning("API CALL IN ELEVEN-LABS")
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
@@ -102,7 +102,9 @@ def tts_from_eleven_labs(text, save_path, voice, user=None, **kwargs):
 
 
 @TTSRegistry.register("60db")
-def tts_from_60db(text, save_path, voice, user=None, **kwargs):
+def tts_from_60db(
+    text: str, save_path: str, voice: str, user=None, **kwargs
+) -> Optional[requests.Response]:
     logger.warning("API CALL IN 60DB")
 
     url = "https://api.60db.ai/tts-synthesize"
@@ -141,23 +143,27 @@ def tts_from_60db(text, save_path, voice, user=None, **kwargs):
 
 @TTSRegistry.register_fallback()
 def tts_from_custom_provider(
-    text, save_path, voice, user=None, custom_provider_name=None, **kwargs
-):
-    logger.warning("API CALL IN USER CUSTOM TTS: %s", custom_provider_name)
+    text: str,
+    save_path: str,
+    voice: str,
+    user=None,
+    provider_name: Optional[str] = None,
+) -> Optional[requests.Response]:
+    logger.warning("API CALL IN USER CUSTOM TTS: %s", provider_name)
 
-    if not user or not custom_provider_name:
+    if not user or not provider_name:
         raise APIException(
-            detail=f"Custom provider '{custom_provider_name}' not found for this user.",
+            detail=f"Custom provider '{provider_name}' not found for this user.",
             code=status.HTTP_404_NOT_FOUND,
         )
 
     try:
         provider_config = UserCustomTTSProvider.objects.get(
-            user=user, name=custom_provider_name
+            user=user, name=provider_name
         )
     except UserCustomTTSProvider.DoesNotExist:
         raise APIException(
-            detail=f"Custom provider '{custom_provider_name}' not found for this user.",
+            detail=f"Custom provider '{provider_name}' not found for this user.",
             code=status.HTTP_404_NOT_FOUND,
         )
 
@@ -185,7 +191,7 @@ def tts_from_custom_provider(
     except Exception as exc:
         logger.error(
             "Error generating audio from custom provider '%s': %s",
-            custom_provider_name,
+            provider_name,
             exc,
         )
 
@@ -199,12 +205,16 @@ def save(
         return None
 
     handler = TTSRegistry.get(syn.provider)
+    if not handler:
+        logger.error("No TTS handler registered for provider: %s", syn.provider)
+        return None
+
     handler(
         text,
         save_path,
         syn.path,
         user=user,
-        custom_provider_name=syn.custom_provider_name or syn.provider,
+        provider_name=syn.provider,
     )
 
     if not os.path.exists(save_path):
@@ -214,7 +224,7 @@ def save(
     return save_path
 
 
-def get_voices_from_labs(user=None):
+def get_voices_from_labs(user=None) -> list:
     url = "https://api.elevenlabs.io/v1/voices"
     headers = {
         "Accept": "application/json",
@@ -226,7 +236,7 @@ def get_voices_from_labs(user=None):
     return response.json().get("voices", [])
 
 
-def get_voices_from_60db(user=None):
+def get_voices_from_60db(user=None) -> list:
     url = "https://api.60db.ai/myvoices"
     headers = {
         "Accept": "application/json",
@@ -238,7 +248,7 @@ def get_voices_from_60db(user=None):
     return response.json().get("data", [])
 
 
-def get_voices_from_custom_provider(custom_provider):
+def get_voices_from_custom_provider(custom_provider) -> None:
     if not custom_provider.voices_url:
         return
 
@@ -246,7 +256,10 @@ def get_voices_from_custom_provider(custom_provider):
 
     try:
         response = requests.get(
-            custom_provider.voices_url, headers=headers, auth=auth, timeout=10
+            custom_provider.voices_url,
+            headers=headers,
+            auth=auth,
+            timeout=DEFAULT_TIMEOUT,
         )
         response.raise_for_status()
         data = response.json()
