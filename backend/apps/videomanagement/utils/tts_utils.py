@@ -1,23 +1,49 @@
 import base64
-import os
-from dataclasses import dataclass
-from typing import Union
 import logging
+import os
+import sys
+from dataclasses import dataclass
+from typing import Optional, Union, Any
+
 import requests
 from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
-from apps.apikeysmanagement.models import ApiKeys, Provider
-import sys
+
+from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
+from apps.videomanagement.models import VoiceModel, VoiceModelType
 
 logger = logging.getLogger(__name__)
-thismodule = sys.modules[__name__]
 
-api_providers = {
-    "open_ai": "tts_from_open_api",
-    "eleven_labs": "tts_from_eleven_labs",
-    "60db": "tts_from_60db",
-}
+DEFAULT_TIMEOUT = 30
+
+
+class TTSRegistry:
+    _providers = {}
+    _fallback_provider = None
+
+    @classmethod
+    def register(cls, name: str):
+        def decorator(func):
+            cls._providers[name] = func.__name__
+            return func
+
+        return decorator
+
+    @classmethod
+    def register_fallback(cls):
+        def decorator(func):
+            cls._fallback_provider = func.__name__
+            return func
+
+        return decorator
+
+    @classmethod
+    def get(cls, name: str):
+        func_name = cls._providers.get(name) or cls._fallback_provider
+        if not func_name:
+            return None
+        return getattr(sys.modules[__name__], func_name, None)
 
 
 @dataclass
@@ -26,75 +52,10 @@ class ApiSyn:
     path: str
 
 
-def save(
-    syn: Union[ApiSyn, None], text: str = "", save_path: str = "", user=None
-) -> Union[str, None]:
-    """
-    Save synthesized audio to a file.
-
-    Parameters:
-    -----------
-    syn : ApiSyn
-        The synthesizer to use. Only API-backed voices are supported.
-    text : str, optional
-        The text to synthesize. Default is an empty string.
-    save_path : str, optional
-        The file path where the synthesized audio will be saved.
-
-    Returns:
-    --------
-    str
-        The file path to the saved audio file, or None if no synthesizer was given.
-
-    Raises:
-    -------
-    APIException
-        If the voice names a provider that is not in api_providers.
-
-    Notes:
-    ------
-    - Every voice is an API call; see api_providers above.
-    """
-    if syn is None:
-        return None
-
-    provider = api_providers.get(syn.provider)
-    if provider is None:
-        logger.error("Voice has unsupported provider %r", syn.provider)
-        raise APIException(
-            detail=f"Unsupported voice provider: {syn.provider}",
-            code=status.HTTP_400_BAD_REQUEST,
-        )
-
-    getattr(thismodule, provider)(text, save_path, syn.path, user=user)
-
-    if not os.path.exists(save_path):
-        logger.error("%s wrote no audio for %r", syn.provider, save_path)
-        return None
-
-    return save_path
-
-
-def tts_from_open_api(text, save_path, voice="onyx", user=None):
-    """
-    Generate speech audio from text using the OpenAI TTS API.
-
-    Parameters:
-    -----------
-    text : str
-        The text to convert into speech audio.
-    voice : str, optional
-        The voice to use for speech synthesis. Default is "onyx".
-
-    Returns:
-    --------
-    OpenAIResponse
-        The response object from the OpenAI TTS API.
-
-    Notes:
-    ------
-    - This function interacts with the Official OpenAI TTS API to generate speech audio from text.
-    """
+@TTSRegistry.register("open_ai")
+def tts_from_open_api(
+    text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
+) -> Any:
     logger.warning("API CALL IN OFFICIAL GPT-TTS")
 
     client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
@@ -106,31 +67,13 @@ def tts_from_open_api(text, save_path, voice="onyx", user=None):
     return response
 
 
-def tts_from_eleven_labs(text, save_path, voice, user=None):
-    """
-    Generate speech audio from text using the Eleven Labs Text-to-Speech (TTS) API.
-
-    Parameters:
-    -----------
-    text : str
-        The text to convert into speech audio.
-    voice : str
-        The voice to use for speech synthesis.
-
-    Returns:
-    --------
-    requests.Response
-        The response object from the Eleven Labs TTS API.
-
-    Notes:
-    ------
-    - This function interacts with the Eleven Labs Text-to-Speech (TTS) API to generate speech audio from text.
-    """
-
+@TTSRegistry.register("eleven_labs")
+def tts_from_eleven_labs(
+    text: str, save_path: str, voice: str, user=None, **kwargs
+) -> Optional[requests.Response]:
     logger.warning("API CALL IN ELEVEN-LABS")
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
-
     headers = {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
@@ -144,49 +87,27 @@ def tts_from_eleven_labs(text, save_path, voice, user=None):
 
     response = None
     try:
-        response = requests.post(url, json=data, headers=headers)
+        response = requests.post(
+            url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+        )
         response.raise_for_status()
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
-
     except Exception as exc:
-        logger.error(exc)
+        logger.error("Eleven Labs TTS request failed: %s", exc)
 
     return response
 
 
-def tts_from_60db(text, save_path, voice, user=None):
-    """
-    Generate speech audio from text using the 60db Text-to-Speech (TTS) API.
-
-    Parameters:
-    -----------
-    text : str
-        The text to convert into speech audio.
-    save_path : str
-        The file path where the synthesized audio will be saved.
-    voice : str
-        The 60db voice_id to use for speech synthesis.
-
-    Returns:
-    --------
-    requests.Response
-        The response object from the 60db TTS API.
-
-    Notes:
-    ------
-    - This function interacts with the 60db Text-to-Speech (TTS) API to generate speech audio from text.
-    - Unlike Eleven Labs (which streams raw bytes), 60db returns a JSON payload containing the audio as a
-      base64-encoded string under the `audio_base64` field, which is decoded and written to ``save_path``.
-    - ``wav`` output is requested so the saved file matches the ``.wav`` extension used by the pipeline.
-    """
-
+@TTSRegistry.register("60db")
+def tts_from_60db(
+    text: str, save_path: str, voice: str, user=None, **kwargs
+) -> Optional[requests.Response]:
     logger.warning("API CALL IN 60DB")
 
     url = "https://api.60db.ai/tts-synthesize"
-
     headers = {
         "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
         "Content-Type": "application/json",
@@ -203,7 +124,9 @@ def tts_from_60db(text, save_path, voice, user=None):
 
     response = None
     try:
-        response = requests.post(url, json=data, headers=headers)
+        response = requests.post(
+            url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+        )
         response.raise_for_status()
         payload = response.json()
         audio_base64 = payload.get("audio_base64")
@@ -212,32 +135,160 @@ def tts_from_60db(text, save_path, voice, user=None):
 
         with open(save_path, "wb") as f:
             f.write(base64.b64decode(audio_base64))
-
     except Exception as exc:
-        logger.error(exc)
+        logger.error("60db TTS request failed: %s", exc)
 
     return response
 
 
-def get_voices_from_labs(user=None):
+@TTSRegistry.register_fallback()
+def tts_from_custom_provider(
+    text: str,
+    save_path: str,
+    voice: str,
+    user=None,
+    provider_name: Optional[str] = None,
+) -> Optional[requests.Response]:
+    logger.warning("API CALL IN USER CUSTOM TTS: %s", provider_name)
+
+    if not user or not provider_name:
+        raise APIException(
+            detail=f"Custom provider '{provider_name}' not found for this user.",
+            code=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        provider_config = UserCustomTTSProvider.objects.get(
+            user=user, name=provider_name
+        )
+    except UserCustomTTSProvider.DoesNotExist:
+        raise APIException(
+            detail=f"Custom provider '{provider_name}' not found for this user.",
+            code=status.HTTP_404_NOT_FOUND,
+        )
+
+    headers, auth = provider_config.get_auth_headers()
+    data = {
+        provider_config.text_field_name: text,
+        provider_config.voice_field_name: voice,
+    }
+
+    response = None
+    try:
+        response = requests.post(
+            provider_config.endpoint_url,
+            json=data,
+            headers=headers,
+            auth=auth,
+            timeout=DEFAULT_TIMEOUT,
+        )
+        response.raise_for_status()
+
+        with open(save_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+    except Exception as exc:
+        logger.error(
+            "Error generating audio from custom provider '%s': %s",
+            provider_name,
+            exc,
+        )
+
+    return response
+
+
+def save(
+    syn: Union[ApiSyn, None], text: str = "", save_path: str = "", user=None
+) -> Union[str, None]:
+    if not syn:
+        return None
+
+    handler = TTSRegistry.get(syn.provider)
+    if not handler:
+        logger.error("No TTS handler registered for provider: %s", syn.provider)
+        return None
+
+    handler(
+        text,
+        save_path,
+        syn.path,
+        user=user,
+        provider_name=syn.provider,
+    )
+
+    if not os.path.exists(save_path):
+        logger.error("%s wrote no audio for %r", syn.provider, save_path)
+        return None
+
+    return save_path
+
+
+def get_voices_from_labs(user=None) -> list:
     url = "https://api.elevenlabs.io/v1/voices"
     headers = {
         "Accept": "application/json",
         "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
         "Content-Type": "application/json",
     }
+    response = requests.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+    response.raise_for_status()
+    return response.json().get("voices", [])
 
-    response = requests.get(url, headers=headers)
-    return response.json()["voices"]
 
-
-def get_voices_from_60db(user=None):
+def get_voices_from_60db(user=None) -> list:
     url = "https://api.60db.ai/myvoices"
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
         "Content-Type": "application/json",
     }
+    response = requests.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+    response.raise_for_status()
+    return response.json().get("data", [])
 
-    response = requests.get(url, headers=headers)
-    return response.json()["data"]
+
+def get_voices_from_custom_provider(custom_provider) -> None:
+    if not custom_provider.voices_url:
+        return
+
+    headers, auth = custom_provider.get_auth_headers()
+
+    try:
+        response = requests.get(
+            custom_provider.voices_url,
+            headers=headers,
+            auth=auth,
+            timeout=DEFAULT_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        voices_list = (
+            data
+            if isinstance(data, list)
+            else (data.get("voices") or data.get("data") or [])
+        )
+
+        for voice_data in voices_list:
+            voice_id = str(voice_data.get("id") or voice_data.get("voice_id") or "")
+            voice_name = voice_data.get("name") or voice_id
+            sample_url = voice_data.get("sample_url") or voice_data.get("preview_url")
+
+            if voice_id:
+                VoiceModel.objects.update_or_create(
+                    created_by=custom_provider.user,
+                    provider=custom_provider.name,
+                    path=voice_id,
+                    defaults={
+                        "name": voice_name,
+                        "type": VoiceModelType.CUSTOM_API,
+                        "sample": sample_url,
+                    },
+                )
+    except Exception as exc:
+        logger.error(
+            "Failed to fetch voices for custom provider %s: %s",
+            custom_provider.name,
+            exc,
+        )
