@@ -177,6 +177,23 @@ class VoiceViewTests(TestCase):
 
         self.assertCountEqual(ids, [self.shared.id, mine.id])
 
+    def test_does_not_expose_voice_creation_or_updates(self):
+        count = VoiceModel.objects.count()
+        response = self.client.post(
+            reverse("voicemodel-list"),
+            {"name": "Injected", "provider": "OPENAI", "type": "API", "path": "onyx"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(VoiceModel.objects.count(), count)
+        detail = reverse("voicemodel-detail", args=[self.shared.pk])
+        for method in (self.client.put, self.client.patch):
+            with self.subTest(method=method.__name__):
+                response = method(detail, {"name": "Changed"}, format="json")
+                self.assertEqual(response.status_code, 405)
+        self.shared.refresh_from_db()
+        self.assertEqual(self.shared.name, "a voice")
+
     def test_will_not_serve_another_users_voice(self):
         response = self.client.get(reverse("voicemodel-detail", args=[self.theirs.id]))
 

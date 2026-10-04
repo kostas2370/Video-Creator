@@ -317,6 +317,7 @@ class Video(LifecycleModelMixin, AbstractModel):
         max_length=20, choices=VideoStatus.choices, default=VideoStatus.RENDERING
     )
     updated_at = models.DateTimeField(auto_now=True)
+    dispatch_token = models.UUIDField(null=True, editable=False)
     music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
     background = models.ForeignKey(
         Background, blank=True, null=True, on_delete=models.SET_NULL

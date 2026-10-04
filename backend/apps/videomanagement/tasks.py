@@ -9,6 +9,7 @@ from apps.apikeysmanagement.models import Provider
 
 from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel, VoiceModelType
 from .utils import tts_utils
+from .services.task_dispatch import start_video_task
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +63,11 @@ def generate_twitch_video_task(self, video_id: int, **params):
 
 
 @shared_task(bind=True)
-def resume_video_task(self, video_id: int):
+def resume_video_task(self, video_id: int, dispatch_token=None):
     from .services.VideoGenerationServices import resume_video
 
+    if not start_video_task(video_id, dispatch_token, VideoStatus.GENERATION):
+        return video_id
     video = Video.objects.get(pk=video_id)
 
     try:
@@ -79,9 +82,11 @@ def resume_video_task(self, video_id: int):
 
 
 @shared_task(bind=True)
-def render_video_task(self, video_id: int):
+def render_video_task(self, video_id: int, dispatch_token=None):
     from .utils.composer.render import make_video
 
+    if not start_video_task(video_id, dispatch_token, VideoStatus.RENDERING):
+        return video_id
     video = Video.objects.get(pk=video_id)
 
     try:

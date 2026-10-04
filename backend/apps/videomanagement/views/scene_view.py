@@ -1,33 +1,26 @@
 from django.shortcuts import get_object_or_404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import serializers
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from ..models import Scene, SceneImage
+from ..schema import SceneImageUploadSchema
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
-from ..swagger_serializers import SceneUpdateSerializer
+from ..request_serializers import (
+    ChangeSceneImageSerializer,
+    GenerateSceneImageSerializer,
+    SceneImageQuerySerializer,
+    SceneUpdateSerializer,
+)
 from ..utils.scenes import generate_new_image
+from ..utils.cost_utils import reserve_scene_credit
 from ..permissions import IsOwnerPermission, SceneGenerationLimitPermission
-
-scene_id = openapi.Parameter(
-    "scene_id",
-    openapi.IN_QUERY,
-    description="Id of the scene you want to change.",
-    type=openapi.TYPE_NUMBER,
-)
-
-scene_image_id = openapi.Parameter(
-    "scene_image",
-    openapi.IN_QUERY,
-    description="Id of the scene Image you want to change.",
-    type=openapi.TYPE_NUMBER,
-)
 
 
 class SceneView(viewsets.GenericViewSet):
@@ -46,11 +39,13 @@ class SceneView(viewsets.GenericViewSet):
     )
     def partial_update(self, request, pk=None):
         instance = self.get_object()
+        serializer = SceneUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        updated_scene = update_scene(request.data.get("text"), instance)
-
-        request.user.generation_limit_for_ai -= 0.01
-        request.user.save()
+        with reserve_scene_credit(
+            request.user, 0.01, SceneGenerationLimitPermission.required_limit
+        ):
+            updated_scene = update_scene(serializer.validated_data["text"], instance)
 
         return Response(
             {"text": updated_scene, "narration_status": SceneSerializer(instance).data["narration_status"]},
@@ -65,71 +60,97 @@ class SceneView(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=["patch"])
     def generate(self, request, pk):
-        text = request.data.get("text").strip()
         scene = self.get_object()
+        serializer = SceneUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        text = serializer.validated_data["text"]
 
-        generated_scene = generate_scene(text, scene)
-        request.user.generation_limit_for_ai -= 0.03
-        request.user.save()
+        with reserve_scene_credit(
+            request.user, 0.03, SceneGenerationLimitPermission.required_limit
+        ):
+            generated_scene = generate_scene(text, scene)
         return Response({"text": generated_scene}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
-        operation_description="This api changes the image of the scene or it creates "
-        "a new one if it doesnt exists",
+        operation_description="Updates a scene image, or creates one when scene_image is omitted. "
+        "Upload files using multipart/form-data. Audio-only updates also accept JSON.",
         method="POST",
-        manual_parameters=[scene_id],
+        auto_schema=SceneImageUploadSchema,
+        request_body=ChangeSceneImageSerializer,
+        query_serializer=SceneImageQuerySerializer,
+        responses={
+            status.HTTP_200_OK: openapi.Response(
+                "Scene image saved",
+                openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={"Message": openapi.Schema(type=openapi.TYPE_STRING)},
+                ),
+            ),
+        },
     )
-    @action(detail=True, methods=["POST"])
+    @action(
+        detail=True,
+        methods=["POST"],
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
+    )
     def change_image_scene(self, request, pk):
         scene = self.get_object()
-        scene_image = request.GET.get("scene_image")
-        image = request.FILES.get("image")
-        with_audio = serializers.BooleanField(default=False).to_internal_value(
-            request.data.get("with_audio", False)
+        query_serializer = SceneImageQuerySerializer(data=request.query_params)
+        query_serializer.is_valid(raise_exception=True)
+        scene_image_id = query_serializer.validated_data.get("scene_image")
+        scene_image = None
+        if scene_image_id is not None:
+            scene_image = get_object_or_404(SceneImage, pk=scene_image_id, scene=scene)
+
+        serializer = ChangeSceneImageSerializer(
+            data=request.data,
+            context={"has_scene_image": scene_image is not None},
         )
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
 
+        image = validated_data.get("image")
         if scene_image:
-            image_id = serializers.IntegerField(min_value=1).to_internal_value(scene_image)
-            img = get_object_or_404(SceneImage, id=image_id, scene=scene)
             if image:
-                img.file = image
-
-            img.with_audio = with_audio
-            img.save()
-
+                scene_image.file = image
+            scene_image.with_audio = validated_data["with_audio"]
+            scene_image.save()
         else:
-            if not image:
-                return Response({"message": "You must add an image !"}, status=400)
-            SceneImage.objects.create(scene=scene, file=image, with_audio=with_audio)
+            SceneImage.objects.create(
+                scene=scene,
+                file=image,
+                with_audio=validated_data["with_audio"],
+            )
 
-        return Response({"Message": "Image Scene was added successfully"})
+        return Response(
+            {"Message": "Image Scene was added successfully"},
+            status=status.HTTP_200_OK,
+        )
 
     @swagger_auto_schema(
         operation_description="This api changes the image of the scene or it creates "
-        "a new one if it doesnt exists",
+        "a new one if it doesnt exist",
         method="POST",
-        manual_parameters=[scene_id],
+        request_body=GenerateSceneImageSerializer,
     )
     @action(detail=True, methods=["POST"])
     def generate_image_scene(self, request, pk):
         scene = self.get_object()
+        serializer = GenerateSceneImageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         img = scene.scene_images.first()
-        image_description = request.data.get("image_description")
+        image_description = serializer.validated_data["image_description"]
         video = scene.video
-        if not image_description:
-            return Response(
-                {"message": "Image description can not be blank"}, status=400
-            )
 
-        if not img:
-            img = SceneImage.objects.create(prompt=image_description, scene=scene)
+        with reserve_scene_credit(
+            request.user, 0.08, SceneGenerationLimitPermission.required_limit
+        ):
+            if not img:
+                img = SceneImage.objects.create(prompt=image_description, scene=scene)
 
-        img.prompt = image_description
-        img.save()
-        generate_new_image(img, video)
-
-        request.user.generation_limit_for_ai -= 0.08
-        request.user.save()
+            img.prompt = image_description
+            img.save()
+            generate_new_image(img, video)
 
         return Response({"Message": "Image Scene was added successfully"})
 

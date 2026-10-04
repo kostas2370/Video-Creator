@@ -69,7 +69,8 @@ class SceneSerializer(serializers.ModelSerializer):
 class VoiceModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoiceModel
-        fields = "__all__"
+        fields = ("id", "created_by", "name", "provider", "type", "sample", "path")
+        read_only_fields = fields
 
 
 class AvatarNestedSerializer(serializers.ModelSerializer):
@@ -103,13 +104,21 @@ class UserPromptSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+VIDEO_RESPONSE_FIELDS = (
+    "id", "created_by", "title", "url", "gpt_answer", "prompt", "genre", "output",
+    "dir_name", "voice_model", "avatar", "status", "updated_at", "music",
+    "background", "intro", "outro", "video_type", "mode", "settings",
+)
+
+
 class VideoSerializer(serializers.ModelSerializer):
-    prompt = UserPromptSerializer()
+    prompt = UserPromptSerializer(read_only=True)
     music = serializers.SerializerMethodField()
 
     class Meta:
         model = Video
-        fields = "__all__"
+        fields = VIDEO_RESPONSE_FIELDS
+        read_only_fields = fields
 
     def get_music(self, obj):
         if obj.music:
@@ -119,12 +128,13 @@ class VideoSerializer(serializers.ModelSerializer):
 
 
 class VideoNestedSerializer(serializers.ModelSerializer):
-    prompt = UserPromptSerializer()
+    prompt = UserPromptSerializer(read_only=True)
     scenes = serializers.SerializerMethodField()
 
     class Meta:
         model = Video
-        fields = "__all__"
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes")
+        read_only_fields = fields
 
     def get_scenes(self, obj):
         scenes = obj.scenes.all()

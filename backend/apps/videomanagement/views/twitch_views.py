@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from ..serializers import VideoSerializer
 from ..services.VideoGenerationServices import create_pending_video
 from ..services.TwitchGenerationService import twitch_video_title
-from ..swagger_serializers import TwitchSerializer
+from ..request_serializers import TwitchSerializer
 from ..permissions import TwitchGenerationLimitPermission
 from ..tasks import generate_twitch_video_task
 from ..throttling import TwitchGenerateRateThrottle
