@@ -16,7 +16,7 @@ export function NotificationBell() {
   const navigate = useNavigate();
 
   const load = useCallback(async () => {
-    const response = await getNotifications();
+    const { data: response } = await getNotifications();
     if (!response) return;
 
     setItems(response.results ?? []);
@@ -61,7 +61,7 @@ export function NotificationBell() {
     <Menu as="div" className="relative">
       <MenuButton
         aria-label={unread ? `${unread} unread notifications` : "Notifications"}
-        className="relative rounded-full bg-gray-800 p-1 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800"
+        className="relative rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
       >
         <span className="sr-only">View notifications</span>
         <svg
@@ -87,7 +87,7 @@ export function NotificationBell() {
 
       <MenuItems
         anchor="bottom end"
-        className="mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+        className="z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-200 bg-white shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800"
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-700">
           <span className="text-sm font-semibold text-gray-900 dark:text-white">

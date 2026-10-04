@@ -30,11 +30,11 @@ export const SaveTemplateModal = ({
       return;
     }
 
-    toast.success(`Saved "${response.template.title}" as a template`);
+    toast.success(`Saved "${response.data.title}" as a template`);
     setTitle("");
     setShowModal(false);
 
-    if (onSaved) onSaved(response.template);
+    if (onSaved) onSaved(response.data);
   };
 
   if (!showModal) {

@@ -22,7 +22,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const [avatarData, introData, outroData] = await Promise.all([
+        const [{ data: avatarData }, { data: introData }, { data: outroData }] = await Promise.all([
           getAvatars(),
           getIntro(),
           getOutro(),
@@ -83,7 +83,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info }) => {
       avatar,
       subtitles,
       avatar_position: avatarPosition,
-    }).then((response) => {
+    }).then(({ data: response }) => {
       if (response) {
         toast.success("Video updated successfully!");
         setShowModal(false);

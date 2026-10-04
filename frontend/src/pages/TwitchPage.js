@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { TWITCH_GENERATION_ENABLED } from "../config/features";
 import React, { useState, useEffect, useRef } from "react";
 import { generateTwitchVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
@@ -7,7 +9,7 @@ import { LoadingButton } from "../components/ui/LoadingButton";
 import { ProceedModal } from "../components/ProceedModal";
 
 
-const Twitch = () => {
+const TwitchGenerationForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [video_id, setVideo_id]= useState("")
@@ -32,7 +34,9 @@ const Twitch = () => {
     }
     setIsLoading(true);
 
-    const response = await generateTwitchVideo(formData);
+    const result = await generateTwitchVideo(formData);
+    if (!result.ok) { setIsLoading(false); return; }
+    const response = result.data;
 
     if (!response?.video?.id) {
       toast.error("Could not start the generation, please try again.");
@@ -175,4 +179,11 @@ const Twitch = () => {
   );
 };
 
-export default Twitch;
+export default function Twitch() {
+  if (TWITCH_GENERATION_ENABLED) return <TwitchGenerationForm />;
+  return <main className="mx-auto max-w-3xl px-4 py-16 text-center">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Twitch generation is temporarily unavailable</h1>
+    <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">You can still create videos from a prompt.</p>
+    <Link to="/" className="mt-6 inline-block rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700">Create a video</Link>
+  </main>;
+}

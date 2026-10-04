@@ -1,12 +1,13 @@
 import { useCallback } from "react";
 import useAuth from "./useAuth";
-import { REFRESH_URL } from "../endpoints";
-import { axiosInstance } from "../api/axiosPrivate";
+
+import { refreshToken } from "../api/apiService";
 export default function useRefreshToken() {
     const { setAccessToken, setCSRFToken } = useAuth()
 
     const refresh = useCallback(async () => {
-        const response = await axiosInstance.post(REFRESH_URL)
+        const response = await refreshToken();
+        if (!response.ok) throw new Error(response.message);
         setAccessToken(response.data.access)
         setCSRFToken(response.headers["x-csrftoken"])
 
