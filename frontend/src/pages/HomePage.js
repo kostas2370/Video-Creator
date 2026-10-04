@@ -3,14 +3,21 @@ import { getAvatars, getTemplates, getVoices } from "../api/apiService";
 import { toast } from "react-toastify";
 import { deleteTemplate, generateVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
-import { LoadingButton } from "../components/ui/LoadingButton";
+import { Link } from "react-router-dom";
+import { RiSparkling2Line, RiArrowRightLine, RiVolumeUpLine, RiImageLine, RiSettings3Line, RiArrowDownSLine } from "react-icons/ri";
 import { ProceedModal } from "../components/ProceedModal";
 import { SaveTemplateModal } from "../components/SaveTemplateModal";
 import { DeleteModal } from "../components/DeleteModal";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
+const ttsProviderNames = {
+  OPENAI: "OpenAI",
+  ELEVENLABS: "ElevenLabs",
+  SIXTYDB: "60dB",
+};
+
 const inputClassName =
-  "w-full p-2.5 mt-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500";
+  "w-full p-3 mt-2 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60 dark:bg-gray-900/50 dark:border-gray-600 dark:text-white dark:placeholder-gray-400";
 
 const Home = () => {
   const isOpenFunction = (data) => {
@@ -19,6 +26,7 @@ const Home = () => {
   const [avatars, setAvatars] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [voices, setVoices] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [settings, setSettings] = useState(false);
   const [open, setOpen] = useState(false);
   const [video_id, setVideo_id] = useState("");
@@ -37,7 +45,7 @@ const Home = () => {
     gpt_model: "gpt-5.4-mini",
     style: "natural",
     music: "",
-    provider: "",
+    provider: "bing",
     subtitles: true,
     narration: true,
     avatar_position: "top,left",
@@ -106,20 +114,15 @@ const Home = () => {
   };
 
   useEffect(() => {
-    const fetchOptions = async () => {
-      getAvatars().then((response) => {
-        setAvatars(Array.isArray(response) ? response : []);
-      });
-
-      getVoices().then((response) => {
-        setVoices(Array.isArray(response) ? response : []);
-      });
-      getTemplates().then((response) => {
-        setTemplates(Array.isArray(response) ? response : []);
-      });
-    };
-
-    fetchOptions();
+    let current = true;
+    Promise.all([getAvatars(), getVoices(), getTemplates()]).then(([{ data: avatarData }, { data: voiceData }, { data: templateData }]) => {
+      if (!current) return;
+      setAvatars(Array.isArray(avatarData) ? avatarData : []);
+      setVoices(Array.isArray(voiceData) ? voiceData : []);
+      setTemplates(Array.isArray(templateData) ? templateData : []);
+      setOptionsLoading(false);
+    });
+    return () => { current = false; };
   }, []);
 
   const settingsForTemplate = Object.fromEntries(
@@ -148,7 +151,9 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    const response = await generateVideo(formData);
+    const result = await generateVideo(formData);
+    if (!result.ok) { setIsLoading(false); return; }
+    const response = result.data;
 
     if (!response?.video?.id) {
       toast.error("Could not start the generation, please try again.");
@@ -180,212 +185,70 @@ const Home = () => {
     toast.success("Video generated successfully!");
   };
 
+  const voiceGroups = voices.reduce((groups, voice) => {
+    const group = ttsProviderNames[voice.provider] || voice.provider || "Other voices";
+    (groups[group] ||= []).push(voice);
+    return groups;
+  }, {});
+  const selectedVoice = voices.find((voice) => String(voice.id) === String(formData.voice_id));
+  const selectedAvatar = avatars.find((avatar) => String(avatar.id) === String(formData.avatar_selection));
+  const examples = [
+    ["Explainer", "Create a short explainer about how solar panels turn sunlight into electricity. Use simple language and everyday examples."],
+    ["Travel story", "Create a relaxing travel video about a weekend in the Greek islands, with seaside villages, local food, and sunset views."],
+    ["Product intro", "Introduce a reusable water bottle for people who love the outdoors. Focus on durability, everyday use, and reducing waste."],
+  ];
+  const field = (name, label, children, hint) => (
+    <div>
+      <label htmlFor={name} className="block text-sm font-medium text-gray-900 dark:text-gray-100">{label}</label>
+      {children}
+      {hint ? <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{hint}</p> : null}
+    </div>
+  );
+  const select = (name, children, disabled = false) => <select id={name} name={name} value={formData[name]} onChange={handleInputChange} disabled={disabled} className={inputClassName}>{children}</select>;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
       <ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} />
-      <SaveTemplateModal
-        showModal={savingTemplate}
-        setShowModal={setSavingTemplate}
-        settings={settingsForTemplate}
-        onSaved={handleTemplateSaved}
-      />
-      <DeleteModal
-        showModal={deletingTemplate}
-        setShowModal={setDeletingTemplate}
-        id={selectedTemplate?.id}
-        name={selectedTemplate?.title}
-        setItems={dropTemplate}
-        deleteFunction={deleteTemplate}
-      />
-      <div className="w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-800 dark:border dark:border-gray-700">
-        <div className="p-6 sm:p-8 space-y-6">
-          <h1 className="text-xl font-bold text-center text-gray-900 dark:text-white">
-            Generate Video
-          </h1>
-          <form className="space-y-6" onSubmit={handleGenerate}>
-            <div>
-              <label
-                htmlFor="message"
-                className="block text-sm font-medium text-gray-900 dark:text-white"
-              >
-                Your prompt
-              </label>
-              <textarea
-                name="message"
-                id="message"
-                value={formData.message}
-                className={inputClassName}
-                placeholder="Make me a video about potatoes"
-                rows="6"
-                required
-                onChange={handleInputChange}
-              ></textarea>
+      <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
+      <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
+      <header className="mb-8">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-white">Turn your idea into a video</h1>
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-gray-500 dark:text-gray-400">Tell your story, choose its voice and visuals, then make it yours in the editor.</p>
+      </header>
+
+      <form onSubmit={handleGenerate} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <fieldset disabled={isLoading} className="min-w-0 space-y-6">
+          <section aria-labelledby="story-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-5 flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">1</span><h2 id="story-heading" className="text-lg font-semibold">Your story</h2></div>
+            <div className="mb-5">
+              <label htmlFor="template" className="block text-sm font-medium">Start from a template</label>
+              <div className="flex items-center gap-2">
+                {select("template", <><option value="">Start fresh</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</>, optionsLoading)}
+                {selectedTemplate ? <button type="button" aria-label="Delete template" title={`Delete ${selectedTemplate.title}`} onClick={() => setDeletingTemplate(true)} className="mt-2 rounded-xl border border-red-200 px-3 py-3 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400">Delete</button> : null}
+              </div>
             </div>
-            <div className="flex justify-center">
-              <button
-                type="button"
-                className="text-center text-blue-600 dark:text-blue-400"
-                onClick={() => setSettings(!settings)}
-              >
-                {settings ? "Hide settings" : "More settings"}
-              </button>
+            {field("message", "Your prompt", <textarea id="message" name="message" rows={7} required value={formData.message} onChange={handleInputChange} className={`${inputClassName} resize-y leading-relaxed`} placeholder="What is your video about? Describe the story, tone, and details you want to include." />, "A clear topic and a few specific details help shape the script.")}
+            <div className="mt-4 flex flex-wrap items-center gap-2"><span className="text-xs text-gray-400">Try an idea</span>{examples.map(([label, prompt]) => <button key={label} type="button" onClick={() => setFormData((previous) => ({ ...previous, message: prompt, template: "" }))} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-blue-900/30">{label}</button>)}</div>
+          </section>
+
+          <section aria-labelledby="look-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="mb-5 flex items-center gap-3"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">2</span><h2 id="look-heading" className="text-lg font-semibold">Voice and visuals</h2></div>
+            <label className="mb-5 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><input id="narration" name="narration" type="checkbox" checked={formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium">Narration</span><span className="block text-xs text-gray-500 dark:text-gray-400">Add a voice-over to tell your story.</span></span></label>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration), "An avatar uses its assigned voice.")}
+              {!formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
+              {field("image_mode", "Visuals", select("image_mode", <><option value="WEB">Web images</option><option value="AI">AI-generated visuals</option></>))}
+              {field("provider", "Visual provider", select("provider", formData.image_mode === "AI" ? <><option value="DALL-E">OpenAI images</option><option value="sora">OpenAI Sora (video)</option><option value="midjourney">Midjourney</option><option value="stable-diffusion">Stable Diffusion</option></> : <><option value="bing">Bing</option><option value="google">Google</option></>))}
             </div>
-            {settings && (
-              <div className="p-4 mt-4 bg-white rounded shadow-md dark:bg-gray-700">
-                <div className="flex flex-col space-y-4">
-                  {/* Template - Full width row */}
-                  <div className="w-full">
-                    <label
-                      htmlFor="template"
-                      className="block text-sm font-medium text-gray-900 dark:text-white"
-                    >
-                      Template
-                    </label>
-                    <div className="flex items-end space-x-2">
-                      <select
-                        name="template"
-                        id="template"
-                        value={formData.template}
-                        className={inputClassName}
-                        onChange={handleInputChange}
-                      >
-                        <option value="">None</option>
-                        {templates?.map((template) => (
-                          <option key={template.id} value={template.id}>
-                            {template.title}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        title={
-                          selectedTemplate
-                            ? `Delete ${selectedTemplate.title}`
-                            : "Pick a template to delete it"
-                        }
-                        disabled={!selectedTemplate}
-                        className="shrink-0 p-2.5 text-red-600 border border-red-300 rounded-lg hover:bg-red-600 hover:text-white focus:ring-4 focus:outline-none focus:ring-red-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-red-600 dark:text-red-400 dark:border-red-500 dark:hover:bg-red-600 dark:hover:text-white dark:focus:ring-red-800"
-                        onClick={() => setDeletingTemplate(true)}
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          ></path>
-                        </svg>
-                        <span className="sr-only">Delete template</span>
-                      </button>
-                    </div>
-                  </div>
+          </section>
 
-                  {/* Target Audience & Genre row */}
-                  <div className="flex space-x-4">
-                    <div className="w-1/2">
-                      <label
-                        htmlFor="target_audience"
-                        className="block text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        Target Audience
-                      </label>
-                      <input
-                        name="target_audience"
-                        type="text"
-                        id="target_audience"
-                        value={formData.target_audience}
-                        placeholder="Teens"
-                        className={inputClassName}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div className="w-1/2">
-                      <label
-                        htmlFor="genre"
-                        className="block text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        Genre
-                      </label>
-                      <input
-                        name="genre"
-                        type="text"
-                        id="genre"
-                        value={formData.genre}
-                        placeholder="Comedy"
-                        className={inputClassName}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex space-x-4">
-                    <div className="w-1/2">
-                      <label
-                        htmlFor="avatar_selection"
-                        className="block text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        Avatar
-                      </label>
-                      <select
-                        name="avatar_selection"
-                        id="avatar_selection"
-                        value={formData.avatar_selection}
-                        className={inputClassName}
-                        onChange={handleInputChange}
-                      >
-                        <option value="">No Avatar</option>
-                        {avatars?.map((avatar) => (
-                          <option key={avatar.id} value={avatar.id}>
-                            {avatar.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      {!formData.avatar_selection && (
-                        <div className="mt-4">
-                          <label
-                            htmlFor="voice_id"
-                            className="block text-sm font-medium text-gray-900 dark:text-white"
-                          >
-                            Voice
-                          </label>
-                          <select
-                            name="voice_id"
-                            id="voice_id"
-                            value={formData.voice_id}
-                            className={inputClassName}
-                            onChange={handleInputChange}
-                          >
-                            <option value="">Any voice</option>
-                            {voices?.map((voice) => (
-                              <option key={voice.id} value={voice.id}>
-                                {voice.name}
-                                {voice.provider ? ` (${voice.provider})` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                    <div className="w-1/2">
-                      <label
-                        htmlFor="gpt_model"
-                        className="block text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        AI Model
-                      </label>
-                      <select
-                        name="gpt_model"
-                        id="gpt_model"
-                        value={formData.gpt_model}
-                        className={inputClassName}
-                        onChange={handleInputChange}
-                      >
-                        <optgroup label="OpenAI">
+          <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <button type="button" aria-expanded={settings} aria-controls="generation-settings" onClick={() => setSettings((previous) => !previous)} className="flex w-full items-center gap-3 rounded-2xl p-5 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 sm:p-6"><RiSettings3Line aria-hidden="true" className="h-5 w-5 text-gray-400" /><span className="flex-1"><span className="block text-sm font-semibold">Advanced settings</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">Audience, tone, model, music, and subtitles</span></span><RiArrowDownSLine aria-hidden="true" className={`h-5 w-5 text-gray-400 transition-transform ${settings ? "rotate-180" : ""}`} /></button>
+            <div id="generation-settings" hidden={!settings} className={`${settings ? "grid" : "hidden"} gap-5 border-t border-gray-100 p-5 sm:grid-cols-2 sm:p-6 dark:border-gray-700`}>
+              {field("target_audience", "Target audience", <input id="target_audience" name="target_audience" value={formData.target_audience} onChange={handleInputChange} className={inputClassName} placeholder="e.g. curious beginners" />)}
+              {field("genre", "Genre", <input id="genre" name="genre" value={formData.genre} onChange={handleInputChange} className={inputClassName} placeholder="e.g. documentary" />)}
+              {field("gpt_model", "Script model", select("gpt_model", <><optgroup label="OpenAI">
                           <option value="gpt-5.4-mini">gpt-5.4-mini</option>
                           <option value="gpt-5.4">gpt-5.4</option>
                           <option value="gpt-5.4-nano">gpt-5.4-nano</option>
@@ -427,117 +290,27 @@ const Home = () => {
                           </option>
                           <option value="gemini-1.0-pro">gemini-1.0-pro</option>
                         </optgroup>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex space-x-4">
-                    <div className="w-1/2">
-                      <label
-                        htmlFor="image_mode"
-                        className="block text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        Image Mode
-                      </label>
-                      <select
-                        name="image_mode"
-                        id="image_mode"
-                        value={formData.image_mode}
-                        className={inputClassName}
-                        onChange={handleInputChange}
-                      >
-                        <option value="WEB">WEB</option>
-                        <option value="AI">AI</option>
-                      </select>
-                    </div>
-                    <div className="w-1/2">
-                      <label
-                        htmlFor="provider"
-                        className="block text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        Provider
-                      </label>
-                      <select
-                        name="provider"
-                        id="provider"
-                        value={formData.provider}
-                        className={inputClassName}
-                        onChange={handleInputChange}
-                      >
-                        {formData.image_mode === "AI" ? (
-                          <>
-                            <option value="DALL-E">OpenAI (gpt-image)</option>
-                            <option value="sora">OpenAI Sora (video)</option>
-                            <option value="midjourney">midjourney</option>
-                            <option value="stable-diffusion">
-                              stable-diffusion
-                            </option>
-                          </>
-                        ) : (
-                          <>
-                            <option value="bing">bing</option>
-                            <option value="google">google</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      name="narration"
-                      type="checkbox"
-                      id="narration"
-                      checked={formData.narration}
-                      onChange={handleInputChange}
-                      className="w-4 h-4 text-blue-600 bg-gray-50 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-                    />
-                    <label
-                      htmlFor="narration"
-                      className="text-sm font-medium text-gray-900 dark:text-white"
-                    >
-                      Narration
-                    </label>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      off = clips only, no voice or subtitles
-                    </span>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="music"
-                      className="block text-sm font-medium text-gray-900 dark:text-white"
-                    >
-                      Music
-                    </label>
-                    <input
-                      type="url"
-                      name="music"
-                      id="music"
-                      value={formData.music}
-                      placeholder="https://www.youtube.com/watch?v=JaZgHHDS5x0&list=RDJaZgHHDS5x0"
-                      className={inputClassName}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="flex items-center space-x-3">
-              <div className="flex-1">
-                <LoadingButton isLoading={isLoading} />
-              </div>
-              {!isLoading && (
-                <button
-                  type="button"
-                  className="shrink-0 text-blue-700 border border-blue-700 hover:bg-blue-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-500 dark:hover:text-white dark:focus:ring-blue-800"
-                  onClick={() => setSavingTemplate(true)}
-                >
-                  Save as template
-                </button>
-              )}
+                      </>))}
+              {field("music", "Music URL", <input type="url" id="music" name="music" value={formData.music} onChange={handleInputChange} className={inputClassName} placeholder="https://www.youtube.com/watch?v=..." />, "Optional background music.")}
+              <label className="flex items-center gap-3 text-sm"><input id="subtitles" name="subtitles" type="checkbox" checked={formData.subtitles && formData.narration} disabled={!formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600" />Include subtitles</label>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+          </section>
+        </fieldset>
+
+        <aside aria-labelledby="summary-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm lg:sticky lg:top-6 dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 p-5 dark:from-blue-950 dark:to-indigo-950"><RiSparkling2Line aria-hidden="true" className="mb-3 h-7 w-7 text-blue-600 dark:text-blue-300" /><h2 id="summary-heading" className="text-lg font-semibold">Your video</h2><p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">A first draft you can edit and refine.</p></div>
+          <dl className="space-y-4 text-sm">
+            <div className="flex items-start gap-3"><RiVolumeUpLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-medium">{!formData.narration ? "Clips only" : selectedAvatar ? selectedAvatar.name : selectedVoice ? `${selectedVoice.name} · ${ttsProviderNames[selectedVoice.provider] || selectedVoice.provider}` : "Any available voice"}</dd></div></div>
+            <div className="flex items-start gap-3"><RiImageLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Visuals</dt><dd className="mt-1 font-medium">{formData.image_mode === "AI" ? "AI-generated visuals" : "Web images"}</dd></div></div>
+          </dl>
+          <div className="mt-6 border-t border-gray-100 pt-5 dark:border-gray-700">
+            <button type="submit" disabled={isLoading || !formData.message.trim() || optionsLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-50">{isLoading ? <><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Generating...</> : <>Generate video<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></>}</button>
+            <button type="button" disabled={isLoading} onClick={() => setSavingTemplate(true)} className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">Save as template</button>
+            <p role={isLoading ? "status" : undefined} className="mt-4 text-center text-xs leading-relaxed text-gray-500 dark:text-gray-400">{isLoading ? "We’re creating your script, narration, and scenes. This usually takes a few minutes." : "Generate first, then review your scenes before rendering."}</p>
+          </div>
+        </aside>
+      </form>
+    </main>
   );
 };
 

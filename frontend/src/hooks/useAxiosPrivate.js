@@ -29,7 +29,7 @@ export function useAxiosPrivate() {
                 const status = error?.response?.status;
                 const prevRequest = error?.config;
 
-                if ((status === 403 || status === 401) && !prevRequest?.sent) {
+                if (status === 401 && prevRequest && !prevRequest.sent) {
                     prevRequest.sent = true;
                     const { csrfToken: newCSRFToken, accessToken: newAccessToken } = await refresh();
                     setAccessToken(newAccessToken);

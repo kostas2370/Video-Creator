@@ -1,120 +1,28 @@
-import { CloseModalButton } from "./ui/CloseModalButton";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-export function AssetCreationModal({
-  showModal,
-  setShowModal,
-  nameh1,
-  ApiCall,
-  setItems
-}) {
+import { EditorDialog, editorInput, editorButton } from "./ui/EditorDialog";
+
+export function AssetCreationModal({ showModal, setShowModal, nameh1, ApiCall, setItems, onCreated }) {
   const [name, setName] = useState("");
-  const [file, setFile] = useState("");
-
-
-  const onSubmit = (event) => {
-    event.preventDefault();
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("file", file);
-
-
-    ApiCall(formData).then((response) => {
-      if (response) {
-        toast.success(nameh1+ " got added successfully !");
-        setItems((prevItems) => [...prevItems, response]);        
-        setShowModal(false);
-      }
-    });
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (showModal) { setName(""); setFile(null); } }, [showModal]);
+  useEffect(() => {
+    if (!file) { setPreview(""); return; }
+    const url = URL.createObjectURL(file); setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const onSubmit = async event => {
+    event.preventDefault(); setBusy(true);
+    try {
+      const data = new FormData(); data.append("name", name); data.append("file", file);
+      const { data: response } = await ApiCall(data);
+      if (response) { toast.success(`${nameh1} added successfully`); setItems(items => [...items, response]); setShowModal(false); onCreated?.(); }
+    } catch { toast.error(`Could not upload your ${nameh1.toLowerCase()}. Please try again.`); }
+    finally { setBusy(false); }
   };
-
-  return (
-    <>
-      {showModal ? (
-        <>
-          <div
-            id="crud-modal"
-            tabIndex="-1"
-            aria-hidden="false"
-            className=" overflow-y-auto overflow-x-hidden fixed h-screen  flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md  max-h-full"
-          >
-            <div className="relative p-4 w-full max-w-md max-h-full">
-              <div className="relative bg-white rounded-lg shadow dark:bg-gray-700">
-                <div className="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center w-full">
-                    Create {nameh1} :
-                  </h3>
-                  <CloseModalButton setShowModal={setShowModal} />
-                </div>
-                <form onSubmit={onSubmit} className="p-4 md:p-5">
-                  <div className="grid gap-4 mb-4 grid-cols-2">
-                    <div className="col-span-2">
-                      <label
-                        htmlFor="name"
-                        className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        Name :
-                      </label>
-                      <input
-                        type="text"
-                        name="text"
-                        id="text"
-                        className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                        placeholder={nameh1 + " name"}
-                        required=""
-                        onChange={(e) => setName(e.target.value)}
-                      ></input>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 mb-4 grid-cols-2">
-                    <div className="col-span-2">
-                      <label
-                        htmlFor="name"
-                        className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-                      >
-                        Select File :
-                      </label>
-
-                      <input
-                        accept="video/mp4,video/x-m4v,video/*"
-                        type="file"
-                        name="file"
-                        id="url"
-                        className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                        placeholder={nameh1 + " name"}
-                        required=""
-                        onChange={(e) => setFile(e.target.files[0])}
-                      ></input>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-center">
-                    <button
-                      type="submit"
-                      className="text-white inline-flex items-center bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                    >
-                      <svg
-                        className="me-1 -ms-1 w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                          clip-rule="evenodd"
-                        ></path>
-                      </svg>
-                      Add new {nameh1}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : null}
-    </>
-  );
+  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title={`Add ${nameh1.toLowerCase()}`} description="Upload a reusable video clip for your opening or closing sequence." busy={busy}>
+    <form onSubmit={onSubmit} className="space-y-5"><div><label htmlFor={`${nameh1}-name`} className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Clip name</label><input id={`${nameh1}-name`} required value={name} disabled={busy} onChange={e => setName(e.target.value)} placeholder="e.g. Studio opening" className={editorInput} /></div><div><label htmlFor={`${nameh1}-file`} className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Video file</label><input key={String(showModal)} id={`${nameh1}-file`} type="file" accept="video/*" required disabled={busy} onChange={e => setFile(e.target.files[0] || null)} className={editorInput} /></div>{preview && <video aria-label="New clip preview" src={preview} controls className="max-h-64 w-full rounded-xl bg-gray-900" />}<footer className="flex justify-end gap-3"><button type="button" disabled={busy} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-300">Cancel</button><button type="submit" disabled={busy || !name.trim() || !file} className={editorButton}>{busy ? "Uploading…" : `Add ${nameh1.toLowerCase()}`}</button></footer></form>
+  </EditorDialog>;
 }

@@ -19,7 +19,7 @@ export const TwitchSceneCreationModal = ({
     formData.append("url", url);
     setLoading(true);
 
-    createScene(id, formData).then((response) => {
+    createScene(id, formData).then(({ data: response }) => {
       setLoading(false);
       if (response) {
         toast.success("Clip got added successfully !");

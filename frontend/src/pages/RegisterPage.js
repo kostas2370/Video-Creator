@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import PasswordChecklist from "react-password-checklist";
 import { toast } from "react-toastify";
 import { Link, useNavigate } from "react-router-dom";
-import { REGISTER_URL } from "../endpoints";
-import { axiosInstance } from "../api/axiosPrivate";
+
+import { register } from "../api/apiService";
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -40,15 +40,10 @@ const Register = () => {
                     password: password
                   }
 
-      axiosInstance.post(REGISTER_URL, data).then(response => {
-        toast.success("Register succesfully, check your email for the confirmation url");
-        navigate("/login");
-      }).catch(error => {
-        console.error('An error occurred:', error);
-      });
-
-
-
+      const response = await register(data);
+      if (!response.ok) { toast.error(response.message); return; }
+      toast.success("Registered successfully, check your email for the confirmation link");
+      navigate("/login");
     } catch (error) {}
   };
 

@@ -1,4 +1,7 @@
-from django.test import TestCase
+import tempfile
+from pathlib import Path
+
+from django.test import TestCase, override_settings
 from rest_framework.test import APIRequestFactory
 
 from apps.usermanagement.baker_recipes import user
@@ -31,6 +34,32 @@ class SceneSerializerTests(TestCase):
         line = scene.make()
 
         self.assertEqual(SceneSerializer(line).data["scene_image"], "")
+
+    def test_reports_missing_narration_for_empty_and_stale_file_references(self):
+        for filename in (None, "missing-narration.wav"):
+            with self.subTest(filename=filename):
+                line = scene.make(file=filename)
+                self.assertEqual(SceneSerializer(line).data["narration_status"], "missing")
+
+    def test_reports_available_narration_when_the_file_exists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with override_settings(MEDIA_ROOT=directory):
+                Path(directory, "narration.wav").write_bytes(b"audio")
+                line = scene.make(file="narration.wav")
+                self.assertEqual(SceneSerializer(line).data["narration_status"], "available")
+
+    def test_does_not_report_missing_narration_for_silent_or_twitch_videos(self):
+        for options in ({"settings": {"narration": False}}, {"video_type": "TWITCH"}):
+            with self.subTest(options=options):
+                line = scene.make(video=video.make(**options), file=None)
+                self.assertEqual(SceneSerializer(line).data["narration_status"], "disabled")
+
+    def test_video_detail_includes_each_scenes_narration_status(self):
+        row = video.make()
+        line = scene.make(video=row, file=None)
+        data = VideoNestedSerializer(row).data
+        self.assertEqual(data["scenes"][0]["id"], line.pk)
+        self.assertEqual(data["scenes"][0]["narration_status"], "missing")
 
 
 class VideoSerializerTests(TestCase):

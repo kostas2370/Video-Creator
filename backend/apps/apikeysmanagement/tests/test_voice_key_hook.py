@@ -16,7 +16,7 @@ class VoiceKeyChangeTests(TestCase):
         for field, value in changes.items():
             setattr(self.keys, field, value)
 
-        with patch("apps.videomanagement.tasks.import_user_voices.delay") as queued:
+        with patch("apps.videomanagement.tasks.update_user_voices.delay") as queued:
             with self.captureOnCommitCallbacks(execute=True):
                 self.keys.save()
 

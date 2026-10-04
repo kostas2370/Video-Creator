@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import logging
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField
-from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
+from django_lifecycle import (
+    LifecycleModelMixin,
+    hook,
+    AFTER_UPDATE,
+    AFTER_CREATE,
+    AFTER_DELETE,
+)
+from requests.auth import HTTPBasicAuth
+
+logger = logging.getLogger(__name__)
 
 
 class Provider(models.TextChoices):
@@ -19,6 +29,13 @@ class Provider(models.TextChoices):
     GOOGLE_SEARCH_ENGINE_ID = "GOOGLE_SEARCH_ENGINE_ID", "Google Search engine id"
     TWITCH_CLIENT = "TWITCH_CLIENT", "Twitch client id"
     TWITCH_SECRET = "TWITCH_SECRET", "Twitch client secret"
+
+
+class AuthType(models.TextChoices):
+    BEARER = "bearer", "Bearer Token"
+    HEADER = "header", "Custom Header Key"
+    BASIC = "basic", "Basic Auth"
+    NONE = "none", "No Authentication"
 
 
 VOICE_KEY_FIELDS = {
@@ -104,8 +121,84 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
     @hook(AFTER_UPDATE, on_commit=True)
     def update_user_voices(self):
-        from apps.videomanagement.tasks import import_user_voices
+        from apps.videomanagement.tasks import update_user_voices
 
         for field, provider in VOICE_KEY_FIELDS.items():
             if self.has_changed(field) and getattr(self, field):
-                import_user_voices.delay(self.user_id, provider)
+                update_user_voices.delay(self.user_id, provider)
+
+
+class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="custom_tts_providers",
+    )
+    name = models.CharField(
+        max_length=50, help_text="Unique identifier, e.g., 'my_local_tts'"
+    )
+    endpoint_url = models.URLField(
+        help_text="The POST endpoint URL for the TTS service"
+    )
+    auth_type = models.CharField(
+        max_length=20, choices=AuthType.choices, default=AuthType.BEARER
+    )
+    auth_header_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Required if auth_type is 'header' (e.g., 'x-api-key')",
+    )
+    api_key = EncryptedCharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Secret API key, token, or credentials",
+    )
+    voices_url = models.CharField(max_length=500, null=True, blank=True)
+    text_field_name = models.CharField(max_length=50, default="text")
+    voice_field_name = models.CharField(max_length=50, default="voice_id")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"], name="unique_user_custom_tts_provider"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.user.username if self.user else ''})"
+
+    def get_auth_headers(self):
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        auth = None
+
+        if self.auth_type == AuthType.BEARER and self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        elif (
+            self.auth_type == AuthType.HEADER and self.auth_header_name and self.api_key
+        ):
+            headers[self.auth_header_name] = self.api_key
+
+        elif self.auth_type == AuthType.BASIC and self.api_key:
+            username, password = (
+                self.api_key.split(":", 1)
+                if ":" in self.api_key
+                else (self.api_key, "")
+            )
+            auth = HTTPBasicAuth(username, password)
+
+        return headers, auth
+
+    @hook(AFTER_CREATE, on_commit=True)
+    def create_voices(self):
+        from apps.videomanagement.tasks import update_user_voices
+        update_user_voices.delay(self.user.id, self.name)
+
+    @hook(AFTER_DELETE, on_commit=True)
+    def delete_voices(self):
+        from apps.videomanagement.models import VoiceModel
+        VoiceModel.objects.filter(created_by=self.user, provider=self.name).delete()
