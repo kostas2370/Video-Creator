@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ApiKeys
+from .models import ApiKeys, UserCustomTTSProvider, AuthType
 
 KEY_FIELDS = (
     "openai_key",
@@ -52,3 +52,47 @@ class ApiKeysSerializer(serializers.ModelSerializer):
             instance.user.save(update_fields=["use_service_api_keys"])
 
         return super().update(instance, validated_data)
+
+
+class UserCustomTTSProviderSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = UserCustomTTSProvider
+        fields = [
+            "id",
+            "user",
+            "name",
+            "endpoint_url",
+            "auth_type",
+            "auth_header_name",
+            "api_key",
+            "voices_url",
+            "text_field_name",
+            "voice_field_name",
+        ]
+        extra_kwargs = {
+            # Hide api_key from read responses for security
+            "api_key": {"write_only": True},
+        }
+
+    def validate(self, attrs):
+        auth_type = attrs.get(
+            "auth_type", getattr(self.instance, "auth_type", None)
+        )
+        auth_header_name = attrs.get(
+            "auth_header_name",
+            getattr(self.instance, "auth_header_name", ""),
+        )
+
+        if auth_type == AuthType.HEADER and not auth_header_name:
+            raise serializers.ValidationError(
+                {
+                    "auth_header_name": (
+                        "Header name is required when auth_type is set to"
+                        " 'header'."
+                    )
+                }
+            )
+
+        return attrs

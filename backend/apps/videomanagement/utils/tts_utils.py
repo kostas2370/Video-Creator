@@ -224,7 +224,7 @@ def save(
     return save_path
 
 
-def get_voices_from_labs(user=None) -> list:
+def get_voices_from_labs(user=None, **kwargs) -> list:
     url = "https://api.elevenlabs.io/v1/voices"
     headers = {
         "Accept": "application/json",
@@ -236,7 +236,7 @@ def get_voices_from_labs(user=None) -> list:
     return response.json().get("voices", [])
 
 
-def get_voices_from_60db(user=None) -> list:
+def get_voices_from_60db(user=None, **kwargs) -> list:
     url = "https://api.60db.ai/myvoices"
     headers = {
         "Accept": "application/json",
@@ -248,44 +248,20 @@ def get_voices_from_60db(user=None) -> list:
     return response.json().get("data", [])
 
 
-def get_voices_from_custom_provider(custom_provider) -> None:
+def get_voices_from_custom_provider(user=None, custom_provider_name: str = None) -> None:
+    custom_provider = UserCustomTTSProvider.objects.get(user=user, name=custom_provider_name)
     if not custom_provider.voices_url:
         return
-
-    headers, auth = custom_provider.get_auth_headers()
-
     try:
-        response = requests.get(
-            custom_provider.voices_url,
-            headers=headers,
-            auth=auth,
-            timeout=DEFAULT_TIMEOUT,
-        )
+        response = requests.get(custom_provider.voices_url, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         data = response.json()
-
         voices_list = (
             data
             if isinstance(data, list)
             else (data.get("voices") or data.get("data") or [])
         )
-
-        for voice_data in voices_list:
-            voice_id = str(voice_data.get("id") or voice_data.get("voice_id") or "")
-            voice_name = voice_data.get("name") or voice_id
-            sample_url = voice_data.get("sample_url") or voice_data.get("preview_url")
-
-            if voice_id:
-                VoiceModel.objects.update_or_create(
-                    created_by=custom_provider.user,
-                    provider=custom_provider.name,
-                    path=voice_id,
-                    defaults={
-                        "name": voice_name,
-                        "type": VoiceModelType.CUSTOM_API,
-                        "sample": sample_url,
-                    },
-                )
+        return voices_list
     except Exception as exc:
         logger.error(
             "Failed to fetch voices for custom provider %s: %s",

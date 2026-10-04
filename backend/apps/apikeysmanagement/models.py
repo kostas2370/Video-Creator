@@ -124,10 +124,12 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
 class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
     user = models.ForeignKey(
-        get_user_model(), on_delete=models.CASCADE, related_name="custom_tts_providers"
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="custom_tts_providers",
     )
     name = models.CharField(
-        max_length=50, unique=True, help_text="Unique identifier, e.g., 'my_local_tts'"
+        max_length=50, help_text="Unique identifier, e.g., 'my_local_tts'"
     )
     endpoint_url = models.URLField(
         help_text="The POST endpoint URL for the TTS service"
@@ -140,12 +142,22 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
         blank=True,
         help_text="Required if auth_type is 'header' (e.g., 'x-api-key')",
     )
-    api_key = models.CharField(
-        max_length=255, blank=True, help_text="Secret API key, token, or credentials"
+    api_key = EncryptedCharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Secret API key, token, or credentials",
     )
-    voices_url = models.CharField(max_length=500, null=True)
+    voices_url = models.CharField(max_length=500, null=True, blank=True)
     text_field_name = models.CharField(max_length=50, default="text")
     voice_field_name = models.CharField(max_length=50, default="voice_id")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"], name="unique_user_custom_tts_provider"
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.user.username if self.user else ''})"
@@ -161,7 +173,9 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         elif (
-            self.auth_type == AuthType.HEADER and self.auth_header_name and self.api_key
+            self.auth_type == AuthType.HEADER
+            and self.auth_header_name
+            and self.api_key
         ):
             headers[self.auth_header_name] = self.api_key
 
@@ -177,6 +191,5 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
 
     @hook(AFTER_CREATE, on_commit=True)
     def create_voices(self):
-        from apps.videomanagement.utils.tts_utils import get_voices_from_custom_provider
-
-        get_voices_from_custom_provider(self)
+        from apps.videomanagement.tasks import import_user_voices
+        import_user_voices.delay(self.user.id, self.name)

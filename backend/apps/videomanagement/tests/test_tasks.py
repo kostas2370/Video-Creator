@@ -123,20 +123,26 @@ class ImportUserVoicesTests(TestCase):
             return_value=list(voices),
         )
 
+    def custom_provider_returns(self, voices):
+        return patch(
+            "apps.videomanagement.utils.tts_utils.get_voices_from_custom_provider",
+            return_value=voices,
+        )
+
     def test_imports_the_voices_against_the_user_who_owns_the_key(self):
         with self.labs_returns(
-            {"name": "Rachel", "voice_id": "abc", "preview_url": "https://a.test/x"}
+            {"name": "Rachel", "id": "abc", "preview_url": "https://a.test/x"}
         ):
             added = import_user_voices(self.user.id, Provider.ELEVENLABS)
 
         voice = VoiceModel.objects.get(path="abc")
         self.assertEqual(added, 1)
         self.assertEqual(voice.created_by, self.user)
-        self.assertEqual(voice.provider, "eleven_labs")
+        self.assertEqual(voice.provider, "ELEVENLABS")
         self.assertEqual(voice.type, "API")
 
     def test_running_it_twice_does_not_duplicate_anything(self):
-        voices = [{"name": "Rachel", "voice_id": "abc", "preview_url": ""}]
+        voices = [{"name": "Rachel", "id": "abc", "preview_url": ""}]
 
         with self.labs_returns(*voices):
             import_user_voices(self.user.id, Provider.ELEVENLABS)
@@ -147,7 +153,7 @@ class ImportUserVoicesTests(TestCase):
 
     def test_two_users_can_hold_a_voice_of_the_same_name(self):
         stranger = user.make()
-        voices = [{"name": "Rachel", "voice_id": "abc", "preview_url": ""}]
+        voices = [{"name": "Rachel", "id": "abc", "preview_url": ""}]
 
         with self.labs_returns(*voices):
             import_user_voices(self.user.id, Provider.ELEVENLABS)
@@ -168,6 +174,15 @@ class ImportUserVoicesTests(TestCase):
                 import_user_voices(owner.id, Provider.ELEVENLABS)
 
         self.assertEqual(VoiceModel.objects.count(), 0)
+
+    def test_imports_the_voices_from_a_custom_provider(self):
+        with self.custom_provider_returns([{"name": "Rachel", "id": "abc", "preview_url": "https://a.test/x"}]):
+            added = import_user_voices(self.user.id, "my_custom_provider")
+
+        voice = VoiceModel.objects.get(path="abc")
+        self.assertEqual(added, 1)
+        self.assertEqual(voice.created_by, self.user)
+        self.assertEqual(voice.provider, "my_custom_provider")
 
 
 class ReapStalledVideosTests(TestCase):
