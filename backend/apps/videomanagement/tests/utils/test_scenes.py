@@ -174,6 +174,8 @@ class CreateImageScenesTests(TestCase):
         }
 
     def run_with(self, **patches):
+        mode = patches.pop("mode", "WEB")
+        provider = patches.pop("provider", None)
         defaults = dict(create_image_scene="images/a.png", still_from_video=None)
         defaults.update(patches)
         with (
@@ -188,7 +190,7 @@ class CreateImageScenesTests(TestCase):
                 return_value=defaults["still_from_video"],
             ) as still,
         ):
-            create_image_scenes(self.video, mode="WEB")
+            create_image_scenes(self.video, mode=mode, provider=provider)
 
         return create, still
 
@@ -218,7 +220,10 @@ class CreateImageScenesTests(TestCase):
 
     def test_anchors_later_shots_to_the_look_of_the_first(self):
         create, still = self.run_with(
-            create_image_scene="images/a.mp4", still_from_video="images/anchor.png"
+            create_image_scene="images/a.mp4",
+            still_from_video="images/anchor.png",
+            mode="AI",
+            provider="sora",
         )
         self.assertEqual(still.call_count, 1)
         self.assertIsNone(create.call_args_list[0].kwargs["reference"])
@@ -227,7 +232,9 @@ class CreateImageScenesTests(TestCase):
         )
 
     def test_does_not_anchor_to_a_scene_that_failed_to_generate(self):
-        create, still = self.run_with(create_image_scene=None)
+        create, still = self.run_with(
+            create_image_scene=None, mode="AI", provider="sora"
+        )
 
         still.assert_not_called()
 

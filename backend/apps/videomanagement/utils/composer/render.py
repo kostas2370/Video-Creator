@@ -20,8 +20,9 @@ from ...models import (
 from ..exceptions import RenderFailedException
 from .avatar import handle_avatar_video
 from .clips import clip_audio, handle_audio, process_scene
-from .layers import handle_background, handle_music
+from .layers import fit_to_canvas, handle_background, handle_music
 from .subtitles import create_subtitle_clip
+from ...video_formats import output_size
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,10 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
         VideoFileClip: The fully processed final video clip with all specified components added.
     """
     duration = final_audio.duration if final_audio else final_video.duration
-    final_video = handle_background(duration, background, final_video)
+    canvas_size = output_size((video.settings or {}).get("video_format"))
+    final_video = handle_background(
+        duration, background, final_video, size=canvas_size
+    )
 
     if getattr(video, "music", None):
         final_audio = handle_music(video, final_audio, duration)
@@ -57,7 +61,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     if (video.settings or {}).get("subtitles", False) and subtitles:
         subs = concatenate_videoclips(subtitles, method="compose")
         video_height = final_video.size[1]
-        subtitle_bottom_margin = 60
+        subtitle_bottom_margin = int(video_height * 0.05)
         subtitle_y = max(0, video_height - subs.h - subtitle_bottom_margin)
         final_video = CompositeVideoClip(
             [
@@ -67,11 +71,11 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
         )
 
     if getattr(video, "intro", None):
-        intro = VideoFileClip(video.intro.file.path).resize(final_video.size)
+        intro = fit_to_canvas(VideoFileClip(video.intro.file.path), final_video.size)
         final_video = concatenate_videoclips([intro, final_video], method="compose")
 
     if getattr(video, "outro", None):
-        outro = VideoFileClip(video.outro.file.path).resize(final_video.size)
+        outro = fit_to_canvas(VideoFileClip(video.outro.file.path), final_video.size)
         final_video = concatenate_videoclips([final_video, outro], method="compose")
 
     return final_video
@@ -101,6 +105,7 @@ def make_video(video: Video) -> Video:
 
     choices = video.settings or {}
     narration = choices.get("narration", True)
+    canvas_size = output_size(choices.get("video_format"))
 
     for scene in scenes:
         scene_image = SceneImage.objects.filter(scene=scene).first()
@@ -112,11 +117,15 @@ def make_video(video: Video) -> Video:
             sound_list.append(audio)
 
             if narration and choices.get("subtitles", False):
-                subtitle = create_subtitle_clip(scene.text, audio.duration)
+                subtitle = create_subtitle_clip(
+                    scene.text,
+                    audio.duration,
+                    size=(int(canvas_size[0] * 0.84), int(canvas_size[1] * 0.18)),
+                )
                 if subtitle is not None:
                     subtitles.append(subtitle)
 
-        vids.append(process_scene(scene_image, audio, background))
+        vids.append(fit_to_canvas(process_scene(scene_image, audio, background), canvas_size))
 
     if not vids:
         raise RenderFailedException("No video scenes were processed.")

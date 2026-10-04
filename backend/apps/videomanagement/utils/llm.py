@@ -3,7 +3,6 @@ import json
 import logging
 import sys
 
-import g4f
 from django.conf import settings
 from openai import OpenAI
 import anthropic
@@ -215,9 +214,9 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4", user=None)
     return x
 
 
-def get_update_sentence(prompt):
+def get_update_sentence(prompt, user=None):
     """
-    Generate an updated sentence based on the given prompt using GPT-3.5 from GPT-4 Free.
+    Generate an updated sentence using the project's configured language model.
 
     Parameters:
     -----------
@@ -231,18 +230,15 @@ def get_update_sentence(prompt):
 
     Notes:
     ------
-    - This function interacts with GPT-4 Free to generate an updated sentence based on the given prompt.
+    - The project's configured language model generates the updated sentence.
     """
-    response = g4f.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"content": prompt}],
-        stream=True,
+    response = get_reply(
+        prompt,
+        reply_format="text",
+        gpt_model=settings.DEFAULT_GPT_MODEL,
+        user=user,
     )
-    x = io.StringIO()
-    for message in response:
-        x.write(message)
-
-    return x.getvalue()
+    return response.getvalue().strip()
 
 
 def select_from_vision(prompt, images, user=None):

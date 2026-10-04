@@ -16,6 +16,15 @@ const ttsProviderNames = {
   SIXTYDB: "60dB",
 };
 const visualProviderNames = { "DALL-E": "OpenAI images", sora: "OpenAI Sora (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
+const videoFormatOptions = [
+  { value: "LANDSCAPE", label: "Landscape", ratio: "16:9", shape: "w-12 aspect-video" },
+  { value: "PORTRAIT", label: "Portrait", ratio: "9:16", shape: "h-10 aspect-[9/16]" },
+  { value: "SQUARE", label: "Square", ratio: "1:1", shape: "h-9 aspect-square" },
+];
+const platformOptions = [
+  { value: "GENERAL", label: "General" },
+  { value: "TIKTOK", label: "TikTok" },
+];
 
 const isBuiltinVisualProvider = name => Object.prototype.hasOwnProperty.call(visualProviderNames, name);
 
@@ -53,9 +62,11 @@ const Home = () => {
     style: "natural",
     music: "",
     provider: "bing",
+    platform: "GENERAL",
+    video_format: "LANDSCAPE",
     subtitles: true,
     narration: true,
-    avatar_position: "top,left",
+    avatar_position: "left,top",
   });
 
   useAxiosPrivate();
@@ -87,6 +98,17 @@ const Home = () => {
       return;
     }
 
+    if (name === "platform") {
+      setFormData((prevData) => ({
+        ...prevData,
+        platform: value,
+        ...(value === "TIKTOK"
+          ? { video_format: "PORTRAIT", subtitles: true }
+          : {}),
+      }));
+      return;
+    }
+
     if (name === "template") {
       const selectedTemplate = templates.find(
         (t) => String(t.id) === String(value)
@@ -102,6 +124,8 @@ const Home = () => {
           avatar_selection: selectedTemplate.avatar_selection ?? "",
           voice_id: selectedTemplate.voice_id ?? "",
           gpt_model: selectedTemplate.gpt_model ?? prevData.gpt_model,
+          platform: selectedTemplate.platform ?? prevData.platform,
+          video_format: selectedTemplate.video_format ?? prevData.video_format,
           image_mode: selectedTemplate.image_mode ?? prevData.image_mode,
           style: selectedTemplate.style ?? prevData.style,
           music: selectedTemplate.music ?? "",
@@ -280,11 +304,15 @@ const Home = () => {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <button type="button" aria-expanded={settings} aria-controls="generation-settings" onClick={() => setSettings((previous) => !previous)} className="flex w-full items-center gap-3 rounded-2xl p-5 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 sm:p-6"><RiSettings3Line aria-hidden="true" className="h-5 w-5 text-gray-400" /><span className="flex-1"><span className="block text-sm font-semibold">Advanced settings</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">Audience, tone, model, music, and subtitles</span></span><RiArrowDownSLine aria-hidden="true" className={`h-5 w-5 text-gray-400 transition-transform ${settings ? "rotate-180" : ""}`} /></button>
-            <div id="generation-settings" hidden={!settings} className={`${settings ? "grid" : "hidden"} gap-5 border-t border-gray-100 p-5 sm:grid-cols-2 sm:p-6 dark:border-gray-700`}>
-              {field("target_audience", "Target audience", <input id="target_audience" name="target_audience" value={formData.target_audience} onChange={handleInputChange} className={inputClassName} placeholder="e.g. curious beginners" />)}
-              {field("genre", "Genre", <input id="genre" name="genre" value={formData.genre} onChange={handleInputChange} className={inputClassName} placeholder="e.g. documentary" />)}
+          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <button type="button" aria-expanded={settings} aria-controls="generation-settings" onClick={() => setSettings((previous) => !previous)} className="group flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 sm:p-6 dark:hover:bg-gray-800/80">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-400/10 dark:text-indigo-300 dark:ring-indigo-300/15"><RiSettings3Line aria-hidden="true" className="h-5 w-5" /></span>
+              <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">Fine-tune your video<span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-700 dark:text-gray-300">Optional</span></span><span className="mt-1 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">Set the audience, style, soundtrack, captions, and script model.</span></span>
+              <RiArrowDownSLine aria-hidden="true" className={`h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 ${settings ? "rotate-180" : ""}`} />
+            </button>
+            <div id="generation-settings" hidden={!settings} className={`${settings ? "grid" : "hidden"} gap-6 border-t border-gray-100 bg-gray-50/70 p-5 sm:grid-cols-2 sm:p-6 dark:border-gray-700 dark:bg-gray-900/20`}>
+              {field("target_audience", "Who is this for?", <input id="target_audience" name="target_audience" value={formData.target_audience} onChange={handleInputChange} className={inputClassName} placeholder="e.g. curious beginners" />, "Shapes the language and level of detail.")}
+              {field("genre", "Tone or genre", <input id="genre" name="genre" value={formData.genre} onChange={handleInputChange} className={inputClassName} placeholder="e.g. documentary" />, "Give the script a style, such as documentary or playful.")}
               {field("gpt_model", "Script model", select("gpt_model", <><optgroup label="OpenAI">
                           <option value="gpt-5.4-mini">gpt-5.4-mini</option>
                           <option value="gpt-5.4">gpt-5.4</option>
@@ -328,8 +356,20 @@ const Home = () => {
                           <option value="gemini-1.0-pro">gemini-1.0-pro</option>
                         </optgroup>
                       </>))}
-              {field("music", "Music URL", <input type="url" id="music" name="music" value={formData.music} onChange={handleInputChange} className={inputClassName} placeholder="https://www.youtube.com/watch?v=..." />, "Optional background music.")}
-              <label className="flex items-center gap-3 text-sm"><input id="subtitles" name="subtitles" type="checkbox" checked={formData.subtitles && formData.narration} disabled={!formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600" />Include subtitles</label>
+              {field("platform", "Optimize for", <div role="radiogroup" aria-label="Optimize for platform" className="mt-2 grid grid-cols-2 gap-2">
+                {platformOptions.map((option) => <label key={option.value} className={`flex cursor-pointer items-center justify-center rounded-xl border p-3 text-sm font-medium transition focus-within:ring-2 focus-within:ring-blue-500 ${formData.platform === option.value ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20 dark:border-blue-400 dark:bg-blue-400/10 dark:text-blue-200" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}>
+                  <input className="sr-only" type="radio" name="platform" value={option.value} checked={formData.platform === option.value} onChange={handleInputChange} />{option.label}
+                </label>)}
+              </div>, "TikTok adds short-form script guidance, portrait framing, and captions by default.")}
+              {field("video_format", "Video format", <div role="radiogroup" aria-label="Video format" className="mt-2 grid grid-cols-3 gap-2">
+                {videoFormatOptions.map((option) => <label key={option.value} className={`flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-center transition focus-within:ring-2 focus-within:ring-blue-500 ${formData.video_format === option.value ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20 dark:border-blue-400 dark:bg-blue-400/10 dark:text-blue-200" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}>
+                  <input className="sr-only" type="radio" name="video_format" value={option.value} checked={formData.video_format === option.value} onChange={handleInputChange} />
+                  <span className="flex h-10 items-center justify-center"><span aria-hidden="true" className={`${option.shape} rounded-[3px] border-2 ${formData.video_format === option.value ? "border-blue-500 dark:border-blue-300" : "border-gray-400 dark:border-gray-500"}`} /></span>
+                  <span><span className="block text-xs font-semibold">{option.label}</span><span className="mt-0.5 block text-[10px] text-gray-400">{option.ratio}</span></span>
+                </label>)}
+              </div>, "Sets the output frame. The render crops scene visuals to fill it.")}
+              {field("music", "Background music", <input type="url" id="music" name="music" value={formData.music} onChange={handleInputChange} className={inputClassName} placeholder="Paste a YouTube URL" />, "Optional. Add a YouTube link for background music.")}
+              <label htmlFor="subtitles" className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${formData.narration ? "border-gray-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800" : "border-gray-200 bg-gray-100/70 opacity-60 dark:border-gray-700 dark:bg-gray-800/50"}`}><input id="subtitles" name="subtitles" type="checkbox" checked={formData.subtitles && formData.narration} disabled={!formData.narration} onChange={handleInputChange} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium text-gray-900 dark:text-gray-100">Add subtitles</span><span className="mt-1 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">Burn the spoken words into the video.</span></span></label>
             </div>
           </section>
         </fieldset>

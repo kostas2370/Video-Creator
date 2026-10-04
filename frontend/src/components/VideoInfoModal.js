@@ -8,7 +8,7 @@ function VideoPlayer({ output, title }) {
   const [failed, setFailed] = useState(false);
   return <div className="relative overflow-hidden rounded-xl bg-black shadow-inner">
     <video ref={player} src={output} controls playsInline preload="metadata" aria-label={title}
-      className="aspect-video max-h-[55vh] w-full object-contain"
+      className="max-h-[55vh] w-full object-contain"
       onLoadStart={() => setLoading(true)} onLoadedMetadata={() => setLoading(false)}
       onError={() => { setFailed(true); setLoading(false); }}>
       Your browser does not support video playback.

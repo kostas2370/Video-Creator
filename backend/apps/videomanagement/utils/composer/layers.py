@@ -14,6 +14,25 @@ from moviepy.editor import (
 logger = logging.getLogger(__name__)
 
 
+def fit_to_canvas(clip, size):
+    """Resize and center-crop a clip to fill a canvas without stretching it."""
+    target_width, target_height = size
+    source_width, source_height = clip.size
+    if abs(source_width / source_height - target_width / target_height) < 0.0001:
+        return clip.resize(size)
+    scale = max(target_width / source_width, target_height / source_height)
+    resized = clip.resize(scale)
+    resized_width, resized_height = resized.size
+    x1 = max(0, (resized_width - target_width) / 2)
+    y1 = max(0, (resized_height - target_height) / 2)
+    return resized.crop(
+        x1=x1,
+        y1=y1,
+        x2=x1 + target_width,
+        y2=y1 + target_height,
+    )
+
+
 def handle_music(video, final_audio, duration):
     """
     Adds background music to the final audio, adjusting the volume and applying fade-in and fade-out effects.
@@ -45,7 +64,7 @@ def handle_music(video, final_audio, duration):
     return CompositeAudioClip([final_audio, music]) if final_audio else music
 
 
-def handle_background(duration, background, final_video):
+def handle_background(duration, background, final_video, size=(1920, 1080)):
     """
     Adds a background effect to a video clip based on the specified color and threshold.
 
@@ -58,20 +77,21 @@ def handle_background(duration, background, final_video):
         VideoFileClip: The final video with background effect applied, including masking and fade effects.
     """
 
+    final_video = fit_to_canvas(final_video, size)
     if not background:
-        return final_video.resize((1920, 1080))
+        return final_video
 
     if background.file.path.lower().endswith((".jpg", ".png")):
         bg_clip = ImageClip(background.file.path)
     else:
         bg_clip = VideoFileClip(background.file.path).without_audio()
 
-    bg_clip = bg_clip.set_duration(duration).resize((1920, 1080))
+    bg_clip = fit_to_canvas(bg_clip, size).set_duration(duration)
     mask_color = [int(x) for x in background.color.split(",")]
     threshold = float(background.through) / 255.0
     masked_clip = final_video.fx(vfx.mask_color, color=mask_color, thr=threshold, s=7)
     final_video = CompositeVideoClip(
-        [bg_clip, masked_clip.set_duration(duration)]
+        [bg_clip, masked_clip.set_duration(duration)], size=size
     ).crossfadein(2)
 
     return final_video

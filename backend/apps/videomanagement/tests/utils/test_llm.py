@@ -253,9 +253,7 @@ class GetReplyParsingTests(SimpleTestCase):
 
 class GetUpdateSentenceTests(SimpleTestCase):
     def test_joins_the_streamed_rewrite(self):
-        with patch.object(
-            llm.g4f.ChatCompletion, "create", return_value=["a ", "rewrite"]
-        ):
+        with patch.object(llm, "get_reply", return_value=io.StringIO("a rewrite")):
             self.assertEqual(get_update_sentence("a prompt"), "a rewrite")
 
 

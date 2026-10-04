@@ -49,7 +49,12 @@ class VideoUpdateTests(TestCase):
 
         self.assertEqual(
             updated.settings,
-            dict(narration=True, subtitles=True, avatar_position="left,top"),
+            dict(
+                narration=True,
+                subtitles=True,
+                avatar_position="left,top",
+                video_format="LANDSCAPE",
+            ),
         )
 
     def test_clears_the_avatar_when_none_was_chosen(self):

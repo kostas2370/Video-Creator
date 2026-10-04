@@ -1,15 +1,18 @@
 import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
+from django.db import close_old_connections
 from moviepy.editor import AudioFileClip, VideoFileClip
 
-from .image_providers import resolve
+from .image_providers import ImageProviderRegistry, resolve
 from .prompt_utils import script_lines
 from .composer.overlay import add_text_to_video
 from .file_utils import check_if_video, stored_file_exists
 from ..models import Scene, SceneImage, Video
 
 logger = logging.getLogger(__name__)
+MAX_PARALLEL_STILL_IMAGES = 3
 
 
 def still_from_video(path: str, dir_name: str) -> str:
@@ -180,12 +183,42 @@ def create_image_scenes(
 
     dir_name = video.dir_name
     with_audio = not (video.settings or {}).get("narration", True)
+    pending = [
+        line for line in script_lines(video.gpt_answer)
+        if not already_illustrated(video, line.text)
+    ]
+
+    if not pending:
+        return
+
+    is_video = ImageProviderRegistry.is_video(provider, user=video.created_by)
+    if not is_video:
+        with ThreadPoolExecutor(
+            max_workers=min(MAX_PARALLEL_STILL_IMAGES, len(pending)),
+            thread_name_prefix="scene-image",
+        ) as pool:
+            futures = [
+                pool.submit(
+                    _create_image_scene_in_thread,
+                    video=video,
+                    image=line.image_description,
+                    text=line.text,
+                    dir_name=dir_name,
+                    mode=mode,
+                    style=style,
+                    title=video.title,
+                    provider=provider,
+                    with_audio=with_audio,
+                    user=video.created_by,
+                )
+                for line in pending
+            ]
+            for future in futures:
+                future.result()
+        return
+
     reference = None
-
-    for line in script_lines(video.gpt_answer):
-        if already_illustrated(video, line.text):
-            continue
-
+    for line in pending:
         produced = create_image_scene(
             video=video,
             image=line.image_description,
@@ -199,9 +232,16 @@ def create_image_scenes(
             with_audio=with_audio,
             user=video.created_by,
         )
-
         if reference is None and produced:
             reference = still_from_video(produced, f"{dir_name}/images/")
+
+
+def _create_image_scene_in_thread(**kwargs):
+    close_old_connections()
+    try:
+        return create_image_scene(**kwargs)
+    finally:
+        close_old_connections()
 
 
 def generate_new_image(

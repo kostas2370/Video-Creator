@@ -70,18 +70,10 @@ def make_scenes_speech(video: Video) -> None:
     voice_model = video.voice_model
     narrate = (video.settings or {}).get("narration", True)
 
-    # Gather script lines to match existing scenes
-    lines = list(script_lines(video.gpt_answer))
-    script_texts = {line.text for line in lines}
-    existing = {scene.text: scene for scene in video.scenes.all()}
-
-    # Optional cleanup: Remove scenes that no longer exist in the script
-    video.scenes.exclude(text__in=script_texts).delete()
+    lines, existing = ensure_scene_rows(video)
 
     for line in lines:
-        scene = existing.get(line.text) or Scene.objects.create(
-            video=video, text=line.text, is_last=line.is_last
-        )
+        scene = existing[line.text]
 
         if not narrate or has_narration(scene):
             continue
@@ -90,6 +82,23 @@ def make_scenes_speech(video: Video) -> None:
             narrate_scene(scene, voice_model, video.dir_name, user=video.created_by)
         except Exception:
             logger.exception("Could not narrate scene %s", scene.pk)
+
+
+def ensure_scene_rows(video: Video):
+    """Create script scene rows before audio and visual work can run concurrently."""
+    lines = list(script_lines(video.gpt_answer))
+    script_texts = {line.text for line in lines}
+    existing = {scene.text: scene for scene in video.scenes.all()}
+
+    video.scenes.exclude(text__in=script_texts).delete()
+
+    for line in lines:
+        if line.text not in existing:
+            existing[line.text] = Scene.objects.create(
+                video=video, text=line.text, is_last=line.is_last
+            )
+
+    return lines, existing
 
 
 def update_scene(scene: Scene) -> Optional[Scene]:
