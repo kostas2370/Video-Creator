@@ -1,6 +1,9 @@
 from django.conf import settings
 from rest_framework import serializers
 
+from .models import Avatar, Intro, Outro
+from .services.asset_selection import available_voice, owned_asset
+
 
 class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required=True, max_length=2000)
@@ -21,9 +24,11 @@ class GenerateSerializer(serializers.Serializer):
     style = serializers.ChoiceField(
         required=False, choices=["vivid", "natural"], default="vivid"
     )
-    music = serializers.CharField(required=False, max_length=500)
+    music = serializers.CharField(
+        required=False, max_length=500, default="", allow_blank=True, allow_null=True
+    )
     target_audience = serializers.CharField(
-        required=False, max_length=30, min_length=0, default=""
+        required=False, max_length=30, min_length=0, default="", allow_blank=True
     )
     background = serializers.CharField(required=False, max_length=10, default=None)
     intro = serializers.CharField(required=False, max_length=10, default=None)
@@ -33,7 +38,14 @@ class GenerateSerializer(serializers.Serializer):
     provider = serializers.CharField(required=False, default=None)
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
     avatar_position = serializers.CharField(required=False, default="right,top")
-    genre = serializers.CharField(required=False, default="")
+    genre = serializers.CharField(required=False, default="", allow_blank=True)
+
+    def validate(self, attrs):
+        for field, model in (("avatar_selection", Avatar), ("intro", Intro), ("outro", Outro)):
+            owned_asset(model, attrs.get(field), attrs["created_by"])
+        if not attrs.get("avatar_selection"):
+            available_voice(attrs.get("voice_id"), attrs["created_by"])
+        return attrs
 
     def update(self, instance, validated_data):
         pass

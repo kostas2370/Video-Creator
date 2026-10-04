@@ -1,3 +1,5 @@
+from apps.apikeysmanagement.models import Provider
+
 from model_bakery.recipe import Recipe, foreign_key
 
 from .models import (
@@ -24,7 +26,7 @@ user_prompt = Recipe(UserPrompt, prompt="a prompt")
 voice_model = Recipe(
     VoiceModel,
     name="a voice",
-    provider="open_ai",
+    provider=Provider.OPENAI,
     type="API",
     path="onyx",
     sample="https://example.test/sample.wav",

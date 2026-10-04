@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
+from .utils.audio_utils import has_narration
+
 from .models import (
     TemplatePrompt,
     Music,
@@ -46,6 +48,13 @@ class SceneImageSerializer(serializers.ModelSerializer):
 
 class SceneSerializer(serializers.ModelSerializer):
     scene_image = serializers.SerializerMethodField()
+    narration_status = serializers.SerializerMethodField()
+
+    def get_narration_status(self, obj):
+        video = obj.video
+        if video.video_type == "TWITCH" or not (video.settings or {}).get("narration", True):
+            return "disabled"
+        return "available" if has_narration(obj) else "missing"
 
     class Meta:
         model = Scene
@@ -76,6 +85,13 @@ class AvatarSerializer(serializers.ModelSerializer):
     class Meta:
         model = Avatar
         fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        self.fields["voice"].queryset = (
+            VoiceModel.available_to(request.user) if request else VoiceModel.objects.none()
+        )
 
     def get_sample(self, obj):
         return obj.voice.sample if obj.voice else ""

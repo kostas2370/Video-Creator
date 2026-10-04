@@ -6,11 +6,11 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.apikeysmanagement.models import Provider, UserCustomTTSProvider
+from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
 from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider
 from ..baker_recipes import video
-from ..models import Video, VoiceModel
+from ..models import Video, VoiceModel, VoiceModelType
 from ..utils import tts_utils
 from ..tasks import (
     generate_twitch_video_task,
@@ -119,7 +119,7 @@ class UpdateUserVoicesTests(TestCase):
 
     def labs_returns(self, *voices):
         return patch(
-            "apps.videomanagement.utils.tts_utils.get_voices_from_labs",
+            "apps.videomanagement.utils.tts_utils.get_voices_from_elevenlabs",
             return_value=list(voices),
         )
 
@@ -131,7 +131,7 @@ class UpdateUserVoicesTests(TestCase):
 
     def test_imports_the_voices_against_the_user_who_owns_the_key(self):
         with self.labs_returns(
-            {"name": "Rachel", "id": "abc", "preview_url": "https://a.test/x"}
+            {"name": "Rachel", "voice_id": "abc", "preview_url": "https://a.test/x"}
         ):
             added = update_user_voices(self.user.id, Provider.ELEVENLABS)
 
@@ -142,7 +142,7 @@ class UpdateUserVoicesTests(TestCase):
         self.assertEqual(voice.type, "API")
 
     def test_running_it_twice_does_not_duplicate_anything(self):
-        voices = [{"name": "Rachel", "id": "abc", "preview_url": ""}]
+        voices = [{"name": "Rachel", "voice_id": "abc", "preview_url": ""}]
 
         with self.labs_returns(*voices):
             update_user_voices(self.user.id, Provider.ELEVENLABS)
@@ -153,7 +153,7 @@ class UpdateUserVoicesTests(TestCase):
 
     def test_two_users_can_hold_a_voice_of_the_same_name(self):
         stranger = user.make()
-        voices = [{"name": "Rachel", "id": "abc", "preview_url": ""}]
+        voices = [{"name": "Rachel", "voice_id": "abc", "preview_url": ""}]
 
         with self.labs_returns(*voices):
             update_user_voices(self.user.id, Provider.ELEVENLABS)
@@ -168,7 +168,7 @@ class UpdateUserVoicesTests(TestCase):
         owner = user.make()
 
         with patch.object(
-            tts_utils, "get_voices_from_labs", side_effect=RuntimeError("401")
+            tts_utils, "get_voices_from_elevenlabs", side_effect=RuntimeError("401")
         ):
             with self.assertRaises(RuntimeError):
                 update_user_voices(owner.id, Provider.ELEVENLABS)
@@ -187,6 +187,95 @@ class UpdateUserVoicesTests(TestCase):
         self.assertEqual(added, 1)
         self.assertEqual(voice.created_by, self.user)
         self.assertEqual(voice.provider, custom_provider.name)
+        self.assertEqual(voice.type, VoiceModelType.CUSTOM_API)
+
+    def test_imported_builtin_voices_are_visible_and_route_to_the_matching_tts(self):
+        self.user.use_service_api_keys = False
+        self.user.save(update_fields=["use_service_api_keys"])
+        for provider, fetcher, handler in (
+            (Provider.ELEVENLABS, "get_voices_from_elevenlabs", "tts_from_elevenlabs"),
+            (Provider.SIXTYDB, "get_voices_from_sixtydb", "tts_from_sixtydb"),
+        ):
+            with self.subTest(provider=provider):
+                with patch.object(tts_utils, fetcher, autospec=True) as fetch:
+                    fetch.return_value = [{"name": "A voice", "voice_id": "abc"}]
+                    update_user_voices(self.user.id, provider)
+                fetch.assert_called_once_with(user=self.user)
+
+                voice = VoiceModel.objects.get(provider=provider, path="abc")
+                with patch(
+                    "apps.videomanagement.models.ApiKeys.key_for", return_value="key"
+                ):
+                    self.assertIn(voice, VoiceModel.available_to(self.user))
+                with patch.object(tts_utils, handler) as synthesize:
+                    tts_utils.save(
+                        tts_utils.ApiSyn(provider=voice.provider, path=voice.path),
+                        "hello",
+                        "out.wav",
+                        user=self.user,
+                    )
+                synthesize.assert_called_once_with(
+                    "hello", "out.wav", "abc", user=self.user, provider_name=provider
+                )
+
+    def imported_custom_voice(self, path="abc"):
+        return VoiceModel.objects.create(
+            created_by=self.user,
+            name="Original voice",
+            provider="Studio",
+            type=VoiceModelType.CUSTOM_API,
+            path=path,
+            sample="https://example.com/old.mp3",
+        )
+
+    def test_a_failed_custom_fetch_preserves_imported_voices(self):
+        existing = self.imported_custom_voice()
+        with self.custom_provider_returns(None):
+            self.assertEqual(update_user_voices(self.user.pk, "Studio"), 0)
+        self.assertTrue(VoiceModel.objects.filter(pk=existing.pk).exists())
+
+    def test_an_empty_successful_fetch_removes_only_that_users_provider_voices(self):
+        existing = self.imported_custom_voice()
+        other = VoiceModel.objects.create(
+            created_by=user.make(),
+            name="Another voice",
+            provider="Studio",
+            type=VoiceModelType.CUSTOM_API,
+            path="abc",
+        )
+        with self.custom_provider_returns([]):
+            update_user_voices(self.user.pk, "Studio")
+        self.assertFalse(VoiceModel.objects.filter(pk=existing.pk).exists())
+        self.assertTrue(VoiceModel.objects.filter(pk=other.pk).exists())
+
+    def test_refresh_updates_the_name_and_preview_without_replacing_the_voice(self):
+        existing = self.imported_custom_voice()
+        with self.custom_provider_returns(
+            [
+                {
+                    "id": "abc",
+                    "name": "Renamed voice",
+                    "preview_url": "https://example.com/new.mp3",
+                }
+            ]
+        ):
+            self.assertEqual(update_user_voices(self.user.pk, "Studio"), 0)
+        existing.refresh_from_db()
+        self.assertEqual(existing.name, "Renamed voice")
+        self.assertEqual(existing.sample, "https://example.com/new.mp3")
+
+    def test_numeric_custom_ids_do_not_recreate_existing_voices(self):
+        existing = self.imported_custom_voice(path="123")
+        with self.custom_provider_returns([{"id": 123, "name": "Original voice"}]):
+            self.assertEqual(update_user_voices(self.user.pk, "Studio"), 0)
+        self.assertTrue(VoiceModel.objects.filter(pk=existing.pk).exists())
+
+    def test_malformed_custom_results_do_not_delete_previously_imported_voices(self):
+        existing = self.imported_custom_voice()
+        with self.custom_provider_returns([{"id": "new-without-a-name"}]):
+            with self.assertRaises(KeyError):
+                update_user_voices(self.user.pk, "Studio")
+        self.assertTrue(VoiceModel.objects.filter(pk=existing.pk).exists())
 
 
 class ReapStalledVideosTests(TestCase):

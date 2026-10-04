@@ -45,14 +45,10 @@ RENDERABLE_STATUSES = (
     VideoStatus.RENDERING,
 )
 
-VOICE_PROVIDER_KEYS = {
-    "open_ai": Provider.OPENAI,
-    "eleven_labs": Provider.ELEVENLABS,
-    "60db": Provider.SIXTYDB,
-}
+VOICE_PROVIDERS = (Provider.OPENAI, Provider.ELEVENLABS, Provider.SIXTYDB)
 
 GPT_MODEL_CHOICES = [(model, model) for model in settings.ACCEPTED_MODELS]
-ACCOUNT_SCOPED_VOICE_PROVIDERS = ("eleven_labs", "60db")
+ACCOUNT_SCOPED_VOICE_PROVIDERS = (Provider.ELEVENLABS, Provider.SIXTYDB)
 
 
 def default_video_settings() -> dict:
@@ -192,9 +188,7 @@ class VoiceModel(AbstractModel):
     @staticmethod
     def available_to(user) -> models.QuerySet:
         playable = [
-            provider
-            for provider, key in VOICE_PROVIDER_KEYS.items()
-            if ApiKeys.key_for(user, key)
+            provider for provider in VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
         ]
         spending_own_keys = (
             user is not None
@@ -244,21 +238,18 @@ class Avatar(AbstractModel):
 
     @staticmethod
     def select_avatar(
-        selected: str = "random", voice_model: VoiceModel = None
+        selected: str = "random", voice_model: VoiceModel = None, user=None
     ) -> Union[Avatar, None]:
+        if user is None:
+            return None
+        avatars = Avatar.objects.filter(created_by=user)
         if selected == "random":
-            if voice_model is None:
-                avatars = Avatar.objects.all()
-            else:
-                avatars = Avatar.objects.filter(voice=voice_model)
-
-            return avatars[randint(0, avatars.count() - 1)]
-
+            if voice_model is not None:
+                avatars = avatars.filter(voice=voice_model)
+            count = avatars.count()
+            return avatars[randint(0, count - 1)] if count else None
         if isinstance(selected, int):
-            items = Avatar.objects.filter(id=selected)
-            if items.count() == 1:
-                return items.first()
-
+            return avatars.filter(id=selected).first()
         return None
 
 

@@ -51,11 +51,11 @@ class ApiSyn:
     path: str
 
 
-@TTSRegistry.register("open_ai")
-def tts_from_open_api(
+@TTSRegistry.register(Provider.OPENAI)
+def tts_from_openai(
     text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
 ) -> Any:
-    logger.warning("API CALL IN OFFICIAL GPT-TTS")
+    logger.warning("API CALL IN OpenAI TTS")
 
     client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
     response = client.audio.speech.create(
@@ -66,11 +66,11 @@ def tts_from_open_api(
     return response
 
 
-@TTSRegistry.register("eleven_labs")
-def tts_from_eleven_labs(
+@TTSRegistry.register(Provider.ELEVENLABS)
+def tts_from_elevenlabs(
     text: str, save_path: str, voice: str, user=None, **kwargs
 ) -> Optional[requests.Response]:
-    logger.warning("API CALL IN ELEVEN-LABS")
+    logger.warning("API CALL IN ElevenLabs TTS")
 
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
     headers = {
@@ -95,16 +95,16 @@ def tts_from_eleven_labs(
                 if chunk:
                     f.write(chunk)
     except Exception as exc:
-        logger.error("Eleven Labs TTS request failed: %s", exc)
+        logger.error("ElevenLabs TTS request failed: %s", exc)
 
     return response
 
 
-@TTSRegistry.register("60db")
-def tts_from_60db(
+@TTSRegistry.register(Provider.SIXTYDB)
+def tts_from_sixtydb(
     text: str, save_path: str, voice: str, user=None, **kwargs
 ) -> Optional[requests.Response]:
-    logger.warning("API CALL IN 60DB")
+    logger.warning("API CALL IN 60dB TTS")
 
     url = "https://api.60db.ai/tts-synthesize"
     headers = {
@@ -130,12 +130,12 @@ def tts_from_60db(
         payload = response.json()
         audio_base64 = payload.get("audio_base64")
         if not audio_base64:
-            raise ValueError(f"60db TTS returned no audio: {payload.get('message')}")
+            raise ValueError(f"60dB TTS returned no audio: {payload.get('message')}")
 
         with open(save_path, "wb") as f:
             f.write(base64.b64decode(audio_base64))
     except Exception as exc:
-        logger.error("60db TTS request failed: %s", exc)
+        logger.error("60dB TTS request failed: %s", exc)
 
     return response
 
@@ -188,6 +188,8 @@ def tts_from_custom_provider(
                 if chunk:
                     f.write(chunk)
     except Exception as exc:
+        if os.path.exists(save_path):
+            os.remove(save_path)
         logger.error(
             "Error generating audio from custom provider '%s': %s",
             provider_name,
@@ -216,14 +218,14 @@ def save(
         provider_name=syn.provider,
     )
 
-    if not os.path.exists(save_path):
+    if not os.path.exists(save_path) or os.path.getsize(save_path) == 0:
         logger.error("%s wrote no audio for %r", syn.provider, save_path)
         return None
 
     return save_path
 
 
-def get_voices_from_labs(user=None, **kwargs) -> list:
+def get_voices_from_elevenlabs(user=None, **kwargs) -> list:
     url = "https://api.elevenlabs.io/v1/voices"
     headers = {
         "Accept": "application/json",
@@ -235,7 +237,7 @@ def get_voices_from_labs(user=None, **kwargs) -> list:
     return response.json().get("voices", [])
 
 
-def get_voices_from_60db(user=None, **kwargs) -> list:
+def get_voices_from_sixtydb(user=None, **kwargs) -> list:
     url = "https://api.60db.ai/myvoices"
     headers = {
         "Accept": "application/json",

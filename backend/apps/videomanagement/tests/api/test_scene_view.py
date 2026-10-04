@@ -107,6 +107,70 @@ class SceneViewTests(ApiTestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_image_actions_reject_foreign_scenes_without_changes_or_charges(self):
+        foreign_scene = scene.make(video=self.video_for(owner=user.make()))
+        image = scene_image.make(scene=foreign_scene, with_audio=False)
+        balance = self.user.generation_limit_for_ai
+        for action in ("change-image-scene", "generate-image-scene"):
+            with self.subTest(action=action):
+                with patch("apps.videomanagement.views.scene_view.generate_new_image") as generate:
+                    response = self.client.post(
+                        f"{reverse('scene-' + action, args=[foreign_scene.id])}?scene_image={image.id}",
+                        {"with_audio": True, "image_description": "changed"},
+                    )
+                self.assertEqual(response.status_code, 403)
+                generate.assert_not_called()
+                image.refresh_from_db()
+                self.assertFalse(image.with_audio)
+                self.assertEqual(image.prompt, "an image description")
+                self.user.refresh_from_db()
+                self.assertEqual(self.user.generation_limit_for_ai, balance)
+
+    def test_cannot_target_an_image_from_a_different_scene(self):
+        for owner in (self.user, user.make()):
+            with self.subTest(owner=owner.pk):
+                other = scene.make(video=self.video_for(owner=owner))
+                image = scene_image.make(scene=other, with_audio=False)
+                response = self.client.post(
+                    f"{reverse('scene-change-image-scene', args=[self.scene.id])}?scene_image={image.id}",
+                    {"with_audio": True},
+                )
+                self.assertEqual(response.status_code, 404)
+                image.refresh_from_db()
+                self.assertFalse(image.with_audio)
+
+    def test_generation_without_an_existing_image_uses_the_authorized_video(self):
+        with patch("apps.videomanagement.views.scene_view.generate_new_image") as generate:
+            response = self.client.post(
+                reverse("scene-generate-image-scene", args=[self.scene.id]),
+                {"image_description": "a cat"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(generate.call_args.args[0].scene, self.scene)
+        self.assertEqual(generate.call_args.args[1], self.video)
+
+    def test_retry_returns_missing_status_when_narration_is_still_unavailable(self):
+        with patch("apps.videomanagement.utils.audio_utils.narrate_scene", side_effect=RuntimeError("Provider unavailable")):
+            response = self.client.patch(
+                reverse("scene-detail", args=[self.scene.id]),
+                {"text": self.scene.text}, format="json",
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["narration_status"], "missing")
+        self.assertEqual(response.data["text"], self.scene.text)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.text, "the old line")
+
+    def test_retry_reports_available_status_after_audio_is_generated(self):
+        with patch("apps.videomanagement.services.SceneServices.update"):
+            with patch("apps.videomanagement.serializers.has_narration", return_value=True):
+                response = self.client.patch(
+                    reverse("scene-detail", args=[self.scene.id]),
+                    {"text": self.scene.text}, format="json",
+                )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["narration_status"], "available")
+
 
 class SceneImageViewTests(ApiTestCase):
     def test_clears_the_file_of_an_ai_videos_image_but_keeps_the_scene(self):
