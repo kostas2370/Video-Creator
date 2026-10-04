@@ -25,6 +25,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
+from .asset_selection import available_voice, owned_asset
+
 logger = logging.getLogger(__name__)
 
 
@@ -127,7 +129,14 @@ def generate_video(
     - It retrieves a template, formats a prompt, and generates video content using various sources for text, images,
       and audio.
     """
-    avatar_selection = int(avatar_selection) if avatar_selection.isnumeric() else None
+    selected_avatar = owned_asset(Avatar, avatar_selection, video.created_by)
+    intro = owned_asset(Intro, intro, video.created_by)
+    outro = owned_asset(Outro, outro, video.created_by)
+    voice_model = (
+        selected_avatar.voice if selected_avatar
+        else available_voice(voice_id, video.created_by) if voice_id
+        else VoiceModel.select_voice(video.created_by)
+    )
 
     logger.info("Retrieved template")
     template_format = script_format(
@@ -153,10 +162,6 @@ def generate_video(
     user_prompt.save()
     logger.info(f"Updated the user_prompt instance with id : {user_prompt.id}")
 
-    if intro and outro:
-        intro = Intro.objects.get(id=int(intro))
-        outro = Outro.objects.get(id=int(outro))
-
     vid = video
     vid.title = x["title"][:50]
     vid.dir_name = dir_name
@@ -175,17 +180,7 @@ def generate_video(
 
     logger.info(f"Filled in the video instance with id : {vid.id}")
 
-    if avatar_selection:
-        selected_avatar = Avatar.select_avatar(selected=avatar_selection)
-        voice_model = selected_avatar.voice
-        vid.avatar = selected_avatar
-
-    else:
-        voice_model = (
-            VoiceModel.available_to(vid.created_by).get(id=voice_id)
-            if voice_id
-            else VoiceModel.select_voice(vid.created_by)
-        )
+    vid.avatar = selected_avatar
 
     vid.voice_model = voice_model
     vid.save()

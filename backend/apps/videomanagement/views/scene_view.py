@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import serializers
@@ -7,7 +8,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Scene, SceneImage, Video
+from ..models import Scene, SceneImage
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
 from ..swagger_serializers import SceneUpdateSerializer
@@ -51,7 +52,10 @@ class SceneView(viewsets.GenericViewSet):
         request.user.generation_limit_for_ai -= 0.01
         request.user.save()
 
-        return Response({"text": updated_scene}, status=status.HTTP_200_OK)
+        return Response(
+            {"text": updated_scene, "narration_status": SceneSerializer(instance).data["narration_status"]},
+            status=status.HTTP_200_OK,
+        )
 
     @swagger_auto_schema(
         request_body=SceneUpdateSerializer,
@@ -77,6 +81,7 @@ class SceneView(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=["POST"])
     def change_image_scene(self, request, pk):
+        scene = self.get_object()
         scene_image = request.GET.get("scene_image")
         image = request.FILES.get("image")
         with_audio = serializers.BooleanField(default=False).to_internal_value(
@@ -84,7 +89,8 @@ class SceneView(viewsets.GenericViewSet):
         )
 
         if scene_image:
-            img = SceneImage.objects.get(id=scene_image)
+            image_id = serializers.IntegerField(min_value=1).to_internal_value(scene_image)
+            img = get_object_or_404(SceneImage, id=image_id, scene=scene)
             if image:
                 img.file = image
 
@@ -94,7 +100,7 @@ class SceneView(viewsets.GenericViewSet):
         else:
             if not image:
                 return Response({"message": "You must add an image !"}, status=400)
-            SceneImage.objects.create(scene_id=pk, file=image, with_audio=with_audio)
+            SceneImage.objects.create(scene=scene, file=image, with_audio=with_audio)
 
         return Response({"Message": "Image Scene was added successfully"})
 
@@ -106,16 +112,17 @@ class SceneView(viewsets.GenericViewSet):
     )
     @action(detail=True, methods=["POST"])
     def generate_image_scene(self, request, pk):
-        img = SceneImage.objects.filter(scene_id=pk).first()
+        scene = self.get_object()
+        img = scene.scene_images.first()
         image_description = request.data.get("image_description")
-        video = Video.objects.filter(scenes__scene_images=img).distinct().first()
+        video = scene.video
         if not image_description:
             return Response(
                 {"message": "Image description can not be blank"}, status=400
             )
 
         if not img:
-            img = SceneImage.objects.create(prompt=image_description, scene_id=pk)
+            img = SceneImage.objects.create(prompt=image_description, scene=scene)
 
         img.prompt = image_description
         img.save()

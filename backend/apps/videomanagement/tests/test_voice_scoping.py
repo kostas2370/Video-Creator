@@ -1,3 +1,5 @@
+from apps.apikeysmanagement.models import Provider
+
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -18,10 +20,10 @@ class AvailableToTests(TestCase):
     def setUp(self):
         self.user = user.make()
         self.shared = a_voice(created_by=None)
-        self.mine = a_voice(created_by=self.user, provider="eleven_labs")
+        self.mine = a_voice(created_by=self.user, provider=Provider.ELEVENLABS)
         self.theirs = a_voice(
             created_by=user.make(),
-            provider="eleven_labs",
+            provider=Provider.ELEVENLABS,
         )
 
     def opted_out(self, **keys):
@@ -40,7 +42,9 @@ class AvailableToTests(TestCase):
         self.assertIn(self.shared, VoiceModel.available_to(self.opted_out()))
 
     def test_keeps_the_openai_voices_the_fixtures_ship(self):
-        alloy = a_voice(created_by=None, provider="open_ai", name="alloy", path="alloy")
+        alloy = a_voice(
+            created_by=None, provider=Provider.OPENAI, name="alloy", path="alloy"
+        )
 
         self.assertIn(alloy, VoiceModel.available_to(self.user))
         self.assertIn(alloy, VoiceModel.available_to(self.opted_out()))
@@ -75,8 +79,10 @@ class AvailableToTests(TestCase):
 class KeyGatedVoiceTests(TestCase):
     def setUp(self):
         self.user = user.make()
-        self.openai = a_voice(provider="open_ai", name="alloy", created_by=None)
-        self.labs = a_voice(provider="eleven_labs", name="Rachel", created_by=None)
+        self.openai = a_voice(provider=Provider.OPENAI, name="alloy", created_by=None)
+        self.labs = a_voice(
+            provider=Provider.ELEVENLABS, name="Rachel", created_by=None
+        )
 
     def opt_out_with(self, **keys):
         api_keys.make(user=self.user, **keys)
@@ -96,7 +102,7 @@ class KeyGatedVoiceTests(TestCase):
 
     def test_hides_the_openai_voices_when_your_own_keys_have_no_openai_key(self):
         user = self.opt_out_with(openai_key="", elevenlabs_key="xi-mine")
-        mine = a_voice(provider="eleven_labs", name="MyClone", created_by=user)
+        mine = a_voice(provider=Provider.ELEVENLABS, name="MyClone", created_by=user)
 
         visible = VoiceModel.available_to(user)
 
@@ -115,7 +121,7 @@ class KeyGatedVoiceTests(TestCase):
     @override_settings(OPEN_API_KEY="", XI_API_KEY="")
     def test_your_own_key_unlocks_a_provider_the_service_cannot_reach(self):
         user = self.opt_out_with(openai_key="sk-mine", elevenlabs_key="xi-mine")
-        mine = a_voice(provider="eleven_labs", name="MyClone", created_by=user)
+        mine = a_voice(provider=Provider.ELEVENLABS, name="MyClone", created_by=user)
 
         self.assertCountEqual(VoiceModel.available_to(user), [self.openai, mine])
 

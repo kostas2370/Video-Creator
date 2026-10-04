@@ -81,7 +81,7 @@ def check_if_video(path: str) -> bool:
 def stored_file_exists(field) -> bool:
     """Whether a FileField actually has bytes behind it.
 
-    A field can be set and the file still be gone: the eleven_labs and 60db calls
+    A field can be set and the file still be gone: the ElevenLabs and 60dB calls
     swallow their own errors, and a half-finished generation leaves rows pointing at
     files that were never written. `path` also refuses anything outside MEDIA_ROOT,
     which counts as not there rather than as a crash.

@@ -3,28 +3,28 @@ from django.core.management import BaseCommand
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ...models import VoiceModel
-from ...utils.tts_utils import get_voices_from_60db
+from ...utils.tts_utils import get_voices_from_sixtydb
 
 
 class Command(BaseCommand):
-    help = "Setup the 60db voices"
+    help = "Setup the 60dB voices"
 
     def handle(self, *args, **options):
         if not ApiKeys.key_for(None, Provider.SIXTYDB):
             self.stderr.write(self.style.ERROR("You need to add the SIXTYDB_API_KEY"))
             return
 
-        voices = get_voices_from_60db()
+        voices = get_voices_from_sixtydb()
         for voice in voices:
             voice_exists = VoiceModel.objects.filter(
-                created_by=None, provider="60db", path=voice["voice_id"]
+                created_by=None, provider=Provider.SIXTYDB, path=voice["voice_id"]
             ).exists()
             if voice_exists:
                 continue
 
             VoiceModel.objects.create(
                 name=voice["name"],
-                provider="60db",
+                provider=Provider.SIXTYDB,
                 type="API",
                 path=voice["voice_id"],
                 sample=voice.get("preview_url", ""),

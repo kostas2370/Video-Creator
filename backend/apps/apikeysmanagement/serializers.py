@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ApiKeys, UserCustomTTSProvider, AuthType
+from .models import ApiKeys, UserCustomTTSProvider, AuthType, Provider
 
 KEY_FIELDS = (
     "openai_key",
@@ -55,10 +55,32 @@ class ApiKeysSerializer(serializers.ModelSerializer):
 
 
 class UserCustomTTSProviderSerializer(serializers.ModelSerializer):
+    voices_url = serializers.URLField(
+        max_length=500, required=False, allow_blank=True, allow_null=True
+    )
+
+    def validate_name(self, value):
+        if value in (Provider.OPENAI, Provider.ELEVENLABS, Provider.SIXTYDB):
+            raise serializers.ValidationError(
+                "This name is reserved for a built-in provider."
+            )
+        if self.instance and value != self.instance.name:
+            raise serializers.ValidationError(
+                "The provider name cannot be changed after creation."
+            )
+        return value
+
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
     class Meta:
         model = UserCustomTTSProvider
+        validators = [
+            serializers.UniqueTogetherValidator(
+                queryset=UserCustomTTSProvider.objects.all(),
+                fields=("user", "name"),
+                message="You already have a custom provider with this name.",
+            )
+        ]
         fields = [
             "id",
             "user",

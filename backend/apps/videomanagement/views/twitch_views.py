@@ -1,3 +1,4 @@
+from django.conf import settings
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -24,6 +25,12 @@ from ..throttling import TwitchGenerateRateThrottle
 @permission_classes((IsAuthenticated, TwitchGenerationLimitPermission))
 @throttle_classes([TwitchGenerateRateThrottle])
 def generate_twitch(request):
+    if not settings.TWITCH_GENERATION_ENABLED:
+        return Response(
+            {"message": "Twitch generation is temporarily unavailable."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     data = request.data.copy()
     serializer = TwitchSerializer(data=data, context=dict(request=request))
     serializer.is_valid(raise_exception=True)

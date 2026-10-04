@@ -1,10 +1,12 @@
 from unittest.mock import patch
 
+from django.test import override_settings
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import broke_user, user
 
 from ...models import Video
+from ...baker_recipes import avatar, intro, outro, voice_model
 from .base import ApiTestCase
 
 
@@ -22,6 +24,26 @@ class GenerateViewTests(ApiTestCase):
 
         self.assertEqual(response.status_code, 202)
         self.assertEqual(response.data["video"]["status"], "GENERATION")
+
+    def test_json_generation_accepts_blank_optional_music_audience_and_genre(self):
+        for music in ("", "   ", None):
+            with self.subTest(music=music):
+                with patch(
+                    "apps.videomanagement.tasks.generate_video_task.delay"
+                ) as delay:
+                    response = self.client.post(
+                        reverse("generate"),
+                        {
+                            "message": "A video without background music",
+                            "music": music,
+                            "target_audience": "",
+                            "genre": "",
+                        },
+                        format="json",
+                    )
+                self.assertEqual(response.status_code, 202, response.data)
+                delay.assert_called_once()
+                self.assertIn(delay.call_args.kwargs["music"], ("", None))
 
     def test_hands_the_work_to_a_worker(self):
         response, delay = self.post(narration=False)
@@ -58,7 +80,35 @@ class GenerateViewTests(ApiTestCase):
 
         self.assertEqual(self.post()[0].status_code, 401)
 
+    def test_rejects_foreign_assets_without_creating_or_queueing_a_video(self):
+        for field, recipe in (("avatar_selection", avatar), ("intro", intro), ("outro", outro)):
+            with self.subTest(field=field):
+                asset = recipe.make(created_by=user.make())
+                count = Video.objects.count()
+                response, delay = self.post(**{field: str(asset.id)})
+                self.assertEqual(response.status_code, 404)
+                self.assertEqual(Video.objects.count(), count)
+                delay.assert_not_called()
 
+    def test_accepts_owned_assets(self):
+        response, delay = self.post(
+            avatar_selection=str(avatar.make(created_by=self.user).id),
+            intro=str(intro.make(created_by=self.user).id),
+            outro=str(outro.make(created_by=self.user).id),
+        )
+        self.assertEqual(response.status_code, 202)
+        delay.assert_called_once()
+
+    def test_rejects_a_foreign_private_voice_before_queueing(self):
+        foreign = voice_model.make(created_by=user.make(), type="CUSTOM_API", provider="private")
+        count = Video.objects.count()
+        response, delay = self.post(voice_id=str(foreign.id))
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Video.objects.count(), count)
+        delay.assert_not_called()
+
+
+@override_settings(TWITCH_GENERATION_ENABLED=True)
 class TwitchGenerateViewTests(ApiTestCase):
     def post(self, **overrides):
         data = {"mode": "game", "value": "Fortnite", "amt": 5}
@@ -92,3 +142,19 @@ class TwitchGenerateViewTests(ApiTestCase):
         self.client.force_authenticate(user.make(generation_limit_for_twitch=0))
 
         self.assertEqual(self.post()[0].status_code, 403)
+
+
+class DisabledTwitchGenerateViewTests(ApiTestCase):
+    @override_settings(TWITCH_GENERATION_ENABLED=False)
+    def test_rejects_generation_without_creating_a_video_or_queueing_work(self):
+        count = Video.objects.count()
+        with patch(
+            "apps.videomanagement.tasks.generate_twitch_video_task.delay"
+        ) as delay:
+            response = self.client.post(
+                reverse("twitch_generate"),
+                {"mode": "game", "value": "Fortnite", "amt": 5},
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(Video.objects.count(), count)
+        delay.assert_not_called()

@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.usermanagement.baker_recipes import broke_user, user
 
-from ...baker_recipes import scene, scene_image, video
+from ...baker_recipes import avatar, intro, outro, scene, scene_image, video
 from .base import ApiTestCase
 
 
@@ -117,6 +117,36 @@ class VideoUpdateViewTests(ApiTestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_rejects_foreign_assets_before_changing_the_video(self):
+        row = self.video_for(title="Original")
+        for field, recipe in (("avatar", avatar), ("intro", intro), ("outro", outro)):
+            with self.subTest(field=field):
+                asset = recipe.make(created_by=user.make())
+                with patch("apps.videomanagement.services.VideoServices.update_scene") as regenerate:
+                    response = self.client.patch(
+                        reverse("video-detail", args=[row.id]),
+                        {"title": "Changed", field: str(asset.id)},
+                        format="json",
+                    )
+                self.assertEqual(response.status_code, 404)
+                regenerate.assert_not_called()
+                row.refresh_from_db()
+                self.assertEqual(row.title, "Original")
+
+    def test_accepts_owned_intro_and_outro(self):
+        row = self.video_for()
+        opening = intro.make(created_by=self.user)
+        closing = outro.make(created_by=self.user)
+        response = self.client.patch(
+            reverse("video-detail", args=[row.id]),
+            {"intro": str(opening.id), "outro": str(closing.id)},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.intro, opening)
+        self.assertEqual(row.outro, closing)
 
 
 class RenderViewTests(ApiTestCase):

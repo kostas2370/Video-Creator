@@ -1,5 +1,5 @@
 import logging
-from rest_framework.exceptions import APIException
+from .asset_selection import owned_asset
 
 
 from ..models import Video, VideoType, Avatar, Intro, Outro
@@ -32,35 +32,24 @@ def video_update(
         Videos: The updated video instance.
     """
 
+    selected_avatar = (
+        None if video.video_type == VideoType.TWITCH
+        else owned_asset(Avatar, avatar, video.created_by)
+    )
+    selected_intro = owned_asset(Intro, intro, video.created_by)
+    selected_outro = owned_asset(Outro, outro, video.created_by)
+
     if title:
         video.title = title
+    video.avatar = selected_avatar
+    video.intro = selected_intro
+    video.outro = selected_outro
 
-    if video.video_type == VideoType.TWITCH or avatar in (None, "", "None"):
-        video.avatar = None
-
-    else:
-        selected_avatar = Avatar.objects.get(id=avatar)
-        video.avatar = selected_avatar
-
-        if video.voice_model != selected_avatar.voice:
-            video.voice_model = selected_avatar.voice
-            video.save()
-            scenes = video.scenes.all()
-            for scene in scenes:
-                update_scene(scene)
-    try:
-        video.intro = (
-            None if intro in (None, "", "null") else Intro.objects.get(id=intro)
-        )
-    except Intro.DoesNotExist:
-        raise APIException("Intro with that id does not Exists !")
-
-    try:
-        video.outro = (
-            None if outro in (None, "", "null") else Outro.objects.get(id=outro)
-        )
-    except Outro.DoesNotExist:
-        raise APIException("Outro with that id does not Exists !")
+    if selected_avatar and video.voice_model != selected_avatar.voice:
+        video.voice_model = selected_avatar.voice
+        video.save()
+        for scene in video.scenes.all():
+            update_scene(scene)
 
     if video.video_type != VideoType.TWITCH:
         video.settings = dict(subtitles=subtitles, avatar_position=avatar_position)

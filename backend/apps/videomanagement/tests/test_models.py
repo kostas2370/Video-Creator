@@ -1,4 +1,5 @@
 from django.test import TestCase
+from apps.usermanagement.baker_recipes import user
 
 from ..baker_recipes import (
     avatar,
@@ -72,24 +73,34 @@ class SelectVoiceTests(TestCase):
 class SelectAvatarTests(TestCase):
     def setUp(self):
         self.voice = voice_model.make()
-        self.avatar = avatar.make(voice=self.voice)
+        self.user = user.make()
+        self.avatar = avatar.make(voice=self.voice, created_by=self.user)
 
     def test_returns_the_avatar_that_was_asked_for(self):
-        self.assertEqual(Avatar.select_avatar(selected=self.avatar.id), self.avatar)
+        self.assertEqual(Avatar.select_avatar(selected=self.avatar.id, user=self.user), self.avatar)
 
     def test_is_nothing_when_the_id_matches_no_avatar(self):
-        self.assertIsNone(Avatar.select_avatar(selected=99999))
+        self.assertIsNone(Avatar.select_avatar(selected=99999, user=self.user))
 
     def test_picks_at_random_when_none_was_named(self):
-        self.assertEqual(Avatar.select_avatar(), self.avatar)
+        self.assertEqual(Avatar.select_avatar(user=self.user), self.avatar)
 
     def test_picks_at_random_from_the_ones_that_share_a_voice(self):
         other_voice = voice_model.make()
-        avatar.make(voice=other_voice)
+        avatar.make(voice=other_voice, created_by=self.user)
 
-        picked = Avatar.select_avatar(selected="random", voice_model=self.voice)
+        picked = Avatar.select_avatar(selected="random", voice_model=self.voice, user=self.user)
 
         self.assertEqual(picked, self.avatar)
+
+    def test_never_selects_another_users_avatar(self):
+        foreign = avatar.make(created_by=user.make(), voice=self.voice)
+        self.assertIsNone(Avatar.select_avatar(selected=foreign.id, user=self.user))
+        self.assertEqual(Avatar.select_avatar(user=self.user), self.avatar)
+
+    def test_returns_none_without_an_owner_or_with_no_owned_avatars(self):
+        self.assertIsNone(Avatar.select_avatar())
+        self.assertIsNone(Avatar.select_avatar(user=user.make()))
 
 
 class SelectBackgroundTests(TestCase):
