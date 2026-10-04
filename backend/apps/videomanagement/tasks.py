@@ -1,14 +1,14 @@
 import logging
 from datetime import timedelta
-
+import requests
 from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from apps.apikeysmanagement.models import Provider
+from apps.apikeysmanagement.models import Provider, UserCustomTTSProvider
 
-from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel
+from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel, VoiceModelType
 from .utils import tts_utils
 
 logger = logging.getLogger(__name__)
@@ -124,19 +124,19 @@ def reap_stalled_videos():
 
 @shared_task
 def import_user_voices(user_id: int, provider: str):
-    provider_name, fetcher = VOICE_IMPORTS[provider]
+    fetcher = VOICE_IMPORTS.get(provider, ("custom", "get_voices_from_custom_provider"))
     user = get_user_model().objects.filter(pk=user_id).first()
     if user is None:
         return 0
 
     try:
-        voices = getattr(tts_utils, fetcher)(user)
+        voices = getattr(tts_utils, fetcher[1])(user, provider)
     except Exception:
         logger.exception("Could not read %s voices for user %s", provider, user_id)
         raise
 
     existing = set(
-        VoiceModel.objects.filter(created_by=user, provider=provider_name).values_list(
+        VoiceModel.objects.filter(created_by=user, provider=provider).values_list(
             "path", flat=True
         )
     )
@@ -144,14 +144,14 @@ def import_user_voices(user_id: int, provider: str):
     added = [
         VoiceModel(
             name=voice["name"],
-            provider=provider_name,
+            provider=provider,
             type="API",
-            path=voice["voice_id"],
+            path=voice["id"],
             sample=voice.get("preview_url", ""),
             created_by=user,
         )
         for voice in voices
-        if voice["voice_id"] not in existing
+        if voice["id"] not in existing
     ]
 
     VoiceModel.objects.bulk_create(added)
