@@ -1,5 +1,7 @@
 from django.test import override_settings
 from django.urls import reverse
+from unittest.mock import Mock
+from ...serializers import AvatarSerializer
 
 from apps.usermanagement.baker_recipes import superuser, user
 
@@ -44,3 +46,22 @@ class LibraryViewTests(ApiTestCase):
         voice_model.make(_quantity=2)
 
         self.assertEqual(len(self.client.get(reverse("voicemodel-list")).data), 0)
+
+    def test_avatar_cannot_use_another_users_private_voice(self):
+        foreign = voice_model.make(created_by=user.make(), type="CUSTOM_API", provider="private")
+        row = avatar.make(created_by=self.user)
+        serializer = AvatarSerializer(
+            row, data={"voice": foreign.id}, partial=True,
+            context={"request": Mock(user=self.user)},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("voice", serializer.errors)
+
+    def test_avatar_can_use_an_owned_custom_voice(self):
+        owned = voice_model.make(created_by=self.user, type="CUSTOM_API", provider="private")
+        self.user.use_service_api_keys = False
+        serializer = AvatarSerializer(
+            avatar.make(created_by=self.user), data={"voice": owned.id}, partial=True,
+            context={"request": Mock(user=self.user)},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)

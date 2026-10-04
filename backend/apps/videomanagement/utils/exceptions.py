@@ -40,6 +40,6 @@ class RenderFailedException(APIException):
 
 
 class HeaderInitiationException(APIException):
-    status_code = 500
+    status_code = 400
     default_detail = "Headers are missing"
     default_code = "headers_missing"

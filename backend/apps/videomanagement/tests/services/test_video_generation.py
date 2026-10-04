@@ -9,6 +9,8 @@ from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import (
     avatar,
+    intro,
+    outro,
     video,
     voice_model,
 )
@@ -163,7 +165,7 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(calls, ["speech", "images"])
 
     def test_uses_the_avatars_own_voice_when_an_avatar_was_picked(self):
-        picked = avatar.make()
+        picked = avatar.make(created_by=self.user)
 
         video = self.generate(avatar_selection=str(picked.id))
 
@@ -186,6 +188,33 @@ class GenerateVideoTests(TestCase):
         self.download_music.side_effect = RuntimeError("video unavailable")
 
         self.assertEqual(self.generate().status, "READY")
+
+    def test_rejects_foreign_assets_before_any_generation_work(self):
+        for field, recipe in (("avatar_selection", avatar), ("intro", intro), ("outro", outro)):
+            with self.subTest(field=field):
+                foreign = recipe.make(created_by=user.make())
+                with self.assertRaises(APIException) as error:
+                    self.generate(**{field: str(foreign.id)})
+                self.assertEqual(error.exception.status_code, 404)
+                self.get_reply.assert_not_called()
+                self.make_scenes_speech.assert_not_called()
+                self.charge_user.assert_not_called()
+                self.video.refresh_from_db()
+                self.assertEqual(self.video.status, "GENERATION")
+
+    def test_accepts_an_owned_intro_or_outro_independently(self):
+        for field, recipe in (("intro", intro), ("outro", outro)):
+            with self.subTest(field=field):
+                asset = recipe.make(created_by=self.user)
+                result = self.generate(**{field: str(asset.id)})
+                self.assertEqual(getattr(result, field), asset)
+
+    def test_rejects_a_foreign_private_voice_before_generating(self):
+        foreign = voice_model.make(created_by=user.make(), type="CUSTOM_API", provider="private")
+        with self.assertRaises(APIException):
+            self.generate(voice_id=str(foreign.id))
+        self.get_reply.assert_not_called()
+        self.charge_user.assert_not_called()
 
 
 class ResumeGenerationTests(TestCase):

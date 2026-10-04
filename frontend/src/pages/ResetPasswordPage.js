@@ -3,11 +3,7 @@ import PasswordChecklist from "react-password-checklist";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 
-import {
-  PASSWORD_RESET_CONFIRM_URL,
-  PASSWORD_RESET_VALIDATE_URL,
-} from "../endpoints";
-import { axiosInstance } from "../api/axiosPrivate";
+import { confirmPasswordReset, validatePasswordReset } from "../api/apiService";
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -27,12 +23,11 @@ const ResetPassword = () => {
       return;
     }
 
-    axiosInstance
-      .post(PASSWORD_RESET_VALIDATE_URL, { token })
-      .then(() => setTokenState("valid"))
-      .catch((error) => {
-        setTokenState(error?.response ? "invalid" : "valid");
-      });
+    let current = true;
+    validatePasswordReset({ token }).then(response => {
+      if (current) setTokenState(response.ok || response.status === null ? "valid" : "invalid");
+    });
+    return () => { current = false; };
   }, [token]);
 
   const handleSubmit = async (e) => {
@@ -44,26 +39,16 @@ const ResetPassword = () => {
     }
 
     setIsSaving(true);
-    axiosInstance
-      .post(PASSWORD_RESET_CONFIRM_URL, { token, password })
-      .then(() => {
-        toast.success("Password changed, you can sign in now");
-        navigate("/login/");
-      })
-      .catch((error) => {
-        setIsSaving(false);
-        const data = error?.response?.data;
-        if (!data) {
-          toast.error("Server is down !");
-          return;
-        }
-        const message =
-          data.password?.[0] || data.detail || "Could not reset your password";
-        toast.error(message);
-        if (data.detail) {
-          setTokenState("invalid");
-        }
-      });
+    const response = await confirmPasswordReset({ token, password });
+    setIsSaving(false);
+    if (!response.ok) {
+      toast.error(response.message);
+      if (response.errors?.detail) setTokenState("invalid");
+      return;
+    }
+    toast.success("Password changed, you can sign in now");
+    navigate("/login/");
+
   };
 
   return (

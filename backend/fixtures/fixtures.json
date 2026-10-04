@@ -7,7 +7,7 @@
       "type": "API",
       "path": "alloy",
       "sample": "https://cdn.openai.com/API/docs/audio/alloy.wav",
-      "provider": "open_ai"
+      "provider": "OPENAI"
     }
   },
   {
@@ -18,7 +18,7 @@
       "type": "API",
       "path": "echo",
       "sample": "https://cdn.openai.com/API/docs/audio/echo.wav",
-      "provider": "open_ai"
+      "provider": "OPENAI"
     }
   },
   {
@@ -29,7 +29,7 @@
       "type": "API",
       "path": "fable",
       "sample": "https://cdn.openai.com/API/docs/audio/fable.wav",
-      "provider": "open_ai"
+      "provider": "OPENAI"
     }
   },
   {
@@ -40,7 +40,7 @@
       "type": "API",
       "path": "onyx",
       "sample": "https://cdn.openai.com/API/docs/audio/onyx.wav",
-      "provider": "open_ai"
+      "provider": "OPENAI"
     }
   },
   {
@@ -51,7 +51,7 @@
       "type": "API",
       "path": "nova",
       "sample": "https://cdn.openai.com/API/docs/audio/nova.wav",
-      "provider": "open_ai"
+      "provider": "OPENAI"
     }
   },
   {
@@ -62,7 +62,7 @@
       "type": "API",
       "path": "shimmer",
       "sample": "https://cdn.openai.com/API/docs/audio/shimmer.wav",
-      "provider": "open_ai"
+      "provider": "OPENAI"
     }
   }
 ]

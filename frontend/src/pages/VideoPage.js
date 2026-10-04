@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import React, { useCallback, useState, useEffect } from "react";
 import { getVideo } from "../api/apiService";
 import { IoIosSettings } from "react-icons/io";
@@ -14,10 +14,11 @@ import { SceneCreationModal } from "../components/CreateSceneModal";
 
 export const Video = () => {
   const { videoId } = useParams();
-  const [videoInfo, setVideoInfo] = useState({ title: "re", scenes: [] });
+  const [videoInfo, setVideoInfo] = useState(null);
   const [refresh, setRefresh] = useState(0);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
+  const [renderPending, setRenderPending] = useState(false);
   const [showAddTwitchSceneModal, setShowAddTwitchSceneModal] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
@@ -27,7 +28,7 @@ export const Video = () => {
   useEffect(() => {
     let cancelled = false;
 
-    getVideo(videoId).then((response) => {
+    getVideo(videoId).then(({ data: response }) => {
       if (cancelled) return;
       if (response) setVideoInfo(response);
     });
@@ -38,8 +39,9 @@ export const Video = () => {
   }, [videoId, refresh]);
 
   const isRenderable =
-    videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED";
+    !renderPending && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED");
   const isResumable = videoInfo?.status === "FAILED";
+  const missingNarration = videoInfo?.scenes?.filter(scene => scene.narration_status === "missing") || [];
 
   return (
     <>
@@ -76,6 +78,10 @@ export const Video = () => {
         setShowModal={setShowRenderModal}
         id={videoId}
         name={videoInfo?.title}
+        onPendingChange={setRenderPending}
+        onUpdate={changes => setVideoInfo(current =>
+          String(current?.id) === String(videoId) ? { ...current, ...changes } : current
+        )}
         onFinished={() => setUpdated(true)}
       />
 
@@ -87,70 +93,41 @@ export const Video = () => {
         onFinished={() => setUpdated(true)}
       />
 
-      <div className="flex flex-col items-center">
-        <div className="flex items-center gap-2">
-          <h1 className="pt-4 pb-4 font-bold">{videoInfo?.title}</h1>
-          <button
-            type="button"
-            disabled={!isRenderable}
-            title={
-              isRenderable
-                ? "Render video"
-                : `Cannot render while ${videoInfo?.status}`
-            }
-            onClick={() => setShowRenderModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <GiProcessor className="h-4 w-4" />
-            Render
-          </button>
-
-          {isResumable ? (
-            <button
-              type="button"
-              title="Carry on generating this video"
-              onClick={() => setShowResumeModal(true)}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
-            >
-              <FaRedo className="h-4 w-4" />
-              Carry on
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            aria-label="Video settings"
-            title="Video settings"
-            onClick={() => setShowConfigModal(true)}
-            className="rounded-full bg-white/90 p-2 shadow transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 dark:bg-gray-900/80 dark:hover:bg-gray-900"
-          >
-            <IoIosSettings className="h-5 w-5 text-gray-700 dark:text-gray-200" />
-          </button>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <Link to="/videos/" className="text-sm font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400">← All videos</Link>
+        <header className="mb-8 mt-5 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">Video editor</p>
+            <h1 className="break-words text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{videoInfo?.title || "Loading video…"}</h1>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Fine-tune your story, scene by scene. Render when everything looks right.</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button type="button" disabled={!videoInfo} aria-label="Video settings" onClick={() => setShowConfigModal(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><IoIosSettings className="h-5 w-5" />Settings</button>
+            {isResumable && <button type="button" onClick={() => setShowResumeModal(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"><FaRedo />Carry on</button>}
+            <button type="button" disabled={!isRenderable} title={isRenderable ? "Render video" : `Cannot render while ${videoInfo?.status || "loading"}`} onClick={() => setShowRenderModal(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"><GiProcessor className="h-5 w-5" />{renderPending ? "Starting render…" : videoInfo?.status === "RENDERING" ? "Rendering…" : "Render video"}</button>
+          </div>
+        </header>
+        {missingNarration.length > 0 && <div role="status" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+          <p className="font-semibold">{missingNarration.length} {missingNarration.length === 1 ? "scene is" : "scenes are"} missing narration</p>
+          <p className="mt-1">Your script and visuals are saved. Retry narration in the scenes below, or render with the available audio.</p>
+          <div className="mt-3 flex flex-wrap gap-2">{videoInfo.scenes.map((scene, index) => scene.narration_status === "missing" && <a key={scene.id} href={`#scene-${scene.id}`} className="rounded-lg border border-amber-300 px-3 py-1 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">Scene {index + 1}</a>)}</div>
+        </div>}
+        <div className="grid items-start gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 lg:sticky lg:top-6 dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-center justify-between gap-2"><h2 className="font-semibold text-gray-900 dark:text-white">Your scenes</h2><span className="rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-300">{videoInfo?.scenes?.length || 0}</span></div>
+            <span className={`mt-4 inline-flex rounded-full px-3 py-1 text-xs font-medium ${isRenderable ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : isResumable ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"}`}>{videoInfo?.status?.replaceAll("_", " ").toLowerCase() || "Loading"}</span>
+            <nav aria-label="Scene navigation" className="mt-4 flex gap-2 overflow-x-auto lg:max-h-[50vh] lg:flex-col lg:overflow-y-auto">
+              {videoInfo?.scenes?.map((scene, index) => <a key={scene.id} href={`#scene-${scene.id}`} className="flex min-w-0 max-w-[220px] shrink-0 items-center gap-3 rounded-lg px-2 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 dark:text-gray-300 dark:hover:bg-gray-700"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold dark:bg-gray-700">{index + 1}</span><span className="truncate">{scene.text || `Scene ${index + 1}`}</span></a>)}
+            </nav>
+            <p className="mt-5 border-t border-gray-100 pt-4 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">Changes to scenes are saved individually. Render again to include them in your final video.</p>
+          </aside>
+          <section aria-label="Scenes" className="min-w-0 space-y-5">
+            {videoInfo?.scenes?.map((scene, index) => <Scene key={scene.id} scene={scene} index={index} setUpdated={setUpdated} video_type={videoInfo.video_type} />)}
+            {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">Your story starts here</h2><p className="mt-2 text-sm text-gray-500">Add a scene to start building your video.</p></div>}
+            <button type="button" disabled={!videoInfo} onClick={() => videoInfo?.video_type === "TWITCH" ? setShowAddTwitchSceneModal(true) : setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />Add scene</button>
+          </section>
         </div>
-
-        {videoInfo?.scenes?.map((scene) => {
-          return (
-            <Scene
-              key={scene.id}
-              scene={scene}
-              setUpdated={setUpdated}
-              video_type={videoInfo.video_type}
-            />
-          );
-        })}
-        <button
-          type="button"
-          onClick={() =>
-            videoInfo?.video_type === "TWITCH"
-              ? setShowAddTwitchSceneModal(true)
-              : setShowAddSceneModal(true)
-          }
-          className="mb-4 flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white/50 px-5 py-2.5 text-sm font-medium text-gray-600 transition hover:border-orange-400 hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400 dark:border-gray-600 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:border-orange-400 dark:hover:text-orange-400"
-        >
-          <FaPlus className="h-4 w-4 text-orange-500" />
-          Add scene
-        </button>
-      </div>
+      </main>
     </>
   );
 };

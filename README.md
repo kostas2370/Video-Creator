@@ -1,7 +1,7 @@
 # Viddie - AI-Powered Video Creation
 
 ## Short Description
-Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60db) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
+Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60dB) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
 
 ![The generation form](docs/screenshots/generate.png)
 
@@ -173,7 +173,7 @@ They are deliberately **not** baked into the image — that would add several GB
    [Creating a superuser](#creating-a-superuser) if you would rather not answer its
    prompts.
 
-   Voices are all API-backed — OpenAI, ElevenLabs or 60db. The fixtures load the six
+   Voices are all API-backed — OpenAI, ElevenLabs or 60dB. The fixtures load the six
    OpenAI voices, so `OPEN_API_KEY` alone is enough to render speech. Local on-device
    synthesis (coqui/TTS) has been removed: it pinned the project to a dependency tree
    that no longer resolves on Python 3.9, and it was the single largest contributor to
@@ -185,13 +185,13 @@ They are deliberately **not** baked into the image — that would add several GB
    py manage.py setup_elevenlabs
    ```
 
-6. (Optional) To enable 60db voices, add your `SIXTYDB_API_KEY` in the `.env` file and run:
+6. (Optional) To enable 60dB voices, add your `SIXTYDB_API_KEY` in the `.env` file and run:
 
    ```shell
    py manage.py setup_60db
    ```
 
-   This imports your 60db voices into the database. Once imported, a 60db voice can be
+   This imports your 60dB voices into the database. Once imported, a 60dB voice can be
    selected for a video just like any other voice — synthesis is routed automatically.
 
 7. In a second terminal, start the frontend:
@@ -254,26 +254,32 @@ python manage.py shell -c "from apps.usermanagement.models import User; User.obj
 
 ## API keys
 
-Keys do not have to live in `.env`. Signed in, open the avatar menu in the top right
-and choose **API keys** (<http://localhost:3000/api-keys/>) to manage your own from the
-browser.
+Keys do not have to live in `.env`. Signed in, choose **Providers** in the main menu,
+or **API keys and providers** in the account menu, to manage your own from the
+browser (<http://localhost:3000/api-keys/>).
 
-![The API keys page](docs/screenshots/api-keys.png)
+The page has two tabs: **Built-in API keys** for the supported services, and
+**Custom voice providers** for your own text-to-speech service. Switching tabs keeps
+unsaved changes in place.
+
+![Built-in API keys with separate provider tabs](docs/screenshots/api-keys.png)
 
 The page has one switch at the top that decides whose keys generation spends:
 
 | Switch | What gets used |
 | --- | --- |
 | **Use my own keys** — off (default) | The service keys from `.env`. Anything you saved is kept but unused. |
-| **Use my own keys** — on | Only the keys saved on this page. |
+| **Use my own keys** — on | Your saved provider keys and your custom voice providers. |
 
-Below it, every provider the pipeline can reach: OpenAI, Anthropic, Google Gemini,
+The **Built-in API keys** tab lists the supported services: OpenAI, Anthropic, Google Gemini,
 ElevenLabs, 60dB, Stable Diffusion, Midjourney, Google Custom Search (key and engine
-id), and the Twitch client id and secret. Each field saves on its own, so filling one
-in never disturbs the rest, and **Clear** empties a single provider while **Remove all
-my keys** wipes every one of them.
+id), and the Twitch client id and secret. Enter the keys you want to change, then
+click **Save**. Only changed fields are sent, so updating one never disturbs the
+rest. **Clear** marks a single key for removal on save; **Remove all my keys** removes
+all built-in provider keys after confirmation. Custom providers are managed separately
+in their own tab.
 
-![Removing every saved key](docs/screenshots/modal-clear-keys.png)
+![Confirming removal of built-in provider keys](docs/screenshots/modal-clear-keys.png)
 
 Two things to know before switching over:
 
@@ -284,15 +290,76 @@ Two things to know before switching over:
   browser; a saved key only ever shows masked, as `sk-••••••••ijkl`. That also means
   there is no way to read one back out of the UI — if you lose the original, replace it.
 
+### Custom voice providers
+
+Open the **Custom voice providers** tab to connect your own text-to-speech API.
+Each card shows its authentication method and whether a voices URL is configured.
+Custom voices are available only while **Use my own keys** is on; the tab offers a
+shortcut to switch if service keys are selected.
+
+![Custom voice providers in their own tab](docs/screenshots/custom-providers.png)
+
+Choose **Add provider** and fill in the three sections:
+
+1. **Connection:** give the provider a unique name and enter its speech endpoint URL.
+2. **Authentication:** choose a bearer token, custom header, basic authentication
+   (`username:password`), or no authentication. Enter the header name when using a
+   custom header.
+3. **Voices:** optionally enter a voices URL. Without one, the provider can be saved,
+   but it will not import voices into the generation picker.
+
+![Adding a custom voice provider](docs/screenshots/custom-provider-form.png)
+
+Under **Advanced: request field names**, the defaults are `text` and `voice_id`.
+Change them if your service expects different JSON field names. The speech endpoint
+receives a POST with those two fields and should return audio bytes.
+
+The voices URL must be accessible without authentication. It can return a JSON list,
+or an object containing that list under `voices` or `data`. Each voice needs `id` and
+`name`; `preview_url` is optional. For example:
+
+```json
+{
+  "voices": [
+    { "id": "narrator", "name": "Narrator" }
+  ]
+}
+```
+
+Adding a provider queues its initial voice import. Failed imports keep previously
+imported voices; successful refreshes update their names and preview URLs and remove
+voices no longer returned by the service. Use **Refresh voices** after editing
+its connection or when the service's voice list changes, then reload the generation
+page after the background import finishes. “Voice import queued” means the request was
+accepted; it does not confirm that the import has completed.
+
+**Edit** opens the form inside the card. Leave the credential field blank to keep the
+saved credential, type a replacement to change it, or select **Clear saved credential
+on save** to remove it. **Show** reveals only the replacement you typed. Provider
+names stay fixed after creation; add a new provider to use a different name.
+
+**Delete** asks for confirmation and removes the provider and its imported voices.
+Unsaved form changes are kept until you save or explicitly discard them.
+
 ### Keys and voices
 
-The voices you can pick follow the keys you hold, so the list never offers something
-that would fail at synthesis:
+After updating an existing installation, run `python manage.py migrate` in the
+backend (or `docker compose exec video_creator python manage.py migrate` from
+`backend/`). The provider-name migration updates saved voice records to `OPENAI`,
+`ELEVENLABS`, and `SIXTYDB`. Until it is applied, existing service voices with old
+provider names will not appear in the picker.
+
+Restart running Celery services after updating backend code so they load the current
+provider registry and tasks: `docker compose restart celery celery-beat` from
+`backend/`. Existing workers keep their previously loaded code until restarted.
+
+The built-in voices you can pick follow the keys you hold:
 
 - **A provider with no key is hidden.** No OpenAI key — service or your own, whichever
   the switch selects — and the OpenAI voices disappear from the picker, from the "Any
   voice" fallback, and from a hand-crafted API request. Clear every key and the list is
-  empty.
+  empty for built-in providers. Custom voices remain available under your own-key
+  mode if you have configured a custom provider.
 - **Saving an ElevenLabs or 60dB key imports that account's voices.** A background job
   picks them up a moment after you save, so they appear on the next reload. They are
   yours: nobody else sees them, and re-saving the same key does not duplicate them.
@@ -325,17 +392,32 @@ and the badge counts what you have not read yet.
 
 You still get the same thing by email, so closing the tab is safe either way.
 
+## Creating a video
+
+The generation page separates your story from its voice and visuals. Write a prompt,
+use one of the example ideas, or choose **Start from a template**. Pick a presenter
+or a voice, then choose web images or AI-generated visuals and their provider.
+
+The **Your video** panel summarizes those choices and contains **Generate video**.
+Narration can be turned off for a video made from clips only. **Advanced settings**
+contains the target audience, genre, script model, background music URL, and subtitles.
+The layout stacks vertically on smaller screens.
+
+![Advanced generation settings](docs/screenshots/generation-settings.png)
+
+Generation creates a draft first. Review its scenes in the editor before rendering
+it into a finished video.
+
 ## Templates
 
 A template is a saved copy of the generation form — the prompt and every setting under
-it. Fill the form in, open **More settings**, and use **Save as template** beside
-*Generate Video* to name and keep it. Picking it from the **Template** dropdown later
-fills the whole form back in, and the trash button next to that dropdown deletes the
-one currently selected.
+it. Fill the form in and use **Save as template** in the **Your video** panel to name
+and keep it. Picking it from **Start from a template** later fills the whole form back
+in, and **Delete** next to that dropdown deletes the currently selected template.
 
 ![Naming a template](docs/screenshots/save-template.png)
 
-Picking one fills the form back in, and the trash button beside the dropdown removes it:
+Picking one fills the form back in, and **Delete** beside the dropdown removes it:
 
 ![A saved template selected, with the delete button beside it](docs/screenshots/template-saved.png)
 
@@ -344,14 +426,25 @@ Templates are per user: nobody else sees yours, and two people can each keep one
 over an existing name is refused rather than silently replacing it — delete the old one
 first, or pick another name.
 
+## Navigation
+
+The main menu links to generation, your videos, avatars, assets, and providers.
+It highlights the current section and collapses into a menu on smaller screens. The
+account menu, notifications, and theme switch are available in the header.
+
+![Main navigation and account menu](docs/screenshots/navigation.png)
+
 ## Your videos
 
-Everything you have generated, with its status while it is still being worked on. From
-here you can open a video, edit its scenes, regenerate it or delete it.
+Search your library by title and use the status badges to see what is ready, finished,
+or still being worked on. **Edit scenes** opens the editor; **Watch** previews a
+finished video. The actions menu includes details, rendering, resuming, and deletion.
+**Create video** starts a new story.
 
 ![The videos list](docs/screenshots/videos.png)
 
-A generation that stopped early is not a dead end. The green action carries it on from
+A generation that stopped early is not a dead end. **Carry on generating** in its
+actions menu carries it on from
 where it got to — only the lines with no narration and the shots with no image are made
 again, so nothing already generated is paid for twice.
 
@@ -368,8 +461,12 @@ not mean generating the whole thing again.
 
 ![Editing a generated video scene by scene](docs/screenshots/video-edit.png)
 
-The gear beside the title opens the video's own settings — intro, outro, avatar and
-subtitles — and the processor icon next to it queues the render.
+Use the scene navigator to jump between numbered scene cards. **Edit text** opens
+the dialogue editor, where you can review an AI rewrite before saving. **Edit visual**
+lets you upload an image or video with a preview, or generate a new image.
+
+**Settings** opens the video's intro, outro, avatar and subtitle controls.
+**Render video** queues the render once the video is ready.
 
 | | |
 | --- | --- |
@@ -383,8 +480,17 @@ subtitles — and the processor icon next to it queues the render.
 ## Avatars and assets
 
 An avatar is a face plus the voice that speaks for it; SadTalker animates it against
-the narration. Intros, outros and music live under **My assets** and are picked per
-video.
+the narration. Search your presenters by name and preview their voices from each card.
+**Create avatar** pairs a portrait upload with a voice and lets you preview the portrait
+before saving.
+
+![Avatar library](docs/screenshots/avatars.png)
+
+**My assets** keeps reusable intro and outro clips in separate tabs. Search each
+collection, preview a clip, or upload a new one with a name and video preview. Pick
+your intro and outro in the video settings.
+
+![Intro and outro assets](docs/screenshots/assets.png)
 
 | | |
 | --- | --- |
@@ -393,12 +499,18 @@ video.
 
 ## Twitch compilations
 
-**Twitch Generation** builds a compilation from Twitch clips rather than from a written
-prompt — give it a game or a streamer and it picks the clips, titles them and stitches
-them together. It needs `TWITCH_CLIENT` and `TWITCH_CLIENT_SECRET`, either in `.env` or
-saved on the [API keys](#api-keys) page.
+Twitch video generation is temporarily disabled. It is hidden from navigation, its
+page displays an unavailable message, and the generation API rejects new requests
+without creating a video or queueing a job. Existing Twitch videos remain in your
+library.
 
-![The Twitch compilation form](docs/screenshots/twitch.png)
+## Frontend API requests
+
+Frontend requests use `src/api/request.js` through the helpers in `src/api/apiService.js`.
+Every helper returns `{ ok, data, status, message, errors }` plus response headers.
+JSON objects and multipart uploads use Axios content-type handling, and search and
+pagination values are sent as query parameters. Callers that display their own
+validation errors suppress the shared error notification.
 
 ## Architecture
 
@@ -440,8 +552,10 @@ For any inquiries or support, feel free to reach out:
 ✅ Save the generation form as a named template and pick it again later, with a delete button beside the picker\
 ✅ Fixed the "video completed" and "video failed" emails, which went out addressed to the subject line rather than to you\
 ✅ Fixed pressing render on a finished video reporting success before the render had started\
+✅ Redesigned the generation form with visible voice and visual controls, advanced settings, and a live creation summary\
+✅ Added a dedicated custom voice providers tab, with connection and authentication settings, voice imports, and credential management\
 ✅ Added per-user API keys, managed from the app and stored encrypted, so a user can spend their own quota instead of the service keys\
-✅ Voices now follow your keys — your ElevenLabs/60db voices import themselves, and a provider you hold no key for is hidden instead of failing mid-render\
+✅ Voices now follow your keys — your ElevenLabs/60dB voices import themselves, and a provider you hold no key for is hidden instead of failing mid-render\
 ✅ Added a voice picker to the generation form for videos made without an avatar\
 ✅ Added password reset by email\
 ✅ Merged the frontend into this repository and added it to Docker, served on one origin\
@@ -453,11 +567,10 @@ For any inquiries or support, feel free to reach out:
 ✅ Fixed rendered audio being unplayable in Safari/QuickTime (mp3-in-mp4 → aac)\
 ✅ Added support for Gemini and Claude AI models\
 ✅ Integrated ElevenLabs API voices\
-✅ Integrated 60db API voices\
+✅ Integrated 60dB API voices\
 ✅ Enabled compilation video creation from Twitch (by game or streamer)\
 ✅ Added OpenAI voices\
 ✅ Integrated MidJourney and Stable Diffusion as image providers *(Change providers in ****\`\`****)*\
 ✅ Dockerized the application for easier deployment
 
 ---
-

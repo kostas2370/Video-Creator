@@ -24,6 +24,9 @@ FIELD_ENCRYPTION_KEY = (
 COOKIES_SECURE = False
 CROSS_SITE_SAMESITE = "Lax"
 
+# Twitch video generation is temporarily paused.
+TWITCH_GENERATION_ENABLED = False
+
 # Application definition
 INSTALLED_APPS = [
     "django.contrib.admin",

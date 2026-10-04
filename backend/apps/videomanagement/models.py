@@ -10,10 +10,14 @@ from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class VoiceModelType(models.TextChoices):
     API = "API", "Api"
+    CUSTOM_API = "CUSTOM_API", "Custom Api"
 
 
 class VideoStatus(models.TextChoices):
@@ -41,14 +45,10 @@ RENDERABLE_STATUSES = (
     VideoStatus.RENDERING,
 )
 
-VOICE_PROVIDER_KEYS = {
-    "open_ai": Provider.OPENAI,
-    "eleven_labs": Provider.ELEVENLABS,
-    "60db": Provider.SIXTYDB,
-}
+VOICE_PROVIDERS = (Provider.OPENAI, Provider.ELEVENLABS, Provider.SIXTYDB)
 
 GPT_MODEL_CHOICES = [(model, model) for model in settings.ACCEPTED_MODELS]
-ACCOUNT_SCOPED_VOICE_PROVIDERS = ("eleven_labs", "60db")
+ACCOUNT_SCOPED_VOICE_PROVIDERS = (Provider.ELEVENLABS, Provider.SIXTYDB)
 
 
 def default_video_settings() -> dict:
@@ -188,17 +188,13 @@ class VoiceModel(AbstractModel):
     @staticmethod
     def available_to(user) -> models.QuerySet:
         playable = [
-            provider
-            for provider, key in VOICE_PROVIDER_KEYS.items()
-            if ApiKeys.key_for(user, key)
+            provider for provider in VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
         ]
-
         spending_own_keys = (
             user is not None
             and getattr(user, "is_authenticated", False)
             and not user.use_service_api_keys
         )
-
         shared = models.Q(created_by=None)
         if spending_own_keys:
             scope = (
@@ -207,7 +203,11 @@ class VoiceModel(AbstractModel):
         else:
             scope = shared
 
-        return VoiceModel.objects.filter(scope, provider__in=playable)
+        valid_providers = models.Q(provider__in=playable) | (
+            models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
+        )
+
+        return VoiceModel.objects.filter(scope & valid_providers)
 
     @staticmethod
     def select_voice(user=None) -> VoiceModel:
@@ -238,21 +238,18 @@ class Avatar(AbstractModel):
 
     @staticmethod
     def select_avatar(
-        selected: str = "random", voice_model: VoiceModel = None
+        selected: str = "random", voice_model: VoiceModel = None, user=None
     ) -> Union[Avatar, None]:
+        if user is None:
+            return None
+        avatars = Avatar.objects.filter(created_by=user)
         if selected == "random":
-            if voice_model is None:
-                avatars = Avatar.objects.all()
-            else:
-                avatars = Avatar.objects.filter(voice=voice_model)
-
-            return avatars[randint(0, avatars.count() - 1)]
-
+            if voice_model is not None:
+                avatars = avatars.filter(voice=voice_model)
+            count = avatars.count()
+            return avatars[randint(0, count - 1)] if count else None
         if isinstance(selected, int):
-            items = Avatar.objects.filter(id=selected)
-            if items.count() == 1:
-                return items.first()
-
+            return avatars.filter(id=selected).first()
         return None
 
 

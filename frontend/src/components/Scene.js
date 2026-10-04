@@ -5,11 +5,12 @@ import { IoTrashBinSharp } from "react-icons/io5";
 import { DeleteModal } from "./DeleteModal";
 import { FaPlus } from "react-icons/fa6";
 import { HiOutlinePencilSquare, HiOutlineEllipsisVertical } from "react-icons/hi2";
-import { deleteImageScene, deleteScene } from "../api/apiService";
+import { deleteImageScene, deleteScene, updateScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
-export const Scene = ({ scene, setUpdated, video_type }) => {
+import { toast } from "react-toastify";
+export const Scene = ({ scene, setUpdated, video_type, index = 0 }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -17,6 +18,19 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
   const [showEditImageModal, setShowEditImageModal] = useState(false);
 
   const MEDIA_URL = API_HOST;
+  const [retryingNarration, setRetryingNarration] = useState(false);
+  const retryNarration = async () => {
+    if (retryingNarration) return;
+    setRetryingNarration(true);
+    try {
+      const response = await updateScene(scene.id, { text: scene.text });
+      if (response.ok) {
+        if (response.data?.narration_status === "available") toast.success("Narration is ready");
+        else toast.warning("Narration is still unavailable. You can retry later or render with the available audio.");
+        setUpdated(true);
+      }
+    } finally { setRetryingNarration(false); }
+  };
 
   return (
     <>
@@ -53,75 +67,30 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
           image: MEDIA_URL + scene?.scene_image?.file,
           scene_id: scene.id,
           scene_image_id: scene?.scene_image?.id,
-          prompt: scene.scene_image.prompt,
-          with_audio: scene.scene_image.with_audio,
+          prompt: scene.scene_image?.prompt,
+          with_audio: scene.scene_image?.with_audio,
         }}
         setUpdate={setUpdated}
       />
-      <div className="mb-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:grid-cols-2 dark:border-gray-700 dark:bg-gray-800">
-        <div className="relative">
-          {video_type !== "TWITCH" ? (
-            <>
-              <div className="absolute right-0 top-0 z-10 flex gap-2">
-                <button
-                  type="button"
-                  aria-label="Edit scene text"
-                  className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
-                  onClick={() => setShowEditModal(true)}
-                >
-                  <FaPencilAlt className="h-4 w-4 text-blue-500" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Delete scene"
-                  className="rounded-full bg-white/90 p-2 shadow hover:bg-white dark:bg-gray-900/80 dark:hover:bg-gray-900"
-                  onClick={() => setShowDeleteSceneModal(true)}
-                >
-                  <IoTrashBinSharp className="h-4 w-4 text-red-500" />
-                </button>
-              </div>
-
-              <audio controls key={scene.file} className="mb-3 w-full">
-                <source src={MEDIA_URL + scene.file ?? ""} />
-              </audio>
-            </>
-          ) : null}
-
-          <div className="relative w-full">
-            <textarea
-              className="w-full h-40 resize-none p-2.5 text-sm rounded-lg border bg-gray-50 border-gray-300 text-gray-900 disabled:opacity-100 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
-              value={scene.text}
-              required=""
-              disabled
-            />
+      <article id={`scene-${scene.id}`} className="scroll-mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+          <h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2>
+          {video_type !== "TWITCH" && <button type="button" aria-label="Delete scene" onClick={() => setShowDeleteSceneModal(true)} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><IoTrashBinSharp className="h-4 w-4" /></button>}
+        </header>
+        <div className="grid gap-6 p-5 md:grid-cols-2">
+          <div className="min-w-0">
+            <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Dialogue</h3>{video_type !== "TWITCH" && <button type="button" aria-label="Edit scene text" onClick={() => setShowEditModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><FaPencilAlt className="h-3 w-3" />Edit text</button>}</div>
+            <p className="min-h-[120px] whitespace-pre-wrap break-words text-sm leading-7 text-gray-700 dark:text-gray-200">{scene.text || "No dialogue yet."}</p>
+            {scene.narration_status === "missing" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Narration unavailable</p>
+              <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-300">This scene has no narration audio. Your dialogue and visual are saved.</p>
+              <button type="button" disabled={retryingNarration} onClick={retryNarration} className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/50 dark:text-amber-200">{retryingNarration ? "Retrying…" : "Retry narration"}</button>
+            </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">Narration is off for this video</p> : video_type !== "TWITCH" && (scene.file ? <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Preview narration</p><audio aria-label={`Scene ${index + 1} narration`} controls key={scene.file} className="h-10 w-full"><source src={MEDIA_URL + scene.file} /></audio></div> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
           </div>
-        </div>
-        <div className="relative inline-block">
-          {scene.scene_image?.file &&
-          scene.scene_image?.file.includes("mp4") ? (
-            <>
-              <video
-                controls
-                src={MEDIA_URL + scene.scene_image.file}
-                className="h-48 w-full rounded-lg object-cover"
-              ></video>
-            </>
-          ) : (
-            <>
-              {scene.scene_image?.file ? (
-                <img
-                  src={MEDIA_URL + scene.scene_image.file}
-                  alt={scene.scene_image.prompt || "Scene image"}
-                  className="h-48 w-full rounded-lg object-cover"
-                />
-              ) : (
-                <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-400">
-                  No image yet
-                </div>
-              )}
-            </>
-          )}
-
+          <div className="min-w-0">
+            <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Visual</h3>{video_type !== "TWITCH" && <button type="button" onClick={() => setShowEditImageModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlinePencilSquare className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button>}</div>
+            <div className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900">
+              {scene.scene_image?.file ? (scene.scene_image.file.includes("mp4") ? <video controls src={MEDIA_URL + scene.scene_image.file} className="aspect-video w-full object-contain" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="aspect-video w-full object-contain" />) : <div className="flex aspect-video items-center justify-center text-sm text-gray-400">No visual yet</div>}
           <Menu as="div" className="absolute top-2 right-2 z-10">
             <MenuButton
               aria-label="Image actions"
@@ -131,7 +100,7 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
             </MenuButton>
             <MenuItems
               anchor="bottom end"
-              className="mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-800"
+              className="z-50 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg focus:outline-none dark:border-gray-700 dark:bg-gray-800"
             >
               {scene.scene_image?.file ? (
                 <>
@@ -169,9 +138,11 @@ export const Scene = ({ scene, setUpdated, video_type }) => {
               )}
             </MenuItems>
           </Menu>
+            </div>
+            {scene.scene_image?.prompt && <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p>}
+          </div>
         </div>
-      </div>
-
+      </article>
     </>
   );
 };

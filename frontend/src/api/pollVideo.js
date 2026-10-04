@@ -27,7 +27,7 @@ export function pollVideo(id, options = {}) {
     const tick = async () => {
       if (cancelled) return;
 
-      const video = await getVideo(id);
+      const { data: video } = await getVideo(id);
 
       if (cancelled) return;
 

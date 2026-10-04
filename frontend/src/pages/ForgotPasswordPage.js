@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
-import { PASSWORD_RESET_URL } from "../endpoints";
-import { axiosInstance } from "../api/axiosPrivate";
+
+import { requestPasswordReset } from "../api/apiService";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -21,14 +21,9 @@ const ForgotPassword = () => {
     }
 
     setIsSending(true);
-    try {
-      await axiosInstance.post(PASSWORD_RESET_URL, { email: email.trim() });
-    } catch (error) {
-      if (!error?.response) {
-        toast.error("Server is down !");
-        setIsSending(false);
-        return;
-      }
+    const response = await requestPasswordReset({ email: email.trim() });
+    if (!response.ok && response.status === null) {
+      toast.error(response.message); setIsSending(false); return;
     }
 
     setIsSending(false);

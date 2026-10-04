@@ -31,7 +31,7 @@ export const SceneCreationModal = ({
 
     setLoading(true);
 
-    createScene(id, formData).then((response) => {
+    createScene(id, formData).then(({ data: response }) => {
       setLoading(false);
       if (response) {
         toast.success("Scene got added successfully !");
