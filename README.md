@@ -388,7 +388,7 @@ Generation and rendering take minutes, so the bell in the top right tells you wh
 of your videos is done — or when it stopped. Each entry links to the video it is about,
 and the badge counts what you have not read yet.
 
-![The notification bell](docs/screenshots/bell-open.png)
+![The notification bell](docs/screenshots/navigation-notifications.png)
 
 You still get the same thing by email, so closing the tab is safe either way.
 
@@ -448,9 +448,9 @@ actions menu carries it on from
 where it got to — only the lines with no narration and the shots with no image are made
 again, so nothing already generated is paid for twice.
 
-![The resume action on a failed video](docs/screenshots/videos-resume.png)
+![The resume action on a failed video](docs/screenshots/videos-carry-on-action.png)
 
-![Confirming a resume](docs/screenshots/modal-resume.png)
+![Confirming a resume](docs/screenshots/videos-carry-on-confirmation.png)
 
 ## Editing a video
 
@@ -476,11 +476,11 @@ to use the available audio. Videos with narration turned off do not show this wa
 
 | | |
 | --- | --- |
-| ![Video settings](docs/screenshots/modal-video-config.png) | ![Queue a render](docs/screenshots/modal-render.png) |
+| ![Video settings](docs/screenshots/editor-video-settings.png) | ![Queue a render](docs/screenshots/editor-render-confirmation.png) |
 | **Video settings** — intro, outro, avatar, subtitles | **Render** — warns about missing narration, then queues the job |
 | ![Edit a scene](docs/screenshots/modal-edit-scene.png) | ![Edit a scene image](docs/screenshots/modal-edit-image.png) |
 | **Edit scene** — rewrite the line and resynthesise it | **Edit scene image** — replace it, or regenerate from a new description |
-| ![Add a scene](docs/screenshots/modal-add-scene.png) | ![Delete a scene](docs/screenshots/modal-delete-scene.png) |
+| ![Add a scene](docs/screenshots/editor-add-scene.png) | ![Delete a scene](docs/screenshots/editor-delete-scene.png) |
 | **Add scene** — write a line and upload or generate its visual | **Delete** — the same confirmation guards scenes, images, videos and assets |
 
 ## Avatars and assets
