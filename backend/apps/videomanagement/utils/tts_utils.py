@@ -248,8 +248,12 @@ def get_voices_from_60db(user=None, **kwargs) -> list:
     return response.json().get("data", [])
 
 
-def get_voices_from_custom_provider(user=None, custom_provider_name: str = None) -> None:
-    custom_provider = UserCustomTTSProvider.objects.get(user=user, name=custom_provider_name)
+def get_voices_from_custom_provider(
+    user=None, custom_provider_name: str = None
+) -> None:
+    custom_provider = UserCustomTTSProvider.objects.get(
+        user=user, name=custom_provider_name
+    )
     if not custom_provider.voices_url:
         return
     try:

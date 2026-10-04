@@ -6,16 +6,19 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('apikeysmanagement', '0003_rename_created_by_usercustomttsprovider_user'),
+        ("apikeysmanagement", "0003_rename_created_by_usercustomttsprovider_user"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='usercustomttsprovider',
-            name='user',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='custom_tts_providers', to=settings.AUTH_USER_MODEL),
+            model_name="usercustomttsprovider",
+            name="user",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="custom_tts_providers",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

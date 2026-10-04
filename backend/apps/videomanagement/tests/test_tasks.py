@@ -177,14 +177,17 @@ class UpdateUserVoicesTests(TestCase):
 
     def test_updates_the_voices_from_a_custom_provider(self):
         custom_provider = user_custom_tts_provider.make(user=self.user)
-        
-        with self.custom_provider_returns([{"name": "Rachel", "id": "abc", "preview_url": "https://a.test/x"}]):
+
+        with self.custom_provider_returns(
+            [{"name": "Rachel", "id": "abc", "preview_url": "https://a.test/x"}]
+        ):
             added = update_user_voices(self.user.id, custom_provider.name)
 
         voice = VoiceModel.objects.get(path="abc")
         self.assertEqual(added, 1)
         self.assertEqual(voice.created_by, self.user)
         self.assertEqual(voice.provider, custom_provider.name)
+
 
 class ReapStalledVideosTests(TestCase):
     """A task killed without unwinding never reaches its own except clause."""
