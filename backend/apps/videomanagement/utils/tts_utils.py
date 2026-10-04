@@ -11,7 +11,6 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
-from apps.videomanagement.models import VoiceModel, VoiceModelType
 
 logger = logging.getLogger(__name__)
 
