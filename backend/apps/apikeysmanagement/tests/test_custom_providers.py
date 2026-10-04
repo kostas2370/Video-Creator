@@ -177,7 +177,7 @@ class CustomProviderApiTests(TestCase):
                 )
 
     def test_builtin_provider_identifiers_cannot_be_used_for_custom_providers(self):
-        for name in ("OPENAI", "ELEVENLABS", "SIXTYDB"):
+        for name in ("OPENAI", "ELEVENLABS", "SIXTYDB", "openai", "ElevenLabs"):
             with self.subTest(name=name):
                 response = self.client.post(
                     self.list_url,

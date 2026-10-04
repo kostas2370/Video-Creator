@@ -87,6 +87,38 @@ class CustomTtsTests(TestCase):
                     self.assertNotIn("x-service-key", headers)
                     self.assertIsNone(auth)
 
+    def test_extra_parameters_preserve_types_and_cannot_replace_text_or_voice(self):
+        parameters = {
+            "model": "tts-model",
+            "speed": 1.1,
+            "options": {"seed": 3},
+            "input": "wrong",
+            "speaker": "wrong",
+        }
+        self.provider.extra_parameters = parameters
+        self.provider.save()
+        response = MagicMock()
+        response.iter_content.return_value = [b"audio"]
+        with patch.object(tts_utils.requests, "post", return_value=response) as post:
+            save(
+                ApiSyn(self.provider.name, "voice-123"),
+                "hello",
+                self.out,
+                user=self.user,
+            )
+        self.assertEqual(
+            post.call_args.kwargs["json"],
+            {
+                "model": "tts-model",
+                "speed": 1.1,
+                "options": {"seed": 3},
+                "input": "hello",
+                "speaker": "voice-123",
+            },
+        )
+        self.provider.refresh_from_db()
+        self.assertEqual(self.provider.extra_parameters, parameters)
+
     def test_never_uses_another_users_provider_configuration(self):
         with patch.object(tts_utils.requests, "post") as post:
             with self.assertRaises(APIException):

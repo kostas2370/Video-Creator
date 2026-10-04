@@ -10,9 +10,12 @@ from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..prompt_utils import format_dalle_prompt
 
+from .registry import ImageProviderRegistry
+
 logger = logging.getLogger(__name__)
 
 
+@ImageProviderRegistry.register("stable-diffusion")
 def generate_from_diffusion(
     prompt: str, dir_name: str, title: str = "", user=None, *args, **kwargs
 ):

@@ -13,6 +13,8 @@ from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..llm import select_from_vision
 
+from .registry import ImageProviderRegistry
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,6 +80,7 @@ def download(q: str, amt: int = 1, path: str = "", user=None) -> Union[str, None
     return saved
 
 
+@ImageProviderRegistry.register("google", mode="WEB")
 def download_image_from_google(
     q: str, path: str, amt: int = 1, user=None, *args, **kwargs
 ) -> str:

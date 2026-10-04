@@ -128,20 +128,21 @@ class ApiKeys(LifecycleModelMixin, models.Model):
                 update_user_voices.delay(self.user_id, provider)
 
 
-class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
-    user = models.ForeignKey(
-        get_user_model(),
-        on_delete=models.CASCADE,
-        related_name="custom_tts_providers",
-    )
-    name = models.CharField(
-        max_length=50, help_text="Unique identifier, e.g., 'my_local_tts'"
-    )
-    endpoint_url = models.URLField(
-        help_text="The POST endpoint URL for the TTS service"
+class AbstractCustomProvider(models.Model):
+    """Shared connection settings; each concrete provider keeps its own table."""
+
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    name = models.CharField(max_length=50)
+    endpoint_url = models.URLField()
+    extra_parameters = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Additional JSON fields sent with generation requests",
     )
     auth_type = models.CharField(
-        max_length=20, choices=AuthType.choices, default=AuthType.BEARER
+        max_length=20,
+        choices=AuthType.choices,
+        default=AuthType.BEARER,
     )
     auth_header_name = models.CharField(
         max_length=100,
@@ -154,16 +155,9 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
         default="",
         help_text="Secret API key, token, or credentials",
     )
-    voices_url = models.CharField(max_length=500, null=True, blank=True)
-    text_field_name = models.CharField(max_length=50, default="text")
-    voice_field_name = models.CharField(max_length=50, default="voice_id")
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "name"], name="unique_user_custom_tts_provider"
-            )
-        ]
+        abstract = True
 
     def __str__(self):
         return f"{self.name} ({self.user.username if self.user else ''})"
@@ -193,12 +187,70 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
 
         return headers, auth
 
+    def request_payload(self, fields):
+        """Required generation fields take precedence over optional parameters."""
+        return {**self.extra_parameters, **fields}
+
+
+class UserCustomTTSProvider(LifecycleModelMixin, AbstractCustomProvider):
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="custom_tts_providers",
+    )
+    name = models.CharField(
+        max_length=50, help_text="Unique identifier, e.g., 'my_local_tts'"
+    )
+    endpoint_url = models.URLField(
+        help_text="The POST endpoint URL for the TTS service"
+    )
+    voices_url = models.CharField(max_length=500, null=True, blank=True)
+    text_field_name = models.CharField(max_length=50, default="text")
+    voice_field_name = models.CharField(max_length=50, default="voice_id")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                name="unique_user_custom_tts_provider",
+            )
+        ]
+
     @hook(AFTER_CREATE, on_commit=True)
     def create_voices(self):
         from apps.videomanagement.tasks import update_user_voices
+
         update_user_voices.delay(self.user.id, self.name)
 
     @hook(AFTER_DELETE, on_commit=True)
     def delete_voices(self):
         from apps.videomanagement.models import VoiceModel
+
         VoiceModel.objects.filter(created_by=self.user, provider=self.name).delete()
+
+
+class VisualOutputType(models.TextChoices):
+    IMAGE = "IMAGE", "Image"
+    VIDEO = "VIDEO", "Video"
+
+
+class UserCustomVisualProvider(AbstractCustomProvider):
+    user = models.ForeignKey(
+        get_user_model(),
+        on_delete=models.CASCADE,
+        related_name="custom_visual_providers",
+    )
+    output_type = models.CharField(max_length=10, choices=VisualOutputType.choices)
+    endpoint_url = models.URLField(max_length=500)
+    prompt_field_name = models.CharField(max_length=50, default="prompt")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                name="unique_user_custom_visual_provider",
+            )
+        ]
+        ordering = ["name", "id"]
