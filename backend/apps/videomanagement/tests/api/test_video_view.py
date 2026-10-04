@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 from apps.usermanagement.baker_recipes import broke_user, user
 
 from ...baker_recipes import avatar, intro, outro, scene, scene_image, video
+from ...tasks import render_video_task, resume_video_task
 from .base import ApiTestCase
 
 
@@ -36,6 +37,20 @@ class VideoDetailQueryTests(TestCase):
 
 
 class VideoViewTests(ApiTestCase):
+    def test_unsupported_write_routes_return_405_without_mutating_videos(self):
+        row = self.video_for(title="Original")
+        payload = {"title": "Changed", "prompt": {"prompt": "New prompt"}}
+        count = row.__class__.objects.count()
+        response = self.client.post(reverse("video-list"), payload, format="json")
+        self.assertEqual(response.status_code, 405)
+        response = self.client.put(
+            reverse("video-detail", args=[row.pk]), payload, format="json"
+        )
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(row.__class__.objects.count(), count)
+        row.refresh_from_db()
+        self.assertEqual(row.title, "Original")
+
     def test_lists_only_the_callers_own_videos(self):
         mine = self.video_for()
         self.video_for(owner=user.make())
@@ -83,7 +98,17 @@ class VideoViewTests(ApiTestCase):
 
 class VideoUpdateViewTests(ApiTestCase):
     def test_renames_a_video_without_touching_anything_else(self):
-        video = self.video_for(title="Old Name")
+        selected_avatar = avatar.make(created_by=self.user)
+        opening = intro.make(created_by=self.user)
+        closing = outro.make(created_by=self.user)
+        original_settings = {
+            "narration": False, "subtitles": True, "avatar_position": "left,bottom"
+        }
+        video = self.video_for(
+            title="Old Name", avatar=selected_avatar, intro=opening, outro=closing,
+            settings=original_settings,
+        )
+        original_voice = video.voice_model_id
 
         response = self.client.patch(
             reverse("video-detail", args=[video.id]),
@@ -94,6 +119,23 @@ class VideoUpdateViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 200)
         video.refresh_from_db()
         self.assertEqual(video.title, "New Name")
+        self.assertEqual(video.avatar_id, selected_avatar.pk)
+        self.assertEqual(video.intro_id, opening.pk)
+        self.assertEqual(video.outro_id, closing.pk)
+        self.assertEqual(video.voice_model_id, original_voice)
+        self.assertEqual(video.settings, original_settings)
+
+    def test_explicit_null_clears_only_the_selected_asset(self):
+        opening = intro.make(created_by=self.user)
+        closing = outro.make(created_by=self.user)
+        row = self.video_for(intro=opening, outro=closing)
+        response = self.client.patch(
+            reverse("video-detail", args=[row.pk]), {"intro": None}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        row.refresh_from_db()
+        self.assertIsNone(row.intro_id)
+        self.assertEqual(row.outro_id, closing.pk)
 
     def test_turns_subtitles_on(self):
         video = self.video_for()
@@ -194,6 +236,43 @@ class RenderViewTests(ApiTestCase):
                 self.assertEqual(response.status_code, 409)
                 delay.assert_not_called()
 
+    def test_failed_publication_restores_the_state_and_a_retry_is_safe(self):
+        for initial_status in ("READY", "COMPLETED"):
+            with self.subTest(initial_status=initial_status):
+                row = self.video_for(status=initial_status)
+                url = reverse("video-render-video", args=[row.pk])
+                with patch("apps.videomanagement.tasks.render_video_task.delay", side_effect=RuntimeError("Broker unavailable")) as publish:
+                    response = self.client.patch(url)
+                self.assertEqual(response.status_code, 503)
+                stale_token = publish.call_args.kwargs["dispatch_token"]
+                row.refresh_from_db()
+                self.assertEqual(row.status, initial_status)
+                self.assertIsNone(row.dispatch_token)
+                retry, publish_retry = self.render(row)
+                self.assertEqual(retry.status_code, 202)
+                new_token = publish_retry.call_args.kwargs["dispatch_token"]
+                with patch("apps.videomanagement.utils.composer.render.make_video") as render:
+                    render_video_task(video_id=row.pk, dispatch_token=stale_token)
+                    render.assert_not_called()
+                    render_video_task(video_id=row.pk, dispatch_token=new_token)
+                    render_video_task(video_id=row.pk, dispatch_token=new_token)
+                    render.assert_called_once()
+                self.assertNotIn("dispatch_token", retry.data["video"])
+
+    def test_publication_error_after_a_worker_starts_preserves_its_claim(self):
+        row = self.video_for(status="READY")
+        def publish_then_raise(**kwargs):
+            render_video_task(**kwargs)
+            raise RuntimeError("Lost broker acknowledgement")
+        with patch("apps.videomanagement.utils.composer.render.make_video") as render:
+            with patch("apps.videomanagement.tasks.render_video_task.delay", side_effect=publish_then_raise):
+                response = self.client.patch(reverse("video-render-video", args=[row.pk]))
+            self.assertEqual(response.status_code, 202)
+            render.assert_called_once()
+        row.refresh_from_db()
+        self.assertEqual(row.status, "RENDERING")
+        self.assertIsNone(row.dispatch_token)
+
 
 class AddSceneViewTests(ApiTestCase):
     def test_adds_a_scene_to_a_video(self):
@@ -280,6 +359,26 @@ class ResumeViewTests(ApiTestCase):
 
         self.assertEqual(response.status_code, 403)
         delay.assert_not_called()
+
+    def test_failed_publication_can_be_retried_without_running_old_messages(self):
+        row = self.a_failed_video()
+        url = reverse("video-resume", args=[row.pk])
+        with patch("apps.videomanagement.tasks.resume_video_task.delay", side_effect=RuntimeError("Broker unavailable")) as publish:
+            response = self.client.patch(url)
+        self.assertEqual(response.status_code, 503)
+        stale_token = publish.call_args.kwargs["dispatch_token"]
+        row.refresh_from_db()
+        self.assertEqual(row.status, "FAILED")
+        self.assertIsNone(row.dispatch_token)
+        response, retry = self.resume(row)
+        self.assertEqual(response.status_code, 202)
+        token = retry.call_args.kwargs["dispatch_token"]
+        with patch("apps.videomanagement.services.VideoGenerationServices.resume_video") as resume:
+            resume_video_task(video_id=row.pk, dispatch_token=stale_token)
+            resume.assert_not_called()
+            resume_video_task(video_id=row.pk, dispatch_token=token)
+            resume_video_task(video_id=row.pk, dispatch_token=token)
+            resume.assert_called_once()
 
     def test_a_second_resume_finds_nothing_left_to_claim(self):
         stalled = self.a_failed_video()

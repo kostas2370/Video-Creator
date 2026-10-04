@@ -41,26 +41,18 @@ class GenerateSerializer(serializers.Serializer):
     genre = serializers.CharField(required=False, default="", allow_blank=True)
 
     def validate(self, attrs):
-        for field, model in (("avatar_selection", Avatar), ("intro", Intro), ("outro", Outro)):
+        for field, model in (
+            ("avatar_selection", Avatar),
+            ("intro", Intro),
+            ("outro", Outro),
+        ):
             owned_asset(model, attrs.get(field), attrs["created_by"])
         if not attrs.get("avatar_selection"):
             available_voice(attrs.get("voice_id"), attrs["created_by"])
         return attrs
 
-    def update(self, instance, validated_data):
-        pass
-
-    def create(self, validated_data):
-        pass
-
 
 class DownloadPlaylistSerializer(serializers.Serializer):
-    def update(self, instance, validated_data):
-        pass
-
-    def create(self, validated_data):
-        pass
-
     link = serializers.URLField(required=True)
     category = serializers.ChoiceField(
         choices=["Educational", "Gaming", "Advertisement", "Story", "Other"]
@@ -70,11 +62,23 @@ class DownloadPlaylistSerializer(serializers.Serializer):
 class SceneUpdateSerializer(serializers.Serializer):
     text = serializers.CharField(required=True, max_length=2000)
 
-    def create(self, validated_data):
-        pass
 
-    def update(self, instance, validated_data):
-        pass
+class ChangeSceneImageSerializer(serializers.Serializer):
+    image = serializers.FileField(required=False)
+    with_audio = serializers.BooleanField(default=False)
+
+    def validate(self, attrs):
+        if not self.context.get("has_scene_image") and "image" not in attrs:
+            raise serializers.ValidationError({"image": "You must add an image!"})
+        return attrs
+
+
+class SceneImageQuerySerializer(serializers.Serializer):
+    scene_image = serializers.IntegerField(min_value=1, required=False)
+
+
+class GenerateSceneImageSerializer(serializers.Serializer):
+    image_description = serializers.CharField(max_length=2000)
 
 
 class TwitchSerializer(serializers.Serializer):
@@ -86,36 +90,17 @@ class TwitchSerializer(serializers.Serializer):
     )
     created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
 
-    def create(self, validated_data):
-        pass
-
-    def update(self, instance, validated_data):
-        pass
-
 
 class VideoUpdateSerializer(serializers.Serializer):
-    avatar = serializers.CharField(
-        required=False, default=None, allow_null=True, allow_blank=True
-    )
-    intro = serializers.CharField(
-        required=False, default=None, allow_null=True, allow_blank=True
-    )
-    outro = serializers.CharField(
-        required=False, default=None, allow_null=True, allow_blank=True
-    )
-    title = serializers.CharField(required=False, default=None)
-    subtitles = serializers.BooleanField(required=False, default=None)
+    avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    outro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    title = serializers.CharField(required=False, max_length=50)
+    subtitles = serializers.BooleanField(required=False)
     avatar_position = serializers.ChoiceField(
         choices=["left,top", "right,top", "left,bottom", "right,bottom"],
-        default="streamer",
-        allow_null=True,
+        required=False,
     )
-
-    def create(self, validated_data):
-        pass
-
-    def update(self, instance, validated_data):
-        pass
 
 
 class AddSceneSerializer(serializers.Serializer):
@@ -136,14 +121,3 @@ class AddSceneSerializer(serializers.Serializer):
                 raise serializers.ValidationError("url field required !")
 
         return super().validate(attrs)
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        mode = data.pop("mode")
-
-        if mode == "AI" and "url" in data:
-            data.pop("url")
-        elif data == "TWITCH":
-            data = {"url": data["url"]}
-
-        return data

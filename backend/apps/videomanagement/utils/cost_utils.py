@@ -1,7 +1,9 @@
 import logging
+from contextlib import contextmanager
 
 from django.contrib.auth import get_user_model
 from django.db.models import F
+from rest_framework.exceptions import PermissionDenied
 
 from ..models import SceneImage, VideoType
 
@@ -16,6 +18,28 @@ costs = {
     "scene_image_WEB": 0.04,
     "scene_image_DALL-E": 0.08,
 }
+
+
+@contextmanager
+def reserve_scene_credit(user, cost, minimum_balance):
+    """Reserve credit atomically before work, refunding failed operations."""
+    accounts = get_user_model().objects.filter(pk=user.pk)
+    if not user.is_superuser:
+        accounts = accounts.filter(
+            generation_limit_for_ai__gt=minimum_balance,
+            generation_limit_for_ai__gte=cost,
+        )
+    if not accounts.update(generation_limit_for_ai=F("generation_limit_for_ai") - cost):
+        raise PermissionDenied("You do not have enough tokens !")
+    user.refresh_from_db(fields=["generation_limit_for_ai"])
+    try:
+        yield
+    except Exception:
+        get_user_model().objects.filter(pk=user.pk).update(
+            generation_limit_for_ai=F("generation_limit_for_ai") + cost
+        )
+        user.refresh_from_db(fields=["generation_limit_for_ai"])
+        raise
 
 
 def calculate_total_cost(video):

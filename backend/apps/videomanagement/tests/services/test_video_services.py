@@ -1,6 +1,7 @@
 """Editing a video that already exists."""
 
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.test import TestCase
 from apps.usermanagement.baker_recipes import user
@@ -19,6 +20,7 @@ from ...services import (
     VideoServices,
 )
 from ...services.VideoServices import video_update
+from ...models import Video
 
 
 class VideoUpdateTests(TestCase):
@@ -30,6 +32,17 @@ class VideoUpdateTests(TestCase):
 
         self.assertEqual(updated.title, "A New Name")
 
+    def test_a_stale_edit_preserves_a_workers_status_and_dispatch_token(self):
+        token = uuid4()
+        Video.objects.filter(pk=self.video.pk).update(
+            status="RENDERING", dispatch_token=token
+        )
+        video_update(self.video, title="New title")
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.title, "New title")
+        self.assertEqual(self.video.status, "RENDERING")
+        self.assertEqual(self.video.dispatch_token, token)
+
     def test_records_the_subtitle_and_avatar_choices(self):
         updated = video_update(
             self.video,
@@ -40,7 +53,8 @@ class VideoUpdateTests(TestCase):
         )
 
         self.assertEqual(
-            updated.settings, dict(subtitles=True, avatar_position="left,top")
+            updated.settings,
+            dict(narration=True, subtitles=True, avatar_position="left,top"),
         )
 
     def test_clears_the_avatar_when_none_was_chosen(self):

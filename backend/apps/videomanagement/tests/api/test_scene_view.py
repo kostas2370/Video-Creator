@@ -1,11 +1,19 @@
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
+from drf_yasg import openapi
+from drf_yasg.generators import OpenAPISchemaGenerator
+from rest_framework.routers import SimpleRouter
 
 from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import scene, scene_image
 from ...models import SceneImage
+from ...views.scene_view import SceneView
 from .base import ApiTestCase
 
 
@@ -47,6 +55,71 @@ class SceneViewTests(ApiTestCase):
         self.user.refresh_from_db()
         self.assertAlmostEqual(self.user.generation_limit_for_ai, before - 0.03)
 
+    def test_rejects_invalid_generation_inputs_before_work_or_charging(self):
+        actions = (
+            ("scene-detail", "text", self.client.patch, "update_scene"),
+            ("scene-generate", "text", self.client.patch, "generate_scene"),
+            ("scene-generate-image-scene", "image_description", self.client.post, "generate_new_image"),
+        )
+        before = self.user.generation_limit_for_ai
+        for route, field, method, service in actions:
+            for payload in ({}, {field: None}, {field: " "}, {field: []}, {field: "x" * 2001}):
+                with self.subTest(route=route, payload=payload):
+                    with patch("apps.videomanagement.views.scene_view." + service) as work:
+                        response = method(
+                            reverse(route, args=[self.scene.pk]), payload, format="json"
+                        )
+                    self.assertEqual(response.status_code, 400)
+                    work.assert_not_called()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.generation_limit_for_ai, before)
+        self.assertFalse(SceneImage.objects.filter(scene=self.scene).exists())
+
+    def test_stale_user_instances_each_pay_without_overwriting_account_settings(self):
+        users = [get_user_model().objects.get(pk=self.user.pk) for _ in range(2)]
+        before = self.user.generation_limit_for_ai
+        get_user_model().objects.filter(pk=self.user.pk).update(use_service_api_keys=False)
+        with patch("apps.videomanagement.views.scene_view.generate_scene", return_value="rewritten"):
+            for caller in users:
+                self.client.force_authenticate(caller)
+                response = self.client.patch(
+                    reverse("scene-generate", args=[self.scene.pk]),
+                    {"text": "rewrite"}, format="json",
+                )
+                self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertAlmostEqual(self.user.generation_limit_for_ai, before - 0.06)
+        self.assertFalse(self.user.use_service_api_keys)
+
+    def test_a_stale_permission_check_cannot_spend_exhausted_credit(self):
+        self.user.generation_limit_for_ai = 0.21
+        self.user.save(update_fields=["generation_limit_for_ai"])
+        callers = [get_user_model().objects.get(pk=self.user.pk) for _ in range(2)]
+        url = reverse("scene-generate", args=[self.scene.pk])
+        with patch("apps.videomanagement.views.scene_view.generate_scene", return_value="rewritten") as work:
+            self.client.force_authenticate(callers[0])
+            self.assertEqual(self.client.patch(url, {"text": "rewrite"}).status_code, 200)
+            self.client.force_authenticate(callers[1])
+            self.assertEqual(self.client.patch(url, {"text": "rewrite"}).status_code, 403)
+            work.assert_called_once()
+        self.user.refresh_from_db()
+        self.assertAlmostEqual(self.user.generation_limit_for_ai, 0.18)
+
+    def test_failed_generation_refunds_the_reservation(self):
+        before = self.user.generation_limit_for_ai
+        actions = (
+            ("scene-detail", {"text": "new"}, self.client.patch, "update_scene"),
+            ("scene-generate", {"text": "rewrite"}, self.client.patch, "generate_scene"),
+            ("scene-generate-image-scene", {"image_description": "cat"}, self.client.post, "generate_new_image"),
+        )
+        for route, payload, method, service in actions:
+            with self.subTest(route=route):
+                with patch("apps.videomanagement.views.scene_view." + service, side_effect=RuntimeError("Unavailable")):
+                    with self.assertRaises(RuntimeError):
+                        method(reverse(route, args=[self.scene.pk]), payload, format="json")
+                self.user.refresh_from_db()
+                self.assertAlmostEqual(self.user.generation_limit_for_ai, before)
+
     def test_attaches_an_uploaded_image_to_a_scene_with_none(self):
         response = self.client.post(
             reverse("scene-change-image-scene", args=[self.scene.id]),
@@ -65,6 +138,55 @@ class SceneViewTests(ApiTestCase):
             {"with_audio": True},
         )
 
+        self.assertEqual(response.status_code, 200)
+        image.refresh_from_db()
+        self.assertTrue(image.with_audio)
+
+    def test_uploads_and_replaces_a_file_using_multipart(self):
+        url = reverse("scene-change-image-scene", args=[self.scene.id])
+        with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                url,
+                {"image": SimpleUploadedFile("first.png", b"first"), "with_audio": "0"},
+                format="multipart",
+            )
+            self.assertEqual(response.status_code, 200)
+            image = SceneImage.objects.get(scene=self.scene)
+            self.assertFalse(image.with_audio)
+            with image.file.open("rb") as uploaded:
+                self.assertEqual(uploaded.read(), b"first")
+
+            response = self.client.post(
+                f"{url}?scene_image={image.pk}",
+                {"image": SimpleUploadedFile("second.png", b"second"), "with_audio": "1"},
+                format="multipart",
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(SceneImage.objects.filter(scene=self.scene).count(), 1)
+            image.refresh_from_db()
+            self.assertTrue(image.with_audio)
+            with image.file.open("rb") as uploaded:
+                self.assertEqual(uploaded.read(), b"second")
+
+    def test_invalid_image_ids_return_400_and_missing_images_return_404(self):
+        url = reverse("scene-change-image-scene", args=[self.scene.id])
+        for image_id in ("invalid", "0", "-1", "1.5"):
+            with self.subTest(image_id=image_id):
+                response = self.client.post(f"{url}?scene_image={image_id}", {})
+                self.assertEqual(response.status_code, 400)
+
+        image = scene_image.make(scene=self.scene)
+        image_id = image.pk
+        image.delete()
+        response = self.client.post(f"{url}?scene_image={image_id}", {})
+        self.assertEqual(response.status_code, 404)
+
+    def test_audio_only_updates_still_accept_json(self):
+        image = scene_image.make(scene=self.scene, with_audio=False)
+        url = reverse("scene-change-image-scene", args=[self.scene.id])
+        response = self.client.post(
+            f"{url}?scene_image={image.pk}", {"with_audio": True}, format="json"
+        )
         self.assertEqual(response.status_code, 200)
         image.refresh_from_db()
         self.assertTrue(image.with_audio)
@@ -170,6 +292,25 @@ class SceneViewTests(ApiTestCase):
                 )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["narration_status"], "available")
+
+
+class SceneImageSchemaTests(SimpleTestCase):
+    def test_schema_exposes_a_writable_multipart_file_and_200_response(self):
+        router = SimpleRouter()
+        router.register("scenes", SceneView, basename="scene")
+        schema = OpenAPISchemaGenerator(
+            info=openapi.Info(title="Scenes", default_version="v1"),
+            patterns=router.urls,
+        ).get_schema(request=None, public=True)
+        operation = schema.paths["/scenes/{id}/change_image_scene/"]["post"]
+        self.assertIn("multipart/form-data", operation["consumes"])
+        parameters = {item["name"]: item for item in operation["parameters"]}
+        self.assertEqual(parameters["image"]["in"], "formData")
+        self.assertEqual(parameters["image"]["type"], "file")
+        self.assertEqual(parameters["scene_image"]["in"], "query")
+        self.assertEqual(parameters["scene_image"]["type"], "integer")
+        self.assertIn("200", operation["responses"])
+        self.assertNotIn("201", operation["responses"])
 
 
 class SceneImageViewTests(ApiTestCase):
