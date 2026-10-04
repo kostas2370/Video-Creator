@@ -6,7 +6,7 @@ from rest_framework import viewsets, status
 
 from .models import ApiKeys, UserCustomTTSProvider
 from .serializers import ApiKeysSerializer, UserCustomTTSProviderSerializer
-from apps.videomanagement.tasks import import_user_voices
+from apps.videomanagement.tasks import update_user_voices
 
 
 class ApiKeysView(generics.RetrieveUpdateDestroyAPIView):
@@ -30,5 +30,5 @@ class UserCustomTTSProviderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="update-voices")
     def update_voices(self, request, pk=None):
         provider = self.get_object()
-        import_user_voices.delay(provider.user.id, provider.name)
+        update_user_voices.delay(provider.user.id, provider.name)
         return Response(status=status.HTTP_202_ACCEPTED)

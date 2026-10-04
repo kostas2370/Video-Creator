@@ -123,7 +123,7 @@ def reap_stalled_videos():
 
 
 @shared_task
-def import_user_voices(user_id: int, provider: str):
+def update_user_voices(user_id: int, provider: str):
     fetcher = VOICE_IMPORTS.get(provider, ("custom", "get_voices_from_custom_provider"))
     user = get_user_model().objects.filter(pk=user_id).first()
     if user is None:
@@ -135,11 +135,14 @@ def import_user_voices(user_id: int, provider: str):
         logger.exception("Could not read %s voices for user %s", provider, user_id)
         raise
 
-    existing = set(
-        VoiceModel.objects.filter(created_by=user, provider=provider).values_list(
-            "path", flat=True
-        )
-    )
+    fetched_voice_ids = {voice["id"] for voice in voices}
+
+    existing_voices = VoiceModel.objects.filter(created_by=user, provider=provider)
+    existing_map = {v.path: v for v in existing_voices}
+
+    stale_paths = set(existing_map.keys()) - fetched_voice_ids
+    if stale_paths:
+        VoiceModel.objects.filter(created_by=user, provider=provider, path__in=stale_paths).delete()
 
     added = [
         VoiceModel(
@@ -151,10 +154,10 @@ def import_user_voices(user_id: int, provider: str):
             created_by=user,
         )
         for voice in voices
-        if voice["id"] not in existing
+        if voice["id"] not in existing_map
     ]
 
     VoiceModel.objects.bulk_create(added)
-    logger.info("Imported %s %s voices for user %s", len(added), provider, user_id)
+    logger.info("Imported %s and cleaned up stale voices for user %s (%s)", len(added), user_id, provider)
 
     return len(added)
