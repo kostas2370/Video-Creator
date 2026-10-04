@@ -6,6 +6,7 @@ from django.test import TestCase
 from rest_framework.exceptions import APIException
 
 from apps.usermanagement.baker_recipes import user
+from apps.apikeysmanagement.models import UserCustomVisualProvider
 
 from ...baker_recipes import (
     avatar,
@@ -153,6 +154,28 @@ class GenerateVideoTests(TestCase):
 
         self.assertIn("camera move", self.get_reply.call_args.args[0])
 
+    def test_custom_video_provider_uses_a_shot_brief(self):
+        UserCustomVisualProvider.objects.create(
+            user=self.user,
+            name="Studio",
+            output_type="VIDEO",
+            endpoint_url="https://example.com/video",
+            auth_type="none",
+        )
+        self.generate(provider="Studio", image_mode="AI")
+        self.assertIn("camera move", self.get_reply.call_args.args[0])
+
+    def test_another_users_video_provider_does_not_change_the_script(self):
+        UserCustomVisualProvider.objects.create(
+            user=user.make(),
+            name="Studio",
+            output_type="VIDEO",
+            endpoint_url="https://example.com/video",
+            auth_type="none",
+        )
+        self.generate(provider="Studio", image_mode="AI")
+        self.assertNotIn("camera move", self.get_reply.call_args.args[0])
+
     def test_narrates_before_generating_the_visuals(self):
         # create_image_scene reads the narration length off disk to size a clip, so
         # the order matters.
@@ -190,7 +213,11 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(self.generate().status, "READY")
 
     def test_rejects_foreign_assets_before_any_generation_work(self):
-        for field, recipe in (("avatar_selection", avatar), ("intro", intro), ("outro", outro)):
+        for field, recipe in (
+            ("avatar_selection", avatar),
+            ("intro", intro),
+            ("outro", outro),
+        ):
             with self.subTest(field=field):
                 foreign = recipe.make(created_by=user.make())
                 with self.assertRaises(APIException) as error:
@@ -210,7 +237,9 @@ class GenerateVideoTests(TestCase):
                 self.assertEqual(getattr(result, field), asset)
 
     def test_rejects_a_foreign_private_voice_before_generating(self):
-        foreign = voice_model.make(created_by=user.make(), type="CUSTOM_API", provider="private")
+        foreign = voice_model.make(
+            created_by=user.make(), type="CUSTOM_API", provider="private"
+        )
         with self.assertRaises(APIException):
             self.generate(voice_id=str(foreign.id))
         self.get_reply.assert_not_called()

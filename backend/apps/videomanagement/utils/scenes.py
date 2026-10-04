@@ -113,25 +113,20 @@ def create_image_scene(
         logger.error("No scene for %r; skipping its visual", text[:60])
         return None
 
-    generate = resolve(mode, provider)
-
-    if generate is None:
-        logger.error("No image provider for mode %s and provider %s", mode, provider)
+    try:
+        generate = resolve(mode, provider)
+        downloaded_image = generate(
+            image,
+            f"{dir_name}/images/",
+            style=style,
+            title=title,
+            duration=scene_narration_duration(scene),
+            reference=reference,
+            user=user,
+        )
+    except Exception as ex:
+        logger.error(ex)
         downloaded_image = None
-    else:
-        try:
-            downloaded_image = generate(
-                image,
-                f"{dir_name}/images/",
-                style=style,
-                title=title,
-                duration=scene_narration_duration(scene),
-                reference=reference,
-                user=user,
-            )
-        except Exception as ex:
-            logger.error(ex)
-            downloaded_image = None
 
     SceneImage.objects.create(
         scene=scene,
@@ -230,13 +225,8 @@ def generate_new_image(
         The updated scene image object with the new image.
 
     """
-    generate = resolve(video.mode, (video.settings or {}).get("provider"))
-
-    if generate is None:
-        logger.error(f"Invalid video mode or provider not found for video {video.id}.")
-        return scene_image
-
     try:
+        generate = resolve(video.mode, (video.settings or {}).get("provider"))
         img = generate(
             scene_image.prompt,
             f"{video.dir_name}/images/",

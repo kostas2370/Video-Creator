@@ -11,11 +11,14 @@ from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..prompt_utils import format_sora_prompt
 
+from .registry import ImageProviderRegistry
+
 logger = logging.getLogger(__name__)
 
 SORA_ALLOWED_SECONDS = (4, 8, 12)
 
 
+@ImageProviderRegistry.register("sora", output_type="VIDEO")
 def generate_from_sora(
     prompt: str,
     dir_name: str,

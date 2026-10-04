@@ -3,9 +3,12 @@ from typing import Union
 
 from vendor.bing_image_downloader import downloader
 
+from .registry import ImageProviderRegistry
+
 logger = logging.getLogger(__name__)
 
 
+@ImageProviderRegistry.register("bing", mode="WEB")
 def download_image(
     query: str, path: str, amount: int = 1, *args, **kwargs
 ) -> Union[str, None]:

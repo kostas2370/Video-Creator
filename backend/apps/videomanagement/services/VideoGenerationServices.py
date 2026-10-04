@@ -4,7 +4,7 @@ from typing import Union, Literal
 from slugify import slugify
 
 from ..defaults import script_format
-from ..utils.image_providers import VIDEO_PROVIDERS
+from ..utils.image_providers import ImageProviderRegistry
 from ..models import (
     Video,
     VideoStatus,
@@ -140,7 +140,8 @@ def generate_video(
 
     logger.info("Retrieved template")
     template_format = script_format(
-        video=provider in VIDEO_PROVIDERS, narration=narration
+        video=ImageProviderRegistry.is_video(provider, user=video.created_by),
+        narration=narration,
     )
 
     prompt = format_prompt(
