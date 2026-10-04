@@ -196,11 +196,9 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
     @hook(AFTER_CREATE, on_commit=True)
     def create_voices(self):
         from apps.videomanagement.tasks import update_user_voices
-
         update_user_voices.delay(self.user.id, self.name)
 
     @hook(AFTER_DELETE, on_commit=True)
     def delete_voices(self):
         from apps.videomanagement.models import VoiceModel
-
         VoiceModel.objects.filter(created_by=self.user, provider=self.name).delete()

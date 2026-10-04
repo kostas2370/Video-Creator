@@ -93,3 +93,8 @@ class UserCustomTTSProviderSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["api_key"] = ApiKeys.mask(instance.api_key)
+        return data
