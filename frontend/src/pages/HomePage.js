@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getAvatars, getTemplates, getVoices } from "../api/apiService";
+import { getAvatars, getTemplates, getVoices, getCustomVisualProviders } from "../api/apiService";
 import { toast } from "react-toastify";
 import { deleteTemplate, generateVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
@@ -15,6 +15,9 @@ const ttsProviderNames = {
   ELEVENLABS: "ElevenLabs",
   SIXTYDB: "60dB",
 };
+const visualProviderNames = { "DALL-E": "OpenAI images", sora: "OpenAI Sora (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
+
+const isBuiltinVisualProvider = name => Object.prototype.hasOwnProperty.call(visualProviderNames, name);
 
 const inputClassName =
   "w-full p-3 mt-2 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60 dark:bg-gray-900/50 dark:border-gray-600 dark:text-white dark:placeholder-gray-400";
@@ -26,6 +29,10 @@ const Home = () => {
   const [avatars, setAvatars] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [voices, setVoices] = useState([]);
+  const [visualProviders, setVisualProviders] = useState([]);
+  const [visualProvidersLoading, setVisualProvidersLoading] = useState(true);
+  const [visualProvidersError, setVisualProvidersError] = useState("");
+  const [providerReload, setProviderReload] = useState(0);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [settings, setSettings] = useState(false);
   const [open, setOpen] = useState(false);
@@ -55,6 +62,22 @@ const Home = () => {
   const pollRef = useRef(null);
 
   useEffect(() => () => pollRef.current?.cancel(), []);
+
+  useEffect(() => {
+    let current = true;
+    setVisualProvidersLoading(true);
+    getCustomVisualProviders().then((result) => {
+      if (!current) return;
+      if (result.ok) {
+        setVisualProviders(Array.isArray(result.data) ? result.data : result.data?.results ?? []);
+        setVisualProvidersError("");
+      } else {
+        setVisualProvidersError(result.message);
+      }
+      setVisualProvidersLoading(false);
+    });
+    return () => { current = false; };
+  }, [providerReload]);
 
   const handleInputChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -145,6 +168,10 @@ const Home = () => {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
+    if (formData.image_mode === "AI" && !isBuiltinVisualProvider(formData.provider) && (visualProvidersLoading || visualProvidersError || !visualProviders.some((provider) => provider.name === formData.provider))) {
+      toast.error("Choose an available visual provider before generating.");
+      return;
+    }
     if (formData.message.trim() === "") {
       toast.error("You need to add a prompt!");
       return;
@@ -191,6 +218,8 @@ const Home = () => {
     return groups;
   }, {});
   const selectedVoice = voices.find((voice) => String(voice.id) === String(formData.voice_id));
+  const selectedVisualProvider = visualProviders.find((provider) => provider.name === formData.provider);
+  const unavailableVisualProvider = formData.image_mode === "AI" && !isBuiltinVisualProvider(formData.provider) && (visualProvidersLoading || Boolean(visualProvidersError) || !selectedVisualProvider);
   const selectedAvatar = avatars.find((avatar) => String(avatar.id) === String(formData.avatar_selection));
   const examples = [
     ["Explainer", "Create a short explainer about how solar panels turn sunlight into electricity. Use simple language and everyday examples."],
@@ -239,7 +268,15 @@ const Home = () => {
               {field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration), "An avatar uses its assigned voice.")}
               {!formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
               {field("image_mode", "Visuals", select("image_mode", <><option value="WEB">Web images</option><option value="AI">AI-generated visuals</option></>))}
-              {field("provider", "Visual provider", select("provider", formData.image_mode === "AI" ? <><option value="DALL-E">OpenAI images</option><option value="sora">OpenAI Sora (video)</option><option value="midjourney">Midjourney</option><option value="stable-diffusion">Stable Diffusion</option></> : <><option value="bing">Bing</option><option value="google">Google</option></>))}
+              {field("provider", "Visual provider", select("provider", formData.image_mode === "AI" ? <>
+                <optgroup label="Built-in providers">{Object.entries(visualProviderNames).map(([name, label]) => <option key={name} value={name}>{label}</option>)}</optgroup>
+                {["VIDEO", "IMAGE"].map((type) => visualProviders.some((provider) => provider.output_type === type) ? <optgroup key={type} label={type === "VIDEO" ? "Custom video providers" : "Custom image providers"}>{visualProviders.filter((provider) => provider.output_type === type).map((provider) => <option key={provider.id} value={provider.name}>{provider.name}</option>)}</optgroup> : null)}
+                {!isBuiltinVisualProvider(formData.provider) && !visualProviders.some((provider) => provider.name === formData.provider) ? <option value={formData.provider} disabled>{formData.provider} ({visualProvidersLoading ? "loading" : "unavailable"})</option> : null}
+              </> : <><option value="bing">Bing</option><option value="google">Google</option></>), formData.image_mode === "AI" ? <span>
+                {visualProvidersLoading ? "Loading custom providers… " : visualProvidersError ? <><span className="text-amber-700 dark:text-amber-400">Custom providers could not be loaded. </span><button type="button" onClick={() => setProviderReload((previous) => previous + 1)} className="text-blue-600 underline dark:text-blue-400">Try again</button>{" · "}</> : null}
+                {!visualProvidersLoading && !visualProvidersError && !isBuiltinVisualProvider(formData.provider) && !visualProviders.some((provider) => provider.name === formData.provider) ? <span className="text-amber-700 dark:text-amber-400">This saved provider is unavailable. Choose another provider. </span> : null}
+                <Link to="/api-keys/?section=visual" className="text-blue-600 underline dark:text-blue-400">Manage custom images and videos</Link>
+              </span> : null)}
             </div>
           </section>
 
@@ -301,10 +338,10 @@ const Home = () => {
           <div className="mb-5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 p-5 dark:from-blue-950 dark:to-indigo-950"><RiSparkling2Line aria-hidden="true" className="mb-3 h-7 w-7 text-blue-600 dark:text-blue-300" /><h2 id="summary-heading" className="text-lg font-semibold">Your video</h2><p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">A first draft you can edit and refine.</p></div>
           <dl className="space-y-4 text-sm">
             <div className="flex items-start gap-3"><RiVolumeUpLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-medium">{!formData.narration ? "Clips only" : selectedAvatar ? selectedAvatar.name : selectedVoice ? `${selectedVoice.name} · ${ttsProviderNames[selectedVoice.provider] || selectedVoice.provider}` : "Any available voice"}</dd></div></div>
-            <div className="flex items-start gap-3"><RiImageLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Visuals</dt><dd className="mt-1 font-medium">{formData.image_mode === "AI" ? "AI-generated visuals" : "Web images"}</dd></div></div>
+            <div className="flex items-start gap-3"><RiImageLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Visuals</dt><dd className="mt-1 font-medium">{formData.image_mode === "AI" ? (isBuiltinVisualProvider(formData.provider) ? visualProviderNames[formData.provider] : `${formData.provider} · ${selectedVisualProvider?.output_type === "VIDEO" ? "Video clips" : "Images"}`) : "Web images"}</dd></div></div>
           </dl>
           <div className="mt-6 border-t border-gray-100 pt-5 dark:border-gray-700">
-            <button type="submit" disabled={isLoading || !formData.message.trim() || optionsLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-50">{isLoading ? <><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Generating...</> : <>Generate video<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></>}</button>
+            <button type="submit" disabled={isLoading || !formData.message.trim() || optionsLoading || unavailableVisualProvider} className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-50">{isLoading ? <><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Generating...</> : <>Generate video<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></>}</button>
             <button type="button" disabled={isLoading} onClick={() => setSavingTemplate(true)} className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">Save as template</button>
             <p role={isLoading ? "status" : undefined} className="mt-4 text-center text-xs leading-relaxed text-gray-500 dark:text-gray-400">{isLoading ? "We’re creating your script, narration, and scenes. This usually takes a few minutes." : "Generate first, then review your scenes before rendering."}</p>
           </div>

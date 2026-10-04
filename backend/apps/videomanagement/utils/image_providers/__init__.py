@@ -1,27 +1,12 @@
-from . import bing, diffusion, google_images, midjourney, openai_images, sora
+from .registry import DEFAULT_PROVIDERS, ImageProviderRegistry
+# Import adapters to register their module-level handlers.
+from . import bing, custom, diffusion, google_images, midjourney, openai_images, sora  # noqa: F401
 
-PROVIDERS = {
-    "AI": {
-        "DALL-E": (openai_images, "generate_from_dalle"),
-        "sora": (sora, "generate_from_sora"),
-        "stable-diffusion": (diffusion, "generate_from_diffusion"),
-        "midjourney": (midjourney, "generate_from_midjourney"),
-    },
-    "WEB": {
-        "bing": (bing, "download_image"),
-        "google": (google_images, "download_image_from_google"),
-    },
-}
-
-DEFAULT_PROVIDERS = {"WEB": "bing", "AI": "DALL-E"}
-
-VIDEO_PROVIDERS = {"sora"}
+VIDEO_PROVIDERS = ImageProviderRegistry.video_providers
 
 
 def resolve(mode: str, provider: str = None):
-    entry = PROVIDERS.get(mode, {}).get(provider or DEFAULT_PROVIDERS.get(mode))
-    if entry is None:
-        return None
+    return ImageProviderRegistry.resolve(mode, provider)
 
-    module, name = entry
-    return getattr(module, name)
+
+__all__ = ["DEFAULT_PROVIDERS", "ImageProviderRegistry", "VIDEO_PROVIDERS", "resolve"]

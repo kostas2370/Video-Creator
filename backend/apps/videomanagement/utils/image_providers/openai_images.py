@@ -11,9 +11,12 @@ from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..prompt_utils import format_dalle_prompt
 
+from .registry import ImageProviderRegistry
+
 logger = logging.getLogger(__name__)
 
 
+@ImageProviderRegistry.register("DALL-E")
 def generate_from_dalle(
     prompt: str,
     dir_name: str,

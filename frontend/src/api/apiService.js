@@ -60,5 +60,9 @@ export const createCustomTtsProvider = data => post("user-custom-tts-providers/"
 export const updateCustomTtsProvider = (id, data) => patch(detail("user-custom-tts-providers", id), data, callerHandlesErrors);
 export const deleteCustomTtsProvider = id => remove(detail("user-custom-tts-providers", id), callerHandlesErrors);
 export const refreshCustomTtsProviderVoices = id => post(action("user-custom-tts-providers", id, "update-voices"), {}, callerHandlesErrors);
+export const getCustomVisualProviders = () => request({ url: "user-custom-visual-providers/", ...callerHandlesErrors });
+export const createCustomVisualProvider = data => post("user-custom-visual-providers/", data, callerHandlesErrors);
+export const updateCustomVisualProvider = (id, data) => patch(detail("user-custom-visual-providers", id), data, callerHandlesErrors);
+export const deleteCustomVisualProvider = id => remove(detail("user-custom-visual-providers", id), callerHandlesErrors);
 export const markNotificationRead = id => patch(detail("notifications", id), { read: true });
 export const markAllNotificationsRead = () => patch("notifications/read_all/", {});
