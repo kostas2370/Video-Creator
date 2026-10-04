@@ -235,23 +235,6 @@ class RenderViewTests(ApiTestCase):
                 self.assertEqual(response.status_code, 409)
                 delay.assert_not_called()
 
-    def test_failed_publication_restores_the_state_and_allows_retry(self):
-        for initial_status in ("READY", "COMPLETED"):
-            with self.subTest(initial_status=initial_status):
-                row = self.video_for(status=initial_status)
-                url = reverse("video-render-video", args=[row.pk])
-                with patch(
-                    "apps.videomanagement.tasks.render_video_task.delay",
-                    side_effect=RuntimeError("Broker unavailable"),
-                ):
-                    response = self.client.patch(url)
-                self.assertEqual(response.status_code, 503)
-                row.refresh_from_db()
-                self.assertEqual(row.status, initial_status)
-                retry, publish = self.render(row)
-                self.assertEqual(retry.status_code, 202)
-                publish.assert_called_once_with(video_id=row.pk)
-
 
 class AddSceneViewTests(ApiTestCase):
     def test_adds_a_scene_to_a_video(self):
@@ -338,18 +321,3 @@ class ResumeViewTests(ApiTestCase):
 
         self.assertEqual(response.status_code, 403)
         delay.assert_not_called()
-
-    def test_failed_publication_restores_the_state_and_allows_retry(self):
-        row = self.a_failed_video()
-        url = reverse("video-resume", args=[row.pk])
-        with patch(
-            "apps.videomanagement.tasks.resume_video_task.delay",
-            side_effect=RuntimeError("Broker unavailable"),
-        ):
-            response = self.client.patch(url)
-        self.assertEqual(response.status_code, 503)
-        row.refresh_from_db()
-        self.assertEqual(row.status, "FAILED")
-        response, publish = self.resume(row)
-        self.assertEqual(response.status_code, 202)
-        publish.assert_called_once_with(video_id=row.pk)
