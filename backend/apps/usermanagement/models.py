@@ -57,6 +57,11 @@ class Login(models.Model):
     date = models.DateTimeField(auto_now_add=True)
     count = models.PositiveIntegerField(default=0)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "ip"], name="unique_login_user_ip"),
+        ]
+
     @staticmethod
     def get_user_ip(req):
         hops = settings.TRUSTED_PROXY_HOPS

@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.test import TestCase, override_settings
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
@@ -101,6 +102,19 @@ class GetTokensTests(TestCase):
 
 
 class LoginTests(TestCase):
+    def test_the_database_rejects_duplicate_user_ip_pairs(self):
+        owner = user.make()
+        row = login.make(user=owner, ip="192.0.2.1", count=3)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                login.make(user=owner, ip=row.ip)
+        existing, created = Login.objects.get_or_create(user=owner, ip=row.ip)
+        self.assertFalse(created)
+        self.assertEqual(existing.pk, row.pk)
+        self.assertEqual(existing.count, 3)
+        login.make(user=user.make(), ip=row.ip)
+        login.make(user=owner, ip="192.0.2.2")
+
     def request_with(self, **meta):
         request = type("Request", (), {})()
         request.META = meta

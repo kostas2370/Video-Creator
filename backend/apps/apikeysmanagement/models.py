@@ -130,10 +130,8 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
 class AbstractCustomProvider(models.Model):
     """Shared connection settings; each concrete provider keeps its own table."""
-
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     name = models.CharField(max_length=50)
-    endpoint_url = models.URLField()
+    endpoint_url = models.URLField(max_length=500)
     extra_parameters = models.JSONField(
         default=dict,
         blank=True,
@@ -155,6 +153,8 @@ class AbstractCustomProvider(models.Model):
         default="",
         help_text="Secret API key, token, or credentials",
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True
@@ -201,9 +201,6 @@ class UserCustomTTSProvider(LifecycleModelMixin, AbstractCustomProvider):
     name = models.CharField(
         max_length=50, help_text="Unique identifier, e.g., 'my_local_tts'"
     )
-    endpoint_url = models.URLField(
-        help_text="The POST endpoint URL for the TTS service"
-    )
     voices_url = models.CharField(max_length=500, null=True, blank=True)
     text_field_name = models.CharField(max_length=50, default="text")
     voice_field_name = models.CharField(max_length=50, default="voice_id")
@@ -241,10 +238,7 @@ class UserCustomVisualProvider(AbstractCustomProvider):
         related_name="custom_visual_providers",
     )
     output_type = models.CharField(max_length=10, choices=VisualOutputType.choices)
-    endpoint_url = models.URLField(max_length=500)
     prompt_field_name = models.CharField(max_length=50, default="prompt")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [

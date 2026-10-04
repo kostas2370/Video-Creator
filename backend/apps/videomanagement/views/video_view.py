@@ -3,7 +3,7 @@ import logging
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
-from rest_framework import viewsets
+from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
-from ..swagger_serializers import VideoUpdateSerializer, AddSceneSerializer
+from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
 from ..services.VideoServices import video_update
 from ..services.SceneServices import create_scene
@@ -23,7 +23,12 @@ from ..permissions import AiGenerationLimitPermission, IsOwnerPermission
 logger = logging.getLogger(__name__)
 
 
-class VideoView(viewsets.ModelViewSet):
+class VideoView(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
     serializer_class = VideoSerializer
     queryset = Video.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -62,9 +67,9 @@ class VideoView(viewsets.ModelViewSet):
         "new audios",
     )
     def partial_update(self, request, pk):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
         video = self.get_object()
+        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
         outcome = video_update(video, **serializer.validated_data)
         logger.info(f"Video with id {pk}  got updated successfully")
         return Response(
@@ -149,7 +154,6 @@ class VideoView(viewsets.ModelViewSet):
             )
 
         vid.refresh_from_db()
-
         render_video_task.delay(video_id=vid.id)
         logger.info(f"Video with id {pk} was queued for rendering")
 

@@ -1,59 +1,47 @@
-import logging
 from .asset_selection import owned_asset
-
-
-from ..models import Video, VideoType, Avatar, Intro, Outro
+from ..models import Avatar, Intro, Outro, Video, VideoType
 from ..utils.audio_utils import update_scene
 
-logger = logging.getLogger(__name__)
 
+def video_update(video: Video, **changes) -> Video:
+    """Apply only supplied fields, resolving every asset before changing the video."""
+    selected_assets = {}
+    for field, model in (("avatar", Avatar), ("intro", Intro), ("outro", Outro)):
+        if field in changes:
+            selected_assets[field] = (
+                None
+                if field == "avatar" and video.video_type == VideoType.TWITCH
+                else owned_asset(model, changes[field], video.created_by)
+            )
 
-def video_update(
-    video: Video,
-    title: str = None,
-    avatar: str = None,
-    intro: str = None,
-    outro: str = None,
-    subtitles: bool = False,
-    avatar_position: str = "right,top",
-) -> Video:
-    """
-    Update the specified video with new avatar, intro, or outro.
+    if "title" in changes:
+        video.title = changes["title"]
+    update_fields = list(selected_assets)
+    if "title" in changes:
+        update_fields.append("title")
+    for field, asset in selected_assets.items():
+        setattr(video, field, asset)
 
-    Args:
-        video (Videos): The video instance to update.
-        title (str, optional): The title of the video
-        avatar (str, optional): The ID of the new avatar or "no_value" to remove the avatar. Defaults to None.
-        intro (str, optional): The ID of the new intro or "no_value" to remove the intro. Defaults to None.
-        outro (str, optional): The ID of the new outro or "no_value" to remove the outro. Defaults to None.
-        subtitles (bool, optional): Boolean value that shows if the video will have subtitles or not.
-        avatar_position(str, optional): A string with 'right,top' that shows where the avatar will be placed."
-    Returns:
-        Videos: The updated video instance.
-    """
-
-    selected_avatar = (
-        None if video.video_type == VideoType.TWITCH
-        else owned_asset(Avatar, avatar, video.created_by)
+    selected_avatar = selected_assets.get("avatar")
+    voice_changed = (
+        selected_avatar is not None and video.voice_model_id != selected_avatar.voice_id
     )
-    selected_intro = owned_asset(Intro, intro, video.created_by)
-    selected_outro = owned_asset(Outro, outro, video.created_by)
-
-    if title:
-        video.title = title
-    video.avatar = selected_avatar
-    video.intro = selected_intro
-    video.outro = selected_outro
-
-    if selected_avatar and video.voice_model != selected_avatar.voice:
+    if voice_changed:
         video.voice_model = selected_avatar.voice
-        video.save()
-        for scene in video.scenes.all():
-            update_scene(scene)
+        update_fields.append("voice_model")
 
     if video.video_type != VideoType.TWITCH:
-        video.settings = dict(subtitles=subtitles, avatar_position=avatar_position)
+        settings_changes = {
+            field: changes[field]
+            for field in ("subtitles", "avatar_position")
+            if field in changes
+        }
+        if settings_changes:
+            video.settings = {**(video.settings or {}), **settings_changes}
+            update_fields.append("settings")
 
-    video.save()
-
+    video.save(update_fields=[*update_fields, "updated_at"])
+    if voice_changed:
+        for scene in video.scenes.all():
+            update_scene(scene)
     return video
