@@ -3,7 +3,9 @@
 ## Short Description
 Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60dB) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
 
-![The generation form](docs/screenshots/generate.png)
+You can also connect custom image and video APIs to generate visuals for each scene.
+
+![The generation form with a custom video provider](docs/screenshots/generate.png)
 
 ## Frontend
 
@@ -258,17 +260,19 @@ Keys do not have to live in `.env`. Signed in, choose **Providers** in the main 
 or **API keys and providers** in the account menu, to manage your own from the
 browser (<http://localhost:3000/api-keys/>).
 
-The page has two tabs: **Built-in API keys** for the supported services, and
-**Custom voice providers** for your own text-to-speech service. Switching tabs keeps
-unsaved changes in place.
+The page has three tabs: **Built-in API keys** for the supported services,
+**Custom voice providers** for your own text-to-speech service, and
+**Custom images and videos** for your own visual generation service. Switching tabs
+keeps unsaved changes in place.
 
 ![Built-in API keys with separate provider tabs](docs/screenshots/api-keys.png)
 
-The page has one switch at the top that decides whose keys generation spends:
+The page has one switch at the top that selects keys for built-in services and
+controls access to custom voice providers:
 
 | Switch | What gets used |
 | --- | --- |
-| **Use my own keys** — off (default) | The service keys from `.env`. Anything you saved is kept but unused. |
+| **Use my own keys** — off (default) | The service keys from `.env`. Your saved built-in keys and custom voice providers are kept but unused. |
 | **Use my own keys** — on | Your saved provider keys and your custom voice providers. |
 
 The **Built-in API keys** tab lists the supported services: OpenAI, Anthropic, Google Gemini,
@@ -277,7 +281,7 @@ id), and the Twitch client id and secret. Enter the keys you want to change, the
 click **Save**. Only changed fields are sent, so updating one never disturbs the
 rest. **Clear** marks a single key for removal on save; **Remove all my keys** removes
 all built-in provider keys after confirmation. Custom providers are managed separately
-in their own tab.
+in their own tabs.
 
 ![Confirming removal of built-in provider keys](docs/screenshots/modal-clear-keys.png)
 
@@ -341,6 +345,64 @@ names stay fixed after creation; add a new provider to use a different name.
 **Delete** asks for confirmation and removes the provider and its imported voices.
 Unsaved form changes are kept until you save or explicitly discard them.
 
+### Custom image and video providers
+
+Open **Providers → Custom images and videos** to connect an image or video API.
+These providers belong to your account and use their configured credentials,
+regardless of the **Use my own keys** switch.
+
+![Custom image and video providers](docs/screenshots/custom-visual-providers.png)
+
+Choose **Add provider** and enter:
+
+1. **Provider name:** a unique name, different from the built-in provider names.
+2. **Output type:** **Video clips** or **Still images**.
+3. **Generation endpoint URL:** the endpoint that accepts the generation request.
+4. **Authentication:** bearer token, custom header, basic authentication
+   (`username:password`), or no authentication. For a custom header, also enter its name.
+
+Under **Advanced: request settings**, change **Prompt field name** if your API uses
+something other than `prompt`. **Extra parameters (JSON)** accepts an object for
+settings such as a model or duration. For example, `{"model": "my-video-model", "duration": 8}`.
+The generated prompt overrides any extra parameter with the same field name.
+
+![Adding a custom video provider](docs/screenshots/custom-visual-provider-form.png)
+
+The service receives a JSON POST for each scene. With the defaults and the example
+parameters above, the request looks like:
+
+```json
+{
+  "prompt": "A slow camera pan across a sunlit mountain lake",
+  "model": "my-video-model",
+  "duration": 8
+}
+```
+
+The endpoint must return completed media bytes, or JSON containing an HTTP(S) media
+URL. Set the response's `Content-Type` to `application/json` when returning JSON:
+
+```json
+{
+  "video_url": "https://media.example.com/clips/generated.mp4"
+}
+```
+
+`url` is also accepted, as is `image_url` for still images. The URL can instead be
+inside the first item of a `data` array, such as `{"data": [{"url": "https://media.example.com/generated.mp4"}]}`.
+Returned URLs must be downloadable without additional authentication headers;
+a signed URL works. The configured credentials are sent only to the generation endpoint.
+Services that return only a job ID and require polling are not supported.
+
+After saving, choose **AI-generated visuals** on the generation page, then pick your
+provider under **Custom video providers** or **Custom image providers** in
+**Visual provider**. **Manage custom images and videos** opens the provider settings.
+
+Use **Edit** to change the endpoint, output type, authentication, or request settings.
+Leave the credential blank to keep it, enter a replacement, or select **Clear saved
+credential on save** to remove it. Names stay fixed after creation. **Delete** removes
+the provider after confirmation; media already generated remains available.
+
 ### Keys and voices
 
 After updating an existing installation, run `python manage.py migrate` in the
@@ -397,6 +459,8 @@ You still get the same thing by email, so closing the tab is safe either way.
 The generation page separates your story from its voice and visuals. Write a prompt,
 use one of the example ideas, or choose **Start from a template**. Pick a presenter
 or a voice, then choose web images or AI-generated visuals and their provider.
+Your saved custom image and video providers appear in **Visual provider** when
+**AI-generated visuals** is selected.
 
 The **Your video** panel summarizes those choices and contains **Generate video**.
 Narration can be turned off for a video made from clips only. **Advanced settings**
@@ -555,6 +619,7 @@ For any inquiries or support, feel free to reach out:
 
 ## Recent Updates
 
+✅ Added custom image and video providers with configurable authentication, prompt fields, and extra request parameters\
 ✅ Save the generation form as a named template and pick it again later, with a delete button beside the picker\
 ✅ Fixed the "video completed" and "video failed" emails, which went out addressed to the subject line rather than to you\
 ✅ Fixed pressing render on a finished video reporting success before the render had started\
