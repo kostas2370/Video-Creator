@@ -10,6 +10,12 @@ from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
+from .video_formats import (
+    DEFAULT_VIDEO_FORMAT,
+    DEFAULT_VIDEO_PLATFORM,
+    VIDEO_FORMAT_CHOICES,
+    VIDEO_PLATFORM_CHOICES,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,7 +58,12 @@ ACCOUNT_SCOPED_VOICE_PROVIDERS = (Provider.ELEVENLABS, Provider.SIXTYDB)
 
 
 def default_video_settings() -> dict:
-    return {"subtitles": False, "avatar_position": "right,top"}
+    return {
+        "subtitles": False,
+        "avatar_position": "right,top",
+        "video_format": DEFAULT_VIDEO_FORMAT,
+        "platform": DEFAULT_VIDEO_PLATFORM,
+    }
 
 
 class AbstractModel(models.Model):
@@ -87,6 +98,16 @@ class TemplatePrompt(AbstractModel):
     narration = models.BooleanField(default=True)
     provider = models.CharField(max_length=50, blank=True, null=True, default=None)
     avatar_position = models.CharField(max_length=50, blank=True, default="right,top")
+    video_format = models.CharField(
+        max_length=12,
+        choices=VIDEO_FORMAT_CHOICES,
+        default=DEFAULT_VIDEO_FORMAT,
+    )
+    platform = models.CharField(
+        max_length=12,
+        choices=VIDEO_PLATFORM_CHOICES,
+        default=DEFAULT_VIDEO_PLATFORM,
+    )
     genre = models.CharField(max_length=50, blank=True, default="")
 
     # Foreign Key Relations

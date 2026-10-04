@@ -28,7 +28,9 @@ def generate_scene(text: str, scene: Scene) -> str:
     if text == scene.text.strip():
         return text
 
-    text = get_update_sentence(format_update_form(scene.text, text))
+    text = get_update_sentence(
+        format_update_form(scene.text, text), user=scene.video.created_by
+    )
 
     return text
 

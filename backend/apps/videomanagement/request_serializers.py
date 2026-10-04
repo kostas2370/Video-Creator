@@ -3,10 +3,37 @@ from rest_framework import serializers
 
 from .models import Avatar, Intro, Outro
 from .services.asset_selection import available_voice, owned_asset
+from .video_formats import (
+    DEFAULT_VIDEO_FORMAT,
+    DEFAULT_VIDEO_PLATFORM,
+    VIDEO_FORMAT_CHOICES,
+    VIDEO_PLATFORM_CHOICES,
+)
+
+AVATAR_POSITIONS = {"left,top", "right,top", "left,bottom", "right,bottom"}
+
+
+def normalize_avatar_position(value):
+    """Return the canonical horizontal,vertical form used by video rendering."""
+    parts = str(value or "").split(",")
+    horizontal = next((part for part in parts if part in {"left", "right"}), None)
+    vertical = next((part for part in parts if part in {"top", "bottom"}), None)
+    normalized = f"{horizontal},{vertical}" if horizontal and vertical else ""
+    if normalized not in AVATAR_POSITIONS:
+        raise serializers.ValidationError(
+            "Select a valid choice. Valid choices are: left,top, right,top, left,bottom, right,bottom."
+        )
+    return normalized
 
 
 class GenerateSerializer(serializers.Serializer):
     message = serializers.CharField(required=True, max_length=2000)
+    video_format = serializers.ChoiceField(
+        required=False, choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT
+    )
+    platform = serializers.ChoiceField(
+        required=False, choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM
+    )
     voice_id = serializers.CharField(
         required=False, max_length=20, default=None, allow_blank=True, allow_null=True
     )
@@ -41,6 +68,9 @@ class GenerateSerializer(serializers.Serializer):
     genre = serializers.CharField(required=False, default="", allow_blank=True)
 
     def validate(self, attrs):
+        attrs["avatar_position"] = normalize_avatar_position(
+            attrs.get("avatar_position", "right,top")
+        )
         for field, model in (
             ("avatar_selection", Avatar),
             ("intro", Intro),
@@ -96,11 +126,17 @@ class VideoUpdateSerializer(serializers.Serializer):
     intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     outro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     title = serializers.CharField(required=False, max_length=50)
-    subtitles = serializers.BooleanField(required=False)
-    avatar_position = serializers.ChoiceField(
-        choices=["left,top", "right,top", "left,bottom", "right,bottom"],
-        required=False,
+    video_format = serializers.ChoiceField(
+        choices=VIDEO_FORMAT_CHOICES, required=False
     )
+    platform = serializers.ChoiceField(
+        choices=VIDEO_PLATFORM_CHOICES, required=False
+    )
+    subtitles = serializers.BooleanField(required=False)
+    avatar_position = serializers.CharField(required=False)
+
+    def validate_avatar_position(self, value):
+        return normalize_avatar_position(value)
 
 
 class AddSceneSerializer(serializers.Serializer):

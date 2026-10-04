@@ -8,6 +8,7 @@ def format_prompt(
     userprompt: str = "",
     title: str = "",
     target_audience: str = "",
+    platform: str = "GENERAL",
 ) -> str:
     """
     Generate a formatted script prompt for video creation.
@@ -60,13 +61,24 @@ def format_prompt(
         f"- Provide vivid, highly detailed visual descriptions for every shot.\n"
         f"- Ensure each scene visually flows logically into the next one (continuous motion, environment, and lighting)."
     )
+    if platform == "TIKTOK":
+        output += (
+            "\n\nTIKTOK SHORT-FORM GUIDANCE:\n"
+            "- Open with an immediate, specific hook in the first spoken line or visual beat; do not begin with a greeting or introduction.\n"
+            "- Keep the narration concise, conversational, and easy to follow when heard on a phone.\n"
+            "- Make each spoken line short enough to read comfortably as captions.\n"
+            "- Build to a clear payoff and finish with a brief, natural call to action when appropriate.\n"
+            "- Keep visual subjects centered and avoid relying on text near the edges of the frame."
+        )
     return output
 
 
 def format_update_form(text: str, prompt: str) -> str:
     return (
-        f"The text i will give you is a scene in a video. {text}. Rewrite this text: {prompt} . "
-        f"The text must be around the same size"
+        f"The text I will give you is a scene in a video: {text}. "
+        f"Rewrite it according to this request: {prompt}. "
+        "Keep it around the same length. Return only the rewritten sentence, "
+        "with no explanation, introduction, or quotation marks."
     )
 
 

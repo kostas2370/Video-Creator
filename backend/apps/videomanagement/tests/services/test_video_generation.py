@@ -137,6 +137,7 @@ class GenerateVideoTests(TestCase):
                 subtitles=True,
                 narration=False,
                 avatar_position="left,top",
+                video_format="LANDSCAPE",
                 style="vivid",
                 provider=None,
             ),
@@ -183,7 +184,7 @@ class GenerateVideoTests(TestCase):
         self.make_scenes_speech.side_effect = lambda *a, **k: calls.append("speech")
         self.create_image_scenes.side_effect = lambda *a, **k: calls.append("images")
 
-        self.generate()
+        self.generate(provider="sora", image_mode="AI")
 
         self.assertEqual(calls, ["speech", "images"])
 
