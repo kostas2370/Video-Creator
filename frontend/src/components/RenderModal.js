@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { renderVideo } from "../api/apiService";
+import { getVideo, renderVideo } from "../api/apiService";
 import { pollVideo } from "../api/pollVideo";
 import { GiProcessor } from "react-icons/gi";
 import { CloseModalButton } from "./ui/CloseModalButton";
@@ -12,12 +12,31 @@ export function RenderModal({
   setItems,
   name,
   onFinished,
+  onUpdate,
+  onPendingChange,
 }) {
   const pollRef = useRef(null);
+  const pendingRef = useRef(false);
+  const [audioCheck, setAudioCheck] = useState({ loading: true, scenes: [], failed: false });
+  useEffect(() => {
+    if (!showModal) return;
+    let cancelled = false;
+    setAudioCheck({ loading: true, scenes: [], failed: false });
+    getVideo(id).then(response => {
+      if (cancelled) return;
+      const scenes = response.data?.scenes || [];
+      setAudioCheck({
+        loading: false, failed: !response.ok,
+        scenes: scenes.flatMap((scene, index) => scene.narration_status === "missing" ? [index + 1] : []),
+      });
+    });
+    return () => { cancelled = true; };
+  }, [showModal, id]);
 
   useEffect(() => () => pollRef.current?.cancel(), []);
 
   const patchItem = (changes) => {
+    onUpdate?.(changes);
     if (!setItems) return;
     setItems((prevItems) =>
       prevItems.map((item) => (item.id === id ? { ...item, ...changes } : item))
@@ -25,16 +44,22 @@ export function RenderModal({
   };
 
   const RenderClick = async (event) => {
+    if (pendingRef.current || audioCheck.loading) return;
+    pendingRef.current = true;
+    onPendingChange?.(true);
     setShowModal(false);
 
     const response = await renderVideo(id);
 
     if (!response.ok) {
+      pendingRef.current = false;
+      onPendingChange?.(false);
       toast.error(response.message);
       return;
     }
 
     patchItem({ status: "RENDERING" });
+    onPendingChange?.(false);
     toast.info("Video now is on rendering status");
 
     pollRef.current = pollVideo(id, {
@@ -42,6 +67,8 @@ export function RenderModal({
     });
 
     const { outcome, video } = await pollRef.current.promise;
+
+    pendingRef.current = false;
 
     if (outcome !== "SETTLED") {
       toast.error(
@@ -68,7 +95,9 @@ export function RenderModal({
           <div
             id="renderModal"
             tabIndex="-1"
-            aria-hidden="true"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Render video confirmation"
             className=" overflow-y-auto overflow-x-hidden fixed h-screen my-auto  flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md  max-h-full"
           >
             <div className="relative p-4 w-full max-w-md h-full md:h-auto">
@@ -79,6 +108,12 @@ export function RenderModal({
                 <p className="mb-4 text-gray-500 dark:text-gray-300">
                   Are you sure you want to render this video : {name}?
                 </p>
+                {audioCheck.loading && <p role="status" className="mb-4 text-sm text-gray-500">Checking narration…</p>}
+                {audioCheck.scenes.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                  <p className="font-semibold">Missing narration in {audioCheck.scenes.length === 1 ? "scene" : "scenes"} {audioCheck.scenes.join(", ")}</p>
+                  <p className="mt-1">These scenes will render without narration. Cancel to retry audio in the editor, or continue with the available audio.</p>
+                </div>}
+                {audioCheck.failed && <p role="status" className="mb-4 text-sm text-amber-700 dark:text-amber-300">Narration could not be checked. You can still render, or cancel and review the scenes.</p>}
                 <div className="flex justify-center items-center space-x-4">
                   <button
                     type="button"
@@ -88,11 +123,12 @@ export function RenderModal({
                     No, cancel
                   </button>
                   <button
-                    type="submit"
+                    type="button"
+                    disabled={audioCheck.loading}
                     className="py-2 px-3 text-sm font-medium text-center text-white bg-green-600 rounded-lg hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-900"
                     onClick={(e) => RenderClick()}
                   >
-                    Yes, I'm sure
+                    {audioCheck.scenes.length ? "Render anyway" : "Yes, I'm sure"}
                   </button>
                 </div>
               </div>

@@ -13,6 +13,7 @@ export function DeleteModal({
 
   const DeleteClick = (event) => {
     deleteFunction(id).then((response) => {
+      if (!response.ok) return;
       if (mode === "normal") {
         toast.success(name + " deleted sucessfully");
         setItems((prevItems) => prevItems.filter((item) => item.id !== id));

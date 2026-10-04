@@ -1,18 +1,7 @@
-import axios from "axios"
-import { API_BASE_URL as API_URL } from "../endpoints"
+import axios from "axios";
+import { API_BASE_URL } from "../endpoints";
 
-export const axiosInstance = axios.create({
-    baseURL: API_URL,
-    withCredentials: true,
-    headers: {
-        "Content-Type": 'multipart/form-data'
-    }
-})
-
-export const axiosPrivateInstance = axios.create({
-    baseURL: API_URL,
-    withCredentials: true,
-    headers: {
-        "Content-Type": 'multipart/form-data'
-    }
-})
+const config = { baseURL: API_BASE_URL, withCredentials: true };
+// Axios selects JSON for objects and lets the browser set FormData boundaries.
+export const axiosInstance = axios.create(config);
+export const axiosPrivateInstance = axios.create(config);

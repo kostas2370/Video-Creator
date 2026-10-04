@@ -4,6 +4,7 @@ import { RiEyeLine, RiEyeOffLine } from "react-icons/ri";
 
 import { getApiKeys, updateApiKeys, deleteApiKeys } from "../api/apiService";
 import { ClearApiKeysModal } from "../components/ClearApiKeysModal";
+import { CustomTtsProviders } from "../components/CustomTtsProviders";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 const KEY_GROUPS = [
@@ -55,6 +56,7 @@ const EMPTY_KEYS = Object.fromEntries(KEY_FIELDS.map((name) => [name, ""]));
 const MASK_EXAMPLE = "sk-••••••••ijkl";
 
 export const ApiKeys = () => {
+  const [activeSection, setActiveSection] = useState("keys");
   const [saved, setSaved] = useState(EMPTY_KEYS);
   const [drafts, setDrafts] = useState({});
   const [revealed, setRevealed] = useState({});
@@ -196,13 +198,30 @@ export const ApiKeys = () => {
         isClearing={isClearing}
       />
 
-      <form className="p-4 md:p-6 max-w-3xl mx-auto" onSubmit={handleSave}>
+      <div className="p-4 md:p-6 max-w-3xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">API keys</h1>
+          <h1 className="text-2xl font-bold">API keys and providers</h1>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
             Keys are stored encrypted and are never sent back to this page — an
             already saved one only ever shows as {MASK_EXAMPLE}.
           </p>
+        </div>
+
+        <div role="tablist" aria-label="Provider settings" className="mb-6 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
+          {[["keys", "Built-in API keys"], ["custom", "Custom voice providers"]].map(([section, label]) => (
+            <button key={section} type="button" role="tab" id={`settings-tab-${section}`} aria-controls={`settings-panel-${section}`} aria-selected={activeSection === section} tabIndex={activeSection === section ? 0 : -1}
+              className={`flex-1 rounded-md px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${activeSection === section ? "bg-white text-blue-700 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"}`}
+              onClick={() => setActiveSection(section)}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const next = event.key === "Home" ? "keys" : event.key === "End" ? "custom" : section === "keys" ? "custom" : "keys";
+                setActiveSection(next);
+                document.getElementById(`settings-tab-${next}`)?.focus();
+              }}>
+              {label}{section === "keys" && isDirty ? <span className="ml-2 text-xs">(unsaved)</span> : null}
+            </button>
+          ))}
         </div>
 
         <div className="mb-6 bg-white dark:bg-gray-800 dark:border dark:border-gray-700 rounded-lg shadow p-4">
@@ -211,8 +230,8 @@ export const ApiKeys = () => {
               <h2 className="text-lg font-semibold">Which keys get spent</h2>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 {useServiceKeys
-                  ? "Generation spends the service keys. Anything below is kept, but unused."
-                  : "Generation spends the keys below. A provider left empty has no key to spend, and the steps that need it will fail."}
+                  ? "Generation uses service keys. Your saved keys and custom providers stay available for when you switch to your own keys."
+                  : "Generation uses your saved keys and custom voice providers. Add credentials for the services you use."}
               </p>
             </div>
 
@@ -230,6 +249,10 @@ export const ApiKeys = () => {
           </div>
         </div>
 
+      </div>
+
+      <div role="tabpanel" id="settings-panel-keys" aria-labelledby="settings-tab-keys" hidden={activeSection !== "keys"}>
+      <form className="px-4 pb-6 md:px-6 max-w-3xl mx-auto" onSubmit={handleSave}>
         {KEY_GROUPS.map((group) => (
           <div
             key={group.title}
@@ -302,6 +325,10 @@ export const ApiKeys = () => {
           </div>
         </div>
       </form>
+      </div>
+      <div role="tabpanel" id="settings-panel-custom" aria-labelledby="settings-tab-custom" hidden={activeSection !== "custom"}>
+      <CustomTtsProviders useServiceKeys={useServiceKeys} isSwitching={isSwitching} onUseOwnKeys={() => handleModeChange(false)} />
+      </div>
     </>
   );
 };

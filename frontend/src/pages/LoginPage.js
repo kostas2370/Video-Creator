@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { LOGIN_URL } from "../endpoints";
+
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import useAuth from "../hooks/useAuth";
 import Cookies from "js-cookie"
-import { axiosInstance } from "../api/axiosPrivate";
+import { login } from "../api/apiService";
 
 
 const Login = () => {
@@ -47,28 +47,12 @@ const Login = () => {
         remember_me: rememberMe,
       };
 
-      axiosInstance
-        .post(LOGIN_URL, data)
-        .then((response) => {
-          const data = response?.data;
-          toast.success("Login succesfully");
-          setAccessToken(data.tokens.access)
-
-          setCSRFToken(response.headers["x-csrftoken"])
-          
-          navigate(fromLocation, { replace: true })
-          
-          
-         
-          
-        })
-        .catch((error) => {
-          if (error?.response?.data)
-          {toast.error(error?.response?.data.detail);}else{
-            toast.error("Server is down !")
-
-          }
-        });
+      const response = await login(data);
+      if (!response.ok) { toast.error(response.message); return; }
+      toast.success("Login successful");
+      setAccessToken(response.data.tokens.access);
+      setCSRFToken(response.headers["x-csrftoken"]);
+      navigate(fromLocation, { replace: true });
     } catch (error) {
       toast.error(error);
     }
