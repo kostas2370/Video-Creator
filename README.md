@@ -466,12 +466,18 @@ the dialogue editor, where you can review an AI rewrite before saving. **Edit vi
 lets you upload an image or video with a preview, or generate a new image.
 
 **Settings** opens the video's intro, outro, avatar and subtitle controls.
-**Render video** queues the render once the video is ready.
+**Render video** queues the render once the video is ready. While rendering, the
+button stays disabled.
+
+If narration is missing, an amber notice lists the affected scenes. **Retry narration**
+on a scene regenerates its audio while keeping the dialogue and visual. The render
+dialog also checks for missing narration: cancel to retry it, or choose **Render anyway**
+to use the available audio. Videos with narration turned off do not show this warning.
 
 | | |
 | --- | --- |
 | ![Video settings](docs/screenshots/modal-video-config.png) | ![Queue a render](docs/screenshots/modal-render.png) |
-| **Video settings** — intro, outro, avatar, subtitles | **Render** — queues the job and follows it to COMPLETED |
+| **Video settings** — intro, outro, avatar, subtitles | **Render** — warns about missing narration, then queues the job |
 | ![Edit a scene](docs/screenshots/modal-edit-scene.png) | ![Edit a scene image](docs/screenshots/modal-edit-image.png) |
 | **Edit scene** — rewrite the line and resynthesise it | **Edit scene image** — replace it, or regenerate from a new description |
 | ![Add a scene](docs/screenshots/modal-add-scene.png) | ![Delete a scene](docs/screenshots/modal-delete-scene.png) |
@@ -495,7 +501,7 @@ your intro and outro in the video settings.
 | | |
 | --- | --- |
 | ![Create a new avatar](docs/screenshots/modal-new-avatar.png) | ![Add an asset](docs/screenshots/modal-new-asset.png) |
-| **New avatar** — name, gender, voice and a face to animate | **New asset** — an intro, outro or backing track |
+| **New avatar** — name, gender, voice and a face to animate | **New asset** — upload an intro or outro clip |
 
 ## Twitch compilations
 
