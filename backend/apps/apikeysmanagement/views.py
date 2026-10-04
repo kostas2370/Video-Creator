@@ -17,6 +17,7 @@ class ApiKeysView(generics.RetrieveUpdateDestroyAPIView):
         keys, _ = ApiKeys.objects.get_or_create(user=self.request.user)
         return keys
 
+
 class UserCustomTTSProviderViewSet(viewsets.ModelViewSet):
     serializer_class = UserCustomTTSProviderSerializer
     permission_classes = [IsAuthenticated]

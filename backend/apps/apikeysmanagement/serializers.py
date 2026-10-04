@@ -77,9 +77,7 @@ class UserCustomTTSProviderSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        auth_type = attrs.get(
-            "auth_type", getattr(self.instance, "auth_type", None)
-        )
+        auth_type = attrs.get("auth_type", getattr(self.instance, "auth_type", None))
         auth_header_name = attrs.get(
             "auth_header_name",
             getattr(self.instance, "auth_header_name", ""),
@@ -89,8 +87,7 @@ class UserCustomTTSProviderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {
                     "auth_header_name": (
-                        "Header name is required when auth_type is set to"
-                        " 'header'."
+                        "Header name is required when auth_type is set to 'header'."
                     )
                 }
             )

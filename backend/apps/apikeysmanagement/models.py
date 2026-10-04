@@ -5,7 +5,13 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField
-from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE, AFTER_CREATE, AFTER_DELETE
+from django_lifecycle import (
+    LifecycleModelMixin,
+    hook,
+    AFTER_UPDATE,
+    AFTER_CREATE,
+    AFTER_DELETE,
+)
 from requests.auth import HTTPBasicAuth
 
 logger = logging.getLogger(__name__)
@@ -173,9 +179,7 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         elif (
-            self.auth_type == AuthType.HEADER
-            and self.auth_header_name
-            and self.api_key
+            self.auth_type == AuthType.HEADER and self.auth_header_name and self.api_key
         ):
             headers[self.auth_header_name] = self.api_key
 
@@ -192,9 +196,11 @@ class UserCustomTTSProvider(LifecycleModelMixin, models.Model):
     @hook(AFTER_CREATE, on_commit=True)
     def create_voices(self):
         from apps.videomanagement.tasks import update_user_voices
+
         update_user_voices.delay(self.user.id, self.name)
 
     @hook(AFTER_DELETE, on_commit=True)
     def delete_voices(self):
         from apps.videomanagement.models import VoiceModel
+
         VoiceModel.objects.filter(created_by=self.user, provider=self.name).delete()

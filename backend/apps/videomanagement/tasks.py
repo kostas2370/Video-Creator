@@ -142,7 +142,9 @@ def update_user_voices(user_id: int, provider: str):
 
     stale_paths = set(existing_map.keys()) - fetched_voice_ids
     if stale_paths:
-        VoiceModel.objects.filter(created_by=user, provider=provider, path__in=stale_paths).delete()
+        VoiceModel.objects.filter(
+            created_by=user, provider=provider, path__in=stale_paths
+        ).delete()
 
     added = [
         VoiceModel(
@@ -158,6 +160,11 @@ def update_user_voices(user_id: int, provider: str):
     ]
 
     VoiceModel.objects.bulk_create(added)
-    logger.info("Imported %s and cleaned up stale voices for user %s (%s)", len(added), user_id, provider)
+    logger.info(
+        "Imported %s and cleaned up stale voices for user %s (%s)",
+        len(added),
+        user_id,
+        provider,
+    )
 
     return len(added)

@@ -5,29 +5,36 @@ import encrypted_model_fields.fields
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('apikeysmanagement', '0004_alter_usercustomttsprovider_user'),
+        ("apikeysmanagement", "0004_alter_usercustomttsprovider_user"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='usercustomttsprovider',
-            name='api_key',
-            field=encrypted_model_fields.fields.EncryptedCharField(blank=True, default='', help_text='Secret API key, token, or credentials'),
+            model_name="usercustomttsprovider",
+            name="api_key",
+            field=encrypted_model_fields.fields.EncryptedCharField(
+                blank=True,
+                default="",
+                help_text="Secret API key, token, or credentials",
+            ),
         ),
         migrations.AlterField(
-            model_name='usercustomttsprovider',
-            name='name',
-            field=models.CharField(help_text="Unique identifier, e.g., 'my_local_tts'", max_length=50),
+            model_name="usercustomttsprovider",
+            name="name",
+            field=models.CharField(
+                help_text="Unique identifier, e.g., 'my_local_tts'", max_length=50
+            ),
         ),
         migrations.AlterField(
-            model_name='usercustomttsprovider',
-            name='voices_url',
+            model_name="usercustomttsprovider",
+            name="voices_url",
             field=models.CharField(blank=True, max_length=500, null=True),
         ),
         migrations.AddConstraint(
-            model_name='usercustomttsprovider',
-            constraint=models.UniqueConstraint(fields=('user', 'name'), name='unique_user_custom_tts_provider'),
+            model_name="usercustomttsprovider",
+            constraint=models.UniqueConstraint(
+                fields=("user", "name"), name="unique_user_custom_tts_provider"
+            ),
         ),
     ]
