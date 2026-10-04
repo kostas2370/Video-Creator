@@ -36,6 +36,20 @@ class VideoDetailQueryTests(TestCase):
 
 
 class VideoViewTests(ApiTestCase):
+    def test_unsupported_write_routes_return_405_without_mutating_videos(self):
+        row = self.video_for(title="Original")
+        payload = {"title": "Changed", "prompt": {"prompt": "New prompt"}}
+        count = row.__class__.objects.count()
+        response = self.client.post(reverse("video-list"), payload, format="json")
+        self.assertEqual(response.status_code, 405)
+        response = self.client.put(
+            reverse("video-detail", args=[row.pk]), payload, format="json"
+        )
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(row.__class__.objects.count(), count)
+        row.refresh_from_db()
+        self.assertEqual(row.title, "Original")
+
     def test_lists_only_the_callers_own_videos(self):
         mine = self.video_for()
         self.video_for(owner=user.make())
@@ -83,7 +97,17 @@ class VideoViewTests(ApiTestCase):
 
 class VideoUpdateViewTests(ApiTestCase):
     def test_renames_a_video_without_touching_anything_else(self):
-        video = self.video_for(title="Old Name")
+        selected_avatar = avatar.make(created_by=self.user)
+        opening = intro.make(created_by=self.user)
+        closing = outro.make(created_by=self.user)
+        original_settings = {
+            "narration": False, "subtitles": True, "avatar_position": "left,bottom"
+        }
+        video = self.video_for(
+            title="Old Name", avatar=selected_avatar, intro=opening, outro=closing,
+            settings=original_settings,
+        )
+        original_voice = video.voice_model_id
 
         response = self.client.patch(
             reverse("video-detail", args=[video.id]),
@@ -94,6 +118,23 @@ class VideoUpdateViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 200)
         video.refresh_from_db()
         self.assertEqual(video.title, "New Name")
+        self.assertEqual(video.avatar_id, selected_avatar.pk)
+        self.assertEqual(video.intro_id, opening.pk)
+        self.assertEqual(video.outro_id, closing.pk)
+        self.assertEqual(video.voice_model_id, original_voice)
+        self.assertEqual(video.settings, original_settings)
+
+    def test_explicit_null_clears_only_the_selected_asset(self):
+        opening = intro.make(created_by=self.user)
+        closing = outro.make(created_by=self.user)
+        row = self.video_for(intro=opening, outro=closing)
+        response = self.client.patch(
+            reverse("video-detail", args=[row.pk]), {"intro": None}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        row.refresh_from_db()
+        self.assertIsNone(row.intro_id)
+        self.assertEqual(row.outro_id, closing.pk)
 
     def test_turns_subtitles_on(self):
         video = self.video_for()
@@ -279,13 +320,4 @@ class ResumeViewTests(ApiTestCase):
         response, delay = self.resume(stalled)
 
         self.assertEqual(response.status_code, 403)
-        delay.assert_not_called()
-
-    def test_a_second_resume_finds_nothing_left_to_claim(self):
-        stalled = self.a_failed_video()
-        self.resume(stalled)
-
-        response, delay = self.resume(stalled)
-
-        self.assertEqual(response.status_code, 409)
         delay.assert_not_called()

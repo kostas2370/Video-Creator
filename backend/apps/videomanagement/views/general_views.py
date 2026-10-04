@@ -1,4 +1,4 @@
-from rest_framework import viewsets
+from rest_framework import mixins, viewsets
 from rest_framework.response import Response
 from rest_framework.filters import OrderingFilter, SearchFilter
 
@@ -14,7 +14,6 @@ from ..models import (
     VoiceModel,
     Avatar,
     SceneImage,
-    Video,
     VideoType,
 )
 from ..serializers import (
@@ -71,7 +70,12 @@ class MusicView(viewsets.ModelViewSet):
         return Music.objects.filter(created_by=self.request.user)
 
 
-class VoiceView(viewsets.ModelViewSet):
+class VoiceView(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
     serializer_class = VoiceModelSerializer
     queryset = VoiceModel.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnlyPermission]

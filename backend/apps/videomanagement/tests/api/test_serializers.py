@@ -13,7 +13,7 @@ from ...serializers import (
     VideoNestedSerializer,
     VideoSerializer,
 )
-from ...swagger_serializers import (
+from ...request_serializers import (
     AddSceneSerializer,
     GenerateSerializer,
     TwitchSerializer,
@@ -196,7 +196,7 @@ class VideoUpdateSerializerTests(TestCase):
         serializer = VideoUpdateSerializer(data={"title": "A New Name"})
 
         self.assertTrue(serializer.is_valid())
-        self.assertIsNone(serializer.validated_data["intro"])
+        self.assertEqual(serializer.validated_data, {"title": "A New Name"})
 
     def test_rejects_an_avatar_corner_that_does_not_exist(self):
         serializer = VideoUpdateSerializer(data={"avatar_position": "middle,middle"})

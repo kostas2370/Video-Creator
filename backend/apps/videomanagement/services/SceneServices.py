@@ -2,7 +2,7 @@ from rest_framework.exceptions import APIException
 import logging
 
 from ..models import Scene, Video, VideoType, SceneImage
-from ..swagger_serializers import AddSceneSerializer
+from ..request_serializers import AddSceneSerializer
 from ..utils.audio_utils import update_scene as update
 from ..utils.llm import get_update_sentence
 from ..utils.prompt_utils import format_update_form
@@ -61,7 +61,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
         client = TwitchClient(video.dir_name, user=video.created_by)
         client.set_headers()
         try:
-            clip = client.get_clip_by_url(serializer.data.get("url"))
+            clip = client.get_clip_by_url(serializer.validated_data.get("url"))
             downloaded_clip = client.download_clip(clip[0])
             create_twitch_clip_scene(downloaded_clip, clip[0].get("title"), video)
 
@@ -72,8 +72,8 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
         try:
             scene = make_scene_speech(
                 video,
-                serializer.data["text"],
-                serializer.data["is_last"],
+                serializer.validated_data["text"],
+                serializer.validated_data["is_last"],
             )
 
         except Exception as exc:
@@ -84,14 +84,14 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
             SceneImage.objects.create(
                 scene=scene,
                 file=files["image"],
-                prompt=serializer.data.get("image_description", ""),
-                with_audio=serializer.data["with_audio"],
+                prompt=serializer.validated_data.get("image_description", ""),
+                with_audio=serializer.validated_data["with_audio"],
             )
 
-        if serializer.data.get("image_description"):
+        if serializer.validated_data.get("image_description"):
             create_image_scene(
                 video=video,
-                image=serializer.data["image_description"],
+                image=serializer.validated_data["image_description"],
                 text=scene.text,
                 dir_name=video.dir_name,
                 mode=video.mode,
