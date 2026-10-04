@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { RiEyeLine, RiEyeOffLine } from "react-icons/ri";
 
 import { getApiKeys, updateApiKeys, deleteApiKeys } from "../api/apiService";
 import { ClearApiKeysModal } from "../components/ClearApiKeysModal";
 import { CustomTtsProviders } from "../components/CustomTtsProviders";
+import { CustomVisualProviders } from "../components/CustomVisualProviders";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 const KEY_GROUPS = [
@@ -56,7 +58,10 @@ const EMPTY_KEYS = Object.fromEntries(KEY_FIELDS.map((name) => [name, ""]));
 const MASK_EXAMPLE = "sk-••••••••ijkl";
 
 export const ApiKeys = () => {
-  const [activeSection, setActiveSection] = useState("keys");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sections = [["keys", "Built-in API keys"], ["custom", "Custom voice providers"], ["visual", "Custom images and videos"]];
+  const activeSection = sections.some(([section]) => section === searchParams.get("section")) ? searchParams.get("section") : "keys";
+  const setActiveSection = section => setSearchParams({ section }, { replace: true });
   const [saved, setSaved] = useState(EMPTY_KEYS);
   const [drafts, setDrafts] = useState({});
   const [revealed, setRevealed] = useState({});
@@ -208,14 +213,15 @@ export const ApiKeys = () => {
         </div>
 
         <div role="tablist" aria-label="Provider settings" className="mb-6 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
-          {[["keys", "Built-in API keys"], ["custom", "Custom voice providers"]].map(([section, label]) => (
+          {sections.map(([section, label], index) => (
             <button key={section} type="button" role="tab" id={`settings-tab-${section}`} aria-controls={`settings-panel-${section}`} aria-selected={activeSection === section} tabIndex={activeSection === section ? 0 : -1}
               className={`flex-1 rounded-md px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${activeSection === section ? "bg-white text-blue-700 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"}`}
               onClick={() => setActiveSection(section)}
               onKeyDown={(event) => {
                 if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
                 event.preventDefault();
-                const next = event.key === "Home" ? "keys" : event.key === "End" ? "custom" : section === "keys" ? "custom" : "keys";
+                const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? sections.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + sections.length) % sections.length;
+                const next = sections[nextIndex][0];
                 setActiveSection(next);
                 document.getElementById(`settings-tab-${next}`)?.focus();
               }}>
@@ -230,7 +236,7 @@ export const ApiKeys = () => {
               <h2 className="text-lg font-semibold">Which keys get spent</h2>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 {useServiceKeys
-                  ? "Generation uses service keys. Your saved keys and custom providers stay available for when you switch to your own keys."
+                  ? "Built-in services use service keys. Switch to your own keys to use your saved keys and custom voices. Custom image and video providers use their own connection settings."
                   : "Generation uses your saved keys and custom voice providers. Add credentials for the services you use."}
               </p>
             </div>
@@ -328,6 +334,9 @@ export const ApiKeys = () => {
       </div>
       <div role="tabpanel" id="settings-panel-custom" aria-labelledby="settings-tab-custom" hidden={activeSection !== "custom"}>
       <CustomTtsProviders useServiceKeys={useServiceKeys} isSwitching={isSwitching} onUseOwnKeys={() => handleModeChange(false)} />
+      </div>
+      <div role="tabpanel" id="settings-panel-visual" aria-labelledby="settings-tab-visual" hidden={activeSection !== "visual"}>
+        <CustomVisualProviders />
       </div>
     </>
   );

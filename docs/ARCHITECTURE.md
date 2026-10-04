@@ -64,6 +64,7 @@ erDiagram
     Outro o|--o{ Video : closes
     User ||--o| ApiKeys : stores
     User ||--o{ UserCustomTTSProvider : configures
+    User ||--o{ UserCustomVisualProvider : configures
     User ||--o{ Notification : receives
 ```
 
@@ -258,6 +259,27 @@ incoming records before removing stale voices, update existing rows while preser
 IDs, and create new rows. A failed fetch represented by `None` preserves the existing
 catalogue; a successful empty list removes that user's provider voices.
 
+### Shared custom-provider foundation
+
+`AbstractCustomProvider` holds the common owner, name, endpoint, authentication,
+and encrypted-credential fields, plus authentication-header construction. TTS and
+visual providers inherit these fields into their own database tables. The base is
+abstract and does not create a separate provider table.
+
+`CustomProviderSerializer` shares owner assignment, immutable/reserved-name validation,
+header-authentication validation, and credential masking. `CustomProviderViewSet`
+shares authenticated CRUD and owner-scoped querysets. Concrete serializers retain
+provider-specific fields, reserved names, and per-user uniqueness validators.
+
+Both provider types accept an `extra_parameters` JSON object (default `{}`), such as
+`{"model": "my-model", "seed": 42, "options": {"quality": "high"}}`. Generation
+POSTs merge those fields with the configured prompt or text/voice fields; generated
+prompt, text, and voice values take precedence. Arrays, scalars, and `null` are
+rejected. PATCH preserves omitted parameters, replaces a supplied object, and clears
+parameters when given `{}`. These are ordinary request options; credentials belong
+in the encrypted authentication field. The voice and visual provider editors expose
+a JSON input under advanced request settings.
+
 ### Custom TTS providers
 
 Each `UserCustomTTSProvider` belongs to one user. Its name is unique for that user,
@@ -287,11 +309,83 @@ The optional voices URL accepts a list or a `voices`/`data` wrapper. Custom entr
 synthesis authentication settings, so authenticated catalogue endpoints need additional
 implementation. The synthesis endpoint's authentication is applied to its POST.
 
+### Custom visual providers
+
+`UserCustomVisualProvider` stores an `output_type` of `IMAGE` or `VIDEO`, a connection
+URL, shared authentication settings, a configurable `prompt_field_name` (default
+`prompt`), and creation/update timestamps. Names are unique per user and immutable;
+built-in visual provider names are reserved.
+
+| Route | Purpose |
+| --- | --- |
+| `/api/user-custom-visual-providers/` | List owned configurations or create an image/video provider |
+| `/api/user-custom-visual-providers/{id}/` | Read, update, or delete an owned configuration |
+
+Omitting `api_key` during an update preserves it; sending an empty string clears it.
+Read responses contain a masked value. Foreign provider IDs return `404`.
+
+The visual adapter in [custom.py](../backend/apps/videomanagement/utils/image_providers/custom.py)
+retrieves the selected configuration for the video owner and posts the prompt under
+`prompt_field_name`, using its configured authentication and extra parameters. It
+accepts raw media bytes or a JSON response containing `url`, `image_url` for images,
+or `video_url` for videos, including those fields in the first `data` entry.
+Media URLs must use HTTP or HTTPS. Downloads do not receive the provider's
+credentials, and the initial POST does not follow redirects.
+
+Image requests have a 30-second timeout; video requests allow 300 seconds. Pillow
+validates images and normalizes them into uniquely named PNGs. MoviePy validates
+video clips before ffmpeg converts them into MP4 with H.264 video and AAC audio,
+preserving sound when present. Conversion has a 300-second timeout. Request, decoding, and
+storage failures return `None` through the existing scene failure path, removing
+any partially saved output. Temporary downloads are cleaned up. Missing or foreign
+configurations are rejected. Custom video providers also receive motion-oriented
+script descriptions, determined from their owner's configuration.
+
+The API settings page has separate tabs for built-in keys, custom voice providers,
+and custom image/video providers. Visual configurations support creation, editing,
+and confirmed deletion with preserved credentials and unsaved drafts. The generation
+form lists owned providers in separate custom image and custom video groups when
+AI visuals are selected; unavailable saved providers must be replaced before generation.
+Custom visual providers use their configured credentials independently of the built-in
+key-source toggle.
+
+Connection checks and asynchronous job polling are not connected yet.
+Providers must return completed media bytes or a completed media URL;
+a response containing only a job ID is not supported.
+
 ### Visual and LLM providers
 
+[ImageProviderRegistry](../backend/apps/videomanagement/utils/image_providers/registry.py)
+uses the same registration pattern as `TTSRegistry`: module-level handlers register
+through decorators, and lookup resolves their current module attributes at call time.
+This keeps provider calls patchable in tests. Importing
 [image_providers/__init__.py](../backend/apps/videomanagement/utils/image_providers/__init__.py)
-maps `(mode, provider)` to a module and function name. `resolve()` looks up the callable
-at invocation time, which also allows tests to replace it without changing the registry.
+loads the adapters and registers them. Existing callers continue to use
+`resolve(mode, provider)`.
+
+```python
+@ImageProviderRegistry.register("my-built-in")
+def generate(prompt, directory, user=None, **kwargs):
+    # Produce a media file and return its path.
+    ...
+```
+
+Registration defaults to `mode="AI"` and `output_type="IMAGE"`. Web search adapters
+use `mode="WEB"`; video adapters use `output_type="VIDEO"`, which populates
+`VIDEO_PROVIDERS`. `ImageProviderRegistry.is_video(name, user)` combines built-in
+metadata with an owner-scoped lookup of custom configurations for script formatting.
+Omitted provider names retain the defaults
+`DALL-E` for AI and `bing` for web search.
+
+`register_fallback(mode="AI")` exposes a custom-adapter hook. Explicit registrations
+win over that fallback. The compatibility resolver binds the selected custom name as
+`provider_name`, while forwarding the normal prompt, directory, user, and generation
+options. Fallbacks are scoped by mode, so an AI fallback does not capture web searches.
+The custom visual HTTP adapter is registered as the AI fallback. Unknown AI provider
+names must identify an owned custom configuration; unknown web provider names use
+the web default. Unsupported modes
+raise `ValueError`; scene generation handles this through its existing failure path.
+Callers can invoke the resolved handler directly without checking for `None`.
 
 | Mode | Provider identifiers |
 | --- | --- |
@@ -415,7 +509,7 @@ production-ready by themselves.
 
 | Change | Files to start with |
 | --- | --- |
-| Add a visual provider | New module in `utils/image_providers/`, registry entry, frontend provider choices |
+| Add a visual provider | New module in `utils/image_providers/`, registration decorator, package import, frontend provider choices |
 | Add a built-in TTS provider | `Provider`, `ApiKeys.FIELDS`, `TTSRegistry` handler, voice availability/import rules, frontend key controls |
 | Connect a user-defined TTS service | Custom-provider configuration and voice import; no registry code change for each user's service |
 | Add an LLM | `llm.py` routing and accepted model settings |

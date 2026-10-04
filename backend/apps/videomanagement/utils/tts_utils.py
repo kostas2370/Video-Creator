@@ -167,10 +167,12 @@ def tts_from_custom_provider(
         )
 
     headers, auth = provider_config.get_auth_headers()
-    data = {
-        provider_config.text_field_name: text,
-        provider_config.voice_field_name: voice,
-    }
+    data = provider_config.request_payload(
+        {
+            provider_config.text_field_name: text,
+            provider_config.voice_field_name: voice,
+        }
+    )
 
     response = None
     try:

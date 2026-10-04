@@ -157,6 +157,8 @@ function ProviderForm({ provider, onSaved, onCancel }) {
   const isEditing = Boolean(provider.id);
   const [draft, setDraft] = useState(() => Object.fromEntries(Object.entries(emptyProvider).map(([name, value]) => [name, provider[name] ?? value])));
   const [credential, setCredential] = useState("");
+  const initialParameters = JSON.stringify(provider.extra_parameters ?? {}, null, 2);
+  const [parameters, setParameters] = useState(initialParameters);
   const [clearCredential, setClearCredential] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -164,7 +166,7 @@ function ProviderForm({ provider, onSaved, onCancel }) {
   const [showCredential, setShowCredential] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const formRef = useRef(null);
-  const hasChanges = Object.entries(draft).some(([name, value]) => value !== (provider[name] ?? emptyProvider[name])) || Boolean(credential) || clearCredential;
+  const hasChanges = Object.entries(draft).some(([name, value]) => value !== (provider[name] ?? emptyProvider[name])) || parameters !== initialParameters || Boolean(credential) || clearCredential;
 
   useEffect(() => {
     formRef.current?.querySelector("input:not(:disabled)")?.focus();
@@ -183,6 +185,13 @@ function ProviderForm({ provider, onSaved, onCancel }) {
   const submit = async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(Object.entries(draft).map(([name, value]) => [name, value.trim()]));
+    try {
+      data.extra_parameters = JSON.parse(parameters.trim() || "{}");
+      if (data.extra_parameters === null || Array.isArray(data.extra_parameters) || typeof data.extra_parameters !== "object") throw new Error("Expected an object");
+    } catch {
+      setErrors({ extra_parameters: "Enter a valid JSON object, for example {\"model\": \"my-model\", \"speed\": 1.1}." });
+      return;
+    }
     if (!isEditing && ["OPENAI", "ELEVENLABS", "SIXTYDB"].includes(data.name)) {
       setErrors({ name: "Choose a name different from the built-in providers." });
       return;
@@ -258,11 +267,19 @@ function ProviderForm({ provider, onSaved, onCancel }) {
         <p className="text-xs text-gray-500 dark:text-gray-400">Provide a URL that lists voices without authentication to make this provider available in the voice selector.</p>
         </div>
         <details className="rounded-lg bg-gray-50 p-3 dark:bg-gray-900/40">
-          <summary className="cursor-pointer text-sm font-medium">Advanced: request field names</summary>
+          <summary className="cursor-pointer text-sm font-medium">Advanced: request settings</summary>
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Keep these defaults unless your service expects different field names.</p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {field("text_field_name", "Text field name", { required: true, maxLength: 50 })}
             {field("voice_field_name", "Voice ID field name", { required: true, maxLength: 50 })}
+          </div>
+          <div className="mt-4">
+            <label htmlFor="custom-tts-extra_parameters" className="text-sm font-medium">Extra parameters (JSON)</label>
+            <textarea id="custom-tts-extra_parameters" value={parameters} rows={5} spellCheck={false}
+              onChange={(event) => { setParameters(event.target.value); setErrors((previous) => ({ ...previous, extra_parameters: undefined })); }}
+              className={`${inputClass} font-mono`} aria-invalid={Boolean(errors.extra_parameters)} aria-describedby="custom-tts-extra_parameters-help custom-tts-extra_parameters-error" />
+            <p id="custom-tts-extra_parameters-help" className="mt-1 text-xs text-gray-500 dark:text-gray-400">Add options such as model or speed. Text and voice fields take precedence. Use {"{}"} to clear saved parameters.</p>
+            <p id="custom-tts-extra_parameters-error" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.extra_parameters ? [].concat(errors.extra_parameters).join(" ") : null}</p>
           </div>
         </details>
         {errorMessage ? <p role="alert" className="text-sm text-red-600 dark:text-red-400">Provider could not be saved: {errorMessage}</p> : null}
