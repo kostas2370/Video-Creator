@@ -1,5 +1,6 @@
 import logging
 
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
@@ -15,7 +16,6 @@ from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
 from ..services.VideoServices import video_update
-from ..services.task_dispatch import enqueue_video_task
 from ..services.SceneServices import create_scene
 from ..tasks import render_video_task, resume_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
@@ -106,10 +106,12 @@ class VideoView(
                 status=status.HTTP_409_CONFLICT,
             )
 
-        claimed = enqueue_video_task(
-            video, resume_video_task, VideoStatus.GENERATION,
-            [VideoStatus.FAILED, VideoStatus.READY],
-        )
+        previous_status = video.status
+        claimed = Video.objects.filter(
+            pk=video.pk,
+            status=previous_status,
+            status__in=[VideoStatus.FAILED, VideoStatus.READY],
+        ).update(status=VideoStatus.GENERATION, updated_at=timezone.now())
 
         if not claimed:
             video.refresh_from_db()
@@ -121,6 +123,18 @@ class VideoView(
                 status=status.HTTP_409_CONFLICT,
             )
 
+        try:
+            resume_video_task.delay(video_id=video.id)
+        except Exception:
+            logger.exception("Could not queue resume for video %s", pk)
+            Video.objects.filter(pk=video.pk, status=VideoStatus.GENERATION).update(
+                status=previous_status, updated_at=timezone.now()
+            )
+            return Response(
+                {"message": "The video task could not be queued. Please retry."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        video.refresh_from_db()
         logger.info(f"Video with id {pk} was queued to resume")
 
         return Response(
@@ -140,10 +154,12 @@ class VideoView(
     def render_video(self, _, pk):
         vid = self.get_object()
 
-        claimed = enqueue_video_task(
-            vid, render_video_task, VideoStatus.RENDERING,
-            [VideoStatus.READY, VideoStatus.COMPLETED],
-        )
+        previous_status = vid.status
+        claimed = Video.objects.filter(
+            pk=vid.pk,
+            status=previous_status,
+            status__in=[VideoStatus.READY, VideoStatus.COMPLETED],
+        ).update(status=VideoStatus.RENDERING, updated_at=timezone.now())
 
         if not claimed:
             vid.refresh_from_db()
@@ -154,6 +170,18 @@ class VideoView(
                 status=status.HTTP_409_CONFLICT,
             )
 
+        try:
+            render_video_task.delay(video_id=vid.id)
+        except Exception:
+            logger.exception("Could not queue render for video %s", pk)
+            Video.objects.filter(pk=vid.pk, status=VideoStatus.RENDERING).update(
+                status=previous_status, updated_at=timezone.now()
+            )
+            return Response(
+                {"message": "The video task could not be queued. Please retry."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        vid.refresh_from_db()
         logger.info(f"Video with id {pk} was queued for rendering")
 
         return Response(
