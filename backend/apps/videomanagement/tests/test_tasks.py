@@ -6,15 +6,15 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.apikeysmanagement.models import Provider
+from apps.apikeysmanagement.models import Provider, UserCustomTTSProvider
 from apps.usermanagement.baker_recipes import user
-
+from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider
 from ..baker_recipes import video
 from ..models import Video, VoiceModel
 from ..utils import tts_utils
 from ..tasks import (
     generate_twitch_video_task,
-    import_user_voices,
+    update_user_voices,
     resume_video_task,
     generate_video_task,
     reap_stalled_videos,
@@ -113,7 +113,7 @@ class TaskSuccessTests(TestCase):
         self.assertEqual(generate.call_args.kwargs["video"].pk, self.video.pk)
 
 
-class ImportUserVoicesTests(TestCase):
+class UpdateUserVoicesTests(TestCase):
     def setUp(self):
         self.user = user.make()
 
@@ -133,7 +133,7 @@ class ImportUserVoicesTests(TestCase):
         with self.labs_returns(
             {"name": "Rachel", "id": "abc", "preview_url": "https://a.test/x"}
         ):
-            added = import_user_voices(self.user.id, Provider.ELEVENLABS)
+            added = update_user_voices(self.user.id, Provider.ELEVENLABS)
 
         voice = VoiceModel.objects.get(path="abc")
         self.assertEqual(added, 1)
@@ -145,8 +145,8 @@ class ImportUserVoicesTests(TestCase):
         voices = [{"name": "Rachel", "id": "abc", "preview_url": ""}]
 
         with self.labs_returns(*voices):
-            import_user_voices(self.user.id, Provider.ELEVENLABS)
-            added = import_user_voices(self.user.id, Provider.ELEVENLABS)
+            update_user_voices(self.user.id, Provider.ELEVENLABS)
+            added = update_user_voices(self.user.id, Provider.ELEVENLABS)
 
         self.assertEqual(added, 0)
         self.assertEqual(VoiceModel.objects.filter(path="abc").count(), 1)
@@ -156,13 +156,13 @@ class ImportUserVoicesTests(TestCase):
         voices = [{"name": "Rachel", "id": "abc", "preview_url": ""}]
 
         with self.labs_returns(*voices):
-            import_user_voices(self.user.id, Provider.ELEVENLABS)
-            import_user_voices(stranger.id, Provider.ELEVENLABS)
+            update_user_voices(self.user.id, Provider.ELEVENLABS)
+            update_user_voices(stranger.id, Provider.ELEVENLABS)
 
         self.assertEqual(VoiceModel.objects.filter(name="Rachel").count(), 2)
 
     def test_does_nothing_for_a_user_who_no_longer_exists(self):
-        self.assertEqual(import_user_voices(999999, Provider.ELEVENLABS), 0)
+        self.assertEqual(update_user_voices(999999, Provider.ELEVENLABS), 0)
 
     def test_a_provider_that_will_not_answer_fails_the_import(self):
         owner = user.make()
@@ -171,19 +171,20 @@ class ImportUserVoicesTests(TestCase):
             tts_utils, "get_voices_from_labs", side_effect=RuntimeError("401")
         ):
             with self.assertRaises(RuntimeError):
-                import_user_voices(owner.id, Provider.ELEVENLABS)
+                update_user_voices(owner.id, Provider.ELEVENLABS)
 
         self.assertEqual(VoiceModel.objects.count(), 0)
 
-    def test_imports_the_voices_from_a_custom_provider(self):
+    def test_updates_the_voices_from_a_custom_provider(self):
+        custom_provider = user_custom_tts_provider.make(user=self.user)
+        
         with self.custom_provider_returns([{"name": "Rachel", "id": "abc", "preview_url": "https://a.test/x"}]):
-            added = import_user_voices(self.user.id, "my_custom_provider")
+            added = update_user_voices(self.user.id, custom_provider.name)
 
         voice = VoiceModel.objects.get(path="abc")
         self.assertEqual(added, 1)
         self.assertEqual(voice.created_by, self.user)
-        self.assertEqual(voice.provider, "my_custom_provider")
-
+        self.assertEqual(voice.provider, custom_provider.name)
 
 class ReapStalledVideosTests(TestCase):
     """A task killed without unwinding never reaches its own except clause."""
