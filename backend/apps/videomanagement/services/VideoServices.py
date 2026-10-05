@@ -30,15 +30,20 @@ def video_update(video: Video, **changes) -> Video:
         video.voice_model = selected_avatar.voice
         update_fields.append("voice_model")
 
+    settings_changes = {
+        field: changes[field]
+        for field in ("video_format", "platform")
+        if field in changes
+    }
     if video.video_type != VideoType.TWITCH:
-        settings_changes = {
+        settings_changes.update({
             field: changes[field]
             for field in ("subtitles", "avatar_position")
             if field in changes
-        }
-        if settings_changes:
-            video.settings = {**(video.settings or {}), **settings_changes}
-            update_fields.append("settings")
+        })
+    if settings_changes:
+        video.settings = {**(video.settings or {}), **settings_changes}
+        update_fields.append("settings")
 
     video.save(update_fields=[*update_fields, "updated_at"])
     if voice_changed:

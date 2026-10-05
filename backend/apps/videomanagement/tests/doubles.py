@@ -17,6 +17,7 @@ class FakeClip:
         self.effects = []
         self.closed = False
         self.audio = None
+        self.mask = None
 
     def _record(self, name, *args, **kwargs):
         self.effects.append(name)
@@ -33,6 +34,15 @@ class FakeClip:
     def without_audio(self):
         self.audio = None
         return self._record("without_audio")
+
+    def add_mask(self):
+        if self.mask is None:
+            self.mask = FakeClip(duration=self.duration, size=self.size)
+        return self._record("add_mask")
+
+    def set_mask(self, mask):
+        self.mask = mask
+        return self._record("set_mask")
 
     def subclip(self, start, end):
         self.duration = end - start

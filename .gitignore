@@ -155,6 +155,7 @@ backend/gfpgan/weights/
 .safetensors
 backend/checkpoints
 .pth
+backend/extensions/SadTalker/gfpgan/weights/
 backend/results
 backend/gfpgan/
 backend/apps/videomanagement/utils/SadTalker/docs/
