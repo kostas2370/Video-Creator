@@ -1,9 +1,11 @@
 import logging
 import os
 import uuid
+from io import BytesIO
 
 from django.conf import settings
 from openai import OpenAI
+from PIL import Image, ImageOps
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
@@ -41,9 +43,8 @@ def generate_from_sora(
     second clips, so the shortest one that covers the narration is requested; anything
     longer than 12s is covered by handle_video holding the final frame.
 
-    `reference` is a still that the clip should look like. Every sentence is its own
-    job with no memory of the last one, so settings.SORA_STYLE and this frame are what
-    keep a video from looking like a dozen unrelated stock shots.
+    `reference` is the preceding clip's closing frame. Every sentence is its own
+    job, so this opening frame carries visual continuity into the next shot.
     """
     logger.warning("API CALL IN SORA")
 
@@ -64,7 +65,20 @@ def generate_from_sora(
 
     client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
     if reference and os.path.isfile(reference):
-        with open(reference, "rb") as anchor:
+        request["prompt"] += (
+            " Continue from the supplied opening frame into the action described "
+            "above. Preserve recurring subjects' identity, wardrobe, proportions, "
+            "and the established visual style. Keep motion, lighting, and spatial "
+            "relationships coherent unless the shot explicitly calls for a change."
+        )
+        # Sora requires the reference to match the requested video dimensions.
+        size = tuple(int(value) for value in settings.SORA_SIZE.split("x"))
+        with Image.open(reference) as source, BytesIO() as anchor:
+            ImageOps.fit(ImageOps.exif_transpose(source).convert("RGB"), size).save(
+                anchor, format="PNG"
+            )
+            anchor.name = "reference.png"
+            anchor.seek(0)
             video = client.videos.create_and_poll(input_reference=anchor, **request)
     else:
         video = client.videos.create_and_poll(**request)

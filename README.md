@@ -54,6 +54,20 @@ The ones worth knowing about:
 | `IMAGE_QUALITY` / `IMAGE_SIZE` | `high` / `1792x1024` | Validated per model — change them together with `IMAGE_MODEL` |
 | `SUBTITLE_FONT` | `DejaVu-Sans` | ImageMagick font name for subtitles |
 
+The generation form accepts an optional PNG, JPEG, or WebP reference image up to
+10 MB when using OpenAI images or Sora. OpenAI images reuse this reference for every
+scene; Sora uses it to start the first shot and then follows each preceding clip.
+The uploaded reference stays with the video for resume and regeneration.
+
+Without an upload, OpenAI scene images reuse the first successful image as an identity and style
+reference through the image edits API. They generate in sequence; reference inputs
+can add API cost. Sora shots use the preceding clip's last visible frame, resized to
+the configured video resolution, as their opening reference. Resuming a generation
+or regenerating a scene recovers references from saved visuals. This improves visual
+continuity but does not guarantee identical characters or uninterrupted motion; Sora
+shots are separate jobs, not native video extensions. Existing completed visuals are
+kept until you regenerate them.
+
 ---
 
 ## How to Run the Project

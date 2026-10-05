@@ -1,5 +1,6 @@
 import base64
 import logging
+import os
 import uuid
 
 from django.conf import settings
@@ -23,6 +24,7 @@ def generate_from_dalle(
     style: str,
     title: str = "",
     user=None,
+    reference: str = None,
     *args,
     **kwargs,
 ) -> str:
@@ -61,7 +63,7 @@ def generate_from_dalle(
     if style:
         image_prompt = f"{image_prompt}\nStyle: {style}"
 
-    response = client.images.generate(
+    request = dict(
         model=settings.IMAGE_MODEL,
         prompt=image_prompt,
         size=settings.IMAGE_SIZE,
@@ -69,6 +71,21 @@ def generate_from_dalle(
         n=1,
         output_format="png",
     )
+    if reference and os.path.isfile(reference):
+        request["prompt"] += (
+            "\nUse the reference as the visual identity guide for this video. "
+            "Preserve recurring characters' facial features, hair, clothing, and "
+            "proportions, recurring objects, art style, and color palette. "
+            "Create the new shot described above; change pose, framing, action, "
+            "and location as required by the shot. Do not copy the old composition "
+            "or introduce reference subjects that are absent from this shot."
+        )
+        if settings.IMAGE_MODEL in {"gpt-image-1", "gpt-image-1.5"}:
+            request["input_fidelity"] = "high"
+        with open(reference, "rb") as anchor:
+            response = client.images.edit(image=anchor, **request)
+    else:
+        response = client.images.generate(**request)
 
     # gpt-image always answers with base64 and never populates `url`.
     if not response.data or not response.data[0].b64_json:

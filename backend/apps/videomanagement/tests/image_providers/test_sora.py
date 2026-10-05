@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
 from rest_framework.exceptions import APIException
+from PIL import Image
 
 from ...utils.image_providers import (
     sora,
@@ -56,10 +57,23 @@ class GenerateFromSoraTests(SimpleTestCase):
     @override_settings(OPEN_API_KEY="key", SILENT_SCENE_SECONDS=7)
     def test_anchors_the_shot_to_a_reference_frame_when_one_exists(self):
         with tempfile.NamedTemporaryFile(suffix=".png") as anchor:
-            self.generate(duration=4.0, reference=anchor.name)
+            Image.new("RGB", (32, 32)).save(anchor.name)
+
+            def inspect_reference(**kwargs):
+                with Image.open(kwargs["input_reference"]) as image:
+                    self.assertEqual(image.size, (1280, 720))
+                return self.video
+
+            self.client.videos.create_and_poll.side_effect = inspect_reference
+            with override_settings(SORA_SIZE="1280x720"):
+                self.generate(duration=4.0, reference=anchor.name)
 
         self.assertIn(
             "input_reference", self.client.videos.create_and_poll.call_args.kwargs
+        )
+        self.assertIn(
+            "Continue from",
+            self.client.videos.create_and_poll.call_args.kwargs["prompt"],
         )
 
     @override_settings(OPEN_API_KEY="key", SILENT_SCENE_SECONDS=7)
