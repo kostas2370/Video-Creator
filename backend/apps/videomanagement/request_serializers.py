@@ -27,6 +27,7 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    reference_image = serializers.ImageField(required=False)
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
         required=False, choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT
@@ -67,7 +68,23 @@ class GenerateSerializer(serializers.Serializer):
     avatar_position = serializers.CharField(required=False, default="right,top")
     genre = serializers.CharField(required=False, default="", allow_blank=True)
 
+    def validate_reference_image(self, value):
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError("Choose an image smaller than 10 MB.")
+        if value.image.format not in {"JPEG", "PNG", "WEBP"}:
+            raise serializers.ValidationError("Choose a PNG, JPEG, or WebP image.")
+        return value
+
     def validate(self, attrs):
+        if attrs.get("reference_image") and (
+            attrs.get("image_mode") != "AI"
+            or attrs.get("provider") not in (None, "DALL-E", "sora")
+        ):
+            raise serializers.ValidationError(
+                {
+                    "reference_image": "Reference images are supported with OpenAI images and Sora."
+                }
+            )
         attrs["avatar_position"] = normalize_avatar_position(
             attrs.get("avatar_position", "right,top")
         )
@@ -136,12 +153,8 @@ class VideoUpdateSerializer(serializers.Serializer):
     intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     outro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     title = serializers.CharField(required=False, max_length=50)
-    video_format = serializers.ChoiceField(
-        choices=VIDEO_FORMAT_CHOICES, required=False
-    )
-    platform = serializers.ChoiceField(
-        choices=VIDEO_PLATFORM_CHOICES, required=False
-    )
+    video_format = serializers.ChoiceField(choices=VIDEO_FORMAT_CHOICES, required=False)
+    platform = serializers.ChoiceField(choices=VIDEO_PLATFORM_CHOICES, required=False)
     subtitles = serializers.BooleanField(required=False)
     avatar_position = serializers.CharField(required=False)
 

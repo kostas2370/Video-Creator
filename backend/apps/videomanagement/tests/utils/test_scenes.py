@@ -50,17 +50,19 @@ class StillFromVideoTests(SimpleTestCase):
     def test_saves_a_frame_from_near_the_end_of_the_clip(self):
         clip = MagicMock()
         clip.duration = 8.0
+        clip.fps = 24
         clip.__enter__.return_value = clip
 
         with patch.object(scenes_utils, "VideoFileClip", return_value=clip):
             path = still_from_video("a.mp4", "images/")
 
         self.assertTrue(path.endswith(".png"))
-        self.assertEqual(clip.save_frame.call_args.kwargs["t"], 7.5)
+        self.assertAlmostEqual(clip.save_frame.call_args.kwargs["t"], 8 - 1 / 24)
 
     def test_tries_earlier_points_when_the_end_of_a_short_clip_will_not_decode(self):
         clip = MagicMock()
         clip.duration = 0.4
+        clip.fps = 24
         clip.__enter__.return_value = clip
         clip.save_frame.side_effect = [OSError("no frame"), None]
 
@@ -72,6 +74,7 @@ class StillFromVideoTests(SimpleTestCase):
     def test_gives_up_quietly_when_no_frame_can_be_read(self):
         clip = MagicMock()
         clip.duration = 8.0
+        clip.fps = 24
         clip.__enter__.return_value = clip
         clip.save_frame.side_effect = OSError("no frame")
 
@@ -81,6 +84,13 @@ class StillFromVideoTests(SimpleTestCase):
     def test_gives_up_quietly_when_the_clip_will_not_open(self):
         with patch.object(scenes_utils, "VideoFileClip", side_effect=OSError("bad")):
             self.assertIsNone(still_from_video("a.mp4", "images/"))
+
+    def test_uses_the_last_visible_frame_when_narration_trims_the_clip(self):
+        clip = MagicMock(duration=8.0, fps=24)
+        clip.__enter__.return_value = clip
+        with patch.object(scenes_utils, "VideoFileClip", return_value=clip):
+            still_from_video("a.mp4", "images/", end_time=5.0)
+        self.assertAlmostEqual(clip.save_frame.call_args.kwargs["t"], 5 - 1 / 24)
 
 
 class CreateImageSceneTests(TestCase):
@@ -225,7 +235,7 @@ class CreateImageScenesTests(TestCase):
             mode="AI",
             provider="sora",
         )
-        self.assertEqual(still.call_count, 1)
+        self.assertEqual(still.call_count, 2)
         self.assertIsNone(create.call_args_list[0].kwargs["reference"])
         self.assertEqual(
             create.call_args_list[1].kwargs["reference"], "images/anchor.png"
@@ -237,6 +247,135 @@ class CreateImageScenesTests(TestCase):
         )
 
         still.assert_not_called()
+
+    def add_third_shot(self):
+        self.video.gpt_answer["scenes"][0]["sentences"].append(
+            {"sentence": "three", "image_description": "cat runs"}
+        )
+
+    def test_video_continuation_uses_the_previous_clip_instead_of_the_first(self):
+        self.add_third_shot()
+        with (
+            patch.object(
+                scenes_utils,
+                "create_image_scene",
+                side_effect=["one.mp4", "two.mp4", "three.mp4"],
+            ) as create,
+            patch.object(
+                scenes_utils,
+                "still_from_video",
+                side_effect=["one.png", "two.png", "three.png"],
+            ),
+        ):
+            create_image_scenes(self.video, mode="AI", provider="sora")
+        self.assertEqual(
+            [call.kwargs["reference"] for call in create.call_args_list],
+            [None, "one.png", "two.png"],
+        )
+
+    def test_openai_stills_keep_the_original_identity_reference(self):
+        self.add_third_shot()
+        with patch.object(
+            scenes_utils,
+            "create_image_scene",
+            side_effect=["one.png", "two.png", "three.png"],
+        ) as create:
+            create_image_scenes(self.video, mode="AI")
+        self.assertEqual(
+            [call.kwargs["reference"] for call in create.call_args_list],
+            [None, "one.png", "one.png"],
+        )
+
+    def test_uploaded_reference_guides_every_openai_image(self):
+        self.video.reference_image = "media/reference.png"
+        with (
+            patch.object(scenes_utils, "stored_file_exists", return_value=True),
+            patch.object(
+                scenes_utils, "create_image_scene", return_value="shot.png"
+            ) as create,
+        ):
+            create_image_scenes(self.video, mode="AI", provider="DALL-E")
+        self.assertEqual(
+            [call.kwargs["reference"] for call in create.call_args_list],
+            [self.video.reference_image.path] * 2,
+        )
+
+    def test_uploaded_reference_starts_sora_then_previous_clip_takes_over(self):
+        self.video.reference_image = "media/reference.png"
+        with (
+            patch.object(scenes_utils, "stored_file_exists", return_value=True),
+            patch.object(
+                scenes_utils, "create_image_scene", return_value="shot.mp4"
+            ) as create,
+            patch.object(scenes_utils, "still_from_video", return_value="end.png"),
+        ):
+            create_image_scenes(self.video, mode="AI", provider="sora")
+        self.assertEqual(
+            [call.kwargs["reference"] for call in create.call_args_list],
+            [self.video.reference_image.path, "end.png"],
+        )
+
+    def test_resume_restores_the_preceding_completed_clip(self):
+        self.add_third_shot()
+        first = scene.make(video=self.video, text="one")
+        second = scene.make(video=self.video, text="two")
+        scene_image.make(scene=first, file="media/one.mp4")
+        saved = scene_image.make(scene=second, file="media/two.mp4")
+        with (
+            patch.object(scenes_utils, "stored_file_exists", return_value=True),
+            patch.object(
+                scenes_utils, "create_image_scene", return_value="three.mp4"
+            ) as create,
+            patch.object(
+                scenes_utils,
+                "still_from_video",
+                side_effect=lambda path, folder: path + ".png",
+            ),
+        ):
+            create_image_scenes(self.video, mode="AI", provider="sora")
+        create.assert_called_once()
+        self.assertEqual(create.call_args.kwargs["reference"], saved.file.path + ".png")
+
+    def test_resume_restores_the_original_image_anchor(self):
+        first = scene.make(video=self.video, text="one")
+        # Failed attempts must not hide a later successful visual.
+        scene_image.make(scene=first, file=None)
+        saved = scene_image.make(scene=first, file="media/one.png")
+        with (
+            patch.object(
+                scenes_utils,
+                "stored_file_exists",
+                side_effect=lambda field: bool(field),
+            ),
+            patch.object(
+                scenes_utils, "create_image_scene", return_value="two.png"
+            ) as create,
+        ):
+            create_image_scenes(self.video, mode="AI", provider="DALL-E")
+        create.assert_called_once()
+        self.assertEqual(create.call_args.kwargs["reference"], saved.file.path)
+
+    def test_failed_clip_breaks_the_continuation_chain(self):
+        self.add_third_shot()
+        with (
+            patch.object(
+                scenes_utils,
+                "create_image_scene",
+                side_effect=["one.mp4", None, "three.mp4"],
+            ) as create,
+            patch.object(scenes_utils, "still_from_video", return_value="one.png"),
+        ):
+            create_image_scenes(self.video, mode="AI", provider="sora")
+        self.assertIsNone(create.call_args_list[2].kwargs["reference"])
+
+    def test_continuation_accounts_for_narration_trimming(self):
+        narrated_scene.make(video=self.video, text="one")
+        with (
+            patch.object(scenes_utils, "scene_narration_duration", return_value=5),
+            patch.object(scenes_utils, "still_from_video") as still,
+        ):
+            scenes_utils.continuation_frame(self.video, "one", "one.mp4")
+        self.assertEqual(still.call_args.kwargs["end_time"], 5)
 
 
 class GenerateNewImageTests(TestCase):
@@ -269,6 +408,54 @@ class GenerateNewImageTests(TestCase):
             generate_new_image(self.scene_image, self.video)
 
         generate.assert_not_called()
+
+    def test_regeneration_reuses_the_first_image_reference(self):
+        self.video.gpt_answer = {
+            "scenes": [
+                {
+                    "sentences": [
+                        {"sentence": "one", "image_description": "cat"},
+                        {"sentence": "two", "image_description": "cat running"},
+                    ]
+                }
+            ]
+        }
+        first = scene.make(video=self.video, text="one")
+        saved = scene_image.make(scene=first, file="media/anchor.png")
+        with (
+            patch.object(scenes_utils, "stored_file_exists", return_value=True),
+            patch.object(
+                openai_images, "generate_from_dalle", return_value="images/new.png"
+            ) as generate,
+        ):
+            generate_new_image(self.scene_image, self.video)
+        self.assertEqual(generate.call_args.kwargs["reference"], saved.file.path)
+
+    def test_video_regeneration_uses_its_predecessor_not_a_later_clip(self):
+        self.video.gpt_answer = {
+            "scenes": [
+                {
+                    "sentences": [
+                        {"sentence": "one", "image_description": "cat"},
+                        {"sentence": "two", "image_description": "cat running"},
+                        {"sentence": "three", "image_description": "cat sleeps"},
+                    ]
+                }
+            ]
+        }
+        first = scene.make(video=self.video, text="one")
+        second = scene.make(video=self.video, text="two")
+        saved = scene_image.make(scene=first, file="media/one.mp4")
+        target = scene_image.make(scene=second, file="media/two.mp4")
+        with (
+            patch.object(scenes_utils, "stored_file_exists", return_value=True),
+            patch.object(
+                scenes_utils, "still_from_video", return_value="anchor.png"
+            ) as still,
+        ):
+            reference = scenes_utils.regeneration_reference(target, self.video, "sora")
+        self.assertEqual(reference, "anchor.png")
+        self.assertEqual(still.call_args.args[0], saved.file.path)
 
 
 class CreateTwitchClipSceneTests(TestCase):

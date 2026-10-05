@@ -308,6 +308,7 @@ class Outro(AbstractModel):
 
 
 class Video(LifecycleModelMixin, AbstractModel):
+    reference_image = models.ImageField(upload_to="media/references/%Y/%m/%d", blank=True)
     title = models.CharField(max_length=50, blank=False)
     url = models.URLField(blank=True)
     gpt_answer = models.JSONField(blank=True, null=True)
