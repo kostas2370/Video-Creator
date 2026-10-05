@@ -315,3 +315,58 @@ class ReapStalledVideosTests(TestCase):
 
                 video.refresh_from_db()
                 self.assertEqual(video.status, status)
+
+
+class CreateSceneTaskTests(TestCase):
+    def setUp(self):
+        from ..models import SceneCreationJob
+        self.video = video.make(status="GENERATION")
+        self.job = SceneCreationJob.objects.create(video=self.video, data={"text": "New scene"})
+
+    def test_processes_once_and_marks_video_ready(self):
+        from ..tasks import create_scene_task
+        with patch("apps.videomanagement.services.SceneServices.create_scene") as create:
+            create_scene_task(self.job.pk)
+            create_scene_task(self.job.pk)
+        create.assert_called_once_with(self.video, self.job.data, {})
+        self.job.refresh_from_db()
+        self.video.refresh_from_db()
+        self.assertEqual(self.job.status, "COMPLETED")
+        self.assertEqual(self.video.status, "READY")
+
+    def test_failure_is_visible_and_video_is_unlocked(self):
+        from ..tasks import create_scene_task
+        with patch("apps.videomanagement.services.SceneServices.create_scene", side_effect=RuntimeError("private provider error")):
+            with self.assertRaises(RuntimeError):
+                create_scene_task(self.job.pk)
+        self.job.refresh_from_db()
+        self.video.refresh_from_db()
+        self.assertEqual(self.job.status, "FAILED")
+        self.assertNotIn("private provider error", self.job.error)
+        self.assertEqual(self.video.status, "READY")
+
+    def test_stalled_jobs_are_reported_as_failed(self):
+        Video.objects.filter(pk=self.video.pk).update(updated_at=timezone.now() - timedelta(days=2))
+        reap_stalled_videos()
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, "FAILED")
+
+    def test_upload_survives_request_and_is_copied_before_cleanup(self):
+        import tempfile
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from ..baker_recipes import scene
+        from ..models import SceneImage
+        from ..tasks import create_scene_task
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            self.job.upload = SimpleUploadedFile("visual.png", b"image bytes")
+            self.job.save()
+            original_name = self.job.upload.name
+            storage = self.job.upload.storage
+            line = scene.make(video=self.video)
+            with patch("apps.videomanagement.services.SceneServices.make_scene_speech", return_value=line):
+                create_scene_task(self.job.pk)
+            image = SceneImage.objects.get(scene=line)
+            self.assertNotEqual(image.file.name, original_name)
+            with image.file.open("rb") as saved:
+                self.assertEqual(saved.read(), b"image bytes")
+            self.assertFalse(storage.exists(original_name))

@@ -183,6 +183,17 @@ class Scene(models.Model):
         return str(self.id)
 
 
+class SceneCreationJob(models.Model):
+    video = models.ForeignKey("Video", on_delete=models.CASCADE, related_name="scene_jobs")
+    status = models.CharField(max_length=20, default="QUEUED")
+    data = models.JSONField(default=dict)
+    upload = models.FileField(upload_to="media/scene_uploads", blank=True, max_length=2000)
+    error = models.TextField(blank=True, default="")
+    previous_status = models.CharField(max_length=20, default="READY")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class SceneImage(models.Model):
     scene = models.ForeignKey(
         Scene, on_delete=models.CASCADE, related_name="scene_images"

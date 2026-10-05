@@ -13,20 +13,23 @@ export const TwitchSceneCreationModal = ({
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
+    if (loading) return;
     const formData = new FormData();
     formData.append("url", url);
     setLoading(true);
 
-    createScene(id, formData).then(({ data: response }) => {
-      setLoading(false);
+    try {
+      const { data: response } = await createScene(id, formData);
       if (response) {
-        toast.success("Clip got added successfully !");
-        setItems(true);
+        toast.success("Clip queued. It will appear when processing finishes.");
+        setItems(true, response.job);
         setShowModal(false);
       }
-    });
+    } catch { toast.error("Could not queue the clip. Please try again."); }
+    finally { setLoading(false); }
+
   };
 
   return (

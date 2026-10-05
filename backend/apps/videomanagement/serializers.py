@@ -128,12 +128,20 @@ class VideoSerializer(serializers.ModelSerializer):
 
 
 class VideoNestedSerializer(serializers.ModelSerializer):
+    scene_jobs = serializers.SerializerMethodField()
+
+    def get_scene_jobs(self, obj):
+        return [
+            {"id": job.id, "status": job.status, "error": job.error}
+            for job in sorted(obj.scene_jobs.all(), key=lambda job: job.id)
+        ]
+
     prompt = UserPromptSerializer(read_only=True)
     scenes = serializers.SerializerMethodField()
 
     class Meta:
         model = Video
-        fields = (*VIDEO_RESPONSE_FIELDS, "scenes")
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "scene_jobs")
         read_only_fields = fields
 
     def get_scenes(self, obj):
