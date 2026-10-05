@@ -1,6 +1,8 @@
 import logging
 
-from django.db import transaction
+from django.core.files.storage import default_storage
+from pathlib import Path
+from uuid import uuid4
 from django.utils import timezone
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -13,7 +15,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Video, VideoStatus, VideoType, SceneCreationJob
+from ..models import Video, VideoStatus, VideoType
 from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, SceneDraftSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
@@ -52,7 +54,7 @@ class VideoView(
             queryset = queryset.exclude(gpt_answer__isnull=True)
 
         if self.action == "retrieve":
-            queryset = queryset.prefetch_related("scenes__scene_images", "scene_jobs")
+            queryset = queryset.prefetch_related("scenes__scene_images")
 
         return queryset
 
@@ -171,7 +173,7 @@ class VideoView(
         )
 
     @swagger_auto_schema(
-        operation_description="Queues scene creation. Returns 202; poll the video detail scene_jobs for completion.",
+        operation_description="Queues scene creation. Returns 202; poll the video status for completion.",
         method="POST",
         request_body=AddSceneSerializer,
     )
@@ -182,29 +184,27 @@ class VideoView(
         data["mode"] = video.video_type
         serializer = AddSceneSerializer(data=data)
         serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            claimed = Video.objects.filter(
-                pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]
-            ).update(status=VideoStatus.GENERATION, updated_at=timezone.now())
-            if not claimed:
-                return Response({"detail": "Wait for the current video operation to finish."}, status=409)
-            job = SceneCreationJob.objects.create(
-                video=video, data=dict(serializer.validated_data),
-                upload=request.FILES.get("image", ""), previous_status=video.status,
-            )
+        claimed = Video.objects.filter(
+            pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]
+        ).update(status=VideoStatus.GENERATION, updated_at=timezone.now())
+        if not claimed:
+            return Response({"detail": "Wait for the current video operation to finish."}, status=409)
+        upload_path = None
         try:
-            create_scene_task.delay(job.pk)
+            upload = request.FILES.get("image")
+            if upload:
+                upload_path = default_storage.save(
+                    f"media/scene_uploads/{uuid4().hex}/{Path(upload.name).name}", upload
+                )
+            create_scene_task.delay(video.pk, dict(serializer.validated_data), upload_path)
         except Exception:
-            logger.exception("Could not queue scene job %s", job.pk)
-            job.status = "FAILED"
-            job.error = "Could not queue the scene. Please try again."
-            job.save(update_fields=["status", "error", "updated_at"])
-            Video.objects.filter(pk=video.pk, status=VideoStatus.GENERATION).update(status=job.previous_status)
-            if job.upload:
-                job.upload.delete()
-            return Response({"detail": job.error}, status=503)
+            logger.exception("Could not queue scene for video %s", video.pk)
+            Video.objects.filter(pk=video.pk, status=VideoStatus.GENERATION).update(status=video.status)
+            if upload_path:
+                default_storage.delete(upload_path)
+            return Response({"detail": "Could not queue the scene. Please try again."}, status=503)
         return Response(
-            {"message": "Scene creation queued", "job": {"id": job.pk, "status": "QUEUED"}},
+            {"message": "Scene creation queued", "status": VideoStatus.GENERATION},
             status=status.HTTP_202_ACCEPTED,
         )
 

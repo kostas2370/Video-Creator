@@ -46,7 +46,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems }) =>
     try {
       const response = await createScene(id, data);
       if (!response.data) { setError(response.message || "Could not add the scene. Please try again."); return; }
-      toast.success("Scene queued. You can keep working while it is created."); setItems(true, response.data.job); setShowModal(false);
+      toast.success("Scene queued. You can keep working while it is created."); setItems(true); setShowModal(false);
     } catch { setError("Could not add the scene. Please try again."); }
     finally { setBusy(""); }
   };

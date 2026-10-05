@@ -3,13 +3,14 @@ from datetime import timedelta
 from celery import shared_task
 from django.conf import settings
 from django.core.files import File
+from django.core.files.storage import default_storage
 from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
 
-from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel, VoiceModelType, SceneCreationJob
+from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel, VoiceModelType
 from .utils import tts_utils
 
 logger = logging.getLogger(__name__)
@@ -98,41 +99,28 @@ def render_video_task(self, video_id: int):
 
 
 @shared_task
-def create_scene_task(job_id: int):
+def create_scene_task(video_id: int, data: dict, upload_path=None):
     from .services.SceneServices import create_scene
 
-    # Duplicate deliveries must never create duplicate scenes.
-    if not SceneCreationJob.objects.filter(pk=job_id, status="QUEUED").update(
-        status="PROCESSING", updated_at=timezone.now()
-    ):
-        return
-    job = SceneCreationJob.objects.select_related("video").get(pk=job_id)
     try:
-        files = {}
-        if job.upload:
-            job.upload.open("rb")
-            files["image"] = File(job.upload.file, name=Path(job.upload.name).name)
-        create_scene(job.video, job.data, files)
+        video = Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).first()
+        if video is None:
+            return
+        if upload_path:
+            with default_storage.open(upload_path, "rb") as upload:
+                create_scene(video, data, {"image": File(upload, name=Path(upload_path).name)})
+        else:
+            create_scene(video, data, {})
     except Exception:
-        logger.exception("Scene creation failed for job %s", job_id)
-        failed = SceneCreationJob.objects.filter(pk=job_id, status="PROCESSING").update(
-            status="FAILED", error="Could not finish adding the scene. Check available scenes before trying again.",
-            updated_at=timezone.now(),
-        )
-        if failed:
-            Video.objects.filter(pk=job.video_id, status=VideoStatus.GENERATION).update(status=job.previous_status)
+        logger.exception("Scene creation failed for video %s", video_id)
+        _mark_failed(video_id)
         raise
     else:
-        finished = SceneCreationJob.objects.filter(pk=job_id, status="PROCESSING").update(
-            status="COMPLETED", updated_at=timezone.now()
-        )
-        if finished:
-            Video.objects.filter(pk=job.video_id, status=VideoStatus.GENERATION).update(status=VideoStatus.READY)
+        Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(status=VideoStatus.READY)
     finally:
-        if job.upload:
-            job.upload.close()
-            job.upload.delete()
-    return job_id
+        if upload_path:
+            default_storage.delete(upload_path)
+    return video_id
 
 
 @shared_task
@@ -153,10 +141,6 @@ def reap_stalled_videos():
     if not ids:
         return 0
 
-    SceneCreationJob.objects.filter(video_id__in=ids, status__in=["QUEUED", "PROCESSING"]).update(
-        status="FAILED", error="Scene creation timed out. Check available scenes before trying again.",
-        updated_at=timezone.now(),
-    )
     for video_id in ids:
         _mark_failed(video_id)
 

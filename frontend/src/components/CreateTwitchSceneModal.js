@@ -24,7 +24,7 @@ export const TwitchSceneCreationModal = ({
       const { data: response } = await createScene(id, formData);
       if (response) {
         toast.success("Clip queued. It will appear when processing finishes.");
-        setItems(true, response.job);
+        setItems(true);
         setShowModal(false);
       }
     } catch { toast.error("Could not queue the clip. Please try again."); }
