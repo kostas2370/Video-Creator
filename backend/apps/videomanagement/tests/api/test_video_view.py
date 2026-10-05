@@ -242,14 +242,14 @@ class AddSceneViewTests(ApiTestCase):
         with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
             response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"text": "New line"})
         self.assertEqual(response.status_code, 202)
-        job = row.scene_jobs.get()
-        delay.assert_called_once_with(job.pk)
-        self.assertEqual(job.data["text"], "New line")
+        self.assertEqual(delay.call_args.args[0], row.pk)
+        self.assertEqual(delay.call_args.args[1]["text"], "New line")
+        self.assertIsNone(delay.call_args.args[2])
         self.assertFalse(row.scenes.exists())
         row.refresh_from_db()
         self.assertEqual(row.status, "GENERATION")
         detail = self.client.get(reverse("video-detail", args=[row.pk]))
-        self.assertEqual(detail.data["scene_jobs"][0]["status"], "QUEUED")
+        self.assertEqual(detail.data["status"], "GENERATION")
 
     def test_rejects_invalid_input_before_queueing(self):
         row = self.video_for()
@@ -257,7 +257,8 @@ class AddSceneViewTests(ApiTestCase):
             response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"text": " "})
         self.assertEqual(response.status_code, 400)
         delay.assert_not_called()
-        self.assertFalse(row.scene_jobs.exists())
+        row.refresh_from_db()
+        self.assertEqual(row.status, "READY")
 
     def test_duplicate_submission_and_render_are_blocked_until_done(self):
         row = self.video_for()
@@ -279,7 +280,6 @@ class AddSceneViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 503)
         row.refresh_from_db()
         self.assertEqual(row.status, "COMPLETED")
-        self.assertEqual(row.scene_jobs.get().status, "FAILED")
 
     def test_cannot_queue_for_another_users_video(self):
         row = self.video_for(owner=user.make())

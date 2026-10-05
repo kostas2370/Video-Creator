@@ -26,9 +26,7 @@ export const Video = () => {
 
   const setUpdated = useCallback(() => setRefresh((count) => count + 1), []);
 
-  const sceneJobs = videoInfo?.scene_jobs || [];
-  const addingScene = sceneJobs.some(job => ["QUEUED", "PROCESSING"].includes(job.status));
-  const latestSceneJob = sceneJobs[sceneJobs.length - 1];
+  const processing = ["GENERATION", "RENDERING"].includes(videoInfo?.status);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +36,7 @@ export const Video = () => {
       if (cancelled) return;
       setPollError(!response);
       if (response) setVideoInfo(response);
-      const pending = response ? response.scene_jobs?.some(job => ["QUEUED", "PROCESSING"].includes(job.status)) : addingScene;
+      const pending = response ? ["GENERATION", "RENDERING"].includes(response.status) : processing;
       if (pending) timer = setTimeout(setUpdated, 3000);
     });
 
@@ -46,12 +44,10 @@ export const Video = () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [videoId, refresh, addingScene, setUpdated]);
+  }, [videoId, refresh, processing, setUpdated]);
 
-  const onSceneQueued = useCallback((_, job) => {
-    if (job) setVideoInfo(current => current ? {
-      ...current, status: "GENERATION", scene_jobs: [...(current.scene_jobs || []), job],
-    } : current);
+  const onSceneQueued = useCallback(() => {
+    setVideoInfo(current => current ? { ...current, status: "GENERATION" } : current);
     setUpdated();
   }, [setUpdated]);
 
@@ -125,12 +121,12 @@ export const Video = () => {
             <button type="button" disabled={!isRenderable} title={isRenderable ? "Render video" : `Cannot render while ${videoInfo?.status || "loading"}`} onClick={() => setShowRenderModal(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"><GiProcessor className="h-5 w-5" />{renderPending ? "Starting render…" : videoInfo?.status === "RENDERING" ? "Rendering…" : "Render video"}</button>
           </div>
         </header>
-        {addingScene && <div role="status" className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-          <p className="font-semibold">{latestSceneJob?.status === "QUEUED" ? "Scene queued" : "Creating your scene…"}</p>
-          <p className="mt-1">Audio and visuals are processing in the background. This page refreshes automatically; you can leave and come back.</p>
+        {processing && <div role="status" className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+          <p className="font-semibold">Processing your video…</p>
+          <p className="mt-1">Your changes are processing in the background. This page refreshes automatically; you can leave and come back.</p>
           {pollError && <p className="mt-2">Could not check progress. Retrying automatically…</p>}
         </div>}
-        {!addingScene && latestSceneJob?.status === "FAILED" && <p role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">{latestSceneJob.error}</p>}
+        {videoInfo?.status === "FAILED" && <p role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">Processing failed. Check the available scenes before trying again.</p>}
         {missingNarration.length > 0 && <div role="status" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
           <p className="font-semibold">{missingNarration.length} {missingNarration.length === 1 ? "scene is" : "scenes are"} missing narration</p>
           <p className="mt-1">Your script and visuals are saved. Retry narration in the scenes below, or render with the available audio.</p>
@@ -148,7 +144,7 @@ export const Video = () => {
           <section aria-label="Scenes" className="min-w-0 space-y-5">
             {videoInfo?.scenes?.map((scene, index) => <Scene key={scene.id} scene={scene} index={index} setUpdated={setUpdated} video_type={videoInfo.video_type} video_format={videoInfo.settings?.video_format || "LANDSCAPE"} />)}
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">Your story starts here</h2><p className="mt-2 text-sm text-gray-500">Add a scene to start building your video.</p></div>}
-            <button type="button" disabled={!videoInfo || addingScene || ["GENERATION", "RENDERING"].includes(videoInfo.status)} onClick={() => videoInfo?.video_type === "TWITCH" ? setShowAddTwitchSceneModal(true) : setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{addingScene ? "Adding scene…" : "Add scene"}</button>
+            <button type="button" disabled={!videoInfo || processing} onClick={() => videoInfo?.video_type === "TWITCH" ? setShowAddTwitchSceneModal(true) : setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
           </section>
         </div>
       </main>
