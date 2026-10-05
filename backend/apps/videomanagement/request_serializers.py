@@ -89,6 +89,16 @@ class DownloadPlaylistSerializer(serializers.Serializer):
     )
 
 
+class SceneDraftSerializer(serializers.Serializer):
+    prompt = serializers.CharField(max_length=2000)
+    use_context = serializers.BooleanField(default=False)
+
+
+class SceneDraftResultSerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=2000)
+    image_description = serializers.CharField(max_length=2000)
+
+
 class SceneUpdateSerializer(serializers.Serializer):
     text = serializers.CharField(required=True, max_length=2000)
 

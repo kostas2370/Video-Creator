@@ -2,6 +2,9 @@ import logging
 from datetime import timedelta
 from celery import shared_task
 from django.conf import settings
+from django.core.files import File
+from django.core.files.storage import default_storage
+from pathlib import Path
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -92,6 +95,31 @@ def render_video_task(self, video_id: int):
         raise
 
     logger.info("Render finished for video %s", video_id)
+    return video_id
+
+
+@shared_task
+def create_scene_task(video_id: int, data: dict, upload_path=None):
+    from .services.SceneServices import create_scene
+
+    try:
+        video = Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).first()
+        if video is None:
+            return
+        if upload_path:
+            with default_storage.open(upload_path, "rb") as upload:
+                create_scene(video, data, {"image": File(upload, name=Path(upload_path).name)})
+        else:
+            create_scene(video, data, {})
+    except Exception:
+        logger.exception("Scene creation failed for video %s", video_id)
+        _mark_failed(video_id)
+        raise
+    else:
+        Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(status=VideoStatus.READY)
+    finally:
+        if upload_path:
+            default_storage.delete(upload_path)
     return video_id
 
 

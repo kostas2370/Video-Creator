@@ -1,5 +1,10 @@
 import logging
 
+from django.core.files.storage import default_storage
+from pathlib import Path
+from uuid import uuid4
+from django.utils import timezone
+
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
@@ -10,15 +15,17 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Video, VideoStatus
+from ..models import Video, VideoStatus, VideoType
 from ..paginator import StandardResultsSetPagination
-from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer
-from ..serializers import VideoSerializer, VideoNestedSerializer, SceneSerializer
+from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, SceneDraftSerializer
+from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.VideoServices import video_update
-from ..services.SceneServices import create_scene
-from ..tasks import render_video_task, resume_video_task
+from ..services.SceneServices import draft_scene
+from ..tasks import render_video_task, resume_video_task, create_scene_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
-from ..permissions import AiGenerationLimitPermission, IsOwnerPermission
+from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneGenerationLimitPermission
+
+from ..utils.cost_utils import reserve_scene_credit
 
 logger = logging.getLogger(__name__)
 
@@ -166,20 +173,51 @@ class VideoView(
         )
 
     @swagger_auto_schema(
-        operation_description="This api add a scene to the video",
+        operation_description="Queues scene creation. Returns 202; poll the video status for completion.",
         method="POST",
         request_body=AddSceneSerializer,
     )
     @action(detail=True, methods=["POST"])
     def add_scene(self, request, pk):
-        scene = create_scene(
-            video=self.get_object(), data=request.data, files=request.FILES
+        video = self.get_object()
+        data = request.data.copy()
+        data["mode"] = video.video_type
+        serializer = AddSceneSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        claimed = Video.objects.filter(
+            pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]
+        ).update(status=VideoStatus.GENERATION, updated_at=timezone.now())
+        if not claimed:
+            return Response({"detail": "Wait for the current video operation to finish."}, status=409)
+        upload_path = None
+        try:
+            upload = request.FILES.get("image")
+            if upload:
+                upload_path = default_storage.save(
+                    f"media/scene_uploads/{uuid4().hex}/{Path(upload.name).name}", upload
+                )
+            create_scene_task.delay(video.pk, dict(serializer.validated_data), upload_path)
+        except Exception:
+            logger.exception("Could not queue scene for video %s", video.pk)
+            Video.objects.filter(pk=video.pk, status=VideoStatus.GENERATION).update(status=video.status)
+            if upload_path:
+                default_storage.delete(upload_path)
+            return Response({"detail": "Could not queue the scene. Please try again."}, status=503)
+        return Response(
+            {"message": "Scene creation queued", "status": VideoStatus.GENERATION},
+            status=status.HTTP_202_ACCEPTED,
         )
 
-        return Response(
-            {
-                "message": "The scene was added successfully",
-                "scene": SceneSerializer(scene).data,
-            },
-            status=200,
-        )
+    @swagger_auto_schema(request_body=SceneDraftSerializer)
+    @action(detail=True, methods=["POST"], permission_classes=[
+        IsAuthenticated, IsOwnerPermission, SceneGenerationLimitPermission,
+    ])
+    def draft_scene(self, request, pk):
+        video = self.get_object()
+        if video.video_type != VideoType.AI:
+            return Response({"detail": "AI drafts are only available for AI videos."}, status=400)
+        serializer = SceneDraftSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with reserve_scene_credit(request.user, 0.03, SceneGenerationLimitPermission.required_limit):
+            draft = draft_scene(video, **serializer.validated_data)
+        return Response(draft)
