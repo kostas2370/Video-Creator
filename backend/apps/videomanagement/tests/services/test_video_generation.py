@@ -138,6 +138,7 @@ class GenerateVideoTests(TestCase):
                 narration=False,
                 avatar_position="left,top",
                 video_format="LANDSCAPE",
+                platform="GENERAL",
                 style="vivid",
                 provider=None,
             ),

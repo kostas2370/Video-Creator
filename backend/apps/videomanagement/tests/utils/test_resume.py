@@ -3,6 +3,7 @@
 import os
 import shutil
 import uuid
+from concurrent.futures import Future
 from unittest.mock import patch
 
 from django.conf import settings as django_settings
@@ -120,9 +121,23 @@ class ResumeVisualsTests(TestCase):
             SceneImage.objects.create(scene=scene, file=path, prompt=kwargs["image"])
             return path
 
-        with patch.object(
-            scenes_utils, "create_image_scene", side_effect=produce
-        ) as made:
+        def submit(function, **kwargs):
+            future = Future()
+            try:
+                future.set_result(function(**kwargs))
+            except Exception as error:
+                future.set_exception(error)
+            return future
+
+        # These tests exercise resume decisions. Keep the database-writing fake
+        # on the TestCase transaction's connection instead of a worker connection.
+        with (
+            patch.object(
+                scenes_utils, "_create_image_scene_in_thread", side_effect=produce
+            ) as made,
+            patch.object(scenes_utils, "ThreadPoolExecutor") as executor,
+        ):
+            executor.return_value.__enter__.return_value.submit.side_effect = submit
             create_image_scenes(self.video, mode="WEB")
 
         return made
