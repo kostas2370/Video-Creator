@@ -85,6 +85,17 @@ class CreateSceneTests(TestCase):
         self.assertEqual(image.file, "media/images/uploaded.png")
         self.assertTrue(image.with_audio)
 
+    def test_upload_does_not_also_generate_a_visual(self):
+        line = scene.make(video=self.video)
+        with (
+            patch.object(SceneServices, "make_scene_speech", return_value=line),
+            patch.object(SceneServices, "create_image_scene") as generate,
+        ):
+            create_scene(self.video, {"text": "A line", "image_description": "A sky"},
+                         files={"image": "media/images/upload.png"})
+        generate.assert_not_called()
+        self.assertEqual(line.scene_images.count(), 1)
+
     def test_generates_an_image_when_one_was_described_instead(self):
         line = scene.make(video=self.video)
 
@@ -132,3 +143,46 @@ class CreateSceneTests(TestCase):
         with patch.object(SceneServices, "TwitchClient", return_value=client):
             with self.assertRaises(APIException):
                 create_scene(video, {"url": "https://clips.twitch.tv/abc"}, files={})
+
+
+class DraftSceneTests(TestCase):
+    def test_context_contains_every_current_scene_and_visual_in_order(self):
+        from ...services.SceneServices import draft_scene
+
+        vid = video.make(title="Journey")
+        first = scene.make(video=vid, text="Edited opening")
+        scene.make(video=vid, text="Current ending")
+        SceneImage.objects.create(scene=first, prompt="Mountain sunrise")
+        other = scene.make(text="Another user's story")
+        with patch.object(SceneServices, "get_update_sentence", return_value='{"text":"Next line","image_description":"A trail"}') as generate:
+            result = draft_scene(vid, "Continue the journey", True)
+        prompt = generate.call_args.args[0]
+        for text in ("Journey", "Edited opening", "Current ending", "Mountain sunrise"):
+            self.assertIn(text, prompt)
+        self.assertLess(prompt.index("Edited opening"), prompt.index("Current ending"))
+        self.assertNotIn(other.text, prompt)
+        self.assertEqual(generate.call_args.kwargs["user"], vid.created_by)
+        self.assertEqual(result["text"], "Next line")
+        self.assertEqual(vid.scenes.count(), 2)
+
+    def test_without_context_excludes_all_video_content(self):
+        from ...services.SceneServices import draft_scene
+
+        vid = video.make(title="Private title")
+        scene.make(video=vid, text="Private dialogue")
+        with patch.object(SceneServices, "get_update_sentence", return_value='```json\n{"text":"New line","image_description":"A trail"}\n```') as generate:
+            draft_scene(vid, "An independent scene", False)
+        prompt = generate.call_args.args[0]
+        self.assertIn("An independent scene", prompt)
+        self.assertNotIn("Private title", prompt)
+        self.assertNotIn("Private dialogue", prompt)
+
+    def test_rejects_invalid_model_output_without_creating_a_scene(self):
+        from ...services.SceneServices import draft_scene
+
+        vid = video.make()
+        for reply in ('not json', '{}', '{"text":42,"image_description":"sky"}', '{"text":" ","image_description":"sky"}'):
+            with self.subTest(reply=reply), patch.object(SceneServices, "get_update_sentence", return_value=reply):
+                with self.assertRaises(APIException):
+                    draft_scene(vid, "Next scene")
+        self.assertFalse(vid.scenes.exists())
