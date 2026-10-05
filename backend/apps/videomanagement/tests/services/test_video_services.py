@@ -39,6 +39,11 @@ class VideoUpdateTests(TestCase):
         self.assertEqual(self.video.status, "RENDERING")
 
     def test_records_the_subtitle_and_avatar_choices(self):
+        expected_settings = {
+            **self.video.settings,
+            "subtitles": True,
+            "avatar_position": "left,top",
+        }
         updated = video_update(
             self.video,
             title="t",
@@ -47,10 +52,7 @@ class VideoUpdateTests(TestCase):
             avatar_position="left,top",
         )
 
-        self.assertEqual(
-            updated.settings,
-            dict(narration=True, subtitles=True, avatar_position="left,top"),
-        )
+        self.assertEqual(updated.settings, expected_settings)
 
     def test_clears_the_avatar_when_none_was_chosen(self):
         self.video.avatar = avatar.make()

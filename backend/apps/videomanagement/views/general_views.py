@@ -25,6 +25,7 @@ from ..serializers import (
     AvatarSerializer,
     SceneImageSerializer,
 )
+from ..services.asset_limits import save_limited_clip
 
 
 class SceneImageView(viewsets.GenericViewSet):
@@ -112,6 +113,9 @@ class IntroView(viewsets.ModelViewSet):
 
         return Intro.objects.filter(created_by=self.request.user)
 
+    def perform_create(self, serializer):
+        save_limited_clip(serializer, self.request.user)
+
 
 class OutroView(viewsets.ModelViewSet):
     serializer_class = OutroSerializer
@@ -125,3 +129,6 @@ class OutroView(viewsets.ModelViewSet):
             return Outro.objects.all()
 
         return Outro.objects.filter(created_by=self.request.user)
+
+    def perform_create(self, serializer):
+        save_limited_clip(serializer, self.request.user)

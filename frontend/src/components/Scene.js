@@ -10,7 +10,13 @@ import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
 import { toast } from "react-toastify";
-export const Scene = ({ scene, setUpdated, video_type, index = 0 }) => {
+const formatFrameClasses = {
+  LANDSCAPE: "aspect-video w-full",
+  PORTRAIT: "mx-auto h-[min(65vh,420px)] max-w-full aspect-[9/16]",
+  SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
+};
+
+export const Scene = ({ scene, setUpdated, video_type, video_format = "LANDSCAPE", index = 0 }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -69,6 +75,7 @@ export const Scene = ({ scene, setUpdated, video_type, index = 0 }) => {
           scene_image_id: scene?.scene_image?.id,
           prompt: scene.scene_image?.prompt,
           with_audio: scene.scene_image?.with_audio,
+          video_format,
         }}
         setUpdate={setUpdated}
       />
@@ -89,8 +96,8 @@ export const Scene = ({ scene, setUpdated, video_type, index = 0 }) => {
           </div>
           <div className="min-w-0">
             <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Visual</h3>{video_type !== "TWITCH" && <button type="button" onClick={() => setShowEditImageModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlinePencilSquare className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button>}</div>
-            <div className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900">
-              {scene.scene_image?.file ? (scene.scene_image.file.includes("mp4") ? <video controls src={MEDIA_URL + scene.scene_image.file} className="aspect-video w-full object-contain" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="aspect-video w-full object-contain" />) : <div className="flex aspect-video items-center justify-center text-sm text-gray-400">No visual yet</div>}
+            <div className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${formatFrameClasses[video_format] || formatFrameClasses.LANDSCAPE}`}>
+              {scene.scene_image?.file ? (scene.scene_image.file.includes("mp4") ? <video controls src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
           <Menu as="div" className="absolute top-2 right-2 z-10">
             <MenuButton
               aria-label="Image actions"

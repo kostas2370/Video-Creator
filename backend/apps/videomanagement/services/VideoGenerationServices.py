@@ -1,6 +1,8 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Union, Literal
 
+from django.db import close_old_connections
 from slugify import slugify
 
 from ..defaults import script_format
@@ -14,7 +16,7 @@ from ..models import (
     Intro,
     Outro,
 )
-from ..utils.audio_utils import make_scenes_speech
+from ..utils.audio_utils import ensure_scene_rows, make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..utils.llm import get_reply
 from ..utils.prompt_utils import format_prompt
@@ -28,6 +30,41 @@ from rest_framework.exceptions import APIException
 from .asset_selection import available_voice, owned_asset
 
 logger = logging.getLogger(__name__)
+
+
+def _run_with_thread_db_cleanup(function):
+    """Give each generation worker a clean, short-lived Django DB connection."""
+    close_old_connections()
+    try:
+        return function()
+    finally:
+        close_old_connections()
+
+
+def generate_scene_assets(video, image_mode=None, style="natural", provider=None):
+    """Generate narration and still visuals together when neither depends on the other.
+
+    Video providers stay sequential: they can use narration duration and a previous
+    clip's final frame as an input to the next scene.
+    """
+    if not image_mode or ImageProviderRegistry.is_video(provider, user=video.created_by):
+        make_scenes_speech(video)
+        if image_mode:
+            create_image_scenes(video, mode=image_mode, style=style, provider=provider)
+        return
+
+    # Images look up their Scene rows, so finish creating the full script before either
+    # worker starts. Two workers overlap the independent provider requests without
+    # adding unbounded load to TTS, image providers, or the database.
+    ensure_scene_rows(video)
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="video-assets") as pool:
+        narration = pool.submit(_run_with_thread_db_cleanup, lambda: make_scenes_speech(video))
+        visuals = pool.submit(
+            _run_with_thread_db_cleanup,
+            lambda: create_image_scenes(video, mode=image_mode, style=style, provider=provider),
+        )
+        narration.result()
+        visuals.result()
 
 
 def create_pending_video(
@@ -74,8 +111,10 @@ def generate_video(
     subtitles: bool = False,
     narration: bool = True,
     provider: Union[str, None] = None,
-    avatar_position: str = "top,right",
+    video_format: str = "LANDSCAPE",
+    avatar_position: str = "right,top",
     genre: str = "",
+    platform: str = "GENERAL",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -116,7 +155,7 @@ def generate_video(
     provider : Union[str, None], optional
         The provider for generating images.
     avatar_position : str, optional
-        The position of the avatar in the video (default is "top,right").
+        The position of the avatar in horizontal,vertical order (default is "right,top").
 
     Returns:
     --------
@@ -149,6 +188,7 @@ def generate_video(
         genre=genre,
         userprompt=message,
         target_audience=target_audience,
+        platform=platform,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -174,6 +214,8 @@ def generate_video(
         subtitles=subtitles,
         narration=narration,
         avatar_position=avatar_position,
+        video_format=video_format,
+        platform=platform,
         style=style,
         provider=provider,
     )
@@ -186,18 +228,18 @@ def generate_video(
     vid.voice_model = voice_model
     vid.save()
 
-    make_scenes_speech(vid)
+    vid.mode = image_mode or None
+    vid.save()
+    generate_scene_assets(vid, image_mode=image_mode, style=style, provider=provider)
 
     logger.info(f"Generated the scenes audios for the video with id : {vid.id}")
+    if image_mode:
+        logger.info(f"Generated the images for the video with id : {vid.id}")
+
     try:
         vid.music = download_music(music)
     except Exception as exc:
         logger.error(exc)
-
-    if image_mode:
-        vid.mode = image_mode
-        create_image_scenes(vid, mode=image_mode, style=style, provider=provider)
-        logger.info(f"Generated the images for the video with id : {vid.id}")
 
     vid.status = VideoStatus.READY
     vid.save()
@@ -225,16 +267,14 @@ def resume_video(video: Video) -> Video:
     video.status = VideoStatus.GENERATION
     video.save()
 
-    make_scenes_speech(video)
+    generate_scene_assets(
+        video,
+        image_mode=video.mode,
+        style=choices.get("style", "natural"),
+        provider=choices.get("provider"),
+    )
     logger.info("Filled in the missing narration for video %s", video.id)
-
     if video.mode:
-        create_image_scenes(
-            video,
-            mode=video.mode,
-            style=choices.get("style", "natural"),
-            provider=choices.get("provider"),
-        )
         logger.info("Filled in the missing visuals for video %s", video.id)
 
     video.status = VideoStatus.READY

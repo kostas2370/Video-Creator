@@ -2,7 +2,6 @@ import shutil
 import torch
 from time import  strftime
 import os
-import sys
 
 from .src.utils.preprocess import CropAndExtract
 from .src.test_audio2coeff import Audio2Coeff
@@ -39,9 +38,11 @@ def lip(source_image,   result_dir = './results', pose_style= 0 , cpu=False, bat
     ref_eyeblink = ref_eyeblink
     ref_pose = ref_pose
 
-    current_root_path = os.path.split(sys.argv[0])[0]
+    project_root = str(settings.BASE_DIR)
+    checkpoint_dir = os.path.abspath(checkpoint_dir)
+    config_dir = os.path.join(project_root, settings.CONFIG_PATH)
 
-    sadtalker_paths = init_path(checkpoint_dir, os.path.join(current_root_path, settings.CONFIG_PATH), size, old_version,
+    sadtalker_paths = init_path(checkpoint_dir, config_dir, size, old_version,
                                 preprocess)
 
     #init model
@@ -116,7 +117,5 @@ def lip(source_image,   result_dir = './results', pose_style= 0 , cpu=False, bat
         shutil.rmtree(save_dir)
 
     return save_dir+'.mp4'
-
-
 
 
