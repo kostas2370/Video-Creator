@@ -90,4 +90,4 @@ class OtherPromptTests(SimpleTestCase):
 
         self.assertIn("the old line", prompt)
         self.assertIn("make it funnier", prompt)
-        self.assertIn("around the same size", prompt)
+        self.assertIn("around the same length", prompt)
