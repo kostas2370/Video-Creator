@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from .models import Avatar, Intro, Outro
 from .services.asset_selection import available_voice, owned_asset
+from .services.VideoServices import video_update
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -167,8 +168,6 @@ class VideoUpdateSerializer(serializers.Serializer):
         return normalize_avatar_position(value)
 
     def update(self, instance, validated_data):
-        from .services.VideoServices import video_update
-
         return video_update(instance, **validated_data)
 
 

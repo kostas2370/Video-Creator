@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 
+from django.conf import settings
 from django.test import TestCase, override_settings
 from rest_framework.test import APIRequestFactory
 
@@ -132,7 +133,6 @@ class GenerateSerializerTests(SerializerWithRequest):
 
     def test_advertises_the_configured_default_as_a_choice(self):
         # Otherwise a custom DEFAULT_GPT_MODEL would be offered and then rejected.
-        from django.conf import settings
 
         self.assertIn(settings.DEFAULT_GPT_MODEL, settings.ACCEPTED_MODELS)
 

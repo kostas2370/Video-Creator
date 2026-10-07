@@ -1,18 +1,22 @@
 """The worker jobs. Each one owns a video and must leave it in a terminal status."""
 
+import tempfile
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
 from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider
-from ..baker_recipes import video
-from ..models import Video, VoiceModel, VoiceModelType
+from ..baker_recipes import scene, video
+from ..models import SceneImage, Video, VoiceModel, VoiceModelType
 from ..utils import tts_utils
 from ..tasks import (
+    create_scene_task,
     update_user_voices,
     resume_video_task,
     generate_video_task,
@@ -300,7 +304,6 @@ class CreateSceneTaskTests(TestCase):
         self.data = {"text": "New scene"}
 
     def test_creates_every_reviewed_sentence_in_order_before_marking_ready(self):
-        from ..tasks import create_scene_task
 
         scenes = [{"text": "First."}, {"text": "Second.", "is_last": True}]
         observed_statuses = []
@@ -315,7 +318,6 @@ class CreateSceneTaskTests(TestCase):
         self.assertEqual(self.video.status, "READY")
 
     def test_creates_scene_and_marks_video_ready(self):
-        from ..tasks import create_scene_task
         with patch("apps.videomanagement.services.SceneServices.create_scene") as create:
             create_scene_task(self.video.pk, self.data)
             create_scene_task(self.video.pk, self.data)
@@ -324,7 +326,6 @@ class CreateSceneTaskTests(TestCase):
         self.assertEqual(self.video.status, "READY")
 
     def test_failure_marks_video_failed(self):
-        from ..tasks import create_scene_task
         with patch("apps.videomanagement.services.SceneServices.create_scene", side_effect=RuntimeError("provider error")):
             with self.assertRaises(RuntimeError):
                 create_scene_task(self.video.pk, self.data)
@@ -332,12 +333,6 @@ class CreateSceneTaskTests(TestCase):
         self.assertEqual(self.video.status, "FAILED")
 
     def test_upload_survives_request_and_is_copied_before_cleanup(self):
-        import tempfile
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        from django.core.files.storage import default_storage
-        from ..baker_recipes import scene
-        from ..models import SceneImage
-        from ..tasks import create_scene_task
         with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
             path = default_storage.save("media/scene_uploads/visual.png", SimpleUploadedFile("visual.png", b"image bytes"))
             line = scene.make(video=self.video)
@@ -350,7 +345,6 @@ class CreateSceneTaskTests(TestCase):
             self.assertFalse(default_storage.exists(path))
 
     def test_failure_cleans_up_staged_upload(self):
-        from ..tasks import create_scene_task
         with (
             patch("apps.videomanagement.tasks.default_storage.open", side_effect=OSError("unavailable")),
             patch("apps.videomanagement.tasks.default_storage.delete") as cleanup,

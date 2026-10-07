@@ -4,6 +4,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from rest_framework.exceptions import APIException
 from rest_framework.test import APIClient
 
 from apps.usermanagement.baker_recipes import broke_user, user
@@ -417,7 +418,6 @@ class SceneDraftApiTests(ApiTestCase):
         generate.assert_not_called()
 
     def test_provider_failure_refunds_credit(self):
-        from rest_framework.exceptions import APIException
 
         before = self.user.generation_limit_for_ai
         with patch("apps.videomanagement.views.video_view.draft_scene", side_effect=APIException("Unavailable")):

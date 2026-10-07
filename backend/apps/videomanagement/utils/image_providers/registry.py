@@ -1,6 +1,8 @@
 import sys
 from functools import partial
 
+from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutputType
+
 DEFAULT_PROVIDERS = {"WEB": "bing", "AI": "OPENAI"}
 
 
@@ -18,11 +20,6 @@ class ImageProviderRegistry:
             return name in cls.video_providers
         if not name or not getattr(user, "is_authenticated", False):
             return False
-        from apps.apikeysmanagement.models import (
-            UserCustomVisualProvider,
-            VisualOutputType,
-        )
-
         return UserCustomVisualProvider.objects.filter(
             user=user, name=name, output_type=VisualOutputType.VIDEO
         ).exists()
