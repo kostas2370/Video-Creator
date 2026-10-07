@@ -17,11 +17,6 @@ from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "video_creator.settings")
 
-django_application = get_asgi_application()
+application = get_asgi_application()
 if settings.DEBUG:
-    django_application = ASGIStaticFilesHandler(django_application)
-
-# Django must load its model registry before importing the event endpoint.
-from apps.videomanagement.event_stream import VideoEventApplication  # noqa: E402
-
-application = VideoEventApplication(django_application)
+    application = ASGIStaticFilesHandler(application)

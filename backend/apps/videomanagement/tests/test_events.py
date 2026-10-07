@@ -1,64 +1,73 @@
-import time
-from unittest.mock import AsyncMock, patch
+import asyncio
+from contextlib import asynccontextmanager
+from unittest.mock import Mock, patch
 
-from asgiref.sync import async_to_sync
+from asgiref.sync import sync_to_async
 from asgiref.testing import ApplicationCommunicator
-from channels.layers import InMemoryChannelLayer
 from django.contrib.auth import get_user_model
+from django.core.asgi import get_asgi_application
 from django.db import transaction
-from django.http import HttpRequest
-from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
+from django_eventstream.views import ListenerManager
+from redis.exceptions import ConnectionError
 from rest_framework_simplejwt.tokens import AccessToken
 
-from ..event_stream import VideoEventApplication, authorize_stream
-from ..events import publish_update
-from ..models import Scene, SceneImage, UserPrompt, Video
 from apps.usermanagement.models import Notification
 
+from ..event_stream import VideoChannelManager
+from ..events import publish_update
+from ..models import Scene, SceneImage, UserPrompt, Video, VideoStatus
 
-class EventAuthorizationTests(TestCase):
+
+class EventPublicationTests(TestCase):
     def setUp(self):
-        self.owner = get_user_model().objects.create_user(username="owner", email="owner@example.com")
-        self.other = get_user_model().objects.create_user(username="other", email="other@example.com")
-        self.video = Video.objects.create(created_by=self.owner, title="Video", prompt=UserPrompt.objects.create(prompt="Story"))
+        self.owner = get_user_model().objects.create_user(
+            username="owner", email="owner@example.com"
+        )
+        self.other = get_user_model().objects.create_user(
+            username="other", email="other@example.com"
+        )
+        self.video = Video.objects.create(
+            created_by=self.owner,
+            title="Video",
+            prompt=UserPrompt.objects.create(prompt="Story"),
+        )
 
-    def request_for(self, user):
-        request = HttpRequest()
-        request.COOKIES = {"access_token": str(AccessToken.for_user(user))}
-        return request
+    def test_channels_require_the_video_or_notification_owner(self):
+        manager = VideoChannelManager()
+        self.assertTrue(manager.can_read_channel(self.owner, f"video.{self.video.pk}"))
+        self.assertFalse(manager.can_read_channel(self.other, f"video.{self.video.pk}"))
+        self.assertTrue(
+            manager.can_read_channel(self.owner, f"notifications.{self.owner.pk}")
+        )
+        self.assertFalse(
+            manager.can_read_channel(self.other, f"notifications.{self.owner.pk}")
+        )
+        for channel in ("public", "video.invalid", f"unknown.{self.owner.pk}"):
+            self.assertFalse(manager.can_read_channel(self.owner, channel))
+        self.assertFalse(manager.can_read_channel(None, f"video.{self.video.pk}"))
 
-    def test_only_owner_can_subscribe_to_video(self):
-        status, expires, group = async_to_sync(authorize_stream)(self.request_for(self.owner), self.video.pk)
-        self.assertEqual(status, 200)
-        self.assertEqual(group, f"video.{self.video.pk}")
-        self.assertLessEqual(expires, time.time() + 300)
-        self.assertEqual(async_to_sync(authorize_stream)(self.request_for(self.other), self.video.pk)[0], 404)
-
-    def test_notifications_are_scoped_to_authenticated_owner(self):
-        status, _, group = async_to_sync(authorize_stream)(self.request_for(self.owner), None)
-        self.assertEqual((status, group), (200, f"notifications.{self.owner.pk}"))
-
-    def test_anonymous_and_expired_tokens_are_refused(self):
-        self.assertEqual(async_to_sync(authorize_stream)(HttpRequest(), self.video.pk)[0], 401)
-        token = AccessToken.for_user(self.owner)
-        token["exp"] = int(time.time()) - 1
-        request = HttpRequest()
-        request.COOKIES = {"access_token": str(token)}
-        self.assertEqual(async_to_sync(authorize_stream)(request, self.video.pk)[0], 401)
-
-    def test_committed_scene_visual_and_notification_writes_publish_invalidations(self):
-        layer = AsyncMock()
-        with patch("apps.videomanagement.events.get_channel_layer", return_value=layer):
+    def test_committed_scene_visual_and_notification_writes_publish_updates(self):
+        with patch("apps.videomanagement.events.send_event") as send:
             with self.captureOnCommitCallbacks(execute=True):
                 scene = Scene.objects.create(video=self.video, text="A sentence")
                 SceneImage.objects.create(scene=scene)
                 Notification.objects.create(user=self.owner, title="Ready")
-            groups = [call.args[0] for call in layer.group_send.call_args_list]
-            self.assertEqual(groups, [f"video.{self.video.pk}", f"video.{self.video.pk}", f"notifications.{self.owner.pk}"])
+            self.assertEqual(
+                [call.args[0] for call in send.call_args_list],
+                [
+                    f"video.{self.video.pk}",
+                    f"video.{self.video.pk}",
+                    f"notifications.{self.owner.pk}",
+                ],
+            )
+            self.assertTrue(
+                all(call.args[1] == "update" for call in send.call_args_list)
+            )
+            self.assertEqual(send.call_args_list[0].args[2]["scene_id"], scene.pk)
 
     def test_rollback_does_not_publish(self):
-        layer = AsyncMock()
-        with patch("apps.videomanagement.events.get_channel_layer", return_value=layer):
+        with patch("apps.videomanagement.events.send_event") as send:
             with self.captureOnCommitCallbacks(execute=True):
                 try:
                     with transaction.atomic():
@@ -66,95 +75,164 @@ class EventAuthorizationTests(TestCase):
                         raise ValueError("rollback")
                 except ValueError:
                     pass
-        layer.group_send.assert_not_called()
+        send.assert_not_called()
 
     def test_delivery_failure_does_not_fail_the_write(self):
-        with patch("apps.videomanagement.events.get_channel_layer", side_effect=OSError("offline")):
+        with patch(
+            "apps.videomanagement.events.send_event",
+            side_effect=ConnectionError("offline"),
+        ):
             with self.captureOnCommitCallbacks(execute=True):
                 Scene.objects.create(video=self.video, text="Still saved")
         self.assertTrue(Scene.objects.filter(text="Still saved").exists())
 
 
-class EventCookieStreamTests(TransactionTestCase):
-    # The ASGI communicator runs authorization in another thread; commit fixtures
-    # instead of holding TestCase's wrapping transaction open across that thread.
+@override_settings(
+    ALLOWED_HOSTS=["testserver"], CORS_ALLOWED_ORIGINS=["https://frontend.example"]
+)
+class EventStreamTests(TransactionTestCase):
     def setUp(self):
-        self.owner = get_user_model().objects.create_user(username="owner", email="owner@example.com")
-        self.other = get_user_model().objects.create_user(username="other", email="other@example.com")
-        self.video = Video.objects.create(created_by=self.owner, title="Video", prompt=UserPrompt.objects.create(prompt="Story"))
+        self.manager = ListenerManager()
+        self.manager.redis_listener = None
+        self.enterContext(
+            patch("django_eventstream.views.listener_manager", self.manager)
+        )
+        self.enterContext(patch("django_eventstream.eventstream.redis_client", None))
+        self.enterContext(patch("apps.videomanagement.event_stream.Redis.from_url"))
+        self.owner = get_user_model().objects.create_user(
+            username="owner", email="owner@example.com"
+        )
+        self.other = get_user_model().objects.create_user(
+            username="other", email="other@example.com"
+        )
+        self.video = Video.objects.create(
+            created_by=self.owner,
+            title="Video",
+            prompt=UserPrompt.objects.create(prompt="Story"),
+        )
+        self.application = get_asgi_application()
 
-    @override_settings(ALLOWED_HOSTS=["testserver"])
-    async def test_asgi_authenticates_cookie_and_rejects_foreign_video(self):
-        for user, expected in ((self.owner, 200), (self.other, 404)):
-            scope = {"type": "http", "method": "GET", "scheme": "http",
-                     "path": f"/api/videos/{self.video.pk}/events/",
-                     "query_string": b"", "server": ("testserver", 80),
-                     "headers": [(b"host", b"testserver"),
-                                 (b"cookie", f"access_token={AccessToken.for_user(user)}".encode())]}
-            layer = InMemoryChannelLayer()
-            with patch("channels.consumer.get_channel_layer", return_value=layer):
-                communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), scope)
-                await communicator.send_input({"type": "http.request", "body": b""})
-                self.assertEqual((await communicator.receive_output())["status"], expected)
-                await communicator.receive_output()
-                await communicator.send_input({"type": "http.disconnect"})
-                await communicator.wait()
-
-
-@override_settings(ALLOWED_HOSTS=["testserver"], CORS_ALLOWED_ORIGINS=["https://frontend.example"])
-class EventStreamTests(SimpleTestCase):
-    def scope(self, path="/api/videos/7/events/", method="GET", origin=None):
-        headers = [(b"host", b"testserver")]
+    @asynccontextmanager
+    async def connect(
+        self, user=None, path=None, method="GET", origin=None, token=None, query=b""
+    ):
+        headers = [(b"host", b"testserver"), (b"accept", b"text/event-stream")]
+        if user:
+            headers.append(
+                (
+                    b"cookie",
+                    f"access_token={token or AccessToken.for_user(user)}".encode(),
+                )
+            )
         if origin:
             headers.append((b"origin", origin.encode()))
-        return {"type": "http", "path": path, "method": method, "scheme": "http", "headers": headers, "query_string": b"", "server": ("testserver", 80)}
-
-    async def test_stream_delivers_event_and_releases_subscription_on_disconnect(self):
-        layer = InMemoryChannelLayer()
-        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + 300, "video.7"))), patch("channels.consumer.get_channel_layer", return_value=layer):
-            communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), self.scope(origin="https://frontend.example"))
-            await communicator.send_input({"type": "http.request", "body": b""})
-            start = await communicator.receive_output()
-            self.assertEqual(start["status"], 200)
-            self.assertIn((b"x-accel-buffering", b"no"), start["headers"])
-            self.assertIn((b"access-control-allow-origin", b"https://frontend.example"), start["headers"])
-            self.assertIn(b"event: ready", (await communicator.receive_output())["body"])
-            await layer.group_send("video.7", {"type": "video.update", "kind": "scene", "scene_id": 4})
-            self.assertIn(b'"scene_id": 4', (await communicator.receive_output())["body"])
+        scope = {
+            "type": "http",
+            "method": method,
+            "scheme": "http",
+            "http_version": "1.1",
+            "path": path or f"/api/videos/{self.video.pk}/events/",
+            "query_string": query,
+            "server": ("testserver", 80),
+            "headers": headers,
+        }
+        communicator = ApplicationCommunicator(self.application, scope)
+        await communicator.send_input({"type": "http.request", "body": b""})
+        try:
+            yield communicator, await communicator.receive_output(timeout=3)
+        finally:
             await communicator.send_input({"type": "http.disconnect"})
-            await communicator.wait()
-            self.assertFalse(layer.groups.get("video.7"))
+            await communicator.wait(timeout=3)
 
-    async def test_unauthorized_wrong_origin_and_wrong_method_are_refused(self):
-        for scope, expected in ((self.scope(origin="https://evil.example"), 403), (self.scope(method="POST"), 405), (self.scope(), 401)):
-            with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(401, None, None))):
-                communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), scope)
-                await communicator.send_input({"type": "http.request", "body": b""})
-                self.assertEqual((await communicator.receive_output())["status"], expected)
-                await communicator.wait()
+    async def test_cookie_authentication_and_ownership_apply_to_streams(self):
+        for user, expected in ((self.owner, 200), (self.other, 404), (None, 401)):
+            async with self.connect(user) as (stream, response):
+                self.assertEqual(response["status"], expected)
+                await stream.receive_output()
+        token = AccessToken.for_user(self.owner)
+        token["exp"] = 1
+        async with self.connect(self.owner, token=str(token)) as (_, response):
+            self.assertEqual(response["status"], 401)
+
+    async def test_scene_and_rendering_updates_use_the_library_stream(self):
+        async with self.connect(self.owner, origin="https://frontend.example") as (
+            stream,
+            response,
+        ):
+            self.assertEqual(response["status"], 200)
+            headers = {key.lower(): value for key, value in response["headers"]}
+            self.assertEqual(headers[b"x-accel-buffering"], b"no")
+            self.assertIn(
+                (b"access-control-allow-origin", b"https://frontend.example"),
+                response["headers"],
+            )
+            self.assertIn(
+                b"event: stream-open", (await stream.receive_output())["body"]
+            )
+            await sync_to_async(Scene.objects.create)(
+                video=self.video, text="New scene"
+            )
+            self.assertIn(b'"kind": "scene"', (await stream.receive_output())["body"])
+            self.video.status = VideoStatus.RENDERING
+            await sync_to_async(self.video.save)()
+            self.assertIn(b'"kind": "video"', (await stream.receive_output())["body"])
+        await asyncio.sleep(0)
+        self.assertFalse(self.manager.listeners_by_channel)
+
+    async def test_notifications_cannot_subscribe_to_another_users_channel(self):
+        async with self.connect(
+            self.owner,
+            path="/api/notifications/events/",
+            query=f"channel=notifications.{self.other.pk}".encode(),
+        ) as (stream, response):
+            self.assertEqual(response["status"], 200)
+            await stream.receive_output()
+            self.assertEqual(
+                set(self.manager.listeners_by_channel),
+                {f"notifications.{self.owner.pk}"},
+            )
+            await sync_to_async(Notification.objects.create)(
+                user=self.other, title="Other account"
+            )
+            self.assertTrue(await stream.receive_nothing(interval=0.05))
+            await sync_to_async(Notification.objects.create)(
+                user=self.owner, title="Your video is ready"
+            )
+            self.assertIn(
+                b'"kind": "notification"', (await stream.receive_output())["body"]
+            )
+
+    async def test_wrong_origin_and_wrong_method_are_refused(self):
+        for kwargs, expected in (
+            ({"origin": "https://evil.example"}, 403),
+            ({"method": "POST"}, 405),
+        ):
+            async with self.connect(self.owner, **kwargs) as (_, response):
+                self.assertEqual(response["status"], expected)
 
     async def test_redis_outage_returns_503_for_polling_fallback(self):
-        layer = AsyncMock()
-        layer.new_channel.side_effect = OSError("offline")
-        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + 300, "video.7"))), patch("channels.consumer.get_channel_layer", return_value=layer):
-            communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), self.scope())
-            await communicator.send_input({"type": "http.request", "body": b""})
-            self.assertEqual((await communicator.receive_output())["status"], 503)
-            await communicator.wait()
+        with patch(
+            "apps.videomanagement.event_stream.Redis.from_url",
+            side_effect=ConnectionError("offline"),
+        ):
+            async with self.connect(self.owner) as (_, response):
+                self.assertEqual(response["status"], 503)
 
-    async def test_expiry_ends_stream_and_other_routes_stay_with_django(self):
-        layer = InMemoryChannelLayer()
-        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + .01, "video.7"))), patch("channels.consumer.get_channel_layer", return_value=layer):
-            communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), self.scope())
-            await communicator.send_input({"type": "http.request", "body": b""})
-            await communicator.receive_output()
-            await communicator.receive_output()
-            while True:
-                message = await communicator.receive_output()
-                if not message.get("more_body"):
-                    break
-            await communicator.wait()
-            self.assertFalse(layer.groups.get("video.7"))
-        django_application = AsyncMock()
-        await VideoEventApplication(django_application)(self.scope(path="/api/videos/7/"), AsyncMock(), AsyncMock())
-        django_application.assert_awaited_once()
+    async def test_token_expiry_ends_the_stream_and_releases_its_listener(self):
+        token = AccessToken.for_user(self.owner)
+        with patch(
+            "apps.videomanagement.event_stream.time",
+            Mock(time=Mock(return_value=token["exp"] - 0.05)),
+        ):
+            async with self.connect(self.owner, token=str(token)) as (stream, response):
+                self.assertEqual(response["status"], 200)
+                while (await stream.receive_output()).get("more_body", False):
+                    pass
+        await asyncio.sleep(0)
+        self.assertFalse(self.manager.listeners_by_channel)
+
+    def test_wsgi_returns_503_instead_of_consuming_an_endless_async_stream(self):
+        self.client.cookies["access_token"] = str(AccessToken.for_user(self.owner))
+        self.assertEqual(
+            self.client.get(f"/api/videos/{self.video.pk}/events/").status_code, 503
+        )

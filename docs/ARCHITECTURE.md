@@ -538,10 +538,10 @@ No access tokens appear in URLs. Cross-origin browser streams accept only the
 configured `FRONTEND_URL` and `CORS_ALLOWED_ORIGINS`, with credentials enabled.
 
 Committed Video, Scene, SceneImage and Notification writes publish small
-invalidations through a dedicated `video_events` Redis channel layer. Direct status
+invalidations through django-eventstream and Redis pub/sub. Direct status
 claims and bulk notification read updates publish explicitly because queryset
-updates bypass Django signals. Delivery is best effort and bounded to one second;
-notification failures do not fail media operations. Events carry IDs and kinds,
+updates bypass Django signals. Delivery is best effort; Redis connection attempts
+time out after one second, and notification failures do not fail media operations. Events carry IDs and kinds,
 not scene content. Redis defaults to `CELERY_BROKER_URL`, overridable with
 `VIDEO_EVENTS_REDIS_URL`.
 
@@ -551,8 +551,8 @@ seconds while connected, since events are not a durable replay log. If streaming
 is unavailable, video views use four-second polling and the bell uses 30-second
 polling. Stream retries happen every 30 seconds. Operation waiters reuse the same
 connection and retain timeout, failure and cancellation handling. Streams send
-heartbeats every 15 seconds, close within five minutes or at token expiry, and
-release their subscriptions on disconnect. A normal API reload refreshes an
+django-eventstream heartbeats every 20 seconds, close within five minutes or at
+token expiry, and release their subscriptions on disconnect. A normal API reload refreshes an
 expired cookie before a later stream retry.
 
 `startdjango.sh` runs Uvicorn against `video_creator.asgi:application`. Plain

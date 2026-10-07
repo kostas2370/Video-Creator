@@ -35,7 +35,7 @@ test("uses events instead of frequent polling and coalesces bursts", async () =>
   const onUpdate = jest.fn();
   subscribe({ load, onUpdate });
   await flush();
-  streams[0].emit("ready");
+  streams[0].emit("stream-open");
   await flush();
   load.mockClear();
   jest.advanceTimersByTime(4000);
@@ -53,7 +53,7 @@ test("falls back to polling and reloads current state on reconnect", async () =>
   const load = jest.fn().mockResolvedValue(result("RENDERING"));
   subscribe({ load });
   await flush();
-  streams[0].emit("ready"); await flush();
+  streams[0].emit("stream-open"); await flush();
   streams[0].onerror(); await flush();
   expect(streams[0].close).toHaveBeenCalled();
   load.mockClear();
@@ -62,7 +62,7 @@ test("falls back to polling and reloads current state on reconnect", async () =>
   jest.advanceTimersByTime(26000); await flush();
   expect(streams).toHaveLength(2);
   load.mockClear();
-  streams[1].emit("ready"); await flush();
+  streams[1].emit("stream-open"); await flush();
   expect(load).toHaveBeenCalledTimes(1);
 });
 
@@ -103,7 +103,7 @@ test("a new subscriber waits for a fresh request rather than in-flight state", a
     .mockImplementationOnce(() => new Promise(done => { resolve = done; }))
     .mockResolvedValue(result("RENDERING"));
   subscribe({ load }); await flush();
-  streams[0].emit("ready");
+  streams[0].emit("stream-open");
   await flush();
   const onUpdate = jest.fn();
   subscribe({ load, onUpdate });
@@ -120,4 +120,22 @@ test("repeated cleanup cannot remove a newer subscription", async () => {
   subscribe({ load }); await flush();
   expect(streams).toHaveLength(2);
   expect(streams[1].close).not.toHaveBeenCalled();
+});
+
+test("reloads after a library stream reset", async () => {
+  const load = jest.fn().mockResolvedValue(result("GENERATION"));
+  subscribe({ load }); await flush();
+  streams[0].emit("stream-open"); await flush(); load.mockClear();
+  streams[0].emit("stream-reset"); await flush();
+  expect(load).toHaveBeenCalledTimes(1);
+});
+
+test("falls back to polling after a library permission error", async () => {
+  const load = jest.fn().mockResolvedValue(result("GENERATION"));
+  subscribe({ load }); await flush();
+  streams[0].emit("stream-open"); await flush();
+  streams[0].emit("stream-error"); await flush();
+  expect(streams[0].close).toHaveBeenCalled();
+  load.mockClear(); jest.advanceTimersByTime(4000); await flush();
+  expect(load).toHaveBeenCalledTimes(1);
 });

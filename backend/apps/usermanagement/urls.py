@@ -1,6 +1,8 @@
 from django.urls import path, include
 from rest_framework import routers
 
+from apps.videomanagement.event_stream import event_updates
+
 from .views import (
     LoginView,
     NotificationView,
@@ -15,6 +17,7 @@ router.register("notifications", NotificationView, basename="notification")
 
 
 urlpatterns = [
+    path("notifications/events/", event_updates, name="notification_events"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", logout_view, name="logout"),
     path("token/refresh/", CookieTokenRefreshView.as_view(), name="token_refresh"),
