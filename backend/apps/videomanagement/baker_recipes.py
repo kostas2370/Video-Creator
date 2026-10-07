@@ -74,8 +74,6 @@ silent_video = video.extend(settings=lambda: dict(subtitles=False, narration=Fal
 
 subtitled_video = video.extend(settings=lambda: dict(subtitles=True, narration=True))
 
-twitch_video = video.extend(video_type="TWITCH", gpt_answer="Source : \n")
-
 
 scene = Recipe(
     Scene,

@@ -49,11 +49,6 @@ class AiGenerationLimitPermission(BaseGenerationLimitPermission):
     limit_field = "generation_limit_for_ai"
 
 
-class TwitchGenerationLimitPermission(BaseGenerationLimitPermission):
-    limit_field = "generation_limit_for_twitch"
-    required_limit = 0.6
-
-
 class SceneGenerationLimitPermission(BaseGenerationLimitPermission):
     limit_field = "generation_limit_for_ai"
     required_limit = 0.2

@@ -41,9 +41,6 @@ class SceneImageView(viewsets.GenericViewSet):
             obj.file = None
             obj.save()
 
-        if video.video_type == VideoType.TWITCH:
-            obj.scene.delete()
-
         return Response(status=204)
 
 

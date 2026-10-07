@@ -41,7 +41,6 @@ class ImageMode(models.TextChoices):
 
 class VideoType(models.TextChoices):
     AI = "AI", "AI"
-    TWITCH = "TWITCH", "TWITCH"
 
 
 IN_FLIGHT_STATUSES = (VideoStatus.GENERATION, VideoStatus.RENDERING)

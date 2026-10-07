@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 costs = {
-    "twitch_scene": 0.08,
     "scene_API": 0.02,
     "scene_LOCAL": 0.01,
     "scene_image_AI": 0.08,
@@ -46,9 +45,6 @@ def calculate_total_cost(video):
     total_cost = 0
     scenes = video.scenes.all()
     scene_count = scenes.count()
-
-    if video.video_type == VideoType.TWITCH:
-        total_cost += 0.05 + scene_count * costs.get("twitch_scene", 0)
 
     if video.video_type == VideoType.AI:
         voice_type = getattr(video.voice_model, "type", None)

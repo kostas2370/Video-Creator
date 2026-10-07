@@ -13,7 +13,6 @@ from ..baker_recipes import video
 from ..models import Video, VoiceModel, VoiceModelType
 from ..utils import tts_utils
 from ..tasks import (
-    generate_twitch_video_task,
     update_user_voices,
     resume_video_task,
     generate_video_task,
@@ -37,16 +36,6 @@ class TaskFailureTests(TestCase):
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "FAILED")
 
-    def test_twitch_generation_leaves_the_video_failed_and_re_raises(self):
-        with patch(
-            "apps.videomanagement.services.TwitchGenerationService.generate_twitch_video",
-            side_effect=RuntimeError("twitch is down"),
-        ):
-            with self.assertRaises(RuntimeError):
-                generate_twitch_video_task(video_id=self.video.id)
-
-        self.video.refresh_from_db()
-        self.assertEqual(self.video.status, "FAILED")
 
     def test_rendering_leaves_the_video_failed_and_re_raises(self):
         with patch(
@@ -99,18 +88,6 @@ class TaskSuccessTests(TestCase):
 
         self.assertEqual(returned, self.video.id)
         self.assertEqual(resume.call_args.args[0].pk, self.video.pk)
-
-    def test_twitch_generation_hands_its_parameters_to_the_service(self):
-        with patch(
-            "apps.videomanagement.services.TwitchGenerationService.generate_twitch_video"
-        ) as generate:
-            returned = generate_twitch_video_task(
-                video_id=self.video.id, channel="a streamer"
-            )
-
-        self.assertEqual(returned, self.video.id)
-        self.assertEqual(generate.call_args.kwargs["channel"], "a streamer")
-        self.assertEqual(generate.call_args.kwargs["video"].pk, self.video.pk)
 
 
 class UpdateUserVoicesTests(TestCase):
@@ -321,6 +298,7 @@ class CreateSceneTaskTests(TestCase):
     def setUp(self):
         self.video = video.make(status="GENERATION")
         self.data = {"text": "New scene"}
+
 
     def test_creates_scene_and_marks_video_ready(self):
         from ..tasks import create_scene_task

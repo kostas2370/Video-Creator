@@ -16,7 +16,6 @@ from ...serializers import (
 from ...request_serializers import (
     AddSceneSerializer,
     GenerateSerializer,
-    TwitchSerializer,
     VideoUpdateSerializer,
 )
 
@@ -48,8 +47,8 @@ class SceneSerializerTests(TestCase):
                 line = scene.make(file="narration.wav")
                 self.assertEqual(SceneSerializer(line).data["narration_status"], "available")
 
-    def test_does_not_report_missing_narration_for_silent_or_twitch_videos(self):
-        for options in ({"settings": {"narration": False}}, {"video_type": "TWITCH"}):
+    def test_does_not_report_missing_narration_for_silent_videos(self):
+        for options in ({"settings": {"narration": False}},):
             with self.subTest(options=options):
                 line = scene.make(video=video.make(**options), file=None)
                 self.assertEqual(SceneSerializer(line).data["narration_status"], "disabled")
@@ -154,13 +153,6 @@ class AddSceneSerializerTests(TestCase):
             AddSceneSerializer(data={"mode": "AI", "text": "a line"}).is_valid()
         )
 
-    def test_a_twitch_scene_needs_its_clip(self):
-        self.assertFalse(AddSceneSerializer(data={"mode": "TWITCH"}).is_valid())
-        self.assertTrue(
-            AddSceneSerializer(
-                data={"mode": "TWITCH", "url": "https://clips.twitch.tv/abc"}
-            ).is_valid()
-        )
 
     def test_a_scene_is_silent_and_not_the_last_unless_it_says_so(self):
         serializer = AddSceneSerializer(data={"mode": "AI", "text": "a line"})
@@ -168,27 +160,6 @@ class AddSceneSerializerTests(TestCase):
 
         self.assertFalse(serializer.validated_data["with_audio"])
         self.assertFalse(serializer.validated_data["is_last"])
-
-
-class TwitchSerializerTests(SerializerWithRequest):
-    def valid(self, **overrides):
-        data = {"mode": "game", "value": "Fortnite", "amt": 5}
-        data.update(overrides)
-        return TwitchSerializer(data=data, context=self.context)
-
-    def test_accepts_a_game_or_a_streamer(self):
-        self.assertTrue(self.valid(mode="game").is_valid())
-        self.assertTrue(self.valid(mode="streamer").is_valid())
-        self.assertFalse(self.valid(mode="playlist").is_valid())
-
-    def test_will_not_collect_more_clips_than_the_cap(self):
-        self.assertFalse(self.valid(amt=50).is_valid())
-
-    def test_leaves_the_window_open_when_no_start_date_is_given(self):
-        serializer = self.valid()
-        serializer.is_valid()
-
-        self.assertIsNone(serializer.validated_data["started_at"])
 
 
 class VideoUpdateSerializerTests(TestCase):

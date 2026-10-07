@@ -160,31 +160,29 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
               </div>
             </section>
 
-            {info.video_type !== "TWITCH" && (
-              <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
-                <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>Presenter and captions</h3><p className={sectionDescription}>Choose an avatar, its placement, and subtitle visibility.</p></div></div>
-                <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />
-                {avatar && (
-                  <fieldset className="mt-5">
-                    <legend className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">Presenter position</legend>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      {positions.map(([value, label]) => (
-                        <label key={value} className={`flex cursor-pointer items-center justify-center rounded-xl border px-3 py-2.5 text-xs font-medium transition ${avatarPosition === value ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-500/15 dark:border-blue-400 dark:bg-blue-400/10 dark:text-blue-200" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}>
-                          <input className="sr-only" type="radio" name="avatar-position" value={value} checked={avatarPosition === value} onChange={() => setAvatarPosition(value)} />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
-                <label htmlFor="video-subtitles" className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 transition hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800">
-                  <input type="checkbox" id="video-subtitles" checked={subtitles} onChange={(event) => setSubtitles(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-xs font-bold tracking-tight text-blue-600 dark:bg-blue-400/10 dark:text-blue-300">CC</span>
-                  <span className="flex-1"><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Subtitles</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Show narration as on-screen captions.</span></span>
-                  <span className={`relative h-6 w-11 rounded-full transition ${subtitles ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"}`} aria-hidden="true"><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${subtitles ? "left-6" : "left-1"}`} /></span>
-                </label>
-              </section>
-            )}
+            <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
+              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>Presenter and captions</h3><p className={sectionDescription}>Choose an avatar, its placement, and subtitle visibility.</p></div></div>
+              <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />
+              {avatar && (
+                <fieldset className="mt-5">
+                  <legend className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">Presenter position</legend>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {positions.map(([value, label]) => (
+                      <label key={value} className={`flex cursor-pointer items-center justify-center rounded-xl border px-3 py-2.5 text-xs font-medium transition ${avatarPosition === value ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-500/15 dark:border-blue-400 dark:bg-blue-400/10 dark:text-blue-200" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}>
+                        <input className="sr-only" type="radio" name="avatar-position" value={value} checked={avatarPosition === value} onChange={() => setAvatarPosition(value)} />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+              <label htmlFor="video-subtitles" className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 transition hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800">
+                <input type="checkbox" id="video-subtitles" checked={subtitles} onChange={(event) => setSubtitles(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-xs font-bold tracking-tight text-blue-600 dark:bg-blue-400/10 dark:text-blue-300">CC</span>
+                <span className="flex-1"><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Subtitles</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Show narration as on-screen captions.</span></span>
+                <span className={`relative h-6 w-11 rounded-full transition ${subtitles ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"}`} aria-hidden="true"><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${subtitles ? "left-6" : "left-1"}`} /></span>
+              </label>
+            </section>
           </div>
 
           <footer className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-7 dark:border-gray-800 dark:bg-gray-900">
