@@ -14,7 +14,6 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.usermanagement.models import Notification
 
-from ..event_stream import VideoChannelManager
 from ..events import publish_update
 from ..models import Scene, SceneImage, UserPrompt, Video, VideoStatus
 
@@ -32,20 +31,6 @@ class EventPublicationTests(TestCase):
             title="Video",
             prompt=UserPrompt.objects.create(prompt="Story"),
         )
-
-    def test_channels_require_the_video_or_notification_owner(self):
-        manager = VideoChannelManager()
-        self.assertTrue(manager.can_read_channel(self.owner, f"video.{self.video.pk}"))
-        self.assertFalse(manager.can_read_channel(self.other, f"video.{self.video.pk}"))
-        self.assertTrue(
-            manager.can_read_channel(self.owner, f"notifications.{self.owner.pk}")
-        )
-        self.assertFalse(
-            manager.can_read_channel(self.other, f"notifications.{self.owner.pk}")
-        )
-        for channel in ("public", "video.invalid", f"unknown.{self.owner.pk}"):
-            self.assertFalse(manager.can_read_channel(self.owner, channel))
-        self.assertFalse(manager.can_read_channel(None, f"video.{self.video.pk}"))
 
     def test_committed_scene_visual_and_notification_writes_publish_updates(self):
         with patch("apps.videomanagement.events.send_event") as send:
@@ -178,6 +163,25 @@ class EventStreamTests(TransactionTestCase):
             self.assertIn(b'"kind": "video"', (await stream.receive_output())["body"])
         await asyncio.sleep(0)
         self.assertFalse(self.manager.listeners_by_channel)
+
+    async def test_video_channel_is_selected_by_the_endpoint(self):
+        other_video = await sync_to_async(Video.objects.create)(
+            created_by=self.other, title="Other video", prompt=self.video.prompt
+        )
+        async with self.connect(
+            self.owner, query=f"channel=video.{other_video.pk}".encode()
+        ) as (stream, response):
+            self.assertEqual(response["status"], 200)
+            await stream.receive_output()
+            self.assertEqual(
+                set(self.manager.listeners_by_channel), {f"video.{self.video.pk}"}
+            )
+            await sync_to_async(Scene.objects.create)(video=other_video, text="Private")
+            self.assertTrue(await stream.receive_nothing(interval=0.05))
+            await sync_to_async(Scene.objects.create)(
+                video=self.video, text="Your scene"
+            )
+            self.assertIn(b'"kind": "scene"', (await stream.receive_output())["body"])
 
     async def test_notifications_cannot_subscribe_to_another_users_channel(self):
         async with self.connect(

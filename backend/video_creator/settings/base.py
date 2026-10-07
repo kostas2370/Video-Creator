@@ -115,7 +115,6 @@ EVENTSTREAM_REDIS = {
     "ssl": event_redis_url.scheme == "rediss",
     "socket_connect_timeout": 1,
 }
-EVENTSTREAM_CHANNELMANAGER_CLASS = "apps.videomanagement.event_stream.VideoChannelManager"
 
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1

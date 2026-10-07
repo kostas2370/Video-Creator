@@ -5,7 +5,6 @@ from contextlib import aclosing
 from django.conf import settings
 from django.core.handlers.asgi import ASGIRequest
 from django.shortcuts import get_object_or_404
-from django_eventstream.channelmanager import DefaultChannelManager
 from django_eventstream.renderers import SSEEventRenderer
 from django_eventstream.views import events
 from redis import Redis, RedisError
@@ -14,16 +13,6 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
 from .models import Video
-
-
-class VideoChannelManager(DefaultChannelManager):
-    def can_read_channel(self, user, channel):
-        kind, _, identifier = channel.partition(".")
-        if not user or not user.is_authenticated or not identifier.isdecimal():
-            return False
-        if kind == "video":
-            return Video.objects.filter(pk=identifier, created_by=user).exists()
-        return kind == "notifications" and identifier == str(user.pk)
 
 
 async def authenticated_events(stream, expires):
@@ -47,13 +36,10 @@ def event_updates(request, video_id=None):
     ]
     if origin and origin not in allowed_origins:
         return Response(status=403)
+    channel = f"notifications.{request.user.pk}"
     if video_id is not None:
         get_object_or_404(Video, pk=video_id, created_by=request.user)
-    channel = (
-        f"video.{video_id}"
-        if video_id is not None
-        else f"notifications.{request.user.pk}"
-    )
+        channel = f"video.{video_id}"
     if not isinstance(request._request, ASGIRequest):
         return Response({"detail": "Event streams require an ASGI server."}, status=503)
     try:
