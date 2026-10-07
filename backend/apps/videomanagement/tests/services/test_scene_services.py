@@ -1,5 +1,6 @@
 """Adding, regenerating and updating a single scene."""
 
+import json
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -14,7 +15,7 @@ from ...models import SceneImage
 from ...services import (
     SceneServices,
 )
-from ...services.SceneServices import create_scene, generate_scene, update_scene
+from ...services.SceneServices import create_scene, draft_scene, generate_scene, update_scene
 
 
 class GenerateSceneTests(TestCase):
@@ -132,8 +133,6 @@ class CreateSceneTests(TestCase):
 
 class DraftSceneTests(TestCase):
     def test_a_section_returns_the_requested_short_scenes_without_saving(self):
-        from ...services.SceneServices import draft_scene
-        import json
 
         vid = video.make()
         drafts = [{"text": f"Sentence {index}.", "image_description": "A path"} for index in range(3)]
@@ -144,8 +143,6 @@ class DraftSceneTests(TestCase):
         self.assertFalse(vid.scenes.exists())
 
     def test_rejects_an_oversized_sentence_or_incorrect_scene_count(self):
-        from ...services.SceneServices import draft_scene
-        import json
 
         vid = video.make()
         for result in (
@@ -161,7 +158,6 @@ class DraftSceneTests(TestCase):
         self.assertFalse(vid.scenes.exists())
 
     def test_context_contains_every_current_scene_and_visual_in_order(self):
-        from ...services.SceneServices import draft_scene
 
         vid = video.make(title="Journey")
         first = scene.make(video=vid, text="Edited opening")
@@ -180,7 +176,6 @@ class DraftSceneTests(TestCase):
         self.assertEqual(vid.scenes.count(), 2)
 
     def test_without_context_excludes_all_video_content(self):
-        from ...services.SceneServices import draft_scene
 
         vid = video.make(title="Private title")
         scene.make(video=vid, text="Private dialogue")
@@ -192,7 +187,6 @@ class DraftSceneTests(TestCase):
         self.assertNotIn("Private dialogue", prompt)
 
     def test_rejects_invalid_model_output_without_creating_a_scene(self):
-        from ...services.SceneServices import draft_scene
 
         vid = video.make()
         for reply in (

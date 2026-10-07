@@ -180,13 +180,11 @@ class VideoView(
     @action(detail=True, methods=["POST"])
     def add_scene(self, request, pk):
         video = self.get_object()
-        data = request.data.copy()
-        if "scenes" in data:
-            if request.FILES:
-                return Response({"detail": "Upload a visual when adding a single scene."}, status=400)
-            serializer = AddScenesSerializer(data=data)
-        else:
-            serializer = AddSceneSerializer(data=data)
+        is_batch = "scenes" in request.data
+        if is_batch and request.FILES:
+            return Response({"detail": "Upload a visual when adding a single scene."}, status=400)
+        serializer_class = AddScenesSerializer if is_batch else AddSceneSerializer
+        serializer = serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         claimed = Video.objects.filter(
             pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]
