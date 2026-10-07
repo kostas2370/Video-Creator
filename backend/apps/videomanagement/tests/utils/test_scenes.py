@@ -480,6 +480,6 @@ class GenerateNewImageTests(TestCase):
                 scenes_utils, "still_from_video", return_value="anchor.png"
             ) as still,
         ):
-            reference = scenes_utils.regeneration_reference(target, self.video, "sora")
+            reference = scenes_utils.scene_reference(target.scene, self.video, "sora")
         self.assertEqual(reference, "anchor.png")
         self.assertEqual(still.call_args.args[0], saved.file.path)
