@@ -1,4 +1,5 @@
 import logging
+from contextlib import nullcontext
 from datetime import timedelta
 from celery import shared_task
 from django.conf import settings
@@ -89,12 +90,10 @@ def create_scene_task(video_id: int, data: dict, upload_path=None):
         video = Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).first()
         if video is None:
             return
-        if upload_path:
-            with default_storage.open(upload_path, "rb") as upload:
-                create_scene(video, data, {"image": File(upload, name=Path(upload_path).name)})
-        else:
+        with (default_storage.open(upload_path, "rb") if upload_path else nullcontext()) as upload:
+            files = {"image": File(upload, name=Path(upload_path).name)} if upload_path else {}
             for item in data.get("scenes", [data]):
-                create_scene(video, item, {})
+                create_scene(video, item, files)
     except Exception:
         logger.exception("Scene creation failed for video %s", video_id)
         _mark_failed(video_id)
