@@ -130,7 +130,9 @@ They are deliberately **not** baked into the image — that would add several GB
 
 #### Prerequisites
 
-- Recommended Python version: 3.9 - 3.11
+- Required Python version: 3.11 (Docker and CI use this version)
+- Backend framework: Django 5.2 LTS with Django REST Framework 3.18.
+  Package metadata, Docker, and CI share `backend/requirements/requirements.txt`.
 - Install the following dependencies:
   1. FFmpeg (Required for video rendering) - [Installation Guide](https://phoenixnap.com/kb/ffmpeg-windows)
   2. ImageMagick (Required for subtitles) - [Download](https://imagemagick.org/script/download.php#windows)
@@ -152,12 +154,18 @@ They are deliberately **not** baked into the image — that would add several GB
 1. Navigate to the viddie folder and install dependencies:
 
    ```shell
-   PIP_CONSTRAINT=requirements/constraints.txt pip install -r requirements/requirements.txt
+   pip install --upgrade pip
+   pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+   pip install -r requirements/build.txt
+   PIP_CONSTRAINT=requirements/constraints.txt pip install --no-build-isolation -r requirements/requirements.txt
    ```
 
    The constraints file holds torch to the CPU build. Without it, several of the
    SadTalker dependencies pull a CUDA build in and add roughly 2.5GB of `nvidia-*`
    packages that nothing here can use.
+
+   On Debian or Ubuntu, install `default-libmysqlclient-dev` and `pkg-config`
+   before installing Python dependencies. These build Django’s MySQL driver.
 
 2. Download the SadTalker and GFPGAN model weights:
 
@@ -192,7 +200,7 @@ They are deliberately **not** baked into the image — that would add several GB
    Voices are all API-backed — OpenAI, ElevenLabs or 60dB. The fixtures load the six
    OpenAI voices, so `OPEN_API_KEY` alone is enough to render speech. Local on-device
    synthesis (coqui/TTS) has been removed: it pinned the project to a dependency tree
-   that no longer resolves on Python 3.9, and it was the single largest contributor to
+   that no longer resolves on the previous Python 3.9 runtime, and it was the single largest contributor to
    the image size.
 
 5. (Optional) To enable ElevenLabs voices, add your `XI_API_KEY` in the `.env` file and run:
