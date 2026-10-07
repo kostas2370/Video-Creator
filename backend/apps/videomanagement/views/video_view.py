@@ -15,6 +15,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from rest_framework.permissions import IsAuthenticated
 
+from ..events import publish_update
 from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer
@@ -125,6 +126,7 @@ class VideoView(
                 status=status.HTTP_409_CONFLICT,
             )
 
+        publish_update(f"video.{video.pk}", video_id=video.pk)
         video.refresh_from_db()
         resume_video_task.delay(video_id=video.id)
         logger.info(f"Video with id {pk} was queued to resume")
@@ -159,6 +161,7 @@ class VideoView(
                 status=status.HTTP_409_CONFLICT,
             )
 
+        publish_update(f"video.{vid.pk}", video_id=vid.pk)
         vid.refresh_from_db()
         render_video_task.delay(video_id=vid.id)
         logger.info(f"Video with id {pk} was queued for rendering")
@@ -191,6 +194,7 @@ class VideoView(
         ).update(status=VideoStatus.GENERATION, updated_at=timezone.now())
         if not claimed:
             return Response({"detail": "Wait for the current video operation to finish."}, status=409)
+        publish_update(f"video.{video.pk}", video_id=video.pk)
         upload_path = None
         try:
             upload = request.FILES.get("image")
@@ -202,6 +206,7 @@ class VideoView(
         except Exception:
             logger.exception("Could not queue scene for video %s", video.pk)
             Video.objects.filter(pk=video.pk, status=VideoStatus.GENERATION).update(status=video.status)
+            publish_update(f"video.{video.pk}", video_id=video.pk)
             if upload_path:
                 default_storage.delete(upload_path)
             return Response({"detail": "Could not queue the scene. Please try again."}, status=503)

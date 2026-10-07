@@ -12,4 +12,4 @@ python manage.py loaddata fixtures/fixtures.json
 python manage.py setup_media
 python manage.py setup_elevenlabs
 
-python manage.py runserver 0.0.0.0:8000
+exec uvicorn video_creator.asgi:application --host 0.0.0.0 --port 8000 --lifespan off --proxy-headers --forwarded-allow-ips "*"

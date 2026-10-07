@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import { resumeVideo } from "../api/apiService";
-import { pollVideo } from "../api/pollVideo";
+import { waitForVideo } from "../api/waitForVideo";
 import { FaRedo } from "react-icons/fa";
 import { CloseModalButton } from "./ui/CloseModalButton";
 
@@ -37,11 +37,12 @@ export function ResumeModal({
     patchItem({ status: "GENERATION" });
     toast.info("Picking the generation up where it stopped...");
 
-    pollRef.current = pollVideo(id, {
+    pollRef.current = waitForVideo(id, {
       onUpdate: (video) => patchItem({ status: video.status }),
     });
 
     const { outcome, video } = await pollRef.current.promise;
+    if (outcome === "CANCELLED") return;
 
     if (outcome !== "SETTLED") {
       toast.error(

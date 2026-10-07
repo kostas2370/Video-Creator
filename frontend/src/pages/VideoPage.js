@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import React, { useCallback, useState, useEffect } from "react";
 import { getVideo } from "../api/apiService";
+import { subscribeUpdates } from "../api/subscribeUpdates";
 import { IoIosSettings } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
 import { VideoConfigModal } from "../components/VideoConfigModal";
@@ -26,23 +27,14 @@ export const Video = () => {
 
   const processing = ["GENERATION", "RENDERING"].includes(videoInfo?.status);
 
-  useEffect(() => {
-    let cancelled = false;
-    let timer;
-
-    getVideo(videoId).then(({ data: response }) => {
-      if (cancelled) return;
-      setPollError(!response);
-      if (response) setVideoInfo(response);
-      const pending = response ? ["GENERATION", "RENDERING"].includes(response.status) : processing;
-      if (pending) timer = setTimeout(setUpdated, 3000);
-    });
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [videoId, refresh, processing, setUpdated]);
+  useEffect(() => subscribeUpdates(`videos/${encodeURIComponent(videoId)}/events/`, {
+    load: () => getVideo(videoId, { notifyError: false }),
+    onUpdate: response => {
+      setPollError(false);
+      setVideoInfo(response);
+    },
+    onError: () => setPollError(true),
+  }), [videoId, refresh]);
 
   const onSceneQueued = useCallback(() => {
     setVideoInfo(current => current ? { ...current, status: "GENERATION" } : current);

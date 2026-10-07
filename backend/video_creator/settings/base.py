@@ -102,6 +102,14 @@ CELERY_BROKER_URL = (
 )
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
 
+VIDEO_EVENTS_REDIS_URL = os.getenv("VIDEO_EVENTS_REDIS_URL") or CELERY_BROKER_URL
+CHANNEL_LAYERS = {
+    "video_events": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [{"address": VIDEO_EVENTS_REDIS_URL, "socket_connect_timeout": 1}]},
+    },
+}
+
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TRACK_STARTED = True

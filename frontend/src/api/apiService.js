@@ -23,10 +23,10 @@ export const getIntro = search => get("intros/", { search: search || undefined }
 export const getOutro = search => get("outros/", { search: search || undefined });
 export const getAvatars = search => get("avatars/", { search: search || undefined });
 export const getVideos = (search, page) => get("videos/", { search: search || undefined, page: page || undefined });
-export const getVideo = id => get(detail("videos", id));
+export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
 export const getVoices = () => get("voices/");
 export const getTemplates = () => get("templates/");
-export const getNotifications = () => get("notifications/");
+export const getNotifications = (options = {}) => request({ url: "notifications/", ...options });
 
 export const createIntro = data => post("intros/", data);
 export const createOutro = data => post("outros/", data);

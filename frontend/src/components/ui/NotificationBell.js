@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { subscribeUpdates } from "../../api/subscribeUpdates";
 import { Menu, MenuButton, MenuItems } from "@headlessui/react";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -15,19 +16,14 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const navigate = useNavigate();
 
-  const load = useCallback(async () => {
-    const { data: response } = await getNotifications();
-    if (!response) return;
-
-    setItems(response.results ?? []);
-    setUnread(response.unread ?? 0);
-  }, []);
-
-  useEffect(() => {
-    load();
-    const timer = setInterval(load, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [load]);
+  useEffect(() => subscribeUpdates("notifications/events/", {
+    load: () => getNotifications({ notifyError: false }),
+    intervalMs: POLL_INTERVAL_MS,
+    onUpdate: response => {
+      setItems(response.results ?? []);
+      setUnread(response.unread ?? 0);
+    },
+  }), []);
 
   const open = async (notification) => {
     if (!notification.read) {
