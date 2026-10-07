@@ -2,7 +2,7 @@ Django==5.2.18
 djangorestframework==3.18.3
 Pillow==12.3.0
 celery[redis]==5.6.3
-channels==4.3.2
+django-eventstream[drf]==5.3.4
 asgiref==3.12.1
 python-dateutil==2.8.2
 PyJWT>=2.10,<3
@@ -11,7 +11,6 @@ django-cleanup
 djoser
 djangorestframework-simplejwt==5.5.1
 django-taggit
-channels-redis==4.3.0
 python-dotenv~=1.0.0
 mysqlclient==2.3.0
 django-axes[ipware]

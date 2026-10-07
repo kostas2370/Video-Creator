@@ -50,7 +50,7 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
       try {
         const source = new EventSource(`${API_BASE_URL}${path}`, { withCredentials: true });
         entry.source = source;
-        source.addEventListener("ready", () => {
+        source.addEventListener("stream-open", () => {
           if (entry.disposed) return;
           entry.connected = true;
           refresh(); // Reconcile missed events on every connection, including reconnects.
@@ -60,6 +60,7 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
           clearTimeout(entry.debounce);
           entry.debounce = setTimeout(refresh, 250);
         });
+        source.addEventListener("stream-reset", refresh);
         source.onerror = () => {
           source.close();
           entry.source = null;
@@ -68,6 +69,7 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
           clearTimeout(entry.retry);
           if (!entry.disposed) entry.retry = setTimeout(connect, RECONNECT_MS);
         };
+        source.addEventListener("stream-error", source.onerror);
       } catch {
         if (!entry.disposed) entry.retry = setTimeout(connect, RECONNECT_MS);
       }
