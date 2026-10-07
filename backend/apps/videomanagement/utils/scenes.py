@@ -296,10 +296,6 @@ def scene_reference(scene: Scene, video: Video, provider):
     return None
 
 
-def regeneration_reference(scene_image: SceneImage, video: Video, provider):
-    return scene_reference(scene_image.scene, video, provider)
-
-
 def generate_new_image(
     scene_image: SceneImage, video: Video, style: str = "vivid", *args, **kwargs
 ) -> SceneImage:
@@ -325,7 +321,7 @@ def generate_new_image(
         provider = (video.settings or {}).get("provider")
         generate = resolve(video.mode, provider)
         if "reference" not in kwargs:
-            kwargs["reference"] = regeneration_reference(scene_image, video, provider)
+            kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
         img = generate(
             scene_image.prompt,
             f"{video.dir_name}/images/",
