@@ -166,7 +166,6 @@ class VideoUpdateSerializer(serializers.Serializer):
 
 
 class AddSceneSerializer(serializers.Serializer):
-    mode = serializers.ChoiceField(choices=["AI"], default="AI")
     text = serializers.CharField(required=False)
     image_description = serializers.CharField(required=False)
     is_last = serializers.BooleanField(default=False)

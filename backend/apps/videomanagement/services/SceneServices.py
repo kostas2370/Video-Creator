@@ -2,7 +2,7 @@ from rest_framework.exceptions import APIException, ValidationError
 import logging
 import json
 
-from ..models import Scene, Video, VideoType, SceneImage
+from ..models import Scene, Video, SceneImage
 from ..request_serializers import AddSceneSerializer, SceneDraftResultSerializer
 from ..utils.audio_utils import update_scene as update
 from ..utils.llm import get_update_sentence
@@ -54,47 +54,43 @@ def update_scene(text: str, scene: Scene):
 
 def create_scene(video: Video, data: dict, files: dict) -> Scene:
     data = data.copy()
-    data["mode"] = video.video_type
     serializer = AddSceneSerializer(data=data)
     serializer.is_valid(raise_exception=True)
-    scene = None
+    try:
+        scene = make_scene_speech(
+            video,
+            serializer.validated_data["text"],
+            serializer.validated_data["is_last"],
+        )
 
-    if video.video_type == VideoType.AI:
-        try:
-            scene = make_scene_speech(
-                video,
-                serializer.validated_data["text"],
-                serializer.validated_data["is_last"],
-            )
+    except Exception as exc:
+        logger.error(exc)
+        raise APIException(str(exc), code=400)
 
-        except Exception as exc:
-            logger.error(exc)
-            raise APIException(str(exc), code=400)
+    if files.get("image"):
+        SceneImage.objects.create(
+            scene=scene,
+            file=files["image"],
+            prompt=serializer.validated_data.get("image_description", ""),
+            with_audio=serializer.validated_data["with_audio"],
+        )
 
-        if files.get("image"):
-            SceneImage.objects.create(
-                scene=scene,
-                file=files["image"],
-                prompt=serializer.validated_data.get("image_description", ""),
-                with_audio=serializer.validated_data["with_audio"],
-            )
-
-        elif serializer.validated_data.get("image_description"):
-            settings = video.settings or {}
-            provider = settings.get("provider")
-            create_image_scene(
-                video=video,
-                image=serializer.validated_data["image_description"],
-                text=scene.text,
-                dir_name=video.dir_name,
-                mode=video.mode,
-                provider=provider,
-                style=settings.get("style", "natural"),
-                reference=scene_reference(scene, video, provider),
-                title=video.title,
-                user=video.created_by,
-                with_audio=serializer.validated_data["with_audio"],
-            )
+    elif serializer.validated_data.get("image_description"):
+        settings = video.settings or {}
+        provider = settings.get("provider")
+        create_image_scene(
+            video=video,
+            image=serializer.validated_data["image_description"],
+            text=scene.text,
+            dir_name=video.dir_name,
+            mode=video.mode,
+            provider=provider,
+            style=settings.get("style", "natural"),
+            reference=scene_reference(scene, video, provider),
+            title=video.title,
+            user=video.created_by,
+            with_audio=serializer.validated_data["with_audio"],
+        )
 
     return scene
 
