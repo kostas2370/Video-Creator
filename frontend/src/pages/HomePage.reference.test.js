@@ -61,3 +61,17 @@ test("switching to an unsupported provider clears the reference", async () => {
   expect(screen.queryByAltText("Reference preview")).toBeNull();
   expect(screen.getByLabelText(/Reference image/)).toBeTruthy();
 });
+
+test("sends the chosen scene count with a reference upload", async () => {
+  await prepare();
+  fireEvent.change(screen.getByLabelText("Number of scenes"), { target: { value: "5" } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate video" })); });
+  expect(generateVideo.mock.calls[0][0].get("scene_count")).toBe("5");
+});
+
+test("leaving the scene count blank lets AI choose without sending an empty number", async () => {
+  await prepare();
+  fireEvent.change(screen.getByLabelText("Number of scenes"), { target: { value: "" } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate video" })); });
+  expect(generateVideo.mock.calls[0][0].has("scene_count")).toBe(false);
+});

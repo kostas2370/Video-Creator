@@ -93,7 +93,8 @@ def create_scene_task(video_id: int, data: dict, upload_path=None):
             with default_storage.open(upload_path, "rb") as upload:
                 create_scene(video, data, {"image": File(upload, name=Path(upload_path).name)})
         else:
-            create_scene(video, data, {})
+            for item in data.get("scenes", [data]):
+                create_scene(video, item, {})
     except Exception:
         logger.exception("Scene creation failed for video %s", video_id)
         _mark_failed(video_id)

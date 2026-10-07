@@ -9,6 +9,7 @@ def format_prompt(
     title: str = "",
     target_audience: str = "",
     platform: str = "GENERAL",
+    scene_count: int = None,
 ) -> str:
     """
     Generate a formatted script prompt for video creation.
@@ -63,6 +64,13 @@ def format_prompt(
         f"- Establish a consistent appearance for each recurring character and object. Repeat the same concrete identifying details (face, hair, wardrobe, colors, proportions) in every shot where they appear.\n"
         f"- Keep a shared art style, color palette, and lighting approach across shots; describe any intentional location, time, or wardrobe changes explicitly."
     )
+    if scene_count is not None:
+        output += (
+            f"\n\nLENGTH REQUIREMENT: Return exactly {scene_count} scenes in the scenes array. "
+            "Each scene must contain exactly one entry in sentences. "
+            "Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph. "
+            "Use distinct narration for each scene and distribute the full story across this count."
+        )
     if platform == "TIKTOK":
         output += (
             "\n\nTIKTOK SHORT-FORM GUIDANCE:\n"

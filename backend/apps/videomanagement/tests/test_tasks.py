@@ -299,6 +299,20 @@ class CreateSceneTaskTests(TestCase):
         self.video = video.make(status="GENERATION")
         self.data = {"text": "New scene"}
 
+    def test_creates_every_reviewed_sentence_in_order_before_marking_ready(self):
+        from ..tasks import create_scene_task
+
+        scenes = [{"text": "First."}, {"text": "Second.", "is_last": True}]
+        observed_statuses = []
+        def capture(*args):
+            self.video.refresh_from_db()
+            observed_statuses.append(self.video.status)
+        with patch("apps.videomanagement.services.SceneServices.create_scene", side_effect=capture) as create:
+            create_scene_task(self.video.pk, {"scenes": scenes})
+        self.assertEqual([call.args[1] for call in create.call_args_list], scenes)
+        self.assertEqual(observed_statuses, ["GENERATION", "GENERATION"])
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.status, "READY")
 
     def test_creates_scene_and_marks_video_ready(self):
         from ..tasks import create_scene_task

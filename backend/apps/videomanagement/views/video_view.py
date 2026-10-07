@@ -17,7 +17,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from ..models import Video, VideoStatus, VideoType
 from ..paginator import StandardResultsSetPagination
-from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, SceneDraftSerializer
+from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.SceneServices import draft_scene
 from ..tasks import render_video_task, resume_video_task, create_scene_task
@@ -172,7 +172,8 @@ class VideoView(
         )
 
     @swagger_auto_schema(
-        operation_description="Queues scene creation. Returns 202; poll the video status for completion.",
+        operation_description="Queues a single scene or a JSON scenes array of up to 12 scenes. "
+        "Returns 202; poll the video status for completion.",
         method="POST",
         request_body=AddSceneSerializer,
     )
@@ -180,8 +181,13 @@ class VideoView(
     def add_scene(self, request, pk):
         video = self.get_object()
         data = request.data.copy()
-        data["mode"] = video.video_type
-        serializer = AddSceneSerializer(data=data)
+        if "scenes" in data:
+            if request.FILES:
+                return Response({"detail": "Upload a visual when adding a single scene."}, status=400)
+            serializer = AddScenesSerializer(data=data)
+        else:
+            data["mode"] = video.video_type
+            serializer = AddSceneSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         claimed = Video.objects.filter(
             pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]

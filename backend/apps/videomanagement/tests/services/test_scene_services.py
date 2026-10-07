@@ -110,6 +110,20 @@ class CreateSceneTests(TestCase):
 
         self.assertEqual(generate.call_args.kwargs["image"], "a cat")
 
+    def test_new_scenes_inherit_the_saved_visual_provider_style_and_reference(self):
+        self.video.mode = "AI"
+        self.video.settings = {"provider": "sora", "style": "natural"}
+        line = scene.make(video=self.video)
+        with (
+            patch.object(SceneServices, "make_scene_speech", return_value=line),
+            patch.object(SceneServices, "scene_reference", return_value="images/context.png") as reference,
+            patch.object(SceneServices, "create_image_scene") as generate,
+        ):
+            create_scene(self.video, {"text": "Next sentence.", "image_description": "Same character."}, files={})
+        reference.assert_called_once_with(line, self.video, "sora")
+        self.assertEqual(generate.call_args.kwargs["provider"], "sora")
+        self.assertEqual(generate.call_args.kwargs["style"], "natural")
+        self.assertEqual(generate.call_args.kwargs["reference"], "images/context.png")
 
     def test_rejects_an_ai_scene_with_no_text(self):
         with self.assertRaises(ValidationError):
@@ -117,7 +131,31 @@ class CreateSceneTests(TestCase):
 
 
 class DraftSceneTests(TestCase):
+    def test_a_section_returns_the_requested_short_scenes_without_saving(self):
+        from ...services.SceneServices import draft_scene
+        import json
 
+        vid = video.make()
+        drafts = [{"text": f"Sentence {index}.", "image_description": "A path"} for index in range(3)]
+        with patch.object(SceneServices, "get_update_sentence", return_value=json.dumps({"scenes": drafts})) as generate:
+            result = draft_scene(vid, "Continue", draft_type="section", sentence_count=3)
+        self.assertEqual(result["scenes"], drafts)
+        self.assertIn("exactly 3", generate.call_args.args[0])
+        self.assertFalse(vid.scenes.exists())
+
+    def test_rejects_an_oversized_sentence_or_incorrect_scene_count(self):
+        from ...services.SceneServices import draft_scene
+        import json
+
+        vid = video.make()
+        for result in (
+            {"scenes": [{"text": "Too few.", "image_description": "A path"}]},
+            {"scenes": [{"text": "x" * 321, "image_description": "A path"}] * 3},
+        ):
+            with self.subTest(result=result), patch.object(SceneServices, "get_update_sentence", return_value=json.dumps(result)):
+                with self.assertRaises(APIException):
+                    draft_scene(vid, "Continue", draft_type="story", sentence_count=3)
+        self.assertFalse(vid.scenes.exists())
 
     def test_context_contains_every_current_scene_and_visual_in_order(self):
         from ...services.SceneServices import draft_scene

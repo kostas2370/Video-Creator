@@ -273,10 +273,8 @@ def _create_image_scene_in_thread(**kwargs):
         close_old_connections()
 
 
-
-
-def regeneration_reference(scene_image: SceneImage, video: Video, provider):
-    """Reuse the same anchor when a single shot is regenerated in the editor."""
+def scene_reference(scene: Scene, video: Video, provider):
+    """Select an identity anchor or the preceding scene's final frame."""
     if video.mode != "AI":
         return None
     uploaded = (
@@ -286,26 +284,20 @@ def regeneration_reference(scene_image: SceneImage, video: Video, provider):
     )
     if provider in (None, "", "DALL-E") and uploaded:
         return uploaded
-    if not isinstance(video.gpt_answer, dict) or not video.gpt_answer.get("scenes"):
-        return None
     if provider in (None, "", "DALL-E"):
-        for line in script_lines(video.gpt_answer):
-            path = existing_visual(video, line.text)
-            if path and not check_if_video(path):
-                return path
+        for image in SceneImage.objects.filter(scene__video=video).order_by("scene_id", "pk"):
+            if stored_file_exists(image.file) and not check_if_video(image.file.path):
+                return image.file.path
     elif ImageProviderRegistry.is_video(provider, user=video.created_by):
-        previous = None
-        previous_text = ""
-        for line in script_lines(video.gpt_answer):
-            if line.text == scene_image.scene.text.strip():
-                return (
-                    continuation_frame(video, previous_text, previous)
-                    if previous_text
-                    else uploaded
-                )
-            previous = existing_visual(video, line.text)
-            previous_text = line.text
+        previous = video.scenes.filter(pk__lt=scene.pk).order_by("-pk").first()
+        if previous is None:
+            return uploaded
+        return continuation_frame(video, previous.text, existing_visual(video, previous.text))
     return None
+
+
+def regeneration_reference(scene_image: SceneImage, video: Video, provider):
+    return scene_reference(scene_image.scene, video, provider)
 
 
 def generate_new_image(

@@ -27,6 +27,7 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    scene_count = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=60)
     reference_image = serializers.ImageField(required=False)
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
@@ -109,11 +110,18 @@ class DownloadPlaylistSerializer(serializers.Serializer):
 class SceneDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
     use_context = serializers.BooleanField(default=False)
+    draft_type = serializers.ChoiceField(choices=["sentence", "section", "story"], default="sentence")
+    sentence_count = serializers.IntegerField(default=1, min_value=1, max_value=12)
+
+    def validate(self, attrs):
+        if attrs["draft_type"] == "sentence" and attrs["sentence_count"] != 1:
+            raise serializers.ValidationError("A sentence draft contains exactly one sentence.")
+        return attrs
 
 
 class SceneDraftResultSerializer(serializers.Serializer):
-    text = serializers.CharField(max_length=2000)
-    image_description = serializers.CharField(max_length=2000)
+    text = serializers.CharField(max_length=320)
+    image_description = serializers.CharField(max_length=600)
 
 
 class SceneUpdateSerializer(serializers.Serializer):
@@ -158,7 +166,7 @@ class VideoUpdateSerializer(serializers.Serializer):
 
 
 class AddSceneSerializer(serializers.Serializer):
-    mode = serializers.ChoiceField(choices=["AI"])
+    mode = serializers.ChoiceField(choices=["AI"], default="AI")
     text = serializers.CharField(required=False)
     image_description = serializers.CharField(required=False)
     is_last = serializers.BooleanField(default=False)
@@ -169,3 +177,7 @@ class AddSceneSerializer(serializers.Serializer):
             raise serializers.ValidationError("text field required !")
 
         return super().validate(attrs)
+
+
+class AddScenesSerializer(serializers.Serializer):
+    scenes = AddSceneSerializer(many=True, min_length=1, max_length=12)
