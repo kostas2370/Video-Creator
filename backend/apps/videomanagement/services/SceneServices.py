@@ -118,13 +118,13 @@ def draft_scene(
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         result = json.loads(cleaned)
-        drafts = [result] if sentence_count == 1 else result["scenes"]
         serializer = SceneDraftResultSerializer(
-            data=drafts, many=True,
+            data=[result] if sentence_count == 1 else result["scenes"],
+            many=True,
             min_length=sentence_count, max_length=sentence_count,
         )
         serializer.is_valid(raise_exception=True)
     except (ValueError, KeyError, TypeError, IndexError, ValidationError) as exc:
         raise APIException("AI returned an invalid scene draft. Please try again.") from exc
-    drafts = [dict(item) for item in serializer.validated_data]
+    drafts = serializer.validated_data
     return drafts[0] if sentence_count == 1 else {"scenes": drafts}
