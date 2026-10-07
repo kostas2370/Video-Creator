@@ -177,7 +177,7 @@ video.** Generated dialogue and visuals remain editable, and generation can reac
 
 | Value | Meaning |
 | --- | --- |
-| `available` | `has_narration()` finds the referenced audio file |
+| `available` | `stored_file_exists()` finds the referenced audio file |
 | `missing` | Narration is enabled, but no referenced audio file exists |
 | `disabled` | Narration is off |
 

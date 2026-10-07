@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from django.db import close_old_connections
 from moviepy.editor import AudioFileClip, VideoFileClip
 
-from .image_providers import ImageProviderRegistry, resolve
+from .image_providers import ImageProviderRegistry
 from .prompt_utils import script_lines
 from .file_utils import check_if_video, stored_file_exists
 from ..models import Scene, SceneImage, Video
@@ -130,7 +130,7 @@ def create_image_scene(
         return None
 
     try:
-        generate = resolve(mode, provider)
+        generate = ImageProviderRegistry.resolve(mode, provider)
         downloaded_image = generate(
             image,
             f"{dir_name}/images/",
@@ -153,10 +153,6 @@ def create_image_scene(
         ),
     )
     return downloaded_image
-
-
-def already_illustrated(video: Video, text: str) -> bool:
-    return existing_visual(video, text) is not None
 
 
 def existing_visual(video: Video, text: str):
@@ -203,7 +199,7 @@ def create_image_scenes(
     dir_name = video.dir_name
     with_audio = not (video.settings or {}).get("narration", True)
     lines = list(script_lines(video.gpt_answer))
-    pending = [line for line in lines if not already_illustrated(video, line.text)]
+    pending = [line for line in lines if existing_visual(video, line.text) is None]
 
     if not pending:
         return
@@ -319,7 +315,7 @@ def generate_new_image(
     """
     try:
         provider = (video.settings or {}).get("provider")
-        generate = resolve(video.mode, provider)
+        generate = ImageProviderRegistry.resolve(video.mode, provider)
         if "reference" not in kwargs:
             kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
         img = generate(

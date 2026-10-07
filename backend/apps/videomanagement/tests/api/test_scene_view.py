@@ -285,7 +285,7 @@ class SceneViewTests(ApiTestCase):
 
     def test_retry_reports_available_status_after_audio_is_generated(self):
         with patch("apps.videomanagement.services.SceneServices.update"):
-            with patch("apps.videomanagement.serializers.has_narration", return_value=True):
+            with patch("apps.videomanagement.serializers.stored_file_exists", return_value=True):
                 response = self.client.patch(
                     reverse("scene-detail", args=[self.scene.id]),
                     {"text": self.scene.text}, format="json",

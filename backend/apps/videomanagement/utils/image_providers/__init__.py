@@ -5,8 +5,4 @@ from . import bing, custom, diffusion, google_images, midjourney, openai_images,
 VIDEO_PROVIDERS = ImageProviderRegistry.video_providers
 
 
-def resolve(mode: str, provider: str = None):
-    return ImageProviderRegistry.resolve(mode, provider)
-
-
-__all__ = ["DEFAULT_PROVIDERS", "ImageProviderRegistry", "VIDEO_PROVIDERS", "resolve"]
+__all__ = ["DEFAULT_PROVIDERS", "ImageProviderRegistry", "VIDEO_PROVIDERS"]

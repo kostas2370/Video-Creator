@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from .utils.audio_utils import has_narration
+from .utils.file_utils import stored_file_exists
 
 from .models import (
     TemplatePrompt,
@@ -54,7 +54,7 @@ class SceneSerializer(serializers.ModelSerializer):
         video = obj.video
         if not (video.settings or {}).get("narration", True):
             return "disabled"
-        return "available" if has_narration(obj) else "missing"
+        return "available" if stored_file_exists(obj.file) else "missing"
 
     class Meta:
         model = Scene
