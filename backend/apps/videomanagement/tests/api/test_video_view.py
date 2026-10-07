@@ -237,6 +237,28 @@ class RenderViewTests(ApiTestCase):
 
 
 class AddSceneViewTests(ApiTestCase):
+    def test_queues_a_reviewed_section_as_one_job(self):
+        row = self.video_for()
+        scenes = [{"text": "First sentence."}, {"text": "Second sentence.", "is_last": True}]
+        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+            response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"scenes": scenes}, format="json")
+        self.assertEqual(response.status_code, 202)
+        queued = delay.call_args.args[1]["scenes"]
+        self.assertEqual([item["text"] for item in queued], [item["text"] for item in scenes])
+        self.assertFalse(queued[0]["is_last"])
+        self.assertTrue(queued[1]["is_last"])
+        self.assertFalse(row.scenes.exists())
+
+    def test_validates_every_sentence_before_claiming_a_batch(self):
+        row = self.video_for()
+        for scenes in ([], [{"text": "Valid"}, {"text": " "}], [{"text": "A line"}] * 13):
+            with self.subTest(scenes=scenes), patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+                response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"scenes": scenes}, format="json")
+            self.assertEqual(response.status_code, 400)
+            delay.assert_not_called()
+        row.refresh_from_db()
+        self.assertEqual(row.status, "READY")
+
     def test_queues_without_running_providers_and_persists_progress(self):
         row = self.video_for()
         with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:

@@ -486,6 +486,15 @@ The layout stacks vertically on smaller screens.
 Generation creates a draft first. Review its scenes in the editor before rendering
 it into a finished video.
 
+**Number of scenes** controls the script length: choose 1–60 scenes, with one short
+spoken sentence per scene, or leave it blank to let AI choose. The form starts at
+eight scenes, and saved templates keep this choice.
+
+In the editor, **Add scene** can draft one sentence, a section, or a short story.
+Sections start at three sentences and stories at six; choose up to twelve. Review
+each sentence and its visual description, edit or remove any item, then add the
+remaining scenes together. Drafting does not add scenes until you submit them.
+
 ## Templates
 
 A template is a saved copy of the generation form — the prompt and every setting under

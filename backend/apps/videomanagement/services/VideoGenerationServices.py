@@ -19,7 +19,7 @@ from ..models import (
 from ..utils.audio_utils import ensure_scene_rows, make_scenes_speech
 from ..utils.file_utils import generate_directory
 from ..utils.llm import get_reply
-from ..utils.prompt_utils import format_prompt
+from ..utils.prompt_utils import format_prompt, script_lines
 from ..utils.media import download_music
 from ..utils.scenes import create_image_scenes
 from ..utils.cost_utils import charge_user
@@ -115,6 +115,7 @@ def generate_video(
     avatar_position: str = "right,top",
     genre: str = "",
     platform: str = "GENERAL",
+    scene_count: int = None,
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -189,6 +190,7 @@ def generate_video(
         userprompt=message,
         target_audience=target_audience,
         platform=platform,
+        scene_count=scene_count,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -197,6 +199,12 @@ def generate_video(
         dir_name = video.dir_name
     else:
         x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
+        if scene_count is not None and (
+            len(x["scenes"]) != scene_count
+            or any(len(group["sentences"]) != 1 for group in x["scenes"])
+            or len({line.text for line in script_lines(x)}) != scene_count
+        ):
+            raise APIException("AI returned a different scene count. Please try again.")
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     user_prompt = video.prompt
@@ -219,6 +227,8 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if scene_count is not None:
+        vid.settings["scene_count"] = scene_count
     vid.save()
 
     logger.info(f"Filled in the video instance with id : {vid.id}")

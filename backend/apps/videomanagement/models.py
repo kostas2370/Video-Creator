@@ -1,5 +1,6 @@
 from __future__ import annotations
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
 from random import randint
 from typing import Union
@@ -77,6 +78,9 @@ class AbstractModel(models.Model):
 
 class TemplatePrompt(AbstractModel):
     title = models.CharField(max_length=50, blank=False)
+    scene_count = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(60)]
+    )
 
     # Preset generation fields with choices
     message = models.TextField(max_length=2000, blank=True, default="")
