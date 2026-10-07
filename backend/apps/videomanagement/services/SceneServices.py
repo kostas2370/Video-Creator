@@ -6,7 +6,7 @@ from ..models import Scene, Video, SceneImage
 from ..request_serializers import AddSceneSerializer, SceneDraftResultSerializer
 from ..utils.audio_utils import update_scene as update
 from ..utils.llm import get_update_sentence
-from ..prompts import format_scene_draft, format_update_form
+from ..utils.prompt_utils import format_scene_draft, format_update_form
 from ..utils.scenes import create_image_scene, scene_reference
 from ..utils.audio_utils import make_scene_speech
 

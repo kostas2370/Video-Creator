@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase
 
-from ...prompts import format_update_form
 from ...utils.prompt_utils import (
+    format_update_form,
     format_image_prompt,
     format_prompt,
     format_sora_prompt,
