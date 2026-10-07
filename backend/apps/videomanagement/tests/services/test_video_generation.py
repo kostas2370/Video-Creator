@@ -61,11 +61,11 @@ class CreatePendingVideoTests(TestCase):
 
     def test_prefers_an_explicit_title(self):
         video = create_pending_video(
-            "clips", created_by=self.user, video_type="TWITCH", title="Fortnite 2026"
+            "gaming", created_by=self.user, title="Fortnite 2026"
         )
 
         self.assertEqual(video.title, "Fortnite 2026")
-        self.assertEqual(video.video_type, "TWITCH")
+        self.assertEqual(video.video_type, "AI")
 
 
 class GenerateVideoTests(TestCase):
@@ -125,6 +125,8 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(video.title, "Cats and how they nap")
         self.assertEqual(video.gpt_answer, A_SCRIPT)
         self.assertEqual(video.dir_name, "media/videos/cats")
+
+
 
     def test_records_the_choices_the_render_will_need(self):
         video = self.generate(

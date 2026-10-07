@@ -9,7 +9,6 @@ from .views.general_views import (
 from .views.generate_view import GenerateView
 from .views.scene_view import SceneView
 from .views.video_view import VideoView
-from .views.twitch_views import generate_twitch
 
 from rest_framework import routers
 from django.urls import path
@@ -28,7 +27,6 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
-    path("twitch_generate/", generate_twitch, name="twitch_generate"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]
 

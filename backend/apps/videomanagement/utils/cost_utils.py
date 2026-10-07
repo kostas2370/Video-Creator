@@ -5,13 +5,12 @@ from django.contrib.auth import get_user_model
 from django.db.models import F
 from rest_framework.exceptions import PermissionDenied
 
-from ..models import SceneImage, VideoType
+from ..models import SceneImage
 
 logger = logging.getLogger(__name__)
 
 
 costs = {
-    "twitch_scene": 0.08,
     "scene_API": 0.02,
     "scene_LOCAL": 0.01,
     "scene_image_AI": 0.08,
@@ -47,19 +46,15 @@ def calculate_total_cost(video):
     scenes = video.scenes.all()
     scene_count = scenes.count()
 
-    if video.video_type == VideoType.TWITCH:
-        total_cost += 0.05 + scene_count * costs.get("twitch_scene", 0)
-
-    if video.video_type == VideoType.AI:
-        voice_type = getattr(video.voice_model, "type", None)
-        total_cost += 0.12 + scene_count * costs.get(f"scene_{voice_type}", 0)
-        scene_images_count = (
-            SceneImage.objects.filter(scene__in=scenes)
-            .exclude(file="")
-            .exclude(file=None)
-            .count()
-        )
-        total_cost += scene_images_count * costs.get(f"scene_image_{video.mode}", 0)
+    voice_type = getattr(video.voice_model, "type", None)
+    total_cost += 0.12 + scene_count * costs.get(f"scene_{voice_type}", 0)
+    scene_images_count = (
+        SceneImage.objects.filter(scene__in=scenes)
+        .exclude(file="")
+        .exclude(file=None)
+        .count()
+    )
+    total_cost += scene_images_count * costs.get(f"scene_image_{video.mode}", 0)
 
     return total_cost
 

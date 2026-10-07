@@ -9,7 +9,6 @@ import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "../components/RenderModal";
 import { ResumeModal } from "../components/ResumeModal";
 import { FaRedo } from "react-icons/fa";
-import { TwitchSceneCreationModal } from "../components/CreateTwitchSceneModal";
 import { SceneCreationModal } from "../components/CreateSceneModal";
 
 export const Video = () => {
@@ -20,7 +19,6 @@ export const Video = () => {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [renderPending, setRenderPending] = useState(false);
-  const [showAddTwitchSceneModal, setShowAddTwitchSceneModal] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
 
@@ -67,17 +65,9 @@ export const Video = () => {
           intro: videoInfo?.intro,
           outro: videoInfo?.outro,
           avatar: videoInfo?.avatar,
-          video_type: videoInfo?.video_type,
           settings: videoInfo?.settings,
           id: videoInfo?.id,
         }}
-      />
-
-      <TwitchSceneCreationModal
-        showModal={showAddTwitchSceneModal}
-        setShowModal={setShowAddTwitchSceneModal}
-        id={videoInfo?.id}
-        setItems={onSceneQueued}
       />
 
       <SceneCreationModal
@@ -142,9 +132,9 @@ export const Video = () => {
             <p className="mt-5 border-t border-gray-100 pt-4 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">Changes to scenes are saved individually. Render again to include them in your final video.</p>
           </aside>
           <section aria-label="Scenes" className="min-w-0 space-y-5">
-            {videoInfo?.scenes?.map((scene, index) => <Scene key={scene.id} scene={scene} index={index} setUpdated={setUpdated} video_type={videoInfo.video_type} video_format={videoInfo.settings?.video_format || "LANDSCAPE"} />)}
+            {videoInfo?.scenes?.map((scene, index) => <Scene key={scene.id} scene={scene} index={index} setUpdated={setUpdated} video_format={videoInfo.settings?.video_format || "LANDSCAPE"} />)}
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">Your story starts here</h2><p className="mt-2 text-sm text-gray-500">Add a scene to start building your video.</p></div>}
-            <button type="button" disabled={!videoInfo || processing} onClick={() => videoInfo?.video_type === "TWITCH" ? setShowAddTwitchSceneModal(true) : setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
+            <button type="button" disabled={!videoInfo || processing} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
           </section>
         </div>
       </main>

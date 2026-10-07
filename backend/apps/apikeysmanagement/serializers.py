@@ -18,8 +18,6 @@ KEY_FIELDS = (
     "midjourney_key",
     "google_search_key",
     "google_search_engine_id",
-    "twitch_client_id",
-    "twitch_client_secret",
 )
 
 

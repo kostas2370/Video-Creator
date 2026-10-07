@@ -7,7 +7,6 @@ import Register from "./pages/RegisterPage";
 import ForgotPassword from "./pages/ForgotPasswordPage";
 import ResetPassword from "./pages/ResetPasswordPage";
 import Navbar from "./components/ui/myNavBar";
-import Twitch from "./pages/TwitchPage";
 import { Avatar } from "./pages/AvatarPage";
 import { Videos } from "./pages/VideosPage";
 import { Video } from "./pages/VideoPage";
@@ -58,7 +57,6 @@ function App() {
 
           <Route element={<RequireAuth />}>
             <Route index element={<Home />} />
-            <Route path="/twitch/" element={<Twitch />} />
             <Route path="/avatars/" element={<Avatar />} />
             <Route path="/videos/" element={<Videos />} />
             <Route path="/videos/:videoId/" element={<Video />} />

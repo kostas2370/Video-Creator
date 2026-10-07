@@ -27,8 +27,6 @@ class Provider(models.TextChoices):
     MIDJOURNEY = "MIDJOURNEY", "Midjourney"
     GOOGLE_SEARCH = "GOOGLE_SEARCH", "Google Custom Search"
     GOOGLE_SEARCH_ENGINE_ID = "GOOGLE_SEARCH_ENGINE_ID", "Google Search engine id"
-    TWITCH_CLIENT = "TWITCH_CLIENT", "Twitch client id"
-    TWITCH_SECRET = "TWITCH_SECRET", "Twitch client secret"
 
 
 class AuthType(models.TextChoices):
@@ -58,8 +56,6 @@ class ApiKeys(LifecycleModelMixin, models.Model):
     midjourney_key = EncryptedCharField(max_length=255, blank=True, default="")
     google_search_key = EncryptedCharField(max_length=255, blank=True, default="")
     google_search_engine_id = EncryptedCharField(max_length=255, blank=True, default="")
-    twitch_client_id = EncryptedCharField(max_length=255, blank=True, default="")
-    twitch_client_secret = EncryptedCharField(max_length=255, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -86,8 +82,6 @@ class ApiKeys(LifecycleModelMixin, models.Model):
             "google_search_engine_id",
             "SEARCH_ENGINE_ID",
         ),
-        Provider.TWITCH_CLIENT: ("twitch_client_id", "TWITCH_CLIENT"),
-        Provider.TWITCH_SECRET: ("twitch_client_secret", "TWITCH_CLIENT_SECRET"),
     }
 
     def get(self, provider: str) -> str | None:
