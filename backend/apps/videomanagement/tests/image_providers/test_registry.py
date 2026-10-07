@@ -11,7 +11,6 @@ from ...utils.image_providers import (
     google_images,
     midjourney,
     openai_images,
-    resolve,
     sora,
 )
 
@@ -40,20 +39,20 @@ class BuiltinImageRegistryTests(SimpleTestCase):
             ("WEB", "google", google_images.download_image_from_google),
         ):
             with self.subTest(provider=name):
-                self.assertIs(resolve(mode, name), handler)
+                self.assertIs(ImageProviderRegistry.resolve(mode, name), handler)
 
     def test_preserves_defaults_for_blank_or_omitted_provider(self):
         for name in (None, ""):
-            self.assertIs(resolve("AI", name), openai_images.generate_from_dalle)
-            self.assertIs(resolve("WEB", name), bing.download_image)
+            self.assertIs(ImageProviderRegistry.resolve("AI", name), openai_images.generate_from_dalle)
+            self.assertIs(ImageProviderRegistry.resolve("WEB", name), bing.download_image)
 
     def test_marks_the_video_adapter_for_shot_prompt_generation(self):
         self.assertEqual(VIDEO_PROVIDERS, {"sora"})
 
     def test_provider_modules_are_resolved_at_call_time(self):
         with patch.object(openai_images, "generate_from_dalle") as generate:
-            self.assertIs(resolve("AI", "DALL-E"), generate)
-        self.assertIs(resolve("AI", "DALL-E"), openai_images.generate_from_dalle)
+            self.assertIs(ImageProviderRegistry.resolve("AI", "DALL-E"), generate)
+        self.assertIs(ImageProviderRegistry.resolve("AI", "DALL-E"), openai_images.generate_from_dalle)
 
     def test_unregistered_providers_use_the_mode_default_without_a_custom_fallback(
         self,
@@ -65,17 +64,17 @@ class BuiltinImageRegistryTests(SimpleTestCase):
                 ("AI", "bing", openai_images.generate_from_dalle),
             ):
                 with self.subTest(mode=mode, name=name):
-                    self.assertIs(resolve(mode, name), handler)
+                    self.assertIs(ImageProviderRegistry.resolve(mode, name), handler)
 
     def test_custom_image_adapter_is_the_ai_fallback(self):
-        handler = resolve("AI", "Studio images")
+        handler = ImageProviderRegistry.resolve("AI", "Studio images")
         self.assertIs(handler.func, custom.generate_from_custom_provider)
         self.assertEqual(handler.keywords, {"provider_name": "Studio images"})
-        self.assertIs(resolve("WEB", "unconfigured"), bing.download_image)
+        self.assertIs(ImageProviderRegistry.resolve("WEB", "unconfigured"), bing.download_image)
 
     def test_unsupported_modes_raise_a_configuration_error(self):
         with self.assertRaises(ValueError):
-            resolve("invalid", "DALL-E")
+            ImageProviderRegistry.resolve("invalid", "DALL-E")
 
 
 class CustomImageRegistryTests(SimpleTestCase):
