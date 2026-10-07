@@ -19,7 +19,6 @@ from ..models import Video, VideoStatus, VideoType
 from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, SceneDraftSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
-from ..services.VideoServices import video_update
 from ..services.SceneServices import draft_scene
 from ..tasks import render_video_task, resume_video_task, create_scene_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
@@ -75,9 +74,9 @@ class VideoView(
     )
     def partial_update(self, request, pk):
         video = self.get_object()
-        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer = self.get_serializer(video, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        outcome = video_update(video, **serializer.validated_data)
+        outcome = serializer.save()
         logger.info(f"Video with id {pk}  got updated successfully")
         return Response(
             {"message": "Updated Success", "video": VideoNestedSerializer(outcome).data}

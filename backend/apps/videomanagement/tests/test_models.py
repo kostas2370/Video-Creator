@@ -50,12 +50,6 @@ class GptAnswerTests(TestCase):
         self.assertEqual(reloaded.gpt_answer, script)
         self.assertEqual(reloaded.gpt_answer["scenes"][0]["scene"], "one")
 
-    def test_a_twitch_description_stays_the_string_it_was(self):
-        made = video.make(gpt_answer="Source : \nhttps://clips.twitch.tv/abc")
-
-        reloaded = Video.objects.get(pk=made.pk)
-
-        self.assertEqual(reloaded.gpt_answer, "Source : \nhttps://clips.twitch.tv/abc")
 
     def test_a_video_with_no_script_reloads_as_none(self):
         made = video.make(gpt_answer=None)

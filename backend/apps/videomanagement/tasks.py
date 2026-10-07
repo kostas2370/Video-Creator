@@ -48,23 +48,6 @@ def generate_video_task(self, video_id: int, **params):
 
 
 @shared_task(bind=True)
-def generate_twitch_video_task(self, video_id: int, **params):
-    from .services.TwitchGenerationService import generate_twitch_video
-
-    video = Video.objects.get(pk=video_id)
-
-    try:
-        generate_twitch_video(video=video, **params)
-    except Exception:
-        logger.exception("Twitch generation failed for video %s", video_id)
-        _mark_failed(video_id)
-        raise
-
-    logger.info("Twitch generation finished for video %s", video_id)
-    return video_id
-
-
-@shared_task(bind=True)
 def resume_video_task(self, video_id: int):
     from .services.VideoGenerationServices import resume_video
 

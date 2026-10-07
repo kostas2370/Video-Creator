@@ -12,21 +12,18 @@ from ...throttling import (
     GenerateRateThrottle,
     RenderRateThrottle,
     ResumeRateThrottle,
-    TwitchGenerateRateThrottle,
 )
 
 
 class RateTests(TestCase):
     def test_each_action_is_capped_at_what_it_costs_to_run(self):
         self.assertEqual(GenerateRateThrottle.rate, "2/hour")
-        self.assertEqual(TwitchGenerateRateThrottle.rate, "6/hour")
         self.assertEqual(ResumeRateThrottle.rate, "2/hour")
         self.assertEqual(RenderRateThrottle.rate, "1/day")
 
     def test_each_action_counts_against_its_own_allowance(self):
         scopes = [
             GenerateRateThrottle.scope,
-            TwitchGenerateRateThrottle.scope,
             ResumeRateThrottle.scope,
             RenderRateThrottle.scope,
         ]

@@ -138,16 +138,6 @@ class GenerateSceneImageSerializer(serializers.Serializer):
     image_description = serializers.CharField(max_length=2000)
 
 
-class TwitchSerializer(serializers.Serializer):
-    mode = serializers.ChoiceField(choices=["streamer", "game"], default="streamer")
-    value = serializers.CharField(max_length=200)
-    amt = serializers.IntegerField(max_value=20)
-    started_at = serializers.DateField(
-        format="%Y-%m-%d", required=False, allow_null=True, default=None
-    )
-    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
-
-
 class VideoUpdateSerializer(serializers.Serializer):
     avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -161,22 +151,21 @@ class VideoUpdateSerializer(serializers.Serializer):
     def validate_avatar_position(self, value):
         return normalize_avatar_position(value)
 
+    def update(self, instance, validated_data):
+        from .services.VideoServices import video_update
+
+        return video_update(instance, **validated_data)
+
 
 class AddSceneSerializer(serializers.Serializer):
-    mode = serializers.ChoiceField(choices=["AI", "TWITCH"])
-    url = serializers.URLField(required=False)
+    mode = serializers.ChoiceField(choices=["AI"])
     text = serializers.CharField(required=False)
     image_description = serializers.CharField(required=False)
     is_last = serializers.BooleanField(default=False)
     with_audio = serializers.BooleanField(default=False)
 
     def validate(self, attrs):
-        if attrs.get("mode") == "AI":
-            if not attrs.get("text"):
-                raise serializers.ValidationError("text field required !")
-
-        else:
-            if not attrs.get("url"):
-                raise serializers.ValidationError("url field required !")
+        if not attrs.get("text"):
+            raise serializers.ValidationError("text field required !")
 
         return super().validate(attrs)

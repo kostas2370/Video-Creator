@@ -1,6 +1,6 @@
 """Adding, regenerating and updating a single scene."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from django.test import TestCase
 from rest_framework.exceptions import APIException, ValidationError
@@ -8,7 +8,6 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from ...baker_recipes import (
     scene,
-    twitch_video,
     video,
 )
 from ...models import SceneImage
@@ -111,41 +110,15 @@ class CreateSceneTests(TestCase):
 
         self.assertEqual(generate.call_args.kwargs["image"], "a cat")
 
+
     def test_rejects_an_ai_scene_with_no_text(self):
         with self.assertRaises(ValidationError):
             create_scene(self.video, {"is_last": False}, files={})
 
-    def test_adds_a_clip_to_a_twitch_video(self):
-        video = twitch_video.make()
-        client = MagicMock()
-        client.get_clip_by_url.return_value = [{"title": "a clip"}]
-        client.download_clip.return_value = "clips/raw.mp4"
-
-        with (
-            patch.object(SceneServices, "TwitchClient", return_value=client),
-            patch.object(SceneServices, "create_twitch_clip_scene") as create,
-        ):
-            create_scene(video, {"url": "https://clips.twitch.tv/abc"}, files={})
-
-        create.assert_called_once_with("clips/raw.mp4", "a clip", video)
-
-    def test_rejects_a_twitch_scene_with_no_url(self):
-        video = twitch_video.make()
-
-        with self.assertRaises(ValidationError):
-            create_scene(video, {"text": "a line"}, files={})
-
-    def test_reports_a_twitch_clip_that_cannot_be_fetched(self):
-        video = twitch_video.make()
-        client = MagicMock()
-        client.get_clip_by_url.side_effect = RuntimeError("gone")
-
-        with patch.object(SceneServices, "TwitchClient", return_value=client):
-            with self.assertRaises(APIException):
-                create_scene(video, {"url": "https://clips.twitch.tv/abc"}, files={})
-
 
 class DraftSceneTests(TestCase):
+
+
     def test_context_contains_every_current_scene_and_visual_in_order(self):
         from ...services.SceneServices import draft_scene
 

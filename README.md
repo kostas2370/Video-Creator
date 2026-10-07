@@ -291,7 +291,7 @@ controls access to custom voice providers:
 
 The **Built-in API keys** tab lists the supported services: OpenAI, Anthropic, Google Gemini,
 ElevenLabs, 60dB, Stable Diffusion, Midjourney, Google Custom Search (key and engine
-id), and the Twitch client id and secret. Enter the keys you want to change, then
+id). Enter the keys you want to change, then
 click **Save**. Only changed fields are sent, so updating one never disturbs the
 rest. **Clear** marks a single key for removal on save; **Remove all my keys** removes
 all built-in provider keys after confirmation. Custom providers are managed separately
@@ -581,13 +581,6 @@ your intro and outro in the video settings.
 | ![Create a new avatar](docs/screenshots/modal-new-avatar.png) | ![Add an asset](docs/screenshots/modal-new-asset.png) |
 | **New avatar** — name, gender, voice and a face to animate | **New asset** — upload an intro or outro clip |
 
-## Twitch compilations
-
-Twitch video generation is temporarily disabled. It is hidden from navigation, its
-page displays an unavailable message, and the generation API rejects new requests
-without creating a video or queueing a job. Existing Twitch videos remain in your
-library.
-
 ## Frontend API requests
 
 Frontend requests use `src/api/request.js` through the helpers in `src/api/apiService.js`.
@@ -653,7 +646,6 @@ For any inquiries or support, feel free to reach out:
 ✅ Added support for Gemini and Claude AI models\
 ✅ Integrated ElevenLabs API voices\
 ✅ Integrated 60dB API voices\
-✅ Enabled compilation video creation from Twitch (by game or streamer)\
 ✅ Added OpenAI voices\
 ✅ Integrated MidJourney and Stable Diffusion as image providers *(Change providers in ****\`\`****)*\
 ✅ Dockerized the application for easier deployment

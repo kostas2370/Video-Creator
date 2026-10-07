@@ -42,7 +42,6 @@ class UserTests(TestCase):
 
         self.assertFalse(fresh.is_verified)
         self.assertEqual(fresh.generation_limit_for_ai, 0)
-        self.assertEqual(fresh.generation_limit_for_twitch, 0)
         self.assertTrue(fresh.use_service_api_keys)
 
     def test_two_accounts_can_never_share_an_email(self):

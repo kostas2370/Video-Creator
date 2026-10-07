@@ -324,13 +324,3 @@ class SceneImageViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 204)
         image.refresh_from_db()
         self.assertFalse(image.file)
-
-    def test_removes_the_whole_scene_of_a_twitch_video(self):
-        # The clip is the scene, so an empty one would render as a black gap.
-        video_row = self.video_for(video_type="TWITCH")
-        clip = scene.make(video=video_row)
-        image = scene_image.make(scene=clip)
-
-        self.client.delete(reverse("sceneimage-detail", args=[image.id]))
-
-        self.assertFalse(video_row.scenes.filter(pk=clip.pk).exists())

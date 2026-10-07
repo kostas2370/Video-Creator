@@ -70,7 +70,7 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
 def create_pending_video(
     message: str,
     created_by: get_user_model(),
-    video_type: Literal["AI", "TWITCH"] = "AI",
+    video_type: Literal["AI"] = "AI",
     title: str = None,
     genre: str = "",
 ) -> Video:

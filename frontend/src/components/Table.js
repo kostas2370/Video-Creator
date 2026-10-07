@@ -63,7 +63,7 @@ export function DefaultTable({ data, setVideos }) {
       />
 
       <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-        {data?.map(({ title, status, video_type, output, id, prompt, music, gpt_answer }) => {
+        {data?.map(({ title, status, output, id, prompt, music, gpt_answer }) => {
           const isCompleted = status === "COMPLETED";
           const isRenderable = !(renderPending && id === selectedId) && (isCompleted || status === "READY");
           const isEditable = isRenderable;
@@ -73,7 +73,7 @@ export function DefaultTable({ data, setVideos }) {
           return <li key={id} className="flex flex-col gap-4 p-5 transition hover:bg-gray-50/80 sm:flex-row sm:items-center dark:hover:bg-gray-900/20">
             <div className="flex min-w-0 flex-1 items-center gap-4">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400 dark:bg-gray-700"><HiOutlineFilm className="h-6 w-6" /></div>
-              <div className="min-w-0"><h3 className="break-words text-sm font-semibold text-gray-900 dark:text-white">{title || "Untitled video"}</h3><div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColor}`}>{status?.replaceAll("_", " ").toLowerCase()}</span><span className="text-xs text-gray-400">{video_type === "TWITCH" ? "Twitch compilation" : "Generated video"}</span></div></div>
+              <div className="min-w-0"><h3 className="break-words text-sm font-semibold text-gray-900 dark:text-white">{title || "Untitled video"}</h3><div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColor}`}>{status?.replaceAll("_", " ").toLowerCase()}</span><span className="text-xs text-gray-400">Generated video</span></div></div>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2">
               {isEditable && <button type="button" aria-label={`Edit ${title}`} onClick={() => navigate(`/videos/${id}/`)} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:border-blue-300 hover:text-blue-600 dark:border-gray-600 dark:text-gray-300"><FaPencilAlt />Edit scenes</button>}

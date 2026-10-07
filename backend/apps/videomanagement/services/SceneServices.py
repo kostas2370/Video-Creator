@@ -7,8 +7,7 @@ from ..request_serializers import AddSceneSerializer, SceneDraftResultSerializer
 from ..utils.audio_utils import update_scene as update
 from ..utils.llm import get_update_sentence
 from ..utils.prompt_utils import format_update_form
-from ..utils.twitch import TwitchClient
-from ..utils.scenes import create_twitch_clip_scene, create_image_scene
+from ..utils.scenes import create_image_scene
 from ..utils.audio_utils import make_scene_speech
 
 logger = logging.getLogger(__name__)
@@ -59,17 +58,6 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
     serializer = AddSceneSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     scene = None
-
-    if video.video_type == VideoType.TWITCH:
-        client = TwitchClient(video.dir_name, user=video.created_by)
-        client.set_headers()
-        try:
-            clip = client.get_clip_by_url(serializer.validated_data.get("url"))
-            downloaded_clip = client.download_clip(clip[0])
-            create_twitch_clip_scene(downloaded_clip, clip[0].get("title"), video)
-
-        except Exception as esc:
-            raise APIException(str(esc), code=400)
 
     if video.video_type == VideoType.AI:
         try:

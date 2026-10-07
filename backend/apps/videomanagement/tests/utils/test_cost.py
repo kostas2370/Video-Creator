@@ -2,7 +2,7 @@ from django.test import TestCase
 
 from apps.usermanagement.baker_recipes import user
 
-from ...baker_recipes import scene, scene_image, twitch_video, video
+from ...baker_recipes import scene, scene_image, video
 from ...utils.cost_utils import calculate_total_cost, charge_user
 
 
@@ -36,11 +36,6 @@ class CalculateTotalCostTests(TestCase):
 
         self.assertAlmostEqual(calculate_total_cost(self.video), 0.22)
 
-    def test_charges_the_twitch_rate_per_clip(self):
-        clips = twitch_video.make()
-        scene.make(video=clips, _quantity=3)
-
-        self.assertAlmostEqual(calculate_total_cost(clips), 0.05 + 3 * 0.08)
 
     def test_costs_nothing_before_any_scene_exists(self):
         self.assertAlmostEqual(calculate_total_cost(self.video), 0.12)
