@@ -18,7 +18,6 @@ test("resolves on completion and unsubscribes", async () => {
   expect(await watcher.promise).toEqual({ outcome: "SETTLED", video: { id: 7, status: "COMPLETED" } });
   expect(stop).toHaveBeenCalledTimes(1);
   expect(jest.getTimerCount()).toBe(0);
-  expect(listener.replay).toBe(false);
 });
 test("cancellation resolves without a completion notification", async () => {
   const watcher = waitForVideo(7); watcher.cancel();

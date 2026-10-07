@@ -70,6 +70,7 @@ test("ignores results after cancellation", async () => {
   let resolve;
   const onUpdate = jest.fn();
   const stop = subscribe({ load: () => new Promise(done => { resolve = done; }), onUpdate });
+  await flush();
   stop(); resolve(result("READY")); await flush();
   expect(onUpdate).not.toHaveBeenCalled();
   expect(jest.getTimerCount()).toBe(0);
@@ -81,6 +82,7 @@ test("refreshes again when an event arrives during an existing request", async (
     .mockResolvedValue(result("READY"));
   const onUpdate = jest.fn();
   subscribe({ load, onUpdate });
+  await flush();
   streams[0].emit("update"); jest.advanceTimersByTime(250);
   resolve(result("GENERATION")); await flush();
   expect(load).toHaveBeenCalledTimes(2);
@@ -95,15 +97,16 @@ test("polls when EventSource is unavailable", async () => {
   expect(load).toHaveBeenCalledTimes(2);
 });
 
-test("a new operation waits for a fresh request rather than cached or in-flight state", async () => {
+test("a new subscriber waits for a fresh request rather than in-flight state", async () => {
   let resolve;
   const load = jest.fn().mockResolvedValueOnce(result("READY"))
     .mockImplementationOnce(() => new Promise(done => { resolve = done; }))
     .mockResolvedValue(result("RENDERING"));
   subscribe({ load }); await flush();
   streams[0].emit("ready");
+  await flush();
   const onUpdate = jest.fn();
-  subscribe({ load, onUpdate, replay: false });
+  subscribe({ load, onUpdate });
   resolve(result("READY")); await flush();
   expect(onUpdate).toHaveBeenCalledTimes(1);
   expect(onUpdate).toHaveBeenLastCalledWith({ id: 1, status: "RENDERING" });
