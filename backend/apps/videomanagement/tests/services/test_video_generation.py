@@ -131,12 +131,11 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(generated.settings["scene_count"], 1)
         self.assertIn("exactly 1 scenes", self.get_reply.call_args.args[0])
 
-    def test_rejects_the_wrong_count_before_generating_media(self):
-        with self.assertRaises(APIException):
-            self.generate(scene_count=3)
-        self.video.refresh_from_db()
-        self.assertIsNone(self.video.gpt_answer)
-        self.assertFalse(self.video.scenes.exists())
+    def test_accepts_the_returned_script_when_the_scene_count_differs(self):
+        generated = self.generate(scene_count=3)
+        self.assertEqual(generated.gpt_answer, A_SCRIPT)
+        self.assertEqual(generated.status, "READY")
+        self.assertEqual(generated.settings["scene_count"], 3)
 
     def test_records_the_choices_the_render_will_need(self):
         video = self.generate(
