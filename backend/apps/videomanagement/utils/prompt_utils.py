@@ -59,7 +59,9 @@ def format_prompt(
         f"Structure : {template_format}\n\n"
         f"IMPORTANT INSTRUCTIONS FOR SCENES:\n"
         f"- Provide vivid, highly detailed visual descriptions for every shot.\n"
-        f"- Ensure each scene visually flows logically into the next one (continuous motion, environment, and lighting)."
+        f"- Ensure each scene visually flows logically into the next one (continuous motion, environment, and lighting).\n"
+        f"- Establish a consistent appearance for each recurring character and object. Repeat the same concrete identifying details (face, hair, wardrobe, colors, proportions) in every shot where they appear.\n"
+        f"- Keep a shared art style, color palette, and lighting approach across shots; describe any intentional location, time, or wardrobe changes explicitly."
     )
     if platform == "TIKTOK":
         output += (

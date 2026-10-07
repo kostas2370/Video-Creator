@@ -9,6 +9,7 @@ from ..serializers import VideoSerializer
 from ..permissions import AiGenerationLimitPermission
 from ..tasks import generate_video_task
 from ..throttling import GenerateRateThrottle
+from ..models import VideoStatus
 
 
 class GenerateView(APIView):
@@ -22,6 +23,7 @@ class GenerateView(APIView):
 
         params = dict(serializer.validated_data)
         created_by = params.pop("created_by")
+        reference_image = params.pop("reference_image", None)
 
         video = create_pending_video(
             message=params["message"],
@@ -29,7 +31,19 @@ class GenerateView(APIView):
             video_type="AI",
             genre=params.get("genre"),
         )
-        generate_video_task.delay(video_id=video.id, **params)
+        try:
+            if reference_image:
+                video.reference_image = reference_image
+                video.save(update_fields=["reference_image"])
+            generate_video_task.delay(video_id=video.id, **params)
+        except Exception:
+            video.reference_image.delete(save=False)
+            video.reference_image = ""
+            video.status = VideoStatus.FAILED
+            video.save(update_fields=["reference_image", "status"])
+            return Response(
+                {"detail": "Could not queue generation. Please try again."}, status=503
+            )
 
         return Response(
             {
