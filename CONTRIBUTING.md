@@ -47,7 +47,7 @@ backend/
   apps/
     usermanagement/      accounts, auth, JWT, password reset
     apikeysmanagement/   per-user provider API keys, stored encrypted
-    videomanagement/     the generation pipeline, scenes, rendering, Twitch
+    videomanagement/     the generation pipeline, scenes, rendering
       services/          one module per orchestration entry point
       utils/
         llm.py           OpenAI, Claude and Gemini calls
@@ -169,7 +169,7 @@ This is a deliberate house style and the most common reason a PR gets change req
 here, so it is worth stating plainly. In practice:
 
 - Name things so the name carries the explanation.
-- Test names are full sentences — `test_never_gives_a_twitch_video_an_avatar`,
+- Test names are full sentences — `test_renames_the_video`,
   `test_one_user_can_never_reach_another_users_keys`. That is where behaviour gets
   described, not in a comment above the assertion.
 - Comments that *do* something stay: `# noqa`, `// eslint-disable-next-line`, and

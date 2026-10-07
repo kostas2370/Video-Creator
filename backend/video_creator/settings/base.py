@@ -3,7 +3,6 @@ import base64
 import hashlib
 import os
 from datetime import timedelta
-import sys
 
 # Paths
 # settings/ is a package now, so BASE_DIR is three parents up rather than two.
@@ -24,8 +23,6 @@ FIELD_ENCRYPTION_KEY = (
 COOKIES_SECURE = False
 CROSS_SITE_SAMESITE = "Lax"
 
-# Twitch video generation is temporarily paused.
-TWITCH_GENERATION_ENABLED = False
 
 # Application definition
 INSTALLED_APPS = [
@@ -235,8 +232,6 @@ SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 API_KEY = os.getenv("API_KEY")
 VISION_SELECTION = False
 
-TWITCH_CLIENT = os.getenv("TWITCH_CLIENT")
-TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
 
 XI_API_KEY = os.getenv("XI_API_KEY")
 SIXTYDB_API_KEY = os.getenv("SIXTYDB_API_KEY")

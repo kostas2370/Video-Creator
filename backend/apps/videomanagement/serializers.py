@@ -52,7 +52,7 @@ class SceneSerializer(serializers.ModelSerializer):
 
     def get_narration_status(self, obj):
         video = obj.video
-        if video.video_type == "TWITCH" or not (video.settings or {}).get("narration", True):
+        if not (video.settings or {}).get("narration", True):
             return "disabled"
         return "available" if has_narration(obj) else "missing"
 

@@ -5,13 +5,12 @@ from unittest.mock import MagicMock, patch
 from django.test import SimpleTestCase, TestCase
 
 from ...baker_recipes import narrated_scene, scene, scene_image, video
-from ...models import Scene, SceneImage
+from ...models import SceneImage
 from ...utils import scenes as scenes_utils
 from ...utils.image_providers import bing, openai_images
 from ...utils.scenes import (
     create_image_scene,
     create_image_scenes,
-    create_twitch_clip_scene,
     generate_new_image,
     scene_narration_duration,
     still_from_video,
@@ -379,6 +378,9 @@ class CreateImageScenesTests(TestCase):
 
 
 class GenerateNewImageTests(TestCase):
+
+
+
     def setUp(self):
         self.video = video.make(mode="AI")
         self.scene_image = scene_image.make()
@@ -402,7 +404,7 @@ class GenerateNewImageTests(TestCase):
         self.assertEqual(self.scene_image.file, "media/images/still.png")
 
     def test_does_nothing_for_a_video_whose_mode_has_no_provider(self):
-        self.video.mode = "TWITCH"
+        self.video.mode = "UNKNOWN"
 
         with patch.object(openai_images, "generate_from_dalle") as generate:
             generate_new_image(self.scene_image, self.video)
@@ -456,20 +458,3 @@ class GenerateNewImageTests(TestCase):
             reference = scenes_utils.regeneration_reference(target, self.video, "sora")
         self.assertEqual(reference, "anchor.png")
         self.assertEqual(still.call_args.args[0], saved.file.path)
-
-
-class CreateTwitchClipSceneTests(TestCase):
-    def test_stores_the_clip_as_a_last_scene_that_plays_its_own_sound(self):
-        clips = video.make()
-
-        with patch.object(
-            scenes_utils, "add_text_to_video", return_value="clips/titled.mp4"
-        ):
-            create_twitch_clip_scene("clips/raw.mp4", "a clip title", clips)
-
-        scene = Scene.objects.get(video=clips)
-        scene_image = SceneImage.objects.get(scene=scene)
-        self.assertEqual(scene.text, "a clip title")
-        self.assertTrue(scene.is_last)
-        self.assertTrue(scene_image.with_audio)
-        self.assertEqual(scene_image.file, "clips/titled.mp4")

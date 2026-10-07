@@ -35,18 +35,6 @@ const KEY_GROUPS = [
       },
     ],
   },
-  {
-    title: "Twitch",
-    description: "Looking up the clips a Twitch video is built from.",
-    fields: [
-      { name: "twitch_client_id", label: "Twitch client id" },
-      {
-        name: "twitch_client_secret",
-        label: "Twitch client secret",
-        hint: "Both the id and the secret are needed.",
-      },
-    ],
-  },
 ];
 
 const KEY_FIELDS = KEY_GROUPS.flatMap((group) =>

@@ -10,7 +10,6 @@ from ...permissions import (
     IsOwnerPermission,
     SceneGenerationLimitPermission,
     SceneImageGenerationLimitPermission,
-    TwitchGenerationLimitPermission,
 )
 
 
@@ -103,11 +102,3 @@ class GenerationLimitPermissionTests(PermissionTestCase):
         self.assertTrue(self.check(SceneGenerationLimitPermission(), caller))
         self.assertFalse(self.check(SceneImageGenerationLimitPermission(), caller))
         self.assertFalse(self.check(AiGenerationLimitPermission(), caller))
-
-    def test_twitch_is_charged_against_its_own_balance(self):
-        caller = user.make(
-            generation_limit_for_ai=100,
-            generation_limit_for_twitch=0,
-        )
-
-        self.assertFalse(self.check(TwitchGenerationLimitPermission(), caller))

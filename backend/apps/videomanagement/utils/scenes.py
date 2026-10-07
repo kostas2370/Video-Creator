@@ -7,7 +7,6 @@ from moviepy.editor import AudioFileClip, VideoFileClip
 
 from .image_providers import ImageProviderRegistry, resolve
 from .prompt_utils import script_lines
-from .composer.overlay import add_text_to_video
 from .file_utils import check_if_video, stored_file_exists
 from ..models import Scene, SceneImage, Video
 
@@ -274,6 +273,8 @@ def _create_image_scene_in_thread(**kwargs):
         close_old_connections()
 
 
+
+
 def regeneration_reference(scene_image: SceneImage, video: Video, provider):
     """Reuse the same anchor when a single shot is regenerated in the editor."""
     if video.mode != "AI":
@@ -352,35 +353,3 @@ def generate_new_image(
         scene_image.save()
 
     return scene_image
-
-
-def create_twitch_clip_scene(clip: str, title: str, video: Video) -> None:
-    """
-    Create a scene for a Twitch clip.
-
-    Parameters:
-    -----------
-    clip : str
-        The path to the Twitch clip.
-    title : str
-        The title of the Twitch clip.
-    video : Video
-        The video the clip's scene belongs to.
-
-    Returns:
-    --------
-    None
-
-    Notes:
-    ------
-    - This function splits the Twitch clip into video and audio components, adds text to the video,
-      and creates the scene and associated scene image objects.
-    """
-
-    edited_video = add_text_to_video(clip, title)
-
-    curr_scene = Scene.objects.create(video=video, text=title, is_last=True)
-
-    SceneImage.objects.create(
-        scene=curr_scene, file=edited_video, prompt="twitch video", with_audio=True
-    )

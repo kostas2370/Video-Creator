@@ -76,7 +76,7 @@ clip's own audio through `with_audio`.
 
 | Model or field | Meaning |
 | --- | --- |
-| `Video.gpt_answer` | Parsed JSON script for AI videos; a source listing for existing Twitch videos |
+| `Video.gpt_answer` | Parsed JSON script for generated videos |
 | `Video.dir_name` | Working directory for the script's generated media and final output |
 | `Video.settings` | JSON choices including narration, subtitles, style, provider, and avatar position; read as `(video.settings or {})` |
 | `Video.voice_model` | Selected voice, or the selected avatar's voice; nullable |
@@ -129,11 +129,6 @@ A `202` means work was queued, not that generation or encoding has completed.
 | `PATCH /api/scenes/{id}/generate/` | Return an AI rewrite for review; saving it is a separate request |
 | `POST /api/scenes/{id}/change_image_scene/` | Upload a visual or update an existing visual belonging to that scene |
 | `POST /api/scenes/{id}/generate_image_scene/` | Generate a visual synchronously for an authorized scene |
-| `POST /api/twitch_generate/` | Temporarily disabled; eligible authenticated requests receive `503` without creating or queueing a video |
-
-Twitch's service and task remain for existing data and future re-enablement. Its
-frontend flag is in [features.js](../frontend/src/config/features.js); the independent
-backend flag is in [settings/base.py](../backend/video_creator/settings/base.py).
 
 Generate and resume are throttled at two requests per hour, and render at one per day,
 with an explicit superuser exemption; see [throttling.py](../backend/apps/videomanagement/throttling.py).
@@ -184,7 +179,7 @@ video.** Generated dialogue and visuals remain editable, and generation can reac
 | --- | --- |
 | `available` | `has_narration()` finds the referenced audio file |
 | `missing` | Narration is enabled, but no referenced audio file exists |
-| `disabled` | Narration is off, or the video is a Twitch compilation |
+| `disabled` | Narration is off |
 
 This status is derived from the video settings and filesystem, not stored as a
 separate failure flag. It checks file existence, not audio decoding or quality.
@@ -426,7 +421,6 @@ coordinates MoviePy and ffmpeg:
 | `subtitles.py` | Build timed subtitle clips |
 | `layers.py` | Apply background composition and optional music |
 | `avatar.py` | Generate and overlay a SadTalker presenter |
-| `overlay.py` | Add text overlays for Twitch clips |
 | `render.py` | Assemble scenes, apply final layers, encode, save output and status |
 
 With narration enabled, scene audio determines visual duration. Clip audio can be

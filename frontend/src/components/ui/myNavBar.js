@@ -3,15 +3,12 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { RiMoonLine, RiSunLine } from "react-icons/ri";
 import { HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlineSparkles, HiOutlineSquares2X2, HiOutlineUserGroup } from "react-icons/hi2";
-import { FaTwitch } from "react-icons/fa";
-import { TWITCH_GENERATION_ENABLED } from "../../config/features";
 import { NotificationBell } from "./NotificationBell";
 import useLogout from "../../hooks/useLogout";
 
 const destinations = [
   { to: "/", label: "Generate", icon: HiOutlineSparkles },
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
-  { to: "/twitch", label: "Twitch", icon: FaTwitch },
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },
   { to: "/api-keys", label: "Providers", icon: HiOutlineKey },
@@ -31,7 +28,7 @@ function Navbar({ theme, toggleTheme }) {
     return () => document.removeEventListener("keydown", close);
   }, [isMenuOpen]);
 
-  const links = mobile => destinations.filter(item => item.to !== "/twitch" || TWITCH_GENERATION_ENABLED).map(({ to, label, icon: Icon }) => (
+  const links = mobile => destinations.map(({ to, label, icon: Icon }) => (
     <NavLink key={to} to={to} end={to === "/"} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${mobile ? "" : "whitespace-nowrap"} ${isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}>
       <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />{label}
     </NavLink>

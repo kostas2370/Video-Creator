@@ -12,7 +12,6 @@ from ...baker_recipes import (
     intro,
     outro,
     scene,
-    twitch_video,
     video,
 )
 from ...services import (
@@ -81,11 +80,6 @@ class VideoUpdateTests(TestCase):
 
         resynthesise.assert_not_called()
 
-    def test_never_gives_a_twitch_video_an_avatar(self):
-        clips = twitch_video.make()
-        picked = avatar.make(created_by=self.video.created_by)
-
-        self.assertIsNone(video_update(clips, title="t", avatar=str(picked.id)).avatar)
 
     def test_attaches_the_intro_and_outro_that_were_chosen(self):
         opening = intro.make(created_by=self.video.created_by)
