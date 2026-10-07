@@ -83,15 +83,6 @@ def format_prompt(
     return output
 
 
-def format_update_form(text: str, prompt: str) -> str:
-    return (
-        f"The text I will give you is a scene in a video: {text}. "
-        f"Rewrite it according to this request: {prompt}. "
-        "Keep it around the same length. Return only the rewritten sentence, "
-        "with no explanation, introduction, or quotation marks."
-    )
-
-
 def scene_text(sentence: dict) -> str:
     """The text that identifies a scene.
 
