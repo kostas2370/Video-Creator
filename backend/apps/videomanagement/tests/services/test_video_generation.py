@@ -156,7 +156,7 @@ class GenerateVideoTests(TestCase):
         )
 
     def test_asks_for_a_still_brief_for_an_image_provider(self):
-        self.generate(provider="DALL-E")
+        self.generate(provider="OPENAI")
 
         self.assertNotIn("camera move", self.get_reply.call_args.args[0])
 

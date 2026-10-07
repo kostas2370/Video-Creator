@@ -572,7 +572,7 @@ class CustomVideoProviderTests(TestCase):
         )
         self.assertFalse(ImageProviderRegistry.is_video(self.provider.name))
         self.assertTrue(ImageProviderRegistry.is_video("sora"))
-        self.assertFalse(ImageProviderRegistry.is_video("DALL-E", self.user))
+        self.assertFalse(ImageProviderRegistry.is_video("OPENAI", self.user))
 
     def test_scene_generation_saves_video_and_enables_its_audio(self):
         row = video.make(created_by=self.user)

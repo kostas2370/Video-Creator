@@ -28,7 +28,7 @@ class GenerateViewTests(ApiTestCase):
         ):
             response, delay = self.post(
                 image_mode="AI",
-                provider="DALL-E",
+                provider="OPENAI",
                 reference_image=self.reference_upload(),
                 narration=False,
             )
@@ -42,7 +42,7 @@ class GenerateViewTests(ApiTestCase):
         for options in (
             {
                 "image_mode": "AI",
-                "provider": "DALL-E",
+                "provider": "OPENAI",
                 "reference_image": SimpleUploadedFile("bad.png", b"not an image"),
             },
             {"image_mode": "WEB", "reference_image": self.reference_upload()},

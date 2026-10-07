@@ -131,7 +131,6 @@ class CustomVisualProviderApiTests(TestCase):
     def test_rejects_builtin_provider_names(self):
         for name in (
             "OPENAI",
-            "DALL-E",
             "sora",
             "Stable-Diffusion",
             "midjourney",

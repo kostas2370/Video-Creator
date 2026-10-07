@@ -205,7 +205,7 @@ def create_image_scenes(
         return
 
     is_video = ImageProviderRegistry.is_video(provider, user=video.created_by)
-    shared_image_reference = mode == "AI" and provider in (None, "", "DALL-E")
+    shared_image_reference = mode == "AI" and provider in (None, "", "OPENAI")
     if not is_video and not shared_image_reference:
         with ThreadPoolExecutor(
             max_workers=min(MAX_PARALLEL_STILL_IMAGES, len(pending)),
@@ -278,9 +278,9 @@ def scene_reference(scene: Scene, video: Video, provider):
         if video.reference_image and stored_file_exists(video.reference_image)
         else None
     )
-    if provider in (None, "", "DALL-E") and uploaded:
+    if provider in (None, "", "OPENAI") and uploaded:
         return uploaded
-    if provider in (None, "", "DALL-E"):
+    if provider in (None, "", "OPENAI"):
         for image in SceneImage.objects.filter(scene__video=video).order_by("scene_id", "pk"):
             if stored_file_exists(image.file) and not check_if_video(image.file.path):
                 return image.file.path

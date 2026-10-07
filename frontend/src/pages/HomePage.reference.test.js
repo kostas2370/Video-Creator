@@ -40,6 +40,7 @@ test("uploads reference and form settings together with a preview", async () => 
   expect(payload).toBeInstanceOf(FormData);
   expect(payload.get("reference_image")).toBe(file);
   expect(payload.get("message")).toBe("A cat exploring");
+  expect(payload.get("provider")).toBe("OPENAI");
   expect(payload.get("narration")).toBe("true");
 });
 
