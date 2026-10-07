@@ -85,7 +85,7 @@ time, so patching a provider module in a test swaps what the pipeline calls.
 
 ## Before you open a pull request
 
-CI runs on every PR to `main` ([`.github/workflows/django.yml`](.github/workflows/django.yml)).
+CI runs on every PR ([`.github/workflows/django.yml`](.github/workflows/django.yml)).
 Run the same four things locally and you will not be surprised:
 
 ```shell

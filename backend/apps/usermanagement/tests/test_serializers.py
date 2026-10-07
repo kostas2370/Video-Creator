@@ -78,7 +78,7 @@ class LoginSerializerTests(TestCase):
         self.assertTrue(serializer.is_valid())
         self.assertEqual(
             AccessToken(serializer.validated_data["tokens"]["access"])["user_id"],
-            self.user.id,
+            str(self.user.id),
         )
 
     def test_turns_away_a_request_with_no_username(self):
@@ -134,7 +134,7 @@ class CookieTokenRefreshSerializerTests(TestCase):
 
         self.assertTrue(serializer.is_valid())
         self.assertEqual(
-            AccessToken(serializer.validated_data["access"])["user_id"], account.id
+            AccessToken(serializer.validated_data["access"])["user_id"], str(account.id)
         )
 
     def test_refuses_a_request_that_carries_no_cookie(self):
