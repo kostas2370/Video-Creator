@@ -15,7 +15,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Video, VideoStatus, VideoType
+from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
@@ -186,7 +186,6 @@ class VideoView(
                 return Response({"detail": "Upload a visual when adding a single scene."}, status=400)
             serializer = AddScenesSerializer(data=data)
         else:
-            data["mode"] = video.video_type
             serializer = AddSceneSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         claimed = Video.objects.filter(
@@ -219,8 +218,6 @@ class VideoView(
     ])
     def draft_scene(self, request, pk):
         video = self.get_object()
-        if video.video_type != VideoType.AI:
-            return Response({"detail": "AI drafts are only available for AI videos."}, status=400)
         serializer = SceneDraftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         with reserve_scene_credit(request.user, 0.03, SceneGenerationLimitPermission.required_limit):
