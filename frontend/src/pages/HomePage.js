@@ -49,6 +49,9 @@ const Home = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [referenceImage, setReferenceImage] = useState(null);
+  const [referencePreview, setReferencePreview] = useState("");
+  const referenceInput = useRef(null);
 
   const [formData, setFormData] = useState({
     genre: "",
@@ -69,6 +72,26 @@ const Home = () => {
     avatar_position: "left,top",
   });
 
+  const supportsReference = formData.image_mode === "AI" && ["DALL-E", "sora"].includes(formData.provider);
+  useEffect(() => {
+    if (!supportsReference) setReferenceImage(null);
+  }, [supportsReference]);
+  useEffect(() => {
+    if (!referenceImage) { setReferencePreview(""); return; }
+    const url = URL.createObjectURL(referenceImage);
+    setReferencePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [referenceImage]);
+  const chooseReference = event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      toast.error("Choose a PNG, JPEG, or WebP image up to 10 MB.");
+      event.target.value = "";
+      return;
+    }
+    setReferenceImage(file);
+  };
   useAxiosPrivate();
   const pollRef = useRef(null);
 
@@ -202,7 +225,15 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    const result = await generateVideo(formData);
+    let payload = formData;
+    if (supportsReference && referenceImage) {
+      payload = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) payload.append(key, value);
+      });
+      payload.append("reference_image", referenceImage);
+    }
+    const result = await generateVideo(payload);
     if (!result.ok) { setIsLoading(false); return; }
     const response = result.data;
 
@@ -303,6 +334,14 @@ const Home = () => {
               </span> : null)}
             </div>
           </section>
+
+          {supportsReference && <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
+            <label htmlFor="reference-image" className="block text-sm font-semibold text-gray-900 dark:text-white">Reference image <span className="font-normal text-gray-400">(optional)</span></label>
+            <p id="reference-image-help" className="mt-2 text-sm text-gray-500 dark:text-gray-400">{formData.provider === "sora" ? "Set the starting look for your first video shot. Later shots continue from the previous clip." : "Guide the characters, objects, and visual style across your scenes."} Describe how to use it in your prompt.</p>
+            <input ref={referenceInput} id="reference-image" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="reference-image-help" disabled={isLoading} onChange={chooseReference} className={`${inputClassName} file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700`} />
+            <p className="mt-2 text-xs text-gray-400">PNG, JPEG, or WebP · Up to 10 MB</p>
+            {referencePreview && referenceImage && <div className="mt-4 flex items-center gap-4"><img src={referencePreview} alt="Reference preview" className="h-24 w-24 rounded-xl bg-gray-100 object-contain dark:bg-gray-900" /><div className="min-w-0"><p className="truncate text-sm text-gray-600 dark:text-gray-300">{referenceImage.name}</p><button type="button" disabled={isLoading} onClick={() => { setReferenceImage(null); if (referenceInput.current) referenceInput.current.value = ""; }} className="mt-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">Remove reference</button></div></div>}
+          </section>}
 
           <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <button type="button" aria-expanded={settings} aria-controls="generation-settings" onClick={() => setSettings((previous) => !previous)} className="group flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 sm:p-6 dark:hover:bg-gray-800/80">
