@@ -151,6 +151,9 @@ class DraftSceneTests(TestCase):
         for result in (
             {"scenes": [{"text": "Too few.", "image_description": "A path"}]},
             {"scenes": [{"text": "x" * 321, "image_description": "A path"}] * 3},
+            {"scenes": "Not a list"},
+            {"scenes": [None, {}, 42]},
+            [],
         ):
             with self.subTest(result=result), patch.object(SceneServices, "get_update_sentence", return_value=json.dumps(result)):
                 with self.assertRaises(APIException):
@@ -192,7 +195,12 @@ class DraftSceneTests(TestCase):
         from ...services.SceneServices import draft_scene
 
         vid = video.make()
-        for reply in ('not json', '{}', '{"text":42,"image_description":"sky"}', '{"text":" ","image_description":"sky"}'):
+        for reply in (
+            'not json', '{}', '[]', 'null',
+            '{"text":42,"image_description":"sky"}',
+            '{"text":"A line.","image_description":7}',
+            '{"text":" ","image_description":"sky"}',
+        ):
             with self.subTest(reply=reply), patch.object(SceneServices, "get_update_sentence", return_value=reply):
                 with self.assertRaises(APIException):
                     draft_scene(vid, "Next scene")
