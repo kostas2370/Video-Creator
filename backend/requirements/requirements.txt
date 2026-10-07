@@ -11,7 +11,7 @@ django_cleanup
 djoser
 djangorestframework-simplejwt
 django-taggit
-channels-redis
+channels-redis==4.1.0
 celery[redis]
 python-dotenv~=1.0.0
 django_rest_passwordreset
@@ -62,3 +62,6 @@ google-generativeai
 anthropic
 
 model-bakery==1.17.0
+
+# ASGI HTTP server for streaming video updates
+uvicorn==0.30.6

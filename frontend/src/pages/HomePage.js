@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { getAvatars, getTemplates, getVoices, getCustomVisualProviders } from "../api/apiService";
 import { toast } from "react-toastify";
 import { deleteTemplate, generateVideo } from "../api/apiService";
-import { pollVideo } from "../api/pollVideo";
+import { waitForVideo } from "../api/waitForVideo";
 import { Link } from "react-router-dom";
 import { RiSparkling2Line, RiArrowRightLine, RiVolumeUpLine, RiImageLine, RiSettings3Line, RiArrowDownSLine } from "react-icons/ri";
 import { ProceedModal } from "../components/ProceedModal";
@@ -248,8 +248,9 @@ const Home = () => {
 
     toast.info("Generation started, this usually takes a few minutes...");
 
-    pollRef.current = pollVideo(response.video.id);
+    pollRef.current = waitForVideo(response.video.id);
     const { outcome, video } = await pollRef.current.promise;
+    if (outcome === "CANCELLED") return;
 
     setIsLoading(false);
 

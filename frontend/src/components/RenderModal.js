@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { getVideo, renderVideo } from "../api/apiService";
-import { pollVideo } from "../api/pollVideo";
+import { waitForVideo } from "../api/waitForVideo";
 import { GiProcessor } from "react-icons/gi";
 import { CloseModalButton } from "./ui/CloseModalButton";
 
@@ -62,11 +62,12 @@ export function RenderModal({
     onPendingChange?.(false);
     toast.info("Video now is on rendering status");
 
-    pollRef.current = pollVideo(id, {
+    pollRef.current = waitForVideo(id, {
       onUpdate: (video) => patchItem({ status: video.status }),
     });
 
     const { outcome, video } = await pollRef.current.promise;
+    if (outcome === "CANCELLED") return;
 
     pendingRef.current = false;
 
