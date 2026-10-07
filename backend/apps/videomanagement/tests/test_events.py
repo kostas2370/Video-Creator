@@ -88,10 +88,11 @@ class EventCookieStreamTests(TransactionTestCase):
         for user, expected in ((self.owner, 200), (self.other, 404)):
             scope = {"type": "http", "method": "GET", "scheme": "http",
                      "path": f"/api/videos/{self.video.pk}/events/",
+                     "query_string": b"", "server": ("testserver", 80),
                      "headers": [(b"host", b"testserver"),
                                  (b"cookie", f"access_token={AccessToken.for_user(user)}".encode())]}
             layer = InMemoryChannelLayer()
-            with patch("apps.videomanagement.event_stream.get_channel_layer", return_value=layer):
+            with patch("channels.consumer.get_channel_layer", return_value=layer):
                 communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), scope)
                 await communicator.send_input({"type": "http.request", "body": b""})
                 self.assertEqual((await communicator.receive_output())["status"], expected)
@@ -106,11 +107,11 @@ class EventStreamTests(SimpleTestCase):
         headers = [(b"host", b"testserver")]
         if origin:
             headers.append((b"origin", origin.encode()))
-        return {"type": "http", "path": path, "method": method, "scheme": "http", "headers": headers}
+        return {"type": "http", "path": path, "method": method, "scheme": "http", "headers": headers, "query_string": b"", "server": ("testserver", 80)}
 
     async def test_stream_delivers_event_and_releases_subscription_on_disconnect(self):
         layer = InMemoryChannelLayer()
-        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + 300, "video.7"))), patch("apps.videomanagement.event_stream.get_channel_layer", return_value=layer):
+        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + 300, "video.7"))), patch("channels.consumer.get_channel_layer", return_value=layer):
             communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), self.scope(origin="https://frontend.example"))
             await communicator.send_input({"type": "http.request", "body": b""})
             start = await communicator.receive_output()
@@ -135,7 +136,7 @@ class EventStreamTests(SimpleTestCase):
     async def test_redis_outage_returns_503_for_polling_fallback(self):
         layer = AsyncMock()
         layer.new_channel.side_effect = OSError("offline")
-        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + 300, "video.7"))), patch("apps.videomanagement.event_stream.get_channel_layer", return_value=layer):
+        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + 300, "video.7"))), patch("channels.consumer.get_channel_layer", return_value=layer):
             communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), self.scope())
             await communicator.send_input({"type": "http.request", "body": b""})
             self.assertEqual((await communicator.receive_output())["status"], 503)
@@ -143,7 +144,7 @@ class EventStreamTests(SimpleTestCase):
 
     async def test_expiry_ends_stream_and_other_routes_stay_with_django(self):
         layer = InMemoryChannelLayer()
-        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + .01, "video.7"))), patch("apps.videomanagement.event_stream.get_channel_layer", return_value=layer):
+        with patch("apps.videomanagement.event_stream.authorize_stream", new=AsyncMock(return_value=(200, time.time() + .01, "video.7"))), patch("channels.consumer.get_channel_layer", return_value=layer):
             communicator = ApplicationCommunicator(VideoEventApplication(AsyncMock()), self.scope())
             await communicator.send_input({"type": "http.request", "body": b""})
             await communicator.receive_output()

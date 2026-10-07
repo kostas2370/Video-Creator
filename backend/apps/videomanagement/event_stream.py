@@ -4,13 +4,14 @@ import json
 import logging
 import re
 import time
+from io import BytesIO
 
 from channels.db import database_sync_to_async
-from channels.layers import get_channel_layer
+from channels.consumer import AsyncConsumer
+from channels.exceptions import StopConsumer
 from django.conf import settings
 from django.core.exceptions import DisallowedHost
-from django.http import HttpRequest
-from django.http.cookie import parse_cookie
+from django.core.handlers.asgi import ASGIRequest
 from rest_framework.exceptions import APIException
 
 from apps.usermanagement.authenticate import CustomAuthentication
@@ -33,10 +34,63 @@ def authorize_stream(request, video_id):
     return 200, min(time.time() + 300, token["exp"]), group
 
 
-async def wait_for_disconnect(receive):
-    while True:
-        if (await receive())["type"] == "http.disconnect":
+class VideoEventConsumer(AsyncConsumer):
+    channel_layer_alias = "video_events"
+
+    def __init__(self, group, expires, headers):
+        self.group = group
+        self.expires = expires
+        self.headers = headers
+        self.started = False
+        self.heartbeat = None
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await asyncio.wait_for(
+                super().__call__(scope, receive, send),
+                timeout=max(0, self.expires - time.time()),
+            )
+        except Exception as exc:
+            if not isinstance(exc, asyncio.TimeoutError):
+                logger.warning("Video event stream unavailable", exc_info=True)
+            if self.started:
+                await send({"type": "http.response.body", "body": b"", "more_body": False})
+            else:
+                await VideoEventApplication.respond(send, 503, self.headers)
+        finally:
+            if self.heartbeat:
+                self.heartbeat.cancel()
+                await asyncio.gather(self.heartbeat, return_exceptions=True)
+            if hasattr(self, "channel_name"):
+                try:
+                    await asyncio.wait_for(self.channel_layer.group_discard(self.group, self.channel_name), timeout=2)
+                except Exception:
+                    logger.warning("Could not release video event subscription", exc_info=True)
+
+    async def http_request(self, message):
+        if self.started:
             return
+        await asyncio.wait_for(self.channel_layer.group_add(self.group, self.channel_name), timeout=2)
+        await self.send({"type": "http.response.start", "status": 200, "headers": self.headers + [
+            (b"content-type", b"text/event-stream"),
+            (b"cache-control", b"no-cache, no-transform"),
+            (b"x-accel-buffering", b"no"),
+        ]})
+        self.started = True
+        await self.send({"type": "http.response.body", "body": b"event: ready\ndata: {}\n\n", "more_body": True})
+        self.heartbeat = asyncio.create_task(self.keepalive())
+
+    async def video_update(self, event):
+        body = ("event: update\ndata: " + json.dumps(event) + "\n\n").encode()
+        await self.send({"type": "http.response.body", "body": body, "more_body": True})
+
+    async def http_disconnect(self, message):
+        raise StopConsumer()
+
+    async def keepalive(self):
+        while True:
+            await asyncio.sleep(15)
+            await self.send({"type": "http.response.body", "body": b": keepalive\n\n", "more_body": True})
 
 
 class VideoEventApplication:
@@ -48,19 +102,13 @@ class VideoEventApplication:
         if scope["type"] != "http" or match is None:
             return await self.django_application(scope, receive, send)
 
-        headers = {key.decode("latin1").lower(): value.decode("latin1")
-                   for key, value in scope.get("headers", [])}
-        request = HttpRequest()
-        request.method = scope["method"]
-        request.META = {"HTTP_" + key.upper().replace("-", "_"): value
-                        for key, value in headers.items()}
-        request.COOKIES = parse_cookie(headers.get("cookie", ""))
+        request = ASGIRequest(scope, BytesIO())
         cors = []
         try:
             host = request.get_host()
         except DisallowedHost:
             return await self.respond(send, 400)
-        origin = headers.get("origin")
+        origin = request.headers.get("Origin")
         if origin:
             if origin != f"{scope.get('scheme', 'http')}://{host}" and origin not in [getattr(settings, "FRONTEND_URL", ""), *getattr(settings, "CORS_ALLOWED_ORIGINS", [])]:
                 return await self.respond(send, 403)
@@ -76,53 +124,7 @@ class VideoEventApplication:
         if status != 200:
             return await self.respond(send, status, cors)
 
-        layer = get_channel_layer("video_events")
-        channel = None
-        tasks = []
-        started = False
-        disconnected = False
-        try:
-            channel = await layer.new_channel()
-            await asyncio.wait_for(layer.group_add(group, channel), timeout=2)
-            await send({"type": "http.response.start", "status": 200, "headers": cors + [
-                (b"content-type", b"text/event-stream"),
-                (b"cache-control", b"no-cache, no-transform"),
-                (b"x-accel-buffering", b"no"),
-            ]})
-            started = True
-            await send({"type": "http.response.body", "body": b"event: ready\ndata: {}\n\n", "more_body": True})
-            disconnect = asyncio.create_task(wait_for_disconnect(receive))
-            update = asyncio.create_task(layer.receive(channel))
-            tasks = [disconnect, update]
-            while time.time() < expires:
-                done, _ = await asyncio.wait(tasks, timeout=min(15, expires - time.time()),
-                                             return_when=asyncio.FIRST_COMPLETED)
-                if disconnect in done:
-                    disconnected = True
-                    break
-                if update in done:
-                    event = update.result()
-                    body = ("event: update\ndata: " + json.dumps(event) + "\n\n").encode()
-                    update = asyncio.create_task(layer.receive(channel))
-                    tasks = [disconnect, update]
-                else:
-                    body = b": keepalive\n\n"
-                await send({"type": "http.response.body", "body": body, "more_body": True})
-        except Exception:
-            logger.warning("Video event stream unavailable", exc_info=True)
-            if not started:
-                await self.respond(send, 503, cors)
-        finally:
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            if channel:
-                try:
-                    await asyncio.wait_for(layer.group_discard(group, channel), timeout=2)
-                except Exception:
-                    logger.warning("Could not release video event subscription", exc_info=True)
-        if started and not disconnected:
-            await send({"type": "http.response.body", "body": b"", "more_body": False})
+        await VideoEventConsumer(group, expires, cors)(scope, receive, send)
 
     @staticmethod
     async def respond(send, status, headers=None):

@@ -5,13 +5,12 @@ const subscriptions = new Map();
 const RECONNECT_MS = 30000;
 const RECONCILE_MS = 60000;
 
-export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4000, replay = true }) {
+export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4000 }) {
   let entry = subscriptions.get(path);
   if (!entry) {
     entry = {
       listeners: new Set(), source: null, connected: false, disposed: false,
-      timer: null, retry: null, debounce: null, busy: false, dirty: false,
-      latest: null, requestId: 0,
+      timer: null, retry: null, debounce: null, pending: null, dirty: false,
     };
     subscriptions.set(path, entry);
 
@@ -19,31 +18,32 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
       clearTimeout(entry.timer);
       if (!entry.disposed) entry.timer = setTimeout(refresh, entry.connected ? RECONCILE_MS : intervalMs);
     };
-    const refresh = async () => {
+    const fetchUpdate = async () => {
       if (entry.disposed) return;
-      if (entry.busy) { entry.dirty = true; return; }
-      entry.busy = true;
-      const requestId = ++entry.requestId;
       try {
         const response = await load();
         if (entry.disposed) return;
         if (response.ok && response.data) {
-          entry.latest = response.data;
           entry.listeners.forEach(listener => {
-            if (requestId >= listener.minimumRequestId) listener.onUpdate?.(response.data);
+            if (listener.active) listener.onUpdate?.(response.data);
           });
         } else {
-          entry.listeners.forEach(listener => listener.onError?.(response));
+          entry.listeners.forEach(listener => { if (listener.active) listener.onError?.(response); });
         }
       } catch (error) {
-        if (!entry.disposed) entry.listeners.forEach(listener => listener.onError?.(error));
+        if (!entry.disposed) entry.listeners.forEach(listener => { if (listener.active) listener.onError?.(error); });
       } finally {
-        entry.busy = false;
+        entry.pending = null;
         if (entry.dirty && !entry.disposed) {
           entry.dirty = false;
           refresh();
         } else schedule();
       }
+    };
+    const refresh = () => {
+      if (entry.disposed) return;
+      if (entry.pending) { entry.dirty = true; return; }
+      entry.pending = Promise.resolve().then(fetchUpdate);
     };
     const connect = () => {
       if (entry.disposed || typeof EventSource === "undefined") return;
@@ -75,13 +75,17 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
     entry.refresh = refresh;
     entry.connect = connect;
   }
-  const listener = { onUpdate, onError, minimumRequestId: replay ? 0 : entry.requestId + 1 };
+  // Ignore a request that started before this subscriber (e.g. before rendering).
+  const listener = { onUpdate, onError, active: !entry.pending };
   entry.listeners.add(listener);
-  if (replay && entry.latest) Promise.resolve().then(() => {
-    if (entry.listeners.has(listener)) onUpdate?.(entry.latest);
-  });
+  const activate = () => {
+    if (!entry.listeners.has(listener)) return;
+    listener.active = true;
+    entry.refresh();
+  };
+  if (entry.pending) entry.pending.then(activate);
+  else activate();
   if (!entry.source && !entry.retry) entry.connect();
-  entry.refresh();
 
   let cancelled = false;
   return () => {
