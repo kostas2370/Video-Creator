@@ -15,7 +15,7 @@ const ttsProviderNames = {
   ELEVENLABS: "ElevenLabs",
   SIXTYDB: "60dB",
 };
-const visualProviderNames = { "DALL-E": "OpenAI images", sora: "OpenAI Sora (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
+const visualProviderNames = { "OPENAI": "OpenAI images", sora: "OpenAI Sora (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
 const videoFormatOptions = [
   { value: "LANDSCAPE", label: "Landscape", ratio: "16:9", shape: "w-12 aspect-video" },
   { value: "PORTRAIT", label: "Portrait", ratio: "9:16", shape: "h-10 aspect-[9/16]" },
@@ -73,7 +73,7 @@ const Home = () => {
     avatar_position: "left,top",
   });
 
-  const supportsReference = formData.image_mode === "AI" && ["DALL-E", "sora"].includes(formData.provider);
+  const supportsReference = formData.image_mode === "AI" && ["OPENAI", "sora"].includes(formData.provider);
   useEffect(() => {
     if (!supportsReference) setReferenceImage(null);
   }, [supportsReference]);
@@ -156,7 +156,7 @@ const Home = () => {
           music: selectedTemplate.music ?? "",
           provider:
             selectedTemplate.provider ??
-            (selectedTemplate.image_mode === "AI" ? "DALL-E" : "bing"),
+            (selectedTemplate.image_mode === "AI" ? "OPENAI" : "bing"),
           subtitles: selectedTemplate.subtitles ?? prevData.subtitles,
           narration: selectedTemplate.narration ?? prevData.narration,
           avatar_position:
@@ -172,7 +172,7 @@ const Home = () => {
       setFormData((prevData) => ({
         ...prevData,
         [name]: value,
-        provider: value === "AI" ? "DALL-E" : "bing",
+        provider: value === "AI" ? "OPENAI" : "bing",
       }));
     } else if (name === "avatar_selection") {
       setFormData((prevData) => ({

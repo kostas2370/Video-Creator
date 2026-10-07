@@ -370,7 +370,7 @@ use `mode="WEB"`; video adapters use `output_type="VIDEO"`, which populates
 `VIDEO_PROVIDERS`. `ImageProviderRegistry.is_video(name, user)` combines built-in
 metadata with an owner-scoped lookup of custom configurations for script formatting.
 Omitted provider names retain the defaults
-`DALL-E` for AI and `bing` for web search.
+`OPENAI` for AI and `bing` for web search.
 
 `register_fallback(mode="AI")` exposes a custom-adapter hook. Explicit registrations
 win over that fallback. The compatibility resolver binds the selected custom name as
@@ -385,12 +385,11 @@ Callers can invoke the resolved handler directly without checking for `None`.
 | Mode | Provider identifiers |
 | --- | --- |
 | `WEB` | `bing`, `google` |
-| `AI` | `DALL-E`, `sora`, `stable-diffusion`, `midjourney` |
+| `AI` | `OPENAI`, `sora`, `stable-diffusion`, `midjourney` |
 
-`DALL-E` remains the visual provider's routing identifier, while the OpenAI adapter
-uses the configured image model. It is separate from the canonical `OPENAI` credential
-and TTS identifier. `sora` produces video clips; composition chooses still or video
-handling from the file extension. LLM routing lives in `model_calls` in
+`OPENAI` is the image provider identifier and uses the configured GPT image model.
+It shares the canonical `OPENAI` credential and TTS identifier. `sora` produces video
+clips; composition chooses still or video handling from the file extension. LLM routing lives in `model_calls` in
 [llm.py](../backend/apps/videomanagement/utils/llm.py).
 
 ## Ownership boundaries

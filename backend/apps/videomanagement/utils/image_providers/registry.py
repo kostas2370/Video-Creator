@@ -1,7 +1,7 @@
 import sys
 from functools import partial
 
-DEFAULT_PROVIDERS = {"WEB": "bing", "AI": "DALL-E"}
+DEFAULT_PROVIDERS = {"WEB": "bing", "AI": "OPENAI"}
 
 
 class ImageProviderRegistry:

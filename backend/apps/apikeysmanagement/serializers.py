@@ -144,7 +144,6 @@ class UserCustomVisualProviderSerializer(CustomProviderSerializer):
         Provider.OPENAI,
         Provider.STABLE_DIFFUSION,
         Provider.MIDJOURNEY,
-        "DALL-E",
         "sora",
         "stable-diffusion",
         "midjourney",

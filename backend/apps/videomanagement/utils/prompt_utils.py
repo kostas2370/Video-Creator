@@ -111,7 +111,7 @@ def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
             )
 
 
-def format_dalle_prompt(title: str, image_description: str) -> str:
+def format_image_prompt(title: str, image_description: str) -> str:
     return f"Title : {title} \nImage Description:{image_description}"
 
 

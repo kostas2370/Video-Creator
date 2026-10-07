@@ -79,7 +79,7 @@ class GenerateSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != "AI"
-            or attrs.get("provider") not in (None, "DALL-E", "sora")
+            or attrs.get("provider") not in (None, "OPENAI", "sora")
         ):
             raise serializers.ValidationError(
                 {
