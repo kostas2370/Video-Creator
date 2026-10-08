@@ -15,7 +15,7 @@ export function RenderModal({
   onUpdate,
   onPendingChange,
 }) {
-  const pollRef = useRef(null);
+  const watcherRef = useRef(null);
   const pendingRef = useRef(false);
   const [audioCheck, setAudioCheck] = useState({ loading: true, scenes: [], failed: false });
   useEffect(() => {
@@ -33,7 +33,7 @@ export function RenderModal({
     return () => { cancelled = true; };
   }, [showModal, id]);
 
-  useEffect(() => () => pollRef.current?.cancel(), []);
+  useEffect(() => () => watcherRef.current?.cancel(), []);
 
   const patchItem = (changes) => {
     onUpdate?.(changes);
@@ -62,11 +62,11 @@ export function RenderModal({
     onPendingChange?.(false);
     toast.info("Video now is on rendering status");
 
-    pollRef.current = waitForVideo(id, {
+    watcherRef.current = waitForVideo(id, {
       onUpdate: (video) => patchItem({ status: video.status }),
     });
 
-    const { outcome, video } = await pollRef.current.promise;
+    const { outcome, video } = await watcherRef.current.promise;
     if (outcome === "CANCELLED") return;
 
     pendingRef.current = false;

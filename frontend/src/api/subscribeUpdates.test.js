@@ -1,4 +1,7 @@
 import { subscribeUpdates } from "./subscribeUpdates";
+import { refreshToken } from "./apiService";
+
+jest.mock("./apiService", () => ({ refreshToken: jest.fn() }));
 
 let streams;
 let stops;
@@ -14,7 +17,7 @@ function subscribe(options) {
   stops.push(stop);
   return stop;
 }
-beforeEach(() => { jest.useFakeTimers(); streams = []; stops = []; global.EventSource = MockEventSource; });
+beforeEach(() => { jest.useFakeTimers(); streams = []; stops = []; global.EventSource = MockEventSource; refreshToken.mockReset().mockResolvedValue({ ok: true }); });
 afterEach(() => { stops.forEach(stop => stop()); jest.useRealTimers(); delete global.EventSource; });
 
 test("shares a stream and closes it only when the last subscriber leaves", async () => {
@@ -30,7 +33,7 @@ test("shares a stream and closes it only when the last subscriber leaves", async
   expect(streams[0].close).toHaveBeenCalledTimes(1);
 });
 
-test("uses events instead of frequent polling and coalesces bursts", async () => {
+test("does not poll while connected and coalesces event bursts", async () => {
   const load = jest.fn().mockResolvedValue(result("GENERATION"));
   const onUpdate = jest.fn();
   subscribe({ load, onUpdate });
@@ -38,7 +41,7 @@ test("uses events instead of frequent polling and coalesces bursts", async () =>
   streams[0].emit("stream-open");
   await flush();
   load.mockClear();
-  jest.advanceTimersByTime(4000);
+  jest.advanceTimersByTime(120000);
   await flush();
   expect(load).not.toHaveBeenCalled();
   load.mockResolvedValue(result("READY"));
@@ -49,7 +52,7 @@ test("uses events instead of frequent polling and coalesces bursts", async () =>
   expect(onUpdate).toHaveBeenLastCalledWith({ id: 1, status: "READY" });
 });
 
-test("falls back to polling and reloads current state on reconnect", async () => {
+test("reconnects without polling and reloads when the stream opens", async () => {
   const load = jest.fn().mockResolvedValue(result("RENDERING"));
   subscribe({ load });
   await flush();
@@ -58,9 +61,11 @@ test("falls back to polling and reloads current state on reconnect", async () =>
   expect(streams[0].close).toHaveBeenCalled();
   load.mockClear();
   jest.advanceTimersByTime(4000); await flush();
-  expect(load).toHaveBeenCalledTimes(1);
+  expect(load).not.toHaveBeenCalled();
   jest.advanceTimersByTime(26000); await flush();
   expect(streams).toHaveLength(2);
+  expect(refreshToken).toHaveBeenCalledTimes(1);
+  expect(load).not.toHaveBeenCalled();
   load.mockClear();
   streams[1].emit("stream-open"); await flush();
   expect(load).toHaveBeenCalledTimes(1);
@@ -89,12 +94,12 @@ test("refreshes again when an event arrives during an existing request", async (
   expect(onUpdate).toHaveBeenLastCalledWith({ id: 1, status: "READY" });
 });
 
-test("polls when EventSource is unavailable", async () => {
+test("loads only initial state when EventSource is unavailable", async () => {
   delete global.EventSource;
   const load = jest.fn().mockResolvedValue(result("GENERATION"));
   subscribe({ load }); await flush();
-  jest.advanceTimersByTime(4000); await flush();
-  expect(load).toHaveBeenCalledTimes(2);
+  jest.advanceTimersByTime(120000); await flush();
+  expect(load).toHaveBeenCalledTimes(1);
 });
 
 test("a new subscriber waits for a fresh request rather than in-flight state", async () => {
@@ -130,12 +135,14 @@ test("reloads after a library stream reset", async () => {
   expect(load).toHaveBeenCalledTimes(1);
 });
 
-test("falls back to polling after a library permission error", async () => {
+test("does not poll after a library stream error", async () => {
   const load = jest.fn().mockResolvedValue(result("GENERATION"));
   subscribe({ load }); await flush();
   streams[0].emit("stream-open"); await flush();
   streams[0].emit("stream-error"); await flush();
   expect(streams[0].close).toHaveBeenCalled();
-  load.mockClear(); jest.advanceTimersByTime(4000); await flush();
-  expect(load).toHaveBeenCalledTimes(1);
+  load.mockClear(); jest.advanceTimersByTime(30000); await flush();
+  streams[1].onerror(); await flush();
+  jest.advanceTimersByTime(30000); await flush();
+  expect(load).not.toHaveBeenCalled();
 });

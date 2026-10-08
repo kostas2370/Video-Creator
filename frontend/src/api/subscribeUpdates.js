@@ -1,23 +1,19 @@
 import { API_BASE_URL } from "../endpoints";
+import { refreshToken } from "./apiService";
 
 // Share a stream and refresh requests between the editor and operation dialogs.
 const subscriptions = new Map();
 const RECONNECT_MS = 30000;
-const RECONCILE_MS = 60000;
 
-export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4000 }) {
+export function subscribeUpdates(path, { load, onUpdate, onError }) {
   let entry = subscriptions.get(path);
   if (!entry) {
     entry = {
-      listeners: new Set(), source: null, connected: false, disposed: false,
-      timer: null, retry: null, debounce: null, pending: null, dirty: false,
+      listeners: new Set(), source: null, disposed: false,
+      retry: null, debounce: null, pending: null, dirty: false,
     };
     subscriptions.set(path, entry);
 
-    const schedule = () => {
-      clearTimeout(entry.timer);
-      if (!entry.disposed) entry.timer = setTimeout(refresh, entry.connected ? RECONCILE_MS : intervalMs);
-    };
     const fetchUpdate = async () => {
       if (entry.disposed) return;
       try {
@@ -37,7 +33,7 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
         if (entry.dirty && !entry.disposed) {
           entry.dirty = false;
           refresh();
-        } else schedule();
+        }
       }
     };
     const refresh = () => {
@@ -52,7 +48,6 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
         entry.source = source;
         source.addEventListener("stream-open", () => {
           if (entry.disposed) return;
-          entry.connected = true;
           refresh(); // Reconcile missed events on every connection, including reconnects.
         });
         source.addEventListener("update", () => {
@@ -64,10 +59,11 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
         source.onerror = () => {
           source.close();
           entry.source = null;
-          entry.connected = false;
-          refresh(); // Axios can refresh an expired access cookie before the next stream.
           clearTimeout(entry.retry);
-          if (!entry.disposed) entry.retry = setTimeout(connect, RECONNECT_MS);
+          if (!entry.disposed) entry.retry = setTimeout(async () => {
+            await refreshToken(); // Renew access cookies without polling resource data.
+            connect();
+          }, RECONNECT_MS);
         };
         source.addEventListener("stream-error", source.onerror);
       } catch {
@@ -97,7 +93,6 @@ export function subscribeUpdates(path, { load, onUpdate, onError, intervalMs = 4
     if (entry.listeners.size) return;
     entry.disposed = true;
     entry.source?.close();
-    clearTimeout(entry.timer);
     clearTimeout(entry.retry);
     clearTimeout(entry.debounce);
     subscriptions.delete(path);

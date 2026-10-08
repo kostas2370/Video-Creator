@@ -5,7 +5,7 @@ export const IN_FLIGHT_STATUSES = ["GENERATION", "RENDERING"];
 export const isInFlight = status => IN_FLIGHT_STATUSES.includes(status);
 
 export function waitForVideo(id, options = {}) {
-  const { onUpdate, intervalMs = 4000, timeoutMs = 3 * 60 * 60 * 1000, maxConsecutiveErrors = 5 } = options;
+  const { onUpdate, timeoutMs = 3 * 60 * 60 * 1000, maxConsecutiveErrors = 5 } = options;
   let unsubscribe = () => {};
   let timer;
   let finish;
@@ -22,7 +22,6 @@ export function waitForVideo(id, options = {}) {
     };
     unsubscribe = subscribeUpdates(`videos/${encodeURIComponent(id)}/events/`, {
       load: () => getVideo(id, { notifyError: false }),
-      intervalMs,
       onUpdate: video => {
         consecutiveErrors = 0;
         lastVideo = video;

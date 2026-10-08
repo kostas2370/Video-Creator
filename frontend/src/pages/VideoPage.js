@@ -15,7 +15,7 @@ import { SceneCreationModal } from "../components/CreateSceneModal";
 export const Video = () => {
   const { videoId } = useParams();
   const [videoInfo, setVideoInfo] = useState(null);
-  const [pollError, setPollError] = useState(false);
+  const [updateError, setUpdateError] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
@@ -30,10 +30,10 @@ export const Video = () => {
   useEffect(() => subscribeUpdates(`videos/${encodeURIComponent(videoId)}/events/`, {
     load: () => getVideo(videoId, { notifyError: false }),
     onUpdate: response => {
-      setPollError(false);
+      setUpdateError(false);
       setVideoInfo(response);
     },
-    onError: () => setPollError(true),
+    onError: () => setUpdateError(true),
   }), [videoId, refresh]);
 
   const onSceneQueued = useCallback(() => {
@@ -106,7 +106,7 @@ export const Video = () => {
         {processing && <div role="status" className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
           <p className="font-semibold">Processing your video…</p>
           <p className="mt-1">Your changes are processing in the background. This page refreshes automatically; you can leave and come back.</p>
-          {pollError && <p className="mt-2">Could not check progress. Retrying automatically…</p>}
+          {updateError && <p className="mt-2">Could not load updates. Reconnecting automatically…</p>}
         </div>}
         {videoInfo?.status === "FAILED" && <p role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">Processing failed. Check the available scenes before trying again.</p>}
         {missingNarration.length > 0 && <div role="status" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">

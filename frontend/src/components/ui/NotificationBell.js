@@ -9,8 +9,6 @@ import {
   markNotificationRead,
 } from "../../api/apiService";
 
-const POLL_INTERVAL_MS = 30000;
-
 export function NotificationBell() {
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -18,7 +16,6 @@ export function NotificationBell() {
 
   useEffect(() => subscribeUpdates("notifications/events/", {
     load: () => getNotifications({ notifyError: false }),
-    intervalMs: POLL_INTERVAL_MS,
     onUpdate: response => {
       setItems(response.results ?? []);
       setUnread(response.unread ?? 0);
