@@ -18,7 +18,7 @@ from .models import Video
 async def authenticated_events(stream, expires):
     async with aclosing(stream):
         try:
-            async with asyncio.timeout(max(0, min(300, expires - time.time()))):
+            async with asyncio.timeout(max(0, expires - time.time())):
                 async for chunk in stream:
                     yield chunk
         except TimeoutError:
