@@ -13,9 +13,9 @@ export function ResumeModal({
   name,
   onFinished,
 }) {
-  const pollRef = useRef(null);
+  const watcherRef = useRef(null);
 
-  useEffect(() => () => pollRef.current?.cancel(), []);
+  useEffect(() => () => watcherRef.current?.cancel(), []);
 
   const patchItem = (changes) => {
     if (!setItems) return;
@@ -37,11 +37,11 @@ export function ResumeModal({
     patchItem({ status: "GENERATION" });
     toast.info("Picking the generation up where it stopped...");
 
-    pollRef.current = waitForVideo(id, {
+    watcherRef.current = waitForVideo(id, {
       onUpdate: (video) => patchItem({ status: video.status }),
     });
 
-    const { outcome, video } = await pollRef.current.promise;
+    const { outcome, video } = await watcherRef.current.promise;
     if (outcome === "CANCELLED") return;
 
     if (outcome !== "SETTLED") {
