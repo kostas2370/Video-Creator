@@ -1,4 +1,5 @@
 from __future__ import annotations
+from uuid import uuid4
 
 import logging
 from django.conf import settings
@@ -43,6 +44,7 @@ VOICE_KEY_FIELDS = {
 
 
 class ApiKeys(LifecycleModelMixin, models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     user = models.OneToOneField(
         get_user_model(), on_delete=models.CASCADE, related_name="api_keys"
     )
@@ -125,6 +127,8 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
 class AbstractCustomProvider(models.Model):
     """Shared connection settings; each concrete provider keeps its own table."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     name = models.CharField(max_length=50)
     endpoint_url = models.URLField(max_length=500)
     extra_parameters = models.JSONField(

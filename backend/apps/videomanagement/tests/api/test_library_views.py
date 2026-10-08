@@ -20,7 +20,7 @@ class LibraryViewTests(ApiTestCase):
 
         response = self.client.get(reverse("intro-list"))
 
-        self.assertEqual([i["id"] for i in response.data], [mine.id])
+        self.assertEqual([i["id"] for i in response.data], [str(mine.id)])
 
     def test_a_superuser_sees_every_intro(self):
         intro.make(_quantity=2)
@@ -34,7 +34,7 @@ class LibraryViewTests(ApiTestCase):
 
         response = self.client.get(reverse("avatar-list"))
 
-        self.assertEqual([a["id"] for a in response.data], [mine.id])
+        self.assertEqual([a["id"] for a in response.data], [str(mine.id)])
 
     def test_voices_are_shared_by_everyone(self):
         voice_model.make(_quantity=2)

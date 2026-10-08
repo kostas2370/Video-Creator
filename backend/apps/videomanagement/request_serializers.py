@@ -38,7 +38,7 @@ class GenerateSerializer(serializers.Serializer):
         required=False, choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM
     )
     voice_id = serializers.CharField(
-        required=False, max_length=20, default=None, allow_blank=True, allow_null=True
+        required=False, max_length=36, default=None, allow_blank=True, allow_null=True
     )
     gpt_model = serializers.ChoiceField(
         required=False,
@@ -49,7 +49,7 @@ class GenerateSerializer(serializers.Serializer):
         required=False, choices=["AI", "WEB", False], default="WEB"
     )
     avatar_selection = serializers.CharField(
-        required=False, max_length=30, default="", allow_blank=True, allow_null=True
+        required=False, max_length=36, default="", allow_blank=True, allow_null=True
     )
     style = serializers.ChoiceField(
         required=False, choices=["vivid", "natural"], default="vivid"
@@ -60,9 +60,9 @@ class GenerateSerializer(serializers.Serializer):
     target_audience = serializers.CharField(
         required=False, max_length=30, min_length=0, default="", allow_blank=True
     )
-    background = serializers.CharField(required=False, max_length=10, default=None)
-    intro = serializers.CharField(required=False, max_length=10, default=None)
-    outro = serializers.CharField(required=False, max_length=10, default=None)
+    background = serializers.CharField(required=False, max_length=36, default=None)
+    intro = serializers.CharField(required=False, max_length=36, default=None)
+    outro = serializers.CharField(required=False, max_length=36, default=None)
     subtitles = serializers.BooleanField(required=False, default=False)
     narration = serializers.BooleanField(required=False, default=True)
     provider = serializers.CharField(required=False, default=None)
@@ -147,7 +147,7 @@ class ChangeSceneImageSerializer(serializers.Serializer):
 
 
 class SceneImageQuerySerializer(serializers.Serializer):
-    scene_image = serializers.IntegerField(min_value=1, required=False)
+    scene_image = serializers.UUIDField(required=False)
 
 
 class GenerateSceneImageSerializer(serializers.Serializer):

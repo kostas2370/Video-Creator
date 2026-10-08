@@ -7,7 +7,7 @@ def publish_update(group, *, kind="video", video_id=None, scene_id=None, using=N
         lambda: send_event(
             group,
             "update",
-            {"video_id": video_id, "kind": kind, "scene_id": scene_id},
+            {"video_id": str(video_id) if video_id is not None else None, "kind": kind, "scene_id": str(scene_id) if scene_id is not None else None},
         ),
         using=using,
         robust=True,

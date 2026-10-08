@@ -37,6 +37,38 @@ class LoginViewTests(TestCase):
             AccessToken(response.data["tokens"]["access"])["user_id"], str(self.user.id)
         )
 
+    def test_legacy_access_cookie_does_not_block_password_login(self):
+        token = AccessToken()
+        token["user_id"] = 1
+        self.client.cookies["access_token"] = str(token)
+
+        response = self.login()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            AccessToken(response.cookies["access_token"].value)["user_id"],
+            str(self.user.pk),
+        )
+
+    def test_stale_authorization_header_does_not_block_password_login(self):
+        token = AccessToken()
+        token["user_id"] = "no-longer-a-valid-user"
+
+        response = self.login(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_legacy_cookie_does_not_bypass_password_validation(self):
+        token = AccessToken()
+        token["user_id"] = 1
+        self.client.cookies["access_token"] = str(token)
+
+        response = self.login(password="wrong-password")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertNotIn("access_token", response.cookies)
+        self.assertFalse(Login.objects.exists())
+
     def test_leaves_the_tokens_in_cookies_the_browser_sends_back(self):
         response = self.login()
 

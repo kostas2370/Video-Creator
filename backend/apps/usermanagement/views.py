@@ -3,6 +3,7 @@ import logging
 
 from django.middleware import csrf
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.contrib.sites.shortcuts import get_current_site
 from django.db.models import F
@@ -84,7 +85,10 @@ class VerifyEmail(generics.GenericAPIView):
         except jwt.DecodeError:
             return Response({"error": "Invalid Token"}, status=400)
 
-        user = get_user_model().objects.filter(id=load["user_id"]).first()
+        try:
+            user = get_user_model().objects.filter(id=load["user_id"]).first()
+        except (KeyError, ValidationError, ValueError, TypeError):
+            return Response({"error": "Invalid Token"}, status=400)
         if user is None:
             return Response({"error": "Invalid Token"}, status=400)
 
@@ -102,6 +106,13 @@ class VerifyEmail(generics.GenericAPIView):
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
     permission_classes = (AllowAny,)
+    # Credentials in the request body establish a new session. An old access
+    # cookie must not reject the request before those credentials are checked.
+    authentication_classes = []
+
+    def get_authenticate_header(self, request):
+        # Preserve the API's 401 response for rejected credentials.
+        return 'Bearer realm="api"'
 
     def post(self, request):
         serializer = self.serializer_class(

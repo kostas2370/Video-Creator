@@ -175,7 +175,7 @@ class VoiceViewTests(TestCase):
             voice["id"] for voice in self.client.get(reverse("voicemodel-list")).data
         ]
 
-        self.assertCountEqual(ids, [self.shared.id, mine.id])
+        self.assertCountEqual(ids, [str(self.shared.id), str(mine.id)])
 
     def test_does_not_expose_voice_creation_or_updates(self):
         count = VoiceModel.objects.count()

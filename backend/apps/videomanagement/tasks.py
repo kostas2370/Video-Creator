@@ -1,3 +1,4 @@
+from uuid import UUID
 import logging
 from contextlib import nullcontext
 from datetime import timedelta
@@ -25,7 +26,7 @@ VOICE_IMPORTS = {
 }
 
 
-def _mark_failed(video_id: int) -> None:
+def _mark_failed(video_id: str | UUID) -> None:
     video = Video.objects.filter(pk=video_id).first()
     if video is None:
         return
@@ -35,7 +36,7 @@ def _mark_failed(video_id: int) -> None:
 
 
 @shared_task(bind=True)
-def generate_video_task(self, video_id: int, **params):
+def generate_video_task(self, video_id: str | UUID, **params):
     video = Video.objects.get(pk=video_id)
 
     try:
@@ -50,7 +51,7 @@ def generate_video_task(self, video_id: int, **params):
 
 
 @shared_task(bind=True)
-def resume_video_task(self, video_id: int):
+def resume_video_task(self, video_id: str | UUID):
     video = Video.objects.get(pk=video_id)
 
     try:
@@ -65,7 +66,7 @@ def resume_video_task(self, video_id: int):
 
 
 @shared_task(bind=True)
-def render_video_task(self, video_id: int):
+def render_video_task(self, video_id: str | UUID):
     video = Video.objects.get(pk=video_id)
 
     try:
@@ -80,7 +81,7 @@ def render_video_task(self, video_id: int):
 
 
 @shared_task
-def create_scene_task(video_id: int, data: dict, upload_path=None):
+def create_scene_task(video_id: str | UUID, data: dict, upload_path=None):
     try:
         video = Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).first()
         if video is None:
@@ -129,7 +130,7 @@ def reap_stalled_videos():
 
 
 @shared_task
-def update_user_voices(user_id: int, provider: str):
+def update_user_voices(user_id: str | UUID, provider: str):
     fetcher = VOICE_IMPORTS.get(provider)
     user = get_user_model().objects.filter(pk=user_id).first()
     if user is None:

@@ -57,7 +57,7 @@ class VideoViewTests(ApiTestCase):
 
         response = self.client.get(reverse("video-list"))
 
-        self.assertEqual([v["id"] for v in response.data["results"]], [mine.id])
+        self.assertEqual([v["id"] for v in response.data["results"]], [str(mine.id)])
 
     def test_hides_videos_a_worker_has_not_filled_in_yet_from_the_list(self):
         self.video_for(gpt_answer=None)
@@ -85,7 +85,7 @@ class VideoViewTests(ApiTestCase):
 
         response = self.client.get(f"{reverse('video-list')}?status=READY")
 
-        self.assertEqual([v["id"] for v in response.data["results"]], [ready.id])
+        self.assertEqual([v["id"] for v in response.data["results"]], [str(ready.id)])
 
     def test_searches_by_title(self):
         wanted = self.video_for(title="Cats at home")
@@ -93,7 +93,7 @@ class VideoViewTests(ApiTestCase):
 
         response = self.client.get(f"{reverse('video-list')}?search=Cats")
 
-        self.assertEqual([v["id"] for v in response.data["results"]], [wanted.id])
+        self.assertEqual([v["id"] for v in response.data["results"]], [str(wanted.id)])
 
 
 class VideoUpdateViewTests(ApiTestCase):
