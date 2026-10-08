@@ -20,7 +20,9 @@ class CookieTokenRefreshViewTests(TestCase):
         response = self.refresh(str(RefreshToken.for_user(self.user)))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(AccessToken(response.data["access"])["user_id"], self.user.id)
+        self.assertEqual(
+            AccessToken(response.data["access"])["user_id"], str(self.user.id)
+        )
 
     def test_leaves_the_new_access_token_in_a_cookie(self):
         response = self.refresh(str(RefreshToken.for_user(self.user)))

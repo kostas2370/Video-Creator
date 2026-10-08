@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 jobs:
   build:
@@ -13,7 +12,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.9]
+        python-version: ["3.11"]
 
     steps:
     - uses: actions/checkout@v4
@@ -24,14 +23,14 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -y -qq --no-install-recommends ffmpeg libgl1 libglib2.0-0
+        sudo apt-get install -y -qq --no-install-recommends ffmpeg libgl1 libglib2.0-0 default-libmysqlclient-dev pkg-config
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         cache: pip
-        cache-dependency-path: backend/requirements/requirements.txt
+        cache-dependency-path: backend/requirements/*.txt
 
     # The default PyPI wheels drag the CUDA runtime in as separate nvidia-* packages,
     # roughly 2.5GB that a CI runner has no use for. Installed first, and pinned by
@@ -48,8 +47,11 @@ jobs:
     # One requirements file for the image and for CI, so what the suite runs against is
     # what ships. constraints.txt is applied here too — it is what holds torch to the
     # CPU build installed above.
+    - name: Install media build dependencies
+      run: pip install -r backend/requirements/build.txt
+
     - name: Install dependencies
-      run: pip install -r backend/requirements/requirements.txt
+      run: pip install --no-build-isolation -r backend/requirements/requirements.txt
       env:
         PIP_CONSTRAINT: backend/requirements/constraints.txt
 
