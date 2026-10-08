@@ -1,6 +1,6 @@
 # Two stages: the builder owns the compilers and the git checkouts, and only the
 # finished virtualenv is carried into the runtime image.
-FROM python:3.9-slim AS builder
+FROM python:3.11-slim AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -36,14 +36,21 @@ RUN pip install \
       torchaudio==2.5.1 \
       --index-url https://download.pytorch.org/whl/cpu
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      default-libmysqlclient-dev pkg-config \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY requirements/build.txt ./
+RUN pip install -r build.txt
+
 COPY requirements/requirements.txt requirements/constraints.txt ./
 
 # The constraints stop coqui-tts, basicsr, facexlib or gfpgan quietly pulling a
 # CUDA build of torch back in over the CPU one.
-RUN PIP_CONSTRAINT=constraints.txt pip install -r requirements.txt
+RUN PIP_CONSTRAINT=constraints.txt pip install --no-build-isolation -r requirements.txt
 
 
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # The original spelling of this was PYTHONBUFFERED, which Python ignores.
 ENV PYTHONUNBUFFERED=1 \
@@ -65,6 +72,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN for policy in /etc/ImageMagick-*/policy.xml; do \
       if [ -f "$policy" ]; then sed -i '/pattern="@\*"/d' "$policy"; fi; \
     done
+
+RUN apt-get update && apt-get install -y --no-install-recommends libmariadb3 \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
 

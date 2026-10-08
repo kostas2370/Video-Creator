@@ -31,8 +31,8 @@ proxies Django routes, and serves `/media/` directly with range-request support.
 The backend and worker share the backend checkout through a bind mount; nginx mounts
 its media directory read-only. Redis carries Celery messages and task results.
 
-The database's `Video.status` is the status exposed to the UI. The frontend polls the
-video endpoint rather than querying Celery's result backend. The supplied worker
+The database's `Video.status` is the status exposed to the UI. The frontend receives SSE updates and
+reloads the video endpoint when changes arrive, rather than querying Celery's result backend. The supplied worker
 startup uses Celery's `solo` pool, so one worker process executes one task at a time;
 ffmpeg's encoding threads do not make the task queue concurrent.
 
@@ -41,7 +41,7 @@ ffmpeg's encoding threads do not make the task queue concurrent.
 | Area | Responsibility | Entry points |
 | --- | --- | --- |
 | Frontend pages and components | Generation, scene editing, media libraries, provider management | [`frontend/src/pages/`](../frontend/src/pages/), [`frontend/src/components/`](../frontend/src/components/) |
-| Frontend API layer | Consistent response envelope, authentication clients, polling | [`frontend/src/api/`](../frontend/src/api/) |
+| Frontend API layer | Consistent response envelope, authentication clients, SSE subscriptions | [`frontend/src/api/`](../frontend/src/api/) |
 | Video API | Validate requests, check access, create or claim videos | [`videomanagement/views/`](../backend/apps/videomanagement/views/) |
 | Video services | Coordinate generation, recovery, and edits | [`videomanagement/services/`](../backend/apps/videomanagement/services/) |
 | Background tasks | Invoke services, record failures, import voices, reap stalled work | [`videomanagement/tasks.py`](../backend/apps/videomanagement/tasks.py) |
@@ -120,7 +120,7 @@ A `202` means work was queued, not that generation or encoding has completed.
 | --- | --- |
 | `POST /api/generate/` | Validate choices, create a `GENERATION` draft, enqueue generation; return `202` |
 | `GET /api/videos/` | Paginated owner-scoped library with title search and status filtering; drafts without a script are omitted |
-| `GET /api/videos/{id}/` | Video details, scenes, visuals, and narration status; unfinished drafts remain accessible for polling |
+| `GET /api/videos/{id}/` | Video details, scenes, visuals, and narration status; unfinished drafts remain accessible for API reads |
 | `PATCH /api/videos/{id}/` | Update title, avatar, intro, outro, and settings; an avatar voice change regenerates narration synchronously |
 | `PATCH /api/videos/{id}/render_video/` | Claim `READY` or `COMPLETED` as `RENDERING`, enqueue encoding; return `202` |
 | `PATCH /api/videos/{id}/resume/` | Claim `FAILED` or `READY` as `GENERATION` when a script and directory exist; return `202` |
@@ -469,13 +469,13 @@ Cookie and bearer-token authentication is implemented by
 [CustomAuthentication](../backend/apps/usermanagement/authenticate.py); its explicit
 CSRF enforcement call is currently commented out.
 
-[pollVideo.js](../frontend/src/api/pollVideo.js) polls every four seconds while a video
-is `GENERATION` or `RENDERING`. Defaults are a three-hour timeout and five consecutive
-request failures. A polling timeout or unreachable API means tracking stopped, not
-that the backend job necessarily failed.
+[waitForVideo.js](../frontend/src/api/waitForVideo.js) watches the shared SSE
+subscription while a video is `GENERATION` or `RENDERING`. Defaults are a three-hour
+timeout and five consecutive API request failures. A timeout or unreachable API
+means tracking stopped, not that the backend job necessarily failed.
 
 Video lifecycle hooks create an owner-scoped `Notification` and enqueue email when
-status changes to `COMPLETED` or `FAILED`. The notification bell polls every 30 seconds
+status changes to `COMPLETED` or `FAILED`. The notification bell receives SSE updates
 and supports marking one or all entries read. Missing narration on a `READY` video
 is reported by scene status and editor warnings, not a video-failure notification.
 
@@ -509,7 +509,7 @@ production-ready by themselves.
 | Change script structure | `defaults.py`, `check_json()`, and `script_lines()` together |
 | Add a composition layer | `utils/composer/` and `handle_final_video()` |
 | Change ownership behavior | Owner-scoped querysets, `permissions.py`, `asset_selection.py`, API and service regressions |
-| Change recovery behavior | Task wrappers, `resume_video()`, file-existence helpers, reaper, frontend polling |
+| Change recovery behavior | Task wrappers, `resume_video()`, file-existence helpers, reaper, frontend subscriptions |
 | Change cost calculation | `cost_utils.py` and scene endpoint deductions |
 
 Backend tests are grouped under `tests/api/`, `tests/services/`, `tests/utils/`,
@@ -526,3 +526,40 @@ docker compose exec video_creator python manage.py test \
 ```
 
 For frontend changes, build the app and inspect the relevant flows in a browser.
+
+
+## Live video and notification updates
+
+The ASGI application exposes `GET /api/videos/{id}/events/` and
+`GET /api/notifications/events/` as Server-Sent Events. Streams authenticate with
+existing access cookies (or a Bearer header for non-browser clients). Video streams
+require ownership; notification streams join only the authenticated user's group.
+No access tokens appear in URLs. Cross-origin browser streams accept only the
+configured `FRONTEND_URL` and `CORS_ALLOWED_ORIGINS`, with credentials enabled.
+
+Committed Video, Scene, SceneImage and Notification writes publish small
+invalidations through django-eventstream and Redis pub/sub. Direct status
+claims and bulk notification read updates publish explicitly because queryset
+updates bypass Django signals. Delivery is best effort; Redis connection attempts
+time out after one second, and notification failures do not fail media operations. Events carry IDs and kinds,
+not scene content. Redis defaults to `CELERY_BROKER_URL`, overridable with
+`VIDEO_EVENTS_REDIS_URL`.
+
+The frontend shares one connection and reload request per resource. It coalesces
+bursts and loads current data on subscription, stream connection/reconnection,
+stream reset, and change events. There is no periodic refresh or polling fallback.
+If streaming is unavailable, existing data remains displayed until the connection
+returns or the user reloads. Stream retries happen every 30 seconds; before retrying,
+the client renews its access cookie through the token refresh endpoint without
+fetching video or notification data. Operation waiters reuse the same connection
+and retain timeout, failure and cancellation handling. Streams send django-eventstream
+heartbeats every 20 seconds, close at token expiry, and release
+their subscriptions on disconnect.
+
+`startdjango.sh` runs Uvicorn against `video_creator.asgi:application`. Live updates require ASGI;
+plain WSGI deployments cannot serve the event streams. In development the
+ASGI application still serves staticfiles; production media/static handling remains
+with the existing proxy. Nginx disables buffering for event endpoints and keeps
+its read timeout above the heartbeat interval. Other proxies must likewise disable
+buffering for these routes. This adds status/scene invalidations, not numerical
+rendering progress or a collaborative editor.

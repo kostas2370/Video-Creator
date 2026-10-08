@@ -6,6 +6,7 @@ from .views.general_views import (
     SceneImageView,
     TemplatePromptView,
 )
+from .event_stream import event_updates
 from .views.generate_view import GenerateView
 from .views.scene_view import SceneView
 from .views.video_view import VideoView
@@ -27,6 +28,7 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
+    path("videos/<int:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]
 

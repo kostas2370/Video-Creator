@@ -21,6 +21,8 @@ from rest_framework_simplejwt import tokens
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.exceptions import TokenError
 
+from apps.videomanagement.events import publish_update
+
 from .models import Login, Notification
 from .serializers import (
     NotificationSerializer,
@@ -242,5 +244,7 @@ class NotificationView(
     @action(detail=False, methods=["PATCH"])
     def read_all(self, request):
         marked = self.get_queryset().filter(read=False).update(read=True)
+        if marked:
+            publish_update(f"notifications.{request.user.pk}", kind="notification")
 
         return Response({"read": marked})

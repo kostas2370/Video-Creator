@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
 
+from .events import publish_update
 from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel, VoiceModelType
 from .services import SceneServices, VideoGenerationServices
 from .utils import tts_utils
@@ -94,6 +95,7 @@ def create_scene_task(video_id: int, data: dict, upload_path=None):
         raise
     else:
         Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(status=VideoStatus.READY)
+        publish_update(f"video.{video_id}", video_id=video_id)
     finally:
         if upload_path:
             default_storage.delete(upload_path)
