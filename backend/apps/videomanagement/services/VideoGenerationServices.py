@@ -115,6 +115,7 @@ def generate_video(
     avatar_position: str = "right,top",
     genre: str = "",
     platform: str = "GENERAL",
+    scene_count: int = None,
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -189,6 +190,7 @@ def generate_video(
         userprompt=message,
         target_audience=target_audience,
         platform=platform,
+        scene_count=scene_count,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -219,6 +221,8 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if scene_count is not None:
+        vid.settings["scene_count"] = scene_count
     vid.save()
 
     logger.info(f"Filled in the video instance with id : {vid.id}")

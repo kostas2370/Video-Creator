@@ -29,6 +29,14 @@ class CustomAuthenticationTests(TestCase):
 
         self.assertEqual(authenticated, self.user)
 
+    def test_accepts_tokens_issued_before_user_ids_became_strings(self):
+        token = RefreshToken.for_user(self.user).access_token
+        token["user_id"] = self.user.id
+
+        authenticated, _ = self.authentication.authenticate(self.request(str(token)))
+
+        self.assertEqual(authenticated, self.user)
+
     def test_falls_back_to_the_authorization_header(self):
         request = self.request(HTTP_AUTHORIZATION=f"Bearer {self.access}")
 

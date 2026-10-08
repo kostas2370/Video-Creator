@@ -293,7 +293,7 @@ class CreateImageScenesTests(TestCase):
                 scenes_utils, "create_image_scene", return_value="shot.png"
             ) as create,
         ):
-            create_image_scenes(self.video, mode="AI", provider="DALL-E")
+            create_image_scenes(self.video, mode="AI", provider="OPENAI")
         self.assertEqual(
             [call.kwargs["reference"] for call in create.call_args_list],
             [self.video.reference_image.path] * 2,
@@ -350,7 +350,7 @@ class CreateImageScenesTests(TestCase):
                 scenes_utils, "create_image_scene", return_value="two.png"
             ) as create,
         ):
-            create_image_scenes(self.video, mode="AI", provider="DALL-E")
+            create_image_scenes(self.video, mode="AI", provider="OPENAI")
         create.assert_called_once()
         self.assertEqual(create.call_args.kwargs["reference"], saved.file.path)
 
@@ -378,8 +378,33 @@ class CreateImageScenesTests(TestCase):
 
 
 class GenerateNewImageTests(TestCase):
+    def test_appended_scenes_reuse_the_uploaded_identity_image(self):
+        self.video.reference_image = "media/context.png"
+        appended = scene.make(video=self.video, text="Added after generation.")
+        with patch.object(scenes_utils, "stored_file_exists", return_value=True):
+            reference = scenes_utils.scene_reference(appended, self.video, "OPENAI")
+        self.assertEqual(reference, self.video.reference_image.path)
 
+    def test_appended_video_scenes_continue_from_the_previous_added_scene(self):
+        self.video.gpt_answer = {"scenes": []}
+        previous = scene.make(video=self.video, text="An added scene.")
+        saved = scene_image.make(scene=previous, file="media/previous.mp4")
+        appended = scene.make(video=self.video, text="Another added scene.")
+        with (
+            patch.object(scenes_utils, "stored_file_exists", return_value=True),
+            patch.object(scenes_utils, "still_from_video", return_value="images/context.png") as still,
+        ):
+            reference = scenes_utils.scene_reference(appended, self.video, "sora")
+        self.assertEqual(reference, "images/context.png")
+        self.assertEqual(still.call_args.args[0], saved.file.path)
 
+    def test_a_missing_previous_clip_does_not_reuse_an_older_frame(self):
+        scene.make(video=self.video, text="Missing previous clip.")
+        appended = scene.make(video=self.video, text="Next scene.")
+        with patch.object(scenes_utils, "still_from_video") as still:
+            reference = scenes_utils.scene_reference(appended, self.video, "sora")
+        self.assertIsNone(reference)
+        still.assert_not_called()
 
     def setUp(self):
         self.video = video.make(mode="AI")
@@ -387,7 +412,7 @@ class GenerateNewImageTests(TestCase):
 
     def test_replaces_the_file_with_the_newly_generated_one(self):
         with patch.object(
-            openai_images, "generate_from_dalle", return_value="images/new.png"
+            openai_images, "generate_openai_image", return_value="images/new.png"
         ):
             generate_new_image(self.scene_image, self.video)
 
@@ -396,7 +421,7 @@ class GenerateNewImageTests(TestCase):
 
     def test_keeps_the_old_image_when_generation_fails(self):
         with patch.object(
-            openai_images, "generate_from_dalle", side_effect=RuntimeError("rate limit")
+            openai_images, "generate_openai_image", side_effect=RuntimeError("rate limit")
         ):
             generate_new_image(self.scene_image, self.video)
 
@@ -406,7 +431,7 @@ class GenerateNewImageTests(TestCase):
     def test_does_nothing_for_a_video_whose_mode_has_no_provider(self):
         self.video.mode = "UNKNOWN"
 
-        with patch.object(openai_images, "generate_from_dalle") as generate:
+        with patch.object(openai_images, "generate_openai_image") as generate:
             generate_new_image(self.scene_image, self.video)
 
         generate.assert_not_called()
@@ -427,7 +452,7 @@ class GenerateNewImageTests(TestCase):
         with (
             patch.object(scenes_utils, "stored_file_exists", return_value=True),
             patch.object(
-                openai_images, "generate_from_dalle", return_value="images/new.png"
+                openai_images, "generate_openai_image", return_value="images/new.png"
             ) as generate,
         ):
             generate_new_image(self.scene_image, self.video)
@@ -455,6 +480,6 @@ class GenerateNewImageTests(TestCase):
                 scenes_utils, "still_from_video", return_value="anchor.png"
             ) as still,
         ):
-            reference = scenes_utils.regeneration_reference(target, self.video, "sora")
+            reference = scenes_utils.scene_reference(target.scene, self.video, "sora")
         self.assertEqual(reference, "anchor.png")
         self.assertEqual(still.call_args.args[0], saved.file.path)

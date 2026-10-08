@@ -3,6 +3,7 @@ import base64
 import hashlib
 import os
 from datetime import timedelta
+from urllib.parse import unquote, urlparse
 
 # Paths
 # settings/ is a package now, so BASE_DIR is three parents up rather than two.
@@ -34,6 +35,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_cleanup.apps.CleanupConfig",
     "rest_framework",
+    "django_eventstream",
     "rest_framework_simplejwt.token_blacklist",
     "django_celery_beat",
     "djoser",
@@ -101,6 +103,18 @@ CELERY_BROKER_URL = (
     os.getenv("CELERY_BROKER_URL") or "redis://redis-stack-server:6379/0"
 )
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
+
+VIDEO_EVENTS_REDIS_URL = os.getenv("VIDEO_EVENTS_REDIS_URL") or CELERY_BROKER_URL
+event_redis_url = urlparse(VIDEO_EVENTS_REDIS_URL)
+EVENTSTREAM_REDIS = {
+    "host": event_redis_url.hostname or "localhost",
+    "port": event_redis_url.port or 6379,
+    "db": int(event_redis_url.path.strip("/") or "0"),
+    "username": unquote(event_redis_url.username) if event_redis_url.username else None,
+    "password": unquote(event_redis_url.password) if event_redis_url.password else None,
+    "ssl": event_redis_url.scheme == "rediss",
+    "socket_connect_timeout": 1,
+}
 
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1

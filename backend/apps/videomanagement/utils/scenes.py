@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from django.db import close_old_connections
 from moviepy.editor import AudioFileClip, VideoFileClip
 
-from .image_providers import ImageProviderRegistry, resolve
+from .image_providers import ImageProviderRegistry
 from .prompt_utils import script_lines
 from .file_utils import check_if_video, stored_file_exists
 from ..models import Scene, SceneImage, Video
@@ -130,7 +130,7 @@ def create_image_scene(
         return None
 
     try:
-        generate = resolve(mode, provider)
+        generate = ImageProviderRegistry.resolve(mode, provider)
         downloaded_image = generate(
             image,
             f"{dir_name}/images/",
@@ -153,10 +153,6 @@ def create_image_scene(
         ),
     )
     return downloaded_image
-
-
-def already_illustrated(video: Video, text: str) -> bool:
-    return existing_visual(video, text) is not None
 
 
 def existing_visual(video: Video, text: str):
@@ -203,13 +199,13 @@ def create_image_scenes(
     dir_name = video.dir_name
     with_audio = not (video.settings or {}).get("narration", True)
     lines = list(script_lines(video.gpt_answer))
-    pending = [line for line in lines if not already_illustrated(video, line.text)]
+    pending = [line for line in lines if existing_visual(video, line.text) is None]
 
     if not pending:
         return
 
     is_video = ImageProviderRegistry.is_video(provider, user=video.created_by)
-    shared_image_reference = mode == "AI" and provider in (None, "", "DALL-E")
+    shared_image_reference = mode == "AI" and provider in (None, "", "OPENAI")
     if not is_video and not shared_image_reference:
         with ThreadPoolExecutor(
             max_workers=min(MAX_PARALLEL_STILL_IMAGES, len(pending)),
@@ -273,10 +269,8 @@ def _create_image_scene_in_thread(**kwargs):
         close_old_connections()
 
 
-
-
-def regeneration_reference(scene_image: SceneImage, video: Video, provider):
-    """Reuse the same anchor when a single shot is regenerated in the editor."""
+def scene_reference(scene: Scene, video: Video, provider):
+    """Select an identity anchor or the preceding scene's final frame."""
     if video.mode != "AI":
         return None
     uploaded = (
@@ -284,27 +278,17 @@ def regeneration_reference(scene_image: SceneImage, video: Video, provider):
         if video.reference_image and stored_file_exists(video.reference_image)
         else None
     )
-    if provider in (None, "", "DALL-E") and uploaded:
+    if provider in (None, "", "OPENAI") and uploaded:
         return uploaded
-    if not isinstance(video.gpt_answer, dict) or not video.gpt_answer.get("scenes"):
-        return None
-    if provider in (None, "", "DALL-E"):
-        for line in script_lines(video.gpt_answer):
-            path = existing_visual(video, line.text)
-            if path and not check_if_video(path):
-                return path
+    if provider in (None, "", "OPENAI"):
+        for image in SceneImage.objects.filter(scene__video=video).order_by("scene_id", "pk"):
+            if stored_file_exists(image.file) and not check_if_video(image.file.path):
+                return image.file.path
     elif ImageProviderRegistry.is_video(provider, user=video.created_by):
-        previous = None
-        previous_text = ""
-        for line in script_lines(video.gpt_answer):
-            if line.text == scene_image.scene.text.strip():
-                return (
-                    continuation_frame(video, previous_text, previous)
-                    if previous_text
-                    else uploaded
-                )
-            previous = existing_visual(video, line.text)
-            previous_text = line.text
+        previous = video.scenes.filter(pk__lt=scene.pk).order_by("-pk").first()
+        if previous is None:
+            return uploaded
+        return continuation_frame(video, previous.text, existing_visual(video, previous.text))
     return None
 
 
@@ -331,9 +315,9 @@ def generate_new_image(
     """
     try:
         provider = (video.settings or {}).get("provider")
-        generate = resolve(video.mode, provider)
+        generate = ImageProviderRegistry.resolve(video.mode, provider)
         if "reference" not in kwargs:
-            kwargs["reference"] = regeneration_reference(scene_image, video, provider)
+            kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
         img = generate(
             scene_image.prompt,
             f"{video.dir_name}/images/",

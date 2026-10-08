@@ -126,7 +126,16 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(video.gpt_answer, A_SCRIPT)
         self.assertEqual(video.dir_name, "media/videos/cats")
 
+    def test_records_and_requests_the_selected_scene_count(self):
+        generated = self.generate(scene_count=1)
+        self.assertEqual(generated.settings["scene_count"], 1)
+        self.assertIn("exactly 1 scenes", self.get_reply.call_args.args[0])
 
+    def test_accepts_the_returned_script_when_the_scene_count_differs(self):
+        generated = self.generate(scene_count=3)
+        self.assertEqual(generated.gpt_answer, A_SCRIPT)
+        self.assertEqual(generated.status, "READY")
+        self.assertEqual(generated.settings["scene_count"], 3)
 
     def test_records_the_choices_the_render_will_need(self):
         video = self.generate(
@@ -147,7 +156,7 @@ class GenerateVideoTests(TestCase):
         )
 
     def test_asks_for_a_still_brief_for_an_image_provider(self):
-        self.generate(provider="DALL-E")
+        self.generate(provider="OPENAI")
 
         self.assertNotIn("camera move", self.get_reply.call_args.args[0])
 

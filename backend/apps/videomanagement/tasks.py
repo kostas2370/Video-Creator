@@ -1,4 +1,5 @@
 import logging
+from contextlib import nullcontext
 from datetime import timedelta
 from celery import shared_task
 from django.conf import settings
@@ -10,8 +11,11 @@ from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
 
+from .events import publish_update
 from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel, VoiceModelType
+from .services import SceneServices, VideoGenerationServices
 from .utils import tts_utils
+from .utils.composer import render
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +36,10 @@ def _mark_failed(video_id: int) -> None:
 
 @shared_task(bind=True)
 def generate_video_task(self, video_id: int, **params):
-    from .services.VideoGenerationServices import generate_video
-
     video = Video.objects.get(pk=video_id)
 
     try:
-        generate_video(video=video, **params)
+        VideoGenerationServices.generate_video(video=video, **params)
     except Exception:
         logger.exception("Generation failed for video %s", video_id)
         _mark_failed(video_id)
@@ -49,12 +51,10 @@ def generate_video_task(self, video_id: int, **params):
 
 @shared_task(bind=True)
 def resume_video_task(self, video_id: int):
-    from .services.VideoGenerationServices import resume_video
-
     video = Video.objects.get(pk=video_id)
 
     try:
-        resume_video(video)
+        VideoGenerationServices.resume_video(video)
     except Exception:
         logger.exception("Resume failed for video %s", video_id)
         _mark_failed(video_id)
@@ -66,12 +66,10 @@ def resume_video_task(self, video_id: int):
 
 @shared_task(bind=True)
 def render_video_task(self, video_id: int):
-    from .utils.composer.render import make_video
-
     video = Video.objects.get(pk=video_id)
 
     try:
-        make_video(video)
+        render.make_video(video)
     except Exception:
         logger.exception("Render failed for video %s", video_id)
         _mark_failed(video_id)
@@ -83,23 +81,21 @@ def render_video_task(self, video_id: int):
 
 @shared_task
 def create_scene_task(video_id: int, data: dict, upload_path=None):
-    from .services.SceneServices import create_scene
-
     try:
         video = Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).first()
         if video is None:
             return
-        if upload_path:
-            with default_storage.open(upload_path, "rb") as upload:
-                create_scene(video, data, {"image": File(upload, name=Path(upload_path).name)})
-        else:
-            create_scene(video, data, {})
+        with (default_storage.open(upload_path, "rb") if upload_path else nullcontext()) as upload:
+            files = {"image": File(upload, name=Path(upload_path).name)} if upload_path else {}
+            for item in data.get("scenes", [data]):
+                SceneServices.create_scene(video, item, files)
     except Exception:
         logger.exception("Scene creation failed for video %s", video_id)
         _mark_failed(video_id)
         raise
     else:
         Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(status=VideoStatus.READY)
+        publish_update(f"video.{video_id}", video_id=video_id)
     finally:
         if upload_path:
             default_storage.delete(upload_path)

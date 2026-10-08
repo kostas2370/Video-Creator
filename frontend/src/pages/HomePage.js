@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { getAvatars, getTemplates, getVoices, getCustomVisualProviders } from "../api/apiService";
 import { toast } from "react-toastify";
 import { deleteTemplate, generateVideo } from "../api/apiService";
-import { pollVideo } from "../api/pollVideo";
+import { waitForVideo } from "../api/waitForVideo";
 import { Link } from "react-router-dom";
 import { RiSparkling2Line, RiArrowRightLine, RiVolumeUpLine, RiImageLine, RiSettings3Line, RiArrowDownSLine } from "react-icons/ri";
 import { ProceedModal } from "../components/ProceedModal";
@@ -15,7 +15,7 @@ const ttsProviderNames = {
   ELEVENLABS: "ElevenLabs",
   SIXTYDB: "60dB",
 };
-const visualProviderNames = { "DALL-E": "OpenAI images", sora: "OpenAI Sora (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
+const visualProviderNames = { "OPENAI": "OpenAI images", sora: "OpenAI Sora (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
 const videoFormatOptions = [
   { value: "LANDSCAPE", label: "Landscape", ratio: "16:9", shape: "w-12 aspect-video" },
   { value: "PORTRAIT", label: "Portrait", ratio: "9:16", shape: "h-10 aspect-[9/16]" },
@@ -59,6 +59,7 @@ const Home = () => {
     avatar_selection: "",
     voice_id: "",
     message: "",
+    scene_count: 8,
     target_audience: "",
     image_mode: "WEB",
     gpt_model: "gpt-5.4-mini",
@@ -72,7 +73,7 @@ const Home = () => {
     avatar_position: "left,top",
   });
 
-  const supportsReference = formData.image_mode === "AI" && ["DALL-E", "sora"].includes(formData.provider);
+  const supportsReference = formData.image_mode === "AI" && ["OPENAI", "sora"].includes(formData.provider);
   useEffect(() => {
     if (!supportsReference) setReferenceImage(null);
   }, [supportsReference]);
@@ -142,6 +143,7 @@ const Home = () => {
           ...prevData,
           template: selectedTemplate.id,
           message: selectedTemplate.message ?? prevData.message,
+          scene_count: selectedTemplate.scene_count ?? "",
           genre: selectedTemplate.genre ?? "",
           target_audience: selectedTemplate.target_audience ?? "",
           avatar_selection: selectedTemplate.avatar_selection ?? "",
@@ -154,7 +156,7 @@ const Home = () => {
           music: selectedTemplate.music ?? "",
           provider:
             selectedTemplate.provider ??
-            (selectedTemplate.image_mode === "AI" ? "DALL-E" : "bing"),
+            (selectedTemplate.image_mode === "AI" ? "OPENAI" : "bing"),
           subtitles: selectedTemplate.subtitles ?? prevData.subtitles,
           narration: selectedTemplate.narration ?? prevData.narration,
           avatar_position:
@@ -170,7 +172,7 @@ const Home = () => {
       setFormData((prevData) => ({
         ...prevData,
         [name]: value,
-        provider: value === "AI" ? "DALL-E" : "bing",
+        provider: value === "AI" ? "OPENAI" : "bing",
       }));
     } else if (name === "avatar_selection") {
       setFormData((prevData) => ({
@@ -196,7 +198,7 @@ const Home = () => {
   }, []);
 
   const settingsForTemplate = Object.fromEntries(
-    Object.entries(formData).filter(([field]) => field !== "template")
+    Object.entries(formData).filter(([field]) => field !== "template").map(([field, value]) => [field, field === "scene_count" ? (value === "" ? null : Number(value)) : value])
   );
 
   const selectedTemplate = templates.find(
@@ -225,10 +227,11 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    let payload = formData;
+    const generationData = { ...formData, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
+    let payload = generationData;
     if (supportsReference && referenceImage) {
       payload = new FormData();
-      Object.entries(formData).forEach(([key, value]) => {
+      Object.entries(generationData).forEach(([key, value]) => {
         if (value !== null && value !== undefined) payload.append(key, value);
       });
       payload.append("reference_image", referenceImage);
@@ -245,8 +248,9 @@ const Home = () => {
 
     toast.info("Generation started, this usually takes a few minutes...");
 
-    pollRef.current = pollVideo(response.video.id);
+    pollRef.current = waitForVideo(response.video.id);
     const { outcome, video } = await pollRef.current.promise;
+    if (outcome === "CANCELLED") return;
 
     setIsLoading(false);
 
@@ -313,6 +317,7 @@ const Home = () => {
               </div>
             </div>
             {field("message", "Your prompt", <textarea id="message" name="message" rows={7} required value={formData.message} onChange={handleInputChange} className={`${inputClassName} resize-y leading-relaxed`} placeholder="What is your video about? Describe the story, tone, and details you want to include." />, "A clear topic and a few specific details help shape the script.")}
+            <div className="mt-4 max-w-xs">{field("scene_count", "Number of scenes", <input id="scene_count" name="scene_count" type="number" min={1} max={60} value={formData.scene_count} onChange={handleInputChange} className={inputClassName} placeholder="Let AI choose" />, "One short sentence per scene. Choose 1–60, or leave blank to let AI choose.")}</div>
             <div className="mt-4 flex flex-wrap items-center gap-2"><span className="text-xs text-gray-400">Try an idea</span>{examples.map(([label, prompt]) => <button key={label} type="button" onClick={() => setFormData((previous) => ({ ...previous, message: prompt, template: "" }))} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-blue-900/30">{label}</button>)}</div>
           </section>
 

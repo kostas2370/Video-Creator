@@ -14,7 +14,7 @@ from apps.apikeysmanagement.models import UserCustomVisualProvider
 from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import scene, video
-from ...utils.image_providers import ImageProviderRegistry, custom, resolve
+from ...utils.image_providers import ImageProviderRegistry, custom
 from ...utils.scenes import create_image_scene, generate_new_image
 from ...baker_recipes import scene_image
 
@@ -328,7 +328,7 @@ class CustomImageProviderTests(TestCase):
         with patch.object(
             custom, "generate_from_custom_provider", return_value="image.png"
         ) as generate:
-            result = resolve("AI", self.provider.name)(
+            result = ImageProviderRegistry.resolve("AI", self.provider.name)(
                 "a cat", self.directory, user=self.user
             )
         self.assertEqual(result, "image.png")
@@ -426,7 +426,7 @@ class CustomVideoProviderTests(TestCase):
         self.directory = directory.name
 
     def generate(self, owner=None):
-        return resolve("AI", self.provider.name)(
+        return ImageProviderRegistry.resolve("AI", self.provider.name)(
             "a moving red house", self.directory, user=owner or self.user
         )
 
@@ -572,7 +572,7 @@ class CustomVideoProviderTests(TestCase):
         )
         self.assertFalse(ImageProviderRegistry.is_video(self.provider.name))
         self.assertTrue(ImageProviderRegistry.is_video("sora"))
-        self.assertFalse(ImageProviderRegistry.is_video("DALL-E", self.user))
+        self.assertFalse(ImageProviderRegistry.is_video("OPENAI", self.user))
 
     def test_scene_generation_saves_video_and_enables_its_audio(self):
         row = video.make(created_by=self.user)
