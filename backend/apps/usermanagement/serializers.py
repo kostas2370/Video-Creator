@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -84,7 +85,10 @@ class CookieTokenRefreshSerializer(jwt_serializers.TokenRefreshSerializer):
     def validate(self, attrs):
         attrs["refresh"] = self.context["request"].COOKIES.get("refresh_token")
         if attrs["refresh"]:
-            return super().validate(attrs)
+            try:
+                return super().validate(attrs)
+            except (ValidationError, get_user_model().DoesNotExist) as exc:
+                raise jwt_exceptions.InvalidToken("Invalid user identifier.") from exc
         else:
             raise jwt_exceptions.InvalidToken(
                 "No valid token found in cookie 'refresh'"

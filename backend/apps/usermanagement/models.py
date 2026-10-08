@@ -1,3 +1,4 @@
+from uuid import uuid4
 from datetime import datetime, timezone
 
 from django.conf import settings
@@ -11,6 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class User(AbstractUser, PermissionsMixin):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     first_name = models.CharField(max_length=20, blank=False)
     last_name = models.CharField(max_length=20, blank=False)
     email = models.EmailField(unique=True)
@@ -51,6 +53,7 @@ class User(AbstractUser, PermissionsMixin):
 
 
 class Login(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     ip = models.GenericIPAddressField()
     date = models.DateTimeField(auto_now_add=True)
@@ -78,6 +81,7 @@ class Login(models.Model):
 
 
 class Notification(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     user = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE, related_name="notifications"
     )

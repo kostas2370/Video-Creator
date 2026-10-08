@@ -3,6 +3,7 @@
 from django.conf import settings
 import django.contrib.auth.models
 import django.contrib.auth.validators
+import uuid
 from django.db import migrations, models
 import django.db.models.deletion
 import django.utils.timezone
@@ -21,11 +22,11 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.BigAutoField(
-                        auto_created=True,
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
                         primary_key=True,
                         serialize=False,
-                        verbose_name="ID",
                     ),
                 ),
                 ("password", models.CharField(max_length=128, verbose_name="password")),
@@ -123,11 +124,11 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.BigAutoField(
-                        auto_created=True,
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
                         primary_key=True,
                         serialize=False,
-                        verbose_name="ID",
                     ),
                 ),
                 ("ip", models.CharField(max_length=15)),

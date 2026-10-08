@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from ..authenticate import CustomAuthentication
@@ -29,13 +30,13 @@ class CustomAuthenticationTests(TestCase):
 
         self.assertEqual(authenticated, self.user)
 
-    def test_accepts_tokens_issued_before_user_ids_became_strings(self):
-        token = RefreshToken.for_user(self.user).access_token
-        token["user_id"] = self.user.id
-
-        authenticated, _ = self.authentication.authenticate(self.request(str(token)))
-
-        self.assertEqual(authenticated, self.user)
+    def test_legacy_and_malformed_user_ids_are_rejected_cleanly(self):
+        for user_id in (1, "1", "not-a-uuid"):
+            with self.subTest(user_id=user_id):
+                token = RefreshToken.for_user(self.user).access_token
+                token["user_id"] = user_id
+                with self.assertRaises(AuthenticationFailed):
+                    self.authentication.authenticate(self.request(str(token)))
 
     def test_falls_back_to_the_authorization_header(self):
         request = self.request(HTTP_AUTHORIZATION=f"Bearer {self.access}")

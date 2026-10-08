@@ -308,7 +308,7 @@ class SceneImageSchemaTests(SimpleTestCase):
         self.assertEqual(parameters["image"]["in"], "formData")
         self.assertEqual(parameters["image"]["type"], "file")
         self.assertEqual(parameters["scene_image"]["in"], "query")
-        self.assertEqual(parameters["scene_image"]["type"], "integer")
+        self.assertEqual(parameters["scene_image"]["type"], "string")
         self.assertIn("200", operation["responses"])
         self.assertNotIn("201", operation["responses"])
 

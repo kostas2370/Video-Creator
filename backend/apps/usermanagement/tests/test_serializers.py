@@ -144,3 +144,20 @@ class CookieTokenRefreshSerializerTests(TestCase):
     def test_refuses_a_cookie_it_cannot_read(self):
         with self.assertRaises(TokenError):
             self.serializer(refresh_token="not-a-token").is_valid()
+
+
+class LegacyRefreshTokenTests(TestCase):
+    def test_legacy_user_ids_require_sign_in_instead_of_crashing(self):
+        from types import SimpleNamespace
+        from rest_framework_simplejwt.tokens import RefreshToken
+        from rest_framework_simplejwt.exceptions import InvalidToken
+
+        for user_id in (1, "1", "not-a-uuid"):
+            with self.subTest(user_id=user_id):
+                token = RefreshToken()
+                token["user_id"] = user_id
+                serializer = CookieTokenRefreshSerializer(context={
+                    "request": SimpleNamespace(COOKIES={"refresh_token": str(token)})
+                })
+                with self.assertRaises(InvalidToken):
+                    serializer.validate({})

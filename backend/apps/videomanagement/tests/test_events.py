@@ -49,7 +49,7 @@ class EventPublicationTests(TestCase):
             self.assertTrue(
                 all(call.args[1] == "update" for call in send.call_args_list)
             )
-            self.assertEqual(send.call_args_list[0].args[2]["scene_id"], scene.pk)
+            self.assertEqual(send.call_args_list[0].args[2]["scene_id"], str(scene.pk))
 
     def test_rollback_does_not_publish(self):
         with patch("apps.videomanagement.events.send_event") as send:

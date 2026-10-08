@@ -123,7 +123,7 @@ class GenerateViewTests(ApiTestCase):
 
         delay.assert_called_once()
         self.assertEqual(
-            delay.call_args.kwargs["video_id"], response.data["video"]["id"]
+            str(delay.call_args.kwargs["video_id"]), response.data["video"]["id"]
         )
         self.assertFalse(delay.call_args.kwargs["narration"])
 
