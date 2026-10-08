@@ -553,7 +553,7 @@ returns or the user reloads. Stream retries happen every 30 seconds; before retr
 the client renews its access cookie through the token refresh endpoint without
 fetching video or notification data. Operation waiters reuse the same connection
 and retain timeout, failure and cancellation handling. Streams send django-eventstream
-heartbeats every 20 seconds, close within five minutes or at token expiry, and release
+heartbeats every 20 seconds, close at token expiry, and release
 their subscriptions on disconnect.
 
 `startdjango.sh` runs Uvicorn against `video_creator.asgi:application`. Live updates require ASGI;
