@@ -40,6 +40,7 @@ test("uploads reference and form settings together with a preview", async () => 
   expect(payload).toBeInstanceOf(FormData);
   expect(payload.get("reference_image")).toBe(file);
   expect(payload.get("message")).toBe("A cat exploring");
+  expect(payload.get("provider")).toBe("OPENAI");
   expect(payload.get("narration")).toBe("true");
 });
 
@@ -60,4 +61,18 @@ test("switching to an unsupported provider clears the reference", async () => {
   fireEvent.change(screen.getByLabelText("Visual provider"), { target: { value: "sora" } });
   expect(screen.queryByAltText("Reference preview")).toBeNull();
   expect(screen.getByLabelText(/Reference image/)).toBeTruthy();
+});
+
+test("sends the chosen scene count with a reference upload", async () => {
+  await prepare();
+  fireEvent.change(screen.getByLabelText("Number of scenes"), { target: { value: "5" } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate video" })); });
+  expect(generateVideo.mock.calls[0][0].get("scene_count")).toBe("5");
+});
+
+test("leaving the scene count blank lets AI choose without sending an empty number", async () => {
+  await prepare();
+  fireEvent.change(screen.getByLabelText("Number of scenes"), { target: { value: "" } });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate video" })); });
+  expect(generateVideo.mock.calls[0][0].has("scene_count")).toBe(false);
 });

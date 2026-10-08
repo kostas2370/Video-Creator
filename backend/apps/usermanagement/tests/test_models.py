@@ -58,8 +58,8 @@ class GetTokensTests(TestCase):
     def test_issues_a_usable_token_pair(self):
         tokens = self.user.get_tokens()
 
-        self.assertEqual(AccessToken(tokens["access"])["user_id"], self.user.id)
-        self.assertEqual(RefreshToken(tokens["refresh"])["user_id"], self.user.id)
+        self.assertEqual(AccessToken(tokens["access"])["user_id"], str(self.user.id))
+        self.assertEqual(RefreshToken(tokens["refresh"])["user_id"], str(self.user.id))
 
     def test_a_remembered_pair_carries_the_flag_the_refresh_view_reads(self):
         tokens = self.user.get_tokens(remember_me=True)

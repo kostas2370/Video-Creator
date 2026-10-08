@@ -115,6 +115,7 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
     @hook(AFTER_UPDATE, on_commit=True)
     def update_user_voices(self):
+        # Keep local: video tasks import these API-key models.
         from apps.videomanagement.tasks import update_user_voices
 
         for field, provider in VOICE_KEY_FIELDS.items():
@@ -209,12 +210,14 @@ class UserCustomTTSProvider(LifecycleModelMixin, AbstractCustomProvider):
 
     @hook(AFTER_CREATE, on_commit=True)
     def create_voices(self):
+        # Keep local: video tasks import these API-key models.
         from apps.videomanagement.tasks import update_user_voices
 
         update_user_voices.delay(self.user.id, self.name)
 
     @hook(AFTER_DELETE, on_commit=True)
     def delete_voices(self):
+        # Keep local: video models import ApiKeys and Provider.
         from apps.videomanagement.models import VoiceModel
 
         VoiceModel.objects.filter(created_by=self.user, provider=self.name).delete()

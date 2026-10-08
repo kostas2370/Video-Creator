@@ -1,10 +1,10 @@
 from django.test import SimpleTestCase
 
 from ...utils.prompt_utils import (
-    format_dalle_prompt,
+    format_update_form,
+    format_image_prompt,
     format_prompt,
     format_sora_prompt,
-    format_update_form,
     scene_text,
 )
 
@@ -79,8 +79,8 @@ class FormatSoraPromptTests(SimpleTestCase):
 
 
 class OtherPromptTests(SimpleTestCase):
-    def test_dalle_prompt_labels_the_title_and_description(self):
-        prompt = format_dalle_prompt(title="Cats", image_description="a cat naps")
+    def test_image_prompt_labels_the_title_and_description(self):
+        prompt = format_image_prompt(title="Cats", image_description="a cat naps")
 
         self.assertIn("Title : Cats", prompt)
         self.assertIn("Image Description:a cat naps", prompt)

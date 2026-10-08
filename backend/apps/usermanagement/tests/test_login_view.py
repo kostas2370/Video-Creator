@@ -34,7 +34,7 @@ class LoginViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
-            AccessToken(response.data["tokens"]["access"])["user_id"], self.user.id
+            AccessToken(response.data["tokens"]["access"])["user_id"], str(self.user.id)
         )
 
     def test_leaves_the_tokens_in_cookies_the_browser_sends_back(self):

@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from .models import Avatar, Intro, Outro
 from .services.asset_selection import available_voice, owned_asset
+from .services.VideoServices import video_update
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -27,6 +28,7 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    scene_count = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=60)
     reference_image = serializers.ImageField(required=False)
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
@@ -78,7 +80,7 @@ class GenerateSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != "AI"
-            or attrs.get("provider") not in (None, "DALL-E", "sora")
+            or attrs.get("provider") not in (None, "OPENAI", "sora")
         ):
             raise serializers.ValidationError(
                 {
@@ -109,11 +111,25 @@ class DownloadPlaylistSerializer(serializers.Serializer):
 class SceneDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
     use_context = serializers.BooleanField(default=False)
+    draft_type = serializers.ChoiceField(choices=["sentence", "section", "story"], default="sentence")
+    sentence_count = serializers.IntegerField(default=1, min_value=1, max_value=12)
+
+    def validate(self, attrs):
+        if attrs["draft_type"] == "sentence" and attrs["sentence_count"] != 1:
+            raise serializers.ValidationError("A sentence draft contains exactly one sentence.")
+        return attrs
 
 
 class SceneDraftResultSerializer(serializers.Serializer):
-    text = serializers.CharField(max_length=2000)
-    image_description = serializers.CharField(max_length=2000)
+    text = serializers.CharField(max_length=320)
+    image_description = serializers.CharField(max_length=600)
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            for field in self.fields:
+                if field in data and not isinstance(data[field], str):
+                    raise serializers.ValidationError({field: "Expected a string."})
+        return super().to_internal_value(data)
 
 
 class SceneUpdateSerializer(serializers.Serializer):
@@ -152,8 +168,6 @@ class VideoUpdateSerializer(serializers.Serializer):
         return normalize_avatar_position(value)
 
     def update(self, instance, validated_data):
-        from .services.VideoServices import video_update
-
         return video_update(instance, **validated_data)
 
 
@@ -168,3 +182,7 @@ class AddSceneSerializer(serializers.Serializer):
             raise serializers.ValidationError("text field required !")
 
         return super().validate(attrs)
+
+
+class AddScenesSerializer(serializers.Serializer):
+    scenes = AddSceneSerializer(many=True, min_length=1, max_length=12)

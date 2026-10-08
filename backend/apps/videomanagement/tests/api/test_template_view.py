@@ -16,6 +16,17 @@ class TemplateApiTestCase(ApiTestCase):
 
 
 class SaveTemplateTests(TemplateApiTestCase):
+    def test_preserves_the_selected_scene_count(self):
+        response = self.save(scene_count=7)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["scene_count"], 7)
+        self.assertEqual(TemplatePrompt.objects.get(title="Shorts").scene_count, 7)
+
+    def test_rejects_scene_counts_outside_the_allowed_range(self):
+        for count in (0, 61):
+            with self.subTest(count=count):
+                self.assertEqual(self.save(scene_count=count).status_code, 400)
+
     def test_keeps_the_saved_preset_against_the_caller(self):
         response = self.save()
 

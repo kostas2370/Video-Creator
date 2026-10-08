@@ -1,5 +1,6 @@
 """Adding, regenerating and updating a single scene."""
 
+import json
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -14,7 +15,7 @@ from ...models import SceneImage
 from ...services import (
     SceneServices,
 )
-from ...services.SceneServices import create_scene, generate_scene, update_scene
+from ...services.SceneServices import create_scene, draft_scene, generate_scene, update_scene
 
 
 class GenerateSceneTests(TestCase):
@@ -110,6 +111,20 @@ class CreateSceneTests(TestCase):
 
         self.assertEqual(generate.call_args.kwargs["image"], "a cat")
 
+    def test_new_scenes_inherit_the_saved_visual_provider_style_and_reference(self):
+        self.video.mode = "AI"
+        self.video.settings = {"provider": "sora", "style": "natural"}
+        line = scene.make(video=self.video)
+        with (
+            patch.object(SceneServices, "make_scene_speech", return_value=line),
+            patch.object(SceneServices, "scene_reference", return_value="images/context.png") as reference,
+            patch.object(SceneServices, "create_image_scene") as generate,
+        ):
+            create_scene(self.video, {"text": "Next sentence.", "image_description": "Same character."}, files={})
+        reference.assert_called_once_with(line, self.video, "sora")
+        self.assertEqual(generate.call_args.kwargs["provider"], "sora")
+        self.assertEqual(generate.call_args.kwargs["style"], "natural")
+        self.assertEqual(generate.call_args.kwargs["reference"], "images/context.png")
 
     def test_rejects_an_ai_scene_with_no_text(self):
         with self.assertRaises(ValidationError):
@@ -117,10 +132,32 @@ class CreateSceneTests(TestCase):
 
 
 class DraftSceneTests(TestCase):
+    def test_a_section_returns_the_requested_short_scenes_without_saving(self):
 
+        vid = video.make()
+        drafts = [{"text": f"Sentence {index}.", "image_description": "A path"} for index in range(3)]
+        with patch.object(SceneServices, "get_update_sentence", return_value=json.dumps({"scenes": drafts})) as generate:
+            result = draft_scene(vid, "Continue", draft_type="section", sentence_count=3)
+        self.assertEqual(result["scenes"], drafts)
+        self.assertIn("exactly 3", generate.call_args.args[0])
+        self.assertFalse(vid.scenes.exists())
+
+    def test_rejects_an_oversized_sentence_or_incorrect_scene_count(self):
+
+        vid = video.make()
+        for result in (
+            {"scenes": [{"text": "Too few.", "image_description": "A path"}]},
+            {"scenes": [{"text": "x" * 321, "image_description": "A path"}] * 3},
+            {"scenes": "Not a list"},
+            {"scenes": [None, {}, 42]},
+            [],
+        ):
+            with self.subTest(result=result), patch.object(SceneServices, "get_update_sentence", return_value=json.dumps(result)):
+                with self.assertRaises(APIException):
+                    draft_scene(vid, "Continue", draft_type="story", sentence_count=3)
+        self.assertFalse(vid.scenes.exists())
 
     def test_context_contains_every_current_scene_and_visual_in_order(self):
-        from ...services.SceneServices import draft_scene
 
         vid = video.make(title="Journey")
         first = scene.make(video=vid, text="Edited opening")
@@ -139,7 +176,6 @@ class DraftSceneTests(TestCase):
         self.assertEqual(vid.scenes.count(), 2)
 
     def test_without_context_excludes_all_video_content(self):
-        from ...services.SceneServices import draft_scene
 
         vid = video.make(title="Private title")
         scene.make(video=vid, text="Private dialogue")
@@ -151,10 +187,14 @@ class DraftSceneTests(TestCase):
         self.assertNotIn("Private dialogue", prompt)
 
     def test_rejects_invalid_model_output_without_creating_a_scene(self):
-        from ...services.SceneServices import draft_scene
 
         vid = video.make()
-        for reply in ('not json', '{}', '{"text":42,"image_description":"sky"}', '{"text":" ","image_description":"sky"}'):
+        for reply in (
+            'not json', '{}', '[]', 'null',
+            '{"text":42,"image_description":"sky"}',
+            '{"text":"A line.","image_description":7}',
+            '{"text":" ","image_description":"sky"}',
+        ):
             with self.subTest(reply=reply), patch.object(SceneServices, "get_update_sentence", return_value=reply):
                 with self.assertRaises(APIException):
                     draft_scene(vid, "Next scene")

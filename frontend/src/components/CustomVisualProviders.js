@@ -166,7 +166,7 @@ function ProviderForm({ provider, onSaved, onCancel }) {
       setErrors({ extra_parameters: "Enter a valid JSON object, for example {\"model\": \"my-model\", \"seed\": 42}." });
       return;
     }
-    if (!isEditing && ["openai", "stable_diffusion", "midjourney", "dall-e", "sora", "stable-diffusion", "bing", "google"].includes(data.name.toLowerCase())) {
+    if (!isEditing && ["openai", "stable_diffusion", "midjourney", "sora", "stable-diffusion", "bing", "google"].includes(data.name.toLowerCase())) {
       setErrors({ name: "Choose a name different from the built-in providers." });
       return;
     }

@@ -8,10 +8,10 @@ from rest_framework.exceptions import APIException
 from ...utils.image_providers import (
     openai_images,
 )
-from ...utils.image_providers.openai_images import generate_from_dalle
+from ...utils.image_providers.openai_images import generate_openai_image
 
 
-class GenerateFromDalleTests(SimpleTestCase):
+class GenerateOpenAIImageTests(SimpleTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -30,7 +30,7 @@ class GenerateFromDalleTests(SimpleTestCase):
         IMAGE_QUALITY="high",
     )
     def test_decodes_the_image_to_a_png(self):
-        path = generate_from_dalle("a cat", f"{self.tmp.name}/", style="vivid")
+        path = generate_openai_image("a cat", f"{self.tmp.name}/", style="vivid")
 
         self.assertTrue(path.endswith(".png"))
         self.assertEqual(open(path, "rb").read(), b"a png")
@@ -42,8 +42,7 @@ class GenerateFromDalleTests(SimpleTestCase):
         IMAGE_QUALITY="high",
     )
     def test_folds_the_style_into_the_prompt(self):
-        # gpt-image has no `style` argument — that was DALL-E 3 only.
-        generate_from_dalle("a cat", f"{self.tmp.name}/", style="vivid", title="Cats")
+        generate_openai_image("a cat", f"{self.tmp.name}/", style="vivid", title="Cats")
 
         kwargs = self.client.images.generate.call_args.kwargs
         self.assertIn("Style: vivid", kwargs["prompt"])
@@ -59,7 +58,7 @@ class GenerateFromDalleTests(SimpleTestCase):
         self.client.images.generate.return_value.data = []
 
         with self.assertRaises(APIException):
-            generate_from_dalle("a cat", f"{self.tmp.name}/", style="vivid")
+            generate_openai_image("a cat", f"{self.tmp.name}/", style="vivid")
 
     @override_settings(OPEN_API_KEY="key", IMAGE_MODEL="gpt-image-2")
     def test_uses_reference_edits_and_keeps_the_configured_model(self):
@@ -67,7 +66,7 @@ class GenerateFromDalleTests(SimpleTestCase):
             MagicMock(b64_json=base64.b64encode(b"reference result").decode())
         ]
         with tempfile.NamedTemporaryFile(suffix=".png") as anchor:
-            path = generate_from_dalle(
+            path = generate_openai_image(
                 "cat running", f"{self.tmp.name}/", style="vivid", reference=anchor.name
             )
         self.client.images.generate.assert_not_called()
@@ -84,7 +83,7 @@ class GenerateFromDalleTests(SimpleTestCase):
             self.client.images.generate.return_value.data
         )
         with tempfile.NamedTemporaryFile(suffix=".png") as anchor:
-            generate_from_dalle(
+            generate_openai_image(
                 "cat", f"{self.tmp.name}/", style="", reference=anchor.name
             )
         self.assertEqual(
@@ -93,7 +92,7 @@ class GenerateFromDalleTests(SimpleTestCase):
 
     @override_settings(OPEN_API_KEY="key")
     def test_missing_reference_generates_a_fresh_image(self):
-        generate_from_dalle(
+        generate_openai_image(
             "cat", f"{self.tmp.name}/", style="", reference="/missing.png"
         )
         self.client.images.generate.assert_called_once()
@@ -108,7 +107,7 @@ class GenerateFromDalleTests(SimpleTestCase):
             tempfile.NamedTemporaryFile(suffix=".png") as anchor,
             self.assertRaises(RuntimeError),
         ):
-            generate_from_dalle(
+            generate_openai_image(
                 "cat", f"{self.tmp.name}/", style="", reference=anchor.name
             )
         self.client.images.generate.assert_not_called()

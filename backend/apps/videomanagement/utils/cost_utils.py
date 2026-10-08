@@ -15,7 +15,6 @@ costs = {
     "scene_LOCAL": 0.01,
     "scene_image_AI": 0.08,
     "scene_image_WEB": 0.04,
-    "scene_image_DALL-E": 0.08,
 }
 
 

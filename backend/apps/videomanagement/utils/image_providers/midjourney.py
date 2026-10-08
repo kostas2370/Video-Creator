@@ -7,7 +7,7 @@ import requests
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
-from ..prompt_utils import format_dalle_prompt
+from ..prompt_utils import format_image_prompt
 
 from .registry import ImageProviderRegistry
 
@@ -48,7 +48,7 @@ def generate_from_midjourney(
         return
 
     logger.warning("Api call in midjourney")
-    payload = {"prompt": format_dalle_prompt(title, prompt)}
+    payload = {"prompt": format_image_prompt(title, prompt)}
     headers = {"Authorization": f"Bearer {midjourney_key}"}
     response = requests.post(
         "https://api.mymidjourney.ai/api/v1/midjourney/imagine",

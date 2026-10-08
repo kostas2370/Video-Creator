@@ -8,7 +8,7 @@ import requests
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
-from ..prompt_utils import format_dalle_prompt
+from ..prompt_utils import format_image_prompt
 
 from .registry import ImageProviderRegistry
 
@@ -56,7 +56,7 @@ def generate_from_diffusion(
     payload = json.dumps(
         {
             "key": diffusion_key,
-            "prompt": format_dalle_prompt(title=title, image_description=prompt),
+            "prompt": format_image_prompt(title=title, image_description=prompt),
             "negative_prompt": None,
             "width": "1024",
             "height": "1024",

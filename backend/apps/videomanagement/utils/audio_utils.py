@@ -11,10 +11,6 @@ from ..models import Scene, Video
 logger = logging.getLogger(__name__)
 
 
-def has_narration(scene: Scene) -> bool:
-    return stored_file_exists(scene.file)
-
-
 def narrate_scene(scene: Scene, voice_model, dir_name: str, user=None) -> Scene:
     """
     Narrates an existing scene and updates its file path in the database.
@@ -75,7 +71,7 @@ def make_scenes_speech(video: Video) -> None:
     for line in lines:
         scene = existing[line.text]
 
-        if not narrate or has_narration(scene):
+        if not narrate or stored_file_exists(scene.file):
             continue
 
         try:
