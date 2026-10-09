@@ -5,6 +5,7 @@ import { deleteTemplate, generateVideo } from "../api/apiService";
 import { waitForVideo } from "../api/waitForVideo";
 import { Link } from "react-router-dom";
 import { RiSparkling2Line, RiArrowRightLine, RiVolumeUpLine, RiImageLine, RiSettings3Line, RiArrowDownSLine } from "react-icons/ri";
+import { StoryboardModal } from "../components/StoryboardModal";
 import { ProceedModal } from "../components/ProceedModal";
 import { SaveTemplateModal } from "../components/SaveTemplateModal";
 import { DeleteModal } from "../components/DeleteModal";
@@ -45,6 +46,7 @@ const Home = () => {
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [settings, setSettings] = useState(false);
   const [open, setOpen] = useState(false);
+  const [draftVideo, setDraftVideo] = useState(null);
   const [video_id, setVideo_id] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -227,7 +229,7 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    const generationData = { ...formData, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
+    const generationData = { ...formData, review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
     let payload = generationData;
     if (supportsReference && referenceImage) {
       payload = new FormData();
@@ -246,7 +248,7 @@ const Home = () => {
       return;
     }
 
-    toast.info("Generation started, this usually takes a few minutes...");
+    toast.info("Drafting your storyboard…");
 
     pollRef.current = waitForVideo(response.video.id);
     const { outcome, video } = await pollRef.current.promise;
@@ -266,6 +268,10 @@ const Home = () => {
       return;
     }
 
+    if (video.status === "REVIEW") {
+      setDraftVideo(video);
+      return;
+    }
     setVideo_id(video.id);
     setOpen(true);
     toast.success("Video generated successfully!");
@@ -296,13 +302,14 @@ const Home = () => {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+      <StoryboardModal open={Boolean(draftVideo)} video={draftVideo} onClose={() => setDraftVideo(null)} />
       <ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} />
       <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
       <header className="mb-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-white">Turn your idea into a video</h1>
-        <p className="mt-3 max-w-2xl text-base leading-relaxed text-gray-500 dark:text-gray-400">Tell your story, choose its voice and visuals, then make it yours in the editor.</p>
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-gray-500 dark:text-gray-400">Tell your story, review the generated prompts, then proceed to create its voice and visuals.</p>
       </header>
 
       <form onSubmit={handleGenerate} className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">

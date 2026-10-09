@@ -28,6 +28,7 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    review_script = serializers.BooleanField(required=False, default=False)
     scene_count = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=60)
     reference_image = serializers.ImageField(required=False)
     message = serializers.CharField(required=True, max_length=2000)
@@ -186,3 +187,30 @@ class AddSceneSerializer(serializers.Serializer):
 
 class AddScenesSerializer(serializers.Serializer):
     scenes = AddSceneSerializer(many=True, min_length=1, max_length=12)
+
+
+class StoryboardSentenceSerializer(serializers.Serializer):
+    sentence = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    image_description = serializers.CharField(max_length=2000)
+
+
+class StoryboardSceneSerializer(serializers.Serializer):
+    scene = serializers.CharField(max_length=200)
+    sentences = StoryboardSentenceSerializer(many=True, min_length=1, max_length=60)
+
+
+class StoryboardSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=50)
+    target_audience = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    topic = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    scenes = StoryboardSceneSerializer(many=True, min_length=1, max_length=60)
+
+    def validate_scenes(self, scenes):
+        if sum(len(scene["sentences"]) for scene in scenes) > 120:
+            raise serializers.ValidationError("Use at most 120 shots.")
+        if self.context.get("narration", True) and any(
+            not sentence.get("sentence", "").strip()
+            for scene in scenes for sentence in scene["sentences"]
+        ):
+            raise serializers.ValidationError("Add narration for each shot.")
+        return scenes

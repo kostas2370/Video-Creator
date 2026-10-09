@@ -100,6 +100,27 @@ class GenerateVideoTests(TestCase):
         params.update(kwargs)
         return generate_video(video=self.video, **params)
 
+    def test_review_stops_before_media_and_uses_approved_script_on_proceed(self):
+        self.video.settings = {"generation_params": {"message": "cats", "review_script": False}}
+        self.video.save()
+        draft = self.generate(review_script=True)
+        self.assertEqual(draft.status, "REVIEW")
+        self.assertEqual(draft.settings["generation_params"]["message"], "cats")
+        self.make_scenes_speech.assert_not_called()
+        self.create_image_scenes.assert_not_called()
+        self.download_music.assert_not_called()
+        self.charge_user.assert_not_called()
+        self.assertEqual(draft.scenes.count(), 0)
+        draft.gpt_answer = {**A_SCRIPT, "title": "Edited title"}
+        draft.save()
+        finished = self.generate()
+        self.assertEqual(finished.status, "READY")
+        self.assertEqual(finished.title, "Edited title")
+        self.get_reply.assert_called_once()
+        self.make_scenes_speech.assert_called_once()
+        self.create_image_scenes.assert_called_once()
+        self.charge_user.assert_called_once()
+
     def test_uses_the_voice_that_was_chosen(self):
         chosen = voice_model.make(name="nova")
 

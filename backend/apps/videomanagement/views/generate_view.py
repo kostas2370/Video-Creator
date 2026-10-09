@@ -31,6 +31,9 @@ class GenerateView(APIView):
             video_type="AI",
             genre=params.get("genre"),
         )
+        if params.get("review_script"):
+            video.settings = {"generation_params": {**params, "review_script": False}}
+            video.save(update_fields=["settings"])
         try:
             if reference_image:
                 video.reference_image = reference_image
