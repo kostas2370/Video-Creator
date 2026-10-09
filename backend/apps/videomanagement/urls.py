@@ -28,7 +28,7 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
-    path("videos/<int:video_id>/events/", event_updates, name="video_events"),
+    path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]
 

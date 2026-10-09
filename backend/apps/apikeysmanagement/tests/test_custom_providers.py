@@ -22,17 +22,17 @@ class CustomProviderApiTests(TestCase):
         self.provider = user_custom_tts_provider.make(user=self.user)
         self.list_url = reverse("user-custom-tts-providers-list")
         self.detail_url = reverse(
-            "user-custom-tts-providers-detail", args=[self.provider.pk]
+            "user-custom-tts-providers-detail", args=[str(self.provider.pk)]
         )
         self.refresh_url = reverse(
-            "user-custom-tts-providers-update-voices", args=[self.provider.pk]
+            "user-custom-tts-providers-update-voices", args=[str(self.provider.pk)]
         )
 
     def test_lists_only_the_current_users_providers_and_masks_credentials(self):
         user_custom_tts_provider.make(user=self.stranger)
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["id"] for item in response.data], [self.provider.pk])
+        self.assertEqual([item["id"] for item in response.data], [str(self.provider.pk)])
         self.assertEqual(
             response.data[0]["api_key"], ApiKeys.mask(self.provider.api_key)
         )

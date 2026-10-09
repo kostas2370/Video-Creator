@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from rest_framework.exceptions import NotFound
 
 
@@ -7,7 +8,7 @@ def owned_asset(model, selection, owner):
         return None
     try:
         return model.objects.get(pk=selection, created_by=owner)
-    except (model.DoesNotExist, ValueError, TypeError):
+    except (model.DoesNotExist, ValueError, TypeError, ValidationError):
         raise NotFound(f"{model.__name__} is unavailable.")
 
 
@@ -18,5 +19,5 @@ def available_voice(selection, owner):
         return None
     try:
         return VoiceModel.available_to(owner).get(pk=selection)
-    except (VoiceModel.DoesNotExist, ValueError, TypeError):
+    except (VoiceModel.DoesNotExist, ValueError, TypeError, ValidationError):
         raise NotFound("Voice is unavailable.")

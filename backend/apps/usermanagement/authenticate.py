@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from rest_framework_simplejwt import authentication as jwt_authentication
 from rest_framework import authentication, exceptions as rest_exceptions
 
@@ -27,6 +28,9 @@ class CustomAuthentication(jwt_authentication.JWTAuthentication):
                 continue
 
             # enforce_csrf(request)
-            return self.get_user(validated_token), validated_token
+            try:
+                return self.get_user(validated_token), validated_token
+            except ValidationError as exc:
+                raise rest_exceptions.AuthenticationFailed("Invalid user identifier.") from exc
 
         return None

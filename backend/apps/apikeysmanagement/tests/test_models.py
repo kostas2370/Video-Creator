@@ -15,7 +15,7 @@ class EncryptionTests(TestCase):
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT openai_key FROM apikeysmanagement_apikeys WHERE id = %s",
-                [keys.pk],
+                [ApiKeys._meta.pk.get_db_prep_value(keys.pk, connection)],
             )
             stored = cursor.fetchone()[0]
 
@@ -33,7 +33,7 @@ class EncryptionTests(TestCase):
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT openai_key FROM apikeysmanagement_apikeys WHERE id IN (%s, %s)",
-                [first.pk, second.pk],
+                [ApiKeys._meta.pk.get_db_prep_value(obj.pk, connection) for obj in (first, second)],
             )
             stored = [row[0] for row in cursor.fetchall()]
 
