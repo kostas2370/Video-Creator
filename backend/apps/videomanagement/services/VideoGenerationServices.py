@@ -107,7 +107,7 @@ def generate_video(
     background: str = None,
     intro: str = None,
     outro: str = None,
-    voice_id: Union[int, None] = None,
+    voice_id: Union[str, None] = None,
     subtitles: bool = False,
     narration: bool = True,
     provider: Union[str, None] = None,
@@ -146,7 +146,7 @@ def generate_video(
         The ID of the intro to be included in the video.
     outro : str, optional
         The ID of the outro to be included in the video.
-    voice_id : Union[int, None], optional
+    voice_id : Union[str, None], optional
         The ID of the voice model to be used.
     subtitles : bool, optional
         Whether to include subtitles in the video.

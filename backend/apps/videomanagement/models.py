@@ -1,5 +1,8 @@
 from __future__ import annotations
+from uuid import UUID, uuid4
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
 from random import randint
@@ -67,6 +70,7 @@ def default_video_settings() -> dict:
 
 
 class AbstractModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     created_by = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE, blank=True, null=True
     )
@@ -84,7 +88,7 @@ class TemplatePrompt(AbstractModel):
 
     # Preset generation fields with choices
     message = models.TextField(max_length=2000, blank=True, default="")
-    voice_id = models.CharField(max_length=20, blank=True, null=True, default=None)
+    voice_id = models.CharField(max_length=36, blank=True, null=True, default=None)
     gpt_model = models.CharField(
         max_length=50,
         choices=GPT_MODEL_CHOICES,
@@ -166,6 +170,7 @@ class Music(AbstractModel):
 
 
 class UserPrompt(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     prompt = models.TextField(blank=False)
     objects = models.Manager()
 
@@ -174,6 +179,12 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     video = models.ForeignKey("Video", on_delete=models.CASCADE, related_name="scenes")
     file = models.FileField(
         upload_to="media/speech", blank=True, null=True, max_length=2000
@@ -187,6 +198,12 @@ class Scene(models.Model):
 
 
 class SceneImage(models.Model):
+    created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     scene = models.ForeignKey(
         Scene, on_delete=models.CASCADE, related_name="scene_images"
     )
@@ -272,8 +289,11 @@ class Avatar(AbstractModel):
                 avatars = avatars.filter(voice=voice_model)
             count = avatars.count()
             return avatars[randint(0, count - 1)] if count else None
-        if isinstance(selected, int):
-            return avatars.filter(id=selected).first()
+        if isinstance(selected, (str, UUID)):
+            try:
+                return avatars.filter(id=selected).first()
+            except (ValidationError, ValueError):
+                return None
         return None
 
 
@@ -311,6 +331,11 @@ class Outro(AbstractModel):
 
 
 class Video(LifecycleModelMixin, AbstractModel):
+    created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
     reference_image = models.ImageField(upload_to="media/references/%Y/%m/%d", blank=True)
     title = models.CharField(max_length=50, blank=False)
     url = models.URLField(blank=True)

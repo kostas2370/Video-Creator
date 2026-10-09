@@ -58,7 +58,7 @@ class SceneSerializerTests(TestCase):
         row = video.make()
         line = scene.make(video=row, file=None)
         data = VideoNestedSerializer(row).data
-        self.assertEqual(data["scenes"][0]["id"], line.pk)
+        self.assertEqual(data["scenes"][0]["id"], str(line.pk))
         self.assertEqual(data["scenes"][0]["narration_status"], "missing")
 
 

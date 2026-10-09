@@ -25,7 +25,7 @@ class CustomVisualProviderApiTests(TestCase):
         )
         self.list_url = reverse("user-custom-visual-providers-list")
         self.detail_url = reverse(
-            "user-custom-visual-providers-detail", args=[self.provider.pk]
+            "user-custom-visual-providers-detail", args=[str(self.provider.pk)]
         )
 
     def payload(self, **overrides):
@@ -71,7 +71,7 @@ class CustomVisualProviderApiTests(TestCase):
         )
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([item["id"] for item in response.data], [self.provider.pk])
+        self.assertEqual([item["id"] for item in response.data], [str(self.provider.pk)])
         self.assertEqual(
             response.data[0]["api_key"], ApiKeys.mask(self.provider.api_key)
         )
@@ -241,7 +241,7 @@ class CustomVisualProviderApiTests(TestCase):
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT api_key FROM apikeysmanagement_usercustomvisualprovider WHERE id = %s",
-                [self.provider.pk],
+                [self.provider._meta.pk.get_db_prep_value(self.provider.pk, connection)],
             )
             encrypted = cursor.fetchone()[0]
         self.assertNotIn(self.provider.api_key, encrypted)

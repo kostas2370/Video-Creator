@@ -122,3 +122,21 @@ class StringRepresentationTests(TestCase):
             instance = recipe.prepare()
             with self.subTest(model=type(instance).__name__):
                 self.assertEqual(str(instance), getattr(instance, attribute))
+
+
+class UUIDOrderingTests(TestCase):
+    def test_scene_and_visual_order_does_not_depend_on_uuid_value(self):
+        from uuid import UUID
+        from datetime import timedelta
+        from django.utils import timezone
+        from ..models import Scene, SceneImage
+
+        made = video.make()
+        now = timezone.now()
+        first = Scene.objects.create(video=made, text="First", id=UUID(int=99), created_at=now)
+        second = Scene.objects.create(video=made, text="Second", id=UUID(int=1), created_at=now + timedelta(seconds=1))
+        older = SceneImage.objects.create(scene=first, id=UUID(int=99), created_at=now)
+        newer = SceneImage.objects.create(scene=first, id=UUID(int=1), created_at=now + timedelta(seconds=1))
+        self.assertEqual(list(made.scenes.all()), [first, second])
+        self.assertEqual(list(first.scene_images.all()), [older, newer])
+        self.assertEqual(made.pk.version, 4)

@@ -107,7 +107,7 @@ def draft_scene(
             "scenes": [
                 {"text": scene.text, "is_last": scene.is_last,
                  "visuals": [image.prompt for image in scene.scene_images.all()]}
-                for scene in video.scenes.order_by("id").prefetch_related("scene_images")
+                for scene in video.scenes.order_by("created_at", "id").prefetch_related("scene_images")
             ],
         }
     instructions = format_scene_draft(prompt, draft_type, sentence_count, scenario)

@@ -47,7 +47,7 @@ class VideoView(
     def get_queryset(self):
         queryset = (
             Video.objects.filter(created_by_id=self.request.user.id)
-            .order_by("-id")
+            .order_by("-created_at", "-id")
             .select_related("music", "prompt")
         )
         if self.action == "list":
