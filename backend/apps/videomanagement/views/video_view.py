@@ -4,6 +4,7 @@ from django.core.files.storage import default_storage
 from pathlib import Path
 from uuid import uuid4
 from django.utils import timezone
+from django.db import transaction
 
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
@@ -18,10 +19,10 @@ from rest_framework.permissions import IsAuthenticated
 from ..events import publish_update
 from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
-from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer
+from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.SceneServices import draft_scene
-from ..tasks import render_video_task, resume_video_task, create_scene_task
+from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
 from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneGenerationLimitPermission
 
@@ -47,7 +48,7 @@ class VideoView(
     def get_queryset(self):
         queryset = (
             Video.objects.filter(created_by_id=self.request.user.id)
-            .order_by("-created_at", "-id")
+            .order_by("-created_at")
             .select_related("music", "prompt")
         )
         if self.action == "list":
@@ -82,6 +83,34 @@ class VideoView(
         return Response(
             {"message": "Updated Success", "video": VideoNestedSerializer(outcome).data}
         )
+
+    @action(detail=True, methods=["POST"], throttle_classes=[ResumeRateThrottle],
+            permission_classes=[IsAuthenticated, IsOwnerPermission, AiGenerationLimitPermission])
+    def approve_script(self, request, pk=None):
+        owned_video = self.get_object()
+        with transaction.atomic():
+            video = Video.objects.select_for_update().get(pk=owned_video.pk)
+            if video.status != VideoStatus.REVIEW:
+                return Response({"detail": "This video is not awaiting review."}, status=409)
+            serializer = StoryboardSerializer(
+                data=request.data, context={"narration": video.settings.get("narration", True)}
+            )
+            serializer.is_valid(raise_exception=True)
+            params = video.settings.get("generation_params")
+            if not params:
+                return Response({"detail": "Generation settings are missing."}, status=409)
+            video.gpt_answer = dict(serializer.validated_data)
+            video.title = video.gpt_answer["title"]
+            video.status = VideoStatus.GENERATION
+            video.save()
+        try:
+            generate_video_task.delay(video_id=video.id, **params)
+        except Exception:
+            video.status = VideoStatus.REVIEW
+            video.save(update_fields=["status"])
+            return Response({"detail": "Could not queue generation. Your draft is saved. Try again."}, status=503)
+        publish_update(f"video.{video.pk}", video_id=video.pk)
+        return Response({"video": VideoSerializer(video).data}, status=202)
 
     @swagger_auto_schema(
         operation_description="Queues the unfinished part of a generation that stopped "

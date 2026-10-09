@@ -491,8 +491,12 @@ The layout stacks vertically on smaller screens.
 
 ![Advanced generation settings](docs/screenshots/generation-settings.png)
 
-Generation creates a draft first. Review its scenes in the editor before rendering
-it into a finished video.
+Generation first drafts a storyboard. A review modal shows the generated narration
+and visual prompts for every scene; edit them and press **Proceed** to create the
+visuals and audio. Closing the modal leaves the draft awaiting review in your video
+library. Open it in the editor and choose **Review storyboard** to continue.
+
+After media generation, review the scenes in the editor before rendering a finished video.
 
 **Number of scenes** controls the script length: choose 1–60 scenes, with one short
 spoken sentence per scene, or leave it blank to let AI choose. The form starts at

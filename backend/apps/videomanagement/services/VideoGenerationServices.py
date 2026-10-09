@@ -116,6 +116,7 @@ def generate_video(
     genre: str = "",
     platform: str = "GENERAL",
     scene_count: int = None,
+    review_script: bool = False,
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -212,6 +213,7 @@ def generate_video(
     vid.background = background
     vid.intro = intro
     vid.outro = outro
+    generation_params = (vid.settings or {}).get("generation_params")
     vid.settings = dict(
         subtitles=subtitles,
         narration=narration,
@@ -223,6 +225,8 @@ def generate_video(
     )
     if scene_count is not None:
         vid.settings["scene_count"] = scene_count
+    if review_script:
+        vid.settings["generation_params"] = generation_params
     vid.save()
 
     logger.info(f"Filled in the video instance with id : {vid.id}")
@@ -234,6 +238,11 @@ def generate_video(
 
     vid.mode = image_mode or None
     vid.save()
+    if review_script:
+        vid.status = VideoStatus.REVIEW
+        vid.save()
+        return vid
+
     generate_scene_assets(vid, image_mode=image_mode, style=style, provider=provider)
 
     logger.info(f"Generated the scenes audios for the video with id : {vid.id}")

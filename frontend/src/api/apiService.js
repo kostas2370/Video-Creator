@@ -32,6 +32,7 @@ export const createIntro = data => post("intros/", data);
 export const createOutro = data => post("outros/", data);
 export const createAvatar = data => post("avatars/", data);
 export const generateVideo = data => post("generate/", data);
+export const approveScript = (id, data) => post(action("videos", id, "approve_script"), data, callerHandlesErrors);
 export const createScene = (id, data) => post(action("videos", id, "add_scene"), data);
 export const draftScene = (id, data) => post(action("videos", id, "draft_scene"), data, callerHandlesErrors);
 export const createTemplate = data => post("templates/", data, callerHandlesErrors);

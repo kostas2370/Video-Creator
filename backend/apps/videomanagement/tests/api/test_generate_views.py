@@ -185,3 +185,60 @@ class GenerateViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(Video.objects.count(), count)
         delay.assert_not_called()
+
+
+class StoryboardApprovalTests(ApiTestCase):
+    script = {"title": "Reviewed title", "scenes": [{"scene": "Opening", "sentences": [
+        {"sentence": "Edited narration", "image_description": "Edited visual prompt"}
+    ]}]}
+
+    def draft(self, **kwargs):
+        return self.video_for(owner=kwargs.pop("created_by", None), status="REVIEW", gpt_answer=self.script, settings={
+            "narration": True, "generation_params": {"message": "original idea", "review_script": False}
+        }, **kwargs)
+
+    def approve(self, video, script=None):
+        return self.client.post(reverse("video-approve-script", args=[video.pk]),
+                                script or self.script, format="json")
+
+    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    def test_approval_saves_edits_and_queues_once(self, delay):
+        video = self.draft()
+        response = self.approve(video)
+        self.assertEqual(response.status_code, 202, response.data)
+        video.refresh_from_db()
+        self.assertEqual(video.gpt_answer, self.script)
+        self.assertEqual(video.title, "Reviewed title")
+        self.assertEqual(video.status, "GENERATION")
+        delay.assert_called_once_with(video_id=video.pk, message="original idea", review_script=False)
+        self.assertEqual(self.approve(video).status_code, 409)
+        delay.assert_called_once()
+
+    @patch("apps.videomanagement.views.video_view.generate_video_task.delay", side_effect=RuntimeError("offline"))
+    def test_queue_failure_keeps_draft_reviewable(self, delay):
+        video = self.draft()
+        self.assertEqual(self.approve(video).status_code, 503)
+        video.refresh_from_db()
+        self.assertEqual(video.status, "REVIEW")
+        self.assertEqual(video.gpt_answer, self.script)
+
+    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    def test_rejects_foreign_draft(self, delay):
+        self.assertEqual(self.approve(self.draft(created_by=user.make())).status_code, 404)
+        delay.assert_not_called()
+
+    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    def test_rejects_empty_prompts_or_missing_narration(self, delay):
+        video = self.draft()
+        for sentence in ({"sentence": "Hello", "image_description": ""}, {"image_description": "A cat"}):
+            script = {"title": "Title", "scenes": [{"scene": "One", "sentences": [sentence]}]}
+            self.assertEqual(self.approve(video, script).status_code, 400)
+        delay.assert_not_called()
+
+    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    def test_allows_visual_only_script(self, delay):
+        video = self.draft()
+        video.settings["narration"] = False
+        video.save()
+        script = {"title": "Title", "scenes": [{"scene": "One", "sentences": [{"image_description": "A cat"}]}]}
+        self.assertEqual(self.approve(video, script).status_code, 202)
