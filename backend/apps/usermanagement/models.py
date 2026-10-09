@@ -94,7 +94,7 @@ class Notification(models.Model):
     objects = models.Manager()
 
     class Meta:
-        ordering = ["-created_at", "-id"]
+        ordering = ["-created_at"]
         indexes = [models.Index(fields=["user", "read"])]
 
     def __str__(self):

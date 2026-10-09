@@ -248,4 +248,4 @@ class UserCustomVisualProvider(AbstractCustomProvider):
                 name="unique_user_custom_visual_provider",
             )
         ]
-        ordering = ["name", "id"]
+        ordering = ["name"]

@@ -32,6 +32,7 @@ class VoiceModelType(models.TextChoices):
 
 class VideoStatus(models.TextChoices):
     GENERATION = "GENERATION", "GENERATION"
+    REVIEW = "REVIEW", "REVIEW"
     READY = "READY", "READY"
     RENDERING = "RENDERING", "RENDERING"
     COMPLETED = "COMPLETED", "COMPLETED"
@@ -182,7 +183,7 @@ class Scene(models.Model):
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
 
     class Meta:
-        ordering = ["created_at", "id"]
+        ordering = ["created_at"]
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     video = models.ForeignKey("Video", on_delete=models.CASCADE, related_name="scenes")
@@ -201,7 +202,7 @@ class SceneImage(models.Model):
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
 
     class Meta:
-        ordering = ["created_at", "id"]
+        ordering = ["created_at"]
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     scene = models.ForeignKey(
@@ -334,7 +335,7 @@ class Video(LifecycleModelMixin, AbstractModel):
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
 
     class Meta:
-        ordering = ["created_at", "id"]
+        ordering = ["created_at"]
 
     reference_image = models.ImageField(upload_to="media/references/%Y/%m/%d", blank=True)
     title = models.CharField(max_length=50, blank=False)
