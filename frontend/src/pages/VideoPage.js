@@ -8,6 +8,7 @@ import { VideoConfigModal } from "../components/VideoConfigModal";
 import { Scene } from "../components/Scene";
 import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "../components/RenderModal";
+import { StoryboardModal } from "../components/StoryboardModal";
 import { ResumeModal } from "../components/ResumeModal";
 import { FaRedo } from "react-icons/fa";
 import { SceneCreationModal } from "../components/CreateSceneModal";
@@ -21,6 +22,7 @@ export const Video = () => {
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [renderPending, setRenderPending] = useState(false);
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
+  const [showStoryboard, setShowStoryboard] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
 
   const setUpdated = useCallback(() => setRefresh((count) => count + 1), []);
@@ -48,6 +50,7 @@ export const Video = () => {
 
   return (
     <>
+      <StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} />
       <VideoConfigModal
         showModal={showConfigModal}
         setShowModal={setShowConfigModal}
@@ -98,11 +101,16 @@ export const Video = () => {
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Fine-tune your story, scene by scene. Render when everything looks right.</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <button type="button" disabled={!videoInfo} aria-label="Video settings" onClick={() => setShowConfigModal(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><IoIosSettings className="h-5 w-5" />Settings</button>
+            <button type="button" disabled={!videoInfo || videoInfo.status === "REVIEW"} aria-label="Video settings" onClick={() => setShowConfigModal(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><IoIosSettings className="h-5 w-5" />Settings</button>
             {isResumable && <button type="button" onClick={() => setShowResumeModal(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"><FaRedo />Carry on</button>}
             <button type="button" disabled={!isRenderable} title={isRenderable ? "Render video" : `Cannot render while ${videoInfo?.status || "loading"}`} onClick={() => setShowRenderModal(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"><GiProcessor className="h-5 w-5" />{renderPending ? "Starting render…" : videoInfo?.status === "RENDERING" ? "Rendering…" : "Render video"}</button>
           </div>
         </header>
+        {videoInfo?.status === "REVIEW" && <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-900/20">
+          <p className="font-semibold">Your storyboard is ready for review</p>
+          <p className="mt-1 text-sm">Review the narration and generated visual prompts before creating media.</p>
+          <button type="button" onClick={() => setShowStoryboard(true)} className="mt-3 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">Review storyboard</button>
+        </div>}
         {processing && <div role="status" className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
           <p className="font-semibold">Processing your video…</p>
           <p className="mt-1">Your changes are processing in the background. This page refreshes automatically; you can leave and come back.</p>
@@ -125,8 +133,8 @@ export const Video = () => {
           </aside>
           <section aria-label="Scenes" className="min-w-0 space-y-5">
             {videoInfo?.scenes?.map((scene, index) => <Scene key={scene.id} scene={scene} index={index} setUpdated={setUpdated} video_format={videoInfo.settings?.video_format || "LANDSCAPE"} />)}
-            {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">Your story starts here</h2><p className="mt-2 text-sm text-gray-500">Add a scene to start building your video.</p></div>}
-            <button type="button" disabled={!videoInfo || processing} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
+            {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : "Add a scene to start building your video."}</p></div>}
+            <button type="button" disabled={!videoInfo || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
           </section>
         </div>
       </main>

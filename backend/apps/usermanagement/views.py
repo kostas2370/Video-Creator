@@ -106,13 +106,6 @@ class VerifyEmail(generics.GenericAPIView):
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
     permission_classes = (AllowAny,)
-    # Credentials in the request body establish a new session. An old access
-    # cookie must not reject the request before those credentials are checked.
-    authentication_classes = []
-
-    def get_authenticate_header(self, request):
-        # Preserve the API's 401 response for rejected credentials.
-        return 'Bearer realm="api"'
 
     def post(self, request):
         serializer = self.serializer_class(
