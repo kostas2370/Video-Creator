@@ -14,6 +14,7 @@ import { StoryboardModal } from "../components/StoryboardModal";
 import { ResumeModal } from "../components/ResumeModal";
 import { FaRedo, FaDownload } from "react-icons/fa";
 import { SceneCreationModal } from "../components/CreateSceneModal";
+import { VideoPreview } from "../components/VideoPreview";
 
 export const Video = () => {
   const { videoId } = useParams();
@@ -26,6 +27,8 @@ export const Video = () => {
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
   const [showStoryboard, setShowStoryboard] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [previewPause, setPreviewPause] = useState(0);
+  const pausePreview = useCallback(() => setPreviewPause(value => value + 1), []);
   const [downloadingSubtitles, setDownloadingSubtitles] = useState(false);
 
   const [pendingSceneChange, setPendingSceneChange] = useState(null);
@@ -201,6 +204,7 @@ export const Video = () => {
           <p className="mt-1">Your script and visuals are saved. Retry narration in the scenes below, or render with the available audio.</p>
           <div className="mt-3 flex flex-wrap gap-2">{videoInfo.scenes.map((scene, index) => scene.narration_status === "missing" && <a key={scene.id} href={`#scene-${scene.id}`} className="rounded-lg border border-amber-300 px-3 py-1 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">Scene {index + 1}</a>)}</div>
         </div>}
+        {videoInfo && videoInfo.status !== "REVIEW" && <VideoPreview pauseSignal={previewPause} video={videoInfo} disabled={sceneChangePending || renderPending} paused={showConfigModal || showRenderModal || showAddSceneModal || showResumeModal} />}
         <div className="grid items-start gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
           <aside className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 lg:sticky lg:top-6 dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center justify-between gap-2"><h2 className="font-semibold text-gray-900 dark:text-white">Your scenes</h2><span className="rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-300">{videoInfo?.scenes?.length || 0}</span></div>
@@ -214,7 +218,7 @@ export const Video = () => {
             <p className="mt-5 border-t border-gray-100 pt-4 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">Changes to scenes are saved individually. Render again to include them in your final video.</p>
           </aside>
           <section aria-label="Scenes" className="min-w-0 space-y-5">
-            <ReorderableScenes scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
+            <ReorderableScenes onEditing={pausePreview} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : "Add a scene to start building your video."}</p></div>}
             <button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
           </section>

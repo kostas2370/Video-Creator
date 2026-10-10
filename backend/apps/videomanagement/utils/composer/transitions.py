@@ -1,5 +1,7 @@
 from moviepy.editor import CompositeVideoClip, ImageClip, concatenate_videoclips
 
+from ..transitions import scene_transition  # Re-export for existing composer callers.
+
 
 def apply_fades(clip, *, fade_in=True, fade_out=True, fade_in_duration=None, fade_out_duration=None):
     def duration(requested):
@@ -10,16 +12,6 @@ def apply_fades(clip, *, fade_in=True, fade_out=True, fade_in_duration=None, fad
     if fade_out:
         clip = clip.fadeout(duration(fade_out_duration))
     return clip
-
-
-def scene_transition(scene, settings):
-    style = scene.transition_after
-    if style == "DEFAULT":
-        style = settings.get("transition_default", "FADE")
-    duration = scene.transition_duration
-    if duration is None:
-        duration = settings.get("transition_duration")
-    return style, duration
 
 
 def compose_transitions(clips, transitions, *, opening_duration=None):
