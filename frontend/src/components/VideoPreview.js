@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { FaPause, FaPlay, FaUndo, FaVolumeMute, FaVolumeUp } from "react-icons/fa";
+import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Description } from "@headlessui/react";
+import { HiOutlineXMark } from "react-icons/hi2";
 import { getVideoPreview } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 
@@ -49,7 +51,27 @@ function Visual({ segment, time, playing, muted, onFailure, onBlocked, opacity =
   </div>;
 }
 
-export function VideoPreview({ video, disabled = false, paused = false, pauseSignal = 0 }) {
+export function VideoPreviewModal({ open, onClose, video, disabled = false }) {
+  if (!open || !video) return null;
+  return <Dialog open={open} onClose={onClose} className="relative z-50">
+    <DialogBackdrop className="fixed inset-0 bg-gray-950/70 backdrop-blur-sm" />
+    <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-6">
+      <DialogPanel className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 sm:max-h-[calc(100dvh-3rem)]">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-6">
+          <div className="min-w-0">
+            <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">Preview video</DialogTitle>
+            <p className="mt-1 truncate text-sm text-gray-700 dark:text-gray-300">{video.title}</p>
+            <Description className="mt-1 text-xs text-gray-500 dark:text-gray-400">Watch your saved edits before rendering.</Description>
+          </div>
+          <button type="button" data-autofocus aria-label="Close preview" onClick={onClose} className="shrink-0 rounded-full p-2 text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-gray-800"><HiOutlineXMark aria-hidden="true" className="h-5 w-5" /></button>
+        </header>
+        <div className="min-h-0 overflow-y-auto p-4 sm:p-6"><VideoPreview video={video} disabled={disabled} /></div>
+      </DialogPanel>
+    </div>
+  </Dialog>;
+}
+
+function VideoPreview({ video, disabled = false }) {
   const [manifest, setManifest] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -102,13 +124,9 @@ export function VideoPreview({ video, disabled = false, paused = false, pauseSig
   }, [playing, manifest, buffering]);
   useEffect(() => {
     const pauseHidden = () => { if (document.hidden) setPlaying(false); };
-    const pauseDialog = event => { if (event.target.closest?.('[role="dialog"]')) setPlaying(false); };
     document.addEventListener("visibilitychange", pauseHidden);
-    document.addEventListener("focusin", pauseDialog);
-    return () => { document.removeEventListener("visibilitychange", pauseHidden); document.removeEventListener("focusin", pauseDialog); };
+    return () => document.removeEventListener("visibilitychange", pauseHidden);
   }, []);
-  useEffect(() => { if (paused) setPlaying(false); }, [paused]);
-  useEffect(() => { setPlaying(false); }, [pauseSignal]);
   const seek = position => {
     const next = Math.max(0, Math.min(manifest?.duration || 0, position));
     anchor.current = { position: next, wall: performance.now() };
@@ -130,14 +148,21 @@ export function VideoPreview({ video, disabled = false, paused = false, pauseSig
   const activeId = active?.id;
   useEffect(() => {
     if (!activeButton.current || !timeline.current) return;
-    const button = activeButton.current.getBoundingClientRect();
-    const strip = timeline.current.getBoundingClientRect();
-    if (button.left < strip.left) timeline.current.scrollLeft += button.left - strip.left;
-    else if (button.right > strip.right) timeline.current.scrollLeft += button.right - strip.right;
+    const keepActiveVisible = () => {
+      if (!activeButton.current || !timeline.current) return;
+      const button = activeButton.current.getBoundingClientRect();
+      const strip = timeline.current.getBoundingClientRect();
+      if (button.left < strip.left) timeline.current.scrollLeft += button.left - strip.left;
+      else if (button.right > strip.right) timeline.current.scrollLeft += button.right - strip.right;
+    };
+    keepActiveVisible();
+    const observer = new ResizeObserver(keepActiveVisible);
+    observer.observe(timeline.current);
+    return () => observer.disconnect();
   }, [activeId]);
 
-  return <section aria-labelledby="preview-heading" className="mb-6 min-w-0 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 dark:border-gray-700 dark:bg-gray-800">
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><div><h2 id="preview-heading" className="font-semibold text-gray-900 dark:text-white">Preview & timeline</h2><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Play your current edit or choose a scene to jump to it. No rendering required.</p></div>{active && <span aria-live="polite" className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{active.label}{local >= active.base_duration && active.pause > 0 ? " · Pause" : ""}</span>}</div>
+  return <section aria-label="Preview player" className="min-w-0">
+    {active && <div className="mb-3 flex justify-end"><span aria-live="polite" className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{active.label}{local >= active.base_duration && active.pause > 0 ? " · Pause" : ""}</span></div>}
     {!allowed || disabled ? <p role="status" className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">{disabled ? "Preview updates once your changes are saved." : "Preview becomes available when scene processing finishes."}</p> : loading ? <p role="status" className="py-8 text-center text-sm text-gray-500">Loading preview…</p> : <>
       {error && <div role="alert" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><span>{error}</span><button type="button" onClick={() => setRetry(value => value + 1)} className="font-semibold underline">Reload preview</button></div>}
       {manifest && <>
@@ -156,7 +181,9 @@ export function VideoPreview({ video, disabled = false, paused = false, pauseSig
           <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-300">{clock(time)} / {clock(manifest.duration)}</span>
           <button type="button" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(value => !value)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{muted ? <FaVolumeMute /> : <FaVolumeUp />}</button>
         </div>
-        <nav ref={timeline} aria-label="Preview timeline" className="mt-4 flex gap-2 overflow-x-auto pb-2">
+        <h2 className="mt-5 text-sm font-semibold text-gray-900 dark:text-white">Scene timeline</h2>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose a scene to jump to it.</p>
+        <nav ref={timeline} aria-label="Preview timeline" className="mt-3 flex gap-2 overflow-x-auto pb-2">
           {segments.map((segment, segmentIndex) => <React.Fragment key={segment.id}>
             <button type="button" ref={segment.id === activeId ? activeButton : null} aria-label={`Preview ${segment.label}`} aria-current={segment.id === activeId ? "true" : undefined} onClick={() => seek(segment.start)} style={{ width: Math.max(100, Math.min(240, segment.duration * 18)) }} className={`relative shrink-0 overflow-hidden rounded-xl border-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${segment.id === activeId ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-700"}`}>
               <div className="relative h-14 overflow-hidden bg-gray-100 dark:bg-gray-900">{segment.visual && (segment.visual_type === "video" ? <video src={mediaUrl(segment.visual)} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={mediaUrl(segment.visual)} alt="" className="h-full w-full object-cover" />)}{!segment.visual && <span className="flex h-full items-center justify-center text-xs text-gray-400">No visual</span>}</div>
@@ -168,7 +195,7 @@ export function VideoPreview({ video, disabled = false, paused = false, pauseSig
         </nav>
         {buffering && <p role="status" className="mt-2 text-xs text-gray-500">Buffering preview…</p>}
         {mediaError && <p role="status" className="mt-2 text-xs text-amber-700 dark:text-amber-300">Some media could not load. Check the scene files or reload the preview.</p>}
-        <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Caption timing is estimated; caption appearance may vary in the render.{manifest.render_only?.length > 0 ? ` Render to include ${manifest.render_only.join(", ")}.` : ""}</p>
+        <details className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400"><summary className="cursor-pointer font-medium">About this preview</summary><p className="mt-2">No rendering or generation credits required. Caption timing is estimated; caption appearance may vary in the render.{manifest.render_only?.length > 0 ? ` Render to include ${manifest.render_only.join(", ")}.` : ""}</p></details>
       </>}
     </>}
   </section>;
