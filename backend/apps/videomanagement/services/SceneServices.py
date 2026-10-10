@@ -61,8 +61,11 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
             video,
             serializer.validated_data["text"],
             serializer.validated_data["is_last"],
+            position=serializer.validated_data.get("position"),
         )
 
+    except ValidationError:
+        raise
     except Exception as exc:
         logger.error(exc)
         raise APIException(str(exc), code=400)
@@ -107,7 +110,7 @@ def draft_scene(
             "scenes": [
                 {"text": scene.text, "is_last": scene.is_last,
                  "visuals": [image.prompt for image in scene.scene_images.all()]}
-                for scene in video.scenes.order_by("created_at").prefetch_related("scene_images")
+                for scene in video.scenes.order_by("position").prefetch_related("scene_images")
             ],
         }
     instructions = format_scene_draft(prompt, draft_type, sentence_count, scenario)

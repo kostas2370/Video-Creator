@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import UUID, uuid4
-from django.db import models
+from django.db import models, router, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -180,10 +180,17 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    pause_after = models.FloatField(default=0)
+    transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
+    transition_duration = models.FloatField(null=True, blank=True, default=None)
+    position = models.PositiveIntegerField(default=None, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
 
     class Meta:
-        ordering = ["created_at"]
+        ordering = ["position"]
+        constraints = [
+            models.UniqueConstraint(fields=["video", "position"], name="unique_scene_position"),
+        ]
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     video = models.ForeignKey("Video", on_delete=models.CASCADE, related_name="scenes")
@@ -193,6 +200,18 @@ class Scene(models.Model):
     text = models.TextField()
     is_last = models.BooleanField(default=True)
     objects = models.Manager()
+
+    def save(self, *args, **kwargs):
+        if self.position is not None:
+            return super().save(*args, **kwargs)
+        using = kwargs.get("using") or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=using):
+            Video.objects.using(using).select_for_update().get(pk=self.video_id)
+            last = Scene.objects.using(using).filter(video_id=self.video_id).aggregate(
+                last=models.Max("position")
+            )["last"]
+            self.position = (last or 0) + 1
+            return super().save(*args, **{**kwargs, "using": using})
 
     def __str__(self):
         return str(self.id)

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
 from .utils.file_utils import stored_file_exists
+from .utils.timing import file_timing, scene_timing
 
 from .models import (
     TemplatePrompt,
@@ -49,6 +50,10 @@ class SceneImageSerializer(serializers.ModelSerializer):
 class SceneSerializer(serializers.ModelSerializer):
     scene_image = serializers.SerializerMethodField()
     narration_status = serializers.SerializerMethodField()
+    timing = serializers.SerializerMethodField()
+
+    def get_timing(self, obj):
+        return scene_timing(obj, next(iter(obj.scene_images.all()), None))
 
     def get_narration_status(self, obj):
         video = obj.video
@@ -130,10 +135,15 @@ class VideoSerializer(serializers.ModelSerializer):
 class VideoNestedSerializer(serializers.ModelSerializer):
     prompt = UserPromptSerializer(read_only=True)
     scenes = serializers.SerializerMethodField()
+    extra_duration = serializers.SerializerMethodField()
+
+    def get_extra_duration(self, obj):
+        durations = [file_timing(asset.file).get("duration") for asset in (obj.intro, obj.outro) if asset]
+        return sum(durations) if all(value is not None for value in durations) else None
 
     class Meta:
         model = Video
-        fields = (*VIDEO_RESPONSE_FIELDS, "scenes")
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration")
         read_only_fields = fields
 
     def get_scenes(self, obj):
