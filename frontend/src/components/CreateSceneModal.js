@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { createScene, draftScene } from "../api/apiService";
 import { toast } from "react-toastify";
+import { RiEditLine, RiSparklingLine, RiVolumeUpLine, RiImageLine, RiUpload2Line, RiSettings3Line } from "react-icons/ri";
+import { ScenePositionPicker } from "./ui/ScenePositionPicker";
 import { EditorDialog, editorInput, editorButton } from "./ui/EditorDialog";
 
 export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scenes = [] }) => {
@@ -72,20 +74,28 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
 
   const updateDraft = (index, field, value) => setDrafts(items => items.map((item, position) => position === index ? { ...item, [field]: value } : item));
   const canSubmit = drafts.length ? drafts.every(item => item.text.trim()) : !!text.trim();
+  const selectedIndex = scenes.findIndex(scene => String(scene.position) === position);
+  const placement = position && selectedIndex >= 0 ? `Before scene ${selectedIndex + 1}` : scenes.length ? "At the end of your story" : "Start your story";
+  useEffect(() => {
+    if (position && !scenes.some(scene => String(scene.position) === position)) setPosition("");
+  }, [position, scenes]);
 
-  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Add to your story" description="Add one sentence, a section, or a short story. Each sentence becomes a separate scene." busy={!!busy}>
-    <form onSubmit={onSubmit}>
-      <fieldset disabled={!!busy} className="space-y-5">
-        <div>
-          <label htmlFor="new-scene-position" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Insert position</label>
-          <select id="new-scene-position" value={position} onChange={event => setPosition(event.target.value)} className={editorInput}>
-            <option value="">At the end</option>
-            {scenes.map((scene, index) => <option key={scene.id} value={scene.position}>Before scene {index + 1}: {scene.text?.slice(0, 60) || "Untitled scene"}</option>)}
-          </select>
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Existing scenes move down. When adding several scenes, they stay together in the order shown.</p>
-        </div>
-        <div className="flex gap-2 rounded-xl bg-gray-100 p-1 dark:bg-gray-900" aria-label="Creation mode">
-          {[["manual", "Write manually"], ["ai", "Create with AI"]].map(([value, label]) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)} className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold ${mode === value ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-500 dark:text-gray-400"}`}>{label}</button>)}
+  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Add a scene" description="Shape a new moment. Choose its place, write the dialogue, and bring it to life." busy={!!busy} footer={
+    <footer className="flex items-center justify-between gap-3">
+      <div className="hidden min-w-0 sm:block"><p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{drafts.length > 1 ? `${drafts.length} scenes` : "1 scene"}</p><p className="mt-0.5 truncate text-xs text-gray-400">{placement}</p></div>
+      <div className="flex w-full justify-end gap-2 sm:w-auto">
+        <button type="button" disabled={!!busy} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+        <button type="submit" form="create-scene-form" disabled={!!busy || !canSubmit} className={editorButton}>{busy === "save" ? "Adding…" : drafts.length > 1 ? `${position ? "Insert" : "Add"} ${drafts.length} scenes` : position ? "Insert scene" : "Add scene"}</button>
+      </div>
+    </footer>
+  }>
+    <form id="create-scene-form" onSubmit={onSubmit}>
+      <fieldset disabled={!!busy} className="min-w-0 space-y-6">
+        <ScenePositionPicker disabled={!!busy} scenes={scenes} value={position} onChange={setPosition} count={drafts.length || 1} />
+        <div className="grid grid-cols-2 gap-3" aria-label="Creation mode">
+          {[["manual", "Write it yourself", "Your words, your story", RiEditLine], ["ai", "Create with AI", "Turn an idea into scenes", RiSparklingLine]].map(([value, label, detail, Icon]) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)} className={`flex items-start gap-3 rounded-xl border p-3.5 text-left transition ${mode === value ? "border-blue-500 bg-blue-50/60 ring-1 ring-blue-500 dark:bg-blue-900/20" : "border-gray-200 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"}`}>
+            <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${mode === value ? "text-blue-600 dark:text-blue-300" : "text-gray-400"}`} /><span><span className="block text-sm font-semibold text-gray-900 dark:text-white">{label}</span><span className="mt-1 hidden text-xs text-gray-400 sm:block">{detail}</span></span>
+          </button>)}
         </div>
         {mode === "ai" && <section className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -121,29 +131,25 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
           </div>)}
         </section> : <>
         <div>
-          <label htmlFor="new-scene-text" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Dialogue</label>
-          <textarea id="new-scene-text" rows={4} required className={editorInput} value={text} onChange={e => setText(e.target.value)} placeholder="What will the narrator say?" />
+          <label htmlFor="new-scene-text" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"><RiVolumeUpLine className="text-gray-400" />Dialogue</label>
+          <textarea id="new-scene-text" rows={3} required className={editorInput} value={text} onChange={e => setText(e.target.value)} placeholder="What will the narrator say?" />
         </div>
         <div>
-          <label htmlFor="new-scene-visual" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Visual description <span className="font-normal text-gray-400">(optional)</span></label>
+          <label htmlFor="new-scene-visual" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"><RiImageLine className="text-gray-400" />Visual description <span className="font-normal text-gray-400">(optional)</span></label>
           <textarea id="new-scene-visual" rows={3} className={editorInput} value={imageDescription} onChange={e => setImageDescription(e.target.value)} placeholder="Describe the setting, subject, lighting, and camera angle…" />
         </div>
-        <div className="rounded-xl border border-dashed border-gray-300 p-4 dark:border-gray-600">
-          <label htmlFor="new-scene-file" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Upload a visual <span className="font-normal text-gray-400">(optional)</span></label>
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 p-4 dark:border-gray-600 dark:bg-gray-900/20">
+          <label htmlFor="new-scene-file" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"><RiUpload2Line className="text-gray-400" />Upload a visual <span className="font-normal text-gray-400">(optional)</span></label>
           <input id="new-scene-file" type="file" accept="image/*,video/*" className="block w-full text-sm text-gray-500 dark:text-gray-300" onChange={e => setImage(e.target.files[0] || null)} />
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">An uploaded image or clip is used instead of generating a visual from the description.</p>
         </div>
         </>}
-        <div className="flex flex-wrap gap-5 text-sm text-gray-700 dark:text-gray-200">
+        <details className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"><summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300"><RiSettings3Line className="text-gray-400" />More options</summary><div className="mt-4 flex flex-wrap gap-5 text-sm text-gray-700 dark:text-gray-200">
           <label className="flex items-center gap-2"><input type="checkbox" checked={withAudio} onChange={e => setWithAudio(e.target.checked)} />Keep visual audio</label>
           {!drafts.length && <label className="flex items-center gap-2"><input type="checkbox" checked={isLast} onChange={e => setIsLast(e.target.checked)} />End of scene group</label>}
-        </div>
+        </div></details>
       </fieldset>
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-300">{error}</p>}
-      <footer className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-5 dark:border-gray-700">
-        <button type="button" disabled={!!busy} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-300">Cancel</button>
-        <button type="submit" disabled={!!busy || !canSubmit} className={editorButton}>{busy === "save" ? "Queueing…" : drafts.length ? `Add ${drafts.length} scenes` : "Add scene"}</button>
-      </footer>
     </form>
   </EditorDialog>;
 };

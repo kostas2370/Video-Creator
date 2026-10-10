@@ -86,7 +86,7 @@ def handle_image(audio, scene_image, background):
 
     Returns:
         ImageClip: The processed image clip for the scene, which may include resizing, duration adjustment,
-                   and fade effects, or a default black image clip in case of an error.
+                   or an exception if the image cannot be loaded.
     """
     try:
         image = ImageClip(scene_image.file.path)
@@ -98,7 +98,6 @@ def handle_image(audio, scene_image, background):
         image = image.set_duration(
             audio.duration if audio else settings.SILENT_SCENE_SECONDS
         )
-        image = image.fadein(image.duration * 0.2).fadeout(image.duration * 0.2)
     except Exception as exc:
         raise Exception(f"Error handling image: {exc}")
 
@@ -114,7 +113,7 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
         scene_image (SceneImage): The scene image object containing the file path to the video file.
 
     Returns:
-        VideoFileClip: The processed video clip for the scene, which includes duration adjustment and fade effects.
+        VideoFileClip: The processed video clip for the scene, which includes duration adjustment.
     """
     try:
         vid_scene = VideoFileClip(scene_image.file.path).without_audio()
@@ -131,9 +130,6 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
                 vfx.freeze, t="end", total_duration=audio.duration
             ).set_duration(audio.duration)
 
-    vid_scene = vid_scene.fadein(vid_scene.duration * 0.2).fadeout(
-        vid_scene.duration * 0.2
-    )
     return vid_scene
 
 

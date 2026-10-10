@@ -180,6 +180,8 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
+    transition_duration = models.FloatField(null=True, blank=True, default=None)
     position = models.PositiveIntegerField(default=None, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
 
