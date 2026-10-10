@@ -560,6 +560,10 @@ not mean generating the whole thing again.
 
 ![Editing a generated video scene by scene](docs/screenshots/video-edit.png)
 
+Scenes use an explicit position within their video for playback order. New scenes
+are appended after the last position; creation timestamps are kept separately.
+Existing videos retain their previous order when the position migration is applied.
+
 Use the scene navigator to jump between numbered scene cards. **Edit text** opens
 the dialogue editor, where you can review an AI rewrite before saving. **Edit visual**
 lets you upload an image or video with a preview, or generate a new image.

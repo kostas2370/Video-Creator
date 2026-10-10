@@ -34,6 +34,15 @@ class MakeVideoTests(TestCase):
             setattr(self, name, patcher.start())
             self.addCleanup(patcher.stop)
 
+    def test_renders_in_position_order_after_reordering_scenes(self):
+        first, second = self.scenes
+        type(first).objects.filter(pk=first.pk).update(position=3)
+        type(second).objects.filter(pk=second.pk).update(position=1)
+        type(first).objects.filter(pk=first.pk).update(position=2)
+        with patch.object(render, "handle_audio", return_value=FakeAudio()) as audio:
+            make_video(self.video)
+        self.assertEqual([call.args[0].pk for call in audio.call_args_list], [second.pk, first.pk])
+
     def test_renders_every_scene_and_marks_the_video_completed(self):
         with patch.object(render, "handle_audio", return_value=FakeAudio()):
             rendered = make_video(self.video)
