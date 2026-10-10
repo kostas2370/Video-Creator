@@ -281,11 +281,11 @@ def scene_reference(scene: Scene, video: Video, provider):
     if provider in (None, "", "OPENAI") and uploaded:
         return uploaded
     if provider in (None, "", "OPENAI"):
-        for image in SceneImage.objects.filter(scene__video=video).order_by("scene__created_at", "created_at"):
+        for image in SceneImage.objects.filter(scene__video=video).order_by("scene__position", "created_at"):
             if stored_file_exists(image.file) and not check_if_video(image.file.path):
                 return image.file.path
     elif ImageProviderRegistry.is_video(provider, user=video.created_by):
-        previous = video.scenes.filter(created_at__lt=scene.created_at).order_by("-created_at").first()
+        previous = video.scenes.filter(position__lt=scene.position).order_by("-position").first()
         if previous is None:
             return uploaded
         return continuation_frame(video, previous.text, existing_visual(video, previous.text))
