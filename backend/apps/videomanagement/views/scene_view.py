@@ -1,4 +1,3 @@
-from django.db import transaction
 from django.shortcuts import get_object_or_404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -9,11 +8,11 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Scene, SceneImage, Video, VideoStatus
-from ..events import publish_update
+from ..models import Scene, SceneImage
 from ..schema import SceneImageUploadSchema
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
+from ..services.editing import update_scene_transition
 from ..request_serializers import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
@@ -41,17 +40,7 @@ class SceneView(viewsets.GenericViewSet):
         owned_scene = self.get_object()
         serializer = SceneTransitionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        with transaction.atomic():
-            video = Video.objects.select_for_update().get(pk=owned_scene.video_id)
-            if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
-                return Response({"detail": "Wait for the current video operation to finish."}, status=409)
-            scene = get_object_or_404(Scene.objects.select_for_update(), pk=owned_scene.pk)
-            scene.transition_after = serializer.validated_data["transition_after"]
-            if "transition_duration" in serializer.validated_data:
-                scene.transition_duration = serializer.validated_data["transition_duration"]
-            scene.save(update_fields=["transition_after", "transition_duration"])
-            video.save(update_fields=["updated_at"])
-        publish_update(f"video.{video.pk}", video_id=video.pk)
+        scene = update_scene_transition(owned_scene, **serializer.validated_data)
         return Response({"transition_after": scene.transition_after, "transition_duration": scene.transition_duration})
 
     @swagger_auto_schema(

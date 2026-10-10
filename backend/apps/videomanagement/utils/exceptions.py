@@ -1,6 +1,12 @@
 from rest_framework.exceptions import APIException
 
 
+class VideoEditConflict(APIException):
+    status_code = 409
+    default_detail = "Wait for the current video operation to finish."
+    default_code = "video_edit_conflict"
+
+
 class InvalidJsonFormatException(Exception):
     def __init__(self):
         self.message = "Invalid Json Format"

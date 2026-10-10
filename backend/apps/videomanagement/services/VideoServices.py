@@ -1,3 +1,4 @@
+from .editing import editable_video
 from .asset_selection import owned_asset
 from ..models import Avatar, Intro, Outro, Video
 from ..utils.audio_utils import update_scene
@@ -5,6 +6,13 @@ from ..utils.audio_utils import update_scene
 
 def video_update(video: Video, **changes) -> Video:
     """Apply only supplied fields, resolving every asset before changing the video."""
+    if {"transition_default", "transition_duration"} & changes.keys():
+        with editable_video(video.pk) as locked_video:
+            return _apply_video_changes(locked_video, changes)
+    return _apply_video_changes(video, changes)
+
+
+def _apply_video_changes(video, changes):
     updates = {}
     for field, model in (("avatar", Avatar), ("intro", Intro), ("outro", Outro)):
         if field in changes:
