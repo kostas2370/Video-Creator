@@ -43,6 +43,19 @@ class TransitionTests(SimpleTestCase):
         video = self.compose("CUT", 1)
         self.assertEqual(tuple(video.get_frame(2)[0, 0]), (0, 0, 255))
 
+    def test_opening_fades_only_when_the_video_default_is_fade(self):
+        for style in ("CUT", "DISSOLVE", "FADE"):
+            with self.subTest(style=style):
+                source = ColorClip((16, 16), color=(255, 0, 0), duration=2)
+                video, resources = compose_transitions(
+                    [source], [("CUT", None)], opening_style=style, opening_duration=0.5,
+                )
+                for clip in [source, *resources, video]:
+                    self.addCleanup(clip.close)
+                expected = 127 if style == "FADE" else 255
+                self.assertAlmostEqual(video.get_frame(0.25)[0, 0, 0], expected, delta=2)
+                self.assertEqual(video.duration, 2)
+
     def test_style_and_duration_inherit_independently(self):
         settings = {"transition_default": "DISSOLVE", "transition_duration": 0.75}
         scene = SimpleNamespace(transition_after="DEFAULT", transition_duration=None)

@@ -49,7 +49,7 @@ class PreviewTests(ApiTestCase):
         self.assertEqual([s["start"] for s in data["segments"]], [0, 2, 4.75, 6.75])
         self.assertEqual([c["start"] for c in data["captions"]], [2, 4.75])
         self.assertEqual(data["segments"][1]["pause"], 0.75)
-        self.assertEqual(data["segments"][1]["fade_in"], 0.5)
+        self.assertEqual(data["segments"][1]["fade_in"], 0)
         self.assertEqual(data["segments"][2]["dissolve_in"], 0.5)
         self.assertEqual(data["segments"][2]["visual"], None)
         self.user.refresh_from_db()
@@ -151,3 +151,14 @@ class PreviewTests(ApiTestCase):
         self.assertIsNone(self.client.get(self.url).data["segments"][0]["visual"])
         self.first.scene_images.update(file="missing.png")
         self.assertIsNone(self.client.get(self.url).data["segments"][0]["visual"])
+
+    def test_opening_uses_video_default_instead_of_scene_outgoing_override(self):
+        self.first.transition_after = "FADE"
+        self.first.save()
+        for style, expected in (("CUT", 0), ("DISSOLVE", 0), ("FADE", 0.5)):
+            with self.subTest(style=style):
+                self.video.settings = {"transition_default": style, "transition_duration": 0.5}
+                self.video.save()
+                first = self.client.get(self.url).data["segments"][0]
+                self.assertEqual(first["fade_in"], expected)
+                self.assertEqual(first["fade_out"], 0.5)
