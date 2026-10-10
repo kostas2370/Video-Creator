@@ -22,6 +22,7 @@ from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.SceneServices import draft_scene
+from ..services.editing import reorder_scenes
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
 from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneGenerationLimitPermission
@@ -78,15 +79,7 @@ class VideoView(
         video = self.get_object()
         serializer = self.get_serializer(video, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        if {"transition_default", "transition_duration"} & serializer.validated_data.keys():
-            with transaction.atomic():
-                video = Video.objects.select_for_update().get(pk=video.pk)
-                if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
-                    return Response({"detail": "Wait for the current video operation to finish."}, status=409)
-                serializer.instance = video
-                outcome = serializer.save()
-        else:
-            outcome = serializer.save()
+        outcome = serializer.save()
         logger.info(f"Video with id {pk}  got updated successfully")
         return Response(
             {"message": "Updated Success", "video": VideoNestedSerializer(outcome).data}
@@ -258,23 +251,7 @@ class VideoView(
         owned_video = self.get_object()
         serializer = ReorderScenesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        ids = serializer.validated_data["scene_ids"]
-        with transaction.atomic():
-            video = Video.objects.select_for_update().get(pk=owned_video.pk)
-            if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
-                return Response({"detail": "Wait for the current video operation to finish."}, status=409)
-            scenes = list(video.scenes.select_for_update())
-            if set(ids) != {scene.pk for scene in scenes}:
-                return Response({"detail": "The scene list changed. Refresh and try again."}, status=409)
-            # Move every row above the current range before assigning the final
-            # positions, so swaps also respect the unique video/position constraint.
-            offset = max((scene.position for scene in scenes), default=0)
-            for position, scene_id in enumerate(ids, 1):
-                video.scenes.filter(pk=scene_id).update(position=offset + position)
-            for position, scene_id in enumerate(ids, 1):
-                video.scenes.filter(pk=scene_id).update(position=position)
-            video.save(update_fields=["updated_at"])
-        publish_update(f"video.{video.pk}", video_id=video.pk)
+        video = reorder_scenes(owned_video, serializer.validated_data["scene_ids"])
         return Response(VideoNestedSerializer(video).data)
 
     @swagger_auto_schema(request_body=SceneDraftSerializer)
