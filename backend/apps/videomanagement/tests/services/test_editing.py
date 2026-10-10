@@ -1,13 +1,57 @@
+from uuid import uuid4
+from unittest.mock import patch
+
+from django.db import connection
+from django.http import Http404
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 
 from ...baker_recipes import scene, video
 from ...models import Video
-from ...services.editing import reorder_scenes, update_scene_transition
+from ...services.editing import editable_video, reorder_scenes, update_scene_transition
 from ...services.VideoServices import video_update
 from ...utils.exceptions import VideoEditConflict
 
 
 class EditingServiceTests(TestCase):
+    def test_exception_inside_the_context_rolls_back_the_edit(self):
+        made = video.make(status="READY", title="Original")
+        with self.assertRaises(RuntimeError):
+            with editable_video(made.pk) as locked:
+                locked.title = "Changed"
+                locked.save(update_fields=["title"])
+                raise RuntimeError("Edit failed")
+        made.refresh_from_db()
+        self.assertEqual(made.title, "Original")
+
+    def test_missing_video_is_reported_as_not_found(self):
+        with self.assertRaises(Http404):
+            with editable_video(uuid4()):
+                self.fail("A missing video cannot be edited")
+
+    def test_unchanged_order_and_transition_do_not_write_or_publish(self):
+        made = video.make(status="READY")
+        first, second = scene.make(video=made, _quantity=2)
+        with patch("apps.videomanagement.services.editing.publish_update") as publish:
+            with CaptureQueriesContext(connection) as queries:
+                reorder_scenes(made, [first.pk, second.pk])
+                update_scene_transition(first, transition_after="DEFAULT", transition_duration=None)
+        publish.assert_not_called()
+        self.assertFalse(any(query["sql"].lstrip().upper().startswith("UPDATE") for query in queries))
+
+    def test_reorder_query_count_does_not_grow_with_each_scene(self):
+        counts = []
+        for size in (4, 30):
+            made = video.make(status="READY")
+            rows = scene.make(video=made, _quantity=size)
+            ids = [row.pk for row in reversed(rows)]
+            with CaptureQueriesContext(connection) as queries:
+                reorder_scenes(made, ids)
+            counts.append(len(queries))
+            self.assertEqual(list(made.scenes.values_list("pk", flat=True)), ids)
+            self.assertEqual(list(made.scenes.values_list("position", flat=True)), list(range(1, size + 1)))
+        self.assertEqual(counts[0], counts[1])
+
     def test_stale_callers_cannot_edit_a_video_that_started_rendering(self):
         made = video.make(status="READY")
         first, second = scene.make(video=made, _quantity=2)
