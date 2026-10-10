@@ -24,6 +24,7 @@ export const getOutro = search => get("outros/", { search: search || undefined }
 export const getAvatars = search => get("avatars/", { search: search || undefined });
 export const getVideos = (search, page) => get("videos/", { search: search || undefined, page: page || undefined });
 export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
+export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
 export const getVoices = () => get("voices/");
 export const getTemplates = () => get("templates/");

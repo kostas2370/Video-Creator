@@ -165,3 +165,39 @@ class OutroSerializer(serializers.ModelSerializer):
     class Meta:
         model = Outro
         fields = "__all__"
+
+
+class PreviewCaptionSerializer(serializers.Serializer):
+    start = serializers.FloatField()
+    end = serializers.FloatField()
+    text = serializers.CharField()
+
+
+class PreviewSegmentSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    kind = serializers.ChoiceField(choices=("scene", "intro", "outro"))
+    label = serializers.CharField()
+    text = serializers.CharField(allow_null=True, allow_blank=True)
+    start = serializers.FloatField()
+    duration = serializers.FloatField()
+    base_duration = serializers.FloatField()
+    pause = serializers.FloatField()
+    visual = serializers.CharField(allow_null=True)
+    visual_type = serializers.ChoiceField(choices=("image", "video"))
+    visual_duration = serializers.FloatField(allow_null=True)
+    clip_audio = serializers.BooleanField()
+    narration = serializers.CharField(allow_null=True)
+    narration_duration = serializers.FloatField(allow_null=True)
+    transition = serializers.ChoiceField(choices=("CUT", "FADE", "DISSOLVE"))
+    transition_duration = serializers.FloatField(allow_null=True)
+    fade_in = serializers.FloatField()
+    fade_out = serializers.FloatField()
+    dissolve_in = serializers.FloatField()
+
+
+class PreviewTimelineSerializer(serializers.Serializer):
+    duration = serializers.FloatField()
+    size = serializers.ListField(child=serializers.IntegerField(), min_length=2, max_length=2)
+    segments = PreviewSegmentSerializer(many=True)
+    captions = PreviewCaptionSerializer(many=True)
+    render_only = serializers.ListField(child=serializers.CharField())
