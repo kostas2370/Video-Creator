@@ -147,7 +147,10 @@ def make_video(video: Video) -> Video:
     final_audio = final_video = None
     transition_clips = []
     try:
-        final_video, transition_clips = compose_transitions(vids, transitions, opening_duration=choices.get("transition_duration"))
+        final_video, transition_clips = compose_transitions(
+            vids, transitions, opening_style=choices.get("transition_default", "FADE"),
+            opening_duration=choices.get("transition_duration"),
+        )
 
         if background:
             final_video = final_video.margin(

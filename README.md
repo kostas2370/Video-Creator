@@ -613,6 +613,8 @@ clips appear in playback order alongside the scenes. The active scene is highlig
 and a moving line shows your position within it.
 
 The preview follows saved scene order, durations, pauses and transition settings.
+The first scene fades in only when the video's default transition is **Fade**;
+**Cut** and **Cross dissolve** start directly.
 Narration and retained clip audio play together; pauses hold the final frame in
 silence. Captions appear when subtitles are enabled, using the same estimated phrase
 cues as rendering and SRT export. Portrait, landscape and square framing use the

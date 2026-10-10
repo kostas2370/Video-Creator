@@ -78,7 +78,8 @@ def apply_transitions(segments, choices):
     """Apply scene-boundary effects using the renderer's fade and dissolve limits."""
     for index, segment in enumerate(segments):
         previous = segments[index - 1] if index else None
-        if previous is None or previous.transition == "FADE":
+        incoming_style = previous.transition if previous else choices.get("transition_default", "FADE")
+        if incoming_style == "FADE":
             requested = previous.transition_duration if previous else choices.get("transition_duration")
             segment.fade_in = fade_duration(segment, requested)
         if segment.transition == "FADE":
