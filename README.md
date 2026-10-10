@@ -601,11 +601,12 @@ narration line and its audio, the image behind it, and the order they play in. S
 can be added, edited, regenerated or removed one at a time, so a single bad shot does
 not mean generating the whole thing again.
 
-![Editing a generated video with its preview timeline and scene controls](docs/screenshots/video-edit.png)
+![Editing a generated video with scene controls and the preview button](docs/screenshots/video-edit.png)
 
 ### Preview and timeline
 
-**Preview & timeline** plays the current edit without generating a video file or
+Choose **Preview video** beside **Settings** and **Render video** to open a dedicated
+player with a scene timeline. It plays the current edit without generating a video file or
 spending generation credits. Choose a scene thumbnail to jump to its start, drag the
 playhead to seek, or use **Play**, **Pause**, **Restart** and **Mute**. Intro and outro
 clips appear in playback order alongside the scenes. The active scene is highlighted,
@@ -615,10 +616,11 @@ The preview follows saved scene order, durations, pauses and transition settings
 Narration and retained clip audio play together; pauses hold the final frame in
 silence. Captions appear when subtitles are enabled, using the same estimated phrase
 cues as rendering and SRT export. Portrait, landscape and square framing use the
-selected output format. Playback waits for buffering and pauses when you leave the tab
-or open an editing dialog.
+selected output format. Playback waits for buffering and pauses when you leave the tab.
+Closing the preview stops all media and returns you to editing. Use the close button,
+press Escape, or click outside the modal. Opening it again starts from the beginning.
 
-Saving playback changes reloads the preview, ready to play from the beginning. Preview
+The preview loads saved changes when you open it. Preview
 is unavailable while generation or rendering is running. Missing visuals show a
 placeholder; media failures display a notice and can be retried by reloading the preview.
 

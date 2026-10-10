@@ -3,7 +3,7 @@ import { RiDraggable } from "react-icons/ri";
 import { SceneTransition } from "./SceneTransition";
 import { Scene } from "./Scene";
 
-export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming, onEditing }) {
+export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming }) {
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
   const listRef = useRef(null);
@@ -64,7 +64,7 @@ export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpda
     {scenes.map((scene, index) => <div key={scene.id} data-scene-order={index} className="relative mb-5">
       {drag?.target === index && drag.target !== drag.from && drag.target !== drag.from + 1 && <div className="pointer-events-none absolute -top-3 left-0 right-0 h-1 rounded-full bg-blue-500" />}
       <div className={drag?.from === index ? "opacity-40" : ""}>
-        <Scene onEditing={onEditing} scene={scene} index={index} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === scene.id} setUpdated={setUpdated} video_format={videoFormat} reorderHandle={scenes.length > 1 && <button type="button" disabled={disabled} aria-label={`Move scene ${index + 1}`} aria-describedby="scene-reorder-help" className="touch-none rounded-lg p-2 text-gray-400 cursor-grab hover:bg-blue-50 hover:text-blue-600 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default disabled:opacity-30 dark:hover:bg-gray-700" onPointerDown={event => {
+        <Scene scene={scene} index={index} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === scene.id} setUpdated={setUpdated} video_format={videoFormat} reorderHandle={scenes.length > 1 && <button type="button" disabled={disabled} aria-label={`Move scene ${index + 1}`} aria-describedby="scene-reorder-help" className="touch-none rounded-lg p-2 text-gray-400 cursor-grab hover:bg-blue-50 hover:text-blue-600 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default disabled:opacity-30 dark:hover:bg-gray-700" onPointerDown={event => {
           if (disabled || event.button !== 0) return;
           event.preventDefault();
           event.currentTarget.focus();

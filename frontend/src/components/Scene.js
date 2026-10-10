@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import { FaPencilAlt } from "react-icons/fa";
 import { IoTrashBinSharp } from "react-icons/io5";
@@ -17,16 +17,12 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onEditing }) => {
+export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditImageModal, setShowEditImageModal] = useState(false);
-
-  useEffect(() => {
-    if (showDeleteModal || showDeleteSceneModal || showEditModal || showEditImageModal) onEditing?.();
-  }, [showDeleteModal, showDeleteSceneModal, showEditModal, showEditImageModal, onEditing]);
 
   const MEDIA_URL = API_HOST;
   const [retryingNarration, setRetryingNarration] = useState(false);
