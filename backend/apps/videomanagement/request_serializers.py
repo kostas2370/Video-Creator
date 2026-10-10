@@ -1,4 +1,7 @@
+import math
+
 from django.conf import settings
+from django.db.models import Max
 from rest_framework import serializers
 
 from .models import Avatar, Intro, Outro
@@ -10,6 +13,17 @@ from .video_formats import (
     VIDEO_FORMAT_CHOICES,
     VIDEO_PLATFORM_CHOICES,
 )
+
+class TransitionDurationField(serializers.FloatField):
+    def __init__(self, **kwargs):
+        super().__init__(min_value=0.1, max_value=3, **kwargs)
+
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        if not math.isfinite(value):
+            raise serializers.ValidationError("Choose a duration between 0.1 and 3 seconds.")
+        return value
+
 
 AVATAR_POSITIONS = {"left,top", "right,top", "left,bottom", "right,bottom"}
 
@@ -156,6 +170,8 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    transition_default = serializers.ChoiceField(choices=["CUT", "FADE", "DISSOLVE"], required=False)
+    transition_duration = TransitionDurationField(required=False, allow_null=True)
     avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     outro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -172,7 +188,19 @@ class VideoUpdateSerializer(serializers.Serializer):
         return video_update(instance, **validated_data)
 
 
-class AddSceneSerializer(serializers.Serializer):
+class ScenePositionSerializer(serializers.Serializer):
+    position = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+
+    def validate_position(self, position):
+        video = self.context.get("video")
+        if position is not None and video is not None:
+            last = video.scenes.aggregate(last=Max("position"))["last"] or 0
+            if position > last + 1:
+                raise serializers.ValidationError("Choose a position within the current video.")
+        return position
+
+
+class AddSceneSerializer(ScenePositionSerializer):
     text = serializers.CharField(required=False)
     image_description = serializers.CharField(required=False)
     is_last = serializers.BooleanField(default=False)
@@ -185,7 +213,7 @@ class AddSceneSerializer(serializers.Serializer):
         return super().validate(attrs)
 
 
-class AddScenesSerializer(serializers.Serializer):
+class AddScenesSerializer(ScenePositionSerializer):
     scenes = AddSceneSerializer(many=True, min_length=1, max_length=12)
 
 
@@ -214,3 +242,26 @@ class StoryboardSerializer(serializers.Serializer):
         ):
             raise serializers.ValidationError("Add narration for each shot.")
         return scenes
+
+
+class ReorderScenesSerializer(serializers.Serializer):
+    scene_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
+
+    def validate_scene_ids(self, values):
+        if len(set(values)) != len(values):
+            raise serializers.ValidationError("Include each scene exactly once.")
+        return values
+
+
+class SceneTransitionSerializer(serializers.Serializer):
+    transition_after = serializers.ChoiceField(choices=["DEFAULT", "FADE", "CUT", "DISSOLVE"])
+    transition_duration = TransitionDurationField(required=False, allow_null=True)
+
+
+class SceneTimingSerializer(serializers.Serializer):
+    pause_after = serializers.FloatField(min_value=0, max_value=10)
+
+    def validate_pause_after(self, value):
+        if not math.isfinite(value):
+            raise serializers.ValidationError("Choose a pause between 0 and 10 seconds.")
+        return value

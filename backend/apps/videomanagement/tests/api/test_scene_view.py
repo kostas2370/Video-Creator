@@ -23,6 +23,96 @@ class SceneViewTests(ApiTestCase):
         self.video = self.video_for()
         self.scene = scene.make(video=self.video, text="the old line")
 
+    def test_timing_saves_without_charging_or_regenerating(self):
+        self.user.generation_limit_for_ai = 0
+        self.user.save()
+        with patch("apps.videomanagement.views.scene_view.update_scene") as regenerate:
+            response = self.client.patch(reverse("scene-timing", args=[self.scene.pk]), {"pause_after": 0.75}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.pause_after, 0.75)
+        self.assertEqual(response.data["timing"]["duration"] - response.data["timing"]["base_duration"], 0.75)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.generation_limit_for_ai, 0)
+        regenerate.assert_not_called()
+
+    def test_timing_rejects_invalid_pauses(self):
+        for payload in ({}, {"pause_after": None}, {"pause_after": -1}, {"pause_after": 11}, {"pause_after": "NaN"}, {"pause_after": "Infinity"}):
+            response = self.client.patch(reverse("scene-timing", args=[self.scene.pk]), payload, format="json")
+            self.assertEqual(response.status_code, 400, response.data)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.pause_after, 0)
+
+    def test_timing_is_blocked_while_processing_and_for_other_users(self):
+        url = reverse("scene-timing", args=[self.scene.pk])
+        for state in ("GENERATION", "RENDERING", "REVIEW"):
+            self.video.status = state
+            self.video.save()
+            self.assertEqual(self.client.patch(url, {"pause_after": 1}, format="json").status_code, 409)
+        foreign = scene.make(video=self.video_for(owner=user.make()))
+        self.assertEqual(self.client.patch(reverse("scene-timing", args=[foreign.pk]), {"pause_after": 1}, format="json").status_code, 403)
+        self.client.force_authenticate(user=None)
+        self.assertEqual(self.client.patch(url, {"pause_after": 1}, format="json").status_code, 401)
+
+    def test_transition_saves_without_charging_or_regenerating_media(self):
+        self.user.generation_limit_for_ai = 0
+        self.user.save()
+        with patch("apps.videomanagement.views.scene_view.update_scene") as regenerate:
+            response = self.client.patch(reverse("scene-transition", args=[self.scene.pk]),
+                                         {"transition_after": "CUT"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.transition_after, "CUT")
+        self.assertEqual(self.scene.text, "the old line")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.generation_limit_for_ai, 0)
+        regenerate.assert_not_called()
+
+    def test_dissolve_duration_and_reset_to_video_default(self):
+        url = reverse("scene-transition", args=[self.scene.pk])
+        response = self.client.patch(url, {"transition_after": "DISSOLVE", "transition_duration": 0.75}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.transition_duration, 0.75)
+        response = self.client.patch(url, {"transition_after": "DEFAULT", "transition_duration": None}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.scene.refresh_from_db()
+        self.assertIsNone(self.scene.transition_duration)
+        self.assertEqual(self.scene.transition_after, "DEFAULT")
+
+    def test_transition_rejects_invalid_durations(self):
+        for value in (-1, 0, 4, "NaN", "Infinity"):
+            response = self.client.patch(reverse("scene-transition", args=[self.scene.pk]),
+                                         {"transition_after": "DISSOLVE", "transition_duration": value}, format="json")
+            self.assertEqual(response.status_code, 400, response.data)
+        self.scene.refresh_from_db()
+        self.assertIsNone(self.scene.transition_duration)
+
+    def test_transition_rejects_unsupported_effects(self):
+        response = self.client.patch(reverse("scene-transition", args=[self.scene.pk]),
+                                     {"transition_after": "SPIN"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.transition_after, "DEFAULT")
+
+    def test_transition_is_blocked_while_processing(self):
+        for state in ("GENERATION", "RENDERING", "REVIEW"):
+            self.video.status = state
+            self.video.save()
+            response = self.client.patch(reverse("scene-transition", args=[self.scene.pk]),
+                                         {"transition_after": "CUT"}, format="json")
+            self.assertEqual(response.status_code, 409)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.transition_after, "DEFAULT")
+
+    def test_transition_cannot_edit_another_users_scene(self):
+        foreign = scene.make(video=self.video_for(owner=user.make()))
+        response = self.client.patch(reverse("scene-transition", args=[foreign.pk]),
+                                     {"transition_after": "CUT"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        foreign.refresh_from_db()
+        self.assertEqual(foreign.transition_after, "DEFAULT")
+
     def test_rewrites_a_line_and_charges_for_it(self):
         before = self.user.generation_limit_for_ai
 

@@ -21,8 +21,11 @@ from ..exceptions import RenderFailedException
 from .avatar import handle_avatar_video
 from .clips import clip_audio, handle_audio, process_scene
 from .layers import fit_to_canvas, handle_background, handle_music
+from .timing import align_audio, hold_scene
+from .transitions import compose_transitions, scene_transition
 from .subtitles import create_subtitle_clip
 from ...video_formats import output_size
+from ...services.subtitles import scene_cues
 
 logger = logging.getLogger(__name__)
 
@@ -59,14 +62,14 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
         final_video = handle_avatar_video(video, final_video)
 
     if (video.settings or {}).get("subtitles", False) and subtitles:
-        subs = concatenate_videoclips(subtitles, method="compose")
+        subs = CompositeVideoClip(subtitles).set_duration(duration)
         video_height = final_video.size[1]
         subtitle_bottom_margin = int(video_height * 0.05)
         subtitle_y = max(0, video_height - subs.h - subtitle_bottom_margin)
         final_video = CompositeVideoClip(
             [
                 final_video,
-                subs.set_pos(("center", subtitle_y)).fadein(1).fadeout(1),
+                subs.set_pos(("center", subtitle_y)),
             ]
         )
 
@@ -107,6 +110,10 @@ def make_video(video: Video) -> Video:
     narration = choices.get("narration", True)
     canvas_size = output_size(choices.get("video_format"))
 
+    transitions = []
+    timing_clips = []
+    scene_tracks = []
+    elapsed = 0
     for scene in scenes:
         scene_image = SceneImage.objects.filter(scene=scene).first()
         audio = (
@@ -117,22 +124,30 @@ def make_video(video: Video) -> Video:
             sound_list.append(audio)
 
             if narration and choices.get("subtitles", False):
-                subtitle = create_subtitle_clip(
-                    scene.text,
-                    audio.duration,
-                    size=(int(canvas_size[0] * 0.84), int(canvas_size[1] * 0.18)),
-                )
-                if subtitle is not None:
-                    subtitles.append(subtitle)
+                for cue in scene_cues(scene, offset=elapsed):
+                    subtitle = create_subtitle_clip(
+                        cue.text,
+                        cue.end - cue.start,
+                        size=(int(canvas_size[0] * 0.84), int(canvas_size[1] * 0.18)),
+                    )
+                    if subtitle is not None:
+                        subtitles.append(subtitle.set_start(cue.start))
 
-        vids.append(fit_to_canvas(process_scene(scene_image, audio, background), canvas_size))
+        transitions.append(scene_transition(scene, choices))
+        visual = fit_to_canvas(process_scene(scene_image, audio, background), canvas_size)
+        visual, resources = hold_scene(visual, scene.pause_after)
+        timing_clips.extend(resources)
+        vids.append(visual)
+        scene_tracks.append((audio, visual.duration))
+        elapsed += visual.duration
 
     if not vids:
         raise RenderFailedException("No video scenes were processed.")
 
     final_audio = final_video = None
+    transition_clips = []
     try:
-        final_video = concatenate_videoclips(vids)
+        final_video, transition_clips = compose_transitions(vids, transitions, opening_duration=choices.get("transition_duration"))
 
         if background:
             final_video = final_video.margin(
@@ -140,7 +155,9 @@ def make_video(video: Video) -> Video:
             ).set_position("center")
 
         if sound_list:
-            final_audio = concatenate_audioclips(sound_list)
+            tracks = [align_audio(audio, duration) for audio, duration in scene_tracks]
+            timing_clips.extend(tracks)
+            final_audio = concatenate_audioclips(tracks)
             final_audio.write_audiofile(f"{video.dir_name}/output_audio.wav")
 
         final_video = handle_final_video(
@@ -161,9 +178,11 @@ def make_video(video: Video) -> Video:
         video.status = VideoStatus.COMPLETED
 
     finally:
-        for clip in sound_list + vids + subtitles + [final_audio, final_video]:
-            if clip is None:
+        closed = set()
+        for clip in sound_list + vids + subtitles + timing_clips + transition_clips + [final_audio, final_video]:
+            if clip is None or id(clip) in closed:
                 continue
+            closed.add(id(clip))
             try:
                 clip.close()
             except Exception as exc:

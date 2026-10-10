@@ -1,9 +1,28 @@
 # Viddie - AI-Powered Video Creation
 
-## Short Description
-Viddie is an AI-powered platform for automated video creation, utilizing advanced machine learning models. It streamlines video production by combining OpenAI GPT models for script generation, API text-to-speech (OpenAI, ElevenLabs or 60dB) for speech synthesis, OpenAI `gpt-image` models for image generation, and SadTalker for avatar animation. This allows users to generate high-quality videos with minimal manual effort.
+Viddie turns a prompt into an editable video. Draft a storyboard, review its dialogue
+and visual prompts, generate the media, then refine individual scenes before rendering.
+The React frontend and Django API run together with background workers for generation
+and rendering.
 
-You can also connect custom image and video APIs to generate visuals for each scene.
+## Features
+
+- **Review before generation:** edit the generated storyboard before creating audio
+  and visuals, or return to the draft from your video library.
+- **Choose your media:** use web images, built-in AI visual providers, or your own
+  image and video APIs. Optional reference images guide OpenAI images and Sora shots.
+- **Choose your narrator:** use OpenAI, ElevenLabs, 60dB or custom voice providers,
+  add a SadTalker presenter, or turn narration off.
+- **Edit scene by scene:** rewrite dialogue, replace visuals, draft additional scenes,
+  choose their insertion position and drag scenes into playback order.
+- **Control playback:** set pauses and choose cuts, fades through black or cross
+  dissolves, with video defaults and overrides between scenes.
+- **Add captions:** render short phrase subtitles and download an SRT file for the
+  current edit.
+- **Reuse your setup:** save generation templates, avatars, intro and outro clips;
+  render in landscape, portrait or square format.
+- **Manage your providers:** use service keys or encrypted personal keys, and connect
+  custom voice, image and video services from the app.
 
 ![The generation form with a custom video provider](docs/screenshots/generate.png)
 
@@ -14,9 +33,9 @@ change that spans the API and the UI is one commit and one review. It was previo
 a [separate repo](https://github.com/kostas2370/video_creator_frontend), kept for
 history.
 
-Docker serves it through nginx on the same origin as the API, which is what keeps the
-auth cookies working: they are `SameSite=Strict`, so a frontend on a different host or
-port never receives the refresh token and every reload logs the user out.
+Docker serves the app and API through nginx on one origin. The frontend sends API
+requests through that origin, including the `SameSite=Strict` authentication cookies.
+The development proxy provides the same setup when running React outside Docker.
 
 ## Sample Videos
 
@@ -28,11 +47,11 @@ port never receives the refresh token and every reload logs the user out.
 ## Configuration
 
 Both installs read the same `.env` in `backend/` (see `backend/.env_example`).
-Three keys are worth setting before you start:
+Configure the services you plan to use:
 
 - `OPEN_API_KEY` — used for scripts, images and voices
-- `SEARCH_ENGINE_ID`
-- `API_KEY`
+- `SEARCH_ENGINE_ID` — Google Custom Search engine ID, when using Google web images
+- `API_KEY` — Google Custom Search API key, when using Google web images
 
 These are the *service* keys — the ones the server spends on behalf of everyone.
 Users can instead supply their own from the app, without touching `.env`; see
@@ -40,17 +59,17 @@ Users can instead supply their own from the app, without touching `.env`; see
 what new accounts use by default and what the `setup_elevenlabs` and `setup_60db`
 commands read.
 
-*To find your Google search engine ID and API key, refer to this *[***YouTube Guide***](https://www.youtube.com/watch?v=D4tWHX2nCzQ\&t=127s)*.*
+For Google search setup, see this [video guide](https://www.youtube.com/watch?v=D4tWHX2nCzQ&t=127s).
 
-Every value is optional apart from those, and blank is treated the same as unset.
-The ones worth knowing about:
+Blank values are treated as unset. Generation requires credentials for the selected
+providers, while other settings use their configured defaults. Useful options include:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DEFAULT_GPT_MODEL` | `gpt-5.4-mini` | Script generation model |
 | `MAX_TOKENS` | `3900` | Visible reply budget |
 | `REASONING_TOKEN_ALLOWANCE` | `8000` | Extra budget for gpt-5/o-series thinking tokens, which bill against the same cap as the reply |
-| `IMAGE_MODEL` | `gpt-image-2` | Image generation model (DALL-E is retired) |
+| `IMAGE_MODEL` | `gpt-image-2` | OpenAI image generation model |
 | `IMAGE_QUALITY` / `IMAGE_SIZE` | `high` / `1792x1024` | Validated per model — change them together with `IMAGE_MODEL` |
 | `SUBTITLE_FONT` | `DejaVu-Sans` | ImageMagick font name for subtitles |
 
@@ -82,7 +101,7 @@ by hand if you would rather run the services yourself.
 1. Create the `.env` file as described under [Configuration](#configuration).
 2. Navigate to the backend folder and run:
    ```shell
-   docker-compose up --build
+   docker compose up --build
    ```
 
 This brings up the whole stack, frontend included:
@@ -134,7 +153,7 @@ They are deliberately **not** baked into the image — that would add several GB
 - Backend framework: Django 5.2 LTS with Django REST Framework 3.18.
   Package metadata, Docker, and CI share `backend/requirements/requirements.txt`.
 - Install the following dependencies:
-  1. FFmpeg (Required for video rendering) - [Installation Guide](https://phoenixnap.com/kb/ffmpeg-windows)
+  1. FFmpeg, including `ffprobe` (Required for video rendering and reading media timing) - [Installation Guide](https://phoenixnap.com/kb/ffmpeg-windows)
   2. ImageMagick (Required for subtitles) - [Download](https://imagemagick.org/script/download.php#windows)
 
      On Linux, the packaged `policy.xml` blocks the `@file` reads that moviepy uses to
@@ -151,7 +170,7 @@ They are deliberately **not** baked into the image — that would add several GB
 
 #### Installation Steps
 
-1. Navigate to the viddie folder and install dependencies:
+1. Navigate to `backend/` and install dependencies in a Python 3.11 virtual environment:
 
    ```shell
    pip install --upgrade pip
@@ -180,11 +199,11 @@ They are deliberately **not** baked into the image — that would add several GB
 4. Run the following commands to set up the database and start the server:
 
    ```shell
-   py manage.py migrate
-   py manage.py loaddata fixtures/fixtures.json
-   py manage.py setup_media
-   py manage.py createsuperuser
-   py manage.py runserver
+   python manage.py migrate
+   python manage.py loaddata fixtures/fixtures.json
+   python manage.py setup_media
+   python manage.py createsuperuser
+   python manage.py runserver
    ```
 
    Migrations are committed to the repo, so `migrate` is all you need. If you change a
@@ -206,19 +225,34 @@ They are deliberately **not** baked into the image — that would add several GB
 5. (Optional) To enable ElevenLabs voices, add your `XI_API_KEY` in the `.env` file and run:
 
    ```shell
-   py manage.py setup_elevenlabs
+   python manage.py setup_elevenlabs
    ```
 
 6. (Optional) To enable 60dB voices, add your `SIXTYDB_API_KEY` in the `.env` file and run:
 
    ```shell
-   py manage.py setup_60db
+   python manage.py setup_60db
    ```
 
    This imports your 60dB voices into the database. Once imported, a 60dB voice can be
    selected for a video just like any other voice — synthesis is routed automatically.
 
-7. In a second terminal, start the frontend:
+7. Run Redis and a Celery worker for media generation, rendering and voice imports.
+   For Redis running locally, set `CELERY_BROKER_URL=redis://localhost:6379/0` in
+   `backend/.env`; `CELERY_RESULT_BACKEND` and `VIDEO_EVENTS_REDIS_URL` use that URL
+   unless overridden. From `backend/`, start the worker in another terminal:
+
+   ```shell
+   celery -A video_creator worker --loglevel=info
+   ```
+
+   Start the scheduler in its own terminal for scheduled tasks:
+
+   ```shell
+   celery -A video_creator beat --loglevel=info
+   ```
+
+8. From the repository root, start the frontend in another terminal:
 
    ```shell
    cd frontend && npm install && npm start
@@ -273,7 +307,7 @@ docker compose exec video_creator python manage.py shell -c "..."
 To verify an account you already made, rather than creating one:
 
 ```shell
-python manage.py shell -c "from apps.usermanagement.models import User; User.objects.update(is_verified=True)"
+python manage.py shell -c "from apps.usermanagement.models import User; User.objects.filter(username='admin').update(is_verified=True)"
 ```
 
 ## API keys
@@ -336,9 +370,11 @@ Choose **Add provider** and fill in the three sections:
 
 ![Adding a custom voice provider](docs/screenshots/custom-provider-form.png)
 
-Under **Advanced: request field names**, the defaults are `text` and `voice_id`.
+Under **Advanced: request settings**, the defaults are `text` and `voice_id`.
 Change them if your service expects different JSON field names. The speech endpoint
-receives a POST with those two fields and should return audio bytes.
+receives a POST with those two fields and should return audio bytes. **Extra parameters
+(JSON)** adds options such as a model or speaking speed; the text and voice fields
+override extra parameters with the same names.
 
 The voices URL must be accessible without authentication. It can return a JSON list,
 or an object containing that list under `voices` or `data`. Each voice needs `id` and
@@ -474,38 +510,42 @@ and the badge counts what you have not read yet.
 
 ![The notification bell](docs/screenshots/navigation-notifications.png)
 
-You still get the same thing by email, so closing the tab is safe either way.
+Notifications remain available when you return to the app. Email notifications are
+also sent when email delivery is configured; local development prints emails to the
+server console by default.
 
 ## Creating a video
 
-The generation page separates your story from its voice and visuals. Write a prompt,
-use one of the example ideas, or choose **Start from a template**. Pick a presenter
-or a voice, then choose web images or AI-generated visuals and their provider.
-Your saved custom image and video providers appear in **Visual provider** when
-**AI-generated visuals** is selected.
+Open **Generate** and work through the form:
 
-The **Your video** panel summarizes those choices and contains **Generate video**.
-Narration can be turned off for a video made from clips only. **Advanced settings**
-contains the target audience, genre, script model, background music URL, and subtitles.
-The layout stacks vertically on smaller screens.
+1. **Your story:** enter your prompt, choose an example idea, or load a saved template.
+   Set **Number of scenes** to 1–60, or leave it blank to let AI choose. The form
+   starts at eight scenes, with one short spoken sentence per scene.
+2. **Voice and visuals:** choose a presenter or voice and select web images or
+   AI-generated visuals. Custom image and video services appear in **Visual provider**.
+   Turn **Narration** off when you do not want a voice-over.
+3. **Reference image:** when using OpenAI images or Sora, optionally upload a PNG,
+   JPEG or WebP image up to 10 MB and describe how to use it in your prompt.
+4. **Fine-tune your video:** set the audience, tone or genre, script model, background
+   music, subtitles, platform and output format. TikTok selects portrait framing and
+   captions by default; landscape (16:9), portrait (9:16) and square (1:1) are available.
+5. Check the **Your video** summary and choose **Generate video** to draft the storyboard.
 
-![Advanced generation settings](docs/screenshots/generation-settings.png)
+The form stacks vertically on smaller screens. Background music accepts a YouTube
+URL; **Add subtitles** is available while narration is enabled.
+
+![The Fine-tune your video settings](docs/screenshots/generation-settings.png)
 
 Generation first drafts a storyboard. A review modal shows the generated narration
 and visual prompts for every scene; edit them and press **Proceed** to create the
 visuals and audio. Closing the modal leaves the draft awaiting review in your video
 library. Open it in the editor and choose **Review storyboard** to continue.
 
-After media generation, review the scenes in the editor before rendering a finished video.
+![Reviewing the generated dialogue and visual prompts before proceeding](docs/screenshots/storyboard-review.png)
 
-**Number of scenes** controls the script length: choose 1–60 scenes, with one short
-spoken sentence per scene, or leave it blank to let AI choose. The form starts at
-eight scenes, and saved templates keep this choice.
-
-In the editor, **Add scene** can draft one sentence, a section, or a short story.
-Sections start at three sentences and stories at six; choose up to twelve. Review
-each sentence and its visual description, edit or remove any item, then add the
-remaining scenes together. Drafting does not add scenes until you submit them.
+After choosing **Proceed**, media generation runs in the background. Find the video
+under **My videos**, then edit its scenes and choose **Render video** when ready.
+Generation and rendering are separate steps, so you can refine the media first.
 
 ## Templates
 
@@ -516,7 +556,7 @@ in, and **Delete** next to that dropdown deletes the currently selected template
 
 ![Naming a template](docs/screenshots/save-template.png)
 
-Picking one fills the form back in, and **Delete** beside the dropdown removes it:
+The selected template fills the form and shows **Delete** beside the dropdown:
 
 ![A saved template selected, with the delete button beside it](docs/screenshots/template-saved.png)
 
@@ -536,8 +576,9 @@ account menu, notifications, and theme switch are available in the header.
 ## Your videos
 
 Search your library by title and use the status badges to see what is ready, finished,
-or still being worked on. **Edit scenes** opens the editor; **Watch** previews a
-finished video. The actions menu includes details, rendering, resuming, and deletion.
+or still being worked on. **Review prompts** opens a pending storyboard, **Edit scenes**
+opens an editable video, and **Watch** previews a finished render. The actions menu
+offers details and the render, resume or delete actions available for that video.
 **Create video** starts a new story.
 
 ![The videos list](docs/screenshots/videos.png)
@@ -560,13 +601,99 @@ not mean generating the whole thing again.
 
 ![Editing a generated video scene by scene](docs/screenshots/video-edit.png)
 
+Scenes are numbered in playback order. **Insert position** in **Add scene** lets you
+choose **At the end** or **Before scene N** and shows where the new scenes will fit.
+Later scenes shift down, and a batch stays together in its reviewed order. New scenes
+go at the end by default.
+
+Drag the handle on a scene card to change its playback position using a mouse or
+touchscreen. With the handle focused, the up and down arrow keys move the scene,
+and Escape cancels an active drag. Order saves automatically; a failed save restores
+the previous order.
+
 Use the scene navigator to jump between numbered scene cards. **Edit text** opens
 the dialogue editor, where you can review an AI rewrite before saving. **Edit visual**
 lets you upload an image or video with a preview, or generate a new image.
 
-**Settings** opens the video's intro, outro, avatar and subtitle controls.
-**Render video** queues the render once the video is ready. While rendering, the
-button stays disabled.
+### Adding and rewriting scenes
+
+Choose **Add scene**, set its insertion position, then choose a creation mode:
+
+- **Write it yourself:** enter dialogue and an optional visual description, or upload
+  an image or video to use as the visual.
+- **Create with AI:** describe what should happen and draft a sentence, section or
+  short story. Sections start at three sentences and stories at six; choose up to
+  twelve. **With context** includes the video's title and current scenes;
+  **No context** sends only your new instructions. Choose **Generate draft** to
+  review the proposed scenes.
+
+Review the generated dialogue and visual descriptions, edit or remove individual
+items, then add the remaining scenes together. Drafting alone does not insert scenes.
+Under **More options**, **Keep visual audio** retains an uploaded clip's sound and
+**End of scene group** marks a manually added scene as a group ending.
+
+To change existing dialogue, choose **Edit text**. Edit it directly or describe a
+change under **Rewrite with AI**, then choose **Generate rewrite**. Review the result
+and choose **Save dialogue** to apply it and regenerate narration. Closing the dialog
+before saving leaves the scene unchanged.
+
+### Transitions
+
+Controls between scene cards choose how the next scene begins:
+
+| Style | Effect |
+| --- | --- |
+| **Cut** | Switch immediately to the next scene. |
+| **Fade through black** | Fade the outgoing scene to black, then fade in the next scene. |
+| **Cross dissolve** | Blend the outgoing final frame into the next scene's opening. |
+
+In **Settings → Scene transitions**, choose the video's default style and duration.
+Each scene boundary can use **Video default** or override the style and duration
+independently. Durations range from 0.1 to 3 seconds; **Automatic** lets the renderer
+choose. Cut transitions have no duration, and effects are shortened for short clips.
+Cross dissolves preserve the total runtime, narration and subtitle timing.
+
+### Scene timing and pauses
+
+Each scene shows its duration and a **Pause after scene** selector. Choose
+**No extra pause** or add up to 10 seconds. The pause holds the final visual frame
+with silence before continuing; captions stop at the end of the recorded narration.
+Existing ending holds remain part of the scene duration.
+
+The sidebar shows **Estimated runtime**, including scene durations, pauses, intro
+and outro. It updates as media becomes available and when a pause changes. Timing
+changes save automatically, and a failed save restores the previous value. Changing
+a pause also clears cached avatar output so the next render uses the updated timing.
+
+![Scene durations, pauses, transitions and subtitle export in the editor](docs/screenshots/editor-timing-transitions.png)
+
+### Subtitles and SRT export
+
+Enable **Subtitles** in video settings to include narration captions in the next
+render. Dialogue is split at sentence boundaries and into short phrases, wrapped
+into one or two lines. Phrase timing is estimated from text length and the recorded
+narration duration; voice providers currently do not return word timestamps.
+Captions stay out of added pauses and ending holds, and scenes without recorded
+narration have no captions.
+
+Choose **Download SRT** in the editor sidebar to download a UTF-8 subtitle file for
+the current edit. It uses the same phrase cues as rendered captions, follows scene
+order, and includes intro and pause offsets. Missing narration leaves a gap in the
+subtitle timeline. SRT export works even when on-screen subtitles are turned off,
+but requires recorded narration and waits until processing finishes. The download
+belongs to the current edit; render again after changing scenes or timing to match
+it to your finished video.
+
+### Saving and rendering
+
+**Settings** opens the video's intro, outro, avatar, transition and subtitle controls.
+Reordering scenes, changing transitions or pauses, and downloading SRT files do not
+consume generation credits. Playback edits are blocked during generation, storyboard
+review and rendering. Changes affect the next render; the existing finished video
+stays available until you render again.
+
+**Render video** queues the render once the video is ready and pending playback edits
+have saved. While rendering, the button stays disabled.
 
 If narration is missing, an amber notice lists the affected scenes. **Retry narration**
 on a scene regenerates its audio while keeping the dialogue and visual. The render
@@ -576,11 +703,11 @@ to use the available audio. Videos with narration turned off do not show this wa
 | | |
 | --- | --- |
 | ![Video settings](docs/screenshots/editor-video-settings.png) | ![Queue a render](docs/screenshots/editor-render-confirmation.png) |
-| **Video settings** — intro, outro, avatar, subtitles | **Render** — warns about missing narration, then queues the job |
+| **Video settings** — title, format, intro, outro, avatar, transitions and subtitles | **Render** — confirm rendering; missing narration adds a warning |
 | ![Edit a scene](docs/screenshots/modal-edit-scene.png) | ![Edit a scene image](docs/screenshots/modal-edit-image.png) |
-| **Edit scene** — rewrite the line and resynthesise it | **Edit scene image** — replace it, or regenerate from a new description |
+| **Edit dialogue** — edit or review an AI rewrite, then save | **Edit visual** — upload media or generate an image from a description |
 | ![Add a scene](docs/screenshots/editor-add-scene.png) | ![Delete a scene](docs/screenshots/editor-delete-scene.png) |
-| **Add scene** — write a line and upload or generate its visual | **Delete** — the same confirmation guards scenes, images, videos and assets |
+| **Add scene** — choose its position, write dialogue or review an AI draft | **Delete scene** — confirm removal before deleting |
 
 ## Avatars and assets
 
@@ -616,6 +743,12 @@ For how a request becomes a video — the generation and render pipelines, the s
 state machine, resume, and where to add a provider — see
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+Video and scene operations live in `backend/apps/videomanagement/services/`.
+Playback edits use the shared editing service to lock the video and validate its
+status in one transaction. Media timing, provider integrations and rendering helpers
+live in `utils/`; the composer keeps transitions, captions, audio layers and output
+assembly in separate modules. Subtitle export and rendering share the same cue builder.
+
 ---
 
 ## API Documentation
@@ -647,11 +780,19 @@ For any inquiries or support, feel free to reach out:
 
 ## Recent Updates
 
+✅ Refreshed the README guide and screenshots for the current generation and editing workflows\
+✅ Added storyboard review before media generation, with editable dialogue and visual prompts\
+✅ Added scene insertion positions and reviewed AI drafts for sentences, sections and stories\
+✅ Moved playback editing rules into a shared transaction service and separated rendering helpers\
+✅ Added short phrase captions and UTF-8 SRT downloads with estimated narration timing, scene order, intro and pause offsets\
+✅ Added scene durations, estimated total runtime and optional pauses that hold the final frame with silence\
+✅ Added cut, fade-through-black and cross-dissolve transitions with video defaults and scene overrides\
+✅ Added drag-and-drop scene reordering with touch and keyboard controls and automatic saving\
 ✅ Added custom image and video providers with configurable authentication, prompt fields, and extra request parameters\
 ✅ Save the generation form as a named template and pick it again later, with a delete button beside the picker\
 ✅ Fixed the "video completed" and "video failed" emails, which went out addressed to the subject line rather than to you\
 ✅ Fixed pressing render on a finished video reporting success before the render had started\
-✅ Redesigned the generation form with visible voice and visual controls, advanced settings, and a live creation summary\
+✅ Redesigned the generation form with visible voice and visual controls, Fine-tune your video settings, and a live creation summary\
 ✅ Added a dedicated custom voice providers tab, with connection and authentication settings, voice imports, and credential management\
 ✅ Added per-user API keys, managed from the app and stored encrypted, so a user can spend their own quota instead of the service keys\
 ✅ Voices now follow your keys — your ElevenLabs/60dB voices import themselves, and a provider you hold no key for is hidden instead of failing mid-render\
@@ -668,7 +809,7 @@ For any inquiries or support, feel free to reach out:
 ✅ Integrated ElevenLabs API voices\
 ✅ Integrated 60dB API voices\
 ✅ Added OpenAI voices\
-✅ Integrated MidJourney and Stable Diffusion as image providers *(Change providers in ****\`\`****)*\
+✅ Integrated MidJourney and Stable Diffusion as image providers\
 ✅ Dockerized the application for easier deployment
 
 ---

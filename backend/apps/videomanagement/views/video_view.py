@@ -4,6 +4,9 @@ from django.core.files.storage import default_storage
 from pathlib import Path
 from uuid import uuid4
 from django.utils import timezone
+from django.http import HttpResponse
+from django.utils.http import content_disposition_header
+from django.utils.text import slugify
 from django.db import transaction
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,9 +22,11 @@ from rest_framework.permissions import IsAuthenticated
 from ..events import publish_update
 from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
-from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer
+from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.SceneServices import draft_scene
+from ..services.editing import reorder_scenes
+from ..services.subtitles import export_subtitles
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
 from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneGenerationLimitPermission
@@ -67,6 +72,15 @@ class VideoView(
         }
 
         return serializer_class.get(self.action, VideoSerializer)
+
+    @action(detail=True, methods=["GET"])
+    def subtitles(self, request, pk=None):
+        video = self.get_object()
+        response = HttpResponse(export_subtitles(video), content_type="application/x-subrip; charset=utf-8")
+        filename = f"{slugify(video.title, allow_unicode=True)[:80] or 'video'}-subtitles.srt"
+        response["Content-Disposition"] = content_disposition_header(True, filename)
+        response["Cache-Control"] = "private, no-store"
+        return response
 
     @swagger_auto_schema(
         request_body=VideoUpdateSerializer,
@@ -216,7 +230,7 @@ class VideoView(
         if is_batch and request.FILES:
             return Response({"detail": "Upload a visual when adding a single scene."}, status=400)
         serializer_class = AddScenesSerializer if is_batch else AddSceneSerializer
-        serializer = serializer_class(data=request.data)
+        serializer = serializer_class(data=request.data, context={"video": video})
         serializer.is_valid(raise_exception=True)
         claimed = Video.objects.filter(
             pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]
@@ -243,6 +257,15 @@ class VideoView(
             {"message": "Scene creation queued", "status": VideoStatus.GENERATION},
             status=status.HTTP_202_ACCEPTED,
         )
+
+    @swagger_auto_schema(request_body=ReorderScenesSerializer)
+    @action(detail=True, methods=["POST"])
+    def reorder_scenes(self, request, pk=None):
+        owned_video = self.get_object()
+        serializer = ReorderScenesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video = reorder_scenes(owned_video, serializer.validated_data["scene_ids"])
+        return Response(VideoNestedSerializer(video).data)
 
     @swagger_auto_schema(request_body=SceneDraftSerializer)
     @action(detail=True, methods=["POST"], permission_classes=[

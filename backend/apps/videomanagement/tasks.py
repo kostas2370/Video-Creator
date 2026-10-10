@@ -88,7 +88,9 @@ def create_scene_task(video_id: str | UUID, data: dict, upload_path=None):
             return
         with (default_storage.open(upload_path, "rb") if upload_path else nullcontext()) as upload:
             files = {"image": File(upload, name=Path(upload_path).name)} if upload_path else {}
-            for item in data.get("scenes", [data]):
+            for index, item in enumerate(data.get("scenes", [data])):
+                if "scenes" in data and data.get("position") is not None:
+                    item = {**item, "position": data["position"] + index}
                 SceneServices.create_scene(video, item, files)
     except Exception:
         logger.exception("Scene creation failed for video %s", video_id)

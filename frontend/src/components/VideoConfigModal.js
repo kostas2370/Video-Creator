@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getIntro, getOutro, getAvatars, updateVideo } from "../api/apiService";
+import { transitionDurations, transitionStyles } from "./SceneTransition";
 import { AssetDropBox } from "./ui/assetDropBox";
 import { toast } from "react-toastify";
 import { CloseModalButton } from "./ui/CloseModalButton";
@@ -46,6 +47,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [selectedIntroFile, setSelectedIntroFile] = useState("");
   const [selectedOutroFile, setSelectedOutroFile] = useState("");
   const [selectedAvatarFile, setSelectedAvatarFile] = useState("");
+  const [transitionDefault, setTransitionDefault] = useState("FADE");
+  const [transitionDuration, setTransitionDuration] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -77,6 +80,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     setPlatform(info?.settings?.platform || "GENERAL");
     setVideoFormat(info?.settings?.video_format || "LANDSCAPE");
     setSubtitles(info?.settings?.subtitles === true);
+    setTransitionDefault(info?.settings?.transition_default || "FADE");
+    setTransitionDuration(info?.settings?.transition_duration ?? "");
   }, [info?.settings]);
 
   const changePlatform = (value) => {
@@ -99,6 +104,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
         subtitles,
         platform,
         video_format: videoFormat,
+        transition_default: transitionDefault,
+        transition_duration: transitionDuration === "" ? null : Number(transitionDuration),
       };
       if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
       const { data: response } = await updateVideo(info.id, changes);
@@ -150,6 +157,20 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
                   <span><span className="block text-xs font-semibold">{option.label}</span><span className="mt-0.5 block text-[10px] text-gray-400">{option.ratio}</span></span>
                 </label>)}
               </div>
+            </section>
+
+            <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
+              <h3 className={sectionTitle}>Scene transitions</h3>
+              <p className={sectionDescription}>Set the default for this video. Individual scene overrides stay in place.</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Default transition
+                  <select aria-label="Default transition" disabled={saving} className="mt-2 block w-full rounded-xl border border-gray-200 bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-800" value={transitionDefault} onChange={event => setTransitionDefault(event.target.value)}>{transitionStyles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                </label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Default duration
+                  <select aria-label="Default transition duration" disabled={saving || transitionDefault === "CUT"} className="mt-2 block w-full rounded-xl border border-gray-200 bg-white p-3 text-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800" value={transitionDuration} onChange={event => setTransitionDuration(event.target.value)}><option value="">Automatic</option>{transitionDurations.map(value => <option key={value} value={value}>{value}s</option>)}</select>
+                </label>
+              </div>
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Short scenes use a shorter transition when needed. Cross dissolve keeps dialogue timing intact.</p>
             </section>
 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">

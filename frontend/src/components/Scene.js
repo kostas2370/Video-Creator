@@ -9,6 +9,7 @@ import { deleteImageScene, deleteScene, updateScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
+import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
 const formatFrameClasses = {
   LANDSCAPE: "aspect-video w-full",
@@ -16,7 +17,7 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0 }) => {
+export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -81,12 +82,13 @@ export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0
       />
       <article id={`scene-${scene.id}`} className="scroll-mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-          <h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2>
+          <div className="flex items-center gap-2">{reorderHandle}<h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2></div>
           <button type="button" aria-label="Delete scene" onClick={() => setShowDeleteSceneModal(true)} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><IoTrashBinSharp className="h-4 w-4" /></button>
         </header>
         <div className="grid gap-6 p-5 md:grid-cols-2">
           <div className="min-w-0">
             <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Dialogue</h3><button type="button" aria-label="Edit scene text" onClick={() => setShowEditModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><FaPencilAlt className="h-3 w-3" />Edit text</button></div>
+            {onTiming && <SceneTiming scene={scene} index={index} disabled={timingDisabled} saving={timingSaving} onChange={onTiming} />}
             <p className="min-h-[120px] whitespace-pre-wrap break-words text-sm leading-7 text-gray-700 dark:text-gray-200">{scene.text || "No dialogue yet."}</p>
             {scene.narration_status === "missing" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Narration unavailable</p>
