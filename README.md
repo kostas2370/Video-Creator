@@ -561,7 +561,9 @@ not mean generating the whole thing again.
 ![Editing a generated video scene by scene](docs/screenshots/video-edit.png)
 
 Scenes use an explicit position within their video for playback order. New scenes
-are appended after the last position; creation timestamps are kept separately.
+are appended after the last position by default. **Insert position** in Add scene
+lets you insert before an existing scene; later scenes shift down, and a batch
+stays together in its reviewed order. Creation timestamps are kept separately.
 Existing videos retain their previous order when the position migration is applied.
 
 Use the scene navigator to jump between numbered scene cards. **Edit text** opens

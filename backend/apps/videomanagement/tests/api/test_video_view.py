@@ -37,6 +37,23 @@ class VideoDetailQueryTests(TestCase):
 
 
 class VideoViewTests(ApiTestCase):
+    def test_add_scene_queues_selected_position(self):
+        made = self.video_for()
+        scene.make(video=made)
+        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+            response = self.client.post(reverse("video-add-scene", args=[made.pk]), {"text": "Inserted", "position": 1})
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertEqual(delay.call_args.args[1]["position"], 1)
+
+    def test_add_scene_rejects_out_of_range_position_before_queueing(self):
+        made = self.video_for()
+        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+            response = self.client.post(reverse("video-add-scene", args=[made.pk]), {"text": "Inserted", "position": 2})
+        self.assertEqual(response.status_code, 400)
+        delay.assert_not_called()
+        made.refresh_from_db()
+        self.assertEqual(made.status, "READY")
+
     def test_unsupported_write_routes_return_405_without_mutating_videos(self):
         row = self.video_for(title="Original")
         payload = {"title": "Changed", "prompt": {"prompt": "New prompt"}}

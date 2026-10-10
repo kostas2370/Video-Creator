@@ -5,14 +5,46 @@ from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from ..baker_recipes import scene, scene_image, video
 from ..services.SceneServices import draft_scene
-from ..utils.audio_utils import ensure_scene_rows
+from ..utils.audio_utils import ensure_scene_rows, make_scene_speech
+from ..tasks import create_scene_task
 from ..utils import scenes as scene_utils
 
 
 class ScenePositionTests(TestCase):
+    def test_inserting_in_the_middle_shifts_later_scenes_only(self):
+        made, other = video.make(_quantity=2)
+        first = scene.make(video=made, text="First")
+        second = scene.make(video=made, text="Second")
+        untouched = scene.make(video=other, text="Other")
+        inserted = make_scene_speech(made, "Inserted", True, narrate=False, position=2)
+        self.assertEqual(inserted.position, 2)
+        self.assertEqual(list(made.scenes.values_list("text", "position")), [("First", 1), ("Inserted", 2), ("Second", 3)])
+        untouched.refresh_from_db()
+        self.assertEqual(untouched.position, 1)
+        first.refresh_from_db()
+        self.assertEqual(first.position, 1)
+
+    def test_invalid_insert_position_leaves_existing_order_unchanged(self):
+        made = video.make()
+        scene.make(video=made, text="First")
+        for position in (0, 3):
+            with self.assertRaises(ValidationError):
+                make_scene_speech(made, "Invalid", True, narrate=False, position=position)
+        self.assertEqual(list(made.scenes.values_list("text", "position")), [("First", 1)])
+
+    def test_batch_insertion_preserves_the_reviewed_order(self):
+        made = video.make(status="GENERATION", voice_model=None)
+        scene.make(video=made, text="First")
+        scene.make(video=made, text="Last")
+        create_scene_task(made.pk, {"position": 2, "scenes": [{"text": "Inserted A"}, {"text": "Inserted B"}]})
+        self.assertEqual(list(made.scenes.values_list("text", "position")), [("First", 1), ("Inserted A", 2), ("Inserted B", 3), ("Last", 4)])
+        made.refresh_from_db()
+        self.assertEqual(made.status, "READY")
+
     def test_append_positions_are_scoped_to_each_video(self):
         first_video, second_video = video.make(_quantity=2)
         first = scene.make(video=first_video)

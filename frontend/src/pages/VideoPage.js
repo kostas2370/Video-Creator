@@ -70,6 +70,7 @@ export const Video = () => {
         setShowModal={setShowAddSceneModal}
         id={videoInfo?.id}
         setItems={onSceneQueued}
+        scenes={videoInfo?.scenes || []}
       />
 
       <RenderModal

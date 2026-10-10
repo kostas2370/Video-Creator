@@ -216,7 +216,7 @@ class VideoView(
         if is_batch and request.FILES:
             return Response({"detail": "Upload a visual when adding a single scene."}, status=400)
         serializer_class = AddScenesSerializer if is_batch else AddSceneSerializer
-        serializer = serializer_class(data=request.data)
+        serializer = serializer_class(data=request.data, context={"video": video})
         serializer.is_valid(raise_exception=True)
         claimed = Video.objects.filter(
             pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]
