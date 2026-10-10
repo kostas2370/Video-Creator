@@ -9,6 +9,8 @@ from django.urls import reverse
 from apps.usermanagement.baker_recipes import user
 from ...baker_recipes import intro, outro, scene, scene_image
 from .base import ApiTestCase
+from ...models import Video
+from ...serializers import PreviewTimelineSerializer
 from ...utils.timing import media_timing
 
 
@@ -118,3 +120,34 @@ class PreviewTests(ApiTestCase):
         self.video.scenes.all().delete()
         self.assertEqual(self.client.get(self.url).status_code, 400)
         self.assertIn("Add a scene", self.client.get(self.url).data["detail"])
+
+    def test_serializer_reads_prefetched_video_models_without_extra_queries(self):
+        self.video.intro = intro.make(file="speech.wav", created_by=self.user)
+        self.video.outro = outro.make(file="speech.wav", created_by=self.user)
+        self.video.save()
+        video = Video.objects.select_related("intro", "outro").prefetch_related(
+            "scenes__scene_images",
+        ).get(pk=self.video.pk)
+        with self.assertNumQueries(0):
+            data = PreviewTimelineSerializer(video).data
+        intro_data, first, second, outro_data = data["segments"]
+        self.assertEqual(first["id"], str(self.first.pk))
+        self.assertEqual(first["text"], self.first.text)
+        self.assertEqual(first["pause"], self.first.pause_after)
+        self.assertEqual(first["label"], "Scene 1")
+        self.assertEqual(first["visual"], self.first.scene_images.get().file.url)
+        self.assertEqual(first["narration"], self.first.file.url)
+        self.assertEqual(second["text"], self.second.text)
+        self.assertIsNone(second["visual"])
+        for segment, asset, kind in ((intro_data, video.intro, "intro"), (outro_data, video.outro, "outro")):
+            self.assertEqual(segment["id"], f"{kind}-{asset.pk}")
+            self.assertEqual(segment["visual"], asset.file.url)
+            self.assertIsNone(segment["text"])
+            self.assertIsNone(segment["narration"])
+            self.assertEqual(segment["pause"], 0)
+
+    def test_unusable_scene_visual_is_not_exposed(self):
+        self.first.scene_images.update(file="speech.wav")
+        self.assertIsNone(self.client.get(self.url).data["segments"][0]["visual"])
+        self.first.scene_images.update(file="missing.png")
+        self.assertIsNone(self.client.get(self.url).data["segments"][0]["visual"])

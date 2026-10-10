@@ -1,32 +1,28 @@
-"""Read-only browser preview of the current edit, using the render's timing rules."""
+"""Preview timing calculations; serializers read response fields from the referenced models."""
 from dataclasses import dataclass
 
 from rest_framework.exceptions import ValidationError
 
-from ..models import VideoStatus
+from ..models import Intro, Outro, Scene, SceneImage, VideoStatus
 from ..utils.exceptions import VideoEditConflict
-from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
+from ..utils.file_utils import check_if_video
 from ..utils.timing import file_timing, scene_timing
 from ..utils.transitions import scene_transition
-from ..video_formats import output_size
 from .subtitles import CaptionCue, scene_cues
 
 
 @dataclass
-class PreviewSegment:
-    id: str
+class PreviewSegmentTiming:
+    source: Scene | Intro | Outro
     kind: str
-    label: str
     start: float
     duration: float
     base_duration: float
-    visual: str | None
     visual_type: str
-    text: str | None = None
-    pause: float = 0
+    image: SceneImage | None = None
+    index: int = 0
     visual_duration: float | None = None
     clip_audio: bool = False
-    narration: str | None = None
     narration_duration: float | None = None
     transition: str = "CUT"
     transition_duration: float | None = None
@@ -38,17 +34,11 @@ class PreviewSegment:
 @dataclass
 class PreviewTimeline:
     duration: float
-    size: tuple[int, int]
-    segments: list[PreviewSegment]
+    segments: list[PreviewSegmentTiming]
     captions: list[CaptionCue]
-    render_only: list[str]
 
 
-def media_url(field):
-    return field.url if stored_file_exists(field) else None
-
-
-def preview_manifest(video):
+def preview_timeline(video):
     if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
         raise VideoEditConflict("Wait for processing to finish before previewing your edit.")
     choices = video.settings or {}
@@ -62,9 +52,9 @@ def preview_manifest(video):
         duration = timing.get("duration")
         if duration is None:
             raise ValidationError({"detail": f"The {kind} timing is unavailable. Check its file before previewing."})
-        segments.append(PreviewSegment(
-            id=f"{kind}-{asset.pk}", kind=kind, label=kind.title(), start=offset,
-            duration=duration, base_duration=duration, visual=media_url(asset.file),
+        segments.append(PreviewSegmentTiming(
+            source=asset, kind=kind, start=offset,
+            duration=duration, base_duration=duration,
             visual_type="video", visual_duration=duration,
             clip_audio=bool(timing.get("audio_duration")),
         ))
@@ -72,26 +62,23 @@ def preview_manifest(video):
 
     asset_segment(video.intro, "intro")
     scene_segments = []
-    scenes = list(video.scenes.select_related("video").prefetch_related("scene_images"))
+    scenes = list(video.scenes.all())
     if not scenes:
         raise ValidationError({"detail": "Add a scene before previewing your edit."})
     for index, scene in enumerate(scenes):
         image = next(iter(scene.scene_images.all()), None)
         timing = scene_timing(scene, image)
         speech = file_timing(scene.file).get("audio_duration") if choices.get("narration", True) else None
-        visual = media_url(image.file) if image else None
         is_video = bool(image and image.file and check_if_video(image.file.name))
-        if image and image.file and not is_video and not check_if_image(image.file.name):
-            visual = None
         visual_timing = file_timing(image.file) if is_video else {}
         style, duration = scene_transition(scene, choices)
-        segment = PreviewSegment(
-            id=str(scene.pk), kind="scene", label=f"Scene {index + 1}", text=scene.text,
+        segment = PreviewSegmentTiming(
+            source=scene, image=image, kind="scene", index=index + 1,
             start=offset, duration=timing["duration"], base_duration=timing["base_duration"],
-            pause=scene.pause_after, visual=visual, visual_type="video" if is_video else "image",
+            visual_type="video" if is_video else "image",
             visual_duration=visual_timing.get("duration"),
             clip_audio=bool(is_video and image.with_audio and visual_timing.get("audio_duration")),
-            narration=media_url(scene.file) if speech else None, narration_duration=speech,
+            narration_duration=speech,
             transition=style, transition_duration=duration,
         )
         scene_segments.append(segment)
@@ -118,8 +105,6 @@ def preview_manifest(video):
     segments.extend(scene_segments)
     asset_segment(video.outro, "outro")
     return PreviewTimeline(
-        duration=offset, size=output_size(choices.get("video_format")),
+        duration=offset,
         segments=segments, captions=captions,
-        render_only=[name for name, enabled in (("avatar animation", video.avatar_id),
-                     ("background music", video.music_id), ("background effects", video.background_id)) if enabled],
     )

@@ -27,7 +27,6 @@ from ..serializers import VideoSerializer, VideoNestedSerializer, PreviewTimelin
 from ..services.SceneServices import draft_scene
 from ..services.editing import reorder_scenes
 from ..services.subtitles import export_subtitles
-from ..services.preview import preview_manifest
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
 from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneGenerationLimitPermission
@@ -60,8 +59,10 @@ class VideoView(
         if self.action == "list":
             queryset = queryset.exclude(gpt_answer__isnull=True)
 
-        if self.action == "retrieve":
+        if self.action in ("retrieve", "preview"):
             queryset = queryset.prefetch_related("scenes__scene_images")
+        if self.action == "preview":
+            queryset = queryset.select_related("intro", "outro")
 
         return queryset
 
@@ -87,8 +88,7 @@ class VideoView(
     @swagger_auto_schema(responses={200: PreviewTimelineSerializer})
     @action(detail=True, methods=["GET"])
     def preview(self, request, pk=None):
-        timeline = preview_manifest(self.get_object())
-        response = Response(self.get_serializer(timeline).data)
+        response = Response(self.get_serializer(self.get_object()).data)
         response["Cache-Control"] = "private, no-store"
         return response
 
