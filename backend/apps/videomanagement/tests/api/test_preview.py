@@ -10,7 +10,7 @@ from apps.usermanagement.baker_recipes import user
 from ...baker_recipes import intro, outro, scene, scene_image
 from .base import ApiTestCase
 from ...models import Video
-from ...serializers import PreviewTimelineSerializer
+from ...preview_serializers import PreviewTimelineSerializer
 from ...utils.timing import media_timing
 
 

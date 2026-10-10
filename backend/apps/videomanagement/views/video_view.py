@@ -23,7 +23,8 @@ from ..events import publish_update
 from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
-from ..serializers import VideoSerializer, VideoNestedSerializer, PreviewTimelineSerializer
+from ..serializers import VideoSerializer, VideoNestedSerializer
+from ..preview_serializers import PreviewTimelineSerializer
 from ..services.SceneServices import draft_scene
 from ..services.editing import reorder_scenes
 from ..services.subtitles import export_subtitles

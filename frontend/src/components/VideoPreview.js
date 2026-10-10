@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState, memo } from "react";
 import { FaPause, FaPlay, FaUndo, FaVolumeMute, FaVolumeUp } from "react-icons/fa";
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Description } from "@headlessui/react";
 import { HiOutlineXMark } from "react-icons/hi2";
@@ -9,18 +9,29 @@ const mediaUrl = url => /^https?:\/\//i.test(url || "") ? url : `${API_HOST}${ur
 const clock = seconds => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 
 // The global clock owns playback. Media readers follow it and stop during held frames.
-function Track({ source, video = false, time, duration, playing, muted, onFailure, onBlocked, onBuffering, stalled }) {
+function Track({ source, video = false, time, duration, playing, muted, onFailure, onBlocked, onBuffering, stalled, seekVersion }) {
   const ref = useRef(null);
   const starting = useRef(false);
   const trackId = useId();
+  const position = useRef(time);
+  const lastSeek = useRef(-1);
+  const pendingSeek = useRef(false);
+  position.current = time;
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const sync = () => {
+    const sync = (force = false) => {
+      if (force) pendingSeek.current = true;
+      const time = position.current;
       const length = Number.isFinite(element.duration) ? element.duration : duration;
       const end = Math.max(0, (length || 0) - (video ? 1 / 24 : 0.01));
       const target = Math.min(Math.max(0, time), end);
-      if (Math.abs(element.currentTime - target) > 0.15) element.currentTime = target;
+      // Let native playback advance; seeking repeatedly can restart decoding and buffering.
+      const tolerance = pendingSeek.current || !playing ? 0.01 : video ? 0.5 : 0.2;
+      if (!element.seeking) {
+        if ((!stalled || pendingSeek.current) && Math.abs(element.currentTime - target) > tolerance) element.currentTime = target;
+        pendingSeek.current = false;
+      }
       const active = playing && !stalled && time < (length || duration || 0) && (video || !muted);
       if (active && element.paused && !starting.current) {
         starting.current = true;
@@ -31,10 +42,20 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
       }
       else if (!active) element.pause();
     };
-    sync();
-    element.addEventListener("loadedmetadata", sync);
-    return () => element.removeEventListener("loadedmetadata", sync);
-  }, [time, duration, playing, muted, video, onFailure, onBlocked, stalled]);
+    const align = () => sync(true);
+    const afterSeek = () => { if (pendingSeek.current) sync(true); };
+    // Explicit seeks and playback changes align immediately; drift checks run four times per second.
+    sync(lastSeek.current !== seekVersion);
+    lastSeek.current = seekVersion;
+    const interval = playing ? setInterval(sync, 250) : null;
+    element.addEventListener("loadedmetadata", align);
+    element.addEventListener("seeked", afterSeek);
+    return () => {
+      clearInterval(interval);
+      element.removeEventListener("loadedmetadata", align);
+      element.removeEventListener("seeked", afterSeek);
+    };
+  }, [duration, playing, muted, video, onFailure, onBlocked, stalled, seekVersion]);
   useEffect(() => {
     const element = ref.current;
     return () => { element?.pause(); onBuffering(trackId, false); };
@@ -43,10 +64,10 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
   return video ? <video {...props} playsInline className="absolute inset-0 h-full w-full object-cover" /> : <audio {...props} />;
 }
 
-function Visual({ segment, time, playing, muted, onFailure, onBlocked, opacity = 1, onBuffering, stalled }) {
+function Visual({ segment, time, playing, muted, onFailure, onBlocked, opacity = 1, onBuffering, stalled, seekVersion }) {
   if (!segment?.visual) return <div className="absolute inset-0 flex items-center justify-center bg-black px-5 text-center text-sm text-gray-400">No visual available</div>;
   return <div className="absolute inset-0" style={{ opacity }}>
-    {segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={segment.visual_duration} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} />
+    {segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={segment.visual_duration} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
       : <img src={mediaUrl(segment.visual)} alt={segment.label} onError={onFailure} className="absolute inset-0 h-full w-full object-cover" />}
   </div>;
 }
@@ -82,6 +103,7 @@ function VideoPreview({ video, disabled = false }) {
   const onBuffering = useCallback((source, value) => setWaiting(current => current[source] === value ? current : { ...current, [source]: value }), []);
   const [muted, setMuted] = useState(false);
   const [time, setTime] = useState(0);
+  const [seekVersion, setSeekVersion] = useState(0);
   const [retry, setRetry] = useState(0);
   const anchor = useRef({ position: 0, wall: 0 });
   const timeRef = useRef(0);
@@ -111,11 +133,16 @@ function VideoPreview({ video, disabled = false }) {
   useEffect(() => {
     if (!playing || !manifest || buffering) return;
     let frame;
+    let lastUpdate = 0;
     anchor.current = { position: timeRef.current, wall: performance.now() };
     const tick = now => {
       const next = Math.min(manifest.duration, anchor.current.position + (now - anchor.current.wall) / 1000);
       timeRef.current = next;
-      setTime(next);
+      // Keep the UI responsive without rendering every browser animation frame.
+      if (now - lastUpdate >= 1000 / 30 || next >= manifest.duration) {
+        setTime(next);
+        lastUpdate = now;
+      }
       if (next >= manifest.duration) setPlaying(false);
       else frame = requestAnimationFrame(tick);
     };
@@ -127,12 +154,13 @@ function VideoPreview({ video, disabled = false }) {
     document.addEventListener("visibilitychange", pauseHidden);
     return () => document.removeEventListener("visibilitychange", pauseHidden);
   }, []);
-  const seek = position => {
+  const seek = useCallback(position => {
     const next = Math.max(0, Math.min(manifest?.duration || 0, position));
     anchor.current = { position: next, wall: performance.now() };
     timeRef.current = next;
     setTime(next);
-  };
+    setSeekVersion(version => version + 1);
+  }, [manifest?.duration]);
   const failMedia = useCallback(() => setMediaError(true), []);
   const blocked = useCallback(() => { setPlaying(false); setError("Your browser paused the media. Press play to try again."); }, []);
   const segments = manifest?.segments || [];
@@ -168,9 +196,9 @@ function VideoPreview({ video, disabled = false }) {
       {manifest && <>
         <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-xl bg-black" style={{ maxWidth: manifest.size[0] < manifest.size[1] ? 280 : manifest.size[0] === manifest.size[1] ? 420 : undefined }}>
           <div role="img" aria-label={`${active?.label || "Video"} preview`} className="relative isolate w-full overflow-hidden bg-black" style={{ aspectRatio: `${manifest.size[0]} / ${manifest.size[1]}` }}>
-            {active && <Visual key={active.id} segment={active} time={local} playing={playing} muted={muted} opacity={time === 0 && !playing ? 1 : Math.max(0, opacity)} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} />}
-            {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} />}
-            {active?.narration && <Track key={`voice-${active.id}`} source={active.narration} time={local} duration={active.narration_duration} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} />}
+            {active && <Visual key={active.id} segment={active} time={local} playing={playing} muted={muted} opacity={time === 0 && !playing ? 1 : Math.max(0, opacity)} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
+            {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
+            {active?.narration && <Track key={`voice-${active.id}`} source={active.narration} time={local} duration={active.narration_duration} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {cue && <div data-preview-caption className="pointer-events-none absolute inset-x-[8%] bottom-[5%] z-10 whitespace-pre-line rounded bg-black/60 px-2 py-1 text-center font-semibold leading-snug text-white" style={{ fontSize: "clamp(12px, 2vw, 22px)", textShadow: "0 1px 2px black" }}>{cue.text}</div>}
           </div>
         </div>
@@ -183,20 +211,28 @@ function VideoPreview({ video, disabled = false }) {
         </div>
         <h2 className="mt-5 text-sm font-semibold text-gray-900 dark:text-white">Scene timeline</h2>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose a scene to jump to it.</p>
-        <nav ref={timeline} aria-label="Preview timeline" className="mt-3 flex gap-2 overflow-x-auto pb-2">
-          {segments.map((segment, segmentIndex) => <React.Fragment key={segment.id}>
-            <button type="button" ref={segment.id === activeId ? activeButton : null} aria-label={`Preview ${segment.label}`} aria-current={segment.id === activeId ? "true" : undefined} onClick={() => seek(segment.start)} style={{ width: Math.max(100, Math.min(240, segment.duration * 18)) }} className={`relative shrink-0 overflow-hidden rounded-xl border-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${segment.id === activeId ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-700"}`}>
-              <div className="relative h-14 overflow-hidden bg-gray-100 dark:bg-gray-900">{segment.visual && (segment.visual_type === "video" ? <video src={mediaUrl(segment.visual)} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={mediaUrl(segment.visual)} alt="" className="h-full w-full object-cover" />)}{!segment.visual && <span className="flex h-full items-center justify-center text-xs text-gray-400">No visual</span>}</div>
-              <div className="px-2 py-1.5"><span className="block text-xs font-semibold text-gray-700 dark:text-gray-200">{segment.label}</span><span className="block text-[11px] text-gray-500 dark:text-gray-400">{segment.duration.toFixed(1)}s{segment.pause > 0 ? ` · +${segment.pause}s pause` : ""}</span></div>
-              {segment.id === activeId && <span aria-hidden="true" className="pointer-events-none absolute bottom-0 top-0 w-0.5 bg-blue-500" style={{ left: `${Math.min(100, Math.max(0, local / segment.duration * 100))}%` }} />}
-            </button>
-            {segmentIndex < segments.length - 1 && <span className="flex shrink-0 items-center text-[10px] text-gray-400">{segment.kind === "scene" && segments[segmentIndex + 1].kind === "scene" ? ({ CUT: "Cut", FADE: "Fade", DISSOLVE: "Dissolve" }[segment.transition]) : "Cut"}</span>}
-          </React.Fragment>)}
-        </nav>
+        <Timeline segments={segments} activeId={activeId} local={local} activeButton={activeButton} timelineRef={timeline} onSeek={seek} />
         {buffering && <p role="status" className="mt-2 text-xs text-gray-500">Buffering preview…</p>}
         {mediaError && <p role="status" className="mt-2 text-xs text-amber-700 dark:text-amber-300">Some media could not load. Check the scene files or reload the preview.</p>}
         <details className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400"><summary className="cursor-pointer font-medium">About this preview</summary><p className="mt-2">No rendering or generation credits required. Caption timing is estimated; caption appearance may vary in the render.{manifest.render_only?.length > 0 ? ` Render to include ${manifest.render_only.join(", ")}.` : ""}</p></details>
       </>}
     </>}
   </section>;
+}
+
+const TimelineItem = memo(function TimelineItem({ segment, active, progress, activeButton, onSeek }) {
+  return <button type="button" ref={active ? activeButton : null} aria-label={`Preview ${segment.label}`} aria-current={active ? "true" : undefined} onClick={() => onSeek(segment.start)} style={{ width: Math.max(100, Math.min(240, segment.duration * 18)) }} className={`relative shrink-0 overflow-hidden rounded-xl border-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-700"}`}>
+              <div className="relative h-14 overflow-hidden bg-gray-100 dark:bg-gray-900">{segment.visual && (segment.visual_type === "video" ? <video src={mediaUrl(segment.visual)} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={mediaUrl(segment.visual)} alt="" className="h-full w-full object-cover" />)}{!segment.visual && <span className="flex h-full items-center justify-center text-xs text-gray-400">No visual</span>}</div>
+              <div className="px-2 py-1.5"><span className="block text-xs font-semibold text-gray-700 dark:text-gray-200">{segment.label}</span><span className="block text-[11px] text-gray-500 dark:text-gray-400">{segment.duration.toFixed(1)}s{segment.pause > 0 ? ` · +${segment.pause}s pause` : ""}</span></div>
+              {active && <span aria-hidden="true" className="pointer-events-none absolute bottom-0 top-0 w-0.5 bg-blue-500" style={{ left: `${Math.min(100, Math.max(0, progress / segment.duration * 100))}%` }} />}
+            </button>;
+});
+
+function Timeline({ segments, activeId, local, activeButton, timelineRef, onSeek }) {
+  return <nav ref={timelineRef} aria-label="Preview timeline" className="mt-3 flex gap-2 overflow-x-auto pb-2">
+          {segments.map((segment, segmentIndex) => <React.Fragment key={segment.id}>
+            <TimelineItem segment={segment} active={segment.id === activeId} progress={segment.id === activeId ? local : 0} activeButton={activeButton} onSeek={onSeek} />
+            {segmentIndex < segments.length - 1 && <span className="flex shrink-0 items-center text-[10px] text-gray-400">{segment.kind === "scene" && segments[segmentIndex + 1].kind === "scene" ? ({ CUT: "Cut", FADE: "Fade", DISSOLVE: "Dissolve" }[segment.transition]) : "Cut"}</span>}
+          </React.Fragment>)}
+        </nav>;
 }
