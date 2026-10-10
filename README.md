@@ -17,6 +17,8 @@ and rendering.
   choose their insertion position and drag scenes into playback order.
 - **Control playback:** set pauses and choose cuts, fades through black or cross
   dissolves, with video defaults and overrides between scenes.
+- **Preview your edit:** play a thumbnail timeline with a seekable playhead, narration,
+  transitions, pauses and captions before rendering.
 - **Add captions:** render short phrase subtitles and download an SRT file for the
   current edit.
 - **Reuse your setup:** save generation templates, avatars, intro and outro clips;
@@ -599,7 +601,35 @@ narration line and its audio, the image behind it, and the order they play in. S
 can be added, edited, regenerated or removed one at a time, so a single bad shot does
 not mean generating the whole thing again.
 
-![Editing a generated video scene by scene](docs/screenshots/video-edit.png)
+![Editing a generated video with scene controls and the preview button](docs/screenshots/video-edit.png)
+
+### Preview and timeline
+
+Choose **Preview video** beside **Settings** and **Render video** to open a dedicated
+player with a scene timeline. It plays the current edit without generating a video file or
+spending generation credits. Choose a scene thumbnail to jump to its start, drag the
+playhead to seek, or use **Play**, **Pause**, **Restart** and **Mute**. Intro and outro
+clips appear in playback order alongside the scenes. The active scene is highlighted,
+and a moving line shows your position within it.
+
+The preview follows saved scene order, durations, pauses and transition settings.
+The first scene fades in only when the video's default transition is **Fade**;
+**Cut** and **Cross dissolve** start directly.
+Narration and retained clip audio play together; pauses hold the final frame in
+silence. Captions appear when subtitles are enabled, using the same estimated phrase
+cues as rendering and SRT export. Portrait, landscape and square framing use the
+selected output format. Playback waits for buffering and pauses when you leave the tab.
+Closing the preview stops all media and returns you to editing. Use the close button,
+press Escape, or click outside the modal. Opening it again starts from the beginning.
+
+The preview loads saved changes when you open it. Preview
+is unavailable while generation or rendering is running. Missing visuals show a
+placeholder; media failures display a notice and can be retried by reloading the preview.
+
+This previews scene media and narration. Avatar animation, background music and
+background effects are added during rendering; caption appearance may also differ.
+
+![Playing a scene with captions and the thumbnail timeline](docs/screenshots/preview-timeline.png)
 
 Scenes are numbered in playback order. **Insert position** in **Add scene** lets you
 choose **At the end** or **Before scene N** and shows where the new scenes will fit.
@@ -609,7 +639,8 @@ go at the end by default.
 Drag the handle on a scene card to change its playback position using a mouse or
 touchscreen. With the handle focused, the up and down arrow keys move the scene,
 and Escape cancels an active drag. Order saves automatically; a failed save restores
-the previous order.
+the previous order. Reorder scenes from their cards in the main editor; the editing
+dialogs are for changing a scene's content or the video's settings.
 
 Use the scene navigator to jump between numbered scene cards. **Edit text** opens
 the dialogue editor, where you can review an AI rewrite before saving. **Edit visual**
@@ -700,14 +731,32 @@ on a scene regenerates its audio while keeping the dialogue and visual. The rend
 dialog also checks for missing narration: cancel to retry it, or choose **Render anyway**
 to use the available audio. Videos with narration turned off do not show this warning.
 
-| | |
-| --- | --- |
-| ![Video settings](docs/screenshots/editor-video-settings.png) | ![Queue a render](docs/screenshots/editor-render-confirmation.png) |
-| **Video settings** — title, format, intro, outro, avatar, transitions and subtitles | **Render** — confirm rendering; missing narration adds a warning |
-| ![Edit a scene](docs/screenshots/modal-edit-scene.png) | ![Edit a scene image](docs/screenshots/modal-edit-image.png) |
-| **Edit dialogue** — edit or review an AI rewrite, then save | **Edit visual** — upload media or generate an image from a description |
-| ![Add a scene](docs/screenshots/editor-add-scene.png) | ![Delete a scene](docs/screenshots/editor-delete-scene.png) |
-| **Add scene** — choose its position, write dialogue or review an AI draft | **Delete scene** — confirm removal before deleting |
+The screenshots below use the same three-scene video and desktop view as the main
+editor above. Opening a dialog overlays the scene cards and their drag handles.
+
+**Video settings** — change the title, format, intro, outro, avatar, transitions and subtitles.
+
+![Video settings over the scene editor](docs/screenshots/editor-video-settings.png)
+
+**Render** — confirm rendering; missing narration adds a warning.
+
+![Render confirmation over the scene editor](docs/screenshots/editor-render-confirmation.png)
+
+**Edit dialogue** — edit directly or review an AI rewrite, then save.
+
+![Dialogue editing over the scene editor](docs/screenshots/modal-edit-scene.png)
+
+**Edit visual** — upload media or generate an image from a description.
+
+![Visual editing over the scene editor](docs/screenshots/modal-edit-image.png)
+
+**Add scene** — choose its position, write dialogue or review an AI draft.
+
+![Scene insertion over the scene editor](docs/screenshots/editor-add-scene.png)
+
+**Delete scene** — confirm removal before deleting.
+
+![Scene deletion confirmation over the scene editor](docs/screenshots/editor-delete-scene.png)
 
 ## Avatars and assets
 
@@ -781,6 +830,7 @@ For any inquiries or support, feel free to reach out:
 ## Recent Updates
 
 ✅ Refreshed the README guide and screenshots for the current generation and editing workflows\
+✅ Added a browser preview timeline with seeking, narration, transitions, pauses and caption cues\
 ✅ Added storyboard review before media generation, with editable dialogue and visual prompts\
 ✅ Added scene insertion positions and reviewed AI drafts for sentences, sections and stories\
 ✅ Moved playback editing rules into a shared transaction service and separated rendering helpers\

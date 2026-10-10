@@ -24,6 +24,7 @@ from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
 from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
 from ..serializers import VideoSerializer, VideoNestedSerializer
+from ..preview_serializers import PreviewTimelineSerializer
 from ..services.SceneServices import draft_scene
 from ..services.editing import reorder_scenes
 from ..services.subtitles import export_subtitles
@@ -59,8 +60,10 @@ class VideoView(
         if self.action == "list":
             queryset = queryset.exclude(gpt_answer__isnull=True)
 
-        if self.action == "retrieve":
+        if self.action in ("retrieve", "preview"):
             queryset = queryset.prefetch_related("scenes__scene_images")
+        if self.action == "preview":
+            queryset = queryset.select_related("intro", "outro")
 
         return queryset
 
@@ -69,6 +72,7 @@ class VideoView(
             "retrieve": VideoNestedSerializer,
             "partial_update": VideoUpdateSerializer,
             "add_scene": AddSceneSerializer,
+            "preview": PreviewTimelineSerializer,
         }
 
         return serializer_class.get(self.action, VideoSerializer)
@@ -79,6 +83,13 @@ class VideoView(
         response = HttpResponse(export_subtitles(video), content_type="application/x-subrip; charset=utf-8")
         filename = f"{slugify(video.title, allow_unicode=True)[:80] or 'video'}-subtitles.srt"
         response["Content-Disposition"] = content_disposition_header(True, filename)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @swagger_auto_schema(responses={200: PreviewTimelineSerializer})
+    @action(detail=True, methods=["GET"])
+    def preview(self, request, pk=None):
+        response = Response(self.get_serializer(self.get_object()).data)
         response["Cache-Control"] = "private, no-store"
         return response
 
