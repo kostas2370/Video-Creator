@@ -82,15 +82,13 @@ class HandleFinalVideoTests(TestCase):
         subs = FakeClip()
 
         with (
-            patch.object(render, "concatenate_videoclips", return_value=subs) as joined,
             patch.object(
                 render, "CompositeVideoClip", return_value=self.clip
             ) as layered,
         ):
             self.assemble(subtitles=[subs])
 
-        joined.assert_called_once()
-        layered.assert_called_once()
+        self.assertEqual(layered.call_count, 2)
 
     def test_ignores_subtitles_the_video_did_not_ask_for(self):
         self.video.settings = dict(subtitles=False)

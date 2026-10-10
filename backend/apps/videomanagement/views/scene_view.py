@@ -12,13 +12,14 @@ from ..models import Scene, SceneImage
 from ..schema import SceneImageUploadSchema
 from ..serializers import SceneSerializer
 from ..services.SceneServices import generate_scene, update_scene
-from ..services.editing import update_scene_transition
+from ..services.editing import update_scene_transition, update_scene_timing
 from ..request_serializers import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
     SceneImageQuerySerializer,
     SceneUpdateSerializer,
     SceneTransitionSerializer,
+    SceneTimingSerializer,
 )
 from ..utils.scenes import generate_new_image
 from ..utils.cost_utils import reserve_scene_credit
@@ -33,6 +34,15 @@ class SceneView(viewsets.GenericViewSet):
         IsOwnerPermission,
         SceneGenerationLimitPermission,
     ]
+
+    @swagger_auto_schema(request_body=SceneTimingSerializer)
+    @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    def timing(self, request, pk=None):
+        owned_scene = self.get_object()
+        serializer = SceneTimingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        scene = update_scene_timing(owned_scene, **serializer.validated_data)
+        return Response(SceneSerializer(scene).data)
 
     @swagger_auto_schema(request_body=SceneTransitionSerializer)
     @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])

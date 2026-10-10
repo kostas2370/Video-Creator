@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from pathlib import Path
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -42,15 +43,25 @@ def reorder_scenes(video, scene_ids):
 
 
 def update_scene_transition(scene, **changes):
+    return _update_playback(scene, ("transition_after", "transition_duration"), changes)
+
+
+def update_scene_timing(scene, **changes):
+    return _update_playback(scene, ("pause_after",), changes)
+
+
+def _update_playback(scene, allowed_fields, changes):
     with editable_video(scene.video_id) as video:
         scene = get_object_or_404(Scene.objects.select_for_update(), pk=scene.pk)
-        fields = [field for field in ("transition_after", "transition_duration")
+        fields = [field for field in allowed_fields
                   if field in changes and getattr(scene, field) != changes[field]]
         if not fields:
             return scene
         for field in fields:
             setattr(scene, field, changes[field])
         scene.save(update_fields=fields)
+        if "pause_after" in fields and video.avatar_id:
+            transaction.on_commit(lambda: Path(video.dir_name, "output_avatar.mp4").unlink(missing_ok=True), robust=True)
         video.save(update_fields=["updated_at"])
         publish_update(f"video.{video.pk}", video_id=video.pk)
     return scene

@@ -4,6 +4,9 @@ from django.core.files.storage import default_storage
 from pathlib import Path
 from uuid import uuid4
 from django.utils import timezone
+from django.http import HttpResponse
+from django.utils.http import content_disposition_header
+from django.utils.text import slugify
 from django.db import transaction
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -23,6 +26,7 @@ from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, Add
 from ..serializers import VideoSerializer, VideoNestedSerializer
 from ..services.SceneServices import draft_scene
 from ..services.editing import reorder_scenes
+from ..services.subtitles import export_subtitles
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
 from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneGenerationLimitPermission
@@ -68,6 +72,15 @@ class VideoView(
         }
 
         return serializer_class.get(self.action, VideoSerializer)
+
+    @action(detail=True, methods=["GET"])
+    def subtitles(self, request, pk=None):
+        video = self.get_object()
+        response = HttpResponse(export_subtitles(video), content_type="application/x-subrip; charset=utf-8")
+        filename = f"{slugify(video.title, allow_unicode=True)[:80] or 'video'}-subtitles.srt"
+        response["Content-Disposition"] = content_disposition_header(True, filename)
+        response["Cache-Control"] = "private, no-store"
+        return response
 
     @swagger_auto_schema(
         request_body=VideoUpdateSerializer,

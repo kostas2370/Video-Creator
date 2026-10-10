@@ -34,6 +34,51 @@ class MakeVideoTests(TestCase):
             setattr(self, name, patcher.start())
             self.addCleanup(patcher.stop)
 
+        patcher = patch("apps.videomanagement.services.subtitles.narration_duration", return_value=4)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_pause_shifts_next_subtitle_and_pads_audio_to_scene_duration(self):
+        from moviepy.editor import ColorClip
+        self.video.settings = {"subtitles": True}
+        self.video.save()
+        self.scenes[0].pause_after = 0.75
+        self.scenes[0].save()
+        with (
+            patch.object(render, "handle_audio", return_value=FakeAudio(duration=4)),
+            patch.object(render, "process_scene", side_effect=lambda *args: ColorClip((8, 8), color=(255, 0, 0)).set_duration(4)),
+            patch.object(render, "create_subtitle_clip", side_effect=lambda *args, **kwargs: ColorClip((8, 8), color=(0, 0, 0)).set_duration(args[1])) as subtitle,
+            patch.object(render, "align_audio", side_effect=lambda audio, duration: FakeAudio(duration=duration)) as align,
+        ):
+            make_video(self.video)
+        self.assertEqual([call.args[1] for call in align.call_args_list], [4.75, 4])
+        self.assertEqual([clip.duration for clip in self.compose_transitions.call_args.args[0]], [4.75, 4])
+        self.assertEqual(subtitle.call_args.args[1], 4)
+        self.assertEqual([clip.start for clip in self.handle_final_video.call_args.args[4]], [0, 4.75])
+
+    def test_render_uses_the_shared_phrase_cues_and_keeps_caption_gaps(self):
+        from moviepy.editor import ColorClip
+        from ...services.subtitles import scene_cues
+        self.video.settings = {"subtitles": True}
+        self.video.save()
+        for line in self.scenes:
+            line.text = "Hello there. A longer sentence for our viewers."
+            line.save()
+        self.scenes[0].pause_after = 0.75
+        self.scenes[0].save()
+        expected = scene_cues(self.scenes[0], duration=4) + scene_cues(self.scenes[1], duration=4, offset=4.75)
+        with (
+            patch.object(render, "handle_audio", return_value=FakeAudio(duration=4)),
+            patch.object(render, "process_scene", side_effect=lambda *args: ColorClip((8, 8), color=(20, 30, 40)).set_duration(4)),
+            patch.object(render, "create_subtitle_clip", side_effect=lambda *args, **kwargs: ColorClip((8, 8), color=(0, 0, 0)).set_duration(args[1])) as caption,
+            patch.object(render, "align_audio", side_effect=lambda audio, duration: FakeAudio(duration=duration)),
+        ):
+            make_video(self.video)
+        self.assertEqual([call.args[0] for call in caption.call_args_list], [cue.text for cue in expected])
+        self.assertEqual([(clip.start, clip.end) for clip in self.handle_final_video.call_args.args[4]], [(cue.start, cue.end) for cue in expected])
+        self.assertEqual(expected[1].end, 4)
+        self.assertEqual(expected[2].start, 4.75)
+
     def test_cut_removes_both_fades_at_only_the_selected_join(self):
         first, second = self.scenes
         first.transition_after = "CUT"

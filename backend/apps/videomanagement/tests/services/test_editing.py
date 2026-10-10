@@ -6,14 +6,28 @@ from django.http import Http404
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
-from ...baker_recipes import scene, video
+from ...baker_recipes import avatar, scene, video
 from ...models import Video
-from ...services.editing import editable_video, reorder_scenes, update_scene_transition
+from ...services.editing import editable_video, reorder_scenes, update_scene_transition, update_scene_timing
 from ...services.VideoServices import video_update
 from ...utils.exceptions import VideoEditConflict
 
 
 class EditingServiceTests(TestCase):
+    def test_pause_change_invalidates_cached_avatar_only_after_commit(self):
+        made = video.make(status="READY", avatar=avatar.make())
+        line = scene.make(video=made)
+        with patch("apps.videomanagement.services.editing.Path") as path:
+            with self.captureOnCommitCallbacks(execute=True):
+                update_scene_timing(line, pause_after=0.5)
+                path.assert_not_called()
+            path.assert_called_once_with(made.dir_name, "output_avatar.mp4")
+            path.return_value.unlink.assert_called_once_with(missing_ok=True)
+        with patch("apps.videomanagement.services.editing.Path") as path:
+            with self.captureOnCommitCallbacks(execute=True):
+                update_scene_timing(line, pause_after=0.5)
+            path.assert_not_called()
+
     def test_exception_inside_the_context_rolls_back_the_edit(self):
         made = video.make(status="READY", title="Original")
         with self.assertRaises(RuntimeError):

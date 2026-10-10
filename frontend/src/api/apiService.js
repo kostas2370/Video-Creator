@@ -23,6 +23,7 @@ export const getIntro = search => get("intros/", { search: search || undefined }
 export const getOutro = search => get("outros/", { search: search || undefined });
 export const getAvatars = search => get("avatars/", { search: search || undefined });
 export const getVideos = (search, page) => get("videos/", { search: search || undefined, page: page || undefined });
+export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
 export const getVoices = () => get("voices/");
 export const getTemplates = () => get("templates/");
@@ -38,6 +39,7 @@ export const createScene = (id, data) => post(action("videos", id, "add_scene"),
 export const draftScene = (id, data) => post(action("videos", id, "draft_scene"), data, callerHandlesErrors);
 export const createTemplate = data => post("templates/", data, callerHandlesErrors);
 
+export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);
 export const updateScene = (id, data) => patch(detail("scenes", id), data);
 export const updateVideo = (id, data) => patch(detail("videos", id), data);

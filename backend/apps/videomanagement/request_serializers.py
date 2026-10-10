@@ -256,3 +256,12 @@ class ReorderScenesSerializer(serializers.Serializer):
 class SceneTransitionSerializer(serializers.Serializer):
     transition_after = serializers.ChoiceField(choices=["DEFAULT", "FADE", "CUT", "DISSOLVE"])
     transition_duration = TransitionDurationField(required=False, allow_null=True)
+
+
+class SceneTimingSerializer(serializers.Serializer):
+    pause_after = serializers.FloatField(min_value=0, max_value=10)
+
+    def validate_pause_after(self, value):
+        if not math.isfinite(value):
+            raise serializers.ValidationError("Choose a pause between 0 and 10 seconds.")
+        return value
