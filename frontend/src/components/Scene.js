@@ -9,6 +9,7 @@ import { deleteImageScene, deleteScene, updateScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
+import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
 const formatFrameClasses = {
   LANDSCAPE: "aspect-video w-full",
@@ -16,7 +17,7 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle }) => {
+export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -87,6 +88,7 @@ export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0
         <div className="grid gap-6 p-5 md:grid-cols-2">
           <div className="min-w-0">
             <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Dialogue</h3><button type="button" aria-label="Edit scene text" onClick={() => setShowEditModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><FaPencilAlt className="h-3 w-3" />Edit text</button></div>
+            {onTiming && <SceneTiming scene={scene} index={index} disabled={timingDisabled} saving={timingSaving} onChange={onTiming} />}
             <p className="min-h-[120px] whitespace-pre-wrap break-words text-sm leading-7 text-gray-700 dark:text-gray-200">{scene.text || "No dialogue yet."}</p>
             {scene.narration_status === "missing" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Narration unavailable</p>
