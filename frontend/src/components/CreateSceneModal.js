@@ -3,7 +3,8 @@ import { createScene, draftScene } from "../api/apiService";
 import { toast } from "react-toastify";
 import { EditorDialog, editorInput, editorButton } from "./ui/EditorDialog";
 
-export const SceneCreationModal = ({ id, showModal, setShowModal, setItems }) => {
+export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scenes = [] }) => {
+  const [position, setPosition] = useState("");
   const [text, setText] = useState("");
   const [imageDescription, setImageDescription] = useState("");
   const [image, setImage] = useState(null);
@@ -20,7 +21,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems }) =>
 
   useEffect(() => {
     if (showModal) {
-      setText(""); setImageDescription(""); setImage(null); setIsLast(false);
+      setPosition(""); setText(""); setImageDescription(""); setImage(null); setIsLast(false);
       setWithAudio(false); setMode("manual"); setPrompt(""); setUseContext(true); setError("");
       setDraftType("sentence"); setSentenceCount(1); setDrafts([]);
     }
@@ -47,7 +48,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems }) =>
     setBusy("save"); setError("");
     let data;
     if (drafts.length) {
-      data = { scenes: drafts.map((item, index) => ({
+      data = { ...(position ? { position: Number(position) } : {}), scenes: drafts.map((item, index) => ({
         text: item.text.trim(),
         ...(item.image_description.trim() ? { image_description: item.image_description.trim() } : {}),
         is_last: index === drafts.length - 1, with_audio: withAudio,
@@ -55,6 +56,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems }) =>
     } else {
       data = new FormData();
       data.append("text", text.trim());
+      if (position) data.append("position", position);
       if (imageDescription.trim()) data.append("image_description", imageDescription.trim());
       if (image) data.append("image", image);
       data.append("is_last", isLast);
@@ -74,6 +76,14 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems }) =>
   return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Add to your story" description="Add one sentence, a section, or a short story. Each sentence becomes a separate scene." busy={!!busy}>
     <form onSubmit={onSubmit}>
       <fieldset disabled={!!busy} className="space-y-5">
+        <div>
+          <label htmlFor="new-scene-position" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Insert position</label>
+          <select id="new-scene-position" value={position} onChange={event => setPosition(event.target.value)} className={editorInput}>
+            <option value="">At the end</option>
+            {scenes.map((scene, index) => <option key={scene.id} value={scene.position}>Before scene {index + 1}: {scene.text?.slice(0, 60) || "Untitled scene"}</option>)}
+          </select>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Existing scenes move down. When adding several scenes, they stay together in the order shown.</p>
+        </div>
         <div className="flex gap-2 rounded-xl bg-gray-100 p-1 dark:bg-gray-900" aria-label="Creation mode">
           {[["manual", "Write manually"], ["ai", "Create with AI"]].map(([value, label]) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)} className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold ${mode === value ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-500 dark:text-gray-400"}`}>{label}</button>)}
         </div>

@@ -61,8 +61,11 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
             video,
             serializer.validated_data["text"],
             serializer.validated_data["is_last"],
+            position=serializer.validated_data.get("position"),
         )
 
+    except ValidationError:
+        raise
     except Exception as exc:
         logger.error(exc)
         raise APIException(str(exc), code=400)

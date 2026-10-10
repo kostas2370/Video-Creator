@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db.models import Max
 from rest_framework import serializers
 
 from .models import Avatar, Intro, Outro
@@ -172,7 +173,19 @@ class VideoUpdateSerializer(serializers.Serializer):
         return video_update(instance, **validated_data)
 
 
-class AddSceneSerializer(serializers.Serializer):
+class ScenePositionSerializer(serializers.Serializer):
+    position = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+
+    def validate_position(self, position):
+        video = self.context.get("video")
+        if position is not None and video is not None:
+            last = video.scenes.aggregate(last=Max("position"))["last"] or 0
+            if position > last + 1:
+                raise serializers.ValidationError("Choose a position within the current video.")
+        return position
+
+
+class AddSceneSerializer(ScenePositionSerializer):
     text = serializers.CharField(required=False)
     image_description = serializers.CharField(required=False)
     is_last = serializers.BooleanField(default=False)
@@ -185,7 +198,7 @@ class AddSceneSerializer(serializers.Serializer):
         return super().validate(attrs)
 
 
-class AddScenesSerializer(serializers.Serializer):
+class AddScenesSerializer(ScenePositionSerializer):
     scenes = AddSceneSerializer(many=True, min_length=1, max_length=12)
 
 

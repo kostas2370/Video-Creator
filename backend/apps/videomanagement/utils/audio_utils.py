@@ -3,6 +3,10 @@ import os
 import uuid
 from typing import Optional
 
+from django.db import transaction
+from django.db.models import Max
+from rest_framework.exceptions import ValidationError
+
 from .file_utils import stored_file_exists
 from .prompt_utils import script_lines
 from .tts_utils import ApiSyn, save
@@ -39,14 +43,23 @@ def narrate_scene(scene: Scene, voice_model, dir_name: str, user=None) -> Scene:
 
 
 def make_scene_speech(
-    video: Video, text: str, is_last: bool, narrate: bool = True
+    video: Video, text: str, is_last: bool, narrate: bool = True, position: int = None
 ) -> Scene:
     """
     Creates a new Scene in the database and optionally narrates it using narrate_scene.
     """
-    scene = Scene.objects.create(
-        file=None, video=video, text=text.strip(), is_last=is_last
-    )
+    with transaction.atomic():
+        Video.objects.select_for_update().get(pk=video.pk)
+        if position is not None:
+            last = video.scenes.aggregate(last=Max("position"))["last"] or 0
+            if position < 1 or position > last + 1:
+                raise ValidationError({"position": "Choose a position within the current video."})
+            # Move from the end so each destination is free under the unique constraint.
+            for existing in video.scenes.filter(position__gte=position).order_by("-position"):
+                Scene.objects.filter(pk=existing.pk).update(position=existing.position + 1)
+        scene = Scene.objects.create(
+            file=None, video=video, text=text.strip(), is_last=is_last, position=position
+        )
 
     if narrate and video.voice_model:
         try:
