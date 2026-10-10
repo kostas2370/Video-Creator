@@ -1,11 +1,12 @@
 import { Link, useParams } from "react-router-dom";
-import React, { useCallback, useState, useEffect } from "react";
-import { getVideo } from "../api/apiService";
+import React, { useCallback, useState, useEffect, useRef } from "react";
+import { getVideo, reorderScenes, updateSceneTransition } from "../api/apiService";
 import { subscribeUpdates } from "../api/subscribeUpdates";
 import { IoIosSettings } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
 import { VideoConfigModal } from "../components/VideoConfigModal";
-import { Scene } from "../components/Scene";
+import { ReorderableScenes } from "../components/ReorderableScenes";
+import { toast } from "react-toastify";
 import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "../components/RenderModal";
 import { StoryboardModal } from "../components/StoryboardModal";
@@ -25,6 +26,11 @@ export const Video = () => {
   const [showStoryboard, setShowStoryboard] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
 
+  const [pendingSceneChange, setPendingSceneChange] = useState(null);
+  const savingOrder = pendingSceneChange?.type === "order";
+  const pendingTransition = pendingSceneChange?.sceneId;
+  const savingSceneChangeRef = useRef(false);
+
   const setUpdated = useCallback(() => setRefresh((count) => count + 1), []);
 
   const processing = ["GENERATION", "RENDERING"].includes(videoInfo?.status);
@@ -33,7 +39,7 @@ export const Video = () => {
     load: () => getVideo(videoId, { notifyError: false }),
     onUpdate: response => {
       setUpdateError(false);
-      setVideoInfo(response);
+      if (!savingSceneChangeRef.current) setVideoInfo(response);
     },
     onError: () => setUpdateError(true),
   }), [videoId, refresh]);
@@ -44,7 +50,39 @@ export const Video = () => {
   }, [setUpdated]);
 
   const isRenderable =
-    !renderPending && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED");
+    !savingOrder && !pendingTransition && !renderPending && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED");
+  const saveSceneChange = async (pending, apply, save, fallbackMessage, replaceVideo = false) => {
+    if (savingSceneChangeRef.current || processing || renderPending) return;
+    const previous = videoInfo;
+    savingSceneChangeRef.current = true;
+    setPendingSceneChange(pending);
+    setVideoInfo(apply);
+    try {
+      const response = await save();
+      if (!response.ok) throw new Error(response.message || fallbackMessage);
+      if (replaceVideo) setVideoInfo(response.data);
+    } catch (error) {
+      setVideoInfo(previous);
+      toast.error(error.message || fallbackMessage);
+    } finally {
+      savingSceneChangeRef.current = false;
+      setPendingSceneChange(null);
+      setUpdated();
+    }
+  };
+  const onReorder = ordered => saveSceneChange(
+    { type: "order" },
+    current => ({ ...current, scenes: ordered.map((scene, index) => ({ ...scene, position: index + 1 })) }),
+    () => reorderScenes(videoId, ordered.map(scene => scene.id)),
+    "Could not save scene order. Please try again.",
+    true,
+  );
+  const onTransition = (scene, changes) => saveSceneChange(
+    { type: "transition", sceneId: scene.id },
+    current => ({ ...current, scenes: current.scenes.map(row => row.id === scene.id ? { ...row, ...changes } : row) }),
+    () => updateSceneTransition(scene.id, changes),
+    "Could not save transition. Please try again.",
+  );
   const isResumable = videoInfo?.status === "FAILED";
   const missingNarration = videoInfo?.scenes?.filter(scene => scene.narration_status === "missing") || [];
 
@@ -133,9 +171,9 @@ export const Video = () => {
             <p className="mt-5 border-t border-gray-100 pt-4 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">Changes to scenes are saved individually. Render again to include them in your final video.</p>
           </aside>
           <section aria-label="Scenes" className="min-w-0 space-y-5">
-            {videoInfo?.scenes?.map((scene, index) => <Scene key={scene.id} scene={scene} index={index} setUpdated={setUpdated} video_format={videoInfo.settings?.video_format || "LANDSCAPE"} />)}
+            <ReorderableScenes scenes={videoInfo?.scenes || []} disabled={savingOrder || !!pendingTransition || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : "Add a scene to start building your video."}</p></div>}
-            <button type="button" disabled={!videoInfo || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
+            <button type="button" disabled={!videoInfo || savingOrder || !!pendingTransition || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
           </section>
         </div>
       </main>

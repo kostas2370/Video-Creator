@@ -158,8 +158,25 @@ class HandleImageTests(SimpleTestCase):
             image = handle_image(FakeAudio(duration=6.0), self.scene_image, None)
 
         self.assertEqual(image.duration, 6.0)
-        self.assertIn("fadein", image.effects)
-        self.assertIn("fadeout", image.effects)
+        self.assertNotIn("fadein", image.effects)
+        self.assertNotIn("fadeout", image.effects)
+
+    def test_prepared_still_preserves_brightness_at_both_ends(self):
+        from tempfile import TemporaryDirectory
+        from types import SimpleNamespace
+        from pathlib import Path
+        from PIL import Image
+
+        with TemporaryDirectory() as directory:
+            path = str(Path(directory) / "red.png")
+            Image.new("RGB", (16, 16), (255, 0, 0)).save(path)
+            image = handle_image(FakeAudio(4), SimpleNamespace(file=SimpleNamespace(path=path)), None)
+            try:
+                self.assertEqual(tuple(image.get_frame(0)[0, 0]), (255, 0, 0))
+                self.assertEqual(tuple(image.get_frame(3.99)[0, 0]), (255, 0, 0))
+                self.assertEqual(image.duration, 4)
+            finally:
+                image.close()
 
     @override_settings(SILENT_SCENE_SECONDS=7)
     def test_falls_back_to_the_configured_length_when_nothing_is_spoken(self):
@@ -209,6 +226,14 @@ class HandleVideoTests(SimpleTestCase):
         clip = FakeClip(duration=clip_duration)
         with patch.object(clips, "VideoFileClip", return_value=clip):
             return handle_video(audio, self.scene_image)
+
+    def test_prepared_footage_keeps_its_duration_without_fade_effects(self):
+        clip = FakeClip(duration=6)
+        with patch.object(clips, "VideoFileClip", return_value=clip):
+            fitted = handle_video(FakeAudio(6), self.scene_image)
+        self.assertEqual(fitted.duration, 6)
+        self.assertNotIn("fadein", fitted.effects)
+        self.assertNotIn("fadeout", fitted.effects)
 
     def test_trims_a_clip_that_outruns_the_narration(self):
         fitted = self.fit(10.0, FakeAudio(duration=6.0))

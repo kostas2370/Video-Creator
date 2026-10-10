@@ -24,7 +24,7 @@ class MakeVideoTests(TestCase):
 
         self.final = FakeClip()
         patches = {
-            "concatenate_videoclips": self.final,
+            "compose_transitions": (self.final, []),
             "handle_final_video": self.final,
             "process_scene": FakeClip(),
             "concatenate_audioclips": FakeAudio(),
@@ -33,6 +33,32 @@ class MakeVideoTests(TestCase):
             patcher = patch.object(render, name, return_value=value)
             setattr(self, name, patcher.start())
             self.addCleanup(patcher.stop)
+
+    def test_cut_removes_both_fades_at_only_the_selected_join(self):
+        first, second = self.scenes
+        first.transition_after = "CUT"
+        first.save()
+        third = narrated_scene.make(video=self.video)
+        scene_image.make(scene=third)
+        with patch.object(render, "handle_audio", return_value=FakeAudio()):
+            make_video(self.video)
+        self.assertEqual(self.compose_transitions.call_args.args[1], [("CUT", None), ("FADE", None), ("FADE", None)])
+        self.assertTrue(all(not call.kwargs for call in self.process_scene.call_args_list))
+
+    def test_video_default_is_used_and_scene_override_wins(self):
+        self.video.settings = {"transition_default": "DISSOLVE", "transition_duration": 0.75}
+        self.video.save()
+        self.scenes[1].transition_after = "CUT"
+        self.scenes[1].save()
+        with patch.object(render, "handle_audio", return_value=FakeAudio()):
+            make_video(self.video)
+        self.assertEqual(self.compose_transitions.call_args.args[1], [("DISSOLVE", 0.75), ("CUT", 0.75)])
+        self.assertEqual(self.compose_transitions.call_args.kwargs["opening_duration"], 0.75)
+
+    def test_existing_scenes_keep_their_fades_by_default(self):
+        with patch.object(render, "handle_audio", return_value=FakeAudio()):
+            make_video(self.video)
+        self.assertEqual(self.compose_transitions.call_args.args[1], [("FADE", None), ("FADE", None)])
 
     def test_renders_in_position_order_after_reordering_scenes(self):
         first, second = self.scenes

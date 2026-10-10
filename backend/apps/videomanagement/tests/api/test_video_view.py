@@ -37,6 +37,76 @@ class VideoDetailQueryTests(TestCase):
 
 
 class VideoViewTests(ApiTestCase):
+    def test_transition_defaults_save_without_replacing_other_settings(self):
+        made = self.video_for(settings={"narration": False, "subtitles": True})
+        line = scene.make(video=made, transition_after="CUT")
+        response = self.client.patch(reverse("video-detail", args=[made.pk]),
+                                     {"transition_default": "DISSOLVE", "transition_duration": 0.5}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        made.refresh_from_db()
+        self.assertEqual(made.settings, {"narration": False, "subtitles": True, "transition_default": "DISSOLVE", "transition_duration": 0.5})
+        line.refresh_from_db()
+        self.assertEqual(line.transition_after, "CUT")
+
+    def test_transition_defaults_reject_invalid_duration_and_processing(self):
+        made = self.video_for()
+        for duration in (0, 4, "NaN"):
+            response = self.client.patch(reverse("video-detail", args=[made.pk]), {"transition_duration": duration}, format="json")
+            self.assertEqual(response.status_code, 400)
+        made.status = "RENDERING"
+        made.save()
+        response = self.client.patch(reverse("video-detail", args=[made.pk]), {"transition_default": "CUT"}, format="json")
+        self.assertEqual(response.status_code, 409)
+
+    def test_reorder_scenes_persists_order_without_changing_media(self):
+        made = self.video_for(status="COMPLETED")
+        first = scene.make(video=made, text="First", position=1)
+        second = scene.make(video=made, text="Second", position=3)
+        image = scene_image.make(scene=first, file="media/existing.png")
+        response = self.client.post(reverse("video-reorder-scenes", args=[made.pk]),
+                                    {"scene_ids": [str(second.pk), str(first.pk)]}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(list(made.scenes.values_list("text", "position")), [("Second", 1), ("First", 2)])
+        self.assertEqual([row["id"] for row in response.data["scenes"]], [str(second.pk), str(first.pk)])
+        image.refresh_from_db()
+        self.assertEqual(image.file.name, "media/existing.png")
+        made.refresh_from_db()
+        self.assertEqual(made.status, "COMPLETED")
+
+    def test_reorder_rejects_stale_or_foreign_scene_lists(self):
+        made = self.video_for()
+        first, second = scene.make(video=made, _quantity=2)
+        foreign = scene.make(video=self.video_for(owner=user.make()))
+        for ids in ([str(first.pk)], [str(first.pk), str(foreign.pk)]):
+            response = self.client.post(reverse("video-reorder-scenes", args=[made.pk]), {"scene_ids": ids}, format="json")
+            self.assertEqual(response.status_code, 409, response.data)
+            self.assertEqual(list(made.scenes.values_list("pk", flat=True)), [first.pk, second.pk])
+
+    def test_reorder_rejects_duplicate_and_invalid_ids(self):
+        made = self.video_for()
+        first = scene.make(video=made)
+        for ids in ([str(first.pk), str(first.pk)], ["invalid"], []):
+            response = self.client.post(reverse("video-reorder-scenes", args=[made.pk]), {"scene_ids": ids}, format="json")
+            self.assertEqual(response.status_code, 400, response.data)
+            first.refresh_from_db()
+            self.assertEqual(first.position, 1)
+
+    def test_reorder_is_blocked_during_processing_or_review(self):
+        for state in ("GENERATION", "RENDERING", "REVIEW"):
+            made = self.video_for(status=state)
+            first, second = scene.make(video=made, _quantity=2)
+            response = self.client.post(reverse("video-reorder-scenes", args=[made.pk]),
+                                        {"scene_ids": [str(second.pk), str(first.pk)]}, format="json")
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(list(made.scenes.values_list("pk", flat=True)), [first.pk, second.pk])
+
+    def test_reorder_cannot_access_another_users_video(self):
+        made = self.video_for(owner=user.make())
+        first = scene.make(video=made)
+        response = self.client.post(reverse("video-reorder-scenes", args=[made.pk]),
+                                    {"scene_ids": [str(first.pk)]}, format="json")
+        self.assertEqual(response.status_code, 404)
+
     def test_add_scene_queues_selected_position(self):
         made = self.video_for()
         scene.make(video=made)

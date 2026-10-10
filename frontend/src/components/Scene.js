@@ -16,7 +16,7 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0 }) => {
+export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -81,7 +81,7 @@ export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0
       />
       <article id={`scene-${scene.id}`} className="scroll-mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-          <h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2>
+          <div className="flex items-center gap-2">{reorderHandle}<h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2></div>
           <button type="button" aria-label="Delete scene" onClick={() => setShowDeleteSceneModal(true)} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><IoTrashBinSharp className="h-4 w-4" /></button>
         </header>
         <div className="grid gap-6 p-5 md:grid-cols-2">
