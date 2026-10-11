@@ -9,7 +9,7 @@ module.exports = withMT({
   // "./pages/**" and "./components/**" matched nothing and no utilities were generated.
   content: [
     "./src/**/*.{js,ts,jsx,tsx}",
-    "./public/index.html",
+    "./index.html",
   ],
   theme: {
     extend: {

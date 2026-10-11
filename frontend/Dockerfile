@@ -1,7 +1,7 @@
 # Two stages: node builds the bundle, nginx serves it. Node and node_modules stay in
 # the builder, so the published image is the static output plus nginx — tens of MB
 # rather than the couple of GB an installed node_modules takes.
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -11,10 +11,6 @@ RUN npm ci
 
 COPY . .
 
-# CRA treats warnings as errors when CI is set, and this tree has plenty of them
-# (unused imports, exhaustive-deps). They should be cleaned up, but they must not
-# fail the image build.
-ENV CI=false
 RUN npm run build
 
 

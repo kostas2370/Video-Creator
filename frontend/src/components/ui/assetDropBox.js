@@ -23,6 +23,7 @@ export const AssetDropBox = ({ type, items = [], className = "", value, setValue
         className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
       >
         <option value="">No {labels[type]?.toLowerCase() || type}</option>
+        {value && !items.some(item => String(item.id) === String(value)) && <option value={value}>Current {labels[type]?.toLowerCase() || type}</option>}
         {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select>
       {selectedFile ? (

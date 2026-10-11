@@ -13,12 +13,36 @@ from django.utils import timezone
 from apps.apikeysmanagement.models import Provider
 
 from .events import publish_update
-from .models import IN_FLIGHT_STATUSES, Video, VideoStatus, VoiceModel, VoiceModelType
+from .models import IN_FLIGHT_STATUSES, Scene, SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
 from .services import SceneServices, VideoGenerationServices
 from .utils import tts_utils
 from .utils.composer import render
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task
+def scene_job_task(scene_id, kind, payload, previous_status):
+    from .services.scene_jobs import restore_video
+    from .serializers.models import SceneSerializer
+    from .utils.scenes import generate_new_image
+
+    scene = Scene.objects.select_related("video__created_by").get(pk=scene_id)
+    try:
+        if not scene.video.created_by.is_active:
+            raise ValueError("Account is inactive")
+        if kind == "UPDATE":
+            text = SceneServices.update_scene(payload["text"], scene, raise_errors=True)
+            return {"text": text, "narration_status": SceneSerializer(scene).data["narration_status"]}
+        if kind == "REWRITE":
+            return {"text": SceneServices.generate_scene(payload["text"], scene)}
+        image = scene.scene_images.first() or SceneImage.objects.create(scene=scene)
+        image.prompt = payload["image_description"]
+        generate_new_image(image, scene.video, raise_errors=True)
+        return {"Message": "Image Scene was added successfully"}
+    finally:
+        restore_video(scene.video_id, previous_status)
+
 
 VOICE_IMPORTS = {
     Provider.ELEVENLABS: "get_voices_from_elevenlabs",

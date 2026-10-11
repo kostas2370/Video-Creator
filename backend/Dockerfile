@@ -21,9 +21,8 @@ RUN python -m pip install --upgrade pip
 
 
 RUN pip install \
-      torch==2.5.1 \
-      torchvision==0.20.1 \
-      torchaudio==2.5.1 \
+      torch==2.14.1 \
+      torchvision==0.29.1 \
       --index-url https://download.pytorch.org/whl/cpu
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,6 +36,9 @@ COPY requirements/requirements.txt requirements/constraints.txt ./
 
 
 RUN PIP_CONSTRAINT=constraints.txt pip install --no-build-isolation -r requirements.txt
+
+COPY scripts/patch_basicsr_security.py ./patch_basicsr_security.py
+RUN python patch_basicsr_security.py
 
 
 FROM python:3.11-slim

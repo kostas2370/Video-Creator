@@ -172,7 +172,7 @@ class VoiceViewTests(TestCase):
         mine = a_voice(created_by=self.user)
 
         ids = [
-            voice["id"] for voice in self.client.get(reverse("voicemodel-list")).data
+            voice["id"] for voice in self.client.get(reverse("voicemodel-list")).data["results"]
         ]
 
         self.assertCountEqual(ids, [str(self.shared.id), str(mine.id)])
@@ -220,4 +220,4 @@ class VoiceViewTests(TestCase):
         client = APIClient()
         client.force_authenticate(admin)
 
-        self.assertEqual(client.get(reverse("voicemodel-list")).data, [])
+        self.assertEqual(client.get(reverse("voicemodel-list")).data["results"], [])

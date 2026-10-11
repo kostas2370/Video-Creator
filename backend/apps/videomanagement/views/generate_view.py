@@ -3,9 +3,9 @@ from rest_framework import status
 from rest_framework.views import APIView
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.permissions import IsAuthenticated
-from ..request_serializers import GenerateSerializer
+from ..serializers.requests import GenerateSerializer
 from ..services.VideoGenerationServices import create_pending_video
-from ..serializers import VideoSerializer
+from ..serializers.models import VideoSerializer
 from ..permissions import AiGenerationLimitPermission
 from ..tasks import generate_video_task
 from ..throttling import GenerateRateThrottle

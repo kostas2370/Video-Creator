@@ -21,6 +21,9 @@ class ApiTestCase(TestCase):
         )
         throttle.start()
         self.addCleanup(throttle.stop)
+        scene_queue = patch("apps.videomanagement.tasks.scene_job_task.apply_async")
+        self.scene_queue = scene_queue.start()
+        self.addCleanup(scene_queue.stop)
 
     def video_for(self, owner=None, **kwargs):
         return video.make(created_by=owner or self.user, **kwargs)
