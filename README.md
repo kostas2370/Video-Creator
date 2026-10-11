@@ -179,7 +179,6 @@ They are deliberately **not** baked into the image — that would add several GB
    pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu
    pip install -r requirements/build.txt
    PIP_CONSTRAINT=requirements/constraints.txt pip install --no-build-isolation -r requirements/requirements.txt
-   python scripts/patch_basicsr_security.py
    ```
 
    The constraints file holds torch to the CPU build. Without it, several of the

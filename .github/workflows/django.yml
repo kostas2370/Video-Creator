@@ -54,9 +54,6 @@ jobs:
       env:
         PIP_CONSTRAINT: backend/requirements/constraints.txt
 
-    - name: Apply BasicSR security patch
-      run: python backend/scripts/patch_basicsr_security.py
-
     # --check rather than plain makemigrations: the migrations are committed, so this
     # should find nothing. Generating them here instead would hide a model change that
     # someone forgot to make a migration for.
@@ -78,7 +75,7 @@ jobs:
     - name: Audit Python dependencies
       run: |
         pip install pip-audit
-        python backend/scripts/patch_basicsr_security.py --check
-        # This exact advisory is patched above and exercised by regression tests.
-        # BasicSR has no fixed release; keep every other advisory blocking CI.
+        # Accepted exception: BasicSR SLURM command injection (CVE-2024-27763).
+        # This deployment does not use SLURM. The dependency remains unpatched;
+        # revisit this exception before introducing cluster processing.
         pip-audit --ignore-vuln PYSEC-2026-1215
