@@ -99,11 +99,13 @@ class MakeVideoTests(TestCase):
             make_video(self.video)
         self.assertEqual(self.compose_transitions.call_args.args[1], [("DISSOLVE", 0.75), ("CUT", 0.75)])
         self.assertEqual(self.compose_transitions.call_args.kwargs["opening_duration"], 0.75)
+        self.assertEqual(self.compose_transitions.call_args.kwargs["opening_style"], "DISSOLVE")
 
     def test_existing_scenes_keep_their_fades_by_default(self):
         with patch.object(render, "handle_audio", return_value=FakeAudio()):
             make_video(self.video)
         self.assertEqual(self.compose_transitions.call_args.args[1], [("FADE", None), ("FADE", None)])
+        self.assertEqual(self.compose_transitions.call_args.kwargs["opening_style"], "FADE")
 
     def test_renders_in_position_order_after_reordering_scenes(self):
         first, second = self.scenes

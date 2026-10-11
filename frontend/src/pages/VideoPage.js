@@ -12,8 +12,9 @@ import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "../components/RenderModal";
 import { StoryboardModal } from "../components/StoryboardModal";
 import { ResumeModal } from "../components/ResumeModal";
-import { FaRedo, FaDownload } from "react-icons/fa";
+import { FaRedo, FaDownload, FaPlay } from "react-icons/fa";
 import { SceneCreationModal } from "../components/CreateSceneModal";
+import { VideoPreviewModal } from "../components/VideoPreview";
 
 export const Video = () => {
   const { videoId } = useParams();
@@ -26,6 +27,7 @@ export const Video = () => {
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
   const [showStoryboard, setShowStoryboard] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [downloadingSubtitles, setDownloadingSubtitles] = useState(false);
 
   const [pendingSceneChange, setPendingSceneChange] = useState(null);
@@ -124,10 +126,13 @@ export const Video = () => {
   const canDownloadSubtitles = ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)
     && !sceneChangePending && !renderPending && videoInfo?.scenes?.some(scene => scene.narration_status === "available");
   const isResumable = videoInfo?.status === "FAILED";
+  const canPreview = ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)
+    && !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0;
   const missingNarration = videoInfo?.scenes?.filter(scene => scene.narration_status === "missing") || [];
 
   return (
     <>
+      <VideoPreviewModal open={showPreview} onClose={() => setShowPreview(false)} video={videoInfo} disabled={sceneChangePending || renderPending} />
       <StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} />
       <VideoConfigModal
         showModal={showConfigModal}
@@ -180,6 +185,7 @@ export const Video = () => {
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Fine-tune your story, scene by scene. Render when everything looks right.</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button type="button" disabled={!canPreview} title={canPreview ? "Preview your saved edits" : "Preview is available after processing and saving scenes"} onClick={() => setShowPreview(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><FaPlay aria-hidden="true" className="h-3.5 w-3.5" />Preview video</button>
             <button type="button" disabled={!videoInfo || videoInfo.status === "REVIEW"} aria-label="Video settings" onClick={() => setShowConfigModal(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><IoIosSettings className="h-5 w-5" />Settings</button>
             {isResumable && <button type="button" onClick={() => setShowResumeModal(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"><FaRedo />Carry on</button>}
             <button type="button" disabled={!isRenderable} title={isRenderable ? "Render video" : `Cannot render while ${videoInfo?.status || "loading"}`} onClick={() => setShowRenderModal(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"><GiProcessor className="h-5 w-5" />{renderPending ? "Starting render…" : videoInfo?.status === "RENDERING" ? "Rendering…" : "Render video"}</button>
