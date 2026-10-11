@@ -37,9 +37,6 @@ COPY requirements/requirements.txt requirements/constraints.txt ./
 
 RUN PIP_CONSTRAINT=constraints.txt pip install --no-build-isolation -r requirements.txt
 
-COPY scripts/patch_basicsr_security.py ./patch_basicsr_security.py
-RUN python patch_basicsr_security.py
-
 
 FROM python:3.11-slim
 
