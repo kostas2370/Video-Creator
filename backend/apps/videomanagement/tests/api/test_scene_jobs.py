@@ -6,7 +6,6 @@ from django.urls import reverse
 from apps.usermanagement.baker_recipes import user
 from ...baker_recipes import scene, scene_image
 from ...services.scene_jobs import JOB_SALT
-from ...tasks import scene_job_task
 from .base import ApiTestCase
 
 
@@ -23,7 +22,7 @@ class SceneJobTests(ApiTestCase):
         return response.data["id"]
 
     def run_job(self):
-        return scene_job_task.run(*self.scene_queue.call_args.kwargs["args"])
+        return self.run_scene_job()
 
     def test_requests_queue_without_running_providers_or_charging_twice(self):
         balance = self.user.generation_limit_for_ai

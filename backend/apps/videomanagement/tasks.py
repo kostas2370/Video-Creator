@@ -13,35 +13,39 @@ from django.utils import timezone
 from apps.apikeysmanagement.models import Provider
 
 from .events import publish_update
-from .models import IN_FLIGHT_STATUSES, Scene, SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
+from .models import IN_FLIGHT_STATUSES, SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
 from .services import SceneServices, VideoGenerationServices
-from .utils import tts_utils
+from .services.scene_jobs import scene_job
+from .serializers.models import SceneSerializer
+from .utils import scenes, tts_utils
 from .utils.composer import render
 
 logger = logging.getLogger(__name__)
 
 
 @shared_task
-def scene_job_task(scene_id, kind, payload, previous_status):
-    from .services.scene_jobs import restore_video
-    from .serializers.models import SceneSerializer
-    from .utils.scenes import generate_new_image
+def update_scene_task(scene_id, text, previous_status):
+    """Save dialogue and regenerate its narration."""
+    with scene_job(scene_id, previous_status) as scene:
+        text = SceneServices.update_scene(text, scene)
+        return {"text": text, "narration_status": SceneSerializer(scene).data["narration_status"]}
 
-    scene = Scene.objects.select_related("video__created_by").get(pk=scene_id)
-    try:
-        if not scene.video.created_by.is_active:
-            raise ValueError("Account is inactive")
-        if kind == "UPDATE":
-            text = SceneServices.update_scene(payload["text"], scene)
-            return {"text": text, "narration_status": SceneSerializer(scene).data["narration_status"]}
-        if kind == "REWRITE":
-            return {"text": SceneServices.generate_scene(payload["text"], scene)}
+
+@shared_task
+def rewrite_scene_task(scene_id, instructions, previous_status):
+    """Return a dialogue draft for the user to review."""
+    with scene_job(scene_id, previous_status) as scene:
+        return {"text": SceneServices.generate_scene(instructions, scene)}
+
+
+@shared_task
+def generate_scene_image_task(scene_id, image_description, previous_status):
+    """Generate and save a replacement scene visual."""
+    with scene_job(scene_id, previous_status) as scene:
         image = scene.scene_images.first() or SceneImage.objects.create(scene=scene)
-        image.prompt = payload["image_description"]
-        generate_new_image(image, scene.video)
+        image.prompt = image_description
+        scenes.generate_new_image(image, scene.video)
         return {"Message": "Image Scene was added successfully"}
-    finally:
-        restore_video(scene.video_id, previous_status)
 
 
 VOICE_IMPORTS = {

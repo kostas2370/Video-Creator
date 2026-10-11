@@ -1,4 +1,5 @@
 """Use Celery's existing result backend for scene jobs."""
+from contextlib import contextmanager
 from uuid import uuid4
 
 from celery.result import AsyncResult
@@ -7,12 +8,11 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
 from ..events import publish_update
-from ..models import Video, VideoStatus
+from ..models import Scene, Video, VideoStatus
 from ..permissions import SceneGenerationLimitPermission
 from ..utils.cost_utils import reserve_scene_credit
 from .editing import editable_video
 
-COSTS = {"UPDATE": 0.01, "REWRITE": 0.03, "IMAGE": 0.08}
 JOB_SALT = "scene-job"
 
 
@@ -28,18 +28,28 @@ def restore_video(video_id, previous_status):
     publish_update(f"video.{video_id}", video_id=video_id)
 
 
-def queue_scene_job(scene, user, kind, payload):
-    from ..tasks import scene_job_task
+@contextmanager
+def scene_job(scene_id, previous_status):
+    """Load the scene and restore editing when its background work ends."""
+    scene = Scene.objects.select_related("video__created_by").get(pk=scene_id)
+    try:
+        if not scene.video.created_by.is_active:
+            raise ValueError("Account is inactive")
+        yield scene
+    finally:
+        restore_video(scene.video_id, previous_status)
 
+
+def queue_scene_job(scene, user, task, value, *, cost):
     with editable_video(scene.video_id) as video:
         previous_status = video.status
-        with reserve_scene_credit(user, COSTS[kind], SceneGenerationLimitPermission.required_limit):
+        with reserve_scene_credit(user, cost, SceneGenerationLimitPermission.required_limit):
             video.status = VideoStatus.GENERATION
             video.save(update_fields=["status", "updated_at"])
     task_id = str(uuid4())
     try:
-        scene_job_task.apply_async(
-            args=(str(scene.pk), kind, payload, previous_status), task_id=task_id,
+        task.apply_async(
+            args=(str(scene.pk), value, previous_status), task_id=task_id,
         )
     except Exception as exc:
         restore_video(video.pk, previous_status)

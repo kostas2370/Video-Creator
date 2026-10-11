@@ -13,7 +13,6 @@ from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import scene, scene_image
 from ...models import SceneImage
-from ...tasks import scene_job_task
 from ...views.scene_view import SceneView
 from .base import ApiTestCase
 
@@ -26,7 +25,7 @@ class SceneViewTests(ApiTestCase):
 
     def complete(self, response):
         self.assertEqual(response.status_code, 202, response.data)
-        return scene_job_task.run(*self.scene_queue.call_args.kwargs["args"])
+        return self.run_scene_job()
 
     def test_timing_saves_without_charging_or_regenerating(self):
         self.user.generation_limit_for_ai = 0
@@ -196,7 +195,7 @@ class SceneViewTests(ApiTestCase):
                 response = method(reverse(route, args=[self.scene.pk]), payload, format="json")
                 self.assertEqual(response.status_code, 202)
                 with self.assertRaises(RuntimeError):
-                    scene_job_task.run(*self.scene_queue.call_args.kwargs["args"])
+                    self.run_scene_job()
                 self.user.refresh_from_db()
                 before -= cost
                 self.assertAlmostEqual(self.user.generation_limit_for_ai, before)
@@ -348,7 +347,7 @@ class SceneViewTests(ApiTestCase):
             response = self.client.patch(reverse("scene-detail", args=[self.scene.pk]), {"text": self.scene.text}, format="json")
             self.assertEqual(response.status_code, 202)
             with self.assertRaises(RuntimeError):
-                scene_job_task.run(*self.scene_queue.call_args.kwargs["args"])
+                self.run_scene_job()
         self.user.refresh_from_db()
         self.assertAlmostEqual(self.user.generation_limit_for_ai, balance - 0.01)
         self.scene.refresh_from_db()
