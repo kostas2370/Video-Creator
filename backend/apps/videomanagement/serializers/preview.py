@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from drf_yasg.utils import swagger_serializer_method
 from rest_framework import serializers
 
-from .models import Video
-from .services.preview import PreviewTimeline, preview_timeline
-from .utils.file_utils import check_if_image, check_if_video, stored_file_exists
-from .video_formats import output_size
+from ..models import Video
+from ..services.preview import PreviewTimeline, preview_timeline
+from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
+from ..video_formats import output_size
 
 
 @dataclass

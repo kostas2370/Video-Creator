@@ -133,7 +133,7 @@ To work on the frontend with hot reload, run it outside Docker instead:
 cd frontend && npm install && npm start
 ```
 
-CRA's dev server proxies `/api` to `localhost:8000` (see `proxy` in `package.json`),
+Vite's dev server proxies `/api` to `localhost:8000` (see `frontend/vite.config.mjs`),
 so the browser still sees a single origin and the cookies behave the same way.
 
 Everything above is handled inside the image: the ImageMagick policy is patched, a
@@ -176,9 +176,10 @@ They are deliberately **not** baked into the image — that would add several GB
 
    ```shell
    pip install --upgrade pip
-   pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+   pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cpu
    pip install -r requirements/build.txt
    PIP_CONSTRAINT=requirements/constraints.txt pip install --no-build-isolation -r requirements/requirements.txt
+   python scripts/patch_basicsr_security.py
    ```
 
    The constraints file holds torch to the CPU build. Without it, several of the

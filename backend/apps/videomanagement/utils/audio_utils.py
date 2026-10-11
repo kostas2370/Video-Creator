@@ -110,7 +110,7 @@ def ensure_scene_rows(video: Video):
     return lines, existing
 
 
-def update_scene(scene: Scene) -> Optional[Scene]:
+def update_scene(scene: Scene, *, raise_errors=False) -> Optional[Scene]:
     """
     Update the speech audio file for a given scene.
     Removes cached avatar video output if it exists and regenerates audio.
@@ -130,4 +130,6 @@ def update_scene(scene: Scene) -> Optional[Scene]:
         return narrate_scene(scene, voice_model, dir_name, user=video.created_by)
     except Exception:
         logger.exception("Could not update narration for scene %s", scene.pk)
+        if raise_errors:
+            raise
         return None

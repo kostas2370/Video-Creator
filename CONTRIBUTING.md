@@ -195,7 +195,7 @@ Run it outside Docker for hot reload:
 cd frontend && npm install && npm start
 ```
 
-CRA's dev server proxies `/api` to `localhost:8000` (see `proxy` in `package.json`), so
+Vite's dev server proxies `/api` to `localhost:8000` (see `frontend/vite.config.mjs`), so
 the browser still sees one origin and the cookies behave.
 
 **The Docker frontend has no source bind mount.** The bundle is compiled into the image

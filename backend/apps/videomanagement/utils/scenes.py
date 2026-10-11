@@ -293,7 +293,7 @@ def scene_reference(scene: Scene, video: Video, provider):
 
 
 def generate_new_image(
-    scene_image: SceneImage, video: Video, style: str = "vivid", *args, **kwargs
+    scene_image: SceneImage, video: Video, style: str = "vivid", *args, raise_errors=False, **kwargs
 ) -> SceneImage:
     """
     Generate a new image for a scene image associated with a video.
@@ -330,8 +330,12 @@ def generate_new_image(
 
     except Exception as ex:
         logger.error(f"Error generating image for video {video.id}: {ex}")
+        if raise_errors:
+            raise
         img = None
 
+    if raise_errors and not img:
+        raise RuntimeError("The visual provider returned no image")
     if img:
         scene_image.file = img
         scene_image.save()

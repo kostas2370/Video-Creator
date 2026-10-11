@@ -1,3 +1,5 @@
+import { useAssetOptions } from "../hooks/useAssetOptions";
+import { MoreAssetOptions } from "../components/ui/MoreAssetOptions";
 import React, { useState, useEffect, useRef } from "react";
 import { getAvatars, getTemplates, getVoices, getCustomVisualProviders } from "../api/apiService";
 import { toast } from "react-toastify";
@@ -36,14 +38,17 @@ const Home = () => {
   const isOpenFunction = (data) => {
     setOpen(data);
   };
-  const [avatars, setAvatars] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [voices, setVoices] = useState([]);
+  const avatarOptions = useAssetOptions(getAvatars);
+  const templateOptions = useAssetOptions(getTemplates);
+  const voiceOptions = useAssetOptions(getVoices);
+  const avatars = avatarOptions.items;
+  const { items: templates, setItems: setTemplates } = templateOptions;
+  const voices = voiceOptions.items;
   const [visualProviders, setVisualProviders] = useState([]);
   const [visualProvidersLoading, setVisualProvidersLoading] = useState(true);
   const [visualProvidersError, setVisualProvidersError] = useState("");
   const [providerReload, setProviderReload] = useState(0);
-  const [optionsLoading, setOptionsLoading] = useState(true);
+  const optionsLoading = avatarOptions.loading || templateOptions.loading || voiceOptions.loading;
   const [settings, setSettings] = useState(false);
   const [open, setOpen] = useState(false);
   const [draftVideo, setDraftVideo] = useState(null);
@@ -187,17 +192,6 @@ const Home = () => {
     }
   };
 
-  useEffect(() => {
-    let current = true;
-    Promise.all([getAvatars(), getVoices(), getTemplates()]).then(([{ data: avatarData }, { data: voiceData }, { data: templateData }]) => {
-      if (!current) return;
-      setAvatars(Array.isArray(avatarData) ? avatarData : []);
-      setVoices(Array.isArray(voiceData) ? voiceData : []);
-      setTemplates(Array.isArray(templateData) ? templateData : []);
-      setOptionsLoading(false);
-    });
-    return () => { current = false; };
-  }, []);
 
   const settingsForTemplate = Object.fromEntries(
     Object.entries(formData).filter(([field]) => field !== "template").map(([field, value]) => [field, field === "scene_count" ? (value === "" ? null : Number(value)) : value])
@@ -298,7 +292,7 @@ const Home = () => {
       {hint ? <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{hint}</p> : null}
     </div>
   );
-  const select = (name, children, disabled = false) => <select id={name} name={name} value={formData[name]} onChange={handleInputChange} disabled={disabled} className={inputClassName}>{children}</select>;
+  const select = (name, children, disabled = false) => <select id={name} name={name} value={formData[name]} onChange={handleInputChange} disabled={disabled} className={inputClassName}>{["voice_id", "avatar_selection"].includes(name) && formData[name] && !(name === "voice_id" ? voices : avatars).some(item => String(item.id) === String(formData[name])) && <option value={formData[name]}>Saved {name === "voice_id" ? "voice" : "presenter"}</option>}{children}</select>;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
@@ -322,6 +316,7 @@ const Home = () => {
                 {select("template", <><option value="">Start fresh</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</>, optionsLoading)}
                 {selectedTemplate ? <button type="button" aria-label="Delete template" title={`Delete ${selectedTemplate.title}`} onClick={() => setDeletingTemplate(true)} className="mt-2 rounded-xl border border-red-200 px-3 py-3 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400">Delete</button> : null}
               </div>
+              <MoreAssetOptions options={templateOptions} label="templates" />
             </div>
             {field("message", "Your prompt", <textarea id="message" name="message" rows={7} required value={formData.message} onChange={handleInputChange} className={`${inputClassName} resize-y leading-relaxed`} placeholder="What is your video about? Describe the story, tone, and details you want to include." />, "A clear topic and a few specific details help shape the script.")}
             <div className="mt-4 max-w-xs">{field("scene_count", "Number of scenes", <input id="scene_count" name="scene_count" type="number" min={1} max={60} value={formData.scene_count} onChange={handleInputChange} className={inputClassName} placeholder="Let AI choose" />, "One short sentence per scene. Choose 1–60, or leave blank to let AI choose.")}</div>
@@ -333,7 +328,9 @@ const Home = () => {
             <label className="mb-5 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><input id="narration" name="narration" type="checkbox" checked={formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium">Narration</span><span className="block text-xs text-gray-500 dark:text-gray-400">Add a voice-over to tell your story.</span></span></label>
             <div className="grid gap-5 sm:grid-cols-2">
               {field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration), "An avatar uses its assigned voice.")}
+              <MoreAssetOptions options={avatarOptions} label="presenters" />
               {!formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
+              {!formData.avatar_selection && <MoreAssetOptions options={voiceOptions} label="voices" />}
               {field("image_mode", "Visuals", select("image_mode", <><option value="WEB">Web images</option><option value="AI">AI-generated visuals</option></>))}
               {field("provider", "Visual provider", select("provider", formData.image_mode === "AI" ? <>
                 <optgroup label="Built-in providers">{Object.entries(visualProviderNames).map(([name, label]) => <option key={name} value={name}>{label}</option>)}</optgroup>

@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     "django_eventstream",
     "rest_framework_simplejwt.token_blacklist",
     "django_celery_beat",
-    "djoser",
     "apps.usermanagement",
     "apps.videomanagement",
     "apps.apikeysmanagement",
@@ -93,11 +92,6 @@ SIMPLE_JWT = {
 }
 
 REMEMBER_ME_REFRESH_LIFETIME = timedelta(days=int(os.getenv("REMEMBER_ME_DAYS") or 30))
-
-# Djoser Configuration
-DJOSER = {
-    "LOGIN_FIELD": "username",
-}
 
 CELERY_BROKER_URL = (
     os.getenv("CELERY_BROKER_URL") or "redis://redis-stack-server:6379/0"
