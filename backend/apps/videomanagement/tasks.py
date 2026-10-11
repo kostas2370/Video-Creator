@@ -32,13 +32,13 @@ def scene_job_task(scene_id, kind, payload, previous_status):
         if not scene.video.created_by.is_active:
             raise ValueError("Account is inactive")
         if kind == "UPDATE":
-            text = SceneServices.update_scene(payload["text"], scene, raise_errors=True)
+            text = SceneServices.update_scene(payload["text"], scene)
             return {"text": text, "narration_status": SceneSerializer(scene).data["narration_status"]}
         if kind == "REWRITE":
             return {"text": SceneServices.generate_scene(payload["text"], scene)}
         image = scene.scene_images.first() or SceneImage.objects.create(scene=scene)
         image.prompt = payload["image_description"]
-        generate_new_image(image, scene.video, raise_errors=True)
+        generate_new_image(image, scene.video)
         return {"Message": "Image Scene was added successfully"}
     finally:
         restore_video(scene.video_id, previous_status)

@@ -293,7 +293,7 @@ def scene_reference(scene: Scene, video: Video, provider):
 
 
 def generate_new_image(
-    scene_image: SceneImage, video: Video, style: str = "vivid", *args, raise_errors=False, **kwargs
+    scene_image: SceneImage, video: Video, style: str = "vivid", *args, **kwargs
 ) -> SceneImage:
     """
     Generate a new image for a scene image associated with a video.
@@ -313,31 +313,23 @@ def generate_new_image(
         The updated scene image object with the new image.
 
     """
-    try:
-        provider = (video.settings or {}).get("provider")
-        generate = ImageProviderRegistry.resolve(video.mode, provider)
-        if "reference" not in kwargs:
-            kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
-        img = generate(
-            scene_image.prompt,
-            f"{video.dir_name}/images/",
-            *args,
-            style=style,
-            title=video.title,
-            user=video.created_by,
-            **kwargs,
-        )
+    provider = (video.settings or {}).get("provider")
+    generate = ImageProviderRegistry.resolve(video.mode, provider)
+    if "reference" not in kwargs:
+        kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
+    img = generate(
+        scene_image.prompt,
+        f"{video.dir_name}/images/",
+        *args,
+        style=style,
+        title=video.title,
+        user=video.created_by,
+        **kwargs,
+    )
 
-    except Exception as ex:
-        logger.error(f"Error generating image for video {video.id}: {ex}")
-        if raise_errors:
-            raise
-        img = None
-
-    if raise_errors and not img:
+    if not img:
         raise RuntimeError("The visual provider returned no image")
-    if img:
-        scene_image.file = img
-        scene_image.save()
+    scene_image.file = img
+    scene_image.save()
 
     return scene_image
