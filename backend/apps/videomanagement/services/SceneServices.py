@@ -35,7 +35,7 @@ def generate_scene(text: str, scene: Scene) -> str:
     return text
 
 
-def update_scene(text: str, scene: Scene, *, raise_errors=False):
+def update_scene(text: str, scene: Scene):
     """
     Update the text of a scene with new content.
 
@@ -49,10 +49,7 @@ def update_scene(text: str, scene: Scene, *, raise_errors=False):
     new_text = text
     scene.text = new_text if new_text else scene.text
     if (scene.video.settings or {}).get("narration", True):
-        if raise_errors:
-            update(scene, raise_errors=True)
-        else:
-            update(scene)
+        update(scene)
     scene.save(update_fields=["text"])
     return scene.text
 

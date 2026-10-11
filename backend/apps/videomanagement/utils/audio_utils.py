@@ -1,7 +1,6 @@
 import logging
 import os
 import uuid
-from typing import Optional
 
 from django.db import transaction
 from django.db.models import Max
@@ -110,7 +109,7 @@ def ensure_scene_rows(video: Video):
     return lines, existing
 
 
-def update_scene(scene: Scene, *, raise_errors=False) -> Optional[Scene]:
+def update_scene(scene: Scene) -> Scene:
     """
     Update the speech audio file for a given scene.
     Removes cached avatar video output if it exists and regenerates audio.
@@ -126,10 +125,4 @@ def update_scene(scene: Scene, *, raise_errors=False) -> Optional[Scene]:
         except OSError:
             logger.exception("Failed to remove cached avatar video at %s", avatar_video)
 
-    try:
-        return narrate_scene(scene, voice_model, dir_name, user=video.created_by)
-    except Exception:
-        logger.exception("Could not update narration for scene %s", scene.pk)
-        if raise_errors:
-            raise
-        return None
+    return narrate_scene(scene, voice_model, dir_name, user=video.created_by)

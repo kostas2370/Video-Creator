@@ -606,7 +606,7 @@ class CustomVideoProviderTests(TestCase):
         visual.refresh_from_db()
         self.assert_video(visual.file.name)
         previous = visual.file.name
-        with patch.object(custom.requests, "post", side_effect=requests.Timeout):
+        with patch.object(custom.requests, "post", side_effect=requests.Timeout), self.assertRaisesRegex(RuntimeError, "returned no image"):
             generate_new_image(visual, row)
         visual.refresh_from_db()
         self.assertEqual(visual.file.name, previous)

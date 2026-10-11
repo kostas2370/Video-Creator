@@ -422,16 +422,16 @@ class GenerateNewImageTests(TestCase):
     def test_keeps_the_old_image_when_generation_fails(self):
         with patch.object(
             openai_images, "generate_openai_image", side_effect=RuntimeError("rate limit")
-        ):
+        ), self.assertRaisesRegex(RuntimeError, "rate limit"):
             generate_new_image(self.scene_image, self.video)
 
         self.scene_image.refresh_from_db()
         self.assertEqual(self.scene_image.file, "media/images/still.png")
 
-    def test_does_nothing_for_a_video_whose_mode_has_no_provider(self):
+    def test_rejects_a_video_whose_mode_has_no_provider(self):
         self.video.mode = "UNKNOWN"
 
-        with patch.object(openai_images, "generate_openai_image") as generate:
+        with patch.object(openai_images, "generate_openai_image") as generate, self.assertRaisesRegex(ValueError, "Unsupported visual mode"):
             generate_new_image(self.scene_image, self.video)
 
         generate.assert_not_called()
