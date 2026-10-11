@@ -23,7 +23,7 @@ related models and scene images loaded in batches, compare ownership IDs without
 fetching the owner, and prefetch scene images before rendering. Reloading after
 edits avoids returning relations cached before the edit.
 
-All 840 backend tests passed, including new query-scaling regression checks and
+All 846 backend tests passed, including new query-scaling regression checks and
 existing ownership, editor, preview, and rendering tests.
 Eight frontend tests and the production build passed. A live silent-scene update
 returned HTTP 202, completed in Celery, and was retrieved through Redis-backed

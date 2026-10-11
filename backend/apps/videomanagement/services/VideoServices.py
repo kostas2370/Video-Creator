@@ -1,12 +1,13 @@
 from .editing import editable_video
-from .asset_selection import owned_asset
+from .asset_selection import available_voice, owned_asset
+from rest_framework.exceptions import ValidationError
 from ..models import Avatar, Intro, Outro, Video
 from ..utils.audio_utils import update_scene
 
 
 def video_update(video: Video, **changes) -> Video:
     """Apply only supplied fields, resolving every asset before changing the video."""
-    if {"transition_default", "transition_duration"} & changes.keys():
+    if {"transition_default", "transition_duration", "voice_id"} & changes.keys():
         with editable_video(video.pk) as locked_video:
             return _apply_video_changes(locked_video, changes)
     return _apply_video_changes(video, changes)
@@ -22,11 +23,14 @@ def _apply_video_changes(video, changes):
         updates["title"] = changes["title"]
 
     selected_avatar = updates.get("avatar")
-    voice_changed = (
-        selected_avatar is not None and video.voice_model_id != selected_avatar.voice_id
-    )
+    selected_voice = selected_avatar.voice if selected_avatar is not None else None
+    if "voice_id" in changes:
+        if updates.get("avatar", video.avatar_id):
+            raise ValidationError({"voice_id": "The avatar uses its assigned voice."})
+        selected_voice = available_voice(changes["voice_id"], video.created_by)
+    voice_changed = selected_voice is not None and video.voice_model_id != selected_voice.pk
     if voice_changed:
-        updates["voice_model"] = selected_avatar.voice
+        updates["voice_model"] = selected_voice
 
     settings_fields = ("video_format", "platform", "subtitles", "avatar_position", "transition_default", "transition_duration")
     settings_changes = {
@@ -38,7 +42,7 @@ def _apply_video_changes(video, changes):
     for field, value in updates.items():
         setattr(video, field, value)
     video.save(update_fields=[*updates, "updated_at"])
-    if voice_changed:
+    if voice_changed and (video.settings or {}).get("narration", True):
         for scene in video.scenes.all():
             update_scene(scene)
     return video
