@@ -1,5 +1,7 @@
 from moviepy.editor import CompositeVideoClip, ImageClip, concatenate_videoclips
 
+from ..transitions import scene_transition  # Re-export for existing composer callers.
+
 
 def apply_fades(clip, *, fade_in=True, fade_out=True, fade_in_duration=None, fade_out_duration=None):
     def duration(requested):
@@ -12,22 +14,12 @@ def apply_fades(clip, *, fade_in=True, fade_out=True, fade_in_duration=None, fad
     return clip
 
 
-def scene_transition(scene, settings):
-    style = scene.transition_after
-    if style == "DEFAULT":
-        style = settings.get("transition_default", "FADE")
-    duration = scene.transition_duration
-    if duration is None:
-        duration = settings.get("transition_duration")
-    return style, duration
-
-
-def compose_transitions(clips, transitions, *, opening_duration=None):
+def compose_transitions(clips, transitions, *, opening_style="FADE", opening_duration=None):
     """Blend visuals without overlapping narration or shifting subtitle timing."""
     prepared = []
     for index, clip in enumerate(clips):
         style, duration = transitions[index]
-        previous_style, previous_duration = transitions[index - 1] if index else ("FADE", opening_duration)
+        previous_style, previous_duration = transitions[index - 1] if index else (opening_style, opening_duration)
         prepared.append(apply_fades(clip, fade_in=previous_style == "FADE", fade_out=style == "FADE",
                                     fade_in_duration=previous_duration, fade_out_duration=duration))
     clips = prepared
