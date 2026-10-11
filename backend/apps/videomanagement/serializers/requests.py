@@ -170,6 +170,7 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    voice_id = serializers.UUIDField(required=False)
     transition_default = serializers.ChoiceField(choices=["CUT", "FADE", "DISSOLVE"], required=False)
     transition_duration = TransitionDurationField(required=False, allow_null=True)
     avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)

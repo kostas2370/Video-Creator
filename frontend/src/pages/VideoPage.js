@@ -143,6 +143,7 @@ export const Video = () => {
           intro: videoInfo?.intro,
           outro: videoInfo?.outro,
           avatar: videoInfo?.avatar,
+          voice_model: videoInfo?.voice_model,
           settings: videoInfo?.settings,
           id: videoInfo?.id,
         }}
