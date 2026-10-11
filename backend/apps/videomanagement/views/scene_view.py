@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from ..models import Scene, SceneImage
 from ..schema import SceneImageUploadSchema
+from ..tasks import update_scene_task, rewrite_scene_task, generate_scene_image_task
 from ..serializers.models import SceneSerializer
 from ..services.scene_jobs import queue_scene_job, scene_job_result
 from ..services.editing import editable_video
@@ -63,7 +64,9 @@ class SceneView(viewsets.GenericViewSet):
         serializer = SceneUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        operation = queue_scene_job(instance, request.user, "UPDATE", dict(serializer.validated_data))
+        operation = queue_scene_job(
+            instance, request.user, update_scene_task, serializer.validated_data["text"], cost=0.01,
+        )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(
@@ -77,7 +80,9 @@ class SceneView(viewsets.GenericViewSet):
         scene = self.get_object()
         serializer = SceneUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        operation = queue_scene_job(scene, request.user, "REWRITE", dict(serializer.validated_data))
+        operation = queue_scene_job(
+            scene, request.user, rewrite_scene_task, serializer.validated_data["text"], cost=0.03,
+        )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(
@@ -148,7 +153,9 @@ class SceneView(viewsets.GenericViewSet):
         scene = self.get_object()
         serializer = GenerateSceneImageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        operation = queue_scene_job(scene, request.user, "IMAGE", dict(serializer.validated_data))
+        operation = queue_scene_job(
+            scene, request.user, generate_scene_image_task, serializer.validated_data["image_description"], cost=0.08,
+        )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(query_serializer=SceneJobQuerySerializer, responses={200: "Background scene job status and result"})
