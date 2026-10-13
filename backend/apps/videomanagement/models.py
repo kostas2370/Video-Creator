@@ -14,6 +14,7 @@ from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
+from .model_choices import MotionIntensity, MotionStyle
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -180,8 +181,12 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
-    motion_style = models.CharField(max_length=10, choices=[(value, value.replace("_", " ").title()) for value in ("NONE", "AUTO", "ZOOM_IN", "ZOOM_OUT", "PAN_LEFT", "PAN_RIGHT", "PAN_UP", "PAN_DOWN")], default="NONE")
-    motion_intensity = models.CharField(max_length=6, choices=[("SUBTLE", "Subtle"), ("MEDIUM", "Medium"), ("STRONG", "Strong")], default="SUBTLE")
+    motion_style = models.CharField(
+        max_length=10, choices=MotionStyle.choices, default=MotionStyle.NONE
+    )
+    motion_intensity = models.CharField(
+        max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
+    )
     pause_after = models.FloatField(default=0)
     transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
     transition_duration = models.FloatField(null=True, blank=True, default=None)
