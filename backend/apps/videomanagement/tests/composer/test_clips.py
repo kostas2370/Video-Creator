@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch
 from django.test import SimpleTestCase, override_settings
 
 from ...baker_recipes import (
-    background,
     last_scene,
     scene,
     scene_image,
@@ -155,7 +154,7 @@ class HandleImageTests(SimpleTestCase):
     def test_holds_the_still_for_as_long_as_the_narration_runs(self):
         clip = FakeClip()
         with patch.object(clips, "ImageClip", return_value=clip):
-            image = handle_image(FakeAudio(duration=6.0), self.scene_image, None)
+            image = handle_image(FakeAudio(duration=6.0), self.scene_image)
 
         self.assertEqual(image.duration, 6.0)
         self.assertNotIn("fadein", image.effects)
@@ -170,7 +169,7 @@ class HandleImageTests(SimpleTestCase):
         with TemporaryDirectory() as directory:
             path = str(Path(directory) / "red.png")
             Image.new("RGB", (16, 16), (255, 0, 0)).save(path)
-            image = handle_image(FakeAudio(4), SimpleNamespace(file=SimpleNamespace(path=path)), None)
+            image = handle_image(FakeAudio(4), SimpleNamespace(file=SimpleNamespace(path=path)))
             try:
                 self.assertEqual(tuple(image.get_frame(0)[0, 0]), (255, 0, 0))
                 self.assertEqual(tuple(image.get_frame(3.99)[0, 0]), (255, 0, 0))
@@ -182,23 +181,11 @@ class HandleImageTests(SimpleTestCase):
     def test_falls_back_to_the_configured_length_when_nothing_is_spoken(self):
         clip = FakeClip()
         with patch.object(clips, "ImageClip", return_value=clip):
-            image = handle_image(None, self.scene_image, None)
+            image = handle_image(None, self.scene_image)
 
         self.assertEqual(image.duration, 7)
 
-    def test_shrinks_the_still_to_sit_inside_a_background(self):
-        still = MagicMock()
-        behind = background.prepare()
-
-        with patch.object(
-            clips, "ImageClip", side_effect=[still, FakeClip(size=(1000, 500))]
-        ):
-            handle_image(FakeAudio(), self.scene_image, behind)
-
-        still.resize.assert_called_once_with((650, 325))
-
     def test_leaves_the_source_still_on_disk_untouched(self):
-        behind = background.prepare()
 
         with (
             patch.object(
@@ -208,14 +195,14 @@ class HandleImageTests(SimpleTestCase):
             ),
             patch("PIL.Image.open") as opened,
         ):
-            handle_image(FakeAudio(), self.scene_image, behind)
+            handle_image(FakeAudio(), self.scene_image)
 
         opened.assert_not_called()
 
     def test_raises_when_the_still_cannot_be_opened(self):
         with patch.object(clips, "ImageClip", side_effect=OSError("corrupt")):
             with self.assertRaises(Exception):
-                handle_image(FakeAudio(), self.scene_image, None)
+                handle_image(FakeAudio(), self.scene_image)
 
 
 class HandleVideoTests(SimpleTestCase):
@@ -277,7 +264,7 @@ class ProcessSceneTests(SimpleTestCase):
         image = scene_image.prepare()
 
         with patch.object(clips, "handle_image") as handle:
-            process_scene(image, FakeAudio(), None)
+            process_scene(image, FakeAudio())
 
         handle.assert_called_once()
 
@@ -285,7 +272,7 @@ class ProcessSceneTests(SimpleTestCase):
         scene_image = video_scene_image.prepare()
 
         with patch.object(clips, "handle_video") as handle:
-            process_scene(scene_image, FakeAudio(), None)
+            process_scene(scene_image, FakeAudio())
 
         handle.assert_called_once()
 
@@ -294,7 +281,7 @@ class ProcessSceneTests(SimpleTestCase):
         black = FakeClip()
 
         with patch.object(clips, "ImageClip", return_value=black):
-            self.assertIs(process_scene(image, FakeAudio(3.0), None), black)
+            self.assertIs(process_scene(image, FakeAudio(3.0)), black)
 
         self.assertEqual(black.duration, 3.0)
 
@@ -306,17 +293,17 @@ class ProcessSceneTests(SimpleTestCase):
             patch.object(clips, "ImageClip", return_value=black),
             patch.object(clips, "handle_video", side_effect=ValueError("bad")),
         ):
-            self.assertIs(process_scene(scene_image, FakeAudio(3.0), None), black)
+            self.assertIs(process_scene(scene_image, FakeAudio(3.0)), black)
 
     def test_falls_back_to_black_without_a_scene_image(self):
         black = FakeClip()
 
         with patch.object(clips, "ImageClip", return_value=black):
-            self.assertIs(process_scene(None, FakeAudio(3.0), None), black)
+            self.assertIs(process_scene(None, FakeAudio(3.0)), black)
 
     def test_falls_back_to_black_when_the_provider_left_no_file(self):
         image = scene_image.prepare(file=None)
         black = FakeClip()
 
         with patch.object(clips, "ImageClip", return_value=black):
-            self.assertIs(process_scene(image, FakeAudio(3.0), None), black)
+            self.assertIs(process_scene(image, FakeAudio(3.0)), black)

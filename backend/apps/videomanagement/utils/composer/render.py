@@ -11,7 +11,6 @@ from moviepy.editor import (
 
 from ...models import (
     RENDERABLE_STATUSES,
-    Background,
     Scene,
     Video,
     VideoStatus,
@@ -19,7 +18,7 @@ from ...models import (
 from ..exceptions import RenderFailedException
 from .avatar import handle_avatar_video
 from .clips import clip_audio, handle_audio, process_scene
-from .layers import fit_to_canvas, handle_background, handle_music
+from .layers import fit_to_canvas, handle_music
 from .timing import align_audio, hold_scene
 from .motion import animate_image
 from ..file_utils import check_if_image
@@ -31,14 +30,12 @@ from ...services.subtitles import scene_cues
 logger = logging.getLogger(__name__)
 
 
-def handle_final_video(background, final_audio, final_video, video, subtitles: list):
+def handle_final_video(final_audio, final_video, video, subtitles: list):
     """
-    Processes and generates the final video clip with optional music, background effect, avatar overlay,
+    Processes and generates the final video clip with optional music, avatar overlay,
     subtitles, intro, and outro clips.
 
     Args:
-        background (Background or None): Background object containing color and threshold settings for masking,
-                                         or None if no background effect is applied.
         final_audio (AudioFileClip): The final audio clip to synchronize with the video.
         final_video (VideoFileClip): The base final video clip to which all components will be added.
         video (Video): The video object containing metadata such as music, avatar, intro, and outro clips.
@@ -49,9 +46,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
     """
     duration = final_audio.duration if final_audio else final_video.duration
     canvas_size = output_size((video.settings or {}).get("video_format"))
-    final_video = handle_background(
-        duration, background, final_video, size=canvas_size
-    )
+    final_video = fit_to_canvas(final_video, canvas_size)
 
     if getattr(video, "music", None):
         final_audio = handle_music(video, final_audio, duration)
@@ -87,7 +82,7 @@ def handle_final_video(background, final_audio, final_video, video, subtitles: l
 
 def make_video(video: Video) -> Video:
     """
-    Creates a video based on the provided video object, handling scenes, audio, subtitles, background,
+    Creates a video based on the provided video object, handling scenes, audio, subtitles,
     and final video assembly and output.
 
     Args:
@@ -110,7 +105,6 @@ def make_video(video: Video) -> Video:
     video.save()
 
     scenes: Union[QuerySet, list[Scene]] = video.scenes.prefetch_related("scene_images")
-    background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 
     choices = video.settings or {}
@@ -141,7 +135,7 @@ def make_video(video: Video) -> Video:
                         subtitles.append(subtitle.set_start(cue.start))
 
         transitions.append(scene_transition(scene, choices))
-        visual = fit_to_canvas(process_scene(scene_image, audio, background), canvas_size)
+        visual = fit_to_canvas(process_scene(scene_image, audio), canvas_size)
         if scene_image and scene_image.file and check_if_image(scene_image.file.name):
             original = visual
             visual = animate_image(visual, scene)
@@ -164,11 +158,6 @@ def make_video(video: Video) -> Video:
             opening_duration=choices.get("transition_duration"),
         )
 
-        if background:
-            final_video = final_video.margin(
-                top=background.image_pos_top, left=background.image_pos_left, opacity=4
-            ).set_position("center")
-
         if sound_list:
             tracks = [align_audio(audio, duration) for audio, duration in scene_tracks]
             timing_clips.extend(tracks)
@@ -176,7 +165,7 @@ def make_video(video: Video) -> Video:
             final_audio.write_audiofile(f"{video.dir_name}/output_audio.wav")
 
         final_video = handle_final_video(
-            background, final_audio, final_video, video, subtitles
+            final_audio, final_video, video, subtitles
         )
         final_video_path = f"{video.dir_name}/output_video.mp4"
         # Explicit aac: moviepy defaults to libmp3lame, and Safari and QuickTime

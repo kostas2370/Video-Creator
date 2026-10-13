@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from ...baker_recipes import avatar, background, intro, music, outro, video
+from ...baker_recipes import avatar, intro, music, outro, video
 from ...utils.composer import render
 from ...utils.composer.render import handle_final_video
 from ..doubles import FakeAudio, FakeClip
@@ -14,9 +14,9 @@ class HandleFinalVideoTests(TestCase):
         self.audio = FakeAudio(duration=12.0)
         self.video = video.make(settings=dict(subtitles=False))
 
-    def assemble(self, subtitles=None, backdrop=None, **patches):
+    def assemble(self, subtitles=None, **patches):
         stubs = {
-            "handle_background": self.clip,
+            "fit_to_canvas": self.clip,
             "handle_music": self.audio,
             "handle_avatar_video": self.clip,
         }
@@ -29,22 +29,17 @@ class HandleFinalVideoTests(TestCase):
             self.addCleanup(patcher.stop)
 
         result = handle_final_video(
-            backdrop, self.audio, self.clip, self.video, subtitles or []
+            self.audio, self.clip, self.video, subtitles or []
         )
 
         return result, started
 
-    def test_lays_the_background_under_the_narrations_length(self):
-        _, stubs = self.assemble(backdrop=background.make())
-
-        self.assertEqual(stubs["handle_background"].call_args.args[0], 12.0)
-
     def test_falls_back_to_the_videos_own_length_when_it_is_silent(self):
         self.audio = None
 
+        self.video.music = music.make()
         _, stubs = self.assemble()
-
-        self.assertEqual(stubs["handle_background"].call_args.args[0], 10.0)
+        self.assertEqual(stubs["handle_music"].call_args.args[2], 10.0)
 
     def test_mixes_music_in_only_when_the_video_has_some(self):
         _, without = self.assemble()

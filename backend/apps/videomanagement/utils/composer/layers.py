@@ -4,10 +4,6 @@ from moviepy.editor import (
     AudioFileClip,
     concatenate_audioclips,
     CompositeAudioClip,
-    ImageClip,
-    VideoFileClip,
-    vfx,
-    CompositeVideoClip,
 )
 
 
@@ -62,36 +58,3 @@ def handle_music(video, final_audio, duration):
 
     # With narration switched off the music is the whole soundtrack.
     return CompositeAudioClip([final_audio, music]) if final_audio else music
-
-
-def handle_background(duration, background, final_video, size=(1920, 1080)):
-    """
-    Adds a background effect to a video clip based on the specified color and threshold.
-
-    Args:
-        final_audio (AudioFileClip): The final audio clip to synchronize with the video.
-        background (Background): The background object containing color and threshold settings for masking.
-        final_video (VideoFileClip): The final video clip onto which the masked video will be composited.
-
-    Returns:
-        VideoFileClip: The final video with background effect applied, including masking and fade effects.
-    """
-
-    final_video = fit_to_canvas(final_video, size)
-    if not background:
-        return final_video
-
-    if background.file.path.lower().endswith((".jpg", ".png")):
-        bg_clip = ImageClip(background.file.path)
-    else:
-        bg_clip = VideoFileClip(background.file.path).without_audio()
-
-    bg_clip = fit_to_canvas(bg_clip, size).set_duration(duration)
-    mask_color = [int(x) for x in background.color.split(",")]
-    threshold = float(background.through) / 255.0
-    masked_clip = final_video.fx(vfx.mask_color, color=mask_color, thr=threshold, s=7)
-    final_video = CompositeVideoClip(
-        [bg_clip, masked_clip.set_duration(duration)], size=size
-    ).crossfadein(2)
-
-    return final_video

@@ -10,7 +10,7 @@ from moviepy.editor import (
     vfx,
 )
 
-from ...models import SceneImage, Background, Scene
+from ...models import SceneImage, Scene
 from ..file_utils import check_if_image, check_if_video
 
 logger = logging.getLogger(__name__)
@@ -74,14 +74,13 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
     return audio
 
 
-def handle_image(audio, scene_image, background):
+def handle_image(audio, scene_image):
     """
     Processes and returns the appropriate image clip based on the given audio and scene image.
 
     Args:
         audio (AudioFileClip): The audio clip associated with the scene.
         scene_image (SceneImage): The scene image object containing the file path.
-        background (Background): A background object that contains a file of the background image.
 
 
     Returns:
@@ -90,10 +89,6 @@ def handle_image(audio, scene_image, background):
     """
     try:
         image = ImageClip(scene_image.file.path)
-
-        if background:
-            w, h = ImageClip(background.file.path).size
-            image = image.resize((int(w * 0.65), int(h * 0.65)))
 
         image = image.set_duration(
             audio.duration if audio else settings.SILENT_SCENE_SECONDS
@@ -133,7 +128,7 @@ def handle_video(audio: AudioFileClip, scene_image: SceneImage) -> VideoFileClip
     return vid_scene
 
 
-def process_scene(scene_image: SceneImage, audio, background: Background):
+def process_scene(scene_image: SceneImage, audio):
     """
     Processes and returns the appropriate visual clip (image or video) based on the given scene image and audio.
 
@@ -146,7 +141,6 @@ def process_scene(scene_image: SceneImage, audio, background: Background):
     Args:
         scene_image (SceneImage): The scene image object containing the file path to the image or video file.
         audio (AudioFileClip): The audio clip associated with the scene.
-        background (bool): A flag indicating if the image should be resized as a background.
 
     Returns:
         VideoFileClip: The processed visual clip for the scene, which may be a black video, an image clip,
@@ -163,7 +157,7 @@ def process_scene(scene_image: SceneImage, audio, background: Background):
 
     try:
         if check_if_image(file_path):
-            return handle_image(audio, scene_image, background)
+            return handle_image(audio, scene_image)
 
         if check_if_video(file_path):
             return handle_video(audio, scene_image)
