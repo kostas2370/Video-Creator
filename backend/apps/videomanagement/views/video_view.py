@@ -22,11 +22,11 @@ from rest_framework.permissions import IsAuthenticated
 from ..events import publish_update
 from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
-from ..serializers.requests import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
+from ..serializers.requests import BulkAutoMotionSerializer, VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
 from ..serializers.models import VideoSerializer, VideoNestedSerializer
 from ..serializers.preview import PreviewTimelineSerializer
 from ..services.SceneServices import draft_scene
-from ..services.editing import reorder_scenes
+from ..services.editing import reorder_scenes, apply_auto_motion
 from ..services.editing import editable_video
 from ..services.subtitles import export_subtitles
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
@@ -284,6 +284,15 @@ class VideoView(
             {"message": "Scene creation queued", "status": VideoStatus.GENERATION},
             status=status.HTTP_202_ACCEPTED,
         )
+
+    @swagger_auto_schema(request_body=BulkAutoMotionSerializer)
+    @action(detail=True, methods=["PATCH"])
+    def auto_motion(self, request, pk=None):
+        owned_video = self.get_object()
+        serializer = BulkAutoMotionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video = apply_auto_motion(owned_video, serializer.validated_data["motion_intensity"])
+        return Response(self.serialize_video_detail(video))
 
     @swagger_auto_schema(request_body=ReorderScenesSerializer)
     @action(detail=True, methods=["POST"])

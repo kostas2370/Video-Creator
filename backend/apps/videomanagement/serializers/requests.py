@@ -259,6 +259,10 @@ class SceneTransitionSerializer(serializers.Serializer):
     transition_duration = TransitionDurationField(required=False, allow_null=True)
 
 
+class BulkAutoMotionSerializer(serializers.Serializer):
+    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices)
+
+
 class SceneMotionSerializer(serializers.Serializer):
     motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
     motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices, required=False)

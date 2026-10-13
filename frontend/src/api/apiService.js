@@ -50,6 +50,7 @@ const sceneOperation = async (id, send) => {
   return result;
 };
 
+export const applyAutoMotion = (id, intensity) => patch(action("videos", id, "auto_motion"), { motion_intensity: intensity }, callerHandlesErrors);
 export const updateSceneMotion = (id, changes) => patch(action("scenes", id, "motion"), changes, callerHandlesErrors);
 export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);
