@@ -8,6 +8,7 @@ from ..models import Video
 from ..services.preview import PreviewTimeline, preview_timeline
 from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
 from ..video_formats import output_size
+from ..utils.motion import resolved_motion
 
 
 @dataclass
@@ -39,9 +40,15 @@ class PreviewSegmentSerializer(serializers.Serializer):
     narration_duration = serializers.FloatField(allow_null=True)
     transition = serializers.ChoiceField(choices=("CUT", "FADE", "DISSOLVE"))
     transition_duration = serializers.FloatField(allow_null=True)
+    motion_style = serializers.SerializerMethodField()
+    motion_intensity = serializers.CharField(source="content.motion_intensity", default="SUBTLE")
     fade_in = serializers.FloatField()
     fade_out = serializers.FloatField()
     dissolve_in = serializers.FloatField()
+
+    @swagger_serializer_method(serializer_or_field=serializers.CharField())
+    def get_motion_style(self, segment):
+        return resolved_motion(segment.content) if segment.kind == "scene" and segment.visual_type == "image" else "NONE"
 
     @swagger_serializer_method(serializer_or_field=serializers.CharField())
     def get_id(self, segment):

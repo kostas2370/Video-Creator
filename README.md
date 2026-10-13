@@ -15,6 +15,7 @@ and rendering.
   add a SadTalker presenter, or turn narration off.
 - **Edit scene by scene:** rewrite dialogue, replace visuals, draft additional scenes,
   choose their insertion position and drag scenes into playback order.
+- **Animate still images:** choose zoom, directional pan or stable Auto motion per scene, with three intensity levels. Use the scene’s Motion button to try movements in a looping preview, then Save or Cancel. Apply Auto to all image scenes at once with a shared intensity. Pauses hold the final frame.
 - **Control playback:** set pauses and choose cuts, fades through black or cross
   dissolves, with video defaults and overrides between scenes.
 - **Preview your edit:** play a thumbnail timeline with a seekable playhead, narration,

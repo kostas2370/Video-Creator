@@ -25,6 +25,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class MotionStyle(models.TextChoices):
+    NONE = "NONE", "None"
+    AUTO = "AUTO", "Auto"
+    ZOOM_IN = "ZOOM_IN", "Zoom In"
+    ZOOM_OUT = "ZOOM_OUT", "Zoom Out"
+    PAN_LEFT = "PAN_LEFT", "Pan Left"
+    PAN_RIGHT = "PAN_RIGHT", "Pan Right"
+    PAN_UP = "PAN_UP", "Pan Up"
+    PAN_DOWN = "PAN_DOWN", "Pan Down"
+
+
+class MotionIntensity(models.TextChoices):
+    SUBTLE = "SUBTLE", "Subtle"
+    MEDIUM = "MEDIUM", "Medium"
+    STRONG = "STRONG", "Strong"
+
+
 class VoiceModelType(models.TextChoices):
     API = "API", "Api"
     CUSTOM_API = "CUSTOM_API", "Custom Api"
@@ -180,6 +197,12 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    motion_style = models.CharField(
+        max_length=10, choices=MotionStyle.choices, default=MotionStyle.NONE
+    )
+    motion_intensity = models.CharField(
+        max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
+    )
     pause_after = models.FloatField(default=0)
     transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
     transition_duration = models.FloatField(null=True, blank=True, default=None)

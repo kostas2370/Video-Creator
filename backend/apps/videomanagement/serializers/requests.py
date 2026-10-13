@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from ..models import Avatar, Intro, Outro
+from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle
 from ..services.asset_selection import available_voice, owned_asset
 from ..services.VideoServices import video_update
 from ..video_formats import (
@@ -257,6 +257,15 @@ class ReorderScenesSerializer(serializers.Serializer):
 class SceneTransitionSerializer(serializers.Serializer):
     transition_after = serializers.ChoiceField(choices=["DEFAULT", "FADE", "CUT", "DISSOLVE"])
     transition_duration = TransitionDurationField(required=False, allow_null=True)
+
+
+class BulkAutoMotionSerializer(serializers.Serializer):
+    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices)
+
+
+class SceneMotionSerializer(serializers.Serializer):
+    motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
+    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices, required=False)
 
 
 class SceneTimingSerializer(serializers.Serializer):
