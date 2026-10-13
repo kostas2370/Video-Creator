@@ -10,7 +10,7 @@ from uuid import UUID
 import numpy as np
 from PIL import Image
 
-from apps.videomanagement.utils.composer.render import Graph, scene_visuals
+from apps.videomanagement.utils.composer.render import Graph, visual_stream
 
 size = (1920, 1080)
 duration = 6
@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix="render-benchmark-") as directory:
             dissolve_in=0,
         )
         graph = Graph()
-        visual = scene_visuals(graph, [segment], size)
+        visual = visual_stream(graph, segment, size)
         start = time.perf_counter()
         graph.run(
             root,

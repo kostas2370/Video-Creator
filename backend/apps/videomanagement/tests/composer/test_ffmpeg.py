@@ -286,3 +286,42 @@ class FFmpegRenderTests(TestCase):
             pixels = np.asarray(image)
         self.assertEqual(pixels.shape, (90, 160, 3))
         self.assertGreater(pixels[:, :, 1].mean(), pixels[:, :, 0].mean())
+
+    def test_many_dissolves_use_only_one_scene_and_one_held_frame_at_a_time(self):
+        from ...utils.composer.render import Graph
+
+        for _ in range(10):
+            self.add_still(
+                motion_style="PAN_RIGHT",
+                transition_after="DISSOLVE",
+                transition_duration=0.1,
+            )
+        original = Graph.run
+        scene_inputs = []
+
+        def record(graph, directory, output, *args):
+            if Path(output).name.startswith("scene-"):
+                scene_inputs.append(graph.input_count)
+            return original(graph, directory, output, *args)
+
+        with patch.object(Graph, "run", record):
+            make_video(self.row)
+        self.assertEqual(len(scene_inputs), 10)
+        self.assertLessEqual(max(scene_inputs), 2)
+        self.assertAlmostEqual(
+            float(self.metadata()["format"]["duration"]), 5, delta=0.05
+        )
+
+    def test_sigkill_with_empty_stderr_reports_a_possible_memory_kill(self):
+        from ...utils.composer.render import Graph
+
+        graph = Graph()
+        stream = graph.filter([], "color=c=black:s=160x90:d=1")
+        with patch(
+            "apps.videomanagement.utils.composer.render.subprocess.run",
+            side_effect=subprocess.CalledProcessError(-9, "ffmpeg"),
+        ):
+            with self.assertRaisesRegex(
+                RenderFailedException, "SIGKILL.*out-of-memory"
+            ):
+                graph.run(self.root, self.root / "failed.mp4", [stream], [], 1)

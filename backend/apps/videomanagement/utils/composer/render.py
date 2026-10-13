@@ -31,7 +31,7 @@ class Graph:
     def input(self, path, options=()):
         index = self.input_count
         self.input_count += 1
-        self.inputs.extend([*options, "-i", str(Path(path).resolve())])
+        self.inputs.extend(["-threads", "2", *options, "-i", str(Path(path).resolve())])
         return index
 
     def filter(self, sources, expression, outputs=1):
@@ -76,8 +76,19 @@ class Graph:
             except (OSError, subprocess.SubprocessError) as exc:
                 log.seek(0, os.SEEK_END)
                 log.seek(max(0, log.tell() - 4000))
+                detail = log.read().decode("utf-8", errors="replace").strip()
+                if isinstance(exc, subprocess.CalledProcessError):
+                    reason = (
+                        "SIGKILL (possible out-of-memory kill)"
+                        if exc.returncode == -9
+                        else f"exit code {exc.returncode}"
+                    )
+                elif isinstance(exc, subprocess.TimeoutExpired):
+                    reason = f"timed out after {exc.timeout}s"
+                else:
+                    reason = str(exc)
                 raise RenderFailedException(
-                    f"FFmpeg render failed: {log.read().decode('utf-8', errors='replace')}"
+                    f"FFmpeg render failed: {reason}. {detail}".strip()
                 ) from exc
 
 
@@ -195,7 +206,7 @@ def visual_stream(graph, segment, size):
     return graph.filter([stream], ",".join(fades)) if fades else stream
 
 
-def scene_visuals(graph, segments, size):
+def quantized_scenes(segments):
     quantized = []
     offset = 0
     for segment in segments:
@@ -209,27 +220,61 @@ def scene_visuals(graph, segments, size):
             )
             quantized.append(visual_segment)
         offset = end
-    segments = quantized
-    streams = [visual_stream(graph, segment, size) for segment in segments]
-    outgoing = {}
-    for index in range(len(segments) - 1):
-        if segments[index + 1].dissolve_in:
-            streams[index], outgoing[index] = graph.filter(
-                [streams[index]], "split=2", outputs=2
+    return quantized
+
+
+def render_scene_clips(segments, directory, size):
+    from ..scenes import save_video_frame
+
+    quantized = quantized_scenes(segments)
+    previous_frame = None
+    files = []
+    for index, segment in enumerate(quantized):
+        graph = Graph()
+        visual = visual_stream(graph, segment, size)
+        if segment.dissolve_in and previous_frame:
+            frame = graph.input(previous_frame, ("-loop", "1", "-framerate", str(FPS)))
+            frozen = graph.filter(
+                [f"{frame}:v"],
+                f"trim=duration={segment.dissolve_in},setpts=PTS-STARTPTS,format=rgba,fade=t=out:st=0:d={segment.dissolve_in}:alpha=1",
             )
-    for index in range(1, len(segments)):
-        duration = segments[index].dissolve_in
-        if not duration:
-            continue
-        previous = segments[index - 1]
-        frozen = graph.filter(
-            [outgoing[index - 1]],
-            f"trim=start_frame={max(0, math.ceil(previous.duration * FPS) - 1)},setpts=PTS-STARTPTS,fps={FPS},tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},format=rgba,fade=t=out:st=0:d={duration}:alpha=1",
+            visual = graph.filter(
+                [visual, frozen], "overlay=eof_action=pass:repeatlast=0:format=auto"
+            )
+        visual = graph.filter([visual], "format=yuv420p")
+        output = Path(directory, f"scene-{index}.mkv")
+        graph.run(
+            directory,
+            output,
+            [visual],
+            [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-qp",
+                "0",
+                "-threads",
+                "2",
+                "-an",
+            ],
+            segment.duration,
         )
-        streams[index] = graph.filter(
-            [streams[index], frozen], "overlay=eof_action=pass:repeatlast=0:format=auto"
+        files.append((output, segment.duration))
+        previous_frame = None
+        if index + 1 < len(quantized) and quantized[index + 1].dissolve_in:
+            previous_frame = Path(directory, "outgoing.png")
+            save_video_frame(
+                output, previous_frame, max(0, segment.duration - 1 / FPS - 0.000001)
+            )
+    manifest = Path(directory, "scenes.ffconcat")
+    manifest.write_text(
+        "ffconcat version 1.0\n"
+        + "".join(
+            f"file '{path.name}'\nduration {duration}\n" for path, duration in files
         )
-    return graph.filter(streams, f"concat=n={len(streams)}:v=1:a=0")
+    )
+    return manifest
 
 
 def ass_timestamp(value):
@@ -300,9 +345,12 @@ def avatar_layer(graph, video, stream, duration):
     )
 
 
-def final_graph(video, segments, duration, narration_path, directory, size):
+def final_graph(
+    video, segments, duration, narration_path, directory, size, scene_manifest
+):
     graph = Graph()
-    visual = scene_visuals(graph, segments, size)
+    scene_input = graph.input(scene_manifest, ("-f", "concat", "-safe", "1"))
+    visual = graph.filter([f"{scene_input}:v"], "setpts=PTS-STARTPTS")
     visual = avatar_layer(graph, video, visual, duration)
     audio = audio_stream(graph, [narration_path], duration)
     if video.music:
@@ -378,13 +426,16 @@ def make_video(video):
             elapsed,
         )
         os.replace(narration, destination / "output_audio.wav")
+        size = output_size(choices.get("video_format"))
+        manifest = render_scene_clips(segments, directory, size)
         graph, visual, audio, total = final_graph(
             video,
             segments,
             elapsed,
             destination / "output_audio.wav",
             directory,
-            output_size(choices.get("video_format")),
+            size,
+            manifest,
         )
         output = Path(directory, "output.mp4")
         graph.run(
