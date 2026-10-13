@@ -74,7 +74,7 @@ providers, while other settings use their configured defaults. Useful options in
 | `REASONING_TOKEN_ALLOWANCE` | `8000` | Extra budget for gpt-5/o-series thinking tokens, which bill against the same cap as the reply |
 | `IMAGE_MODEL` | `gpt-image-2` | OpenAI image generation model |
 | `IMAGE_QUALITY` / `IMAGE_SIZE` | `high` / `1792x1024` | Validated per model — change them together with `IMAGE_MODEL` |
-| `SUBTITLE_FONT` | `DejaVu-Sans` | ImageMagick font name for subtitles |
+| `SUBTITLE_FONT` | `DejaVu Sans` | Font family for FFmpeg subtitles |
 
 The generation form accepts an optional PNG, JPEG, or WebP reference image up to
 10 MB when using OpenAI images or Sora. OpenAI images reuse this reference for every
@@ -95,8 +95,7 @@ kept until you regenerate them.
 ## How to Run the Project
 
 Docker is the fastest way in and the one most people should use: it brings up the
-API, the worker, the database and the frontend together, patches the ImageMagick
-policy, ships a subtitle font and downloads the model weights for you. Install it
+API, the worker, the database and the frontend together, ships a subtitle font and downloads the model weights for you. Install it
 by hand if you would rather run the services yourself.
 
 ### Docker Installation
@@ -137,8 +136,7 @@ cd frontend && npm install && npm start
 Vite's dev server proxies `/api` to `localhost:8000` (see `frontend/vite.config.mjs`),
 so the browser still sees a single origin and the cookies behave the same way.
 
-Everything above is handled inside the image: the ImageMagick policy is patched, a
-subtitle font is present, and the web container runs migrations and loads fixtures on
+Everything above is handled inside the image: a subtitle font is present, and the web container runs migrations and loads fixtures on
 start. The stack builds natively on both x86\_64 and arm64 (Apple Silicon).
 
 The model weights are downloaded for you: the celery worker runs `setup_checkpoints` before it starts consuming tasks, since it is the service that runs SadTalker. They land in `checkpoints/` and `gfpgan/weights/` on the host through the `.:/app` bind mount, so the first boot pays for the download once and every rebuild after that reuses it. Expect the worker to take several minutes to come up the first time.
@@ -157,19 +155,8 @@ They are deliberately **not** baked into the image — that would add several GB
   Package metadata, Docker, and CI share `backend/requirements/requirements.txt`.
 - Install the following dependencies:
   1. FFmpeg, including `ffprobe` (Required for video rendering and reading media timing) - [Installation Guide](https://phoenixnap.com/kb/ffmpeg-windows)
-  2. ImageMagick (Required for subtitles) - [Download](https://imagemagick.org/script/download.php#windows)
-
-     On Linux, the packaged `policy.xml` blocks the `@file` reads that moviepy uses to
-     draw text, so every subtitle fails with *"operation not allowed by the security
-     policy"*. Delete this line from `/etc/ImageMagick-*/policy.xml`:
-
-     ```xml
-     <policy domain="path" rights="none" pattern="@*"/>
-     ```
-
-     Subtitles are drawn with the font named by `SUBTITLE_FONT` (default
-     `DejaVu-Sans`). Run `convert -list font` to see what your install offers — on
-     macOS and Windows `Arial` works, in debian-slim only the DejaVu family exists.
+  2. A subtitle font, such as DejaVu Sans, and FFmpeg built with libass (`subtitles` filter).
+     `SUBTITLE_FONT` selects the font family and defaults to `DejaVu Sans`.
 
 #### Installation Steps
 
@@ -627,8 +614,7 @@ The preview loads saved changes when you open it. Preview
 is unavailable while generation or rendering is running. Missing visuals show a
 placeholder; media failures display a notice and can be retried by reloading the preview.
 
-This previews scene media and narration. Avatar animation, background music and
-background effects are added during rendering; caption appearance may also differ.
+This previews scene media and narration. Avatar animation and background music are added during rendering; caption appearance may also differ.
 
 ![Playing a scene with captions and the thumbnail timeline](docs/screenshots/preview-timeline.png)
 
@@ -811,9 +797,29 @@ under Docker, or [http://localhost:8000/swagger/](http://localhost:8000/swagger/
 
 ---
 
+## Experimental FFmpeg renderer
+
+FFmpeg handles all video composition. Restart the Celery worker after updating.
+Migration `0025_remove_backgrounds` removes the obsolete
+Background table and the video/template relationships. Background music remains
+available. `FFMPEG_RENDER_TIMEOUT` limits each FFmpeg process;
+it defaults to 3600 seconds.
+
+The native path handles image motion, video trimming and held frames, cuts, fades,
+non-overlapping dissolves, narration and clip audio, music, captions,
+avatar overlays, and intro/outro clips. It uses FFmpeg filters and H.264/AAC output;
+SadTalker still generates avatar footage. FFmpeg must include `libx264` and the
+`subtitles` filter with libass. Existing Docker images provide these filters.
+
+ASS captions use installed font families and video boundaries are quantized to
+24 fps. Scenes render sequentially into temporary lossless clips to keep memory
+bounded, then FFmpeg assembles the video. This uses temporary disk space rather
+than buffering every scene in RAM. Unchanged scenes are not yet cached. Existing output video files are
+replaced only after a successful render; temporary files are cleaned up on failures.
+
 ## Roadmap / To-Do List
 
-- [ ] Convert all `moviepy` functions to `FFmpeg` for better performance.
+- [x] Use native FFmpeg for video rendering and media validation.
 - [x] Add **Celery** support for asynchronous and scheduled tasks.
 - [x] Implement unit tests for models, functions, and views.
 

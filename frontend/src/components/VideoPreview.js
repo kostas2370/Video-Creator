@@ -114,7 +114,7 @@ function VideoPreview({ video, disabled = false }) {
   const allowed = ["READY", "COMPLETED", "FAILED"].includes(video?.status);
   // Polling returns new objects even when nothing changed; only an edited timeline reloads.
   const revision = JSON.stringify([video?.id, video?.status, video?.updated_at, video?.settings,
-    video?.intro, video?.outro, video?.avatar, video?.music, video?.background,
+    video?.intro, video?.outro, video?.avatar, video?.music,
     video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity])]);
   useEffect(() => {
     setPlaying(false);

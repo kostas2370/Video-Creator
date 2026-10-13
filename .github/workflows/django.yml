@@ -17,13 +17,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Importing the Django app reaches moviepy, which looks for an ffmpeg binary at
-    # import time, and opencv, which needs libGL. Installed explicitly rather than
-    # relying on whatever the runner image happens to ship.
     - name: Install system dependencies
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -y -qq --no-install-recommends ffmpeg libgl1 libglib2.0-0 default-libmysqlclient-dev pkg-config
+        sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core libgl1 libglib2.0-0 default-libmysqlclient-dev pkg-config
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5

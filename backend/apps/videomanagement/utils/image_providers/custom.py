@@ -9,8 +9,7 @@ from urllib.parse import urlparse
 
 import requests
 from PIL import Image
-from moviepy.config import get_setting
-from moviepy.editor import VideoFileClip
+from ..timing import video_metadata
 from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutputType
@@ -46,14 +45,12 @@ def save_video(downloaded, path):
         source = os.path.join(directory, "source.mp4")
         with open(source, "wb") as file:
             shutil.copyfileobj(downloaded, file)
-        with VideoFileClip(source, audio=False) as clip:
-            if not clip.duration or clip.duration <= 0 or not clip.fps:
-                raise ValueError("The provider returned an invalid video.")
-            clip.get_frame(0)
+        video_metadata(source)
         subprocess.run(
             [
-                get_setting("FFMPEG_BINARY"),
+                "ffmpeg",
                 "-nostdin",
+                "-xerror",
                 "-y",
                 "-i",
                 source,

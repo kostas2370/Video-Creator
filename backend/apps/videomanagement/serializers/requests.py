@@ -75,7 +75,6 @@ class GenerateSerializer(serializers.Serializer):
     target_audience = serializers.CharField(
         required=False, max_length=30, min_length=0, default="", allow_blank=True
     )
-    background = serializers.CharField(required=False, max_length=36, default=None)
     intro = serializers.CharField(required=False, max_length=36, default=None)
     outro = serializers.CharField(required=False, max_length=36, default=None)
     subtitles = serializers.BooleanField(required=False, default=False)

@@ -232,9 +232,7 @@ SORA_STYLE = os.getenv("SORA_STYLE") or (
     "warm colour grade, steady camera, photorealistic."
 )
 
-# As ImageMagick names it (`convert -list font`). The image carries only DejaVu;
-# "Arial" exists on macOS and Windows but not in debian-slims.
-SUBTITLE_FONT = os.getenv("SUBTITLE_FONT") or "DejaVu-Sans"
+SUBTITLE_FONT = os.getenv("SUBTITLE_FONT") or "DejaVu Sans"
 
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 API_KEY = os.getenv("API_KEY")
@@ -289,3 +287,5 @@ ACCEPTED_MODELS = [
     "gemini-1.5-flash",
     "gemini-1.0-pro",
 ]
+
+FFMPEG_RENDER_TIMEOUT = int(os.getenv("FFMPEG_RENDER_TIMEOUT") or "3600")
