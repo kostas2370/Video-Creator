@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RiDraggable } from "react-icons/ri";
 import { SceneTransition } from "./SceneTransition";
-import { SceneMotion } from "./SceneMotion";
 import { Scene } from "./Scene";
 
 export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming, onMotion, pendingMotion }) {
@@ -65,7 +64,7 @@ export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpda
     {scenes.map((scene, index) => <div key={scene.id} data-scene-order={index} className="relative mb-5">
       {drag?.target === index && drag.target !== drag.from && drag.target !== drag.from + 1 && <div className="pointer-events-none absolute -top-3 left-0 right-0 h-1 rounded-full bg-blue-500" />}
       <div className={drag?.from === index ? "opacity-40" : ""}>
-        <Scene scene={scene} index={index} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === scene.id} setUpdated={setUpdated} video_format={videoFormat} reorderHandle={scenes.length > 1 && <button type="button" disabled={disabled} aria-label={`Move scene ${index + 1}`} aria-describedby="scene-reorder-help" className="touch-none rounded-lg p-2 text-gray-400 cursor-grab hover:bg-blue-50 hover:text-blue-600 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default disabled:opacity-30 dark:hover:bg-gray-700" onPointerDown={event => {
+        <Scene scene={scene} index={index} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === scene.id} onMotion={onMotion} motionDisabled={disabled} motionSaving={pendingMotion === scene.id} setUpdated={setUpdated} video_format={videoFormat} reorderHandle={scenes.length > 1 && <button type="button" disabled={disabled} aria-label={`Move scene ${index + 1}`} aria-describedby="scene-reorder-help" className="touch-none rounded-lg p-2 text-gray-400 cursor-grab hover:bg-blue-50 hover:text-blue-600 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default disabled:opacity-30 dark:hover:bg-gray-700" onPointerDown={event => {
           if (disabled || event.button !== 0) return;
           event.preventDefault();
           event.currentTarget.focus();
@@ -80,7 +79,6 @@ export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpda
           }
         }}><RiDraggable className="h-5 w-5" /></button>} />
       </div>
-      <SceneMotion scene={scene} index={index} disabled={disabled} saving={pendingMotion === scene.id} onChange={onMotion} />
       {index < scenes.length - 1 && <div className="mt-5"><SceneTransition scene={scene} nextNumber={index + 2} disabled={disabled} saving={pendingTransition === scene.id} onChange={onTransition} settings={transitionSettings} /></div>}
     </div>)}
     {drag?.target === scenes.length && drag.from !== scenes.length - 1 && <div className="-mt-3 mb-5 h-1 rounded-full bg-blue-500" />}
