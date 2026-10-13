@@ -9,6 +9,7 @@ import { deleteImageScene, deleteScene, updateScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
+import { SceneAudio } from "./SceneAudio";
 import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
 const formatFrameClasses = {
@@ -88,13 +89,14 @@ export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0
         <div className="grid gap-6 p-5 md:grid-cols-2">
           <div className="min-w-0">
             <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Dialogue</h3><button type="button" aria-label="Edit scene text" onClick={() => setShowEditModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><FaPencilAlt className="h-3 w-3" />Edit text</button></div>
+            <SceneAudio scene={scene} disabled={timingDisabled} onSaved={setUpdated} />
             {onTiming && <SceneTiming scene={scene} index={index} disabled={timingDisabled} saving={timingSaving} onChange={onTiming} />}
             <p className="min-h-[120px] whitespace-pre-wrap break-words text-sm leading-7 text-gray-700 dark:text-gray-200">{scene.text || "No dialogue yet."}</p>
             {scene.narration_status === "missing" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Narration unavailable</p>
               <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-300">This scene has no narration audio. Your dialogue and visual are saved.</p>
               <button type="button" disabled={retryingNarration} onClick={retryNarration} className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/50 dark:text-amber-200">{retryingNarration ? "Retrying…" : "Retry narration"}</button>
-            </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">Narration is off for this video</p> : (scene.file ? <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Preview narration</p><audio aria-label={`Scene ${index + 1} narration`} controls key={scene.file} className="h-10 w-full"><source src={MEDIA_URL + scene.file} /></audio></div> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
+            </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">Narration is off for this video</p> : ((scene.voiceover || scene.file) ? <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Preview narration</p><audio aria-label={`Scene ${index + 1} narration`} controls key={scene.voiceover || scene.file} className="h-10 w-full"><source src={MEDIA_URL + (scene.voiceover || scene.file)} /></audio></div> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
           </div>
           <div className="min-w-0">
             <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Visual</h3><button type="button" onClick={() => setShowEditImageModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlinePencilSquare className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button></div>

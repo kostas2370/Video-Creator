@@ -8,6 +8,7 @@ from ..models import Video
 from ..services.preview import PreviewTimeline, preview_timeline
 from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
 from ..video_formats import output_size
+from ..utils.audio_editing import narration_file, voice_tracks
 
 
 @dataclass
@@ -65,7 +66,7 @@ class PreviewSegmentSerializer(serializers.Serializer):
 
     @swagger_serializer_method(serializer_or_field=serializers.CharField(allow_null=True))
     def get_narration(self, segment):
-        field = segment.content.file
+        field = narration_file(segment.content)
         return field.url if segment.narration_duration and stored_file_exists(field) else None
 
 
@@ -76,6 +77,22 @@ class PreviewTimelineSerializer(serializers.Serializer):
     segments = PreviewSegmentSerializer(source="timeline.segments", many=True)
     captions = PreviewCaptionSerializer(source="timeline.captions", many=True)
     render_only = serializers.SerializerMethodField()
+    audio_tracks = serializers.SerializerMethodField()
+    music = serializers.SerializerMethodField()
+
+    def get_audio_tracks(self, obj):
+        return voice_tracks(obj.timeline.segments)
+
+    def get_music(self, obj):
+        music = obj.video.music
+        if not music or not stored_file_exists(music.file):
+            return None
+        segments = [s for s in obj.timeline.segments if s.kind == "scene"]
+        return {"source": music.file.url, "start": segments[0].start,
+                "duration": sum(s.duration for s in segments),
+                "settings": {key: value for key, value in (obj.video.settings or {}).items()
+                             if key.startswith("music_") or key.startswith("duck_")}}
+
 
     def to_representation(self, video):
         return super().to_representation(PreviewData(video, preview_timeline(video)))
@@ -90,4 +107,4 @@ class PreviewTimelineSerializer(serializers.Serializer):
     def get_render_only(self, obj):
         video = obj.video
         return [name for name, enabled in (("avatar animation", video.avatar_id),
-                ("background music", video.music_id), ("background effects", video.background_id)) if enabled]
+                ("background effects", video.background_id)) if enabled]

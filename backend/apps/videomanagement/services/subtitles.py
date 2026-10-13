@@ -13,6 +13,7 @@ from rest_framework.exceptions import ValidationError
 from ..models import VideoStatus
 from ..utils.exceptions import VideoEditConflict
 from ..utils.timing import file_timing, scene_timing
+from ..utils.audio_editing import narration_file, narration_enabled, audio_bounds, caption_offsets
 
 
 @dataclass(frozen=True)
@@ -43,11 +44,11 @@ def caption_phrases(text, width=32, max_words=10):
 
 
 def narration_duration(scene):
-    return file_timing(scene.file).get("audio_duration")
+    return file_timing(narration_file(scene)).get("audio_duration")
 
 
 def scene_cues(scene, *, offset=0, duration=None):
-    if not (scene.video.settings or {}).get("narration", True):
+    if not narration_enabled(scene):
         return []
     duration = narration_duration(scene) if duration is None else duration
     if duration is None or not math.isfinite(duration) or duration <= 0:
@@ -61,7 +62,12 @@ def scene_cues(scene, *, offset=0, duration=None):
         consumed += weight
         end = offset + duration * consumed / total
         cues.append(CaptionCue(start, end, text))
-    return cues
+    choices = getattr(scene, "audio_settings", None) or {}
+    trim_start, trim_end = audio_bounds(scene, duration)
+    delay = choices.get("delay", 0)
+    return [CaptionCue(max(cue.start - offset, trim_start) - trim_start + offset + delay,
+                       min(cue.end - offset, trim_end) - trim_start + offset + delay, cue.text)
+            for cue in cues if cue.end - offset > trim_start and cue.start - offset < trim_end]
 
 
 def srt_timestamp(seconds):
@@ -82,7 +88,7 @@ def cues_to_srt(cues):
 def export_subtitles(video):
     if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
         raise VideoEditConflict("Wait for processing to finish before downloading subtitles.")
-    if not (video.settings or {}).get("narration", True):
+    if not (video.settings or {}).get("narration", True) and not video.scenes.exclude(voiceover="").exists():
         raise ValidationError({"detail": "Subtitles need recorded narration."})
     offset = 0
     if video.intro:
@@ -90,8 +96,11 @@ def export_subtitles(video):
         if offset is None:
             raise ValidationError({"detail": "The intro timing is unavailable. Check the intro file before exporting."})
     cues = []
-    for scene in video.scenes.prefetch_related("scene_images"):
-        cues.extend(scene_cues(scene, offset=offset))
+    scenes = list(video.scenes.prefetch_related("scene_images"))
+    intro_offset = offset
+    voice_offsets = caption_offsets(scenes) if any(scene.audio_settings.get("crossfade") for scene in scenes) else {}
+    for scene in scenes:
+        cues.extend(scene_cues(scene, offset=voice_offsets[str(scene.pk)] + intro_offset if str(scene.pk) in voice_offsets else offset))
         image = next(iter(scene.scene_images.all()), None)
         offset += scene_timing(scene, image)["duration"]
     if not cues:

@@ -11,6 +11,10 @@ from moviepy.editor import (
 )
 
 
+from ..audio_editing import voice_tracks, music_gain
+from .audio import scene_audio_segments
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,8 +61,22 @@ def handle_music(video, final_audio, duration):
     else:
         music = music.subclip(0, duration)
 
-    fade_duration = min(4, duration * 0.1)
-    music = music.audio_fadein(fade_duration).audio_fadeout(fade_duration)
+    choices = video.settings or {}
+    if any(key in choices for key in ("music_ducking", "music_fade_in", "music_fade_out")):
+        speech = []
+        if choices.get("music_ducking"):
+            scenes = list(video.scenes.prefetch_related("scene_images"))
+            speech = [interval for track in voice_tracks(scene_audio_segments(scenes)) for interval in track["speech"]]
+        # Base volume was applied above; this envelope supplies fades and ducking.
+        envelope_choices = {**choices, "music_volume": 1}
+        def envelope(get_frame, t):
+            gain = music_gain(t, duration, envelope_choices, speech)
+            frame = get_frame(t)
+            return frame * (gain[:, None] if np.ndim(frame) == 2 and np.ndim(gain) else gain)
+        music = music.fl(envelope, keep_duration=True)
+    else:
+        fade_duration = min(4, duration * 0.1)
+        music = music.audio_fadein(fade_duration).audio_fadeout(fade_duration)
 
     # With narration switched off the music is the whole soundtrack.
     return CompositeAudioClip([final_audio, music]) if final_audio else music

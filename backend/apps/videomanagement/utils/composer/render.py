@@ -25,6 +25,9 @@ from .transitions import compose_transitions, scene_transition
 from .subtitles import create_subtitle_clip
 from ...video_formats import output_size
 from ...services.subtitles import scene_cues
+from ..audio_editing import narration_enabled, caption_offsets
+from .audio import compose_edited_audio
+from ..timing import scene_timing
 
 logger = logging.getLogger(__name__)
 
@@ -106,24 +109,27 @@ def make_video(video: Video) -> Video:
     sound_list, vids, subtitles = [], [], []
 
     choices = video.settings or {}
-    narration = choices.get("narration", True)
     canvas_size = output_size(choices.get("video_format"))
 
+    scenes = list(scenes)
+    edited_audio = any(scene.voiceover or scene.audio_settings for scene in scenes)
+    voice_offsets = caption_offsets(scenes) if any(scene.audio_settings.get("crossfade") for scene in scenes) else {}
     transitions = []
     timing_clips = []
     scene_tracks = []
     elapsed = 0
     for scene in scenes:
         scene_image = next(iter(scene.scene_images.all()), None)
-        audio = (
-            handle_audio(scene, scene_image) if narration else clip_audio(scene_image)
-        )
+        if edited_audio:
+            audio = align_audio(None, scene_timing(scene, scene_image)["base_duration"])
+        else:
+            audio = handle_audio(scene, scene_image) if narration_enabled(scene) else clip_audio(scene_image)
 
         if audio is not None:
             sound_list.append(audio)
 
-            if narration and choices.get("subtitles", False):
-                for cue in scene_cues(scene, offset=elapsed):
+            if narration_enabled(scene) and choices.get("subtitles", False):
+                for cue in scene_cues(scene, offset=voice_offsets.get(str(scene.pk), elapsed)):
                     subtitle = create_subtitle_clip(
                         cue.text,
                         cue.end - cue.start,
@@ -156,7 +162,11 @@ def make_video(video: Video) -> Video:
                 top=background.image_pos_top, left=background.image_pos_left, opacity=4
             ).set_position("center")
 
-        if sound_list:
+        if edited_audio:
+            final_audio, resources = compose_edited_audio(scenes, scene_tracks)
+            timing_clips.extend(resources)
+            final_audio.write_audiofile(f"{video.dir_name}/output_audio.wav")
+        elif sound_list:
             tracks = [align_audio(audio, duration) for audio, duration in scene_tracks]
             timing_clips.extend(tracks)
             final_audio = concatenate_audioclips(tracks)

@@ -863,3 +863,32 @@ For any inquiries or support, feel free to reach out:
 ✅ Dockerized the application for easier deployment
 
 ---
+
+
+### Audio editing
+
+Open **Edit audio · Voiceover, trim & fades** on a scene to see its voice waveform.
+Adjust the trim start/end sliders, start delay, volume and fades, then choose
+**Save audio edits** in the audio modal. **Listen to trim** auditions the trimmed voice with fades;
+the full video preview also includes start delays, crossfades and music.
+
+Upload a voiceover (up to 50 MB / 15 minutes), or choose **Record voiceover** in
+a supported browser on HTTPS or localhost. Stop recording, listen to the take,
+then choose **Use this voiceover**. Record another take or discard it before
+saving. Recording stops after 15 minutes. **Restore generated narration** removes
+the replacement and resets the voice edits without deleting the generated audio.
+Keep the scene dialogue aligned with your recording for estimated captions.
+
+**Crossfade to next** overlaps adjacent voice clips when they meet without a
+pause. The next voice begins early while the visual timeline stays in place;
+crossfade duration is capped at half each voice clip's length. Pauses and gaps
+remain silent. Fades are also capped at half the trimmed clip length.
+
+When the video has background music, choose **Edit music** in the sidebar to open a modal for music
+volume, fade in/out, and **Automatically lower music during speech**. Ducking
+follows activity in the generated or uploaded voice track, with adjustable
+reduction, attack and recovery times. It restores music during longer silences;
+it does not classify speech in an uploaded video's original soundtrack.
+Music plays over the scene portion, preserving intro/outro soundtracks.
+Save settings before previewing, and render again to apply them to the export.
+The `0024_scene_audio` database migration adds voiceover storage and audio edits.
