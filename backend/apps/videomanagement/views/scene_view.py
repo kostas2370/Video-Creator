@@ -15,7 +15,7 @@ from ..serializers.models import SceneSerializer
 from ..services.scene_jobs import queue_scene_job, scene_job_result
 from ..services.editing import editable_video
 from ..serializers.requests import SceneJobQuerySerializer
-from ..services.editing import update_scene_transition, update_scene_timing
+from ..services.editing import update_scene_transition, update_scene_timing, update_scene_motion
 from ..serializers.requests import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
@@ -23,6 +23,7 @@ from ..serializers.requests import (
     SceneUpdateSerializer,
     SceneTransitionSerializer,
     SceneTimingSerializer,
+    SceneMotionSerializer,
 )
 from ..permissions import IsOwnerPermission, SceneGenerationLimitPermission
 
@@ -35,6 +36,15 @@ class SceneView(viewsets.GenericViewSet):
         IsOwnerPermission,
         SceneGenerationLimitPermission,
     ]
+
+    @swagger_auto_schema(request_body=SceneMotionSerializer)
+    @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    def motion(self, request, pk=None):
+        owned_scene = self.get_object()
+        serializer = SceneMotionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        scene = update_scene_motion(owned_scene, **serializer.validated_data)
+        return Response(SceneSerializer(scene).data)
 
     @swagger_auto_schema(request_body=SceneTimingSerializer)
     @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { RiDraggable } from "react-icons/ri";
 import { SceneTransition } from "./SceneTransition";
+import { SceneMotion } from "./SceneMotion";
 import { Scene } from "./Scene";
 
-export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming }) {
+export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming, onMotion, pendingMotion }) {
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
   const listRef = useRef(null);
@@ -79,6 +80,7 @@ export function ReorderableScenes({ scenes, disabled, saving, onReorder, setUpda
           }
         }}><RiDraggable className="h-5 w-5" /></button>} />
       </div>
+      <SceneMotion scene={scene} index={index} disabled={disabled} saving={pendingMotion === scene.id} onChange={onMotion} />
       {index < scenes.length - 1 && <div className="mt-5"><SceneTransition scene={scene} nextNumber={index + 2} disabled={disabled} saving={pendingTransition === scene.id} onChange={onTransition} settings={transitionSettings} /></div>}
     </div>)}
     {drag?.target === scenes.length && drag.from !== scenes.length - 1 && <div className="-mt-3 mb-5 h-1 rounded-full bg-blue-500" />}

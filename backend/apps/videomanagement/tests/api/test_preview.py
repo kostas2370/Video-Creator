@@ -35,6 +35,18 @@ class PreviewTests(ApiTestCase):
         scene_image.make(scene=self.first, file="picture.png", with_audio=False)
         self.url = reverse("video-preview", args=[self.video.pk])
 
+    def test_preview_resolves_auto_motion_for_images_only(self):
+        from ...utils.motion import resolved_motion
+
+        self.first.motion_style = "AUTO"
+        self.first.motion_intensity = "STRONG"
+        self.first.save()
+        segments = self.client.get(self.url).data["segments"]
+        self.assertEqual(segments[0]["motion_style"], resolved_motion(self.first))
+        self.assertEqual(segments[0]["motion_intensity"], "STRONG")
+        self.first.scene_images.update(file="clip.mp4")
+        self.assertEqual(self.client.get(self.url).data["segments"][0]["motion_style"], "NONE")
+
     def test_timeline_and_captions_share_pauses_and_intro_offsets_without_charging(self):
         self.video.intro = intro.make(file="speech.wav", created_by=self.user)
         self.video.outro = outro.make(file="speech.wav", created_by=self.user)
