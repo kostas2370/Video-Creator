@@ -7,6 +7,7 @@ from ..models import Intro, Outro, Scene, SceneImage, VideoStatus
 from ..utils.exceptions import VideoEditConflict
 from ..utils.file_utils import check_if_video
 from ..utils.timing import file_timing, scene_timing
+from ..utils.audio_editing import narration_file, narration_enabled, voice_tracks
 from ..utils.transitions import scene_transition
 from .subtitles import CaptionCue, scene_cues
 
@@ -56,7 +57,7 @@ def scene_segment(scene, index, start, choices):
     """Resolve the scene's playback duration, media timing and transition override."""
     image = next(iter(scene.scene_images.all()), None)
     timing = scene_timing(scene, image)
-    speech = file_timing(scene.file).get("audio_duration") if choices.get("narration", True) else None
+    speech = file_timing(narration_file(scene)).get("audio_duration") if narration_enabled(scene) else None
     is_video = bool(image and image.file and check_if_video(image.file.name))
     visual_timing = file_timing(image.file) if is_video else {}
     style, transition_duration = scene_transition(scene, choices)
@@ -113,6 +114,14 @@ def preview_timeline(video):
         if choices.get("subtitles", False):
             captions.extend(scene_cues(scene, offset=offset, duration=segment.narration_duration))
         offset += segment.duration
+    if choices.get("subtitles", False) and any(scene.audio_settings.get("crossfade") for scene in scenes):
+        tracks = {track["id"]: track for track in voice_tracks(scene_segments)}
+        captions = []
+        for segment in scene_segments:
+            track = tracks.get(str(segment.content.pk))
+            if track:
+                offset = track["start"] - segment.content.audio_settings.get("delay", 0)
+                captions.extend(scene_cues(segment.content, offset=offset, duration=segment.narration_duration))
     apply_transitions(scene_segments, choices)
     segments.extend(scene_segments)
 

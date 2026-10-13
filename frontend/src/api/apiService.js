@@ -50,6 +50,12 @@ const sceneOperation = async (id, send) => {
   return result;
 };
 
+export const getSceneWaveform = id => request({ url: action("scenes", id, "waveform"), ...callerHandlesErrors });
+export const updateSceneAudio = (id, data) => patch(action("scenes", id, "audio"), data, callerHandlesErrors);
+export const uploadVoiceover = (id, data) => post(action("scenes", id, "voiceover"), data, callerHandlesErrors);
+export const removeVoiceover = id => remove(action("scenes", id, "voiceover"), callerHandlesErrors);
+export const updateMusicAudio = (id, data) => patch(action("videos", id, "audio"), data, callerHandlesErrors);
+
 export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);
 export const updateScene = (id, data) => sceneOperation(id, () => patch(detail("scenes", id), data));

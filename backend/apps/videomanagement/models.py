@@ -180,6 +180,9 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    voiceover = models.FileField(upload_to="media/voiceovers", blank=True, max_length=2000)
+    audio_settings = models.JSONField(default=dict, blank=True)
+
     pause_after = models.FloatField(default=0)
     transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
     transition_duration = models.FloatField(null=True, blank=True, default=None)

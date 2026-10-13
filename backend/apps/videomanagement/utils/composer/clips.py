@@ -12,6 +12,7 @@ from moviepy.editor import (
 
 from ...models import SceneImage, Background, Scene
 from ..file_utils import check_if_image, check_if_video
+from ..audio_editing import narration_file, audio_bounds
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +50,21 @@ def handle_audio(scene: Scene, scene_image: SceneImage):
 
     audio = None
 
-    if scene.file:
+    source = narration_file(scene)
+    if source:
         try:
-            audio = AudioFileClip(scene.file.path)
+            audio = AudioFileClip(source.path)
+            choices = getattr(scene, "audio_settings", None) or {}
+            if choices:
+                start, end = audio_bounds(scene, audio.duration)
+                audio = audio.subclip(start, end).volumex(choices.get("volume", 1))
+                if choices.get("fade_in", 0) > 0:
+                    audio = audio.audio_fadein(min(choices["fade_in"], audio.duration / 2))
+                if choices.get("fade_out", 0) > 0:
+                    audio = audio.audio_fadeout(min(choices["fade_out"], audio.duration / 2))
+                delay = choices.get("delay", 0)
+                if delay:
+                    audio = CompositeAudioClip([audio.set_start(delay)]).set_duration(audio.duration + delay)
         except Exception as e:
             logger.error(f"Error loading scene audio: {e}")
 

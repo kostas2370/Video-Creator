@@ -4,12 +4,13 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Description } from "@
 import { HiOutlineXMark } from "react-icons/hi2";
 import { getVideoPreview } from "../api/apiService";
 import { API_HOST } from "../endpoints";
+import { voiceGain, musicGain } from "./audioEnvelope";
 
 const mediaUrl = url => /^https?:\/\//i.test(url || "") ? url : `${API_HOST}${url}`;
 const clock = seconds => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 
 // The global clock owns playback. Media readers follow it and stop during held frames.
-function Track({ source, video = false, time, duration, playing, muted, onFailure, onBlocked, onBuffering, stalled, seekVersion }) {
+function Track({ source, video = false, time, duration, playing, muted, onFailure, onBlocked, onBuffering, stalled, seekVersion, trimStart = 0, loop = false, volume = 1 }) {
   const ref = useRef(null);
   const starting = useRef(false);
   const trackId = useId();
@@ -17,6 +18,9 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
   const lastSeek = useRef(-1);
   const pendingSeek = useRef(false);
   position.current = time;
+  const gain = useRef(volume);
+  gain.current = volume;
+  useEffect(() => { if (ref.current) ref.current.volume = Math.max(0, Math.min(1, volume)); }, [volume]);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
@@ -25,14 +29,15 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
       const time = position.current;
       const length = Number.isFinite(element.duration) ? element.duration : duration;
       const end = Math.max(0, (length || 0) - (video ? 1 / 24 : 0.01));
-      const target = Math.min(Math.max(0, time), end);
+      const target = loop && length > 0 ? Math.max(0, time) % length : Math.min(Math.max(0, time) + trimStart, end);
+      element.volume = Math.max(0, Math.min(1, gain.current));
       // Let native playback advance; seeking repeatedly can restart decoding and buffering.
       const tolerance = pendingSeek.current || !playing ? 0.01 : video ? 0.5 : 0.2;
       if (!element.seeking) {
         if ((!stalled || pendingSeek.current) && Math.abs(element.currentTime - target) > tolerance) element.currentTime = target;
         pendingSeek.current = false;
       }
-      const active = playing && !stalled && time < (length || duration || 0) && (video || !muted);
+      const active = playing && !stalled && time >= 0 && time < (duration || length || 0) && (video || !muted);
       if (active && element.paused && !starting.current) {
         starting.current = true;
         element.play().catch(error => {
@@ -55,12 +60,12 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
       element.removeEventListener("loadedmetadata", align);
       element.removeEventListener("seeked", afterSeek);
     };
-  }, [duration, playing, muted, video, onFailure, onBlocked, stalled, seekVersion]);
+  }, [duration, playing, muted, video, onFailure, onBlocked, stalled, seekVersion, trimStart, loop]);
   useEffect(() => {
     const element = ref.current;
     return () => { element?.pause(); onBuffering(trackId, false); };
   }, [source, onBuffering, trackId]);
-  const props = { ref, src: mediaUrl(source), muted, preload: "auto", onError: () => { onBuffering(trackId, false); onFailure(); }, onWaiting: event => { if (playing && time < (event.currentTarget.duration || duration || 0) && (video || !muted)) onBuffering(trackId, true); }, onCanPlay: () => onBuffering(trackId, false) };
+  const props = { ref, src: mediaUrl(source), muted, loop, preload: "auto", onError: () => { onBuffering(trackId, false); onFailure(); }, onWaiting: event => { if (playing && time >= 0 && time < (duration || event.currentTarget.duration || 0) && (video || !muted)) onBuffering(trackId, true); }, onCanPlay: () => onBuffering(trackId, false) };
   return video ? <video {...props} playsInline className="absolute inset-0 h-full w-full object-cover" /> : <audio {...props} />;
 }
 
@@ -198,7 +203,8 @@ function VideoPreview({ video, disabled = false }) {
           <div role="img" aria-label={`${active?.label || "Video"} preview`} className="relative isolate w-full overflow-hidden bg-black" style={{ aspectRatio: `${manifest.size[0]} / ${manifest.size[1]}` }}>
             {active && <Visual key={active.id} segment={active} time={local} playing={playing} muted={muted} opacity={time === 0 && !playing ? 1 : Math.max(0, opacity)} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
-            {active?.narration && <Track key={`voice-${active.id}`} source={active.narration} time={local} duration={active.narration_duration} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
+            {(manifest.audio_tracks || []).filter(track => time >= track.start - 0.5 && time <= track.start + track.duration + 0.1).map(track => <Track key={`voice-${track.id}`} source={track.source} time={time - track.start} trimStart={track.trim_start} duration={track.duration} volume={voiceGain(time - track.start, track)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />)}
+            {manifest.music && <Track key={`music-${manifest.music.source}`} source={manifest.music.source} loop time={time - manifest.music.start} duration={manifest.music.duration} volume={musicGain(time - manifest.music.start, manifest.music.duration, manifest.music.settings, (manifest.audio_tracks || []).flatMap(track => track.speech.map(([a, b]) => [a - manifest.music.start, b - manifest.music.start])))} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {cue && <div data-preview-caption className="pointer-events-none absolute inset-x-[8%] bottom-[5%] z-10 whitespace-pre-line rounded bg-black/60 px-2 py-1 text-center font-semibold leading-snug text-white" style={{ fontSize: "clamp(12px, 2vw, 22px)", textShadow: "0 1px 2px black" }}>{cue.text}</div>}
           </div>
         </div>

@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.core.exceptions import SuspiciousFileOperation
 
 from .file_utils import check_if_video
+from .audio_editing import narration_enabled, narration_file, edited_duration
 
 
 def media_timing(path):
@@ -50,8 +51,8 @@ def file_timing(field):
 
 
 def scene_timing(scene, image=None):
-    narration = (scene.video.settings or {}).get("narration", True)
-    speech = file_timing(scene.file).get("audio_duration") if narration else None
+    narration = narration_enabled(scene)
+    speech = edited_duration(scene, file_timing(narration_file(scene)).get("audio_duration")) if narration else None
     visual = file_timing(image.file) if image and image.file and check_if_video(image.file.name) else {}
     clip_audio = visual.get("audio_duration") if image and image.with_audio else None
     durations = [value for value in (speech, clip_audio) if value is not None]

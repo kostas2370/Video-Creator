@@ -3,6 +3,7 @@ from rest_framework.validators import UniqueTogetherValidator
 
 from ..utils.file_utils import stored_file_exists
 from ..utils.timing import file_timing, scene_timing
+from ..utils.audio_editing import narration_file, narration_enabled
 
 from ..models import (
     TemplatePrompt,
@@ -57,9 +58,9 @@ class SceneSerializer(serializers.ModelSerializer):
 
     def get_narration_status(self, obj):
         video = obj.video
-        if not (video.settings or {}).get("narration", True):
+        if not narration_enabled(obj):
             return "disabled"
-        return "available" if stored_file_exists(obj.file) else "missing"
+        return "available" if stored_file_exists(narration_file(obj)) else "missing"
 
     class Meta:
         model = Scene
