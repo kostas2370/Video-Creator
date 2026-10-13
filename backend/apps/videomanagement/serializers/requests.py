@@ -4,8 +4,7 @@ from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from ..models import Avatar, Intro, Outro
-from ..model_choices import MotionIntensity, MotionStyle
+from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle
 from ..services.asset_selection import available_voice, owned_asset
 from ..services.VideoServices import video_update
 from ..video_formats import (

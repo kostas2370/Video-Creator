@@ -14,7 +14,6 @@ from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
-from .model_choices import MotionIntensity, MotionStyle
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -24,6 +23,23 @@ from .video_formats import (
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class MotionStyle(models.TextChoices):
+    NONE = "NONE", "None"
+    AUTO = "AUTO", "Auto"
+    ZOOM_IN = "ZOOM_IN", "Zoom In"
+    ZOOM_OUT = "ZOOM_OUT", "Zoom Out"
+    PAN_LEFT = "PAN_LEFT", "Pan Left"
+    PAN_RIGHT = "PAN_RIGHT", "Pan Right"
+    PAN_UP = "PAN_UP", "Pan Up"
+    PAN_DOWN = "PAN_DOWN", "Pan Down"
+
+
+class MotionIntensity(models.TextChoices):
+    SUBTLE = "SUBTLE", "Subtle"
+    MEDIUM = "MEDIUM", "Medium"
+    STRONG = "STRONG", "Strong"
 
 
 class VoiceModelType(models.TextChoices):
