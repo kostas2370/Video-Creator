@@ -40,6 +40,15 @@ class MakeVideoTests(TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
+    def test_motion_applies_to_still_images_before_pause_and_skips_video_clips(self):
+        self.scenes[0].motion_style = "ZOOM_IN"
+        self.scenes[0].save()
+        self.scenes[1].scene_images.update(file="clip.mp4")
+        with patch.object(render, "handle_audio", return_value=FakeAudio()), patch.object(render, "animate_image", side_effect=lambda clip, scene: clip) as animate:
+            make_video(self.video)
+        self.assertEqual(animate.call_count, 1)
+        self.assertEqual(animate.call_args.args[1].pk, self.scenes[0].pk)
+
     def test_render_queries_do_not_grow_with_scene_count(self):
         with patch.object(render, "handle_audio", return_value=FakeAudio()):
             with CaptureQueriesContext(connection) as small:

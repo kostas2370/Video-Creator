@@ -46,6 +46,10 @@ def update_scene_transition(scene, **changes):
     return _update_playback(scene, ("transition_after", "transition_duration"), changes)
 
 
+def update_scene_motion(scene, **changes):
+    return _update_playback(scene, ("motion_style", "motion_intensity"), changes)
+
+
 def update_scene_timing(scene, **changes):
     return _update_playback(scene, ("pause_after",), changes)
 

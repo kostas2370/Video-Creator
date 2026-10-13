@@ -21,6 +21,8 @@ from .avatar import handle_avatar_video
 from .clips import clip_audio, handle_audio, process_scene
 from .layers import fit_to_canvas, handle_background, handle_music
 from .timing import align_audio, hold_scene
+from .motion import animate_image
+from ..file_utils import check_if_image
 from .transitions import compose_transitions, scene_transition
 from .subtitles import create_subtitle_clip
 from ...video_formats import output_size
@@ -134,6 +136,11 @@ def make_video(video: Video) -> Video:
 
         transitions.append(scene_transition(scene, choices))
         visual = fit_to_canvas(process_scene(scene_image, audio, background), canvas_size)
+        if scene_image and scene_image.file and check_if_image(scene_image.file.name):
+            original = visual
+            visual = animate_image(visual, scene)
+            if visual is not original:
+                timing_clips.append(original)
         visual, resources = hold_scene(visual, scene.pause_after)
         timing_clips.extend(resources)
         vids.append(visual)

@@ -180,6 +180,8 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    motion_style = models.CharField(max_length=10, choices=[(value, value.replace("_", " ").title()) for value in ("NONE", "AUTO", "ZOOM_IN", "ZOOM_OUT", "PAN_LEFT", "PAN_RIGHT", "PAN_UP", "PAN_DOWN")], default="NONE")
+    motion_intensity = models.CharField(max_length=6, choices=[("SUBTLE", "Subtle"), ("MEDIUM", "Medium"), ("STRONG", "Strong")], default="SUBTLE")
     pause_after = models.FloatField(default=0)
     transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
     transition_duration = models.FloatField(null=True, blank=True, default=None)
