@@ -11,7 +11,6 @@ from moviepy.editor import (
 
 from ...models import (
     RENDERABLE_STATUSES,
-    SceneImage,
     Background,
     Scene,
     Video,
@@ -102,7 +101,7 @@ def make_video(video: Video) -> Video:
     video.status = VideoStatus.RENDERING
     video.save()
 
-    scenes: Union[QuerySet, list[Scene]] = video.scenes.all()
+    scenes: Union[QuerySet, list[Scene]] = video.scenes.prefetch_related("scene_images")
     background: Background = video.background
     sound_list, vids, subtitles = [], [], []
 
@@ -115,7 +114,7 @@ def make_video(video: Video) -> Video:
     scene_tracks = []
     elapsed = 0
     for scene in scenes:
-        scene_image = SceneImage.objects.filter(scene=scene).first()
+        scene_image = next(iter(scene.scene_images.all()), None)
         audio = (
             handle_audio(scene, scene_image) if narration else clip_audio(scene_image)
         )

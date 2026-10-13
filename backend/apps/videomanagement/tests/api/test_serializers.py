@@ -8,13 +8,13 @@ from rest_framework.test import APIRequestFactory
 from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import avatar, music, scene, scene_image, video
-from ...serializers import (
+from ...serializers.models import (
     AvatarSerializer,
     SceneSerializer,
     VideoNestedSerializer,
     VideoSerializer,
 )
-from ...request_serializers import (
+from ...serializers.requests import (
     AddSceneSerializer,
     GenerateSerializer,
     VideoUpdateSerializer,

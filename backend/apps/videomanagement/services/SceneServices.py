@@ -3,7 +3,7 @@ import logging
 import json
 
 from ..models import Scene, Video, SceneImage
-from ..request_serializers import AddSceneSerializer, SceneDraftResultSerializer
+from ..serializers.requests import AddSceneSerializer, SceneDraftResultSerializer
 from ..utils.audio_utils import update_scene as update
 from ..utils.llm import get_update_sentence
 from ..utils.prompt_utils import format_scene_draft, format_update_form
@@ -48,7 +48,9 @@ def update_scene(text: str, scene: Scene):
     """
     new_text = text
     scene.text = new_text if new_text else scene.text
-    update(scene)
+    if (scene.video.settings or {}).get("narration", True):
+        update(scene)
+    scene.save(update_fields=["text"])
     return scene.text
 
 

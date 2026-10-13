@@ -22,11 +22,12 @@ from rest_framework.permissions import IsAuthenticated
 from ..events import publish_update
 from ..models import Video, VideoStatus
 from ..paginator import StandardResultsSetPagination
-from ..request_serializers import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
-from ..serializers import VideoSerializer, VideoNestedSerializer
-from ..preview_serializers import PreviewTimelineSerializer
+from ..serializers.requests import VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
+from ..serializers.models import VideoSerializer, VideoNestedSerializer
+from ..serializers.preview import PreviewTimelineSerializer
 from ..services.SceneServices import draft_scene
 from ..services.editing import reorder_scenes
+from ..services.editing import editable_video
 from ..services.subtitles import export_subtitles
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
@@ -61,9 +62,9 @@ class VideoView(
             queryset = queryset.exclude(gpt_answer__isnull=True)
 
         if self.action in ("retrieve", "preview"):
-            queryset = queryset.prefetch_related("scenes__scene_images")
-        if self.action == "preview":
-            queryset = queryset.select_related("intro", "outro")
+            queryset = queryset.select_related("intro", "outro").prefetch_related(
+                "scenes__scene_images"
+            )
 
         return queryset
 
@@ -76,6 +77,21 @@ class VideoView(
         }
 
         return serializer_class.get(self.action, VideoSerializer)
+
+    def serialize_video_detail(self, video):
+        # Reload after editing: services may return a locked instance, and
+        # relations fetched before an edit may no longer describe its output.
+        video = (
+            self.get_queryset()
+            .select_related("intro", "outro")
+            .prefetch_related("scenes__scene_images")
+            .get(pk=video.pk)
+        )
+        return VideoNestedSerializer(video).data
+
+    def perform_destroy(self, instance):
+        with editable_video(instance.pk) as video:
+            video.delete()
 
     @action(detail=True, methods=["GET"])
     def subtitles(self, request, pk=None):
@@ -106,7 +122,7 @@ class VideoView(
         outcome = serializer.save()
         logger.info(f"Video with id {pk}  got updated successfully")
         return Response(
-            {"message": "Updated Success", "video": VideoNestedSerializer(outcome).data}
+            {"message": "Updated Success", "video": self.serialize_video_detail(outcome)}
         )
 
     @action(detail=True, methods=["POST"], throttle_classes=[ResumeRateThrottle],
@@ -276,7 +292,7 @@ class VideoView(
         serializer = ReorderScenesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = reorder_scenes(owned_video, serializer.validated_data["scene_ids"])
-        return Response(VideoNestedSerializer(video).data)
+        return Response(self.serialize_video_detail(video))
 
     @swagger_auto_schema(request_body=SceneDraftSerializer)
     @action(detail=True, methods=["POST"], permission_classes=[

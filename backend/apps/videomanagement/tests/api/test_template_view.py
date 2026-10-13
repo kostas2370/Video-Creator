@@ -38,7 +38,7 @@ class SaveTemplateTests(TemplateApiTestCase):
     def test_the_caller_can_see_what_they_just_saved(self):
         self.save()
 
-        listed = self.client.get(reverse("templateprompt-list")).data
+        listed = self.client.get(reverse("templateprompt-list")).data["results"]
 
         self.assertEqual([t["title"] for t in listed], ["Shorts"])
 

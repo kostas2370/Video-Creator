@@ -1,6 +1,8 @@
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from ...baker_recipes import (
     narrated_scene,
@@ -37,6 +39,17 @@ class MakeVideoTests(TestCase):
         patcher = patch("apps.videomanagement.services.subtitles.narration_duration", return_value=4)
         patcher.start()
         self.addCleanup(patcher.stop)
+
+    def test_render_queries_do_not_grow_with_scene_count(self):
+        with patch.object(render, "handle_audio", return_value=FakeAudio()):
+            with CaptureQueriesContext(connection) as small:
+                make_video(self.video)
+            for line in narrated_scene.make(video=self.video, _quantity=18):
+                scene_image.make(scene=line)
+            with CaptureQueriesContext(connection) as large:
+                make_video(self.video)
+        print(f"RENDER QUERY SCALING: 2 scenes={len(small)}, 20 scenes={len(large)}")
+        self.assertEqual(len(large), len(small))
 
     def test_pause_shifts_next_subtitle_and_pads_audio_to_scene_duration(self):
         from moviepy.editor import ColorClip

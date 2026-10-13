@@ -16,7 +16,7 @@ class IsOwnerPermission(BasePermission):
         if obj is None:
             return False
 
-        return obj.created_by == request.user or request.user.is_superuser
+        return obj.created_by_id == request.user.pk or request.user.is_superuser
 
 
 class IsOwnerOrReadOnlyPermission(IsOwnerPermission):

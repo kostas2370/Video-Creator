@@ -1,8 +1,34 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
+@source "../node_modules/@material-tailwind/react/components";
+@source "../node_modules/@material-tailwind/react/theme/components";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Keep the existing UI's Tailwind 3 defaults during the compiler upgrade. */
+@theme {
+  --default-ring-width: 3px;
+  --default-ring-color: var(--color-blue-500);
+}
+
+@utility outline-none {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+@utility bg-gradient-to-br { @apply bg-linear-to-br; }
+@utility bg-gradient-to-r { @apply bg-linear-to-r; }
+@utility flex-shrink-0 { flex-shrink: 0; }
+
+/* Material Tailwind 2 uses these legacy opacity classes on dialog backdrops. */
+@utility bg-opacity-60 { background-color: rgb(0 0 0 / 60%); }
+@utility bg-opacity-50 { background-color: rgb(0 0 0 / 50%); }
 
 @layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+  input::placeholder, textarea::placeholder { color: var(--color-gray-400); }
+  button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   html {
     @apply bg-gray-50;
   }

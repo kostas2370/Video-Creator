@@ -4,10 +4,10 @@ from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from .models import Avatar, Intro, Outro
-from .services.asset_selection import available_voice, owned_asset
-from .services.VideoServices import video_update
-from .video_formats import (
+from ..models import Avatar, Intro, Outro
+from ..services.asset_selection import available_voice, owned_asset
+from ..services.VideoServices import video_update
+from ..video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
     VIDEO_FORMAT_CHOICES,
@@ -170,6 +170,7 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    voice_id = serializers.UUIDField(required=False)
     transition_default = serializers.ChoiceField(choices=["CUT", "FADE", "DISSOLVE"], required=False)
     transition_duration = TransitionDurationField(required=False, allow_null=True)
     avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -265,3 +266,7 @@ class SceneTimingSerializer(serializers.Serializer):
         if not math.isfinite(value):
             raise serializers.ValidationError("Choose a pause between 0 and 10 seconds.")
         return value
+
+
+class SceneJobQuerySerializer(serializers.Serializer):
+    job = serializers.CharField(max_length=512)
