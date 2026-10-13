@@ -9,11 +9,8 @@ from uuid import UUID
 
 import numpy as np
 from PIL import Image
-from moviepy.editor import ImageClip
 
-from apps.videomanagement.utils.composer.ffmpeg import Graph, scene_visuals
-from apps.videomanagement.utils.composer.layers import fit_to_canvas
-from apps.videomanagement.utils.composer.motion import animate_image
+from apps.videomanagement.utils.composer.render import Graph, scene_visuals
 
 size = (1920, 1080)
 duration = 6
@@ -40,22 +37,6 @@ with tempfile.TemporaryDirectory(prefix="render-benchmark-") as directory:
             fade_out=0,
             dissolve_in=0,
         )
-        source = fit_to_canvas(ImageClip(str(path)).set_duration(duration), size)
-        clip = animate_image(source, scene)
-        start = time.perf_counter()
-        clip.write_videofile(
-            str(root / "moviepy.mp4"),
-            fps=24,
-            codec="libx264",
-            preset="fast",
-            ffmpeg_params=["-crf", "23"],
-            threads=8,
-            audio=False,
-            logger=None,
-        )
-        moviepy_seconds = time.perf_counter() - start
-        clip.close()
-        source.close()
         graph = Graph()
         visual = scene_visuals(graph, [segment], size)
         start = time.perf_counter()
@@ -72,9 +53,8 @@ with tempfile.TemporaryDirectory(prefix="render-benchmark-") as directory:
                 "motion": style,
                 "seconds_of_video": duration,
                 "size": size,
-                "moviepy_seconds": round(moviepy_seconds, 3),
                 "ffmpeg_seconds": round(native_seconds, 3),
-                "speedup": round(moviepy_seconds / native_seconds, 2),
+                "render_fps": round(duration * 24 / native_seconds, 2),
             }
         )
 print(json.dumps(measurements, indent=2))
