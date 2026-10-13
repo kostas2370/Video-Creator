@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
@@ -17,6 +17,7 @@ from ...utils.exceptions import RenderFailedException
 from ..doubles import FakeAudio, FakeClip
 
 
+@override_settings(VIDEO_RENDERER="moviepy")
 class MakeVideoTests(TestCase):
     def setUp(self):
         self.video = video.make(status="READY")

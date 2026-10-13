@@ -812,9 +812,9 @@ under Docker, or [http://localhost:8000/swagger/](http://localhost:8000/swagger/
 
 ## Experimental FFmpeg renderer
 
-Set `VIDEO_RENDERER=ffmpeg` in `backend/.env` and restart the Celery worker to try
-native composition. `VIDEO_RENDERER=moviepy` (the default) retains the existing
-renderer for comparison. Migration `0025_remove_backgrounds` removes the obsolete
+FFmpeg is the default renderer when `VIDEO_RENDERER` is blank or unset. Restart
+the Celery worker after updating to use native composition. Set
+`VIDEO_RENDERER=moviepy` in `backend/.env` to use the legacy renderer for comparison. Migration `0025_remove_backgrounds` removes the obsolete
 Background table and the video/template relationships. Background music remains
 available. `FFMPEG_RENDER_TIMEOUT` limits each FFmpeg process;
 it defaults to 3600 seconds.
@@ -825,7 +825,7 @@ avatar overlays, and intro/outro clips. It uses FFmpeg filters and H.264/AAC out
 SadTalker still generates avatar footage. FFmpeg must include `libx264` and the
 `subtitles` filter with libass. Existing Docker images provide these filters.
 
-This is an opt-in trial: ASS caption layout differs from
+The native renderer is still experimental: ASS caption layout differs from
 MoviePy/ImageMagick, and video boundaries are quantized to 24 fps. Keep MoviePy
 available until representative production videos have been compared. Unchanged
 scenes are not yet cached. Existing output video files are replaced only after a
