@@ -5,6 +5,8 @@ import { EditorDialog, editorButton } from "./ui/EditorDialog";
 import { API_HOST } from "../endpoints";
 import { imageMotion, resolveImageMotion } from "../utils/motion";
 
+export const hasStillImage = scene => /\.(png|jpe?g)(?:[?#].*)?$/i.test(scene.scene_image?.file || "");
+
 const styles = [["NONE", "No motion", "—"], ["AUTO", "Auto", "✦"], ["ZOOM_IN", "Zoom in", "+"], ["ZOOM_OUT", "Zoom out", "−"], ["PAN_LEFT", "Pan left", "←"], ["PAN_RIGHT", "Pan right", "→"], ["PAN_UP", "Pan up", "↑"], ["PAN_DOWN", "Pan down", "↓"]];
 const intensities = [["SUBTLE", "Subtle"], ["MEDIUM", "Medium"], ["STRONG", "Strong"]];
 const optionClass = selected => `rounded-xl border px-3 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 disabled:opacity-40 ${selected ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200" : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"}`;
@@ -13,7 +15,7 @@ export function SceneMotion({ scene, index, disabled, saving, onChange, videoFor
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
   const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
-  const still = /\.(png|jpe?g)(?:[?#].*)?$/i.test(scene.scene_image?.file || "");
+  const still = hasStillImage(scene);
   if (!still) return null;
   const label = styles.find(([value]) => value === (scene.motion_style || "NONE"))?.[1] || "No motion";
   return <>
@@ -83,5 +85,38 @@ function MotionEditor({ scene, index, disabled, saving, onChange, videoFormat, o
         {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
     </div>
+  </EditorDialog>;
+}
+
+export function BulkAutoMotion({ scenes, disabled, saving, onApply }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef(null);
+  const count = scenes.filter(hasStillImage).length;
+  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
+  return <>
+    <button ref={trigger} type="button" disabled={disabled || !count} onClick={() => setOpen(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-400 dark:hover:bg-gray-700"><span aria-hidden="true">✦</span>Apply Auto to all images</button>
+    {open && <BulkAutoEditor count={count} disabled={disabled} saving={saving} onApply={onApply} onClose={close} />}
+  </>;
+}
+
+function BulkAutoEditor({ count, disabled, saving, onApply, onClose }) {
+  const [intensity, setIntensity] = useState("SUBTLE");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const locked = busy || saving;
+  const apply = async () => {
+    if (locked || disabled || !count) return;
+    setBusy(true); setError("");
+    try {
+      if (await onApply(intensity)) onClose();
+      else setError("Could not apply Auto. Please try again.");
+    } catch { setError("Could not apply Auto. Please try again."); }
+    finally { setBusy(false); }
+  };
+  return <EditorDialog open onClose={onClose} title="Auto motion for all images" description={`Apply to ${count} image ${count === 1 ? "scene" : "scenes"}.`} busy={locked} footer={<div className="flex justify-end gap-3"><button type="button" disabled={locked} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 disabled:opacity-40 dark:text-gray-300">Cancel</button><button type="button" disabled={locked || disabled || !count} onClick={apply} className={editorButton}>{locked ? "Applying…" : "Apply Auto"}</button></div>}>
+    <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">Auto assigns each image a zoom or pan and keeps that movement consistent. This replaces existing motion choices on image scenes. Video clips stay as they are.</p>
+    <fieldset disabled={locked || disabled} className="mt-5"><legend className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Intensity</legend><div className="grid grid-cols-3 gap-2">{intensities.map(([value, label]) => <button type="button" key={value} aria-pressed={intensity === value} onClick={() => setIntensity(value)} className={optionClass(intensity === value)}>{label}</button>)}</div></fieldset>
+    <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">You can adjust individual scenes afterward. Preview your video, then render again to export.</p>
+    {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
   </EditorDialog>;
 }

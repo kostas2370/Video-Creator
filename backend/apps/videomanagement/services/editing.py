@@ -5,7 +5,8 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from ..events import publish_update
-from ..models import Scene, Video, VideoStatus
+from ..models import Scene, Video, VideoStatus, MotionStyle
+from ..utils.file_utils import check_if_image
 from ..utils.exceptions import VideoEditConflict
 
 
@@ -39,6 +40,26 @@ def reorder_scenes(video, scene_ids):
         Scene.objects.bulk_update(ordered, ["position"])
         locked_video.save(update_fields=["updated_at"])
         publish_update(f"video.{locked_video.pk}", video_id=locked_video.pk)
+    return locked_video
+
+
+def apply_auto_motion(video, intensity):
+    with editable_video(video.pk) as locked_video:
+        scenes = locked_video.scenes.select_for_update().prefetch_related("scene_images")
+        changed = []
+        for scene in scenes:
+            image = next(iter(scene.scene_images.all()), None)
+            if not image or not image.file or not check_if_image(image.file.name):
+                continue
+            if scene.motion_style == MotionStyle.AUTO and scene.motion_intensity == intensity:
+                continue
+            scene.motion_style = MotionStyle.AUTO
+            scene.motion_intensity = intensity
+            changed.append(scene)
+        if changed:
+            Scene.objects.bulk_update(changed, ["motion_style", "motion_intensity"])
+            locked_video.save(update_fields=["updated_at"])
+            publish_update(f"video.{locked_video.pk}", video_id=locked_video.pk)
     return locked_video
 
 
