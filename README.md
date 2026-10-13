@@ -627,8 +627,7 @@ The preview loads saved changes when you open it. Preview
 is unavailable while generation or rendering is running. Missing visuals show a
 placeholder; media failures display a notice and can be retried by reloading the preview.
 
-This previews scene media and narration. Avatar animation, background music and
-background effects are added during rendering; caption appearance may also differ.
+This previews scene media and narration. Avatar animation and background music are added during rendering; caption appearance may also differ.
 
 ![Playing a scene with captions and the thumbnail timeline](docs/screenshots/preview-timeline.png)
 
@@ -815,16 +814,18 @@ under Docker, or [http://localhost:8000/swagger/](http://localhost:8000/swagger/
 
 Set `VIDEO_RENDERER=ffmpeg` in `backend/.env` and restart the Celery worker to try
 native composition. `VIDEO_RENDERER=moviepy` (the default) retains the existing
-renderer for comparison. `FFMPEG_RENDER_TIMEOUT` limits each FFmpeg process;
+renderer for comparison. Migration `0025_remove_backgrounds` removes the obsolete
+Background table and the video/template relationships. Background music remains
+available. `FFMPEG_RENDER_TIMEOUT` limits each FFmpeg process;
 it defaults to 3600 seconds.
 
 The native path handles image motion, video trimming and held frames, cuts, fades,
-non-overlapping dissolves, narration and clip audio, music, captions, backgrounds,
+non-overlapping dissolves, narration and clip audio, music, captions,
 avatar overlays, and intro/outro clips. It uses FFmpeg filters and H.264/AAC output;
 SadTalker still generates avatar footage. FFmpeg must include `libx264` and the
 `subtitles` filter with libass. Existing Docker images provide these filters.
 
-This is an opt-in trial: ASS caption layout and color-key blending differ from
+This is an opt-in trial: ASS caption layout differs from
 MoviePy/ImageMagick, and video boundaries are quantized to 24 fps. Keep MoviePy
 available until representative production videos have been compared. Unchanged
 scenes are not yet cached. Existing output video files are replaced only after a

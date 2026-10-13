@@ -76,7 +76,7 @@ class MakeVideoTests(TestCase):
         self.assertEqual([call.args[1] for call in align.call_args_list], [4.75, 4])
         self.assertEqual([clip.duration for clip in self.compose_transitions.call_args.args[0]], [4.75, 4])
         self.assertEqual(subtitle.call_args.args[1], 4)
-        self.assertEqual([clip.start for clip in self.handle_final_video.call_args.args[4]], [0, 4.75])
+        self.assertEqual([clip.start for clip in self.handle_final_video.call_args.args[3]], [0, 4.75])
 
     def test_render_uses_the_shared_phrase_cues_and_keeps_caption_gaps(self):
         from moviepy.editor import ColorClip
@@ -97,7 +97,7 @@ class MakeVideoTests(TestCase):
         ):
             make_video(self.video)
         self.assertEqual([call.args[0] for call in caption.call_args_list], [cue.text for cue in expected])
-        self.assertEqual([(clip.start, clip.end) for clip in self.handle_final_video.call_args.args[4]], [(cue.start, cue.end) for cue in expected])
+        self.assertEqual([(clip.start, clip.end) for clip in self.handle_final_video.call_args.args[3]], [(cue.start, cue.end) for cue in expected])
         self.assertEqual(expected[1].end, 4)
         self.assertEqual(expected[2].start, 4.75)
 
@@ -222,7 +222,7 @@ class MakeVideoTests(TestCase):
         ):
             make_video(self.video)
 
-        self.assertEqual(self.handle_final_video.call_args.args[4], [])
+        self.assertEqual(self.handle_final_video.call_args.args[3], [])
 
     def test_writes_no_subtitles_when_there_is_no_narration_to_time_them_against(self):
         self.video.settings = dict(subtitles=True, narration=False)

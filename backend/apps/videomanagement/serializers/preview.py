@@ -97,4 +97,4 @@ class PreviewTimelineSerializer(serializers.Serializer):
     def get_render_only(self, obj):
         video = obj.video
         return [name for name, enabled in (("avatar animation", video.avatar_id),
-                ("background music", video.music_id), ("background effects", video.background_id)) if enabled]
+                ("background music", video.music_id)) if enabled]

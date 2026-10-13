@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from ...baker_recipes import background, music, video
+from ...baker_recipes import music, video
 from ...utils.composer import layers
-from ...utils.composer.layers import handle_background, handle_music
-from ..doubles import FakeAudio, FakeClip
+from ...utils.composer.layers import handle_music
+from ..doubles import FakeAudio
 
 
 class HandleMusicTests(SimpleTestCase):
@@ -65,50 +65,3 @@ class HandleMusicTests(SimpleTestCase):
             handle_music(self.video, None, duration=25.0)
 
         self.assertIn("volumex", music.effects)
-
-
-class HandleBackgroundTests(SimpleTestCase):
-    def test_just_sizes_the_video_when_there_is_no_background(self):
-        clip = FakeClip()
-
-        self.assertIs(handle_background(10.0, None, clip), clip)
-        self.assertEqual(clip.effects, ["resize"])
-
-    def test_composites_the_video_over_a_still_background(self):
-        behind = background.prepare()
-        composited = FakeClip()
-
-        with (
-            patch.object(layers, "ImageClip", return_value=FakeClip()) as image,
-            patch.object(layers, "VideoFileClip") as footage,
-            patch.object(layers, "CompositeVideoClip", return_value=composited),
-        ):
-            handle_background(10.0, behind, FakeClip())
-
-        image.assert_called_once()
-        footage.assert_not_called()
-
-    def test_composites_the_video_over_a_moving_background(self):
-        behind = background.prepare(file="media/other/backgrounds/bg.mp4")
-
-        with (
-            patch.object(layers, "ImageClip") as image,
-            patch.object(layers, "VideoFileClip", return_value=FakeClip()) as footage,
-            patch.object(layers, "CompositeVideoClip", return_value=FakeClip()),
-        ):
-            handle_background(10.0, behind, FakeClip())
-
-        footage.assert_called_once()
-        image.assert_not_called()
-
-    def test_keys_out_the_colour_the_background_names(self):
-        behind = background.prepare(color="0,255,0", through=100)
-        final = FakeClip()
-
-        with (
-            patch.object(layers, "ImageClip", return_value=FakeClip()),
-            patch.object(layers, "CompositeVideoClip", return_value=FakeClip()),
-        ):
-            handle_background(10.0, behind, final)
-
-        self.assertIn("fx", [e.split(":")[0] for e in final.effects])

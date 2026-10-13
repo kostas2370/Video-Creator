@@ -13,7 +13,6 @@ from django.test import TestCase, override_settings
 
 from ...baker_recipes import (
     avatar,
-    background,
     intro,
     music,
     outro,
@@ -176,7 +175,7 @@ class FFmpegRenderTests(TestCase):
             self.frame(0.52)[:, :, 0].mean(), self.frame(0.75)[:, :, 0].mean()
         )
 
-    def test_assets_music_captions_background_and_cached_avatar_render_natively(self):
+    def test_assets_music_captions_and_cached_avatar_render_natively(self):
         self.add_still(
             text="Hello {world} \\ test. Καλημέρα!",
             transition_after="FADE",
@@ -186,13 +185,6 @@ class FFmpegRenderTests(TestCase):
         self.row.intro = intro.make(file="intro.mp4")
         self.row.outro = outro.make(file="outro.mp4")
         self.row.music = music.make(file="speech.wav")
-        self.row.background = background.make(
-            file="still.png",
-            color="0,0,0",
-            through=6,
-            image_pos_top=4,
-            image_pos_left=4,
-        )
         self.row.avatar = avatar.make()
         Path(self.row.dir_name).mkdir()
         shutil.copy(

@@ -418,7 +418,7 @@ coordinates MoviePy and ffmpeg:
 | --- | --- |
 | `clips.py` | Load narration or clip audio; size and time each scene's visual |
 | `subtitles.py` | Build timed subtitle clips |
-| `layers.py` | Apply background composition and optional music |
+| `layers.py` | Fit video to the canvas and apply optional music |
 | `avatar.py` | Generate and overlay a SadTalker presenter |
 | `render.py` | Assemble scenes, apply final layers, encode, save output and status |
 
@@ -428,7 +428,7 @@ unavailable visuals fall back to a black image. With narration off, video clips 
 their duration unless their own selected audio supplies timing; stills use
 `SILENT_SCENE_SECONDS` when there is no audio.
 
-The renderer assembles the scenes, applies background/music/avatar/subtitle layers,
+The renderer assembles the scenes, applies music/avatar/subtitle layers,
 and prepends or appends selected intro/outro clips. Output uses `libx264` video and
 `aac` audio at 24 fps. Final assembly closes tracked clips in a `finally` block.
 Successful encoding saves `Video.output` and marks the video `COMPLETED`.

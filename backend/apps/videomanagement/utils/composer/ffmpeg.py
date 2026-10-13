@@ -268,39 +268,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     Path(path).write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
 
 
-def background_layer(graph, video, stream, duration, size):
-    background = video.background
-    if not background:
-        return stream
-    options = (
-        ("-loop", "1", "-framerate", str(FPS))
-        if check_if_image(background.file.name)
-        else ()
-    )
-    index = graph.input(background.file.path, options)
-    base = graph.filter(
-        [f"{index}:v"],
-        f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={FPS},tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration}",
-    )
-    top, left = max(0, background.image_pos_top), max(0, background.image_pos_left)
-    if top or left:
-        stream = graph.filter(
-            [stream], f"pad=iw+{left}:ih+{top}:{left}:{top}:black,{fit_filter(size)}"
-        )
-    color = "0x" + "".join(
-        f"{min(255, max(0, int(value))):02x}" for value in background.color.split(",")
-    )
-    similarity = min(1, max(0.01, background.through / 255))
-    stream = graph.filter(
-        [stream],
-        f"format=rgba,colorkey=color={color}:similarity={similarity}:blend=0.03",
-    )
-    return graph.filter(
-        [base, stream],
-        f"overlay=eof_action=pass:repeatlast=0,fade=t=in:st=0:d={min(2, duration)}",
-    )
-
-
 def avatar_layer(graph, video, stream, duration):
     if not video.avatar:
         return stream
@@ -336,7 +303,6 @@ def avatar_layer(graph, video, stream, duration):
 def final_graph(video, segments, duration, narration_path, directory, size):
     graph = Graph()
     visual = scene_visuals(graph, segments, size)
-    visual = background_layer(graph, video, visual, duration, size)
     visual = avatar_layer(graph, video, visual, duration)
     audio = audio_stream(graph, [narration_path], duration)
     if video.music:

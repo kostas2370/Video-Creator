@@ -143,13 +143,6 @@ class TemplatePrompt(AbstractModel):
         blank=True,
         related_name="template_prompts",
     )
-    background = models.ForeignKey(
-        "Background",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="template_prompts",
-    )
     intro = models.ForeignKey(
         "Intro",
         on_delete=models.SET_NULL,
@@ -340,27 +333,6 @@ class Avatar(AbstractModel):
         return None
 
 
-class Background(AbstractModel):
-    name = models.CharField(max_length=100)
-    file = models.FileField(upload_to="media/other/backgrounds")
-    color = models.CharField(max_length=30)
-    image_pos_top = models.IntegerField()
-    image_pos_left = models.IntegerField()
-    avatar_pos_top = models.IntegerField()
-    avatar_pos_left = models.IntegerField()
-    through = models.IntegerField(default=6)
-    objects = models.Manager()
-
-    def __str__(self):
-        return self.name
-
-    @staticmethod
-    def select_background() -> Background:
-        back = Background.objects.all()
-
-        return back[randint(0, back.count() - 1)] if back.exists() else None
-
-
 class Intro(AbstractModel):
     name = models.CharField(max_length=100)
     file = models.FileField(upload_to="media/other/intros")
@@ -411,9 +383,6 @@ class Video(LifecycleModelMixin, AbstractModel):
     )
     updated_at = models.DateTimeField(auto_now=True)
     music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
-    background = models.ForeignKey(
-        Background, blank=True, null=True, on_delete=models.SET_NULL
-    )
     intro = models.ForeignKey(Intro, blank=True, null=True, on_delete=models.SET_NULL)
     outro = models.ForeignKey(Outro, blank=True, null=True, on_delete=models.SET_NULL)
     video_type = models.CharField(
