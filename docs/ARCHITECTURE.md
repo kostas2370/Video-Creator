@@ -426,7 +426,8 @@ unavailable visuals fall back to a black image. With narration off, video clips 
 their duration unless their own selected audio supplies timing; stills use
 `SILENT_SCENE_SECONDS` when there is no audio.
 
-The renderer assembles the scenes, applies music/avatar/subtitle layers,
+The renderer encodes scenes sequentially into temporary lossless clips and
+assembles them through a concat manifest, applies music/avatar/subtitle layers,
 and prepends or appends selected intro/outro clips. Output uses `libx264` video and
 `aac` audio at 24 fps. Temporary filter graphs and intermediate files are cleaned up after each render.
 Successful encoding saves `Video.output` and marks the video `COMPLETED`.

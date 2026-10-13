@@ -812,7 +812,9 @@ SadTalker still generates avatar footage. FFmpeg must include `libx264` and the
 `subtitles` filter with libass. Existing Docker images provide these filters.
 
 ASS captions use installed font families and video boundaries are quantized to
-24 fps. Unchanged scenes are not yet cached. Existing output video files are
+24 fps. Scenes render sequentially into temporary lossless clips to keep memory
+bounded, then FFmpeg assembles the video. This uses temporary disk space rather
+than buffering every scene in RAM. Unchanged scenes are not yet cached. Existing output video files are
 replaced only after a successful render; temporary files are cleaned up on failures.
 
 To reproduce the isolated motion benchmark inside the backend container:
