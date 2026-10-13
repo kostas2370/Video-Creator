@@ -811,6 +811,36 @@ under Docker, or [http://localhost:8000/swagger/](http://localhost:8000/swagger/
 
 ---
 
+## Experimental FFmpeg renderer
+
+Set `VIDEO_RENDERER=ffmpeg` in `backend/.env` and restart the Celery worker to try
+native composition. `VIDEO_RENDERER=moviepy` (the default) retains the existing
+renderer for comparison. `FFMPEG_RENDER_TIMEOUT` limits each FFmpeg process;
+it defaults to 3600 seconds.
+
+The native path handles image motion, video trimming and held frames, cuts, fades,
+non-overlapping dissolves, narration and clip audio, music, captions, backgrounds,
+avatar overlays, and intro/outro clips. It uses FFmpeg filters and H.264/AAC output;
+SadTalker still generates avatar footage. FFmpeg must include `libx264` and the
+`subtitles` filter with libass. Existing Docker images provide these filters.
+
+This is an opt-in trial: ASS caption layout and color-key blending differ from
+MoviePy/ImageMagick, and video boundaries are quantized to 24 fps. Keep MoviePy
+available until representative production videos have been compared. Unchanged
+scenes are not yet cached. Existing output video files are replaced only after a
+successful native render; temporary files are cleaned up on failures.
+
+To reproduce the isolated motion benchmark inside the backend container:
+
+```sh
+python manage.py shell < scripts/benchmark_renderers.py
+```
+
+On the development container, two six-second 1080p synthetic noise-image clips
+with matched H.264 `fast`/CRF 23 encoding took 9.63s vs 3.14s (zoom), and 9.50s vs
+2.84s (pan), comparing MoviePy/Pillow with native FFmpeg. These are motion-path
+measurements, not a promised end-to-end speedup for all videos.
+
 ## Roadmap / To-Do List
 
 - [ ] Convert all `moviepy` functions to `FFmpeg` for better performance.

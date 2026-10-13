@@ -1,0 +1,450 @@
+import logging
+from copy import copy
+import math
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+
+from django.conf import settings
+
+from ...models import RENDERABLE_STATUSES, MotionStyle, VideoStatus
+from ...services.preview import apply_transitions, asset_segment, scene_segment
+from ...services.subtitles import scene_cues
+from ...video_formats import output_size
+from ..exceptions import RenderFailedException
+from ..file_utils import check_if_image, stored_file_exists
+from ..motion import AMOUNTS, resolved_motion
+from ..timing import media_timing
+
+logger = logging.getLogger(__name__)
+FPS = 24
+
+
+class Graph:
+    def __init__(self):
+        self.inputs = []
+        self.filters = []
+        self.input_count = 0
+        self.stream_count = 0
+
+    def input(self, path, options=()):
+        index = self.input_count
+        self.input_count += 1
+        self.inputs.extend([*options, "-i", str(Path(path).resolve())])
+        return index
+
+    def filter(self, sources, expression, outputs=1):
+        labels = [f"s{self.stream_count + index}" for index in range(outputs)]
+        self.stream_count += outputs
+        self.filters.append(
+            "".join(f"[{source}]" for source in sources)
+            + expression
+            + "".join(f"[{label}]" for label in labels)
+        )
+        return labels[0] if outputs == 1 else labels
+
+    def run(self, directory, output, maps, encoding, duration):
+        script = Path(directory, "filters.txt")
+        script.write_text(";\n".join(self.filters))
+        command = [
+            "ffmpeg",
+            "-hide_banner",
+            "-nostdin",
+            "-y",
+            "-loglevel",
+            "error",
+            "-filter_complex_threads",
+            "2",
+            *self.inputs,
+            "-filter_complex_script",
+            str(script),
+        ]
+        for label in maps:
+            command.extend(["-map", f"[{label}]"])
+        command.extend([*encoding, "-t", str(duration), str(output)])
+        with Path(directory, "ffmpeg.log").open("w+b") as log:
+            try:
+                subprocess.run(
+                    command,
+                    cwd=directory,
+                    stdout=subprocess.DEVNULL,
+                    stderr=log,
+                    check=True,
+                    timeout=settings.FFMPEG_RENDER_TIMEOUT,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                log.seek(0, os.SEEK_END)
+                log.seek(max(0, log.tell() - 4000))
+                raise RenderFailedException(
+                    f"FFmpeg render failed: {log.read().decode('utf-8', errors='replace')}"
+                ) from exc
+
+
+def audio_stream(graph, sources, duration):
+    streams = []
+    for path in sources:
+        index = graph.input(path)
+        streams.append(
+            graph.filter(
+                [f"{index}:a"],
+                "aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo,asetpts=PTS-STARTPTS",
+            )
+        )
+    if not streams:
+        stream = graph.filter([], "anullsrc=r=44100:cl=stereo")
+    elif len(streams) == 1:
+        stream = streams[0]
+    else:
+        stream = graph.filter(
+            streams, f"amix=inputs={len(streams)}:duration=longest:normalize=0"
+        )
+    return graph.filter(
+        [stream], f"apad,atrim=duration={duration},asetpts=PTS-STARTPTS"
+    )
+
+
+def narration_graph(segments, choices):
+    graph = Graph()
+    streams = []
+    for segment in segments:
+        sources = []
+        if (
+            choices.get("narration", True)
+            and segment.narration_duration
+            and stored_file_exists(segment.content.file)
+        ):
+            sources.append(segment.content.file.path)
+        if segment.clip_audio and stored_file_exists(segment.image.file):
+            sources.append(segment.image.file.path)
+        streams.append(audio_stream(graph, sources, segment.duration))
+    return graph, graph.filter(streams, f"concat=n={len(streams)}:v=0:a=1")
+
+
+def fit_filter(size):
+    width, height = size
+    return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
+
+
+def motion_filter(scene, duration, size):
+    style = resolved_motion(scene)
+    amount = AMOUNTS[scene.motion_intensity]
+    last = max(1, math.ceil(duration * FPS) - 1)
+    progress = f"min(on/{last},1)"
+    zoom = "1"
+    x = "iw/2-iw/zoom/2"
+    y = "ih/2-ih/zoom/2"
+    if style == MotionStyle.ZOOM_IN:
+        zoom = f"1+{amount}*{progress}"
+    elif style == MotionStyle.ZOOM_OUT:
+        zoom = f"1+{amount}*(1-{progress})"
+    elif style in (MotionStyle.PAN_LEFT, MotionStyle.PAN_RIGHT):
+        zoom = str(1 + amount)
+        direction = "-" if style == MotionStyle.PAN_RIGHT else "+"
+        x += f"{direction}iw*{amount}*({progress}-0.5)/zoom"
+    elif style in (MotionStyle.PAN_UP, MotionStyle.PAN_DOWN):
+        zoom = str(1 + amount)
+        direction = "-" if style == MotionStyle.PAN_DOWN else "+"
+        y += f"{direction}ih*{amount}*({progress}-0.5)/zoom"
+    width, height = size
+    return f"zoompan=z='{zoom}':x='{x}':y='{y}':d={math.ceil(duration * FPS)}:s={width}x{height}:fps={FPS}"
+
+
+def visual_stream(graph, segment, size):
+    field = segment.image.file if segment.image else None
+    if segment.kind != "scene":
+        field = segment.content.file
+    if not stored_file_exists(field):
+        stream = graph.filter(
+            [], f"color=c=black:s={size[0]}x{size[1]}:r={FPS}:d={segment.duration}"
+        )
+    elif segment.visual_type == "image":
+        if not check_if_image(field.name):
+            stream = graph.filter(
+                [], f"color=c=black:s={size[0]}x{size[1]}:r={FPS}:d={segment.duration}"
+            )
+        else:
+            if resolved_motion(segment.content) == MotionStyle.NONE:
+                index = graph.input(field.path, ("-loop", "1", "-framerate", str(FPS)))
+                stream = graph.filter([f"{index}:v"], fit_filter(size))
+            else:
+                index = graph.input(field.path)
+                stream = graph.filter(
+                    [f"{index}:v"], fit_filter((size[0] * 2, size[1] * 2))
+                )
+                stream = graph.filter(
+                    [stream],
+                    motion_filter(segment.content, segment.base_duration, size),
+                )
+    else:
+        index = graph.input(field.path)
+        stream = graph.filter(
+            [f"{index}:v"], f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={FPS}"
+        )
+    stream = graph.filter(
+        [stream],
+        f"trim=duration={segment.base_duration},tpad=stop_mode=clone:stop_duration={segment.duration},trim=duration={segment.duration},setpts=PTS-STARTPTS,format=yuv420p",
+    )
+    fades = []
+    if segment.fade_in:
+        fades.append(f"fade=t=in:st=0:d={segment.fade_in}")
+    if segment.fade_out:
+        fades.append(
+            f"fade=t=out:st={segment.duration - segment.fade_out}:d={segment.fade_out}"
+        )
+    return graph.filter([stream], ",".join(fades)) if fades else stream
+
+
+def scene_visuals(graph, segments, size):
+    quantized = []
+    offset = 0
+    for segment in segments:
+        end = offset + segment.duration
+        frames = math.ceil(end * FPS) - math.ceil(offset * FPS)
+        if frames:
+            visual_segment = copy(segment)
+            visual_segment.duration = frames / FPS
+            visual_segment.base_duration = min(
+                segment.base_duration, visual_segment.duration
+            )
+            quantized.append(visual_segment)
+        offset = end
+    segments = quantized
+    streams = [visual_stream(graph, segment, size) for segment in segments]
+    outgoing = {}
+    for index in range(len(segments) - 1):
+        if segments[index + 1].dissolve_in:
+            streams[index], outgoing[index] = graph.filter(
+                [streams[index]], "split=2", outputs=2
+            )
+    for index in range(1, len(segments)):
+        duration = segments[index].dissolve_in
+        if not duration:
+            continue
+        previous = segments[index - 1]
+        frozen = graph.filter(
+            [outgoing[index - 1]],
+            f"trim=start_frame={max(0, math.ceil(previous.duration * FPS) - 1)},setpts=PTS-STARTPTS,fps={FPS},tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},format=rgba,fade=t=out:st=0:d={duration}:alpha=1",
+        )
+        streams[index] = graph.filter(
+            [streams[index], frozen], "overlay=eof_action=pass:repeatlast=0:format=auto"
+        )
+    return graph.filter(streams, f"concat=n={len(streams)}:v=1:a=0")
+
+
+def ass_timestamp(value):
+    ticks = max(0, round(value * 100))
+    return f"{ticks // 360000}:{ticks // 6000 % 60:02}:{ticks // 100 % 60:02}.{ticks % 100:02}"
+
+
+def write_captions(path, segments, size):
+    font = settings.SUBTITLE_FONT.replace("-", " ").replace(",", " ").replace("\n", " ")
+    header = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: {size[0]}
+PlayResY: {size[1]}
+WrapStyle: 2
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,{font},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,{int(size[0] * 0.08)},{int(size[0] * 0.08)},{int(size[1] * 0.05)},1
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    lines = []
+    for segment in segments:
+        for cue in scene_cues(
+            segment.content, offset=segment.start, duration=segment.narration_duration
+        ):
+            text = (
+                cue.text.replace("\\", "＼")
+                .replace("{", "｛")
+                .replace("}", "｝")
+                .replace("\n", "\\N")
+                .replace("\r", "")
+            )
+            lines.append(
+                f"Dialogue: 0,{ass_timestamp(cue.start)},{ass_timestamp(cue.end)},Default,,0,0,0,,{text}"
+            )
+    Path(path).write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
+
+
+def background_layer(graph, video, stream, duration, size):
+    background = video.background
+    if not background:
+        return stream
+    options = (
+        ("-loop", "1", "-framerate", str(FPS))
+        if check_if_image(background.file.name)
+        else ()
+    )
+    index = graph.input(background.file.path, options)
+    base = graph.filter(
+        [f"{index}:v"],
+        f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={FPS},tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration}",
+    )
+    top, left = max(0, background.image_pos_top), max(0, background.image_pos_left)
+    if top or left:
+        stream = graph.filter(
+            [stream], f"pad=iw+{left}:ih+{top}:{left}:{top}:black,{fit_filter(size)}"
+        )
+    color = "0x" + "".join(
+        f"{min(255, max(0, int(value))):02x}" for value in background.color.split(",")
+    )
+    similarity = min(1, max(0.01, background.through / 255))
+    stream = graph.filter(
+        [stream],
+        f"format=rgba,colorkey=color={color}:similarity={similarity}:blend=0.03",
+    )
+    return graph.filter(
+        [base, stream],
+        f"overlay=eof_action=pass:repeatlast=0,fade=t=in:st=0:d={min(2, duration)}",
+    )
+
+
+def avatar_layer(graph, video, stream, duration):
+    if not video.avatar:
+        return stream
+    path = Path(video.dir_name, "output_avatar.mp4").resolve()
+    if not path.exists():
+        from .avatar import create_avatar_video
+
+        generated = create_avatar_video(video.avatar, video.dir_name)
+        if not generated:
+            logger.warning("Rendering video %s without unavailable avatar", video.pk)
+            return stream
+        path = Path(generated)
+    avatar_duration = media_timing(path).get("duration")
+    if not avatar_duration:
+        raise RenderFailedException("Avatar timing is unavailable.")
+    index = graph.input(path)
+    fade = min(0.5, avatar_duration / 2)
+    avatar = graph.filter(
+        [f"{index}:v"],
+        f"setpts=PTS-STARTPTS,scale=trunc(iw*1.5/2)*2:trunc(ih*1.5/2)*2,format=rgba,fade=t=in:st=0:d={fade}:alpha=1,fade=t=out:st={avatar_duration - fade}:d={fade}:alpha=1",
+    )
+    horizontal, vertical = (
+        (video.settings or {}).get("avatar_position", "right,top").split(",")
+    )
+    x = {"left": "0", "center": "(W-w)/2", "right": "W-w"}[horizontal]
+    y = {"top": "0", "center": "(H-h)/2", "bottom": "H-h"}[vertical]
+    return graph.filter(
+        [stream, avatar],
+        f"overlay=x={x}:y={y}:eof_action=pass:repeatlast=0,trim=duration={duration}",
+    )
+
+
+def final_graph(video, segments, duration, narration_path, directory, size):
+    graph = Graph()
+    visual = scene_visuals(graph, segments, size)
+    visual = background_layer(graph, video, visual, duration, size)
+    visual = avatar_layer(graph, video, visual, duration)
+    audio = audio_stream(graph, [narration_path], duration)
+    if video.music:
+        index = graph.input(video.music.file.path, ("-stream_loop", "-1"))
+        fade = min(4, duration * 0.1)
+        volume = float((video.settings or {}).get("music_volume", 0.07))
+        music = graph.filter(
+            [f"{index}:a"],
+            f"aresample=44100,aformat=channel_layouts=stereo,atrim=duration={duration},asetpts=PTS-STARTPTS,volume={volume},afade=t=in:st=0:d={fade},afade=t=out:st={duration - fade}:d={fade}",
+        )
+        audio = graph.filter([audio, music], "amix=inputs=2:duration=first:normalize=0")
+    if (video.settings or {}).get("subtitles", False):
+        write_captions(Path(directory, "captions.ass"), segments, size)
+        visual = graph.filter([visual], "subtitles=filename=captions.ass")
+    visuals, audios = [], []
+    total = duration
+    if video.intro:
+        opening = asset_segment(video.intro, "intro", 0)
+        visuals.append(visual_stream(graph, opening, size))
+        audios.append(
+            audio_stream(
+                graph,
+                [video.intro.file.path] if opening.clip_audio else [],
+                opening.duration,
+            )
+        )
+        total += opening.duration
+    visuals.append(visual)
+    audios.append(audio)
+    if video.outro:
+        closing = asset_segment(video.outro, "outro", 0)
+        visuals.append(visual_stream(graph, closing, size))
+        audios.append(
+            audio_stream(
+                graph,
+                [video.outro.file.path] if closing.clip_audio else [],
+                closing.duration,
+            )
+        )
+        total += closing.duration
+    visual = graph.filter(visuals, f"concat=n={len(visuals)}:v=1:a=0")
+    audio = graph.filter(audios, f"concat=n={len(audios)}:v=0:a=1")
+    visual = graph.filter([visual], f"fps={FPS},format=yuv420p")
+    return graph, visual, audio, total
+
+
+def make_video(video):
+    if video.status not in RENDERABLE_STATUSES:
+        raise RenderFailedException("Video is not in a renderable state.")
+    choices = video.settings or {}
+    segments, elapsed = [], 0
+    for index, scene in enumerate(video.scenes.prefetch_related("scene_images"), 1):
+        segment = scene_segment(scene, index, elapsed, choices)
+        segments.append(segment)
+        elapsed += segment.duration
+    if not segments:
+        raise RenderFailedException("No video scenes were processed.")
+    apply_transitions(segments, choices)
+    video.status = VideoStatus.RENDERING
+    video.save(update_fields=["status", "updated_at"])
+    destination = Path(video.dir_name).resolve()
+    destination.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix="ffmpeg-render-", dir=destination
+    ) as directory:
+        graph, audio = narration_graph(segments, choices)
+        narration = Path(directory, "narration.wav")
+        graph.run(
+            directory,
+            narration,
+            [audio],
+            ["-c:a", "pcm_s16le", "-ar", "44100"],
+            elapsed,
+        )
+        os.replace(narration, destination / "output_audio.wav")
+        graph, visual, audio, total = final_graph(
+            video,
+            segments,
+            elapsed,
+            destination / "output_audio.wav",
+            directory,
+            output_size(choices.get("video_format")),
+        )
+        output = Path(directory, "output.mp4")
+        graph.run(
+            directory,
+            output,
+            [visual, audio],
+            [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "fast",
+                "-crf",
+                "23",
+                "-threads",
+                "8",
+                "-c:a",
+                "aac",
+                "-movflags",
+                "+faststart",
+            ],
+            total,
+        )
+        os.replace(output, destination / "output_video.mp4")
+    video.output = os.path.relpath(
+        destination / "output_video.mp4", settings.MEDIA_ROOT
+    )
+    video.status = VideoStatus.COMPLETED
+    video.save(update_fields=["output", "status", "updated_at"])
+    return video

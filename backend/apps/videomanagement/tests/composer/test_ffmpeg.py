@@ -1,0 +1,295 @@
+import json
+import shutil
+import subprocess
+import tempfile
+import wave
+from pathlib import Path
+from unittest import skipUnless
+from unittest.mock import patch
+
+import numpy as np
+from PIL import Image
+from django.test import TestCase, override_settings
+
+from ...baker_recipes import (
+    avatar,
+    background,
+    intro,
+    music,
+    outro,
+    scene,
+    scene_image,
+    video,
+)
+from ...utils.composer.ffmpeg import make_video
+from ...utils.exceptions import RenderFailedException
+
+
+@skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
+class FFmpegRenderTests(TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory(prefix="ffmpeg-tests-")
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        override = override_settings(
+            MEDIA_ROOT=str(self.root), FFMPEG_RENDER_TIMEOUT=60
+        )
+        override.enable()
+        self.addCleanup(override.disable)
+        patcher = patch(
+            "apps.videomanagement.utils.composer.ffmpeg.output_size",
+            return_value=(160, 90),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        pixels = np.full((90, 160, 3), 80, dtype=np.uint8)
+        pixels[:, :, 0] = np.arange(160) + 30
+        Image.fromarray(pixels).save(self.root / "still.png")
+        with wave.open(str(self.root / "speech.wav"), "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(44100)
+            t = np.arange(22050) / 44100
+            wav.writeframes(
+                (np.sin(2 * np.pi * 440 * t) * 5000).astype("int16").tobytes()
+            )
+        self.create_clip("clip.mp4", "green", 0.3)
+        self.create_clip("intro.mp4", "blue", 0.25)
+        self.create_clip("outro.mp4", "red", 0.25)
+        self.row = video.make(
+            status="READY",
+            dir_name=str(self.root / "output"),
+            settings={
+                "narration": True,
+                "subtitles": False,
+                "transition_default": "CUT",
+            },
+        )
+
+    def create_clip(self, name, color, duration):
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                f"color=c={color}:s=160x90:r=24:d={duration}",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=880:sample_rate=44100",
+                "-t",
+                str(duration),
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                str(self.root / name),
+            ],
+            check=True,
+            capture_output=True,
+        )
+
+    def add_still(self, **kwargs):
+        row = scene.make(video=self.row, file="speech.wav", is_last=False, **kwargs)
+        scene_image.make(scene=row, file="still.png", with_audio=False)
+        return row
+
+    def metadata(self):
+        return json.loads(
+            subprocess.check_output(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_format",
+                    "-show_streams",
+                    "-of",
+                    "json",
+                    self.row.output.path,
+                ]
+            )
+        )
+
+    def frame(self, time):
+        raw = subprocess.check_output(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-ss",
+                str(time),
+                "-i",
+                self.row.output.path,
+                "-frames:v",
+                "1",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "pipe:1",
+            ]
+        )
+        return np.frombuffer(raw, dtype=np.uint8).reshape((90, 160, 3))
+
+    def test_native_motion_and_pause_produce_seekable_h264_aac(self):
+        self.add_still(
+            motion_style="PAN_RIGHT", motion_intensity="STRONG", pause_after=0.25
+        )
+        make_video(self.row)
+        data = self.metadata()
+        self.assertEqual(self.row.status, "COMPLETED")
+        self.assertEqual(
+            [(s["codec_type"], s["codec_name"]) for s in data["streams"]],
+            [("video", "h264"), ("audio", "aac")],
+        )
+        self.assertAlmostEqual(float(data["format"]["duration"]), 0.75, delta=0.05)
+        self.assertGreater(
+            abs(
+                float(self.frame(0.1)[:, 80, 0].mean())
+                - float(self.frame(0.45)[:, 80, 0].mean())
+            ),
+            3,
+        )
+        np.testing.assert_allclose(self.frame(0.55), self.frame(0.65), atol=3)
+
+    def test_dissolve_keeps_narration_duration_and_scene_order(self):
+        self.add_still(transition_after="DISSOLVE", transition_duration=0.2)
+        second = scene.make(
+            video=self.row, file="speech.wav", is_last=False, transition_after="CUT"
+        )
+        scene_image.make(scene=second, file="clip.mp4", with_audio=True)
+        make_video(self.row)
+        self.assertAlmostEqual(
+            float(self.metadata()["format"]["duration"]), 1, delta=0.05
+        )
+        self.assertGreater(
+            self.frame(0.8)[:, :, 1].mean(), self.frame(0.8)[:, :, 0].mean()
+        )
+        self.assertGreater(
+            self.frame(0.52)[:, :, 0].mean(), self.frame(0.75)[:, :, 0].mean()
+        )
+
+    def test_assets_music_captions_background_and_cached_avatar_render_natively(self):
+        self.add_still(
+            text="Hello {world} \\ test. Καλημέρα!",
+            transition_after="FADE",
+            transition_duration=0.1,
+        )
+        self.row.settings.update(subtitles=True, transition_default="FADE")
+        self.row.intro = intro.make(file="intro.mp4")
+        self.row.outro = outro.make(file="outro.mp4")
+        self.row.music = music.make(file="speech.wav")
+        self.row.background = background.make(
+            file="still.png",
+            color="0,0,0",
+            through=6,
+            image_pos_top=4,
+            image_pos_left=4,
+        )
+        self.row.avatar = avatar.make()
+        Path(self.row.dir_name).mkdir()
+        shutil.copy(
+            self.root / "clip.mp4", Path(self.row.dir_name, "output_avatar.mp4")
+        )
+        self.row.save()
+        make_video(self.row)
+        self.assertAlmostEqual(
+            float(self.metadata()["format"]["duration"]), 1, delta=0.05
+        )
+        self.assertGreater(self.frame(0.1)[:, :, 2].mean(), 200)
+        self.assertGreater(self.frame(0.9)[:, :, 0].mean(), 200)
+
+    def test_silent_video_retains_its_length_and_optional_soundtrack(self):
+        self.row.settings = {"narration": False, "transition_default": "CUT"}
+        self.row.save()
+        row = scene.make(video=self.row, is_last=False, pause_after=0.25)
+        scene_image.make(scene=row, file="clip.mp4", with_audio=True)
+        make_video(self.row)
+        self.assertAlmostEqual(
+            float(self.metadata()["format"]["duration"]), 0.55, delta=0.05
+        )
+
+    def test_failure_preserves_previous_output_and_cleans_temporary_files(self):
+        self.add_still()
+        output = Path(self.row.dir_name)
+        output.mkdir()
+        (output / "output_video.mp4").write_bytes(b"previous render")
+        with patch(
+            "apps.videomanagement.utils.composer.ffmpeg.subprocess.run",
+            side_effect=subprocess.TimeoutExpired("ffmpeg", 60),
+        ):
+            with self.assertRaises(RenderFailedException):
+                make_video(self.row)
+        self.assertEqual((output / "output_video.mp4").read_bytes(), b"previous render")
+        self.assertEqual(list(output.glob("ffmpeg-render-*")), [])
+
+    def test_ending_holds_and_pauses_are_silent_after_narration(self):
+        row = self.add_still(pause_after=0.25)
+        row.is_last = True
+        row.save()
+        make_video(self.row)
+        raw = subprocess.check_output(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                self.row.output.path,
+                "-map",
+                "0:a",
+                "-f",
+                "f32le",
+                "-ac",
+                "1",
+                "-ar",
+                "44100",
+                "pipe:1",
+            ]
+        )
+        audio = np.frombuffer(raw, dtype=np.float32)
+        self.assertGreater(np.abs(audio[4410:17640]).mean(), 0.01)
+        self.assertLess(np.abs(audio[33075:44100]).mean(), 0.001)
+        self.assertGreater(float(self.metadata()["format"]["duration"]), 2.5)
+
+    def test_portrait_and_square_exports_keep_requested_dimensions(self):
+        self.add_still()
+        for size in ((90, 160), (90, 90)):
+            self.row.status = "READY"
+            with patch(
+                "apps.videomanagement.utils.composer.ffmpeg.output_size",
+                return_value=size,
+            ):
+                make_video(self.row)
+            stream = self.metadata()["streams"][0]
+            self.assertEqual((stream["width"], stream["height"]), size)
+
+    @override_settings(VIDEO_RENDERER="ffmpeg")
+    def test_existing_render_entry_point_dispatches_to_native_renderer(self):
+        from ...utils.composer import render
+
+        with patch(
+            "apps.videomanagement.utils.composer.ffmpeg.make_video",
+            return_value=self.row,
+        ) as native:
+            self.assertIs(render.make_video(self.row), self.row)
+        native.assert_called_once_with(self.row)
+
+    def test_fractional_scene_durations_do_not_accumulate_visual_drift(self):
+        for _ in range(9):
+            self.add_still(pause_after=0.13)
+        final = self.add_still(pause_after=0.13)
+        Image.new("RGB", (160, 90), "red").save(self.root / "red.png")
+        final.scene_images.update(file="red.png")
+        make_video(self.row)
+        self.assertGreater(self.frame(5.8)[:, :, 0].mean(), 200)
+        self.assertAlmostEqual(
+            float(self.metadata()["format"]["duration"]), 6.3, delta=0.05
+        )
+        self.assertEqual(self.row.output.name, "output/output_video.mp4")
