@@ -10,17 +10,14 @@ class Migration(migrations.Migration):
             field=models.CharField(
                 max_length=10,
                 choices=[
-                    (value, value.replace("_", " ").title())
-                    for value in (
-                        "NONE",
-                        "AUTO",
-                        "ZOOM_IN",
-                        "ZOOM_OUT",
-                        "PAN_LEFT",
-                        "PAN_RIGHT",
-                        "PAN_UP",
-                        "PAN_DOWN",
-                    )
+                    ("NONE", "None"),
+                    ("AUTO", "Auto"),
+                    ("ZOOM_IN", "Zoom In"),
+                    ("ZOOM_OUT", "Zoom Out"),
+                    ("PAN_LEFT", "Pan Left"),
+                    ("PAN_RIGHT", "Pan Right"),
+                    ("PAN_UP", "Pan Up"),
+                    ("PAN_DOWN", "Pan Down"),
                 ],
                 default="NONE",
             ),

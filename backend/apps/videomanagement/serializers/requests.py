@@ -5,7 +5,7 @@ from django.db.models import Max
 from rest_framework import serializers
 
 from ..models import Avatar, Intro, Outro
-from ..utils.motion import MOTION_STYLES, MOTION_INTENSITIES
+from ..model_choices import MotionIntensity, MotionStyle
 from ..services.asset_selection import available_voice, owned_asset
 from ..services.VideoServices import video_update
 from ..video_formats import (
@@ -261,8 +261,8 @@ class SceneTransitionSerializer(serializers.Serializer):
 
 
 class SceneMotionSerializer(serializers.Serializer):
-    motion_style = serializers.ChoiceField(choices=MOTION_STYLES)
-    motion_intensity = serializers.ChoiceField(choices=MOTION_INTENSITIES, required=False)
+    motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
+    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices, required=False)
 
 
 class SceneTimingSerializer(serializers.Serializer):
