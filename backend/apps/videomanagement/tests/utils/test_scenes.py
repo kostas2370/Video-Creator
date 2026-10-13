@@ -1,6 +1,6 @@
 """Every provider call is stubbed: no image is ever generated or downloaded."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase
 
@@ -15,81 +15,71 @@ from ...utils.scenes import (
     scene_narration_duration,
     still_from_video,
 )
-from ..doubles import FakeAudio
 
 
 class SceneNarrationDurationTests(TestCase):
     def test_reads_the_length_of_the_recorded_line(self):
-        scene = narrated_scene.make()
-
+        row = narrated_scene.make()
         with patch.object(
-            scenes_utils, "AudioFileClip", return_value=FakeAudio(duration=6.5)
+            scenes_utils, "file_timing", return_value={"audio_duration": 6.5}
         ):
-            self.assertEqual(scene_narration_duration(scene), 6.5)
+            self.assertEqual(scene_narration_duration(row), 6.5)
 
     def test_is_zero_when_nothing_was_narrated(self):
-        silent = scene.make(file=None)
-
-        with patch.object(scenes_utils, "AudioFileClip") as audio:
-            self.assertEqual(scene_narration_duration(silent), 0)
-
-        audio.assert_not_called()
+        self.assertEqual(scene_narration_duration(scene.make(file=None)), 0)
 
     def test_is_zero_when_the_recording_cannot_be_read(self):
-        scene = narrated_scene.make()
-
-        with patch.object(scenes_utils, "AudioFileClip", side_effect=OSError("bad")):
-            self.assertEqual(scene_narration_duration(scene), 0)
+        with patch.object(scenes_utils, "file_timing", return_value={}):
+            self.assertEqual(scene_narration_duration(narrated_scene.make()), 0)
 
 
 class StillFromVideoTests(SimpleTestCase):
     def test_is_nothing_for_a_still(self):
         self.assertIsNone(still_from_video("a.png", "images/"))
 
-    def test_saves_a_frame_from_near_the_end_of_the_clip(self):
-        clip = MagicMock()
-        clip.duration = 8.0
-        clip.fps = 24
-        clip.__enter__.return_value = clip
-
-        with patch.object(scenes_utils, "VideoFileClip", return_value=clip):
-            path = still_from_video("a.mp4", "images/")
-
+    def test_saves_the_last_visible_frame_including_narration_trimming(self):
+        with (
+            patch.object(
+                scenes_utils, "video_metadata", return_value={"duration": 8, "fps": 24}
+            ),
+            patch.object(scenes_utils, "save_video_frame") as save,
+        ):
+            path = still_from_video("a.mp4", "images/", end_time=5)
         self.assertTrue(path.endswith(".png"))
-        self.assertAlmostEqual(clip.save_frame.call_args.kwargs["t"], 8 - 1 / 24)
+        self.assertAlmostEqual(save.call_args.args[2], 5 - 1 / 24)
 
-    def test_tries_earlier_points_when_the_end_of_a_short_clip_will_not_decode(self):
-        clip = MagicMock()
-        clip.duration = 0.4
-        clip.fps = 24
-        clip.__enter__.return_value = clip
-        clip.save_frame.side_effect = [OSError("no frame"), None]
-
-        with patch.object(scenes_utils, "VideoFileClip", return_value=clip):
+    def test_retries_earlier_frames_when_the_last_frame_will_not_decode(self):
+        with (
+            patch.object(
+                scenes_utils,
+                "video_metadata",
+                return_value={"duration": 0.4, "fps": 24},
+            ),
+            patch.object(
+                scenes_utils,
+                "save_video_frame",
+                side_effect=[OSError("no frame"), None],
+            ) as save,
+        ):
             self.assertIsNotNone(still_from_video("a.mp4", "images/"))
+        self.assertEqual(save.call_count, 2)
+        self.assertEqual(save.call_args.args[2], 0.2)
 
-        self.assertEqual(clip.save_frame.call_count, 2)
-
-    def test_gives_up_quietly_when_no_frame_can_be_read(self):
-        clip = MagicMock()
-        clip.duration = 8.0
-        clip.fps = 24
-        clip.__enter__.return_value = clip
-        clip.save_frame.side_effect = OSError("no frame")
-
-        with patch.object(scenes_utils, "VideoFileClip", return_value=clip):
+    def test_returns_none_when_no_frame_can_be_read(self):
+        with (
+            patch.object(
+                scenes_utils, "video_metadata", return_value={"duration": 8, "fps": 24}
+            ),
+            patch.object(
+                scenes_utils, "save_video_frame", side_effect=OSError("no frame")
+            ) as save,
+        ):
             self.assertIsNone(still_from_video("a.mp4", "images/"))
+        self.assertEqual(save.call_count, 3)
 
-    def test_gives_up_quietly_when_the_clip_will_not_open(self):
-        with patch.object(scenes_utils, "VideoFileClip", side_effect=OSError("bad")):
+    def test_returns_none_when_the_clip_cannot_be_probed(self):
+        with patch.object(scenes_utils, "video_metadata", side_effect=OSError("bad")):
             self.assertIsNone(still_from_video("a.mp4", "images/"))
-
-    def test_uses_the_last_visible_frame_when_narration_trims_the_clip(self):
-        clip = MagicMock(duration=8.0, fps=24)
-        clip.__enter__.return_value = clip
-        with patch.object(scenes_utils, "VideoFileClip", return_value=clip):
-            still_from_video("a.mp4", "images/", end_time=5.0)
-        self.assertAlmostEqual(clip.save_frame.call_args.kwargs["t"], 5 - 1 / 24)
 
 
 class CreateImageSceneTests(TestCase):
@@ -392,7 +382,9 @@ class GenerateNewImageTests(TestCase):
         appended = scene.make(video=self.video, text="Another added scene.")
         with (
             patch.object(scenes_utils, "stored_file_exists", return_value=True),
-            patch.object(scenes_utils, "still_from_video", return_value="images/context.png") as still,
+            patch.object(
+                scenes_utils, "still_from_video", return_value="images/context.png"
+            ) as still,
         ):
             reference = scenes_utils.scene_reference(appended, self.video, "sora")
         self.assertEqual(reference, "images/context.png")
@@ -420,9 +412,14 @@ class GenerateNewImageTests(TestCase):
         self.assertEqual(self.scene_image.file, "images/new.png")
 
     def test_keeps_the_old_image_when_generation_fails(self):
-        with patch.object(
-            openai_images, "generate_openai_image", side_effect=RuntimeError("rate limit")
-        ), self.assertRaisesRegex(RuntimeError, "rate limit"):
+        with (
+            patch.object(
+                openai_images,
+                "generate_openai_image",
+                side_effect=RuntimeError("rate limit"),
+            ),
+            self.assertRaisesRegex(RuntimeError, "rate limit"),
+        ):
             generate_new_image(self.scene_image, self.video)
 
         self.scene_image.refresh_from_db()
@@ -431,7 +428,10 @@ class GenerateNewImageTests(TestCase):
     def test_rejects_a_video_whose_mode_has_no_provider(self):
         self.video.mode = "UNKNOWN"
 
-        with patch.object(openai_images, "generate_openai_image") as generate, self.assertRaisesRegex(ValueError, "Unsupported visual mode"):
+        with (
+            patch.object(openai_images, "generate_openai_image") as generate,
+            self.assertRaisesRegex(ValueError, "Unsupported visual mode"),
+        ):
             generate_new_image(self.scene_image, self.video)
 
         generate.assert_not_called()

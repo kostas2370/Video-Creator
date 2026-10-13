@@ -4,7 +4,6 @@ from model_bakery.recipe import Recipe, foreign_key
 
 from .models import (
     Avatar,
-    Background,
     Intro,
     Music,
     Outro,
@@ -45,17 +44,6 @@ music = Recipe(Music, name="a song", file="media/music/song.mp3")
 intro = Recipe(Intro, name="an intro", file="media/other/intros/intro.mp4")
 
 outro = Recipe(Outro, name="an outro", file="media/other/outros/outro.mp4")
-
-background = Recipe(
-    Background,
-    name="a background",
-    file="media/other/backgrounds/bg.jpg",
-    color="0,255,0",
-    image_pos_top=10,
-    image_pos_left=20,
-    avatar_pos_top=30,
-    avatar_pos_left=40,
-)
 
 video = Recipe(
     Video,

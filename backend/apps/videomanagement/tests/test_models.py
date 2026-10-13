@@ -3,13 +3,12 @@ from apps.usermanagement.baker_recipes import user
 
 from ..baker_recipes import (
     avatar,
-    background,
     music,
     template_prompt,
     video,
     voice_model,
 )
-from ..models import Avatar, Background, UserPrompt, Video, VoiceModel
+from ..models import Avatar, UserPrompt, Video, VoiceModel
 
 
 class VideoDefaultsTests(TestCase):
@@ -97,16 +96,6 @@ class SelectAvatarTests(TestCase):
         self.assertIsNone(Avatar.select_avatar(user=user.make()))
 
 
-class SelectBackgroundTests(TestCase):
-    def test_picks_one_of_the_backgrounds_on_file(self):
-        backgrounds = background.make(_quantity=3)
-
-        self.assertIn(Background.select_background(), backgrounds)
-
-    def test_is_nothing_when_there_is_no_background_to_pick(self):
-        self.assertIsNone(Background.select_background())
-
-
 class StringRepresentationTests(TestCase):
     """Names the admin lists rows by."""
 
@@ -116,7 +105,6 @@ class StringRepresentationTests(TestCase):
             (music, "name"),
             (voice_model, "name"),
             (avatar, "name"),
-            (background, "name"),
             (video, "title"),
         ):
             instance = recipe.prepare()
@@ -140,3 +128,17 @@ class UUIDOrderingTests(TestCase):
         self.assertEqual(list(made.scenes.all()), [first, second])
         self.assertEqual(list(first.scene_images.all()), [older, newer])
         self.assertEqual(made.pk.version, 4)
+
+
+class BackgroundRemovalMigrationTests(TestCase):
+    def test_existing_review_parameters_keep_working_without_background(self):
+        from importlib import import_module
+        from types import SimpleNamespace
+        from django.apps import apps
+        from django.db import connection
+
+        existing = video.make(status="REVIEW", settings={"generation_params": {"background": None, "message": "Keep this story", "music": "music-url"}, "narration": True})
+        migration = import_module("apps.videomanagement.migrations.0025_remove_backgrounds")
+        migration.remove_saved_background_parameters(apps, SimpleNamespace(connection=connection))
+        existing.refresh_from_db()
+        self.assertEqual(existing.settings, {"generation_params": {"message": "Keep this story", "music": "music-url"}, "narration": True})

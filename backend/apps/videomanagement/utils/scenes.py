@@ -1,9 +1,11 @@
 import logging
+import subprocess
+from pathlib import Path
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 from django.db import close_old_connections
-from moviepy.editor import AudioFileClip, VideoFileClip
+from .timing import file_timing, video_metadata
 
 from .image_providers import ImageProviderRegistry
 from .prompt_utils import script_lines
@@ -24,38 +26,55 @@ def still_from_video(path: str, dir_name: str, end_time: float = None) -> str:
 
     frame_path = f"{dir_name}{uuid.uuid4()}.png"
     try:
-        with VideoFileClip(path) as clip:
-            end = min(clip.duration, end_time) if end_time else clip.duration
-            for t in (end - 1 / (clip.fps or 24), end * 0.5, 0):
-                try:
-                    clip.save_frame(frame_path, t=max(0, t))
-                    return frame_path
-
-                except Exception as exc:
-                    logger.debug("No frame at %.2fs of %s: %s", t, path, exc)
-
-    except Exception as exc:
+        metadata = video_metadata(path)
+        end = min(metadata["duration"], end_time) if end_time else metadata["duration"]
+        for timestamp in (end - 1 / metadata["fps"], end * 0.5, 0):
+            try:
+                save_video_frame(path, frame_path, max(0, timestamp))
+                return frame_path
+            except (OSError, subprocess.SubprocessError) as exc:
+                logger.debug("No frame at %.2fs of %s: %s", timestamp, path, exc)
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        StopIteration,
+        subprocess.SubprocessError,
+    ) as exc:
         logger.warning("Could not open %s for a style anchor: %s", path, exc)
-        return None
-
-    logger.warning("Could not take a style anchor from %s", path)
+    Path(frame_path).unlink(missing_ok=True)
     return None
 
 
+def save_video_frame(source, destination, timestamp):
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostdin",
+            "-y",
+            "-ss",
+            str(timestamp),
+            "-i",
+            str(source),
+            "-frames:v",
+            "1",
+            "-update",
+            "1",
+            str(destination),
+        ],
+        check=True,
+        capture_output=True,
+        timeout=30,
+    )
+    if not Path(destination).is_file():
+        raise OSError("No video frame decoded")
+
+
 def scene_narration_duration(scene: Scene) -> float:
-    """Seconds of narration recorded for `scene`, or 0 if it has no audio yet."""
-    if not scene.file:
-        return 0
-
-    try:
-        with AudioFileClip(scene.file.path) as audio:
-            return audio.duration
-
-    except Exception as exc:
-        logger.warning(
-            "Could not read narration length for scene %s: %s", scene.id, exc
-        )
-        return 0
+    return file_timing(scene.file).get("audio_duration") or 0
 
 
 def continuation_frame(video: Video, text: str, path: str):
@@ -281,14 +300,22 @@ def scene_reference(scene: Scene, video: Video, provider):
     if provider in (None, "", "OPENAI") and uploaded:
         return uploaded
     if provider in (None, "", "OPENAI"):
-        for image in SceneImage.objects.filter(scene__video=video).order_by("scene__position", "created_at"):
+        for image in SceneImage.objects.filter(scene__video=video).order_by(
+            "scene__position", "created_at"
+        ):
             if stored_file_exists(image.file) and not check_if_video(image.file.path):
                 return image.file.path
     elif ImageProviderRegistry.is_video(provider, user=video.created_by):
-        previous = video.scenes.filter(position__lt=scene.position).order_by("-position").first()
+        previous = (
+            video.scenes.filter(position__lt=scene.position)
+            .order_by("-position")
+            .first()
+        )
         if previous is None:
             return uploaded
-        return continuation_frame(video, previous.text, existing_visual(video, previous.text))
+        return continuation_frame(
+            video, previous.text, existing_visual(video, previous.text)
+        )
     return None
 
 
