@@ -45,19 +45,20 @@ def reorder_scenes(video, scene_ids):
 
 def apply_auto_motion(video, intensity):
     with editable_video(video.pk) as locked_video:
-        scenes = locked_video.scenes.select_for_update().prefetch_related("scene_images")
-        changed = []
+        scenes = (
+            locked_video.scenes.exclude(motion_style=MotionStyle.AUTO, motion_intensity=intensity)
+            .select_for_update()
+            .prefetch_related("scene_images")
+        )
+        scene_ids = []
         for scene in scenes:
             image = next(iter(scene.scene_images.all()), None)
-            if not image or not image.file or not check_if_image(image.file.name):
-                continue
-            if scene.motion_style == MotionStyle.AUTO and scene.motion_intensity == intensity:
-                continue
-            scene.motion_style = MotionStyle.AUTO
-            scene.motion_intensity = intensity
-            changed.append(scene)
-        if changed:
-            Scene.objects.bulk_update(changed, ["motion_style", "motion_intensity"])
+            if image and image.file and check_if_image(image.file.name):
+                scene_ids.append(scene.pk)
+        if scene_ids:
+            locked_video.scenes.filter(pk__in=scene_ids).update(
+                motion_style=MotionStyle.AUTO, motion_intensity=intensity,
+            )
             locked_video.save(update_fields=["updated_at"])
             publish_update(f"video.{locked_video.pk}", video_id=locked_video.pk)
     return locked_video
