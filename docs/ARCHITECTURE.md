@@ -328,8 +328,8 @@ Media URLs must use HTTP or HTTPS. Downloads do not receive the provider's
 credentials, and the initial POST does not follow redirects.
 
 Image requests have a 30-second timeout; video requests allow 300 seconds. Pillow
-validates images and normalizes them into uniquely named PNGs. MoviePy validates
-video clips before ffmpeg converts them into MP4 with H.264 video and AAC audio,
+validates images and normalizes them into uniquely named PNGs. ffprobe validates
+video timing before FFmpeg decodes and converts them into MP4 with H.264 video and AAC audio,
 preserving sound when present. Conversion has a 300-second timeout. Request, decoding, and
 storage failures return `None` through the existing scene failure path, removing
 any partially saved output. Temporary downloads are cleaned up. Missing or foreign
@@ -412,15 +412,13 @@ video API's ownership checks; private media delivery requires a separate design.
 ## Rendering and file storage
 
 [composer/render.py](../backend/apps/videomanagement/utils/composer/render.py)
-coordinates MoviePy and ffmpeg:
+builds and executes native FFmpeg filter graphs:
 
 | Module | Responsibility |
 | --- | --- |
-| `clips.py` | Load narration or clip audio; size and time each scene's visual |
-| `subtitles.py` | Build timed subtitle clips |
-| `layers.py` | Fit video to the canvas and apply optional music |
-| `avatar.py` | Generate and overlay a SadTalker presenter |
-| `render.py` | Assemble scenes, apply final layers, encode, save output and status |
+| `render.py` | Probe media timing, mix narration/audio, build motion/transitions/captions/overlays, encode and save output |
+| `avatar.py` | Generate SadTalker presenter footage |
+
 
 With narration enabled, scene audio determines visual duration. Clip audio can be
 mixed in when `with_audio` is set. Unavailable narration falls back to blank audio;
@@ -430,7 +428,7 @@ their duration unless their own selected audio supplies timing; stills use
 
 The renderer assembles the scenes, applies music/avatar/subtitle layers,
 and prepends or appends selected intro/outro clips. Output uses `libx264` video and
-`aac` audio at 24 fps. Final assembly closes tracked clips in a `finally` block.
+`aac` audio at 24 fps. Temporary filter graphs and intermediate files are cleaned up after each render.
 Successful encoding saves `Video.output` and marks the video `COMPLETED`.
 
 Generated files normally live under:
@@ -444,7 +442,7 @@ media/videos/<generated-title>/
 ```
 
 Uploaded avatars, intros, outros, and scene visuals have their own FileField upload
-paths. The worker needs access to media, ffmpeg, ImageMagick, and the avatar model
+paths. The worker needs access to media, ffmpeg with libass, subtitle fonts, and the avatar model
 weights. Its startup script downloads missing weights; running workers must be
 restarted after backend code changes because they do not reload automatically.
 

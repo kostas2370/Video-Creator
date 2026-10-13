@@ -20,7 +20,7 @@ from ...baker_recipes import (
     scene_image,
     video,
 )
-from ...utils.composer.ffmpeg import make_video
+from ...utils.composer.render import make_video
 from ...utils.exceptions import RenderFailedException
 
 
@@ -36,7 +36,7 @@ class FFmpegRenderTests(TestCase):
         override.enable()
         self.addCleanup(override.disable)
         patcher = patch(
-            "apps.videomanagement.utils.composer.ffmpeg.output_size",
+            "apps.videomanagement.utils.composer.render.output_size",
             return_value=(160, 90),
         )
         patcher.start()
@@ -214,7 +214,7 @@ class FFmpegRenderTests(TestCase):
         output.mkdir()
         (output / "output_video.mp4").write_bytes(b"previous render")
         with patch(
-            "apps.videomanagement.utils.composer.ffmpeg.subprocess.run",
+            "apps.videomanagement.utils.composer.render.subprocess.run",
             side_effect=subprocess.TimeoutExpired("ffmpeg", 60),
         ):
             with self.assertRaises(RenderFailedException):
@@ -255,23 +255,12 @@ class FFmpegRenderTests(TestCase):
         for size in ((90, 160), (90, 90)):
             self.row.status = "READY"
             with patch(
-                "apps.videomanagement.utils.composer.ffmpeg.output_size",
+                "apps.videomanagement.utils.composer.render.output_size",
                 return_value=size,
             ):
                 make_video(self.row)
             stream = self.metadata()["streams"][0]
             self.assertEqual((stream["width"], stream["height"]), size)
-
-    @override_settings(VIDEO_RENDERER="ffmpeg")
-    def test_existing_render_entry_point_dispatches_to_native_renderer(self):
-        from ...utils.composer import render
-
-        with patch(
-            "apps.videomanagement.utils.composer.ffmpeg.make_video",
-            return_value=self.row,
-        ) as native:
-            self.assertIs(render.make_video(self.row), self.row)
-        native.assert_called_once_with(self.row)
 
     def test_fractional_scene_durations_do_not_accumulate_visual_drift(self):
         for _ in range(9):
@@ -285,3 +274,15 @@ class FFmpegRenderTests(TestCase):
             float(self.metadata()["format"]["duration"]), 6.3, delta=0.05
         )
         self.assertEqual(self.row.output.name, "output/output_video.mp4")
+
+    def test_continuation_frames_are_decoded_with_native_ffmpeg(self):
+        from ...utils.scenes import still_from_video
+
+        anchor = still_from_video(
+            str(self.root / "clip.mp4"), str(self.root) + "/", end_time=0.2
+        )
+        self.assertIsNotNone(anchor)
+        with Image.open(anchor) as image:
+            pixels = np.asarray(image)
+        self.assertEqual(pixels.shape, (90, 160, 3))
+        self.assertGreater(pixels[:, :, 1].mean(), pixels[:, :, 0].mean())
