@@ -1,4 +1,4 @@
-setuptools>=68
+setuptools>=83
 wheel
 cython
 numpy<2

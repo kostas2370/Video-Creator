@@ -1,4 +1,6 @@
 import { request } from "./request";
+import { waitForSceneOperation } from "./sceneOperation";
+import { toast } from "react-toastify";
 import { axiosInstance } from "./axiosPrivate";
 import { LOGIN_URL, REGISTER_URL, REFRESH_URL, PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL, PASSWORD_RESET_VALIDATE_URL } from "../endpoints";
 
@@ -19,15 +21,15 @@ export const validatePasswordReset = data => publicRequest(PASSWORD_RESET_VALIDA
 export const confirmPasswordReset = data => publicRequest(PASSWORD_RESET_CONFIRM_URL, data);
 export const logout = () => post("logout/", undefined, callerHandlesErrors);
 
-export const getIntro = search => get("intros/", { search: search || undefined });
-export const getOutro = search => get("outros/", { search: search || undefined });
-export const getAvatars = search => get("avatars/", { search: search || undefined });
+export const getIntro = (search, page = 1) => get("intros/", { search: search || undefined, page });
+export const getOutro = (search, page = 1) => get("outros/", { search: search || undefined, page });
+export const getAvatars = (search, page = 1) => get("avatars/", { search: search || undefined, page });
 export const getVideos = (search, page) => get("videos/", { search: search || undefined, page: page || undefined });
 export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
-export const getVoices = () => get("voices/");
-export const getTemplates = () => get("templates/");
+export const getVoices = (search, page = 1) => get("voices/", { search: search || undefined, page });
+export const getTemplates = (search, page = 1) => get("templates/", { search: search || undefined, page });
 export const getNotifications = (options = {}) => request({ url: "notifications/", ...options });
 
 export const createIntro = data => post("intros/", data);
@@ -40,12 +42,20 @@ export const createScene = (id, data) => post(action("videos", id, "add_scene"),
 export const draftScene = (id, data) => post(action("videos", id, "draft_scene"), data, callerHandlesErrors);
 export const createTemplate = data => post("templates/", data, callerHandlesErrors);
 
+const sceneOperation = async (id, send) => {
+  const queued = await send();
+  if (!queued.ok || queued.status !== 202) return queued;
+  const result = await waitForSceneOperation(() => request({ url: action("scenes", id, "operation"), params: { job: queued.data.id }, notifyError: false }));
+  if (!result.ok) toast.error(result.message || "Could not finish the scene operation.");
+  return result;
+};
+
 export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);
-export const updateScene = (id, data) => patch(detail("scenes", id), data);
+export const updateScene = (id, data) => sceneOperation(id, () => patch(detail("scenes", id), data));
 export const updateVideo = (id, data) => patch(detail("videos", id), data);
-export const generateScene = (id, data) => patch(action("scenes", id, "generate"), data);
-export const generateSceneImage = (id, data) => post(action("scenes", id, "generate_image_scene"), data);
+export const generateScene = (id, data) => sceneOperation(id, () => patch(action("scenes", id, "generate"), data));
+export const generateSceneImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "generate_image_scene"), data));
 export const updateSceneImage = (id, imageId, data) => request({ method: "post", url: action("scenes", id, "change_image_scene"), data, params: { scene_image: imageId || undefined } });
 export const resumeVideo = id => patch(action("videos", id, "resume"), {}, callerHandlesErrors);
 export const renderVideo = id => patch(action("videos", id, "render_video"), {}, callerHandlesErrors);

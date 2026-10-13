@@ -10,10 +10,13 @@ from rest_framework.permissions import IsAuthenticated
 
 from ..models import Scene, SceneImage
 from ..schema import SceneImageUploadSchema
-from ..serializers import SceneSerializer
-from ..services.SceneServices import generate_scene, update_scene
+from ..tasks import update_scene_task, rewrite_scene_task, generate_scene_image_task
+from ..serializers.models import SceneSerializer
+from ..services.scene_jobs import queue_scene_job, scene_job_result
+from ..services.editing import editable_video
+from ..serializers.requests import SceneJobQuerySerializer
 from ..services.editing import update_scene_transition, update_scene_timing
-from ..request_serializers import (
+from ..serializers.requests import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
     SceneImageQuerySerializer,
@@ -21,8 +24,6 @@ from ..request_serializers import (
     SceneTransitionSerializer,
     SceneTimingSerializer,
 )
-from ..utils.scenes import generate_new_image
-from ..utils.cost_utils import reserve_scene_credit
 from ..permissions import IsOwnerPermission, SceneGenerationLimitPermission
 
 
@@ -63,15 +64,10 @@ class SceneView(viewsets.GenericViewSet):
         serializer = SceneUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        with reserve_scene_credit(
-            request.user, 0.01, SceneGenerationLimitPermission.required_limit
-        ):
-            updated_scene = update_scene(serializer.validated_data["text"], instance)
-
-        return Response(
-            {"text": updated_scene, "narration_status": SceneSerializer(instance).data["narration_status"]},
-            status=status.HTTP_200_OK,
+        operation = queue_scene_job(
+            instance, request.user, update_scene_task, serializer.validated_data["text"], cost=0.01,
         )
+        return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(
         request_body=SceneUpdateSerializer,
@@ -84,13 +80,10 @@ class SceneView(viewsets.GenericViewSet):
         scene = self.get_object()
         serializer = SceneUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        text = serializer.validated_data["text"]
-
-        with reserve_scene_credit(
-            request.user, 0.03, SceneGenerationLimitPermission.required_limit
-        ):
-            generated_scene = generate_scene(text, scene)
-        return Response({"text": generated_scene}, status=status.HTTP_200_OK)
+        operation = queue_scene_job(
+            scene, request.user, rewrite_scene_task, serializer.validated_data["text"], cost=0.03,
+        )
+        return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(
         operation_description="Updates a scene image, or creates one when scene_image is omitted. "
@@ -130,18 +123,19 @@ class SceneView(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
 
-        image = validated_data.get("image")
-        if scene_image:
-            if image:
-                scene_image.file = image
-            scene_image.with_audio = validated_data["with_audio"]
-            scene_image.save()
-        else:
-            SceneImage.objects.create(
-                scene=scene,
-                file=image,
-                with_audio=validated_data["with_audio"],
-            )
+        with editable_video(scene.video_id):
+            image = validated_data.get("image")
+            if scene_image:
+                if image:
+                    scene_image.file = image
+                scene_image.with_audio = validated_data["with_audio"]
+                scene_image.save()
+            else:
+                SceneImage.objects.create(
+                    scene=scene,
+                    file=image,
+                    with_audio=validated_data["with_audio"],
+                )
 
         return Response(
             {"Message": "Image Scene was added successfully"},
@@ -159,24 +153,23 @@ class SceneView(viewsets.GenericViewSet):
         scene = self.get_object()
         serializer = GenerateSceneImageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        img = scene.scene_images.first()
-        image_description = serializer.validated_data["image_description"]
-        video = scene.video
+        operation = queue_scene_job(
+            scene, request.user, generate_scene_image_task, serializer.validated_data["image_description"], cost=0.08,
+        )
+        return Response(operation, status=status.HTTP_202_ACCEPTED)
 
-        with reserve_scene_credit(
-            request.user, 0.08, SceneGenerationLimitPermission.required_limit
-        ):
-            if not img:
-                img = SceneImage.objects.create(prompt=image_description, scene=scene)
-
-            img.prompt = image_description
-            img.save()
-            generate_new_image(img, video)
-
-        return Response({"Message": "Image Scene was added successfully"})
+    @swagger_auto_schema(query_serializer=SceneJobQuerySerializer, responses={200: "Background scene job status and result"})
+    @action(detail=True, methods=["GET"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    def operation(self, request, pk=None):
+        scene = self.get_object()
+        query = SceneJobQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        operation = scene_job_result(scene, query.validated_data["job"])
+        return Response(operation, headers={"Cache-Control": "private, no-store"})
 
     def destroy(self, request, pk):
         obj = self.get_object()
-        obj.delete()
+        with editable_video(obj.video_id):
+            obj.delete()
 
         return Response(dict(message="Scene deleted successfully"), status=204)

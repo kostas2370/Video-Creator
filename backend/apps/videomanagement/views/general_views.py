@@ -15,7 +15,7 @@ from ..models import (
     Avatar,
     SceneImage,
 )
-from ..serializers import (
+from ..serializers.models import (
     TemplatePromptsSerializer,
     IntroSerializer,
     OutroSerializer,
@@ -25,6 +25,8 @@ from ..serializers import (
     SceneImageSerializer,
 )
 from ..services.asset_limits import save_limited_clip
+from ..services.editing import editable_video
+from ..paginator import AssetResultsPagination
 
 
 class SceneImageView(viewsets.GenericViewSet):
@@ -34,34 +36,43 @@ class SceneImageView(viewsets.GenericViewSet):
 
     def destroy(self, request, pk):
         obj = self.get_object()
-        obj.file = None
-        obj.save()
+        with editable_video(obj.scene.video_id):
+            obj.file = None
+            obj.save()
 
         return Response(status=204)
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ["title"]
+    pagination_class = AssetResultsPagination
+    ordering = ("id",)
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompt.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
         if self.request.user.is_superuser:
-            return TemplatePrompt.objects.all()
+            return TemplatePrompt.objects.order_by("id")
 
-        return TemplatePrompt.objects.filter(created_by=self.request.user)
+        return TemplatePrompt.objects.filter(created_by=self.request.user).order_by("id")
 
 
 class MusicView(viewsets.ModelViewSet):
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ["name"]
+    pagination_class = AssetResultsPagination
+    ordering = ("id",)
     serializer_class = MusicSerializer
     queryset = Music.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
         if self.request.user.is_superuser:
-            return Music.objects.all()
+            return Music.objects.order_by("id")
 
-        return Music.objects.filter(created_by=self.request.user)
+        return Music.objects.filter(created_by=self.request.user).order_by("id")
 
 
 class VoiceView(
@@ -70,29 +81,37 @@ class VoiceView(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ["name"]
+    pagination_class = AssetResultsPagination
+    ordering = ("id",)
     serializer_class = VoiceModelSerializer
     queryset = VoiceModel.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnlyPermission]
 
     def get_queryset(self):
-        return VoiceModel.available_to(self.request.user)
+        return VoiceModel.available_to(self.request.user).order_by("id")
 
 
 class AvatarView(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
 
+    pagination_class = AssetResultsPagination
+    ordering = ("id",)
     serializer_class = AvatarSerializer
     queryset = Avatar.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
     def get_queryset(self):
-        return Avatar.objects.filter(created_by=self.request.user).select_related(
+        return Avatar.objects.filter(created_by=self.request.user).order_by("id").select_related(
             "voice"
         )
 
 
 class IntroView(viewsets.ModelViewSet):
+    pagination_class = AssetResultsPagination
+    ordering = ("id",)
     serializer_class = IntroSerializer
     queryset = Intro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
@@ -102,15 +121,17 @@ class IntroView(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_superuser:
-            return Intro.objects.all()
+            return Intro.objects.order_by("id")
 
-        return Intro.objects.filter(created_by=self.request.user)
+        return Intro.objects.filter(created_by=self.request.user).order_by("id")
 
     def perform_create(self, serializer):
         save_limited_clip(serializer, self.request.user)
 
 
 class OutroView(viewsets.ModelViewSet):
+    pagination_class = AssetResultsPagination
+    ordering = ("id",)
     serializer_class = OutroSerializer
     queryset = Outro.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerPermission]
@@ -119,9 +140,9 @@ class OutroView(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_superuser:
-            return Outro.objects.all()
+            return Outro.objects.order_by("id")
 
-        return Outro.objects.filter(created_by=self.request.user)
+        return Outro.objects.filter(created_by=self.request.user).order_by("id")
 
     def perform_create(self, serializer):
         save_limited_clip(serializer, self.request.user)

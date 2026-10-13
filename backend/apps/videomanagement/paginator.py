@@ -5,7 +5,7 @@ from rest_framework.response import Response
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 12
     page_size_query_param = "page_size"
-    max_page_size = 1000
+    max_page_size = 100
 
     def get_paginated_response(self, data):
         return Response(
@@ -19,3 +19,7 @@ class StandardResultsSetPagination(PageNumberPagination):
                 "results": data,
             }
         )
+
+
+class AssetResultsPagination(StandardResultsSetPagination):
+    page_size = 24

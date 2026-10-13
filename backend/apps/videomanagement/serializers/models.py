@@ -1,10 +1,10 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from .utils.file_utils import stored_file_exists
-from .utils.timing import file_timing, scene_timing
+from ..utils.file_utils import stored_file_exists
+from ..utils.timing import file_timing, scene_timing
 
-from .models import (
+from ..models import (
     TemplatePrompt,
     Music,
     Scene,

@@ -1,5 +1,7 @@
+import { useAssetOptions } from "../hooks/useAssetOptions";
+import { MoreAssetOptions } from "./ui/MoreAssetOptions";
 import React, { useState, useEffect } from "react";
-import { getIntro, getOutro, getAvatars, updateVideo } from "../api/apiService";
+import { getIntro, getOutro, getAvatars, getVoices, updateVideo } from "../api/apiService";
 import { transitionDurations, transitionStyles } from "./SceneTransition";
 import { AssetDropBox } from "./ui/assetDropBox";
 import { toast } from "react-toastify";
@@ -33,10 +35,16 @@ const normalizeAvatarPosition = (position) => {
 };
 
 export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => {
-  const [avatars, setAvatars] = useState([]);
+  const avatarsOptions = useAssetOptions(getAvatars, showModal);
+  const avatars = avatarsOptions.items;
   const [avatar, setAvatar] = useState("");
-  const [intros, setIntros] = useState([]);
-  const [outros, setOutros] = useState([]);
+  const [voice, setVoice] = useState("");
+  const voicesOptions = useAssetOptions(getVoices, showModal && !avatar);
+  const voices = voicesOptions.items;
+  const introsOptions = useAssetOptions(getIntro, showModal);
+  const intros = introsOptions.items;
+  const outrosOptions = useAssetOptions(getOutro, showModal);
+  const outros = outrosOptions.items;
   const [title, setTitle] = useState("");
   const [intro, setIntro] = useState("");
   const [outro, setOutro] = useState("");
@@ -51,30 +59,21 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [transitionDuration, setTransitionDuration] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([getAvatars(), getIntro(), getOutro()]).then(([avatarResult, introResult, outroResult]) => {
-      if (!active) return;
-      setAvatars(Array.isArray(avatarResult.data) ? avatarResult.data : []);
-      setIntros(Array.isArray(introResult.data) ? introResult.data : []);
-      setOutros(Array.isArray(outroResult.data) ? outroResult.data : []);
-    }).catch((error) => console.error("Error fetching video settings:", error));
-    return () => { active = false; };
-  }, []);
 
   useEffect(() => setTitle(info?.title || ""), [info?.title]);
   useEffect(() => {
-    setIntro(info?.intro ?? "");
-    setSelectedIntroFile(intros.find((item) => String(item.id) === String(info?.intro))?.file || "");
-  }, [info?.intro, intros]);
+    setSelectedIntroFile(intros.find((item) => String(item.id) === String(intro))?.file || "");
+  }, [intro, intros]);
+  useEffect(() => setIntro(info?.intro ?? ""), [info?.intro]);
   useEffect(() => {
-    setOutro(info?.outro ?? "");
-    setSelectedOutroFile(outros.find((item) => String(item.id) === String(info?.outro))?.file || "");
-  }, [info?.outro, outros]);
+    setSelectedOutroFile(outros.find((item) => String(item.id) === String(outro))?.file || "");
+  }, [outro, outros]);
+  useEffect(() => setOutro(info?.outro ?? ""), [info?.outro]);
   useEffect(() => {
-    setAvatar(info?.avatar ?? "");
-    setSelectedAvatarFile(avatars.find((item) => String(item.id) === String(info?.avatar))?.file || "");
-  }, [info?.avatar, avatars]);
+    setSelectedAvatarFile(avatars.find((item) => String(item.id) === String(avatar))?.file || "");
+  }, [avatar, avatars]);
+  useEffect(() => setAvatar(info?.avatar ?? ""), [info?.avatar]);
+  useEffect(() => setVoice(info?.voice_model ?? ""), [info?.voice_model]);
   useEffect(() => {
     setAvatarPosition(normalizeAvatarPosition(info?.settings?.avatar_position));
     setPlatform(info?.settings?.platform || "GENERAL");
@@ -107,6 +106,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
         transition_default: transitionDefault,
         transition_duration: transitionDuration === "" ? null : Number(transitionDuration),
       };
+      if (!avatar && voice && String(voice) !== String(info?.voice_model ?? "")) changes.voice_id = voice;
       if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
       const { data: response } = await updateVideo(info.id, changes);
       if (response) {
@@ -177,13 +177,28 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
               <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-blue-600 dark:text-blue-300"><RiMovieLine aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>Opening and ending</h3><p className={sectionDescription}>Add reusable clips around your scenes.</p></div></div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <AssetDropBox value={intro} setValue={setIntro} setSelectedFile={setSelectedIntroFile} type="intro" items={intros} selectedFile={selectedIntroFile} />
+              <MoreAssetOptions options={introsOptions} label="intros" />
                 <AssetDropBox value={outro} setValue={setOutro} setSelectedFile={setSelectedOutroFile} type="outro" items={outros} selectedFile={selectedOutroFile} />
+              <MoreAssetOptions options={outrosOptions} label="outros" />
               </div>
             </section>
 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
-              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>Presenter and captions</h3><p className={sectionDescription}>Choose an avatar, its placement, and subtitle visibility.</p></div></div>
+              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>Presenter and captions</h3><p className={sectionDescription}>Choose a presenter or narration voice, and subtitle visibility.</p></div></div>
               <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />
+              <MoreAssetOptions options={avatarsOptions} label="avatars" />
+              {!avatar && (
+                <div className="mt-5">
+                  <label htmlFor="video-voice" className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration voice</label>
+                  <select id="video-voice" value={voice} onChange={(event) => setVoice(event.target.value)} disabled={saving || info?.settings?.narration === false} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                    <option value="" disabled>{voicesOptions.loading ? "Loading voices…" : "Choose a voice"}</option>
+                    {voice && !voices.some((item) => String(item.id) === String(voice)) && <option value={voice}>Current voice</option>}
+                    {voices.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.provider})</option>)}
+                  </select>
+                  <MoreAssetOptions options={voicesOptions} label="voices" />
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{info?.settings?.narration === false ? "Narration is off for this video." : "Changing the voice regenerates narration for your scenes."}</p>
+                </div>
+              )}
               {avatar && (
                 <fieldset className="mt-5">
                   <legend className="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">Presenter position</legend>

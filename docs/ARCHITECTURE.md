@@ -172,7 +172,7 @@ shot-oriented descriptions.
 video.** Generated dialogue and visuals remain editable, and generation can reach
 `READY` with missing narration.
 
-[SceneSerializer](../backend/apps/videomanagement/serializers.py) exposes a computed
+[SceneSerializer](../backend/apps/videomanagement/serializers/models.py) exposes a computed
 `narration_status` for each scene:
 
 | Value | Meaning |
