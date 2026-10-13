@@ -1,6 +1,6 @@
 """Image motion geometry shared by preview metadata and rendering."""
 
-from ..model_choices import MotionIntensity, MotionStyle
+from ..models import MotionIntensity, MotionStyle
 
 MOTION_STYLES = tuple(MotionStyle.values)
 AMOUNTS = {
