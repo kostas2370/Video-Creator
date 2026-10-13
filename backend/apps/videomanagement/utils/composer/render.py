@@ -97,6 +97,12 @@ def make_video(video: Video) -> Video:
         Videos: The updated video object with output file path and status.
     """
 
+    from django.conf import settings
+
+    if settings.VIDEO_RENDERER == "ffmpeg":
+        from .ffmpeg import make_video as render_ffmpeg
+        return render_ffmpeg(video)
+
     if video.status not in RENDERABLE_STATUSES:
         raise RenderFailedException("Video is not in a renderable state.")
 
