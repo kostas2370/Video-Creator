@@ -1,7 +1,7 @@
 import { formatDuration } from "../utils/timing";
 import { Link, useParams } from "react-router-dom";
 import React, { useCallback, useState, useEffect, useRef } from "react";
-import { getVideo, reorderScenes, updateSceneTransition, updateSceneTiming, getVideoSubtitles } from "../api/apiService";
+import { getVideo, reorderScenes, updateSceneTransition, updateSceneTiming, updateSceneMotion, applyAutoMotion, getVideoSubtitles } from "../api/apiService";
 import { subscribeUpdates } from "../api/subscribeUpdates";
 import { IoIosSettings } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
@@ -14,6 +14,7 @@ import { StoryboardModal } from "../components/StoryboardModal";
 import { ResumeModal } from "../components/ResumeModal";
 import { FaRedo, FaDownload, FaPlay } from "react-icons/fa";
 import { SceneCreationModal } from "../components/CreateSceneModal";
+import { BulkAutoMotion, hasStillImage } from "../components/SceneMotion";
 import { VideoPreviewModal } from "../components/VideoPreview";
 
 export const Video = () => {
@@ -33,6 +34,7 @@ export const Video = () => {
   const [pendingSceneChange, setPendingSceneChange] = useState(null);
   const savingOrder = pendingSceneChange?.type === "order";
   const pendingTransition = pendingSceneChange?.type === "transition" ? pendingSceneChange.sceneId : null;
+  const pendingMotion = pendingSceneChange?.type === "motion" ? pendingSceneChange.sceneId : null;
   const pendingTiming = pendingSceneChange?.type === "timing" ? pendingSceneChange.sceneId : null;
   const sceneChangePending = !!pendingSceneChange;
   const savingSceneChangeRef = useRef(false);
@@ -58,7 +60,7 @@ export const Video = () => {
   const isRenderable =
     !sceneChangePending && !renderPending && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED");
   const saveSceneChange = async (pending, apply, save, fallbackMessage, replaceVideo = false) => {
-    if (savingSceneChangeRef.current || processing || renderPending) return;
+    if (savingSceneChangeRef.current || processing || renderPending) return false;
     const previous = videoInfo;
     savingSceneChangeRef.current = true;
     setPendingSceneChange(pending);
@@ -67,10 +69,12 @@ export const Video = () => {
       const response = await save();
       if (!response.ok) throw new Error(response.message || fallbackMessage);
       if (replaceVideo) setVideoInfo(response.data);
-      else if (pending.type === "timing") setVideoInfo(current => ({ ...current, scenes: current.scenes.map(scene => scene.id === pending.sceneId ? response.data : scene) }));
+      else if (["timing", "motion"].includes(pending.type)) setVideoInfo(current => ({ ...current, scenes: current.scenes.map(scene => scene.id === pending.sceneId ? response.data : scene) }));
+      return true;
     } catch (error) {
       setVideoInfo(previous);
       toast.error(error.message || fallbackMessage);
+      return false;
     } finally {
       savingSceneChangeRef.current = false;
       setPendingSceneChange(null);
@@ -89,6 +93,19 @@ export const Video = () => {
     current => ({ ...current, scenes: current.scenes.map(row => row.id === scene.id ? { ...row, ...changes } : row) }),
     () => updateSceneTransition(scene.id, changes),
     "Could not save transition. Please try again.",
+  );
+  const onAutoMotion = intensity => saveSceneChange(
+    { type: "bulkMotion" },
+    current => ({ ...current, scenes: current.scenes.map(scene => hasStillImage(scene) ? { ...scene, motion_style: "AUTO", motion_intensity: intensity } : scene) }),
+    () => applyAutoMotion(videoId, intensity),
+    "Could not apply Auto motion. Please try again.",
+    true,
+  );
+  const onMotion = (scene, changes) => saveSceneChange(
+    { type: "motion", sceneId: scene.id },
+    current => ({ ...current, scenes: current.scenes.map(row => row.id === scene.id ? { ...row, ...changes } : row) }),
+    () => updateSceneMotion(scene.id, changes),
+    "Could not save image motion. Please try again.",
   );
   const onTiming = (scene, pause) => saveSceneChange(
     { type: "timing", sceneId: scene.id },
@@ -221,7 +238,8 @@ export const Video = () => {
             <p className="mt-5 border-t border-gray-100 pt-4 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">Changes to scenes are saved individually. Render again to include them in your final video.</p>
           </aside>
           <section aria-label="Scenes" className="min-w-0 space-y-5">
-            <ReorderableScenes scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
+            <div className="flex justify-end"><BulkAutoMotion scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={pendingSceneChange?.type === "bulkMotion"} onApply={onAutoMotion} /></div>
+            <ReorderableScenes scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : "Add a scene to start building your video."}</p></div>}
             <button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : "Add scene"}</button>
           </section>

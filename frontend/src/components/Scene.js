@@ -9,6 +9,7 @@ import { deleteImageScene, deleteScene, updateScene } from "../api/apiService";
 import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
+import { SceneMotion } from "./SceneMotion";
 import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
 const formatFrameClasses = {
@@ -17,7 +18,7 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving }) => {
+export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -97,7 +98,7 @@ export const Scene = ({ scene, setUpdated, video_format = "LANDSCAPE", index = 0
             </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">Narration is off for this video</p> : (scene.file ? <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Preview narration</p><audio aria-label={`Scene ${index + 1} narration`} controls key={scene.file} className="h-10 w-full"><source src={MEDIA_URL + scene.file} /></audio></div> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
           </div>
           <div className="min-w-0">
-            <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Visual</h3><button type="button" onClick={() => setShowEditImageModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlinePencilSquare className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button></div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Visual</h3><div className="flex flex-wrap items-center gap-1">{onMotion && <SceneMotion scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}<button type="button" onClick={() => setShowEditImageModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlinePencilSquare className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button></div></div>
             <div className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${formatFrameClasses[video_format] || formatFrameClasses.LANDSCAPE}`}>
               {scene.scene_image?.file ? (scene.scene_image.file.includes("mp4") ? <video controls src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
           <Menu as="div" className="absolute top-2 right-2 z-10">
