@@ -59,7 +59,7 @@ export const Video = () => {
   const isRenderable =
     !sceneChangePending && !renderPending && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED");
   const saveSceneChange = async (pending, apply, save, fallbackMessage, replaceVideo = false) => {
-    if (savingSceneChangeRef.current || processing || renderPending) return;
+    if (savingSceneChangeRef.current || processing || renderPending) return false;
     const previous = videoInfo;
     savingSceneChangeRef.current = true;
     setPendingSceneChange(pending);
@@ -69,9 +69,11 @@ export const Video = () => {
       if (!response.ok) throw new Error(response.message || fallbackMessage);
       if (replaceVideo) setVideoInfo(response.data);
       else if (["timing", "motion"].includes(pending.type)) setVideoInfo(current => ({ ...current, scenes: current.scenes.map(scene => scene.id === pending.sceneId ? response.data : scene) }));
+      return true;
     } catch (error) {
       setVideoInfo(previous);
       toast.error(error.message || fallbackMessage);
+      return false;
     } finally {
       savingSceneChangeRef.current = false;
       setPendingSceneChange(null);

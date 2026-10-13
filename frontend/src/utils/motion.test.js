@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { imageMotion } from "./motion";
+import { imageMotion, resolveImageMotion } from "./motion";
 
 describe("image motion in preview", () => {
   it("holds the final transform during pauses and outgoing dissolves", () => {
@@ -16,5 +16,13 @@ describe("image motion in preview", () => {
   });
   it("leaves scenes without motion unchanged", () => {
     expect(imageMotion({ base_duration: 2 }, 1).transform).toBe("translate(0%, 0%) scale(1)");
+  });
+});
+
+describe("Auto motion selection", () => {
+  it("matches the server UUID calculation without losing integer precision", () => {
+    expect(resolveImageMotion("AUTO", "ffffffff-ffff-ffff-ffff-ffffffffffff")).toBe("PAN_RIGHT");
+    expect(resolveImageMotion("AUTO", "00000000-0000-0000-0000-000000000005")).toBe("PAN_DOWN");
+    expect(resolveImageMotion("ZOOM_IN", "unused")).toBe("ZOOM_IN");
   });
 });

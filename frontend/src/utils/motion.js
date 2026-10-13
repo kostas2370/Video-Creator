@@ -15,3 +15,10 @@ export function imageMotion(segment, time) {
   }
   return { transform: `translate(${x}%, ${y}%) scale(${scale})`, transformOrigin: "center" };
 }
+
+export function resolveImageMotion(style, sceneId) {
+  if (style !== "AUTO") return style;
+  const movements = ["ZOOM_IN", "ZOOM_OUT", "PAN_LEFT", "PAN_RIGHT", "PAN_UP", "PAN_DOWN"];
+  const identity = String(sceneId).replaceAll("-", "");
+  return movements[Number(BigInt(`0x${identity}`) % 6n)];
+}
