@@ -290,5 +290,5 @@ ACCEPTED_MODELS = [
     "gemini-1.0-pro",
 ]
 
-VIDEO_RENDERER = os.getenv("VIDEO_RENDERER") or "moviepy"
+VIDEO_RENDERER = os.getenv("VIDEO_RENDERER") or "ffmpeg"
 FFMPEG_RENDER_TIMEOUT = int(os.getenv("FFMPEG_RENDER_TIMEOUT") or "3600")
