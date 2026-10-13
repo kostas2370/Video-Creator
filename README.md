@@ -817,12 +817,6 @@ bounded, then FFmpeg assembles the video. This uses temporary disk space rather
 than buffering every scene in RAM. Unchanged scenes are not yet cached. Existing output video files are
 replaced only after a successful render; temporary files are cleaned up on failures.
 
-To reproduce the isolated motion benchmark inside the backend container:
-
-```sh
-python manage.py shell < scripts/benchmark_renderers.py
-```
-
 ## Roadmap / To-Do List
 
 - [x] Use native FFmpeg for video rendering and media validation.
