@@ -76,6 +76,50 @@ class AudioEditingTests(ApiTestCase):
         self.video.save()
         self.assertEqual(self.client.patch(self.url("scene-audio"), {"fade_in": 1}, format="json").status_code, 409)
 
+    def browser_recording(self, duration=4):
+        path = Path(self.directory.name, "recording.webm")
+        subprocess.run(
+            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+             f"sine=frequency=440:duration={duration}", "-c:a", "libopus",
+             "-f", "webm", "-live", "1", str(path)],
+            capture_output=True, check=True, timeout=60,
+        )
+        return SimpleUploadedFile("voiceover.webm", path.read_bytes(), content_type="audio/webm;codecs=opus")
+
+    def test_browser_recording_without_duration_can_be_saved_previewed_and_rendered(self):
+        from ...utils.timing import media_timing
+
+        upload = self.browser_recording()
+        self.assertEqual(media_timing(Path(self.directory.name, "recording.webm")), {})
+        response = self.client.post(self.url("scene-voiceover"), {"file": upload}, format="multipart")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.scene.refresh_from_db()
+        self.assertTrue(self.scene.voiceover.name.endswith(".wav"))
+        self.assertEqual(self.scene.file.name, "voice.wav")
+        self.assertAlmostEqual(response.data["timing"]["duration"], 4, delta=0.05)
+        response = self.client.get(self.url("scene-waveform"))
+        self.assertEqual(response.status_code, 200)
+        self.assertAlmostEqual(response.data["duration"], 4, delta=0.05)
+        response = self.client.patch(self.url("scene-audio"), {"trim_start": 1, "trim_end": 3}, format="json")
+        self.assertEqual(response.status_code, 200)
+        response = self.client.get(reverse("video-preview", args=[self.video.pk]))
+        self.assertEqual(len(response.data["audio_tracks"]), 1)
+        self.assertEqual(response.data["audio_tracks"][0]["duration"], 2)
+        self.scene.refresh_from_db()
+        graph, stream = narration_graph(scene_audio_segments([self.scene]), self.video.settings)
+        output = Path(self.directory.name, "recorded-voice.wav")
+        graph.run(self.directory.name, output, [stream], ["-c:a", "pcm_s16le"], 2)
+        with wave.open(str(output), "rb") as audio:
+            samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype="<i2")
+            self.assertGreater(np.abs(samples.astype(float)).mean(), 100)
+
+    def test_browser_recordings_still_obey_the_fifteen_minute_limit(self):
+        response = self.client.post(self.url("scene-voiceover"), {"file": self.browser_recording(901)}, format="multipart")
+        self.assertEqual(response.status_code, 400)
+        self.scene.refresh_from_db()
+        self.assertFalse(self.scene.voiceover)
+        self.assertEqual(self.scene.file.name, "voice.wav")
+
     def test_owner_checks_cover_all_audio_actions(self):
         other = scene.make(video=self.video_for(owner=user.make()))
         self.assertIn(self.client.get(self.url("scene-waveform", other)).status_code, (403, 404))
