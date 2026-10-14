@@ -5,7 +5,8 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from ..events import publish_update
-from ..models import Scene, Video, VideoStatus
+from ..models import Scene, Video, VideoStatus, MotionStyle
+from ..utils.file_utils import check_if_image
 from ..utils.exceptions import VideoEditConflict
 
 
@@ -42,8 +43,33 @@ def reorder_scenes(video, scene_ids):
     return locked_video
 
 
+def apply_auto_motion(video, intensity):
+    with editable_video(video.pk) as locked_video:
+        scenes = (
+            locked_video.scenes.exclude(motion_style=MotionStyle.AUTO, motion_intensity=intensity)
+            .select_for_update()
+            .prefetch_related("scene_images")
+        )
+        scene_ids = []
+        for scene in scenes:
+            image = next(iter(scene.scene_images.all()), None)
+            if image and image.file and check_if_image(image.file.name):
+                scene_ids.append(scene.pk)
+        if scene_ids:
+            locked_video.scenes.filter(pk__in=scene_ids).update(
+                motion_style=MotionStyle.AUTO, motion_intensity=intensity,
+            )
+            locked_video.save(update_fields=["updated_at"])
+            publish_update(f"video.{locked_video.pk}", video_id=locked_video.pk)
+    return locked_video
+
+
 def update_scene_transition(scene, **changes):
     return _update_playback(scene, ("transition_after", "transition_duration"), changes)
+
+
+def update_scene_motion(scene, **changes):
+    return _update_playback(scene, ("motion_style", "motion_intensity"), changes)
 
 
 def update_scene_timing(scene, **changes):

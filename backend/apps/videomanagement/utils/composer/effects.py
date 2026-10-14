@@ -1,11 +1,12 @@
-"""Shared audio effects for voice clips and background music."""
+"""Shared native audio fade filters for voices and background music."""
 
 
-def apply_audio_fades(clip, *, fade_in=0, fade_out=0):
-    """Keep zero-length fades disabled and cap fades at half the clip length."""
-    limit = clip.duration / 2
-    if fade_in > 0 and limit > 0:
-        clip = clip.audio_fadein(min(fade_in, limit))
-    if fade_out > 0 and limit > 0:
-        clip = clip.audio_fadeout(min(fade_out, limit))
-    return clip
+def audio_fade_filters(duration, *, fade_in=0, fade_out=0):
+    filters = []
+    incoming = min(fade_in, duration / 2)
+    outgoing = min(fade_out, duration / 2)
+    if incoming > 0:
+        filters.append(f"afade=t=in:st=0:d={incoming}")
+    if outgoing > 0:
+        filters.append(f"afade=t=out:st={duration - outgoing}:d={outgoing}")
+    return filters

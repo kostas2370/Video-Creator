@@ -45,7 +45,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
-      imagemagick \
+      fonts-dejavu-core \
       # opencv needs these; the slim image does not carry them
       libgl1 \
       libglib2.0-0 \
@@ -53,12 +53,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxext6 \
       libxrender1 \
   && rm -rf /var/lib/apt/lists/*
-
-# moviepy draws text by handing ImageMagick an `@/tmp/<file>` path, which Debian's
-# policy.xml forbids — failing every subtitle. Drop that one rule only.
-RUN for policy in /etc/ImageMagick-*/policy.xml; do \
-      if [ -f "$policy" ]; then sed -i '/pattern="@\*"/d' "$policy"; fi; \
-    done
 
 RUN apt-get update && apt-get install -y --no-install-recommends libmariadb3 \
   && rm -rf /var/lib/apt/lists/*

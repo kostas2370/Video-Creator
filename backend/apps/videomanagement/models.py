@@ -25,6 +25,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class MotionStyle(models.TextChoices):
+    NONE = "NONE", "None"
+    AUTO = "AUTO", "Auto"
+    ZOOM_IN = "ZOOM_IN", "Zoom In"
+    ZOOM_OUT = "ZOOM_OUT", "Zoom Out"
+    PAN_LEFT = "PAN_LEFT", "Pan Left"
+    PAN_RIGHT = "PAN_RIGHT", "Pan Right"
+    PAN_UP = "PAN_UP", "Pan Up"
+    PAN_DOWN = "PAN_DOWN", "Pan Down"
+
+
+class MotionIntensity(models.TextChoices):
+    SUBTLE = "SUBTLE", "Subtle"
+    MEDIUM = "MEDIUM", "Medium"
+    STRONG = "STRONG", "Strong"
+
+
 class VoiceModelType(models.TextChoices):
     API = "API", "Api"
     CUSTOM_API = "CUSTOM_API", "Custom Api"
@@ -126,13 +143,6 @@ class TemplatePrompt(AbstractModel):
         blank=True,
         related_name="template_prompts",
     )
-    background = models.ForeignKey(
-        "Background",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="template_prompts",
-    )
     intro = models.ForeignKey(
         "Intro",
         on_delete=models.SET_NULL,
@@ -183,6 +193,13 @@ class Scene(models.Model):
     voiceover = models.FileField(upload_to="media/voiceovers", blank=True, max_length=2000)
     audio_settings = models.JSONField(default=dict, blank=True)
 
+
+    motion_style = models.CharField(
+        max_length=10, choices=MotionStyle.choices, default=MotionStyle.NONE
+    )
+    motion_intensity = models.CharField(
+        max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
+    )
     pause_after = models.FloatField(default=0)
     transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
     transition_duration = models.FloatField(null=True, blank=True, default=None)
@@ -320,27 +337,6 @@ class Avatar(AbstractModel):
         return None
 
 
-class Background(AbstractModel):
-    name = models.CharField(max_length=100)
-    file = models.FileField(upload_to="media/other/backgrounds")
-    color = models.CharField(max_length=30)
-    image_pos_top = models.IntegerField()
-    image_pos_left = models.IntegerField()
-    avatar_pos_top = models.IntegerField()
-    avatar_pos_left = models.IntegerField()
-    through = models.IntegerField(default=6)
-    objects = models.Manager()
-
-    def __str__(self):
-        return self.name
-
-    @staticmethod
-    def select_background() -> Background:
-        back = Background.objects.all()
-
-        return back[randint(0, back.count() - 1)] if back.exists() else None
-
-
 class Intro(AbstractModel):
     name = models.CharField(max_length=100)
     file = models.FileField(upload_to="media/other/intros")
@@ -391,9 +387,6 @@ class Video(LifecycleModelMixin, AbstractModel):
     )
     updated_at = models.DateTimeField(auto_now=True)
     music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
-    background = models.ForeignKey(
-        Background, blank=True, null=True, on_delete=models.SET_NULL
-    )
     intro = models.ForeignKey(Intro, blank=True, null=True, on_delete=models.SET_NULL)
     outro = models.ForeignKey(Outro, blank=True, null=True, on_delete=models.SET_NULL)
     video_type = models.CharField(
