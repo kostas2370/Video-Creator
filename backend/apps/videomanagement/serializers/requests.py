@@ -1,4 +1,10 @@
 import math
+from pathlib import Path
+import tempfile
+import subprocess
+
+from PIL import Image, UnidentifiedImageError
+from ..utils.timing import video_metadata
 
 from django.conf import settings
 from django.db.models import Max
@@ -115,6 +121,48 @@ class GenerateSerializer(serializers.Serializer):
         return attrs
 
 
+class ManualVideoSerializer(serializers.Serializer):
+    subtitles = serializers.BooleanField(default=True)
+    title = serializers.CharField(max_length=50)
+    video_format = serializers.ChoiceField(choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT)
+    platform = serializers.ChoiceField(choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM)
+
+
+class DurationField(serializers.FloatField):
+    def __init__(self, **kwargs):
+        super().__init__(min_value=0.1, max_value=900, **kwargs)
+
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        if not math.isfinite(value):
+            raise serializers.ValidationError("Choose a duration between 0.1 and 900 seconds.")
+        return value
+
+
+def validate_visual(value):
+    if value.size > 100 * 1024 * 1024:
+        raise serializers.ValidationError("Choose media smaller than 100 MB.")
+    extension = Path(value.name).suffix.lower()
+    try:
+        if extension in {".jpg", ".jpeg", ".png", ".webp"}:
+            Image.open(value).verify()
+        elif extension in {".mp4", ".mov", ".webm", ".avi", ".m4v"}:
+            with tempfile.NamedTemporaryFile(suffix=extension) as temporary:
+                for chunk in value.chunks():
+                    temporary.write(chunk)
+                temporary.flush()
+                metadata = video_metadata(temporary.name)
+                if metadata["duration"] > 900:
+                    raise serializers.ValidationError("Choose a clip up to 15 minutes long.")
+        else:
+            raise serializers.ValidationError("Choose a JPEG, PNG, WebP, MP4, MOV, WebM, AVI, or M4V file.")
+    except (OSError, ValueError, KeyError, StopIteration, UnidentifiedImageError, Image.DecompressionBombError, subprocess.SubprocessError):
+        raise serializers.ValidationError("Could not read this image or video. Choose another file.")
+    finally:
+        value.seek(0)
+    return value
+
+
 class DownloadPlaylistSerializer(serializers.Serializer):
     link = serializers.URLField(required=True)
     category = serializers.ChoiceField(
@@ -146,6 +194,10 @@ class SceneDraftResultSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
 
+class ManualTextSerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=2000, allow_blank=True)
+
+
 class SceneUpdateSerializer(serializers.Serializer):
     text = serializers.CharField(required=True, max_length=2000)
 
@@ -153,6 +205,9 @@ class SceneUpdateSerializer(serializers.Serializer):
 class ChangeSceneImageSerializer(serializers.Serializer):
     image = serializers.FileField(required=False)
     with_audio = serializers.BooleanField(default=False)
+
+    def validate_image(self, value):
+        return validate_visual(value)
 
     def validate(self, attrs):
         if not self.context.get("has_scene_image") and "image" not in attrs:
@@ -198,6 +253,16 @@ class ScenePositionSerializer(serializers.Serializer):
             if position > last + 1:
                 raise serializers.ValidationError("Choose a position within the current video.")
         return position
+
+
+class ManualSceneSerializer(ScenePositionSerializer):
+    text = serializers.CharField(required=False, allow_blank=True, max_length=2000, default="")
+    image = serializers.FileField(required=False)
+    duration = DurationField(required=False, allow_null=True)
+    with_audio = serializers.BooleanField(default=True)
+
+    def validate_image(self, value):
+        return validate_visual(value)
 
 
 class AddSceneSerializer(ScenePositionSerializer):
@@ -268,7 +333,13 @@ class SceneMotionSerializer(serializers.Serializer):
 
 
 class SceneTimingSerializer(serializers.Serializer):
-    pause_after = serializers.FloatField(min_value=0, max_value=10)
+    duration = DurationField(required=False, allow_null=True)
+    pause_after = serializers.FloatField(min_value=0, max_value=10, required=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("Supply a duration or a pause to update timing.")
+        return attrs
 
     def validate_pause_after(self, value):
         if not math.isfinite(value):

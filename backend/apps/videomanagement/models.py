@@ -63,6 +63,7 @@ class ImageMode(models.TextChoices):
 
 class VideoType(models.TextChoices):
     AI = "AI", "AI"
+    MANUAL = "MANUAL", "Manual"
 
 
 IN_FLIGHT_STATUSES = (VideoStatus.GENERATION, VideoStatus.RENDERING)

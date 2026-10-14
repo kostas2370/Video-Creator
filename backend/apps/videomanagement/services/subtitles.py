@@ -13,7 +13,7 @@ from rest_framework.exceptions import ValidationError
 from ..models import VideoStatus
 from ..utils.exceptions import VideoEditConflict
 from ..utils.timing import file_timing, scene_timing
-from ..utils.audio_editing import narration_file, narration_enabled, audio_bounds, caption_offsets
+from ..utils.audio_editing import narration_file, narration_enabled, audio_bounds, caption_offsets, duration_override
 
 
 @dataclass(frozen=True)
@@ -48,9 +48,12 @@ def narration_duration(scene):
 
 
 def scene_cues(scene, *, offset=0, duration=None):
-    if not narration_enabled(scene):
+    manual = getattr(scene.video, "video_type", None) == "MANUAL"
+    if not narration_enabled(scene) and not manual:
         return []
     duration = narration_duration(scene) if duration is None else duration
+    if duration is None and manual:
+        duration = scene_timing(scene, next(iter(scene.scene_images.all()), None))["base_duration"]
     if duration is None or not math.isfinite(duration) or duration <= 0:
         return []
     phrases = caption_phrases(scene.text)
@@ -65,6 +68,9 @@ def scene_cues(scene, *, offset=0, duration=None):
     choices = getattr(scene, "audio_settings", None) or {}
     trim_start, trim_end = audio_bounds(scene, duration)
     delay = choices.get("delay", 0)
+    override = duration_override(scene)
+    if override is not None:
+        trim_end = min(trim_end, trim_start + max(0, override - delay))
     return [CaptionCue(max(cue.start - offset, trim_start) - trim_start + offset + delay,
                        min(cue.end - offset, trim_end) - trim_start + offset + delay, cue.text)
             for cue in cues if cue.end - offset > trim_start and cue.start - offset < trim_end]
@@ -88,7 +94,7 @@ def cues_to_srt(cues):
 def export_subtitles(video):
     if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
         raise VideoEditConflict("Wait for processing to finish before downloading subtitles.")
-    if not (video.settings or {}).get("narration", True) and not video.scenes.exclude(voiceover="").exists():
+    if video.video_type != "MANUAL" and not (video.settings or {}).get("narration", True) and not video.scenes.exclude(voiceover="").exists():
         raise ValidationError({"detail": "Subtitles need recorded narration."})
     offset = 0
     if video.intro:
@@ -104,5 +110,5 @@ def export_subtitles(video):
         image = next(iter(scene.scene_images.all()), None)
         offset += scene_timing(scene, image)["duration"]
     if not cues:
-        raise ValidationError({"detail": "No recorded narration is available to export."})
+        raise ValidationError({"detail": "Add caption text or recorded narration before exporting subtitles."})
     return cues_to_srt(cues)

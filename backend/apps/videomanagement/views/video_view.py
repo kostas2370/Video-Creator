@@ -8,6 +8,8 @@ from django.http import HttpResponse
 from django.utils.http import content_disposition_header
 from django.utils.text import slugify
 from django.db import transaction
+from django.db.models import Q
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
@@ -20,7 +22,10 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import IsAuthenticated
 
 from ..events import publish_update
-from ..models import Video, VideoStatus
+from ..models import Video, VideoStatus, VideoType
+from ..serializers.requests import ManualVideoSerializer, ManualSceneSerializer
+from ..serializers.audio import VoiceoverUploadSerializer
+from ..services.manual import create_manual_video, add_manual_scene, set_music
 from ..paginator import StandardResultsSetPagination
 from ..serializers.requests import BulkAutoMotionSerializer, VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
 from ..serializers.models import VideoSerializer, VideoNestedSerializer
@@ -55,6 +60,25 @@ class VideoView(
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
 
+    @swagger_auto_schema(request_body=ManualVideoSerializer)
+    @action(detail=False, methods=["POST"])
+    def manual(self, request):
+        serializer = ManualVideoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video = create_manual_video(request.user, **serializer.validated_data)
+        return Response(VideoNestedSerializer(video).data, status=201)
+
+    @action(detail=True, methods=["POST", "DELETE"], parser_classes=[MultiPartParser, FormParser])
+    def music(self, request, pk=None):
+        video = self.get_object()
+        upload = None
+        if request.method == "POST":
+            serializer = VoiceoverUploadSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            upload = serializer.validated_data["file"]
+        video = set_music(video, upload)
+        return Response(self.serialize_video_detail(video))
+
     def get_queryset(self):
         queryset = (
             Video.objects.filter(created_by_id=self.request.user.id)
@@ -62,7 +86,7 @@ class VideoView(
             .select_related("music", "prompt")
         )
         if self.action == "list":
-            queryset = queryset.exclude(gpt_answer__isnull=True)
+            queryset = queryset.filter(Q(gpt_answer__isnull=False) | Q(video_type=VideoType.MANUAL))
 
         if self.action in ("retrieve", "preview"):
             queryset = queryset.select_related("intro", "outro").prefetch_related(
@@ -188,6 +212,9 @@ class VideoView(
     def resume(self, _, pk):
         video = self.get_object()
 
+        if video.video_type == VideoType.MANUAL:
+            return Response({"detail": "Manual projects do not need AI generation. Edit your scenes and render again."}, status=409)
+
         if not video.gpt_answer or not video.dir_name:
             return Response(
                 {
@@ -232,6 +259,8 @@ class VideoView(
     @action(detail=True, methods=["PATCH"], throttle_classes=[RenderRateThrottle])
     def render_video(self, _, pk):
         vid = self.get_object()
+        if vid.video_type == VideoType.MANUAL and vid.status in (VideoStatus.READY, VideoStatus.COMPLETED) and not vid.scenes.exists():
+            return Response({"detail": "Add a scene before rendering your video."}, status=400)
 
         claimed = Video.objects.filter(
             pk=vid.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED]
@@ -268,6 +297,11 @@ class VideoView(
     @action(detail=True, methods=["POST"])
     def add_scene(self, request, pk):
         video = self.get_object()
+        if video.video_type == VideoType.MANUAL:
+            serializer = ManualSceneSerializer(data=request.data, context={"video": video})
+            serializer.is_valid(raise_exception=True)
+            add_manual_scene(video, **serializer.validated_data)
+            return Response(self.serialize_video_detail(video), status=201)
         is_batch = "scenes" in request.data
         if is_batch and request.FILES:
             return Response({"detail": "Upload a visual when adding a single scene."}, status=400)

@@ -119,9 +119,8 @@ def preview_timeline(video):
         captions = []
         for segment in scene_segments:
             track = tracks.get(str(segment.content.pk))
-            if track:
-                offset = track["start"] - segment.content.audio_settings.get("delay", 0)
-                captions.extend(scene_cues(segment.content, offset=offset, duration=segment.narration_duration))
+            caption_offset = track["start"] - segment.content.audio_settings.get("delay", 0) if track else segment.start
+            captions.extend(scene_cues(segment.content, offset=caption_offset, duration=segment.narration_duration))
     apply_transitions(scene_segments, choices)
     segments.extend(scene_segments)
 

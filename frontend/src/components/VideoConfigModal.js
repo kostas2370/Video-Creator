@@ -35,11 +35,11 @@ const normalizeAvatarPosition = (position) => {
 };
 
 export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => {
-  const avatarsOptions = useAssetOptions(getAvatars, showModal);
+  const avatarsOptions = useAssetOptions(getAvatars, showModal && info?.video_type !== "MANUAL");
   const avatars = avatarsOptions.items;
   const [avatar, setAvatar] = useState("");
   const [voice, setVoice] = useState("");
-  const voicesOptions = useAssetOptions(getVoices, showModal && !avatar);
+  const voicesOptions = useAssetOptions(getVoices, showModal && !avatar && info?.video_type !== "MANUAL");
   const voices = voicesOptions.items;
   const introsOptions = useAssetOptions(getIntro, showModal);
   const intros = introsOptions.items;
@@ -184,10 +184,10 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
             </section>
 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
-              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>Presenter and captions</h3><p className={sectionDescription}>Choose a presenter or narration voice, and subtitle visibility.</p></div></div>
-              <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />
+              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>{info?.video_type === "MANUAL" ? "Captions" : "Presenter and captions"}</h3><p className={sectionDescription}>{info?.video_type === "MANUAL" ? "Show the caption text you add to your scenes." : "Choose a presenter or narration voice, and subtitle visibility."}</p></div></div>
+              {info?.video_type !== "MANUAL" && <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />}
               <MoreAssetOptions options={avatarsOptions} label="avatars" />
-              {!avatar && (
+              {!avatar && info?.video_type !== "MANUAL" && (
                 <div className="mt-5">
                   <label htmlFor="video-voice" className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration voice</label>
                   <select id="video-voice" value={voice} onChange={(event) => setVoice(event.target.value)} disabled={saving || info?.settings?.narration === false} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
@@ -215,7 +215,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
               <label htmlFor="video-subtitles" className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 transition hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800">
                 <input type="checkbox" id="video-subtitles" checked={subtitles} onChange={(event) => setSubtitles(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-xs font-bold tracking-tight text-blue-600 dark:bg-blue-400/10 dark:text-blue-300">CC</span>
-                <span className="flex-1"><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Subtitles</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Show narration as on-screen captions.</span></span>
+                <span className="flex-1"><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Subtitles</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{info?.video_type === "MANUAL" ? "Show the text you add to each scene." : "Show narration as on-screen captions."}</span></span>
                 <span className={`relative h-6 w-11 rounded-full transition ${subtitles ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"}`} aria-hidden="true"><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${subtitles ? "left-6" : "left-1"}`} /></span>
               </label>
             </section>
