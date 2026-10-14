@@ -23,25 +23,22 @@ def create_manual_video(user, **choices):
         )
 
 
-def add_manual_scene(video, **choices):
-    saved = None
+def add_manual_scene(video, *, text="", image=None, duration=None, position=None, with_audio=True):
+    visual = None
     try:
         with editable_video(video.pk) as locked:
-            scene = make_scene_speech(locked, choices.get("text", ""), False,
-                                      narrate=False, position=choices.get("position"))
-            if choices.get("duration") is not None:
-                scene.audio_settings = {"duration": choices["duration"]}
+            scene = make_scene_speech(locked, text, False, narrate=False, position=position)
+            if duration is not None:
+                scene.audio_settings = {"duration": duration}
                 scene.save(update_fields=["audio_settings"])
-            upload = choices.get("image")
-            if upload:
-                visual = SceneImage(scene=scene, with_audio=choices.get("with_audio", True))
-                visual.file.save(upload.name, upload, save=False)
-                saved = visual.file
+            if image:
+                visual = SceneImage(scene=scene, file=image, with_audio=with_audio)
                 visual.save()
             changed(locked)
     except Exception:
-        if saved:
-            saved.storage.delete(saved.name)
+        # Database rollback does not remove files already written to storage.
+        if visual and visual.file._committed:
+            visual.file.delete(save=False)
         raise
     return scene
 
