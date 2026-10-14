@@ -235,3 +235,39 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("duration", response.data["audio_settings"])
         self.assertEqual(response.data["timing"]["duration"], 2)
+
+    def test_failed_visual_save_rolls_back_scene_order_and_removes_uploaded_file(self):
+        from ...models import SceneImage
+        from ...services.manual import add_manual_scene
+
+        video = self.create_project()
+        self.add_scene(video, text="Existing scene")
+        existing = video.scenes.first()
+        save_visual = SceneImage.save
+
+        def fail_after_upload(visual, *args, **kwargs):
+            save_visual(visual, *args, **kwargs)
+            self.assertTrue(Path(visual.file.path).exists())
+            raise RuntimeError("Database operation failed after uploading")
+
+        with patch.object(SceneImage, "save", fail_after_upload):
+            with self.assertRaises(RuntimeError):
+                add_manual_scene(video, image=self.photo(), position=1, duration=2)
+        existing.refresh_from_db()
+        self.assertEqual(existing.position, 1)
+        self.assertEqual(video.scenes.count(), 1)
+        self.assertFalse(SceneImage.objects.filter(scene__video=video).exists())
+        self.assertEqual(list(Path(self.directory.name).rglob("*.png")), [])
+
+    def test_failure_before_visual_upload_does_not_delete_an_existing_file(self):
+        from ...models import SceneImage
+        from ...services.manual import add_manual_scene
+
+        video = self.create_project()
+        existing_file = Path(self.directory.name, "photo.png")
+        existing_file.write_bytes(b"existing file")
+        with patch.object(SceneImage, "save", side_effect=RuntimeError("Database unavailable")):
+            with self.assertRaises(RuntimeError):
+                add_manual_scene(video, image=self.photo())
+        self.assertEqual(existing_file.read_bytes(), b"existing file")
+        self.assertEqual(video.scenes.count(), 0)
