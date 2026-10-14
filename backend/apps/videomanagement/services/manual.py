@@ -5,7 +5,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.db import transaction
 
-from ..models import Music, SceneImage, UserPrompt, Video, VideoStatus, VideoType
+from ..models import Music, SceneImage, UserPrompt, Video, VideoStatus, VideoType, TransitionStyle
 from ..utils.audio_utils import make_scene_speech
 from .audio_editing import playable_voiceover
 from .editing import editable_video, changed
@@ -19,7 +19,7 @@ def create_manual_video(user, **choices):
             video_type=VideoType.MANUAL, status=VideoStatus.READY,
             dir_name=str(Path(settings.MEDIA_ROOT, "media", "manual", uuid4().hex)),
             mode=None, settings={"narration": False, "subtitles": False,
-                                 "transition_default": "CUT", **choices},
+                                 "transition_default": TransitionStyle.CUT, **choices},
         )
 
 

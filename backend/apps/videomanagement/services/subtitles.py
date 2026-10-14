@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from rest_framework.exceptions import ValidationError
 
-from ..models import VideoStatus
+from ..models import VideoStatus, VideoType
 from ..utils.exceptions import VideoEditConflict
 from ..utils.timing import file_timing, scene_timing
 from ..utils.audio_editing import narration_file, narration_enabled, audio_bounds, caption_offsets, duration_override
@@ -48,7 +48,7 @@ def narration_duration(scene):
 
 
 def scene_cues(scene, *, offset=0, duration=None):
-    manual = getattr(scene.video, "video_type", None) == "MANUAL"
+    manual = getattr(scene.video, "video_type", None) == VideoType.MANUAL
     if not narration_enabled(scene) and not manual:
         return []
     duration = narration_duration(scene) if duration is None else duration
@@ -94,7 +94,7 @@ def cues_to_srt(cues):
 def export_subtitles(video):
     if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
         raise VideoEditConflict("Wait for processing to finish before downloading subtitles.")
-    if video.video_type != "MANUAL" and not (video.settings or {}).get("narration", True) and not video.scenes.exclude(voiceover="").exists():
+    if video.video_type != VideoType.MANUAL and not (video.settings or {}).get("narration", True) and not video.scenes.exclude(voiceover="").exists():
         raise ValidationError({"detail": "Subtitles need recorded narration."})
     offset = 0
     if video.intro:
