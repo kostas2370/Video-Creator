@@ -874,17 +874,19 @@ For any inquiries or support, feel free to reach out:
 
 ### Audio editing
 
-Open **Edit audio · Voiceover, trim & fades** on a scene to see its voice waveform.
+Choose **Audio** in the scene header to see its voice waveform.
 Adjust the trim start/end sliders, start delay, volume and fades, then choose
-**Save audio edits** in the audio modal. **Listen to trim** auditions the trimmed voice with fades;
+**Save changes** in the audio modal. **Preview** auditions the trimmed voice with fades;
 the full video preview also includes start delays, crossfades and music.
 
-Upload a voiceover (up to 50 MB / 15 minutes), or choose **Record voiceover** in
+Upload a voiceover (up to 50 MB / 15 minutes), or choose **Record** in
 a supported browser on HTTPS or localhost. Stop recording, listen to the take,
-then choose **Use this voiceover**. Record another take or discard it before
+trim it if needed, then choose **Save changes**. This one action uploads the replacement and applies its edits. Record another take or discard it before
 saving. Recording stops after 15 minutes. **Restore generated narration** removes
 the replacement and resets the voice edits without deleting the generated audio.
 Keep the scene dialogue aligned with your recording for estimated captions.
+
+Fade presets offer **None**, **Short** and **Smooth** edges. Exact fade lengths, start delay and crossfade controls live under **Advanced**. Unavailable crossfades explain the pause or gap that prevents an overlap. Cancel closes the modal without saving draft edits.
 
 **Crossfade to next** overlaps adjacent voice clips when they meet without a
 pause. The next voice begins early while the visual timeline stays in place;
