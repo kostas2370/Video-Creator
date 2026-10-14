@@ -6,6 +6,8 @@ import { getVideoPreview } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { voiceGain, musicGain } from "./audioEnvelope";
 
+import { imageMotion } from "../utils/motion";
+
 const mediaUrl = url => /^https?:\/\//i.test(url || "") ? url : `${API_HOST}${url}`;
 const clock = seconds => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 
@@ -73,7 +75,7 @@ function Visual({ segment, time, playing, muted, onFailure, onBlocked, opacity =
   if (!segment?.visual) return <div className="absolute inset-0 flex items-center justify-center bg-black px-5 text-center text-sm text-gray-400">No visual available</div>;
   return <div className="absolute inset-0" style={{ opacity }}>
     {segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={segment.visual_duration} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
-      : <img src={mediaUrl(segment.visual)} alt={segment.label} onError={onFailure} className="absolute inset-0 h-full w-full object-cover" />}
+      : <img style={imageMotion(segment, time)} src={mediaUrl(segment.visual)} alt={segment.label} onError={onFailure} className="absolute inset-0 h-full w-full object-cover" />}
   </div>;
 }
 
@@ -117,8 +119,8 @@ function VideoPreview({ video, disabled = false }) {
   const allowed = ["READY", "COMPLETED", "FAILED"].includes(video?.status);
   // Polling returns new objects even when nothing changed; only an edited timeline reloads.
   const revision = JSON.stringify([video?.id, video?.status, video?.updated_at, video?.settings,
-    video?.intro, video?.outro, video?.avatar, video?.music, video?.background,
-    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration])]);
+    video?.intro, video?.outro, video?.avatar, video?.music,
+    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity])]);
   useEffect(() => {
     setPlaying(false);
     setManifest(null);

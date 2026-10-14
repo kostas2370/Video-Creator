@@ -113,7 +113,7 @@ class UserPromptSerializer(serializers.ModelSerializer):
 VIDEO_RESPONSE_FIELDS = (
     "id", "created_by", "title", "url", "gpt_answer", "prompt", "genre", "output",
     "dir_name", "voice_model", "avatar", "status", "updated_at", "music",
-    "background", "intro", "outro", "video_type", "mode", "settings",
+    "intro", "outro", "video_type", "mode", "settings",
 )
 
 

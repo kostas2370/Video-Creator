@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from ..models import Avatar, Intro, Outro
+from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle
 from ..services.asset_selection import available_voice, owned_asset
 from ..services.VideoServices import video_update
 from ..video_formats import (
@@ -75,7 +75,6 @@ class GenerateSerializer(serializers.Serializer):
     target_audience = serializers.CharField(
         required=False, max_length=30, min_length=0, default="", allow_blank=True
     )
-    background = serializers.CharField(required=False, max_length=36, default=None)
     intro = serializers.CharField(required=False, max_length=36, default=None)
     outro = serializers.CharField(required=False, max_length=36, default=None)
     subtitles = serializers.BooleanField(required=False, default=False)
@@ -257,6 +256,15 @@ class ReorderScenesSerializer(serializers.Serializer):
 class SceneTransitionSerializer(serializers.Serializer):
     transition_after = serializers.ChoiceField(choices=["DEFAULT", "FADE", "CUT", "DISSOLVE"])
     transition_duration = TransitionDurationField(required=False, allow_null=True)
+
+
+class BulkAutoMotionSerializer(serializers.Serializer):
+    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices)
+
+
+class SceneMotionSerializer(serializers.Serializer):
+    motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
+    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices, required=False)
 
 
 class SceneTimingSerializer(serializers.Serializer):

@@ -376,7 +376,7 @@ class CustomVideoProviderTests(TestCase):
                 path = os.path.join(directory, "clip." + extension)
                 subprocess.run(
                     [
-                        custom.get_setting("FFMPEG_BINARY"),
+                        "ffmpeg",
                         "-nostdin",
                         "-y",
                         "-f",
@@ -435,11 +435,10 @@ class CustomVideoProviderTests(TestCase):
 
     def assert_video(self, path):
         self.assertTrue(path.endswith(".mp4"))
-        with custom.VideoFileClip(path) as clip:
-            self.assertGreater(clip.duration, 0)
-            self.assertEqual(clip.size, [32, 24])
-            self.assertIsNotNone(clip.audio)
-            self.assertEqual(clip.get_frame(0).shape, (24, 32, 3))
+        metadata = custom.video_metadata(path)
+        self.assertGreater(metadata["duration"], 0)
+        self.assertEqual((metadata["width"], metadata["height"]), (32, 24))
+        self.assertTrue(metadata["audio"])
 
     def test_raw_video_uses_configured_authentication_parameters_and_timeout(self):
         result = self.video_response()

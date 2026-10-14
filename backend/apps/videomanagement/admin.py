@@ -10,7 +10,6 @@ from .models import (
     VoiceModel,
     Intro,
     Outro,
-    Background,
     Avatar,
 )
 from .tasks import render_video_task
@@ -40,5 +39,4 @@ admin.site.register(Music)
 admin.site.register(VoiceModel)
 admin.site.register(Intro)
 admin.site.register(Outro)
-admin.site.register(Background)
 admin.site.register(Avatar)

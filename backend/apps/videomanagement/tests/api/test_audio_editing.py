@@ -1,4 +1,5 @@
 import tempfile
+import subprocess
 import wave
 from pathlib import Path
 from unittest.mock import patch
@@ -11,7 +12,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from ...baker_recipes import scene
 from ...models import VideoStatus
 from ...utils.audio_editing import music_gain, voice_tracks, waveform
-from ...utils.composer.audio import scene_audio_segments, compose_edited_audio
+from ...utils.audio_editing import scene_audio_segments
+from ...utils.composer.render import narration_graph
 from .base import ApiTestCase
 from apps.usermanagement.baker_recipes import user
 
@@ -92,15 +94,14 @@ class AudioEditingTests(ApiTestCase):
         response = self.client.get(reverse("video-preview", args=[self.video.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["audio_tracks"], plan)
-        mixed, resources = compose_edited_audio([self.scene, second], [(None, 2), (None, 4)])
-        try:
-            self.assertEqual(mixed.duration, 6)
-            self.assertTrue(np.any(np.abs(mixed.get_frame(0.5)) > 0.01))
-            self.assertTrue(np.all(np.abs(mixed.get_frame(5.8)) < 0.001))
-        finally:
-            mixed.close()
-            for resource in resources:
-                resource.close()
+        output = Path(self.directory.name, "mixed.wav")
+        graph, stream = narration_graph(segments, self.video.settings)
+        graph.run(self.directory.name, output, [stream], ["-c:a", "pcm_s16le", "-ar", "44100"], 6)
+        with wave.open(str(output), "rb") as audio:
+            self.assertEqual(audio.getnframes() / audio.getframerate(), 6)
+            samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype="<i2").reshape(-1, 2) / 32768
+        self.assertGreater(np.abs(samples[22050:26460]).mean(), 0.01)
+        self.assertLess(np.abs(samples[255780:264600]).mean(), 0.001)
 
     def test_pause_prevents_crossfade(self):
         self.scene.pause_after = 1
@@ -150,3 +151,33 @@ class AudioEditingTests(ApiTestCase):
         metadata = media_timing(result.output.path)
         self.assertAlmostEqual(metadata["duration"], 4, delta=0.05)
         self.assertAlmostEqual(metadata["audio_duration"], 4, delta=0.05)
+
+    def test_ducked_music_recovers_during_voice_silence_in_export(self):
+        from ...baker_recipes import music
+        from ...utils.composer.render import make_video
+        path = Path(self.directory.name, "music.wav")
+        with wave.open(str(path), "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(8000)
+            tone = 0.2 * np.sin(2 * np.pi * 700 * np.arange(32000) / 8000)
+            output.writeframes((tone * 32767).astype("<i2").tobytes())
+        self.video.music = music.make(file="music.wav")
+        self.video.settings = {"music_ducking": True, "music_volume": 0.5,
+                               "music_fade_in": 0, "music_fade_out": 0,
+                               "duck_level": 0.25, "duck_release": 0.2}
+        self.video.dir_name = str(Path(self.directory.name, "ducking-render"))
+        self.video.save()
+        with patch("apps.videomanagement.utils.composer.render.output_size", return_value=(32, 18)):
+            result = make_video(self.video)
+        decoded = subprocess.check_output(["ffmpeg", "-v", "error", "-i", result.output.path,
+                                           "-vn", "-ac", "1", "-ar", "8000", "-f", "f32le", "pipe:1"])
+        samples = np.frombuffer(decoded, dtype="<f4")
+        def music_level(start):
+            chunk = samples[int(start * 8000):int((start + 0.5) * 8000)]
+            return abs(np.mean(chunk * np.exp(-2j * np.pi * 700 * np.arange(len(chunk)) / 8000)))
+        baseline = music_level(0.25)
+        self.assertGreater(baseline, 0.01)
+        self.assertLess(music_level(1.5) / baseline, 0.4)
+        self.assertGreater(music_level(1.5) / baseline, 0.15)
+        self.assertAlmostEqual(music_level(3.25) / baseline, 1, delta=0.15)

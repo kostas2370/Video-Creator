@@ -104,7 +104,6 @@ def generate_video(
     style: Literal["vivid", "natural"],
     target_audience: str,
     music: Union[str, None] = None,
-    background: str = None,
     intro: str = None,
     outro: str = None,
     voice_id: Union[str, None] = None,
@@ -141,8 +140,6 @@ def generate_video(
         The target audience for the video.
     music : Union[str, None], optional
         The music to be included in the video.
-    background : str, optional
-        The background for the video.
     intro : str, optional
         The ID of the intro to be included in the video.
     outro : str, optional
@@ -210,7 +207,6 @@ def generate_video(
     vid.title = x["title"][:50]
     vid.dir_name = dir_name
     vid.gpt_answer = x
-    vid.background = background
     vid.intro = intro
     vid.outro = outro
     generation_params = (vid.settings or {}).get("generation_params")
