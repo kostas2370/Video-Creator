@@ -13,6 +13,7 @@ from moviepy.editor import (
 
 from ..audio_editing import voice_tracks, music_gain
 from .audio import scene_audio_segments
+from .effects import apply_audio_fades
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ def handle_music(video, final_audio, duration):
         music = music.fl(envelope, keep_duration=True)
     else:
         fade_duration = min(4, duration * 0.1)
-        music = music.audio_fadein(fade_duration).audio_fadeout(fade_duration)
+        music = apply_audio_fades(music, fade_in=fade_duration, fade_out=fade_duration)
 
     # With narration switched off the music is the whole soundtrack.
     return CompositeAudioClip([final_audio, music]) if final_audio else music
