@@ -14,6 +14,8 @@ import { StoryboardModal } from "../components/StoryboardModal";
 import { ResumeModal } from "../components/ResumeModal";
 import { FaRedo, FaDownload, FaPlay } from "react-icons/fa";
 import { SceneCreationModal } from "../components/CreateSceneModal";
+import { MusicAudio } from "../components/MusicAudio";
+
 import { BulkAutoMotion, hasStillImage } from "../components/SceneMotion";
 import { VideoPreviewModal } from "../components/VideoPreview";
 
@@ -232,6 +234,7 @@ export const Video = () => {
             <div className="mt-4 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><p className="text-xs text-gray-500 dark:text-gray-400">Estimated runtime</p><p className="mt-1 text-xl font-semibold text-gray-900 dark:text-gray-100" aria-live="polite">{formatDuration(runtime)}</p><p className="mt-1 text-xs leading-relaxed text-gray-400">Includes pauses, intro and outro. Updates as media becomes available.</p></div>
             <button type="button" disabled={!canDownloadSubtitles || downloadingSubtitles} onClick={downloadSubtitles} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"><FaDownload aria-hidden="true" />{downloadingSubtitles ? "Downloading…" : "Download SRT"}</button>
             <p className="mt-2 text-xs leading-relaxed text-gray-400">Current edit, using recorded narration. Phrase timing is estimated.</p>
+            <MusicAudio video={videoInfo} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} onSaved={setUpdated} />
             <nav aria-label="Scene navigation" className="mt-4 flex gap-2 overflow-x-auto lg:max-h-[50vh] lg:flex-col lg:overflow-y-auto">
               {videoInfo?.scenes?.map((scene, index) => <a key={scene.id} href={`#scene-${scene.id}`} className="flex min-w-0 max-w-[220px] shrink-0 items-center gap-3 rounded-lg px-2 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 dark:text-gray-300 dark:hover:bg-gray-700"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-xs font-semibold dark:bg-gray-700">{index + 1}</span><span className="truncate">{scene.text || `Scene ${index + 1}`}</span></a>)}
             </nav>

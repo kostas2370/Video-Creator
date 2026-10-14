@@ -28,6 +28,10 @@ from ..serializers.requests import (
 from ..permissions import IsOwnerPermission, SceneGenerationLimitPermission
 
 
+from ..serializers.audio import SceneAudioSerializer, VoiceoverUploadSerializer
+from ..services.audio_editing import update_audio, save_voiceover, audio_waveform
+
+
 class SceneView(viewsets.GenericViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
@@ -36,6 +40,29 @@ class SceneView(viewsets.GenericViewSet):
         IsOwnerPermission,
         SceneGenerationLimitPermission,
     ]
+
+    @swagger_auto_schema(request_body=SceneAudioSerializer)
+    @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    def audio(self, request, pk=None):
+        scene = self.get_object()
+        serializer = SceneAudioSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(SceneSerializer(update_audio(scene, serializer.validated_data)).data)
+
+    @action(detail=True, methods=["POST", "DELETE"], parser_classes=[MultiPartParser, FormParser],
+            permission_classes=[IsAuthenticated, IsOwnerPermission])
+    def voiceover(self, request, pk=None):
+        scene = self.get_object()
+        upload = None
+        if request.method == "POST":
+            serializer = VoiceoverUploadSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            upload = serializer.validated_data["file"]
+        return Response(SceneSerializer(save_voiceover(scene, upload)).data)
+
+    @action(detail=True, methods=["GET"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    def waveform(self, request, pk=None):
+        return Response(audio_waveform(self.get_object()), headers={"Cache-Control": "private, no-store"})
 
     @swagger_auto_schema(request_body=SceneMotionSerializer)
     @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])

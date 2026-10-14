@@ -190,6 +190,10 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    voiceover = models.FileField(upload_to="media/voiceovers", blank=True, max_length=2000)
+    audio_settings = models.JSONField(default=dict, blank=True)
+
+
     motion_style = models.CharField(
         max_length=10, choices=MotionStyle.choices, default=MotionStyle.NONE
     )

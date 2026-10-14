@@ -16,6 +16,9 @@ from ..exceptions import RenderFailedException
 from ..file_utils import check_if_image, stored_file_exists
 from ..motion import AMOUNTS, resolved_motion
 from ..timing import media_timing
+from ..audio_editing import narration_file, voice_tracks
+from .audio import voice_stream, write_music_envelope
+from .effects import audio_fade_filters
 
 logger = logging.getLogger(__name__)
 FPS = 24
@@ -117,6 +120,19 @@ def audio_stream(graph, sources, duration):
 
 def narration_graph(segments, choices):
     graph = Graph()
+    if any(segment.content.voiceover or segment.content.audio_settings for segment in segments):
+        tracks = voice_tracks(segments)
+        by_id = {str(segment.content.pk): segment.content for segment in segments}
+        voices = [voice_stream(graph, narration_file(by_id[track["id"]]).path, track) for track in tracks]
+        originals = [audio_stream(graph, [segment.image.file.path] if segment.clip_audio else [], segment.duration)
+                     for segment in segments]
+        original = graph.filter(originals, f"concat=n={len(originals)}:v=0:a=1")
+        if voices:
+            original = graph.filter(
+                [original, *voices],
+                f"amix=inputs={len(voices) + 1}:duration=first:normalize=0",
+            )
+        return graph, original
     streams = []
     for segment in segments:
         sources = []
@@ -296,9 +312,12 @@ Style: Default,{font},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     lines = []
+    tracks = {track["id"]: track for track in voice_tracks(segments)} if any(segment.content.audio_settings.get("crossfade") for segment in segments) else {}
     for segment in segments:
+        track = tracks.get(str(segment.content.pk))
+        offset = track["start"] - segment.content.audio_settings.get("delay", 0) if track else segment.start
         for cue in scene_cues(
-            segment.content, offset=segment.start, duration=segment.narration_duration
+            segment.content, offset=offset, duration=segment.narration_duration
         ):
             text = (
                 cue.text.replace("\\", "＼")
@@ -355,12 +374,22 @@ def final_graph(
     audio = audio_stream(graph, [narration_path], duration)
     if video.music:
         index = graph.input(video.music.file.path, ("-stream_loop", "-1"))
-        fade = min(4, duration * 0.1)
-        volume = float((video.settings or {}).get("music_volume", 0.07))
-        music = graph.filter(
-            [f"{index}:a"],
-            f"aresample=44100,aformat=channel_layouts=stereo,atrim=duration={duration},asetpts=PTS-STARTPTS,volume={volume},afade=t=in:st=0:d={fade},afade=t=out:st={duration - fade}:d={fade}",
-        )
+        choices = video.settings or {}
+        filters = ["aresample=44100", "aformat=sample_fmts=fltp:channel_layouts=stereo",
+                   f"atrim=duration={duration}", "asetpts=PTS-STARTPTS"]
+        if choices.get("music_ducking"):
+            speech = [interval for track in voice_tracks(segments) for interval in track["speech"]]
+            envelope_path = Path(directory, "music-envelope.f32")
+            write_music_envelope(envelope_path, duration, choices, speech)
+            control = graph.input(envelope_path, ("-f", "f32le", "-ar", "44100", "-ac", "2"))
+            envelope = graph.filter([f"{control}:a"], "aformat=sample_fmts=fltp:channel_layouts=stereo")
+            music = graph.filter([f"{index}:a"], ",".join(filters))
+            music = graph.filter([music, envelope], "amultiply")
+        else:
+            fade = min(4, duration * 0.1)
+            filters.append(f"volume={choices.get('music_volume', 0.07)}")
+            filters.extend(audio_fade_filters(duration, fade_in=choices.get("music_fade_in", fade), fade_out=choices.get("music_fade_out", fade)))
+            music = graph.filter([f"{index}:a"], ",".join(filters))
         audio = graph.filter([audio, music], "amix=inputs=2:duration=first:normalize=0")
     if (video.settings or {}).get("subtitles", False):
         write_captions(Path(directory, "captions.ass"), segments, size)
