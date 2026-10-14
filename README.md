@@ -904,7 +904,7 @@ The `0026_scene_audio` database migration adds voiceover storage and audio edits
 
 ### Manual video projects
 
-Choose **Manual video** on the creation screen or navigation bar to start an empty
+Choose **Create video** in the navigation, then **Manual video** to start an empty
 project without AI, API keys, or generation credits. Add your own photos and clips
 (or blank scenes), arrange them, enter caption text, and record or upload a voiceover
 using **Audio**. **Upload music** adds your own soundtrack, with the existing volume,
