@@ -1,0 +1,5 @@
+const presets = [["None", 0], ["Short", 0.2], ["Smooth", 0.8]];
+export function AudioFadePresets({ incoming, outgoing, onChange, disabled }) {
+  const custom = !presets.some(([, value]) => incoming === value && outgoing === value);
+  return <fieldset disabled={disabled}><legend className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Fade edges</legend><div className="flex flex-wrap gap-2">{presets.map(([label, value]) => <button key={label} type="button" aria-pressed={incoming === value && outgoing === value} onClick={() => onChange(value)} className={`rounded-lg border px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 ${incoming === value && outgoing === value ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"}`}>{label}</button>)}{custom && <span className="self-center text-xs text-gray-500">Custom · see Advanced</span>}</div></fieldset>;
+}

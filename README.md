@@ -614,7 +614,7 @@ The preview loads saved changes when you open it. Preview
 is unavailable while generation or rendering is running. Missing visuals show a
 placeholder; media failures display a notice and can be retried by reloading the preview.
 
-This previews scene media and narration. Avatar animation and background music are added during rendering; caption appearance may also differ.
+This previews scene media, edited voice audio and background music, including ducking and fades. Avatar animation is added during rendering; caption appearance may also differ.
 
 ![Playing a scene with captions and the thumbnail timeline](docs/screenshots/preview-timeline.png)
 
@@ -870,3 +870,34 @@ For any inquiries or support, feel free to reach out:
 ✅ Dockerized the application for easier deployment
 
 ---
+
+
+### Audio editing
+
+Choose **Audio** in the scene header to see its voice waveform.
+Adjust the trim start/end sliders, start delay, volume and fades, then choose
+**Save changes** in the audio modal. **Preview** auditions the trimmed voice with fades;
+the full video preview also includes start delays, crossfades and music.
+
+Upload a voiceover (up to 50 MB / 15 minutes), or choose **Record** in
+a supported browser on HTTPS or localhost. Stop recording, listen to the take,
+trim it if needed, then choose **Save changes**. This one action uploads the replacement and applies its edits. Record another take or discard it before
+saving. Recording stops after 15 minutes. **Restore generated narration** removes
+the replacement and resets the voice edits without deleting the generated audio.
+Keep the scene dialogue aligned with your recording for estimated captions.
+
+Fade presets offer **None**, **Short** and **Smooth** edges. Exact fade lengths, start delay and crossfade controls live under **Advanced**. Unavailable crossfades explain the pause or gap that prevents an overlap. Cancel closes the modal without saving draft edits.
+
+**Crossfade to next** overlaps adjacent voice clips when they meet without a
+pause. The next voice begins early while the visual timeline stays in place;
+crossfade duration is capped at half each voice clip's length. Pauses and gaps
+remain silent. Fades are also capped at half the trimmed clip length.
+
+When the video has background music, choose **Edit music** in the sidebar to open a modal for music
+volume, fade in/out, and **Automatically lower music during speech**. Ducking
+follows activity in the generated or uploaded voice track, with adjustable
+reduction, attack and recovery times. It restores music during longer silences;
+it does not classify speech in an uploaded video's original soundtrack.
+Music plays over the scene portion, preserving intro/outro soundtracks.
+Save settings before previewing, and render again to apply them to the export.
+The `0026_scene_audio` database migration adds voiceover storage and audio edits.

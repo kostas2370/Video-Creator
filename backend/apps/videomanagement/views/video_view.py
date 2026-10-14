@@ -35,6 +35,9 @@ from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneG
 
 from ..utils.cost_utils import reserve_scene_credit
 
+from ..serializers.audio import MusicAudioSerializer
+from ..services.audio_editing import changed
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,6 +95,18 @@ class VideoView(
     def perform_destroy(self, instance):
         with editable_video(instance.pk) as video:
             video.delete()
+
+    @swagger_auto_schema(request_body=MusicAudioSerializer)
+    @action(detail=True, methods=["PATCH"])
+    def audio(self, request, pk=None):
+        owned = self.get_object()
+        serializer = MusicAudioSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with editable_video(owned.pk) as video:
+            video.settings = {**(video.settings or {}), **serializer.validated_data}
+            video.save(update_fields=["settings"])
+            changed(video)
+        return Response(self.serialize_video_detail(video))
 
     @action(detail=True, methods=["GET"])
     def subtitles(self, request, pk=None):
