@@ -12,7 +12,8 @@ from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle
+from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle, ImageMode, TransitionStyle
+from apps.apikeysmanagement.models import Provider
 from ..services.asset_selection import available_voice, owned_asset
 from ..services.VideoServices import video_update
 from ..video_formats import (
@@ -69,7 +70,7 @@ class GenerateSerializer(serializers.Serializer):
         default=settings.DEFAULT_GPT_MODEL,
     )
     image_mode = serializers.ChoiceField(
-        required=False, choices=["AI", "WEB", False], default="WEB"
+        required=False, choices=[*ImageMode.choices, (False, "No visuals")], default=ImageMode.WEB
     )
     avatar_selection = serializers.CharField(
         required=False, max_length=36, default="", allow_blank=True, allow_null=True
@@ -101,8 +102,8 @@ class GenerateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs.get("reference_image") and (
-            attrs.get("image_mode") != "AI"
-            or attrs.get("provider") not in (None, "OPENAI", "sora")
+            attrs.get("image_mode") != ImageMode.AI
+            or attrs.get("provider") not in (None, Provider.OPENAI, "sora")
         ):
             raise serializers.ValidationError(
                 {
@@ -215,7 +216,7 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 class VideoUpdateSerializer(serializers.Serializer):
     voice_id = serializers.UUIDField(required=False)
-    transition_default = serializers.ChoiceField(choices=["CUT", "FADE", "DISSOLVE"], required=False)
+    transition_default = serializers.ChoiceField(choices=[choice for choice in TransitionStyle.choices if choice[0] != TransitionStyle.DEFAULT], required=False)
     transition_duration = TransitionDurationField(required=False, allow_null=True)
     avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -309,7 +310,7 @@ class ReorderScenesSerializer(serializers.Serializer):
 
 
 class SceneTransitionSerializer(serializers.Serializer):
-    transition_after = serializers.ChoiceField(choices=["DEFAULT", "FADE", "CUT", "DISSOLVE"])
+    transition_after = serializers.ChoiceField(choices=TransitionStyle.choices)
     transition_duration = TransitionDurationField(required=False, allow_null=True)
 
 

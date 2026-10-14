@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from drf_yasg.utils import swagger_serializer_method
 from rest_framework import serializers
 
-from ..models import Video
+from ..models import Video, TransitionStyle, MotionStyle, MotionIntensity
 from ..services.preview import PreviewTimeline, preview_timeline
 from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
 from ..video_formats import output_size
@@ -40,17 +40,17 @@ class PreviewSegmentSerializer(serializers.Serializer):
     clip_audio = serializers.BooleanField()
     narration = serializers.SerializerMethodField()
     narration_duration = serializers.FloatField(allow_null=True)
-    transition = serializers.ChoiceField(choices=("CUT", "FADE", "DISSOLVE"))
+    transition = serializers.ChoiceField(choices=[choice for choice in TransitionStyle.choices if choice[0] != TransitionStyle.DEFAULT])
     transition_duration = serializers.FloatField(allow_null=True)
     motion_style = serializers.SerializerMethodField()
-    motion_intensity = serializers.CharField(source="content.motion_intensity", default="SUBTLE")
+    motion_intensity = serializers.CharField(source="content.motion_intensity", default=MotionIntensity.SUBTLE)
     fade_in = serializers.FloatField()
     fade_out = serializers.FloatField()
     dissolve_in = serializers.FloatField()
 
     @swagger_serializer_method(serializer_or_field=serializers.CharField())
     def get_motion_style(self, segment):
-        return resolved_motion(segment.content) if segment.kind == "scene" and segment.visual_type == "image" else "NONE"
+        return resolved_motion(segment.content) if segment.kind == "scene" and segment.visual_type == "image" else MotionStyle.NONE
 
     @swagger_serializer_method(serializer_or_field=serializers.CharField())
     def get_id(self, segment):
