@@ -10,7 +10,7 @@ from rest_framework.exceptions import ValidationError
 
 from ..events import publish_update
 from ..models import Scene
-from ..utils.audio_editing import narration_file, waveform
+from ..utils.audio_editing import narration_file, waveform, duration_override
 from ..utils.timing import file_timing, media_timing
 from .editing import editable_video
 
@@ -92,7 +92,8 @@ def store_voiceover(scene, upload):
             else:
                 scene.voiceover.save(upload.name, upload, save=False)
                 saved_name = scene.voiceover.name
-            scene.audio_settings = {}
+            override = duration_override(scene)
+            scene.audio_settings = {"duration": override} if override is not None else {}
             scene.save(update_fields=["voiceover", "audio_settings"])
             changed(video)
             if old_name:

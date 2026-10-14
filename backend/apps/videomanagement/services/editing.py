@@ -73,7 +73,28 @@ def update_scene_motion(scene, **changes):
 
 
 def update_scene_timing(scene, **changes):
-    return _update_playback(scene, ("pause_after",), changes)
+    with editable_video(scene.video_id) as video:
+        scene = get_object_or_404(Scene.objects.select_for_update(), pk=scene.pk)
+        fields = []
+        if "pause_after" in changes and scene.pause_after != changes["pause_after"]:
+            scene.pause_after = changes["pause_after"]
+            fields.append("pause_after")
+        if "duration" in changes:
+            settings = {**(scene.audio_settings or {})}
+            if changes["duration"] is None:
+                settings.pop("duration", None)
+            else:
+                settings["duration"] = changes["duration"]
+            if settings != scene.audio_settings:
+                scene.audio_settings = settings
+                fields.append("audio_settings")
+        if fields:
+            scene.save(update_fields=fields)
+            if video.avatar_id:
+                transaction.on_commit(lambda: Path(video.dir_name, "output_avatar.mp4").unlink(missing_ok=True), robust=True)
+            video.save(update_fields=["updated_at"])
+            publish_update(f"video.{video.pk}", video_id=video.pk)
+    return scene
 
 
 def _update_playback(scene, allowed_fields, changes):

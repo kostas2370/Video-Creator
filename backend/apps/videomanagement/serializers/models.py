@@ -3,7 +3,7 @@ from rest_framework.validators import UniqueTogetherValidator
 
 from ..utils.file_utils import stored_file_exists
 from ..utils.timing import file_timing, scene_timing
-from ..utils.audio_editing import narration_file, narration_enabled
+from ..utils.audio_editing import narration_file, narration_enabled, duration_override
 
 from ..models import (
     TemplatePrompt,
@@ -49,6 +49,11 @@ class SceneImageSerializer(serializers.ModelSerializer):
 
 
 class SceneSerializer(serializers.ModelSerializer):
+    duration = serializers.SerializerMethodField()
+
+    def get_duration(self, obj):
+        return duration_override(obj)
+
     scene_image = serializers.SerializerMethodField()
     narration_status = serializers.SerializerMethodField()
     timing = serializers.SerializerMethodField()

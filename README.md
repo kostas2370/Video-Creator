@@ -901,3 +901,22 @@ it does not classify speech in an uploaded video's original soundtrack.
 Music plays over the scene portion, preserving intro/outro soundtracks.
 Save settings before previewing, and render again to apply them to the export.
 The `0026_scene_audio` database migration adds voiceover storage and audio edits.
+
+### Manual video projects
+
+Choose **Manual video** on the creation screen or navigation bar to start an empty
+project without AI, API keys, or generation credits. Add your own photos and clips
+(or blank scenes), arrange them, enter caption text, and record or upload a voiceover
+using **Audio**. **Upload music** adds your own soundtrack, with the existing volume,
+fade, and ducking controls.
+
+Photos and blank scenes default to five seconds; clips use their media duration.
+Leave **Duration** empty for automatic timing, or enter a duration to trim the end
+of a clip or hold its last frame longer. Use scene transitions, preview your saved
+edits, then render and download the video. Captions can be enabled in **Settings**
+and exported as SRT, even without narration. AI rewrites and generated visuals
+remain optional actions in the editor.
+
+This mode uses the existing scene editor and preview timeline. It does not add
+multiple video layers or a freeform multitrack editing timeline. Apply the database
+migrations before deploying this version.

@@ -15,6 +15,10 @@ def narration_enabled(scene):
     return bool(getattr(scene, "voiceover", None)) or (scene.video.settings or {}).get("narration", True)
 
 
+def duration_override(scene):
+    return (getattr(scene, "audio_settings", None) or {}).get("duration")
+
+
 def audio_bounds(scene, duration):
     choices = getattr(scene, "audio_settings", None) or {}
     start = min(choices.get("trim_start", 0), duration)
@@ -70,9 +74,10 @@ def voice_tracks(segments):
             continue
         choices = getattr(scene, "audio_settings", None) or {}
         trim_start, trim_end = audio_bounds(scene, duration)
-        length = trim_end - trim_start
+        length = min(trim_end - trim_start, max(0, segment.base_duration - choices.get("delay", 0)))
         if length <= 0:
             continue
+        trim_end = trim_start + length
         start = segment.start + choices.get("delay", 0)
         fade_in = min(choices.get("fade_in", 0), length / 2)
         overlap = 0

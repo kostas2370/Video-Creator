@@ -341,7 +341,11 @@ def generate_new_image(
 
     """
     provider = (video.settings or {}).get("provider")
-    generate = ImageProviderRegistry.resolve(video.mode, provider)
+    mode = video.mode
+    if video.video_type == "MANUAL":
+        mode, provider = "AI", "OPENAI"
+        Path(video.dir_name, "images").mkdir(parents=True, exist_ok=True)
+    generate = ImageProviderRegistry.resolve(mode, provider)
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     img = generate(

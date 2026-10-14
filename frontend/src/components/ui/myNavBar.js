@@ -7,7 +7,8 @@ import { NotificationBell } from "./NotificationBell";
 import useLogout from "../../hooks/useLogout";
 
 const destinations = [
-  { to: "/", label: "Generate", icon: HiOutlineSparkles },
+  { to: "/", label: "Create with AI", icon: HiOutlineSparkles },
+  { to: "/manual", label: "Manual video", icon: HiOutlineFilm },
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },

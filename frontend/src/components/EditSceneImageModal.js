@@ -36,7 +36,7 @@ export const EditSceneImageModal = ({ showModal, setShowModal, scene_info, setUp
     finally { setBusy(""); }
   };
   const media = preview || (scene_info.scene_image_id ? scene_info.image : "");
-  const isVideo = file ? file.type.startsWith("video/") : media?.includes("mp4");
+  const isVideo = file ? file.type.startsWith("video/") : /\.(mp4|mov|webm|avi|m4v)(?:\?|$)/i.test(media || "");
   const previewAspectRatio = { LANDSCAPE: "16 / 9", PORTRAIT: "9 / 16", SQUARE: "1 / 1" }[scene_info.video_format] || "16 / 9";
   const previewFrameClass = scene_info.video_format === "PORTRAIT"
     ? "mx-auto h-[min(48vh,360px)] max-w-full aspect-[9/16]"

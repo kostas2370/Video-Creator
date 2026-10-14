@@ -300,6 +300,7 @@ const Home = () => {
       <ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} />
       <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
+      <nav aria-label="Video creation mode" className="mb-8 flex gap-2"><span aria-current="page" className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Create with AI</span><Link to="/manual/" className="rounded-xl px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">Manual video</Link></nav>
       <header className="mb-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-white">Turn your idea into a video</h1>
