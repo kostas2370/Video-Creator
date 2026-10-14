@@ -5,6 +5,8 @@ import subprocess
 
 from PIL import Image, UnidentifiedImageError
 from ..utils.timing import video_metadata
+from ..utils.file_utils import check_if_image, check_if_video
+from .audio import FiniteFloat
 
 from django.conf import settings
 from django.db.models import Max
@@ -128,26 +130,14 @@ class ManualVideoSerializer(serializers.Serializer):
     platform = serializers.ChoiceField(choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM)
 
 
-class DurationField(serializers.FloatField):
-    def __init__(self, **kwargs):
-        super().__init__(min_value=0.1, max_value=900, **kwargs)
-
-    def to_internal_value(self, data):
-        value = super().to_internal_value(data)
-        if not math.isfinite(value):
-            raise serializers.ValidationError("Choose a duration between 0.1 and 900 seconds.")
-        return value
-
-
 def validate_visual(value):
     if value.size > 100 * 1024 * 1024:
         raise serializers.ValidationError("Choose media smaller than 100 MB.")
-    extension = Path(value.name).suffix.lower()
     try:
-        if extension in {".jpg", ".jpeg", ".png", ".webp"}:
+        if check_if_image(value.name):
             Image.open(value).verify()
-        elif extension in {".mp4", ".mov", ".webm", ".avi", ".m4v"}:
-            with tempfile.NamedTemporaryFile(suffix=extension) as temporary:
+        elif check_if_video(value.name):
+            with tempfile.NamedTemporaryFile(suffix=Path(value.name).suffix) as temporary:
                 for chunk in value.chunks():
                     temporary.write(chunk)
                 temporary.flush()
@@ -258,7 +248,7 @@ class ScenePositionSerializer(serializers.Serializer):
 class ManualSceneSerializer(ScenePositionSerializer):
     text = serializers.CharField(required=False, allow_blank=True, max_length=2000, default="")
     image = serializers.FileField(required=False)
-    duration = DurationField(required=False, allow_null=True)
+    duration = FiniteFloat(min_value=0.1, max_value=900, required=False, allow_null=True)
     with_audio = serializers.BooleanField(default=True)
 
     def validate_image(self, value):
@@ -333,18 +323,14 @@ class SceneMotionSerializer(serializers.Serializer):
 
 
 class SceneTimingSerializer(serializers.Serializer):
-    duration = DurationField(required=False, allow_null=True)
-    pause_after = serializers.FloatField(min_value=0, max_value=10, required=False)
+    duration = FiniteFloat(min_value=0.1, max_value=900, required=False, allow_null=True)
+    pause_after = FiniteFloat(min_value=0, max_value=10, required=False)
 
     def validate(self, attrs):
         if not attrs:
             raise serializers.ValidationError("Supply a duration or a pause to update timing.")
         return attrs
 
-    def validate_pause_after(self, value):
-        if not math.isfinite(value):
-            raise serializers.ValidationError("Choose a pause between 0 and 10 seconds.")
-        return value
 
 
 class SceneJobQuerySerializer(serializers.Serializer):

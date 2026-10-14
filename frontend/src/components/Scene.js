@@ -1,3 +1,4 @@
+import { isVideo } from "../utils/media";
 import React, { useState } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import { FaPencilAlt } from "react-icons/fa";
@@ -102,7 +103,7 @@ export const Scene = ({ manual, scene, setUpdated, video_format = "LANDSCAPE", i
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Visual</h3><div className="flex flex-wrap items-center gap-1">{onMotion && <SceneMotion scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}<button type="button" onClick={() => setShowEditImageModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlinePencilSquare className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button></div></div>
             <div className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${formatFrameClasses[video_format] || formatFrameClasses.LANDSCAPE}`}>
-              {scene.scene_image?.file ? (/\.(mp4|mov|webm|avi|m4v)(?:\?|$)/i.test(scene.scene_image.file) ? <video controls src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
+              {scene.scene_image?.file ? (isVideo(scene.scene_image.file) ? <video controls src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
           <Menu as="div" className="absolute top-2 right-2 z-10">
             <MenuButton
               aria-label="Image actions"

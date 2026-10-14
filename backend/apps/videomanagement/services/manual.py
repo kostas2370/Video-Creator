@@ -7,8 +7,8 @@ from django.db import transaction
 
 from ..models import Music, SceneImage, UserPrompt, Video, VideoStatus, VideoType
 from ..utils.audio_utils import make_scene_speech
-from .audio_editing import changed, playable_voiceover
-from .editing import editable_video
+from .audio_editing import playable_voiceover
+from .editing import editable_video, changed
 
 
 def create_manual_video(user, **choices):

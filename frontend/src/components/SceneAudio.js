@@ -1,3 +1,4 @@
+import { useObjectUrl } from "../hooks/useObjectUrl";
 import { useEffect, useRef, useState } from "react";
 import { HiOutlineArrowUpTray, HiOutlineMicrophone, HiOutlinePlay, HiOutlinePause, HiOutlineSpeakerWave } from "react-icons/hi2";
 import { toast } from "react-toastify";
@@ -26,7 +27,8 @@ function AudioEditor({ scene, index, nextScene, disabled, onSaved, onClose }) {
   const [baseline, setBaseline] = useState({ ...audioDefaults, ...scene.audio_settings });
   const [wave, setWave] = useState(null), [loading, setLoading] = useState(false);
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
-  const [file, setFile] = useState(null), [localUrl, setLocalUrl] = useState("");
+  const [file, setFile] = useState(null);
+  const localUrl = useObjectUrl(file);
   const [restored, setRestored] = useState(false), [revision, setRevision] = useState(0);
   const [playing, setPlaying] = useState(false), [position, setPosition] = useState(0);
   const player = useRef(null), picker = useRef(null), uploaded = useRef(null), mounted = useRef(true);
@@ -42,11 +44,6 @@ function AudioEditor({ scene, index, nextScene, disabled, onSaved, onClose }) {
     return () => { mounted.current = false; player.current?.pause(); };
   }, []);
   useEffect(() => { if (disabled) { recording.stop(); player.current?.pause(); } }, [disabled]);
-  useEffect(() => {
-    if (!file) { setLocalUrl(""); return; }
-    const url = URL.createObjectURL(file); setLocalUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
   useEffect(() => {
     if (!file && !source) { setWave(null); return; }
     let current = true;

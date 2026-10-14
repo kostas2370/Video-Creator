@@ -8,18 +8,10 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 
-from ..events import publish_update
 from ..models import Scene
 from ..utils.audio_editing import narration_file, waveform, duration_override
 from ..utils.timing import file_timing, media_timing
-from .editing import editable_video
-
-
-def changed(video):
-    video.save(update_fields=["updated_at"])
-    if video.avatar_id:
-        transaction.on_commit(lambda: Path(video.dir_name, "output_avatar.mp4").unlink(missing_ok=True), robust=True)
-    publish_update(f"video.{video.pk}", video_id=video.pk)
+from .editing import editable_video, changed
 
 
 def update_audio(scene, changes):
