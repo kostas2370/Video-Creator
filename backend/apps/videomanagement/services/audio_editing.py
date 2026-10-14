@@ -1,7 +1,9 @@
+from contextlib import contextmanager
 from pathlib import Path
 import subprocess
 import tempfile
 
+from django.core.files import File
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
@@ -36,17 +38,49 @@ def update_audio(scene, changes):
     return scene
 
 
-def save_voiceover(scene, upload=None):
+@contextmanager
+def playable_voiceover(upload):
     # Inspect the actual stream rather than trusting extension or content type.
-    if upload is not None:
-        with tempfile.NamedTemporaryFile(suffix=".audio") as temporary:
+    if upload is None:
+        yield None
+        return
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory, "source.audio")
+        with source.open("wb") as temporary:
             for chunk in upload.chunks():
                 temporary.write(chunk)
-            temporary.flush()
-            duration = media_timing(temporary.name).get("audio_duration")
-            if duration is None or duration > 900:
+        duration = media_timing(source).get("audio_duration")
+        if duration is not None:
+            if duration > 900:
                 raise ValidationError({"file": "Upload playable audio up to 15 minutes long."})
             upload.seek(0)
+            yield upload
+            return
+        # MediaRecorder WebM files often have no duration header. Decode them
+        # into a seekable WAV so validation, preview and rendering share timing.
+        normalized = Path(directory, "voiceover.wav")
+        try:
+            subprocess.run(
+                ["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", str(source),
+                 "-map", "0:a:0", "-t", "901", "-ac", "1", "-ar", "48000",
+                 "-c:a", "pcm_s16le", str(normalized)],
+                capture_output=True, timeout=60, check=True,
+            )
+        except (OSError, subprocess.SubprocessError):
+            raise ValidationError({"file": "Could not read this recording. Try recording again or upload an audio file."})
+        duration = media_timing(normalized).get("audio_duration")
+        if duration is None or duration > 900:
+            raise ValidationError({"file": "Upload playable audio up to 15 minutes long."})
+        with normalized.open("rb") as audio:
+            yield File(audio, name=f"{Path(upload.name).stem}.wav")
+
+
+def save_voiceover(scene, upload=None):
+    with playable_voiceover(upload) as prepared:
+        return store_voiceover(scene, prepared)
+
+
+def store_voiceover(scene, upload):
     saved_name = None
     storage = scene.voiceover.storage
     try:
