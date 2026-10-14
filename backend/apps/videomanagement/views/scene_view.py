@@ -10,12 +10,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from ..serializers.requests import ManualTextSerializer
 from ..models import Scene, SceneImage, VideoType
-from ..services.audio_editing import changed
 from ..schema import SceneImageUploadSchema
 from ..tasks import update_scene_task, rewrite_scene_task, generate_scene_image_task
 from ..serializers.models import SceneSerializer
 from ..services.scene_jobs import queue_scene_job, scene_job_result
-from ..services.editing import editable_video
+from ..services.editing import editable_video, changed
 from ..serializers.requests import SceneJobQuerySerializer
 from ..services.editing import update_scene_transition, update_scene_timing, update_scene_motion
 from ..serializers.requests import (

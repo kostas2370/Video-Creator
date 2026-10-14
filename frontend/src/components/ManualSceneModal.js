@@ -1,3 +1,5 @@
+import { useObjectUrl } from "../hooks/useObjectUrl";
+import { isVideo } from "../utils/media";
 import { useEffect, useState } from "react";
 import { createScene } from "../api/apiService";
 import { toast } from "react-toastify";
@@ -7,14 +9,10 @@ import { ScenePositionPicker } from "./ui/ScenePositionPicker";
 export function ManualSceneModal({ id, showModal, setShowModal, setItems, scenes = [] }) {
   const [file, setFile] = useState(null), [text, setText] = useState("");
   const [duration, setDuration] = useState(""), [position, setPosition] = useState("");
-  const [withAudio, setWithAudio] = useState(true), [preview, setPreview] = useState("");
+  const [withAudio, setWithAudio] = useState(true);
+  const preview = useObjectUrl(file);
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   useEffect(() => { if (showModal) { setFile(null); setText(""); setDuration(""); setPosition(""); setWithAudio(true); setError(""); } }, [showModal, id]);
-  useEffect(() => {
-    if (!file) { setPreview(""); return; }
-    const url = URL.createObjectURL(file); setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
   const save = async event => {
     event.preventDefault();
     if (busy) return;
@@ -35,7 +33,7 @@ export function ManualSceneModal({ id, showModal, setShowModal, setItems, scenes
     <form id="manual-scene" onSubmit={save}><fieldset disabled={busy} className="space-y-5">
       <ScenePositionPicker scenes={scenes} value={position} onChange={setPosition} disabled={busy} />
       <label className="block text-sm font-semibold" htmlFor="manual-media">Photo or video<input key={String(showModal)} id="manual-media" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,.avi,.m4v" className={`${editorInput} mt-2`} onChange={event => setFile(event.target.files[0] || null)} /></label>
-      {preview && (file.type.startsWith("video/") || /\.(mp4|mov|webm|avi|m4v)$/i.test(file.name) ? <video controls src={preview} className="max-h-60 w-full rounded-xl bg-black" /> : <img src={preview} alt="New scene" className="max-h-60 w-full rounded-xl object-contain" />)}
+      {preview && (isVideo(file) ? <video controls src={preview} className="max-h-60 w-full rounded-xl bg-black" /> : <img src={preview} alt="New scene" className="max-h-60 w-full rounded-xl object-contain" />)}
       <p className="text-xs text-gray-500">Up to 100 MB per file. Video clips can be up to 15 minutes long.</p>
       <label className="block text-sm font-semibold" htmlFor="manual-caption">Caption text (optional)<textarea id="manual-caption" rows={3} maxLength={2000} value={text} onChange={event => setText(event.target.value)} className={`${editorInput} mt-2`} placeholder="Text to display in this scene" /></label>
       <label className="block text-sm font-semibold" htmlFor="manual-duration">Scene duration (seconds)<input id="manual-duration" type="number" min="0.1" max="900" step="0.1" value={duration} onChange={event => setDuration(event.target.value)} className={`${editorInput} mt-2`} placeholder="Automatic" /><span className="mt-2 block text-xs font-normal text-gray-500">Leave empty to use the clip or voice length, or 5 seconds for a photo. A shorter duration trims the end; a longer one holds the final frame.</span></label>

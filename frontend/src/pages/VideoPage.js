@@ -112,13 +112,10 @@ export const Video = () => {
     () => updateSceneMotion(scene.id, changes),
     "Could not save image motion. Please try again.",
   );
-  const onTiming = (scene, pause, duration = scene.duration) => saveSceneChange(
+  const onTiming = (scene, changes) => saveSceneChange(
     { type: "timing", sceneId: scene.id },
-    current => ({ ...current, scenes: current.scenes.map(row => row.id === scene.id ? {
-      ...row, pause_after: pause, duration,
-      timing: row.timing ? { ...row.timing, base_duration: duration ?? row.timing.base_duration, duration: (duration ?? row.timing.base_duration) + pause } : row.timing,
-    } : row) }),
-    () => updateSceneTiming(scene.id, { pause_after: pause, duration }),
+    current => current,
+    () => updateSceneTiming(scene.id, changes),
     "Could not save scene timing. Please try again.",
   );
   const durations = videoInfo?.scenes?.map(scene => scene.timing?.duration) || [];

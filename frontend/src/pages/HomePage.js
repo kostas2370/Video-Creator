@@ -1,3 +1,6 @@
+import { videoFormats as videoFormatOptions } from "../utils/videoFormats";
+import { VideoCreationMode } from "../components/VideoCreationMode";
+import { useObjectUrl } from "../hooks/useObjectUrl";
 import { useAssetOptions } from "../hooks/useAssetOptions";
 import { MoreAssetOptions } from "../components/ui/MoreAssetOptions";
 import React, { useState, useEffect, useRef } from "react";
@@ -19,11 +22,6 @@ const ttsProviderNames = {
   SIXTYDB: "60dB",
 };
 const visualProviderNames = { "OPENAI": "OpenAI images", sora: "OpenAI Sora (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
-const videoFormatOptions = [
-  { value: "LANDSCAPE", label: "Landscape", ratio: "16:9", shape: "w-12 aspect-video" },
-  { value: "PORTRAIT", label: "Portrait", ratio: "9:16", shape: "h-10 aspect-[9/16]" },
-  { value: "SQUARE", label: "Square", ratio: "1:1", shape: "h-9 aspect-square" },
-];
 const platformOptions = [
   { value: "GENERAL", label: "General" },
   { value: "TIKTOK", label: "TikTok" },
@@ -57,7 +55,7 @@ const Home = () => {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [referenceImage, setReferenceImage] = useState(null);
-  const [referencePreview, setReferencePreview] = useState("");
+  const referencePreview = useObjectUrl(referenceImage);
   const referenceInput = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -84,12 +82,6 @@ const Home = () => {
   useEffect(() => {
     if (!supportsReference) setReferenceImage(null);
   }, [supportsReference]);
-  useEffect(() => {
-    if (!referenceImage) { setReferencePreview(""); return; }
-    const url = URL.createObjectURL(referenceImage);
-    setReferencePreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [referenceImage]);
   const chooseReference = event => {
     const file = event.target.files[0];
     if (!file) return;
@@ -300,7 +292,7 @@ const Home = () => {
       <ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} />
       <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
-      <nav aria-label="Video creation mode" className="mb-8 flex gap-2"><span aria-current="page" className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Create with AI</span><Link to="/manual/" className="rounded-xl px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">Manual video</Link></nav>
+      <VideoCreationMode />
       <header className="mb-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-white">Turn your idea into a video</h1>

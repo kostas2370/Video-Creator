@@ -32,7 +32,7 @@ from ..serializers.models import VideoSerializer, VideoNestedSerializer
 from ..serializers.preview import PreviewTimelineSerializer
 from ..services.SceneServices import draft_scene
 from ..services.editing import reorder_scenes, apply_auto_motion
-from ..services.editing import editable_video
+from ..services.editing import editable_video, changed
 from ..services.subtitles import export_subtitles
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
@@ -41,7 +41,6 @@ from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneG
 from ..utils.cost_utils import reserve_scene_credit
 
 from ..serializers.audio import MusicAudioSerializer
-from ..services.audio_editing import changed
 
 logger = logging.getLogger(__name__)
 
