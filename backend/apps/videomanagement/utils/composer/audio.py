@@ -3,6 +3,7 @@ from moviepy.editor import AudioFileClip, CompositeAudioClip
 from ..audio_editing import narration_file, voice_tracks, scene_audio_segments
 from .clips import clip_audio
 from .timing import align_audio
+from .effects import apply_audio_fades
 
 
 def compose_edited_audio(scenes, scene_tracks):
@@ -15,10 +16,7 @@ def compose_edited_audio(scenes, scene_tracks):
         resources.append(reader)
         sound = reader.subclip(track["trim_start"], track["trim_start"] + track["duration"])
         sound = sound.volumex(track["volume"])
-        if track["fade_in"]:
-            sound = sound.audio_fadein(track["fade_in"])
-        if track["fade_out"]:
-            sound = sound.audio_fadeout(track["fade_out"])
+        sound = apply_audio_fades(sound, fade_in=track["fade_in"], fade_out=track["fade_out"])
         sounds.append(sound.set_start(track["start"]))
     for segment in segments:
         image = next(iter(segment.content.scene_images.all()), None)
