@@ -1,10 +1,19 @@
 import math
+from pathlib import Path
+import tempfile
+import subprocess
+
+from PIL import Image, UnidentifiedImageError
+from ..utils.timing import video_metadata
+from ..utils.file_utils import check_if_image, check_if_video
+from .audio import FiniteFloat
 
 from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle
+from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle, ImageMode, TransitionStyle
+from apps.apikeysmanagement.models import Provider
 from ..services.asset_selection import available_voice, owned_asset
 from ..services.VideoServices import video_update
 from ..video_formats import (
@@ -61,7 +70,7 @@ class GenerateSerializer(serializers.Serializer):
         default=settings.DEFAULT_GPT_MODEL,
     )
     image_mode = serializers.ChoiceField(
-        required=False, choices=["AI", "WEB", False], default="WEB"
+        required=False, choices=[*ImageMode.choices, (False, "No visuals")], default=ImageMode.WEB
     )
     avatar_selection = serializers.CharField(
         required=False, max_length=36, default="", allow_blank=True, allow_null=True
@@ -93,8 +102,8 @@ class GenerateSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs.get("reference_image") and (
-            attrs.get("image_mode") != "AI"
-            or attrs.get("provider") not in (None, "OPENAI", "sora")
+            attrs.get("image_mode") != ImageMode.AI
+            or attrs.get("provider") not in (None, Provider.OPENAI, "sora")
         ):
             raise serializers.ValidationError(
                 {
@@ -113,6 +122,36 @@ class GenerateSerializer(serializers.Serializer):
         if not attrs.get("avatar_selection"):
             available_voice(attrs.get("voice_id"), attrs["created_by"])
         return attrs
+
+
+class ManualVideoSerializer(serializers.Serializer):
+    subtitles = serializers.BooleanField(default=True)
+    title = serializers.CharField(max_length=50)
+    video_format = serializers.ChoiceField(choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT)
+    platform = serializers.ChoiceField(choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM)
+
+
+def validate_visual(value):
+    if value.size > 100 * 1024 * 1024:
+        raise serializers.ValidationError("Choose media smaller than 100 MB.")
+    try:
+        if check_if_image(value.name):
+            Image.open(value).verify()
+        elif check_if_video(value.name):
+            with tempfile.NamedTemporaryFile(suffix=Path(value.name).suffix) as temporary:
+                for chunk in value.chunks():
+                    temporary.write(chunk)
+                temporary.flush()
+                metadata = video_metadata(temporary.name)
+                if metadata["duration"] > 900:
+                    raise serializers.ValidationError("Choose a clip up to 15 minutes long.")
+        else:
+            raise serializers.ValidationError("Choose a JPEG, PNG, WebP, MP4, MOV, WebM, AVI, or M4V file.")
+    except (OSError, ValueError, KeyError, StopIteration, UnidentifiedImageError, Image.DecompressionBombError, subprocess.SubprocessError):
+        raise serializers.ValidationError("Could not read this image or video. Choose another file.")
+    finally:
+        value.seek(0)
+    return value
 
 
 class DownloadPlaylistSerializer(serializers.Serializer):
@@ -146,6 +185,10 @@ class SceneDraftResultSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
 
+class ManualTextSerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=2000, allow_blank=True)
+
+
 class SceneUpdateSerializer(serializers.Serializer):
     text = serializers.CharField(required=True, max_length=2000)
 
@@ -153,6 +196,9 @@ class SceneUpdateSerializer(serializers.Serializer):
 class ChangeSceneImageSerializer(serializers.Serializer):
     image = serializers.FileField(required=False)
     with_audio = serializers.BooleanField(default=False)
+
+    def validate_image(self, value):
+        return validate_visual(value)
 
     def validate(self, attrs):
         if not self.context.get("has_scene_image") and "image" not in attrs:
@@ -170,7 +216,7 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 class VideoUpdateSerializer(serializers.Serializer):
     voice_id = serializers.UUIDField(required=False)
-    transition_default = serializers.ChoiceField(choices=["CUT", "FADE", "DISSOLVE"], required=False)
+    transition_default = serializers.ChoiceField(choices=[choice for choice in TransitionStyle.choices if choice[0] != TransitionStyle.DEFAULT], required=False)
     transition_duration = TransitionDurationField(required=False, allow_null=True)
     avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -198,6 +244,16 @@ class ScenePositionSerializer(serializers.Serializer):
             if position > last + 1:
                 raise serializers.ValidationError("Choose a position within the current video.")
         return position
+
+
+class ManualSceneSerializer(ScenePositionSerializer):
+    text = serializers.CharField(required=False, allow_blank=True, max_length=2000, default="")
+    image = serializers.FileField(required=False)
+    duration = FiniteFloat(min_value=0.1, max_value=900, required=False, allow_null=True)
+    with_audio = serializers.BooleanField(default=True)
+
+    def validate_image(self, value):
+        return validate_visual(value)
 
 
 class AddSceneSerializer(ScenePositionSerializer):
@@ -254,7 +310,7 @@ class ReorderScenesSerializer(serializers.Serializer):
 
 
 class SceneTransitionSerializer(serializers.Serializer):
-    transition_after = serializers.ChoiceField(choices=["DEFAULT", "FADE", "CUT", "DISSOLVE"])
+    transition_after = serializers.ChoiceField(choices=TransitionStyle.choices)
     transition_duration = TransitionDurationField(required=False, allow_null=True)
 
 
@@ -268,12 +324,14 @@ class SceneMotionSerializer(serializers.Serializer):
 
 
 class SceneTimingSerializer(serializers.Serializer):
-    pause_after = serializers.FloatField(min_value=0, max_value=10)
+    duration = FiniteFloat(min_value=0.1, max_value=900, required=False, allow_null=True)
+    pause_after = FiniteFloat(min_value=0, max_value=10, required=False)
 
-    def validate_pause_after(self, value):
-        if not math.isfinite(value):
-            raise serializers.ValidationError("Choose a pause between 0 and 10 seconds.")
-        return value
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("Supply a duration or a pause to update timing.")
+        return attrs
+
 
 
 class SceneJobQuerySerializer(serializers.Serializer):

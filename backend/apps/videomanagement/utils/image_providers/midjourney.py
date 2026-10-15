@@ -8,6 +8,7 @@ import requests
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..prompt_utils import format_image_prompt
+from ..usage import record_usage
 
 from .registry import ImageProviderRegistry
 
@@ -74,5 +75,6 @@ def generate_from_midjourney(
         return
 
     saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
+    record_usage(user, "images", Provider.MIDJOURNEY, images=1)
     urllib.request.urlretrieve(image, saved)
     return saved

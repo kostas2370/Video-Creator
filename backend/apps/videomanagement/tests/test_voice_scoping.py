@@ -36,38 +36,38 @@ class AvailableToTests(TestCase):
         return self.user
 
     def test_gives_the_shared_voices_to_everyone(self):
-        self.assertIn(self.shared, VoiceModel.available_to(self.user))
+        self.assertIn(self.shared, VoiceModel.objects.available_to(self.user))
 
     def test_keeps_the_shared_voices_once_you_spend_your_own_keys(self):
-        self.assertIn(self.shared, VoiceModel.available_to(self.opted_out()))
+        self.assertIn(self.shared, VoiceModel.objects.available_to(self.opted_out()))
 
     def test_keeps_the_openai_voices_the_fixtures_ship(self):
         alloy = a_voice(
             created_by=None, provider=Provider.OPENAI, name="alloy", path="alloy"
         )
 
-        self.assertIn(alloy, VoiceModel.available_to(self.user))
-        self.assertIn(alloy, VoiceModel.available_to(self.opted_out()))
+        self.assertIn(alloy, VoiceModel.objects.available_to(self.user))
+        self.assertIn(alloy, VoiceModel.objects.available_to(self.opted_out()))
 
     def test_never_gives_one_users_voice_to_another(self):
-        self.assertNotIn(self.theirs, VoiceModel.available_to(self.opted_out()))
+        self.assertNotIn(self.theirs, VoiceModel.objects.available_to(self.opted_out()))
 
     def test_adds_your_own_voices_once_you_spend_your_own_keys(self):
-        self.assertIn(self.mine, VoiceModel.available_to(self.opted_out()))
+        self.assertIn(self.mine, VoiceModel.objects.available_to(self.opted_out()))
 
     def test_hides_your_own_voices_while_the_service_keys_are_in_use(self):
         self.assertTrue(self.user.use_service_api_keys)
-        self.assertNotIn(self.mine, VoiceModel.available_to(self.user))
+        self.assertNotIn(self.mine, VoiceModel.objects.available_to(self.user))
 
     def test_gives_a_signed_out_caller_nothing(self):
-        self.assertEqual(list(VoiceModel.available_to(None)), [self.shared])
+        self.assertEqual(list(VoiceModel.objects.available_to(None)), [self.shared])
 
     def test_survives_an_anonymous_caller(self):
         anon = AnonymousUser()
         # If available_to does not support AnonymousUser ORM lookups directly,
         # pass None for unauthenticated callers.
         caller = anon if getattr(anon, "id", None) else None
-        self.assertEqual(list(VoiceModel.available_to(caller)), [self.shared])
+        self.assertEqual(list(VoiceModel.objects.available_to(caller)), [self.shared])
 
     def test_select_voice_never_picks_a_voice_the_user_cannot_spend(self):
         self.theirs.delete()
@@ -92,19 +92,19 @@ class KeyGatedVoiceTests(TestCase):
 
     @override_settings(OPEN_API_KEY="", XI_API_KEY="service-xi")
     def test_hides_the_openai_voices_when_the_service_has_no_openai_key(self):
-        visible = VoiceModel.available_to(self.user)
+        visible = VoiceModel.objects.available_to(self.user)
 
         self.assertNotIn(self.openai, visible)
         self.assertIn(self.labs, visible)
 
     def test_shows_them_once_the_service_key_is_there(self):
-        self.assertIn(self.openai, VoiceModel.available_to(self.user))
+        self.assertIn(self.openai, VoiceModel.objects.available_to(self.user))
 
     def test_hides_the_openai_voices_when_your_own_keys_have_no_openai_key(self):
         user = self.opt_out_with(openai_key="", elevenlabs_key="xi-mine")
         mine = a_voice(provider=Provider.ELEVENLABS, name="MyClone", created_by=user)
 
-        visible = VoiceModel.available_to(user)
+        visible = VoiceModel.objects.available_to(user)
 
         self.assertNotIn(self.openai, visible)
         self.assertIn(mine, visible)
@@ -113,7 +113,7 @@ class KeyGatedVoiceTests(TestCase):
     def test_shows_the_openai_voices_when_your_own_openai_key_is_set(self):
         user = self.opt_out_with(openai_key="sk-mine", elevenlabs_key="")
 
-        visible = VoiceModel.available_to(user)
+        visible = VoiceModel.objects.available_to(user)
 
         self.assertIn(self.openai, visible)
         self.assertNotIn(self.labs, visible)
@@ -123,32 +123,32 @@ class KeyGatedVoiceTests(TestCase):
         user = self.opt_out_with(openai_key="sk-mine", elevenlabs_key="xi-mine")
         mine = a_voice(provider=Provider.ELEVENLABS, name="MyClone", created_by=user)
 
-        self.assertCountEqual(VoiceModel.available_to(user), [self.openai, mine])
+        self.assertCountEqual(VoiceModel.objects.available_to(user), [self.openai, mine])
 
     def test_hides_the_services_elevenlabs_voices_once_you_spend_your_own_keys(self):
         user = self.opt_out_with(openai_key="sk-mine", elevenlabs_key="xi-mine")
 
-        self.assertNotIn(self.labs, VoiceModel.available_to(user))
+        self.assertNotIn(self.labs, VoiceModel.objects.available_to(user))
 
     def test_keeps_the_services_elevenlabs_voices_while_on_the_service_keys(self):
-        self.assertIn(self.labs, VoiceModel.available_to(self.user))
+        self.assertIn(self.labs, VoiceModel.objects.available_to(self.user))
 
     def test_keeps_the_shared_openai_voices_either_way(self):
-        self.assertIn(self.openai, VoiceModel.available_to(self.user))
+        self.assertIn(self.openai, VoiceModel.objects.available_to(self.user))
 
         user = self.opt_out_with(openai_key="sk-mine")
 
-        self.assertIn(self.openai, VoiceModel.available_to(user))
+        self.assertIn(self.openai, VoiceModel.objects.available_to(user))
 
     @override_settings(OPEN_API_KEY="", XI_API_KEY="")
     def test_offers_nothing_when_no_key_reaches_any_provider(self):
-        self.assertEqual(list(VoiceModel.available_to(self.user)), [])
+        self.assertEqual(list(VoiceModel.objects.available_to(self.user)), [])
         self.assertIsNone(VoiceModel.select_voice(self.user))
 
     def test_hides_a_voice_whose_provider_cannot_be_synthesised_at_all(self):
         orphan = a_voice(provider="some_dead_provider", created_by=None)
 
-        self.assertNotIn(orphan, VoiceModel.available_to(self.user))
+        self.assertNotIn(orphan, VoiceModel.objects.available_to(self.user))
 
 
 class VoiceViewTests(TestCase):

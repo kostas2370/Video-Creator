@@ -17,6 +17,7 @@ from ...baker_recipes import scene, video
 from ...utils.image_providers import ImageProviderRegistry, custom
 from ...utils.scenes import create_image_scene, generate_new_image
 from ...baker_recipes import scene_image
+from ...models import AIUsage
 
 
 def image_bytes(format="PNG", mode="RGB"):
@@ -36,6 +37,61 @@ def response(body=None, content_type="image/png", payload=None):
 
 
 class CustomImageProviderTests(TestCase):
+    def test_completed_generation_is_recorded_before_local_image_save(self):
+        upstream = response()
+        with (
+            patch.object(custom.requests, "post", return_value=upstream),
+            patch("PIL.Image.Image.save", side_effect=OSError("disk full")),
+        ):
+            self.assertIsNone(self.generate())
+        usage = AIUsage.objects.get(user=self.user)
+        self.assertEqual((usage.service, usage.images), ("images", 1))
+
+    def test_json_usage_survives_failed_media_download(self):
+        upstream = response(
+            content_type="application/json",
+            payload={
+                "url": "https://example.com/image.png",
+                "usage": {"input_tokens": 10, "output_tokens": 20},
+            },
+        )
+        with (
+            patch.object(custom.requests, "post", return_value=upstream),
+            patch.object(custom.requests, "get", side_effect=requests.Timeout),
+        ):
+            self.assertIsNone(self.generate())
+        usage = AIUsage.objects.get(user=self.user)
+        self.assertEqual(usage.total_tokens, 30)
+
+    def test_completed_video_is_recorded_before_local_conversion(self):
+        self.provider.output_type = "VIDEO"
+        self.provider.save()
+        with (
+            patch.object(
+                custom.requests,
+                "post",
+                return_value=response(body=b"video", content_type="video/mp4"),
+            ),
+            patch.object(
+                custom, "save_video", side_effect=OSError("conversion failed")
+            ),
+        ):
+            self.assertIsNone(self.generate())
+        usage = AIUsage.objects.get(user=self.user)
+        self.assertEqual((usage.service, usage.images), ("video", 0))
+
+    def test_successful_download_records_once_and_rejected_generation_records_nothing(
+        self,
+    ):
+        upstream = response()
+        with patch.object(custom.requests, "post", return_value=upstream):
+            self.assert_png(self.generate())
+        self.assertEqual(AIUsage.objects.filter(user=self.user).count(), 1)
+        upstream.raise_for_status.side_effect = requests.HTTPError("rejected")
+        with patch.object(custom.requests, "post", return_value=upstream):
+            self.assertIsNone(self.generate())
+        self.assertEqual(AIUsage.objects.filter(user=self.user).count(), 1)
+
     def setUp(self):
         self.user = user.make()
         self.provider = UserCustomVisualProvider.objects.create(
@@ -605,7 +661,10 @@ class CustomVideoProviderTests(TestCase):
         visual.refresh_from_db()
         self.assert_video(visual.file.name)
         previous = visual.file.name
-        with patch.object(custom.requests, "post", side_effect=requests.Timeout), self.assertRaisesRegex(RuntimeError, "returned no image"):
+        with (
+            patch.object(custom.requests, "post", side_effect=requests.Timeout),
+            self.assertRaisesRegex(RuntimeError, "returned no image"),
+        ):
             generate_new_image(visual, row)
         visual.refresh_from_db()
         self.assertEqual(visual.file.name, previous)

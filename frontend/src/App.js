@@ -3,6 +3,7 @@ import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
 import Login from "./pages/LoginPage";
 import Home from "./pages/HomePage";
+import { ManualVideo } from "./pages/ManualVideoPage";
 import Register from "./pages/RegisterPage";
 import ForgotPassword from "./pages/ForgotPasswordPage";
 import ResetPassword from "./pages/ResetPasswordPage";
@@ -13,6 +14,7 @@ import { Video } from "./pages/VideoPage";
 import useAuth from "./hooks/useAuth";
 import { AssetPage } from "./pages/AssetPage";
 import { ApiKeys } from "./pages/ApiKeysPage";
+import { Usage } from "./pages/UsagePage";
 import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
 
@@ -57,11 +59,13 @@ function App() {
 
           <Route element={<RequireAuth />}>
             <Route index element={<Home />} />
+            <Route path="/manual/" element={<ManualVideo />} />
             <Route path="/avatars/" element={<Avatar />} />
             <Route path="/videos/" element={<Videos />} />
             <Route path="/videos/:videoId/" element={<Video />} />
             <Route path="/assets/" element={<AssetPage />} />
             <Route path="/api-keys/" element={<ApiKeys />} />
+            <Route path="/usage/" element={<Usage />} />
             <Route path="*" element={<>Page not found !</>} />
           </Route>
         </Route>

@@ -31,10 +31,14 @@ export const getVideo = (id, options = {}) => request({ url: detail("videos", id
 export const getVoices = (search, page = 1) => get("voices/", { search: search || undefined, page });
 export const getTemplates = (search, page = 1) => get("templates/", { search: search || undefined, page });
 export const getNotifications = (options = {}) => request({ url: "notifications/", ...options });
+export const getUsage = period => request({ url: "usage/", params: { period }, notifyError: false });
 
 export const createIntro = data => post("intros/", data);
 export const createOutro = data => post("outros/", data);
 export const createAvatar = data => post("avatars/", data);
+export const createManualVideo = data => post("videos/manual/", data, callerHandlesErrors);
+export const uploadMusic = (id, data) => post(action("videos", id, "music"), data, callerHandlesErrors);
+export const removeMusic = id => remove(action("videos", id, "music"), callerHandlesErrors);
 export const generateVideo = data => post("generate/", data);
 export const approveScript = (id, data) => post(action("videos", id, "approve_script"), data, callerHandlesErrors);
 export const reorderScenes = (id, sceneIds) => post(action("videos", id, "reorder_scenes"), { scene_ids: sceneIds }, callerHandlesErrors);

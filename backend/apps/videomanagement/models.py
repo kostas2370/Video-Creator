@@ -11,9 +11,10 @@ from django_resized import ResizedImageField
 from django.conf import settings
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
 from django_lifecycle.conditions import WhenFieldValueChangesTo
-from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
+from .querysets import AIUsageQuerySet, VideoQuerySet, SceneQuerySet, VoiceModelQuerySet
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -23,6 +24,29 @@ from .video_formats import (
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class AIUsage(models.Model):
+    """One completed provider request; never stores prompts or credentials."""
+
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now)
+    service = models.CharField(max_length=10, choices=[
+        ("text", "Text"), ("images", "Images"), ("tts", "Voice"), ("video", "Video")
+    ])
+    provider = models.CharField(max_length=100)
+    model = models.CharField(max_length=100, blank=True)
+    key_source = models.CharField(max_length=10)
+    input_tokens = models.PositiveBigIntegerField(null=True)
+    output_tokens = models.PositiveBigIntegerField(null=True)
+    total_tokens = models.PositiveBigIntegerField(null=True)
+    characters = models.PositiveBigIntegerField(default=0)
+    images = models.PositiveIntegerField(default=0)
+    seconds = models.PositiveIntegerField(default=0)
+    objects = AIUsageQuerySet.as_manager()
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "created_at"], name="ai_usage_user_date")]
 
 
 class MotionStyle(models.TextChoices):
@@ -40,6 +64,13 @@ class MotionIntensity(models.TextChoices):
     SUBTLE = "SUBTLE", "Subtle"
     MEDIUM = "MEDIUM", "Medium"
     STRONG = "STRONG", "Strong"
+
+
+class TransitionStyle(models.TextChoices):
+    DEFAULT = "DEFAULT", "Video default"
+    FADE = "FADE", "Fade"
+    CUT = "CUT", "Cut"
+    DISSOLVE = "DISSOLVE", "Cross dissolve"
 
 
 class VoiceModelType(models.TextChoices):
@@ -63,6 +94,7 @@ class ImageMode(models.TextChoices):
 
 class VideoType(models.TextChoices):
     AI = "AI", "AI"
+    MANUAL = "MANUAL", "Manual"
 
 
 IN_FLIGHT_STATUSES = (VideoStatus.GENERATION, VideoStatus.RENDERING)
@@ -201,7 +233,7 @@ class Scene(models.Model):
         max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
     )
     pause_after = models.FloatField(default=0)
-    transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
+    transition_after = models.CharField(max_length=8, choices=TransitionStyle.choices, default=TransitionStyle.DEFAULT)
     transition_duration = models.FloatField(null=True, blank=True, default=None)
     position = models.PositiveIntegerField(default=None, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
@@ -219,7 +251,7 @@ class Scene(models.Model):
     )
     text = models.TextField()
     is_last = models.BooleanField(default=True)
-    objects = models.Manager()
+    objects = SceneQuerySet.as_manager()
 
     def save(self, *args, **kwargs):
         if self.position is not None:
@@ -261,38 +293,14 @@ class VoiceModel(AbstractModel):
     type = models.CharField(max_length=10, choices=VoiceModelType.choices)
     sample = models.URLField(blank=True, null=True, max_length=1000)
     path = models.CharField(max_length=255, blank=False)
-    objects = models.Manager()
+    objects = VoiceModelQuerySet.as_manager()
 
     def __str__(self):
         return self.name
 
     @staticmethod
-    def available_to(user) -> models.QuerySet:
-        playable = [
-            provider for provider in VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
-        ]
-        spending_own_keys = (
-            user is not None
-            and getattr(user, "is_authenticated", False)
-            and not user.use_service_api_keys
-        )
-        shared = models.Q(created_by=None)
-        if spending_own_keys:
-            scope = (
-                shared & ~models.Q(provider__in=ACCOUNT_SCOPED_VOICE_PROVIDERS)
-            ) | models.Q(created_by=user)
-        else:
-            scope = shared
-
-        valid_providers = models.Q(provider__in=playable) | (
-            models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
-        )
-
-        return VoiceModel.objects.filter(scope & valid_providers)
-
-    @staticmethod
     def select_voice(user=None) -> VoiceModel:
-        voice = VoiceModel.available_to(user)
+        voice = VoiceModel.objects.available_to(user)
         count = voice.count()
         if count == 0:
             return None
@@ -401,7 +409,7 @@ class Video(LifecycleModelMixin, AbstractModel):
         default=default_video_settings,
     )
 
-    objects = models.Manager()
+    objects = VideoQuerySet.as_manager()
 
     def __str__(self):
         return f"{self.title}"

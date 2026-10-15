@@ -243,7 +243,7 @@ using `user.use_service_api_keys`:
 TTS identifiers are `Provider.OPENAI`, `Provider.ELEVENLABS`, and `Provider.SIXTYDB`.
 Display names such as “OpenAI” and “60dB” are labels, not persisted provider IDs.
 
-`VoiceModel.available_to(user)` is the shared source for the voice picker and explicit
+`VoiceModel.objects.available_to(user)` is the shared source for the voice picker and explicit
 voice selection. OpenAI voices can be shared across accounts. ElevenLabs and 60dB
 voices are account-specific: service voices are offered with service keys, and owned
 voices with personal keys. Custom voices are offered in own-key mode. A built-in
@@ -562,3 +562,20 @@ with the existing proxy. Nginx disables buffering for event endpoints and keeps
 its read timeout above the heartbeat interval. Other proxies must likewise disable
 buffering for these routes. This adds status/scene invalidations, not numerical
 rendering progress or a collaborative editor.
+
+
+### Reusable model queries
+
+Custom QuerySets in `videomanagement/querysets.py` are exposed with `as_manager()`.
+They preserve caller filters and work on related managers:
+
+- `Video.objects.for_user(user).listable()` scopes the video list to an authenticated
+  owner and includes manual projects or AI projects with scripts.
+- `Video.objects.in_flight()` selects generating/rendering projects for stale-job cleanup.
+- `video.scenes.with_media()` preloads visuals while retaining the caller's ordering.
+- `VoiceModel.objects.filter(...).available_to(user)` applies credential and ownership
+  rules to the existing selection.
+- `AIUsage.objects.filter(...).summary()` returns materialized totals and grouped rows;
+  usage serializers format them without issuing database queries.
+
+The default managers remain unfiltered so background tasks can access their records.

@@ -10,8 +10,9 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import SuspiciousFileOperation
 
+from ..models import VideoType
 from .file_utils import check_if_video
-from .audio_editing import narration_enabled, narration_file, edited_duration
+from .audio_editing import narration_enabled, narration_file, edited_duration, duration_override
 
 
 def media_timing(path):
@@ -67,6 +68,7 @@ def file_timing(field):
 
 def scene_timing(scene, image=None):
     narration = narration_enabled(scene)
+    silent_duration = 5 if getattr(scene.video, "video_type", None) == VideoType.MANUAL else settings.SILENT_SCENE_SECONDS
     speech = edited_duration(scene, file_timing(narration_file(scene)).get("audio_duration")) if narration else None
     visual = (
         file_timing(image.file)
@@ -84,8 +86,11 @@ def scene_timing(scene, image=None):
         base = (
             clip_audio
             if clip_audio is not None
-            else visual.get("duration", settings.SILENT_SCENE_SECONDS)
+            else visual.get("duration", silent_duration)
         )
+    override = duration_override(scene)
+    if override is not None:
+        base = override
     return {"base_duration": base, "duration": base + scene.pause_after}
 
 

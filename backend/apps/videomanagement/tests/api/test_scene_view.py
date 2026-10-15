@@ -1,3 +1,5 @@
+from io import BytesIO
+from PIL import Image
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -224,21 +226,24 @@ class SceneViewTests(ApiTestCase):
 
     def test_uploads_and_replaces_a_file_using_multipart(self):
         url = reverse("scene-change-image-scene", args=[self.scene.id])
+        first, second = BytesIO(), BytesIO()
+        Image.new("RGB", (2, 2), "red").save(first, "PNG")
+        Image.new("RGB", (2, 2), "blue").save(second, "PNG")
         with TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
             response = self.client.post(
                 url,
-                {"image": SimpleUploadedFile("first.png", b"first"), "with_audio": "0"},
+                {"image": SimpleUploadedFile("first.png", first.getvalue()), "with_audio": "0"},
                 format="multipart",
             )
             self.assertEqual(response.status_code, 200)
             image = SceneImage.objects.get(scene=self.scene)
             self.assertFalse(image.with_audio)
             with image.file.open("rb") as uploaded:
-                self.assertEqual(uploaded.read(), b"first")
+                self.assertEqual(uploaded.read(), first.getvalue())
 
             response = self.client.post(
                 f"{url}?scene_image={image.pk}",
-                {"image": SimpleUploadedFile("second.png", b"second"), "with_audio": "1"},
+                {"image": SimpleUploadedFile("second.png", second.getvalue()), "with_audio": "1"},
                 format="multipart",
             )
             self.assertEqual(response.status_code, 200)
@@ -246,7 +251,7 @@ class SceneViewTests(ApiTestCase):
             image.refresh_from_db()
             self.assertTrue(image.with_audio)
             with image.file.open("rb") as uploaded:
-                self.assertEqual(uploaded.read(), b"second")
+                self.assertEqual(uploaded.read(), second.getvalue())
 
     def test_invalid_image_ids_return_400_and_missing_images_return_404(self):
         url = reverse("scene-change-image-scene", args=[self.scene.id])

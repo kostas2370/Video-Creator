@@ -74,7 +74,7 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
 function Visual({ segment, time, playing, muted, onFailure, onBlocked, opacity = 1, onBuffering, stalled, seekVersion }) {
   if (!segment?.visual) return <div className="absolute inset-0 flex items-center justify-center bg-black px-5 text-center text-sm text-gray-400">No visual available</div>;
   return <div className="absolute inset-0" style={{ opacity }}>
-    {segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={segment.visual_duration} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
+    {segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={Math.min(segment.visual_duration ?? segment.base_duration, segment.base_duration)} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
       : <img style={imageMotion(segment, time)} src={mediaUrl(segment.visual)} alt={segment.label} onError={onFailure} className="absolute inset-0 h-full w-full object-cover" />}
   </div>;
 }

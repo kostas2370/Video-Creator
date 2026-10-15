@@ -18,6 +18,6 @@ def available_voice(selection, owner):
     if selection in (None, ""):
         return None
     try:
-        return VoiceModel.available_to(owner).get(pk=selection)
+        return VoiceModel.objects.available_to(owner).get(pk=selection)
     except (VoiceModel.DoesNotExist, ValueError, TypeError, ValidationError):
         raise NotFound("Voice is unavailable.")

@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
+from .usage import record_usage
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ def tts_from_openai(
     response = client.audio.speech.create(
         model="tts-1", voice=voice, input=text, response_format="wav"
     )
+    record_usage(user, "tts", Provider.OPENAI, "tts-1", characters=len(text))
     response.stream_to_file(save_path)
 
     return response
@@ -90,6 +92,7 @@ def tts_from_elevenlabs(
             url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
         )
         response.raise_for_status()
+        record_usage(user, "tts", Provider.ELEVENLABS, "eleven_monolingual_v1", characters=len(text))
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:
@@ -131,6 +134,7 @@ def tts_from_sixtydb(
         audio_base64 = payload.get("audio_base64")
         if not audio_base64:
             raise ValueError(f"60dB TTS returned no audio: {payload.get('message')}")
+        record_usage(user, "tts", Provider.SIXTYDB, characters=len(text))
 
         with open(save_path, "wb") as f:
             f.write(base64.b64decode(audio_base64))
@@ -185,6 +189,7 @@ def tts_from_custom_provider(
         )
         response.raise_for_status()
 
+        record_usage(user, "tts", provider_name, characters=len(text), custom=True)
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:

@@ -431,7 +431,7 @@ def make_video(video):
         raise RenderFailedException("Video is not in a renderable state.")
     choices = video.settings or {}
     segments, elapsed = [], 0
-    for index, scene in enumerate(video.scenes.prefetch_related("scene_images"), 1):
+    for index, scene in enumerate(video.scenes.with_media(), 1):
         segment = scene_segment(scene, index, elapsed, choices)
         segments.append(segment)
         elapsed += segment.duration
