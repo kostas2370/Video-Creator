@@ -10,7 +10,8 @@ from .timing import file_timing, video_metadata
 from .image_providers import ImageProviderRegistry
 from .prompt_utils import script_lines
 from .file_utils import check_if_video, stored_file_exists
-from ..models import Scene, SceneImage, Video
+from ..models import Scene, SceneImage, Video, VideoType, ImageMode
+from apps.apikeysmanagement.models import Provider
 
 logger = logging.getLogger(__name__)
 MAX_PARALLEL_STILL_IMAGES = 3
@@ -96,7 +97,7 @@ def create_image_scene(
     image: str,
     text: str,
     dir_name: str,
-    mode: str = "WEB",
+    mode: str = ImageMode.WEB,
     provider: str = None,
     style: str = "vivid",
     title: str = "",
@@ -186,7 +187,7 @@ def existing_visual(video: Video, text: str):
 
 def create_image_scenes(
     video: Video,
-    mode: str = "WEB",
+    mode: str = ImageMode.WEB,
     style: str = "natural",
     provider=None,
     *args,
@@ -224,7 +225,7 @@ def create_image_scenes(
         return
 
     is_video = ImageProviderRegistry.is_video(provider, user=video.created_by)
-    shared_image_reference = mode == "AI" and provider in (None, "", "OPENAI")
+    shared_image_reference = mode == ImageMode.AI and provider in (None, "", Provider.OPENAI)
     if not is_video and not shared_image_reference:
         with ThreadPoolExecutor(
             max_workers=min(MAX_PARALLEL_STILL_IMAGES, len(pending)),
@@ -290,16 +291,16 @@ def _create_image_scene_in_thread(**kwargs):
 
 def scene_reference(scene: Scene, video: Video, provider):
     """Select an identity anchor or the preceding scene's final frame."""
-    if video.mode != "AI":
+    if video.mode != ImageMode.AI:
         return None
     uploaded = (
         video.reference_image.path
         if video.reference_image and stored_file_exists(video.reference_image)
         else None
     )
-    if provider in (None, "", "OPENAI") and uploaded:
+    if provider in (None, "", Provider.OPENAI) and uploaded:
         return uploaded
-    if provider in (None, "", "OPENAI"):
+    if provider in (None, "", Provider.OPENAI):
         for image in SceneImage.objects.filter(scene__video=video).order_by(
             "scene__position", "created_at"
         ):
@@ -341,7 +342,11 @@ def generate_new_image(
 
     """
     provider = (video.settings or {}).get("provider")
-    generate = ImageProviderRegistry.resolve(video.mode, provider)
+    mode = video.mode
+    if video.video_type == VideoType.MANUAL:
+        mode, provider = ImageMode.AI, Provider.OPENAI
+        Path(video.dir_name, "images").mkdir(parents=True, exist_ok=True)
+    generate = ImageProviderRegistry.resolve(mode, provider)
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     img = generate(

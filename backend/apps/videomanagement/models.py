@@ -42,6 +42,13 @@ class MotionIntensity(models.TextChoices):
     STRONG = "STRONG", "Strong"
 
 
+class TransitionStyle(models.TextChoices):
+    DEFAULT = "DEFAULT", "Video default"
+    FADE = "FADE", "Fade"
+    CUT = "CUT", "Cut"
+    DISSOLVE = "DISSOLVE", "Cross dissolve"
+
+
 class VoiceModelType(models.TextChoices):
     API = "API", "Api"
     CUSTOM_API = "CUSTOM_API", "Custom Api"
@@ -63,6 +70,7 @@ class ImageMode(models.TextChoices):
 
 class VideoType(models.TextChoices):
     AI = "AI", "AI"
+    MANUAL = "MANUAL", "Manual"
 
 
 IN_FLIGHT_STATUSES = (VideoStatus.GENERATION, VideoStatus.RENDERING)
@@ -201,7 +209,7 @@ class Scene(models.Model):
         max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
     )
     pause_after = models.FloatField(default=0)
-    transition_after = models.CharField(max_length=8, choices=[("DEFAULT", "Video default"), ("FADE", "Fade"), ("CUT", "Cut"), ("DISSOLVE", "Cross dissolve")], default="DEFAULT")
+    transition_after = models.CharField(max_length=8, choices=TransitionStyle.choices, default=TransitionStyle.DEFAULT)
     transition_duration = models.FloatField(null=True, blank=True, default=None)
     position = models.PositiveIntegerField(default=None, editable=False)
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
