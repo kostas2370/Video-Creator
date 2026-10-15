@@ -27,6 +27,15 @@ Web image searches, uploads, and local rendering are excluded.
 Records contain no prompts, generated text, credentials, or response bodies.
 Database errors while saving usage are logged without failing successful generation.
 
+Token normalization lives in `utils/token_usage.py`, independently of persistence.
+The default adapter accepts common token field names in dictionaries or SDK objects.
+Add a `TokenUsageAdapter` to `TOKEN_USAGE_ADAPTERS` for a provider with different
+field names or additive input counts; the recording function needs no new branches.
+Reported totals take precedence over computed totals. A total is computed only when
+both input and output counts are known, and invalid counts remain unavailable.
+Anthropic cache input counts are additive only for its adapter; custom providers
+use the generic format even if their display name matches a built-in provider.
+
 Provider response references:
 [Chat streaming usage](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events)
 and [image usage](https://developers.openai.com/api/reference/resources/images/methods/generate).
