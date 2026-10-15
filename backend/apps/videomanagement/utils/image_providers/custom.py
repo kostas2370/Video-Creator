@@ -125,15 +125,25 @@ def generate_from_custom_provider(
                 .strip()
                 .lower()
             )
+            payload = None
+            download_url = None
             if content_type == "application/json" or content_type.endswith("+json"):
-                # A media URL may use a different host or its own signed credential.
-                # Keep the synthesis credential on its configured endpoint only.
+                payload = response.json()
+                download_url = media_url(payload, provider.output_type)
+
+            # Generation has completed upstream, even if local processing later fails.
+            record_usage(
+                user,
+                "video" if is_video else "images",
+                provider_name,
+                usage=payload.get("usage") if payload else None,
+                images=0 if is_video else 1,
+                custom=True,
+            )
+            if download_url:
+                # Keep synthesis credentials on the configured endpoint only.
                 response = stack.enter_context(
-                    requests.get(
-                        media_url(response.json(), provider.output_type),
-                        timeout=timeout,
-                        stream=True,
-                    )
+                    requests.get(download_url, timeout=timeout, stream=True)
                 )
                 response.raise_for_status()
 
@@ -146,7 +156,6 @@ def generate_from_custom_provider(
                     os.makedirs(dir_name, exist_ok=True)
                     saved_path = os.path.join(dir_name, f"{uuid.uuid4()}.mp4")
                     save_video(downloaded, saved_path)
-                    record_usage(user, "video", provider_name, custom=True)
                     return saved_path
                 with Image.open(downloaded) as image:
                     image.load()
@@ -160,7 +169,6 @@ def generate_from_custom_provider(
                     )
                     with image.convert(mode) as normalized:
                         normalized.save(saved_path, format="PNG")
-                record_usage(user, "images", provider_name, images=1, custom=True)
         return saved_path
     except Exception:
         if saved_path and os.path.exists(saved_path):

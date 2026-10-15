@@ -17,6 +17,33 @@ from ...utils.usage import record_usage
 
 
 class UsageTests(TestCase):
+    def test_partial_token_metrics_keep_independent_availability(self):
+        for model, usage in (
+            ("input-only", {"input_tokens": 12}),
+            ("total-only", {"total_tokens": 20}),
+        ):
+            record_usage(self.user, "text", "OPENAI", model, usage)
+        data = self.client.get(reverse("ai_usage")).data
+        rows = {row["model"]: row for row in data["breakdown"]}
+        self.assertEqual(rows["input-only"]["input_tokens"], 12)
+        self.assertIsNone(rows["input-only"]["output_tokens"])
+        self.assertIsNone(rows["input-only"]["total_tokens"])
+        self.assertIsNone(rows["total-only"]["input_tokens"])
+        self.assertEqual(rows["total-only"]["total_tokens"], 20)
+        self.assertEqual(data["totals"]["requests_with_input_tokens"], 1)
+        self.assertEqual(data["totals"]["requests_with_output_tokens"], 0)
+        self.assertEqual(data["totals"]["requests_with_tokens"], 1)
+        self.assertIsNone(data["totals"]["output_tokens"])
+
+    def test_reported_zero_is_distinct_from_unreported_usage_in_same_group(self):
+        record_usage(self.user, "text", "OPENAI", "model", {"input_tokens": 0})
+        record_usage(self.user, "text", "OPENAI", "model")
+        row = self.client.get(reverse("ai_usage")).data["breakdown"][0]
+        self.assertEqual(row["input_tokens"], 0)
+        self.assertEqual(row["requests_with_input_tokens"], 1)
+        self.assertEqual(row["requests"], 2)
+        self.assertIsNone(row["output_tokens"])
+
     def setUp(self):
         self.user = user.make(use_service_api_keys=True)
         self.client = APIClient()
