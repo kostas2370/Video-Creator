@@ -5,7 +5,7 @@ import { EditorDialog, editorButton } from "./ui/EditorDialog";
 import { API_HOST } from "../endpoints";
 import { imageMotion, resolveImageMotion } from "../utils/motion";
 
-export const hasStillImage = scene => /\.(png|jpe?g)(?:[?#].*)?$/i.test(scene.scene_image?.file || "");
+export const hasStillImage = scene => /\.(png|jpe?g|webp)(?:[?#].*)?$/i.test(scene.scene_image?.file || "");
 
 const styles = [["NONE", "No motion", "—"], ["AUTO", "Auto", "✦"], ["ZOOM_IN", "Zoom in", "+"], ["ZOOM_OUT", "Zoom out", "−"], ["PAN_LEFT", "Pan left", "←"], ["PAN_RIGHT", "Pan right", "→"], ["PAN_UP", "Pan up", "↑"], ["PAN_DOWN", "Pan down", "↓"]];
 const intensities = [["SUBTLE", "Subtle"], ["MEDIUM", "Medium"], ["STRONG", "Strong"]];

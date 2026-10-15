@@ -1,14 +1,28 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { HiOutlineAdjustmentsHorizontal } from "react-icons/hi2";
 import { toast } from "react-toastify";
-import { updateMusicAudio } from "../api/apiService";
+import { updateMusicAudio, uploadMusic, removeMusic } from "../api/apiService";
 import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
 import { AudioFadePresets } from "./AudioFadePresets";
 
 export function MusicAudio({ video, disabled, onSaved }) {
   const [open, setOpen] = useState(false);
-  if (!video?.music) return null;
-  return <section aria-label="Background music settings" className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h3 className="text-sm font-semibold">Background music</h3><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{Math.round((video.settings?.music_volume ?? 0.07) * 100)}% volume{video.settings?.music_ducking ? " · Auto ducking on" : ""}</p><button type="button" disabled={disabled} aria-haspopup="dialog" onClick={() => setOpen(true)} className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"><HiOutlineAdjustmentsHorizontal aria-hidden="true" className="h-4 w-4" />Edit music</button>{open && <MusicEditor video={video} disabled={disabled} onSaved={onSaved} onClose={() => setOpen(false)} />}</section>;
+  const picker = useRef(null);
+  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const replace = async file => {
+    if (busy || disabled) return;
+    setBusy(true); setError("");
+    try {
+      const data = new FormData();
+      if (file) data.append("file", file);
+      const response = file ? await uploadMusic(video.id, data) : await removeMusic(video.id);
+      if (!response.ok) throw new Error(response.message || "Could not update music.");
+      onSaved(); toast.success(file ? "Music uploaded" : "Music removed");
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(false); }
+  };
+  if (!video) return null;
+  return <section aria-label="Background music settings" className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h3 className="text-sm font-semibold">Background music</h3><p className="mt-1 truncate text-xs text-gray-500">{video.music || "Add your own soundtrack"}</p><input ref={picker} aria-label="Upload background music" type="file" accept="audio/*,.webm" className="hidden" onChange={event => { if (event.target.files[0]) replace(event.target.files[0]); event.target.value = ""; }} /><button type="button" disabled={disabled || busy} onClick={() => picker.current?.click()} className="mt-3 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium disabled:opacity-40 dark:border-gray-600">{busy ? "Saving…" : video.music ? "Replace music" : "Upload music"}</button>{video.music && <button type="button" disabled={disabled || busy} onClick={() => replace(null)} className="ml-2 text-xs text-gray-500 underline disabled:opacity-40">Remove</button>}{error && <p role="alert" className="mt-2 text-xs text-red-600">{error}</p>}<p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{Math.round((video.settings?.music_volume ?? 0.07) * 100)}% volume{video.settings?.music_ducking ? " · Auto ducking on" : ""}</p>{video.music && <button type="button" disabled={disabled || busy} aria-haspopup="dialog" onClick={() => setOpen(true)} className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"><HiOutlineAdjustmentsHorizontal aria-hidden="true" className="h-4 w-4" />Edit music</button>}{open && <MusicEditor video={video} disabled={disabled} onSaved={onSaved} onClose={() => setOpen(false)} />}</section>;
 }
 
 function MusicEditor({ video, disabled, onSaved, onClose }) {
