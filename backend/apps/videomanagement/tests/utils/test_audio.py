@@ -1,8 +1,6 @@
-import base64
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
-from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider

@@ -1,13 +1,6 @@
 from django.core.exceptions import ValidationError
 from rest_framework_simplejwt import authentication as jwt_authentication
-from rest_framework import authentication, exceptions as rest_exceptions
-
-
-def enforce_csrf(request):
-    check = authentication.CSRFCheck(request)
-    reason = check.process_view(request, None, (), {})
-    if reason:
-        raise rest_exceptions.PermissionDenied(f"CSRF Failed: {reason}")
+from rest_framework import exceptions as rest_exceptions
 
 
 class CustomAuthentication(jwt_authentication.JWTAuthentication):
@@ -27,7 +20,6 @@ class CustomAuthentication(jwt_authentication.JWTAuthentication):
             except rest_exceptions.AuthenticationFailed:
                 continue
 
-            # enforce_csrf(request)
             try:
                 return self.get_user(validated_token), validated_token
             except ValidationError as exc:

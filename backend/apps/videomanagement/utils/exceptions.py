@@ -13,12 +13,6 @@ class InvalidJsonFormatException(Exception):
         super().__init__(self.message)
 
 
-class FileNotDownloadedException(Exception):
-    def __init__(self):
-        self.message = "could not download the video"
-        super().__init__(self.message)
-
-
 class RenderFailedException(APIException):
     status_code = 400
     default_detail = (

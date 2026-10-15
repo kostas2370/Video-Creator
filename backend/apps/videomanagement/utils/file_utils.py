@@ -1,5 +1,4 @@
 import os
-from typing import Union
 
 from django.core.exceptions import SuspiciousFileOperation
 
@@ -37,33 +36,6 @@ def generate_directory(name: str, x: int = 0) -> str:
             return dir_name
         else:
             x += 1
-
-
-def check_which_file_exists(images: list) -> Union[str, None]:
-    """
-    Check which file from a list of file paths actually exists on the file system.
-
-    Parameters:
-    -----------
-    images : list of str
-        The list of file paths to check.
-
-    Returns:
-    --------
-    str or None
-        The path of the first file that exists, or None if none of the files exist.
-
-    Notes:
-    ------
-    - This function checks each file path in the list to see if it exists on the file system.
-    - Returns the path of the first existing file, or None if none of the files exist.
-    """
-
-    for i in images:
-        if os.path.exists(i):
-            return i
-
-    return None
 
 
 def check_if_image(path: str) -> bool:
