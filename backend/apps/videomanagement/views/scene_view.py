@@ -8,12 +8,13 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from ..models import Scene, SceneImage
+from ..serializers.requests import ManualTextSerializer
+from ..models import Scene, SceneImage, VideoType
 from ..schema import SceneImageUploadSchema
 from ..tasks import update_scene_task, rewrite_scene_task, generate_scene_image_task
 from ..serializers.models import SceneSerializer
 from ..services.scene_jobs import queue_scene_job, scene_job_result
-from ..services.editing import editable_video
+from ..services.editing import editable_video, changed
 from ..serializers.requests import SceneJobQuerySerializer
 from ..services.editing import update_scene_transition, update_scene_timing, update_scene_motion
 from ..serializers.requests import (
@@ -40,6 +41,11 @@ class SceneView(viewsets.GenericViewSet):
         IsOwnerPermission,
         SceneGenerationLimitPermission,
     ]
+
+    def get_permissions(self):
+        if self.action in ("partial_update", "change_image_scene", "destroy"):
+            return [IsAuthenticated(), IsOwnerPermission()]
+        return super().get_permissions()
 
     @swagger_auto_schema(request_body=SceneAudioSerializer)
     @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
@@ -98,9 +104,18 @@ class SceneView(viewsets.GenericViewSet):
     )
     def partial_update(self, request, pk=None):
         instance = self.get_object()
-        serializer = SceneUpdateSerializer(data=request.data)
+        serializer_class = ManualTextSerializer if instance.video.video_type == VideoType.MANUAL else SceneUpdateSerializer
+        serializer = serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        if instance.video.video_type == VideoType.MANUAL:
+            with editable_video(instance.video_id) as video:
+                instance.text = serializer.validated_data["text"]
+                instance.save(update_fields=["text"])
+                changed(video)
+            return Response(SceneSerializer(instance).data)
+        if not serializer.validated_data["text"].strip():
+            return Response({"detail": "Add dialogue for this scene."}, status=400)
         operation = queue_scene_job(
             instance, request.user, update_scene_task, serializer.validated_data["text"], cost=0.01,
         )

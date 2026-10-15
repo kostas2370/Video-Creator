@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import requests
 from PIL import Image
 from ..timing import video_metadata
+from ..usage import record_usage
 from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutputType
@@ -124,15 +125,25 @@ def generate_from_custom_provider(
                 .strip()
                 .lower()
             )
+            payload = None
+            download_url = None
             if content_type == "application/json" or content_type.endswith("+json"):
-                # A media URL may use a different host or its own signed credential.
-                # Keep the synthesis credential on its configured endpoint only.
+                payload = response.json()
+                download_url = media_url(payload, provider.output_type)
+
+            # Generation has completed upstream, even if local processing later fails.
+            record_usage(
+                user,
+                "video" if is_video else "images",
+                provider_name,
+                usage=payload.get("usage") if payload else None,
+                images=0 if is_video else 1,
+                custom=True,
+            )
+            if download_url:
+                # Keep synthesis credentials on the configured endpoint only.
                 response = stack.enter_context(
-                    requests.get(
-                        media_url(response.json(), provider.output_type),
-                        timeout=timeout,
-                        stream=True,
-                    )
+                    requests.get(download_url, timeout=timeout, stream=True)
                 )
                 response.raise_for_status()
 

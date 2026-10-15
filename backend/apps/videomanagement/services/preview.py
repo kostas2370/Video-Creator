@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from rest_framework.exceptions import ValidationError
 
-from ..models import Intro, Outro, Scene, SceneImage, VideoStatus
+from ..models import Intro, Outro, Scene, SceneImage, VideoStatus, TransitionStyle
 from ..utils.exceptions import VideoEditConflict
 from ..utils.file_utils import check_if_video
 from ..utils.timing import file_timing, scene_timing
@@ -25,7 +25,7 @@ class PreviewSegmentTiming:
     visual_duration: float | None = None
     clip_audio: bool = False
     narration_duration: float | None = None
-    transition: str = "CUT"
+    transition: str = TransitionStyle.CUT
     transition_duration: float | None = None
     fade_in: float = 0
     fade_out: float = 0
@@ -79,13 +79,13 @@ def apply_transitions(segments, choices):
     """Apply scene-boundary effects using the renderer's fade and dissolve limits."""
     for index, segment in enumerate(segments):
         previous = segments[index - 1] if index else None
-        incoming_style = previous.transition if previous else choices.get("transition_default", "FADE")
-        if incoming_style == "FADE":
+        incoming_style = previous.transition if previous else choices.get("transition_default", TransitionStyle.FADE)
+        if incoming_style == TransitionStyle.FADE:
             requested = previous.transition_duration if previous else choices.get("transition_duration")
             segment.fade_in = fade_duration(segment, requested)
-        if segment.transition == "FADE":
+        if segment.transition == TransitionStyle.FADE:
             segment.fade_out = fade_duration(segment, segment.transition_duration)
-        if previous and previous.transition == "DISSOLVE":
+        if previous and previous.transition == TransitionStyle.DISSOLVE:
             requested = previous.transition_duration
             segment.dissolve_in = min(
                 requested if requested is not None else 0.5,
@@ -119,9 +119,8 @@ def preview_timeline(video):
         captions = []
         for segment in scene_segments:
             track = tracks.get(str(segment.content.pk))
-            if track:
-                offset = track["start"] - segment.content.audio_settings.get("delay", 0)
-                captions.extend(scene_cues(segment.content, offset=offset, duration=segment.narration_duration))
+            caption_offset = track["start"] - segment.content.audio_settings.get("delay", 0) if track else segment.start
+            captions.extend(scene_cues(segment.content, offset=caption_offset, duration=segment.narration_duration))
     apply_transitions(scene_segments, choices)
     segments.extend(scene_segments)
 

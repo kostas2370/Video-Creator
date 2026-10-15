@@ -10,6 +10,7 @@ from .event_stream import event_updates
 from .views.generate_view import GenerateView
 from .views.scene_view import SceneView
 from .views.video_view import VideoView
+from .views.usage_view import UsageView
 
 from rest_framework import routers
 from django.urls import path
@@ -28,6 +29,7 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
+    path("usage/", UsageView.as_view(), name="ai_usage"),
     path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]

@@ -9,6 +9,7 @@ import requests
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..prompt_utils import format_image_prompt
+from ..usage import record_usage
 
 from .registry import ImageProviderRegistry
 
@@ -77,5 +78,6 @@ def generate_from_diffusion(
         return
 
     saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
+    record_usage(user, "images", Provider.STABLE_DIFFUSION, images=1)
     urllib.request.urlretrieve(output[0], saved)
     return saved

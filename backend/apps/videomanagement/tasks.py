@@ -13,7 +13,7 @@ from django.utils import timezone
 from apps.apikeysmanagement.models import Provider
 
 from .events import publish_update
-from .models import IN_FLIGHT_STATUSES, SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
+from .models import SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
 from .services import SceneServices, VideoGenerationServices
 from .services.scene_jobs import scene_job
 from .serializers.models import SceneSerializer
@@ -145,7 +145,7 @@ def reap_stalled_videos():
     """
     cutoff = timezone.now() - timedelta(seconds=settings.VIDEO_TASK_STALE_AFTER)
 
-    stalled = Video.objects.filter(status__in=IN_FLIGHT_STATUSES, updated_at__lt=cutoff)
+    stalled = Video.objects.in_flight().filter(updated_at__lt=cutoff)
     ids = list(stalled.values_list("pk", flat=True))
 
     if not ids:

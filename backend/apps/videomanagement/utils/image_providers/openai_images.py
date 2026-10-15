@@ -11,6 +11,7 @@ from rest_framework.exceptions import APIException
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..prompt_utils import format_image_prompt
+from ..usage import record_usage
 
 from .registry import ImageProviderRegistry
 
@@ -61,6 +62,9 @@ def generate_openai_image(
             response = client.images.edit(image=anchor, **request)
     else:
         response = client.images.generate(**request)
+
+    record_usage(user, "images", Provider.OPENAI, settings.IMAGE_MODEL,
+                 getattr(response, "usage", None), images=len(response.data or []))
 
     # gpt-image always answers with base64 and never populates `url`.
     if not response.data or not response.data[0].b64_json:

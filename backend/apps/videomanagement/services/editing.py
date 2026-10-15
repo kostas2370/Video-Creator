@@ -10,6 +10,14 @@ from ..utils.file_utils import check_if_image
 from ..utils.exceptions import VideoEditConflict
 
 
+def changed(video, *, invalidate_avatar=True):
+    """Refresh the editor and discard avatar audio only when the edit affects it."""
+    video.save(update_fields=["updated_at"])
+    if invalidate_avatar and video.avatar_id:
+        transaction.on_commit(lambda: Path(video.dir_name, "output_avatar.mp4").unlink(missing_ok=True), robust=True)
+    publish_update(f"video.{video.pk}", video_id=video.pk)
+
+
 @contextmanager
 def editable_video(video_id):
     """Hold the video lock through the edit; commit or roll back on exit."""
@@ -38,8 +46,7 @@ def reorder_scenes(video, scene_ids):
         for position, scene in enumerate(ordered, 1):
             scene.position = position
         Scene.objects.bulk_update(ordered, ["position"])
-        locked_video.save(update_fields=["updated_at"])
-        publish_update(f"video.{locked_video.pk}", video_id=locked_video.pk)
+        changed(locked_video, invalidate_avatar=False)
     return locked_video
 
 
@@ -48,7 +55,7 @@ def apply_auto_motion(video, intensity):
         scenes = (
             locked_video.scenes.exclude(motion_style=MotionStyle.AUTO, motion_intensity=intensity)
             .select_for_update()
-            .prefetch_related("scene_images")
+            .with_media()
         )
         scene_ids = []
         for scene in scenes:
@@ -59,8 +66,7 @@ def apply_auto_motion(video, intensity):
             locked_video.scenes.filter(pk__in=scene_ids).update(
                 motion_style=MotionStyle.AUTO, motion_intensity=intensity,
             )
-            locked_video.save(update_fields=["updated_at"])
-            publish_update(f"video.{locked_video.pk}", video_id=locked_video.pk)
+            changed(locked_video, invalidate_avatar=False)
     return locked_video
 
 
@@ -73,21 +79,27 @@ def update_scene_motion(scene, **changes):
 
 
 def update_scene_timing(scene, **changes):
-    return _update_playback(scene, ("pause_after",), changes)
+    return _update_playback(scene, ("pause_after", "duration"), changes)
 
 
 def _update_playback(scene, allowed_fields, changes):
     with editable_video(scene.video_id) as video:
         scene = get_object_or_404(Scene.objects.select_for_update(), pk=scene.pk)
-        fields = [field for field in allowed_fields
-                  if field in changes and getattr(scene, field) != changes[field]]
-        if not fields:
+        updates = {field: changes[field] for field in allowed_fields
+                   if field != "duration" and field in changes
+                   and getattr(scene, field) != changes[field]}
+        if "duration" in allowed_fields and "duration" in changes:
+            settings = dict(scene.audio_settings or {})
+            if changes["duration"] is None:
+                settings.pop("duration", None)
+            else:
+                settings["duration"] = changes["duration"]
+            if settings != scene.audio_settings:
+                updates["audio_settings"] = settings
+        if not updates:
             return scene
-        for field in fields:
-            setattr(scene, field, changes[field])
-        scene.save(update_fields=fields)
-        if "pause_after" in fields and video.avatar_id:
-            transaction.on_commit(lambda: Path(video.dir_name, "output_avatar.mp4").unlink(missing_ok=True), robust=True)
-        video.save(update_fields=["updated_at"])
-        publish_update(f"video.{video.pk}", video_id=video.pk)
+        for field, value in updates.items():
+            setattr(scene, field, value)
+        scene.save(update_fields=list(updates))
+        changed(video, invalidate_avatar=bool({"pause_after", "audio_settings"} & updates.keys()))
     return scene
