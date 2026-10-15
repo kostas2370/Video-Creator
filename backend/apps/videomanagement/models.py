@@ -14,6 +14,7 @@ from django_lifecycle.conditions import WhenFieldValueChangesTo
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
+from .querysets import AIUsageQuerySet
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -42,6 +43,7 @@ class AIUsage(models.Model):
     characters = models.PositiveBigIntegerField(default=0)
     images = models.PositiveIntegerField(default=0)
     seconds = models.PositiveIntegerField(default=0)
+    objects = AIUsageQuerySet.as_manager()
 
     class Meta:
         indexes = [models.Index(fields=["user", "created_at"], name="ai_usage_user_date")]

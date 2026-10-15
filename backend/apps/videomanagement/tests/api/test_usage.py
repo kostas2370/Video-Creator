@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 
 from apps.usermanagement.baker_recipes import user
 from ...models import AIUsage
+from ...serializers.usage import UsageSerializer
 from ...utils import llm, tts_utils
 from ...utils.image_providers import openai_images
 from ...utils.usage import record_usage
@@ -20,6 +21,30 @@ class UsageTests(TestCase):
         self.user = user.make(use_service_api_keys=True)
         self.client = APIClient()
         self.client.force_authenticate(self.user)
+
+    def test_summary_preserves_scope_and_serialization_performs_no_queries(self):
+        record_usage(
+            self.user,
+            "text",
+            "OPENAI",
+            "gpt-test",
+            {"input_tokens": 10, "output_tokens": 2},
+        )
+        record_usage(self.user, "text", "OPENAI", "gpt-test")
+        record_usage(self.user, "tts", "OPENAI", characters=20)
+        record_usage(user.make(), "text", "OPENAI", "gpt-test", {"total_tokens": 999})
+        usage = AIUsage.objects.filter(user=self.user, service="text")
+        with self.assertNumQueries(2):
+            summary = usage.summary()
+        summary.update(period="all", first_recorded_at=usage.first_recorded_at())
+        with self.assertNumQueries(0):
+            result = UsageSerializer(summary).data
+        self.assertEqual(result["totals"]["requests"], 2)
+        self.assertEqual(result["totals"]["requests_with_tokens"], 1)
+        self.assertEqual(result["totals"]["total_tokens"], 12)
+        self.assertEqual(result["totals"]["characters"], 0)
+        self.assertEqual(len(result["breakdown"]), 1)
+        self.assertEqual(result["breakdown"][0]["total_tokens"], 12)
 
     def test_normalizes_provider_tokens_and_preserves_unknowns(self):
         record_usage(
