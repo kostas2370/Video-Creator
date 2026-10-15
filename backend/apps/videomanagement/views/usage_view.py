@@ -7,7 +7,6 @@ from rest_framework.response import Response
 from ..filters import UsageFilter
 from ..models import AIUsage
 from ..serializers.usage import UsageSerializer
-from ..services.usage import summarize_usage
 
 
 class UsageView(GenericAPIView):
@@ -22,8 +21,11 @@ class UsageView(GenericAPIView):
     @swagger_auto_schema(responses={200: UsageSerializer})
     def get(self, request):
         all_usage = self.get_queryset()
-        usage = self.filter_queryset(all_usage)
-        summary = summarize_usage(
-            all_usage, usage, period=request.query_params.get("period", "30")
+        serializer = self.get_serializer(
+            {
+                "period": request.query_params.get("period", "30"),
+                "all_usage": all_usage,
+                "usage": self.filter_queryset(all_usage),
+            }
         )
-        return Response(self.get_serializer(summary).data)
+        return Response(serializer.data)
