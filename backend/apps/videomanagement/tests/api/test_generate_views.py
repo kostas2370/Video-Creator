@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 
-from apps.usermanagement.baker_recipes import broke_user, user
+from apps.usermanagement.baker_recipes import user
 
 from ...models import Video
 from ...baker_recipes import avatar, intro, outro, voice_model
@@ -140,13 +140,13 @@ class GenerateViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 400)
         delay.assert_not_called()
 
-    def test_turns_away_a_user_who_cannot_afford_it(self):
-        self.client.force_authenticate(broke_user.make())
+    def test_a_new_account_can_queue_generation_without_a_balance(self):
+        self.client.force_authenticate(user.make())
 
         response, delay = self.post()
 
-        self.assertEqual(response.status_code, 403)
-        delay.assert_not_called()
+        self.assertEqual(response.status_code, 202)
+        delay.assert_called_once()
 
     def test_turns_away_an_anonymous_visitor(self):
         self.client.force_authenticate(None)

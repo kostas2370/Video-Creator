@@ -7,7 +7,7 @@ from django.urls import reverse
 from rest_framework.exceptions import APIException
 from rest_framework.test import APIClient
 
-from apps.usermanagement.baker_recipes import broke_user, user
+from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import avatar, intro, outro, scene, scene_image, video
 from .base import ApiTestCase
@@ -458,15 +458,15 @@ class ResumeViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 404)
         delay.assert_not_called()
 
-    def test_refuses_someone_who_has_spent_their_allowance(self):
-        broke = broke_user.make()
-        stalled = self.a_failed_video(owner=broke)
-        self.client.force_authenticate(broke)
+    def test_a_new_account_can_resume_its_failed_video(self):
+        owner = user.make()
+        stalled = self.a_failed_video(owner=owner)
+        self.client.force_authenticate(owner)
 
         response, delay = self.resume(stalled)
 
-        self.assertEqual(response.status_code, 403)
-        delay.assert_not_called()
+        self.assertEqual(response.status_code, 202)
+        delay.assert_called_once()
 
 
 class SceneDraftApiTests(ApiTestCase):
@@ -475,8 +475,7 @@ class SceneDraftApiTests(ApiTestCase):
         self.video = self.video_for()
         self.url = reverse("video-draft-scene", args=[self.video.pk])
 
-    def test_draft_is_reviewable_without_saving_and_charges_credit(self):
-        before = self.user.generation_limit_for_ai
+    def test_draft_is_reviewable_without_saving(self):
         draft = {"text": "Next scene", "image_description": "The road ahead"}
         with patch("apps.videomanagement.views.video_view.draft_scene", return_value=draft) as generate:
             response = self.client.post(self.url, {"prompt": "Continue", "use_context": True}, format="json")
@@ -484,18 +483,13 @@ class SceneDraftApiTests(ApiTestCase):
         self.assertEqual(response.data, draft)
         self.assertTrue(generate.call_args.kwargs["use_context"])
         self.assertFalse(self.video.scenes.exists())
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, before - 0.03)
 
-    def test_invalid_inputs_do_not_generate_or_charge(self):
-        before = self.user.generation_limit_for_ai
+    def test_invalid_inputs_do_not_generate(self):
         for data in ({}, {"prompt": " "}, {"prompt": "x" * 2001}, {"prompt": "Next", "use_context": "invalid"}):
             with self.subTest(data=data), patch("apps.videomanagement.views.video_view.draft_scene") as generate:
                 response = self.client.post(self.url, data, format="json")
             self.assertEqual(response.status_code, 400)
             generate.assert_not_called()
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, before)
 
     def test_other_users_cannot_request_scenario_context(self):
         other = self.video_for(owner=user.make())
@@ -504,19 +498,15 @@ class SceneDraftApiTests(ApiTestCase):
         self.assertEqual(response.status_code, 404)
         generate.assert_not_called()
 
-    def test_provider_failure_refunds_credit(self):
+    def test_provider_failure_is_reported(self):
 
-        before = self.user.generation_limit_for_ai
         with patch("apps.videomanagement.views.video_view.draft_scene", side_effect=APIException("Unavailable")):
             response = self.client.post(self.url, {"prompt": "Next"}, format="json")
         self.assertEqual(response.status_code, 500)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, before)
 
-    def test_insufficient_credit_does_not_call_provider(self):
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
+    def test_anonymous_users_cannot_request_a_draft(self):
+        self.client.force_authenticate(None)
         with patch("apps.videomanagement.views.video_view.draft_scene") as generate:
             response = self.client.post(self.url, {"prompt": "Next"}, format="json")
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 401)
         generate.assert_not_called()

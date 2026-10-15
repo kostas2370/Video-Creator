@@ -6,14 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from ..serializers.requests import GenerateSerializer
 from ..services.VideoGenerationServices import create_pending_video
 from ..serializers.models import VideoSerializer
-from ..permissions import AiGenerationLimitPermission
 from ..tasks import generate_video_task
 from ..throttling import GenerateRateThrottle
 from ..models import VideoStatus
 
 
 class GenerateView(APIView):
-    permission_classes = [IsAuthenticated, AiGenerationLimitPermission]
+    permission_classes = [IsAuthenticated]
     throttle_classes = [GenerateRateThrottle]
 
     @swagger_auto_schema(...)
