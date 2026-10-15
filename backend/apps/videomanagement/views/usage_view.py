@@ -21,11 +21,9 @@ class UsageView(GenericAPIView):
     @swagger_auto_schema(responses={200: UsageSerializer})
     def get(self, request):
         all_usage = self.get_queryset()
-        serializer = self.get_serializer(
-            {
-                "period": request.query_params.get("period", "30"),
-                "all_usage": all_usage,
-                "usage": self.filter_queryset(all_usage),
-            }
+        summary = self.filter_queryset(all_usage).summary()
+        summary.update(
+            period=request.query_params.get("period", "30"),
+            first_recorded_at=all_usage.first_recorded_at(),
         )
-        return Response(serializer.data)
+        return Response(self.get_serializer(summary).data)
