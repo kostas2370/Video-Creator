@@ -8,7 +8,6 @@ from django.http import HttpResponse
 from django.utils.http import content_disposition_header
 from django.utils.text import slugify
 from django.db import transaction
-from django.db.models import Q
 from rest_framework.parsers import MultiPartParser, FormParser
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -80,12 +79,12 @@ class VideoView(
 
     def get_queryset(self):
         queryset = (
-            Video.objects.filter(created_by_id=self.request.user.id)
+            Video.objects.for_user(self.request.user)
             .order_by("-created_at")
             .select_related("music", "prompt")
         )
         if self.action == "list":
-            queryset = queryset.filter(Q(gpt_answer__isnull=False) | Q(video_type=VideoType.MANUAL))
+            queryset = queryset.listable()
 
         if self.action in ("retrieve", "preview"):
             queryset = queryset.select_related("intro", "outro").prefetch_related(

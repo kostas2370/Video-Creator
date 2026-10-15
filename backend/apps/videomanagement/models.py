@@ -11,10 +11,10 @@ from django_resized import ResizedImageField
 from django.conf import settings
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
 from django_lifecycle.conditions import WhenFieldValueChangesTo
-from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
-from .querysets import AIUsageQuerySet
+from .querysets import AIUsageQuerySet, VideoQuerySet, SceneQuerySet, VoiceModelQuerySet
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -251,7 +251,7 @@ class Scene(models.Model):
     )
     text = models.TextField()
     is_last = models.BooleanField(default=True)
-    objects = models.Manager()
+    objects = SceneQuerySet.as_manager()
 
     def save(self, *args, **kwargs):
         if self.position is not None:
@@ -293,38 +293,14 @@ class VoiceModel(AbstractModel):
     type = models.CharField(max_length=10, choices=VoiceModelType.choices)
     sample = models.URLField(blank=True, null=True, max_length=1000)
     path = models.CharField(max_length=255, blank=False)
-    objects = models.Manager()
+    objects = VoiceModelQuerySet.as_manager()
 
     def __str__(self):
         return self.name
 
     @staticmethod
-    def available_to(user) -> models.QuerySet:
-        playable = [
-            provider for provider in VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
-        ]
-        spending_own_keys = (
-            user is not None
-            and getattr(user, "is_authenticated", False)
-            and not user.use_service_api_keys
-        )
-        shared = models.Q(created_by=None)
-        if spending_own_keys:
-            scope = (
-                shared & ~models.Q(provider__in=ACCOUNT_SCOPED_VOICE_PROVIDERS)
-            ) | models.Q(created_by=user)
-        else:
-            scope = shared
-
-        valid_providers = models.Q(provider__in=playable) | (
-            models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
-        )
-
-        return VoiceModel.objects.filter(scope & valid_providers)
-
-    @staticmethod
     def select_voice(user=None) -> VoiceModel:
-        voice = VoiceModel.available_to(user)
+        voice = VoiceModel.objects.available_to(user)
         count = voice.count()
         if count == 0:
             return None
@@ -433,7 +409,7 @@ class Video(LifecycleModelMixin, AbstractModel):
         default=default_video_settings,
     )
 
-    objects = models.Manager()
+    objects = VideoQuerySet.as_manager()
 
     def __str__(self):
         return f"{self.title}"

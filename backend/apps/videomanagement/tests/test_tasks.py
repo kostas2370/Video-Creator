@@ -185,9 +185,9 @@ class UpdateUserVoicesTests(TestCase):
 
                 voice = VoiceModel.objects.get(provider=provider, path="abc")
                 with patch(
-                    "apps.videomanagement.models.ApiKeys.key_for", return_value="key"
+                    "apps.apikeysmanagement.models.ApiKeys.key_for", return_value="key"
                 ):
-                    self.assertIn(voice, VoiceModel.available_to(self.user))
+                    self.assertIn(voice, VoiceModel.objects.available_to(self.user))
                 with patch.object(tts_utils, handler) as synthesize:
                     tts_utils.save(
                         tts_utils.ApiSyn(provider=voice.provider, path=voice.path),

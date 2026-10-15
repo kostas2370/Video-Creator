@@ -55,7 +55,7 @@ def apply_auto_motion(video, intensity):
         scenes = (
             locked_video.scenes.exclude(motion_style=MotionStyle.AUTO, motion_intensity=intensity)
             .select_for_update()
-            .prefetch_related("scene_images")
+            .with_media()
         )
         scene_ids = []
         for scene in scenes:

@@ -90,7 +90,7 @@ class VoiceView(
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnlyPermission]
 
     def get_queryset(self):
-        return VoiceModel.available_to(self.request.user).order_by("id")
+        return VoiceModel.objects.available_to(self.request.user).order_by("id")
 
 
 class AvatarView(viewsets.ModelViewSet):

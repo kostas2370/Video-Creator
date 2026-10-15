@@ -38,7 +38,7 @@ def event_updates(request, video_id=None):
         return Response(status=403)
     channel = f"notifications.{request.user.pk}"
     if video_id is not None:
-        get_object_or_404(Video, pk=video_id, created_by=request.user)
+        get_object_or_404(Video.objects.for_user(request.user), pk=video_id)
         channel = f"video.{video_id}"
     if not isinstance(request._request, ASGIRequest):
         return Response({"detail": "Event streams require an ASGI server."}, status=503)

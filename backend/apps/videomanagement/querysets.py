@@ -26,3 +26,59 @@ class AIUsageQuerySet(models.QuerySet):
                 self.values(*grouping).annotate(**metrics).order_by(*grouping)
             ),
         }
+
+
+class VideoQuerySet(models.QuerySet):
+    def for_user(self, user):
+        if not getattr(user, "is_authenticated", False):
+            return self.none()
+        return self.filter(created_by=user)
+
+    def listable(self):
+        """Manual projects and AI projects with a generated script."""
+        from .models import VideoType
+
+        return self.filter(Q(gpt_answer__isnull=False) | Q(video_type=VideoType.MANUAL))
+
+    def in_flight(self):
+        from .models import IN_FLIGHT_STATUSES
+
+        return self.filter(status__in=IN_FLIGHT_STATUSES)
+
+
+class SceneQuerySet(models.QuerySet):
+    def with_media(self):
+        """Load scene visuals in one extra query, retaining existing ordering."""
+        return self.prefetch_related("scene_images")
+
+
+class VoiceModelQuerySet(models.QuerySet):
+    def available_to(self, user):
+        from apps.apikeysmanagement.models import ApiKeys
+        from .models import (
+            VOICE_PROVIDERS,
+            ACCOUNT_SCOPED_VOICE_PROVIDERS,
+            VoiceModelType,
+        )
+
+        playable = [
+            provider for provider in VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
+        ]
+        spending_own_keys = (
+            user is not None
+            and getattr(user, "is_authenticated", False)
+            and not user.use_service_api_keys
+        )
+        shared = models.Q(created_by=None)
+        if spending_own_keys:
+            scope = (
+                shared & ~models.Q(provider__in=ACCOUNT_SCOPED_VOICE_PROVIDERS)
+            ) | models.Q(created_by=user)
+        else:
+            scope = shared
+
+        valid_providers = models.Q(provider__in=playable) | (
+            models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
+        )
+
+        return self.filter(scope & valid_providers)
