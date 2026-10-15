@@ -94,8 +94,30 @@ class UsageTests(TestCase):
         response = self.client.get(reverse("ai_usage"))
         self.assertEqual(response.data["totals"]["total_tokens"], 0)
         self.assertEqual(response.data["breakdown"], [])
+        self.assertIsNone(response.data["first_recorded_at"])
+        self.assertEqual(response.data["period"], "30")
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(reverse("ai_usage")).status_code, [401, 403])
+
+    def test_default_period_excludes_old_records_but_preserves_first_recorded_date(
+        self,
+    ):
+        record_usage(self.user, "tts", "OPENAI", characters=5)
+        first = timezone.now() - timedelta(days=40)
+        AIUsage.objects.update(created_at=first)
+        response = self.client.get(reverse("ai_usage"))
+        self.assertEqual(response.data["totals"]["requests"], 0)
+        self.assertEqual(response.data["breakdown"], [])
+        self.assertEqual(response.data["period"], "30")
+        from django.utils.dateparse import parse_datetime
+
+        self.assertEqual(parse_datetime(response.data["first_recorded_at"]), first)
+
+    def test_filterset_rejects_empty_and_invalid_periods(self):
+        for period in ("", "0", "-7", "31", "invalid"):
+            response = self.client.get(reverse("ai_usage"), {"period": period})
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("period", response.data)
 
     def test_measurement_failure_does_not_break_generation_or_transaction(self):
         with patch(

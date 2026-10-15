@@ -1,28 +1,29 @@
-from datetime import timedelta
-
 from django.db.models import Count, Min, Q, Sum
-from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
+from ..filters import UsageFilter
 from ..models import AIUsage
+from ..serializers.usage import UsageSerializer
 
 
-class UsageView(APIView):
+class UsageView(GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = UsageSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = UsageFilter
 
+    def get_queryset(self):
+        return AIUsage.objects.filter(user=self.request.user)
+
+    @swagger_auto_schema(responses={200: UsageSerializer})
     def get(self, request):
+        all_usage = self.get_queryset()
+        usage = self.filter_queryset(all_usage)
         period = request.query_params.get("period", "30")
-        if period not in ("7", "30", "all"):
-            raise ValidationError({"period": "Choose 7, 30, or all."})
-        all_usage = AIUsage.objects.filter(user=request.user)
-        usage = all_usage
-        if period != "all":
-            usage = usage.filter(
-                created_at__gte=timezone.now() - timedelta(days=int(period))
-            )
         metrics = {
             "requests_with_tokens": Count("id", filter=Q(total_tokens__isnull=False)),
             "requests": Count("id"),
@@ -38,7 +39,7 @@ class UsageView(APIView):
             .annotate(**metrics)
             .order_by("service", "provider", "model", "key_source")
         )
-        return Response(
+        serializer = self.get_serializer(
             {
                 "period": period,
                 "first_recorded_at": all_usage.aggregate(first=Min("created_at"))[
@@ -48,3 +49,4 @@ class UsageView(APIView):
                 "breakdown": breakdown,
             }
         )
+        return Response(serializer.data)
