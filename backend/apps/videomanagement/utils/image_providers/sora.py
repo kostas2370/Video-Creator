@@ -12,6 +12,7 @@ from rest_framework.exceptions import APIException
 from apps.apikeysmanagement.models import ApiKeys, Provider
 
 from ..prompt_utils import format_sora_prompt
+from ..usage import record_usage
 
 from .registry import ImageProviderRegistry
 
@@ -95,6 +96,7 @@ def generate_from_sora(
             code=status.HTTP_400_BAD_REQUEST,
         )
 
+    record_usage(user, "video", Provider.OPENAI, settings.SORA_MODEL, seconds=seconds)
     filename = f"{dir_name}{uuid.uuid4()}.mp4"
     client.videos.download_content(video.id, variant="video").write_to_file(filename)
 

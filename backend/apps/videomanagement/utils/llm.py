@@ -11,6 +11,7 @@ from rest_framework import status
 
 
 from .exceptions import InvalidJsonFormatException
+from .usage import record_usage
 from apps.apikeysmanagement.models import ApiKeys, Provider
 import google.generativeai as genai
 
@@ -96,11 +97,17 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None):
                 {"role": "user", "content": prompt},
             ],
             stream=True,
+            stream_options={"include_usage": True},
             **token_limit_kwarg(model),
         )
 
+        usage = None
         for chunk in stream:
-            x.write(chunk.choices[0].delta.content or "")
+            if getattr(chunk, "usage", None) is not None:
+                usage = chunk.usage
+            if chunk.choices:
+                x.write(chunk.choices[0].delta.content or "")
+        record_usage(user, "text", Provider.OPENAI, model, usage)
 
     except Exception as err:
         logger.error(err)
@@ -114,7 +121,9 @@ def gemini_call(prompt: str, model="gemini-1.5-pro", user=None):
     try:
         genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
         client = genai.GenerativeModel(model)
-        x.write(client.generate_content(prompt).text)
+        response = client.generate_content(prompt)
+        record_usage(user, "text", Provider.GEMINI, model, response.usage_metadata)
+        x.write(response.text)
 
     except Exception as err:
         logger.error(err)
@@ -134,6 +143,7 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None):
             messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
         )
 
+        record_usage(user, "text", Provider.ANTHROPIC, model, message.usage)
         x.write(message.content[0].text)
         return x
     except Exception as err:
@@ -271,6 +281,7 @@ def select_from_vision(prompt, images, user=None):
         max_tokens=300,
     )
     x = response.choices[0].message.content or ""
+    record_usage(user, "text", Provider.OPENAI, "gpt-4o", response.usage)
 
     x = 0 if "1" in x else 1 if "2" in x else 2
 

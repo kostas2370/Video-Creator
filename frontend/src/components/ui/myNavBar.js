@@ -11,7 +11,6 @@ const destinations = [
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },
-  { to: "/api-keys", label: "Providers", icon: HiOutlineKey },
 ];
 const iconButton = "rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white";
 
@@ -51,6 +50,7 @@ function Navbar({ theme, toggleTheme }) {
             <MenuItems anchor="bottom end" className="z-50 mt-3 w-60 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800">
               <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Account</p>
               <MenuItem><NavLink to="/api-keys/" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-700 data-[focus]:bg-gray-50 dark:text-gray-200 dark:data-[focus]:bg-gray-700"><HiOutlineKey className="h-4 w-4 text-blue-500" />API keys and providers</NavLink></MenuItem>
+              <MenuItem><NavLink to="/usage/" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-gray-700 data-[focus]:bg-gray-50 dark:text-gray-200 dark:data-[focus]:bg-gray-700"><HiOutlineSquares2X2 className="h-4 w-4 text-blue-500" />Usage</NavLink></MenuItem>
               <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
               <MenuItem><button type="button" onClick={async () => { if (await logout()) navigate("/login/"); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-500 data-[focus]:bg-gray-50 dark:text-gray-300 dark:data-[focus]:bg-gray-700"><HiOutlineArrowRightOnRectangle className="h-4 w-4" />Sign out</button></MenuItem>
             </MenuItems>
