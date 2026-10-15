@@ -97,7 +97,7 @@ class AvatarSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
         self.fields["voice"].queryset = (
-            VoiceModel.available_to(request.user) if request else VoiceModel.objects.none()
+            VoiceModel.objects.available_to(request.user) if request else VoiceModel.objects.none()
         )
 
     def get_sample(self, obj):

@@ -102,7 +102,7 @@ def export_subtitles(video):
         if offset is None:
             raise ValidationError({"detail": "The intro timing is unavailable. Check the intro file before exporting."})
     cues = []
-    scenes = list(video.scenes.prefetch_related("scene_images"))
+    scenes = list(video.scenes.with_media())
     intro_offset = offset
     voice_offsets = caption_offsets(scenes) if any(scene.audio_settings.get("crossfade") for scene in scenes) else {}
     for scene in scenes:
