@@ -37,11 +37,10 @@ class UserTests(TestCase):
 
         self.assertEqual(send.call_args.args[3], ["ada@example.test"])
 
-    def test_starts_unverified_with_no_allowance_to_spend(self):
+    def test_starts_unverified_using_service_keys(self):
         fresh = User(username="fresh", email="fresh@example.test")
 
         self.assertFalse(fresh.is_verified)
-        self.assertEqual(fresh.generation_limit_for_ai, 0)
         self.assertTrue(fresh.use_service_api_keys)
 
     def test_two_accounts_can_never_share_an_email(self):

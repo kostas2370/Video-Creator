@@ -51,8 +51,6 @@ class PreviewTests(ApiTestCase):
         self.video.intro = intro.make(file="speech.wav", created_by=self.user)
         self.video.outro = outro.make(file="speech.wav", created_by=self.user)
         self.video.save()
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Cache-Control"], "private, no-store")
@@ -64,8 +62,6 @@ class PreviewTests(ApiTestCase):
         self.assertEqual(data["segments"][1]["fade_in"], 0)
         self.assertEqual(data["segments"][2]["dissolve_in"], 0.5)
         self.assertEqual(data["segments"][2]["visual"], None)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
 
     def test_reorder_overrides_and_missing_audio(self):
         self.first.transition_after = "CUT"

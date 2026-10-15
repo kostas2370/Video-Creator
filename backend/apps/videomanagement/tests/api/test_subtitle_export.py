@@ -28,9 +28,7 @@ class SubtitleExportTests(ApiTestCase):
         self.second = scene.make(video=self.video, file="speech.wav", text="Second scene.")
         self.url = reverse("video-subtitles", args=[self.video.pk])
 
-    def test_export_uses_recorded_audio_and_skips_pauses_without_charging(self):
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
+    def test_export_uses_recorded_audio_and_skips_pauses(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertIn("application/x-subrip", response["Content-Type"])
@@ -38,8 +36,6 @@ class SubtitleExportTests(ApiTestCase):
         self.assertIn("filename*=utf-8", response["Content-Disposition"])
         text = response.content.decode("utf-8")
         self.assertEqual(text, "1\n00:00:00,000 --> 00:00:02,000\nΓεια σου κόσμε.\n\n2\n00:00:02,750 --> 00:00:04,750\nSecond scene.\n")
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
 
     def test_reordering_changes_the_export_and_missing_narration_leaves_a_gap(self):
         self.first.position = 3
@@ -49,7 +45,7 @@ class SubtitleExportTests(ApiTestCase):
         self.first.position = 2
         self.first.file = None
         self.first.save()
-        third = scene.make(video=self.video, file="speech.wav", text="Third scene.")
+        scene.make(video=self.video, file="speech.wav", text="Third scene.")
         text = self.client.get(self.url).content.decode("utf-8")
         self.assertIn("00:00:00,000 --> 00:00:02,000\nSecond scene.", text)
         self.assertIn("00:00:03,750 --> 00:00:05,750\nThird scene.", text)

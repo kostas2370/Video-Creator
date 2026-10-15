@@ -594,8 +594,7 @@ not mean generating the whole thing again.
 ### Preview and timeline
 
 Choose **Preview video** beside **Settings** and **Render video** to open a dedicated
-player with a scene timeline. It plays the current edit without generating a video file or
-spending generation credits. Choose a scene thumbnail to jump to its start, drag the
+player with a scene timeline. It plays the current edit without generating a video file. Choose a scene thumbnail to jump to its start, drag the
 playhead to seek, or use **Play**, **Pause**, **Restart** and **Mute**. Intro and outro
 clips appear in playback order alongside the scenes. The active scene is highlighted,
 and a moving line shows your position within it.
@@ -705,8 +704,7 @@ it to your finished video.
 ### Saving and rendering
 
 **Settings** opens the video's intro, outro, avatar, transition and subtitle controls.
-Reordering scenes, changing transitions or pauses, and downloading SRT files do not
-consume generation credits. Playback edits are blocked during generation, storyboard
+Playback edits are blocked during generation, storyboard
 review and rendering. Changes affect the next render; the existing finished video
 stays available until you render again.
 
@@ -819,6 +817,8 @@ replaced only after a successful render; temporary files are cleaned up on failu
 
 ## Roadmap / To-Do List
 
+- [x] Remove the internal generation credit system; report provider consumption on the Usage page.
+
 - [x] Use native FFmpeg for video rendering and media validation.
 - [x] Add **Celery** support for asynchronous and scheduled tasks.
 - [x] Implement unit tests for models, functions, and views.
@@ -905,7 +905,7 @@ The `0026_scene_audio` database migration adds voiceover storage and audio edits
 ### Manual video projects
 
 Choose **Create video** in the navigation, then **Manual video** to start an empty
-project without AI, API keys, or generation credits. Add your own photos and clips
+project without AI or API keys. Add your own photos and clips
 (or blank scenes), arrange them, enter caption text, and record or upload a voiceover
 using **Audio**. **Upload music** adds your own soundtrack, with the existing volume,
 fade, and ducking controls.
