@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { tokenMetric } from "../utils/usage";
 import { getUsage } from "../api/apiService";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
@@ -6,6 +7,11 @@ const number = value => (value ?? 0).toLocaleString();
 const services = { text: "Text / GPT", images: "Images", tts: "Voice / TTS", video: "Video" };
 const providers = { OPENAI: "OpenAI", ANTHROPIC: "Anthropic", GEMINI: "Gemini", ELEVENLABS: "ElevenLabs", SIXTYDB: "60dB", STABLE_DIFFUSION: "Stable Diffusion", MIDJOURNEY: "Midjourney" };
 const card = "rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800";
+
+function TokenValue({ row, field }) {
+  const { label, note } = tokenMetric(row, field);
+  return <>{label}{note && <span className="block text-xs font-normal text-amber-600 dark:text-amber-400">{note}</span>}</>;
+}
 
 export function Usage() {
   useAxiosPrivate();
@@ -46,7 +52,8 @@ export function Usage() {
       <p className="text-sm text-gray-500 dark:text-gray-400">Tokens are reported by providers. Voice services are measured in characters; images and video also have their own units. These are usage measurements, not a billing estimate. Only requests made after tracking was enabled are included.</p>
       {loading ? <p role="status">Loading usage…</p> : error ? <p role="alert" className="text-red-600 dark:text-red-400">{error}</p> : data && <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[["Reported tokens", data.totals.total_tokens], ["TTS characters", data.totals.characters], ["Images generated", data.totals.images], ["Generation requests", data.totals.requests]].map(([label, value]) => <div key={label} className={card}><p className="text-sm text-gray-500 dark:text-gray-400">{label}</p><p className="mt-2 text-3xl font-semibold">{number(value)}</p></div>)}
+          <div className={card}><p className="text-sm text-gray-500 dark:text-gray-400">Reported tokens</p><p className="mt-2 text-3xl font-semibold"><TokenValue row={data.totals} field="total_tokens" /></p></div>
+          {[["TTS characters", data.totals.characters], ["Images generated", data.totals.images], ["Generation requests", data.totals.requests]].map(([label, value]) => <div key={label} className={card}><p className="text-sm text-gray-500 dark:text-gray-400">{label}</p><p className="mt-2 text-3xl font-semibold">{number(value)}</p></div>)}
         </div>
         {data.breakdown.length === 0 ? <div className={card}><h2 className="font-semibold">No usage recorded in this period</h2><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Generate a script, image, voice-over, or video clip, then refresh to see your usage.</p></div> : <div className={`${card} overflow-x-auto`}>
           <h2 className="mb-4 text-lg font-semibold">By service and model</h2>
@@ -58,7 +65,7 @@ export function Usage() {
               <td className="px-3 py-4">{providers[row.provider] || row.provider}<span className="block text-xs text-gray-500 dark:text-gray-400">{row.model || "Model not reported"}</span></td>
               <td className="px-3 py-4">{row.key_source === "service" ? "Service" : "Personal"}</td>
               <td className="px-3 py-4">{number(row.requests)}</td>
-              {["input_tokens", "output_tokens", "total_tokens"].map(field => <td key={field} className="px-3 py-4">{row.requests_with_tokens ? number(row[field]) : "Unavailable"}{field === "total_tokens" && row.requests_with_tokens > 0 && row.requests_with_tokens < row.requests && <span className="block text-xs text-amber-600 dark:text-amber-400">{number(row.requests_with_tokens)} of {number(row.requests)} requests reported</span>}</td>)}
+              {["input_tokens", "output_tokens", "total_tokens"].map(field => <td key={field} className="px-3 py-4"><TokenValue row={row} field={field} /></td>)}
               <td className="px-3 py-4">{row.service === "tts" ? `${number(row.characters)} characters` : row.service === "images" ? `${number(row.images)} images` : row.service === "video" && row.seconds ? `${number(row.seconds)} seconds` : "—"}</td>
             </tr>)}</tbody>
           </table>

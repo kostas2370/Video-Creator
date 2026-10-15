@@ -2,29 +2,47 @@ from django.db import models
 from django.db.models import Count, Min, Q, Sum
 
 
+TOKEN_METRICS = {
+    "input_tokens": "requests_with_input_tokens",
+    "output_tokens": "requests_with_output_tokens",
+    "total_tokens": "requests_with_tokens",
+}
+
+
 class AIUsageQuerySet(models.QuerySet):
     def first_recorded_at(self):
         return self.aggregate(first=Min("created_at"))["first"]
 
     def summary(self):
-        """Aggregate only this queryset's records into totals and grouped rows."""
+        """Aggregate this selection, preserving unknown and partially reported counts."""
+        # Count availability before sum aliases shadow their source fields.
         metrics = {
-            # Resolve this filter before the total_tokens aggregation shadows the field.
-            "requests_with_tokens": Count("id", filter=Q(total_tokens__isnull=False)),
-            "requests": Count("id"),
-            "input_tokens": Sum("input_tokens", default=0),
-            "output_tokens": Sum("output_tokens", default=0),
-            "total_tokens": Sum("total_tokens", default=0),
-            "characters": Sum("characters", default=0),
-            "images": Sum("images", default=0),
-            "seconds": Sum("seconds", default=0),
+            coverage: Count("id", filter=Q(**{f"{field}__isnull": False}))
+            for field, coverage in TOKEN_METRICS.items()
         }
+        metrics["requests"] = Count("id")
+        metrics.update(
+            {
+                field: Sum(field, default=0)
+                for field in (*TOKEN_METRICS, "characters", "images", "seconds")
+            }
+        )
+
+        def preserve_unknowns(row):
+            for field, coverage in TOKEN_METRICS.items():
+                if row["requests"] and not row[coverage]:
+                    row[field] = None
+            return row
+
         grouping = ("service", "provider", "model", "key_source")
         return {
-            "totals": self.aggregate(**metrics),
-            "breakdown": list(
-                self.values(*grouping).annotate(**metrics).order_by(*grouping)
-            ),
+            "totals": preserve_unknowns(self.aggregate(**metrics)),
+            "breakdown": [
+                preserve_unknowns(row)
+                for row in self.values(*grouping)
+                .annotate(**metrics)
+                .order_by(*grouping)
+            ],
         }
 
 
