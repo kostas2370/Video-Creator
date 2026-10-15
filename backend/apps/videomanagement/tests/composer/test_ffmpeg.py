@@ -26,6 +26,30 @@ from ...utils.exceptions import RenderFailedException
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    def test_intro_cut_fade_and_dissolve_are_present_in_the_export(self):
+        Image.new("RGB", (160, 90), "red").save(self.root / "still.png")
+        self.add_still(transition_after="CUT")
+        self.row.intro = intro.make(file="intro.mp4")
+        self.row.settings["intro_transition_duration"] = 0.125
+        for style in ("CUT", "FADE", "DISSOLVE"):
+            with self.subTest(style=style):
+                self.row.settings["intro_transition"] = style
+                self.row.save()
+                make_video(self.row)
+                boundary = self.frame(0.25).mean(axis=(0, 1))
+                later = self.frame(0.5).mean(axis=(0, 1))
+                self.assertGreater(later[0], 220)
+                self.assertLess(later[2], 20)
+                self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 0.75, delta=0.05)
+                if style == "CUT":
+                    self.assertGreater(boundary[0], 220)
+                    self.assertLess(boundary[2], 20)
+                elif style == "FADE":
+                    self.assertLess(boundary.max(), 20)
+                else:
+                    self.assertGreater(boundary[2], 220)
+                    self.assertLess(boundary[0], 20)
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix="ffmpeg-tests-")
         self.addCleanup(self.directory.cleanup)
