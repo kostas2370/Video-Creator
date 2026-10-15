@@ -1,59 +1,9 @@
-import logging
 import os
 import uuid
 
-from pytubefix import Playlist, YouTube
+from pytubefix import YouTube
 
-from .exceptions import FileNotDownloadedException
 from ..models import Music
-
-logger = logging.getLogger(__name__)
-
-
-def download_playlist(url: str, category: str) -> None:
-    """
-    Download a playlist of videos as audio files and save them as MP3 files.
-
-    Parameters:
-    -----------
-    url : str
-        The URL of the playlist.
-    category : str
-        The category of the playlist.
-
-    Returns:
-    --------
-    None
-
-    Notes:
-    ------
-    - This function uses pytube library to download each video in the playlist as an audio file (MP3).
-    - The downloaded audio files are saved in the 'media/music' directory.
-    - Each downloaded audio file is renamed with a unique filename generated using uuid.
-    - Information about each downloaded music file is stored in the Music model.
-    """
-
-    playlist = Playlist(url)
-    for music in playlist.videos:
-        try:
-            stream = music.streams.filter(only_audio=True).first()
-            if stream is None:
-                raise FileNotDownloadedException()
-
-            filename = str(uuid.uuid4())
-            song = stream.download("media/music")
-            new_file = f"media/music/{filename}.mp3"
-            if not song or not os.path.isfile(song):
-                raise FileNotDownloadedException()
-
-            os.rename(song, new_file)
-
-            # No category kwarg: Music has no such field, so every save raised a
-            # TypeError and the whole playlist was silently dropped.
-            Music.objects.create(name=stream.title, file=new_file)
-
-        except Exception as exc:
-            logger.error("Error downloading song: %s", exc)
 
 
 def download_video(url: str, dir_name: str, *args, **kwargs) -> str:

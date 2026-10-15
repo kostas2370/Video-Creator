@@ -10,7 +10,6 @@ from ..models import (
     TemplatePrompt,
     Outro,
     Intro,
-    Music,
     VoiceModel,
     Avatar,
     SceneImage,
@@ -19,7 +18,6 @@ from ..serializers.models import (
     TemplatePromptsSerializer,
     IntroSerializer,
     OutroSerializer,
-    MusicSerializer,
     VoiceModelSerializer,
     AvatarSerializer,
     SceneImageSerializer,
@@ -57,22 +55,6 @@ class TemplatePromptView(viewsets.ModelViewSet):
             return TemplatePrompt.objects.order_by("id")
 
         return TemplatePrompt.objects.filter(created_by=self.request.user).order_by("id")
-
-
-class MusicView(viewsets.ModelViewSet):
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["name"]
-    pagination_class = AssetResultsPagination
-    ordering = ("id",)
-    serializer_class = MusicSerializer
-    queryset = Music.objects.all()
-    permission_classes = [IsAuthenticated, IsOwnerPermission]
-
-    def get_queryset(self):
-        if self.request.user.is_superuser:
-            return Music.objects.order_by("id")
-
-        return Music.objects.filter(created_by=self.request.user).order_by("id")
 
 
 class VoiceView(

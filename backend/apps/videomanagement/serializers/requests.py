@@ -154,13 +154,6 @@ def validate_visual(value):
     return value
 
 
-class DownloadPlaylistSerializer(serializers.Serializer):
-    link = serializers.URLField(required=True)
-    category = serializers.ChoiceField(
-        choices=["Educational", "Gaming", "Advertisement", "Story", "Other"]
-    )
-
-
 class SceneDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
     use_context = serializers.BooleanField(default=False)

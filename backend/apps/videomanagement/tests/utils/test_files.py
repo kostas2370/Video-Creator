@@ -8,7 +8,6 @@ from django.test import SimpleTestCase
 from ...utils.file_utils import (
     check_if_image,
     check_if_video,
-    check_which_file_exists,
     generate_directory,
     stored_file_exists,
 )
@@ -43,28 +42,6 @@ class GenerateDirectoryTests(SimpleTestCase):
         self.assertEqual(
             generate_directory(self.path("a-video")), self.path("a-video 3")
         )
-
-
-class CheckWhichFileExistsTests(SimpleTestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-
-    def test_returns_the_first_path_that_is_on_disk(self):
-        present = os.path.join(self.tmp.name, "there.png")
-        open(present, "w").close()
-
-        found = check_which_file_exists(
-            [os.path.join(self.tmp.name, "missing.png"), present]
-        )
-
-        self.assertEqual(found, present)
-
-    def test_returns_none_when_nothing_is_on_disk(self):
-        self.assertIsNone(check_which_file_exists([os.path.join(self.tmp.name, "x")]))
-
-    def test_returns_none_for_an_empty_list(self):
-        self.assertIsNone(check_which_file_exists([]))
 
 
 class FileTypeTests(SimpleTestCase):

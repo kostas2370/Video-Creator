@@ -465,8 +465,8 @@ The private Axios client receives authorization and CSRF headers through
 [useAxiosPrivate](../frontend/src/hooks/useAxiosPrivate.js). Its interceptor refreshes
 and retries once on `401`; `403` permission denials are not treated as expired tokens.
 Cookie and bearer-token authentication is implemented by
-[CustomAuthentication](../backend/apps/usermanagement/authenticate.py); its explicit
-CSRF enforcement call is currently commented out.
+[CustomAuthentication](../backend/apps/usermanagement/authenticate.py), which validates
+access tokens from cookies or the authorization header.
 
 [waitForVideo.js](../frontend/src/api/waitForVideo.js) watches the shared SSE
 subscription while a video is `GENERATION` or `RENDERING`. Defaults are a three-hour
