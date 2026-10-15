@@ -14,6 +14,7 @@ import { Video } from "./pages/VideoPage";
 import useAuth from "./hooks/useAuth";
 import { AssetPage } from "./pages/AssetPage";
 import { ApiKeys } from "./pages/ApiKeysPage";
+import { Usage } from "./pages/UsagePage";
 import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
 
@@ -64,6 +65,7 @@ function App() {
             <Route path="/videos/:videoId/" element={<Video />} />
             <Route path="/assets/" element={<AssetPage />} />
             <Route path="/api-keys/" element={<ApiKeys />} />
+            <Route path="/usage/" element={<Usage />} />
             <Route path="*" element={<>Page not found !</>} />
           </Route>
         </Route>

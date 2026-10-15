@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import requests
 from PIL import Image
 from ..timing import video_metadata
+from ..usage import record_usage
 from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutputType
@@ -145,6 +146,7 @@ def generate_from_custom_provider(
                     os.makedirs(dir_name, exist_ok=True)
                     saved_path = os.path.join(dir_name, f"{uuid.uuid4()}.mp4")
                     save_video(downloaded, saved_path)
+                    record_usage(user, "video", provider_name, custom=True)
                     return saved_path
                 with Image.open(downloaded) as image:
                     image.load()
@@ -158,6 +160,7 @@ def generate_from_custom_provider(
                     )
                     with image.convert(mode) as normalized:
                         normalized.save(saved_path, format="PNG")
+                record_usage(user, "images", provider_name, images=1, custom=True)
         return saved_path
     except Exception:
         if saved_path and os.path.exists(saved_path):

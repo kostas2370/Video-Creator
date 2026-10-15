@@ -31,6 +31,7 @@ export const getVideo = (id, options = {}) => request({ url: detail("videos", id
 export const getVoices = (search, page = 1) => get("voices/", { search: search || undefined, page });
 export const getTemplates = (search, page = 1) => get("templates/", { search: search || undefined, page });
 export const getNotifications = (options = {}) => request({ url: "notifications/", ...options });
+export const getUsage = period => request({ url: "usage/", params: { period }, notifyError: false });
 
 export const createIntro = data => post("intros/", data);
 export const createOutro = data => post("outros/", data);
