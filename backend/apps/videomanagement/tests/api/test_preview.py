@@ -15,6 +15,33 @@ from ...utils.timing import media_timing
 
 
 class PreviewTests(ApiTestCase):
+    def test_intro_effects_are_independent_of_scene_defaults_and_keep_caption_offsets(self):
+        self.video.intro = intro.make(file="speech.wav", created_by=self.user)
+        for style, expected in (("CUT", (0, 0, 0)), ("FADE", (0.25, 0.25, 0)), ("DISSOLVE", (0, 0, 0.25))):
+            with self.subTest(style=style):
+                self.video.settings.update(intro_transition=style, intro_transition_duration=0.25)
+                self.video.save()
+                data = self.client.get(self.url).data
+                opening, first, second = data["segments"]
+                self.assertEqual((opening["fade_out"], first["fade_in"], first["dissolve_in"]), expected)
+                self.assertEqual(second["dissolve_in"], 0.5)
+                self.assertEqual(first["start"], 2)
+                self.assertEqual(data["captions"][0]["start"], 2)
+                self.assertEqual(data["duration"], 6.75)
+
+    def test_intro_inherits_defaults_clamps_short_clips_and_is_ignored_without_intro(self):
+        self.video.intro = intro.make(file="speech.wav", created_by=self.user)
+        self.video.settings.update(intro_transition="DEFAULT", intro_transition_duration=3)
+        self.video.save()
+        segments = self.client.get(self.url).data["segments"]
+        self.assertEqual(segments[0]["transition"], "DISSOLVE")
+        self.assertEqual(segments[1]["dissolve_in"], 1)
+        self.video.intro = None
+        self.video.settings.update(transition_default="CUT", intro_transition="FADE")
+        self.video.save()
+        first = self.client.get(self.url).data["segments"][0]
+        self.assertEqual((first["fade_in"], first["dissolve_in"]), (0, 0))
+
     def setUp(self):
         super().setUp()
         self.directory = tempfile.TemporaryDirectory()
@@ -51,8 +78,6 @@ class PreviewTests(ApiTestCase):
         self.video.intro = intro.make(file="speech.wav", created_by=self.user)
         self.video.outro = outro.make(file="speech.wav", created_by=self.user)
         self.video.save()
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Cache-Control"], "private, no-store")
@@ -64,8 +89,6 @@ class PreviewTests(ApiTestCase):
         self.assertEqual(data["segments"][1]["fade_in"], 0)
         self.assertEqual(data["segments"][2]["dissolve_in"], 0.5)
         self.assertEqual(data["segments"][2]["visual"], None)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
 
     def test_reorder_overrides_and_missing_audio(self):
         self.first.transition_after = "CUT"

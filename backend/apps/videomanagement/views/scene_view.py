@@ -28,7 +28,7 @@ from ..serializers.requests import (
     SceneTimingSerializer,
     SceneMotionSerializer,
 )
-from ..permissions import IsOwnerPermission, SceneGenerationLimitPermission
+from ..permissions import IsOwnerPermission
 
 
 from ..serializers.audio import SceneAudioSerializer, VoiceoverUploadSerializer
@@ -41,7 +41,6 @@ class SceneView(viewsets.GenericViewSet):
     permission_classes = [
         IsAuthenticated,
         IsOwnerPermission,
-        SceneGenerationLimitPermission,
     ]
 
     def get_serializer_class(self):
@@ -62,11 +61,6 @@ class SceneView(viewsets.GenericViewSet):
         }.get(self.action, super().get_serializer_class())
 
     def get_permissions(self):
-        if self.action in (
-            "partial_update", "change_image_scene", "destroy", "overlays", "audio",
-            "voiceover", "waveform", "motion", "timing", "transition", "operation",
-        ):
-            return [IsAuthenticated(), IsOwnerPermission()]
         return super().get_permissions()
 
     def get_parsers(self):
@@ -158,7 +152,7 @@ class SceneView(viewsets.GenericViewSet):
         if not serializer.validated_data["text"].strip():
             return Response({"detail": "Add dialogue for this scene."}, status=400)
         operation = queue_scene_job(
-            instance, request.user, update_scene_task, serializer.validated_data["text"], cost=0.01,
+            instance, update_scene_task, serializer.validated_data["text"],
         )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 
@@ -174,7 +168,7 @@ class SceneView(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operation = queue_scene_job(
-            scene, request.user, rewrite_scene_task, serializer.validated_data["text"], cost=0.03,
+            scene, rewrite_scene_task, serializer.validated_data["text"],
         )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 
@@ -243,7 +237,7 @@ class SceneView(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operation = queue_scene_job(
-            scene, request.user, generate_scene_image_task, serializer.validated_data["image_description"], cost=0.08,
+            scene, generate_scene_image_task, serializer.validated_data["image_description"],
         )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 

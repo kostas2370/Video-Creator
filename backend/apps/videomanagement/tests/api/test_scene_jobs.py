@@ -24,8 +24,7 @@ class SceneJobTests(ApiTestCase):
     def run_job(self):
         return self.run_scene_job()
 
-    def test_requests_queue_without_running_providers_or_charging_twice(self):
-        balance = self.user.generation_limit_for_ai
+    def test_requests_queue_once_without_running_providers(self):
         with patch("apps.videomanagement.services.SceneServices.generate_scene") as provider:
             token = self.queue()
             self.assertEqual(self.client.patch(self.url, {"text": "Again"}).status_code, 409)
@@ -36,8 +35,6 @@ class SceneJobTests(ApiTestCase):
         self.assertEqual(task_id, self.scene_queue.call_args.kwargs["task_id"])
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "GENERATION")
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, balance - 0.03)
 
     def test_worker_returns_rewrite_and_restores_previous_video_status(self):
         self.queue()
@@ -66,16 +63,13 @@ class SceneJobTests(ApiTestCase):
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "COMPLETED")
 
-    def test_worker_failure_restores_video_without_refunding(self):
-        balance = self.user.generation_limit_for_ai
+    def test_worker_failure_restores_video(self):
         self.queue()
         with patch("apps.videomanagement.services.SceneServices.generate_scene", side_effect=RuntimeError("Provider unavailable")):
             with self.assertRaises(RuntimeError):
                 self.run_job()
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "COMPLETED")
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, balance - 0.03)
 
     def test_results_require_owner_matching_scene_and_signed_job_token(self):
         token = self.queue()

@@ -11,7 +11,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from ...baker_recipes import scene
 from ...models import VideoStatus
-from ...utils.audio_editing import music_gain, voice_tracks, waveform
+from ...utils.audio_editing import music_gain, voice_tracks
 from ...utils.audio_editing import scene_audio_segments
 from ...utils.composer.render import narration_graph
 from .base import ApiTestCase
@@ -182,7 +182,7 @@ class AudioEditingTests(ApiTestCase):
         from ...utils.timing import media_timing
         self.scene.audio_settings = {"trim_start": 1, "trim_end": 3, "fade_in": 0.2, "crossfade": 0.5}
         self.scene.save()
-        second = scene.make(video=self.video, file="voice.wav", is_last=False,
+        scene.make(video=self.video, file="voice.wav", is_last=False,
                             audio_settings={"trim_start": 1, "trim_end": 3, "fade_out": 0.2})
         self.video.music = music.make(file="voice.wav")
         self.video.settings = {"music_ducking": True, "music_fade_in": 0.2, "music_fade_out": 0.2}

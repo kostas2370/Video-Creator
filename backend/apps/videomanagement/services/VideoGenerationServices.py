@@ -22,7 +22,6 @@ from ..utils.llm import get_reply
 from ..utils.prompt_utils import format_prompt
 from ..utils.media import download_music
 from ..utils.scenes import create_image_scenes
-from ..utils.cost_utils import charge_user
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.exceptions import APIException
@@ -253,7 +252,6 @@ def generate_video(
     vid.status = VideoStatus.READY
     vid.save()
 
-    charge_user(vid.created_by, "generation_limit_for_ai", vid)
 
     return vid
 

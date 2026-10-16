@@ -25,8 +25,6 @@ class ManualVideoTests(ApiTestCase):
         settings = override_settings(MEDIA_ROOT=self.directory.name)
         settings.enable()
         self.addCleanup(settings.disable)
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
 
     def create_project(self, **choices):
         response = self.client.post(reverse("video-manual"), {"title": "My own video", **choices}, format="json")
@@ -52,7 +50,7 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.status_code, 201, response.data)
         return response
 
-    def test_empty_project_is_ready_and_listed_without_ai_keys_or_credits(self):
+    def test_empty_project_is_ready_and_listed_without_ai_keys(self):
         with patch("apps.videomanagement.views.video_view.generate_video_task.delay") as generation:
             video = self.create_project(video_format="PORTRAIT")
         generation.assert_not_called()
@@ -94,8 +92,6 @@ class ManualVideoTests(ApiTestCase):
             result = make_video(video)
         self.assertEqual(result.status, VideoStatus.COMPLETED)
         self.assertAlmostEqual(media_timing(result.output.path)["duration"], 2.5, delta=0.1)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
 
     def test_uploaded_video_keeps_audio_and_uses_clip_length(self):
         video = self.create_project()
@@ -122,7 +118,7 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.data["duration"], 8)
         self.assertEqual(self.client.get(reverse("video-subtitles", args=[video.pk])).status_code, 200)
 
-    def test_recorded_voice_and_uploaded_music_need_no_credits(self):
+    def test_recorded_voice_and_uploaded_music_save_successfully(self):
         video = self.create_project()
         self.add_scene(video, image=self.photo())
         scene = video.scenes.first()
@@ -175,7 +171,7 @@ class ManualVideoTests(ApiTestCase):
         scene.refresh_from_db()
         self.assertEqual(scene.text, "")
 
-    def test_media_replacement_reordering_and_deletion_do_not_need_credits(self):
+    def test_media_replacement_reordering_and_deletion(self):
         video = self.create_project()
         self.add_scene(video, text="First")
         self.add_scene(video, text="Second")
@@ -187,8 +183,6 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(list(video.scenes.values_list("pk", flat=True)), [second.pk, first.pk])
         self.assertEqual(self.client.delete(reverse("scene-detail", args=[first.pk])).status_code, 204)
         self.assertEqual(video.scenes.count(), 1)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
 
     def test_shortened_voice_and_silent_captions_share_the_preview_timing(self):
         video = self.create_project()
