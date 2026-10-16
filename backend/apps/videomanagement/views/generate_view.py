@@ -4,11 +4,9 @@ from rest_framework.generics import GenericAPIView
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.permissions import IsAuthenticated
 from ..serializers.requests import GenerateSerializer
-from ..services.VideoGenerationServices import create_pending_video
 from ..serializers.models import VideoSerializer
-from ..tasks import generate_video_task
+from ..services.generation_queue import queue_video_generation
 from ..throttling import GenerateRateThrottle
-from ..models import VideoStatus
 
 
 class GenerateView(GenericAPIView):
@@ -16,37 +14,11 @@ class GenerateView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [GenerateRateThrottle]
 
-    @swagger_auto_schema(...)
+    @swagger_auto_schema(responses={202: "Video generation queued", 503: "Generation queue unavailable"})
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        params = dict(serializer.validated_data)
-        created_by = params.pop("created_by")
-        reference_image = params.pop("reference_image", None)
-
-        video = create_pending_video(
-            message=params["message"],
-            created_by=created_by,
-            video_type="AI",
-            genre=params.get("genre"),
-        )
-        if params.get("review_script"):
-            video.settings = {"generation_params": {**params, "review_script": False}}
-            video.save(update_fields=["settings"])
-        try:
-            if reference_image:
-                video.reference_image = reference_image
-                video.save(update_fields=["reference_image"])
-            generate_video_task.delay(video_id=video.id, **params)
-        except Exception:
-            video.reference_image.delete(save=False)
-            video.reference_image = ""
-            video.status = VideoStatus.FAILED
-            video.save(update_fields=["reference_image", "status"])
-            return Response(
-                {"detail": "Could not queue generation. Please try again."}, status=503
-            )
+        video = queue_video_generation(**serializer.validated_data)
 
         return Response(
             {
