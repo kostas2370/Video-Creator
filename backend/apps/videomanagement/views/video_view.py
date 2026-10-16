@@ -1,5 +1,7 @@
 import logging
 
+from .mixins import RequestObjectMixin
+
 from django.core.files.storage import default_storage
 from pathlib import Path
 from uuid import uuid4
@@ -45,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 class VideoView(
+    RequestObjectMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.DestroyModelMixin,
