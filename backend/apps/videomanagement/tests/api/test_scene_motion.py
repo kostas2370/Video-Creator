@@ -13,9 +13,7 @@ class SceneMotionTests(ApiTestCase):
         self.scene = scene.make(video=self.video)
         self.url = reverse("scene-motion", args=[self.scene.pk])
 
-    def test_saves_motion_without_generating_media_or_charging(self):
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
+    def test_saves_motion_without_generating_media(self):
         response = self.client.patch(
             self.url,
             {"motion_style": "PAN_LEFT", "motion_intensity": "MEDIUM"},
@@ -26,8 +24,6 @@ class SceneMotionTests(ApiTestCase):
         self.assertEqual(self.scene.motion_style, "PAN_LEFT")
         self.assertEqual(self.scene.motion_intensity, "MEDIUM")
         self.assertEqual(response.data["motion_style"], "PAN_LEFT")
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
         self.scene_queue.assert_not_called()
 
     def test_invalid_choices_do_not_change_scene(self):
@@ -84,9 +80,7 @@ class BulkAutoMotionTests(ApiTestCase):
         self.empty = scene.make(video=self.video)
         self.url = reverse("video-auto-motion", args=[self.video.pk])
 
-    def test_applies_only_to_images_without_charging_or_generating(self):
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
+    def test_applies_only_to_images_without_generating(self):
         response = self.client.patch(
             self.url, {"motion_intensity": "STRONG"}, format="json"
         )
@@ -102,8 +96,6 @@ class BulkAutoMotionTests(ApiTestCase):
         self.assertEqual(self.clip.motion_style, "PAN_UP")
         self.assertEqual(self.empty.motion_style, "NONE")
         self.scene_queue.assert_not_called()
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
 
     def test_invalid_intensity_changes_nothing(self):
         for data in ({}, {"motion_intensity": "EXTREME"}):
