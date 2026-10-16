@@ -7,6 +7,11 @@ service, provider, model, and personal/service API keys. The API is
 Apply migration `0028_ai_usage` and restart backend workers when deploying.
 Only new requests are measured; historical usage cannot be reconstructed.
 
+Generation has no internal application credit balance. The usermanagement migration
+`0008_remove_generation_credit_balance` removes stored legacy balances; generation,
+scene edits, and drafts no longer reserve, deduct, or refund them. Provider credentials,
+upstream quotas, authentication, ownership checks, and request throttling still apply.
+
 - GPT (including vision), Claude, and Gemini record provider-reported tokens.
   GPT streaming requests include usage and accept the final empty-choices chunk.
   Completed script retries each produce a record. Claude input counts include

@@ -1,12 +1,10 @@
 from __future__ import annotations
-from uuid import UUID, uuid4
+from uuid import uuid4
 from django.db import models, router, transaction
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
 from random import randint
-from typing import Union
 from django_resized import ResizedImageField
 from django.conf import settings
 from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
@@ -324,25 +322,6 @@ class Avatar(AbstractModel):
 
     def __str__(self):
         return self.name
-
-    @staticmethod
-    def select_avatar(
-        selected: str = "random", voice_model: VoiceModel = None, user=None
-    ) -> Union[Avatar, None]:
-        if user is None:
-            return None
-        avatars = Avatar.objects.filter(created_by=user)
-        if selected == "random":
-            if voice_model is not None:
-                avatars = avatars.filter(voice=voice_model)
-            count = avatars.count()
-            return avatars[randint(0, count - 1)] if count else None
-        if isinstance(selected, (str, UUID)):
-            try:
-                return avatars.filter(id=selected).first()
-            except (ValidationError, ValueError):
-                return None
-        return None
 
 
 class Intro(AbstractModel):

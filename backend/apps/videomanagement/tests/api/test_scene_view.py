@@ -29,17 +29,13 @@ class SceneViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 202, response.data)
         return self.run_scene_job()
 
-    def test_timing_saves_without_charging_or_regenerating(self):
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
+    def test_timing_saves_without_regenerating(self):
         with patch("apps.videomanagement.services.SceneServices.update_scene") as regenerate:
             response = self.client.patch(reverse("scene-timing", args=[self.scene.pk]), {"pause_after": 0.75}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         self.scene.refresh_from_db()
         self.assertEqual(self.scene.pause_after, 0.75)
         self.assertEqual(response.data["timing"]["duration"] - response.data["timing"]["base_duration"], 0.75)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
         regenerate.assert_not_called()
 
     def test_timing_rejects_invalid_pauses(self):
@@ -60,9 +56,7 @@ class SceneViewTests(ApiTestCase):
         self.client.force_authenticate(user=None)
         self.assertEqual(self.client.patch(url, {"pause_after": 1}, format="json").status_code, 401)
 
-    def test_transition_saves_without_charging_or_regenerating_media(self):
-        self.user.generation_limit_for_ai = 0
-        self.user.save()
+    def test_transition_saves_without_regenerating_media(self):
         with patch("apps.videomanagement.services.SceneServices.update_scene") as regenerate:
             response = self.client.patch(reverse("scene-transition", args=[self.scene.pk]),
                                          {"transition_after": "CUT"}, format="json")
@@ -70,8 +64,6 @@ class SceneViewTests(ApiTestCase):
         self.scene.refresh_from_db()
         self.assertEqual(self.scene.transition_after, "CUT")
         self.assertEqual(self.scene.text, "the old line")
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, 0)
         regenerate.assert_not_called()
 
     def test_dissolve_duration_and_reset_to_video_default(self):
@@ -119,33 +111,26 @@ class SceneViewTests(ApiTestCase):
         foreign.refresh_from_db()
         self.assertEqual(foreign.transition_after, "DEFAULT")
 
-    def test_rewrites_a_line_and_charges_for_it(self):
-        before = self.user.generation_limit_for_ai
+    def test_rewrites_a_line(self):
         with patch("apps.videomanagement.services.SceneServices.update"):
             response = self.client.patch(reverse("scene-detail", args=[self.scene.pk]), {"text": "a new line"}, format="json")
             result = self.complete(response)
         self.assertEqual(result["text"], "a new line")
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, before - 0.01)
 
-    def test_asks_the_model_for_a_rewrite_and_charges_more_for_it(self):
-        before = self.user.generation_limit_for_ai
+    def test_asks_the_model_for_a_rewrite(self):
         with patch("apps.videomanagement.services.SceneServices.get_update_sentence", return_value="a funnier line"):
             response = self.client.patch(reverse("scene-generate", args=[self.scene.pk]), {"text": "make it funnier"}, format="json")
             result = self.complete(response)
         self.assertEqual(result["text"], "a funnier line")
         self.scene.refresh_from_db()
         self.assertEqual(self.scene.text, "the old line")
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, before - 0.03)
 
-    def test_rejects_invalid_generation_inputs_before_work_or_charging(self):
+    def test_rejects_invalid_generation_inputs_before_work(self):
         actions = (
             ("scene-detail", "text", self.client.patch, "update_scene"),
             ("scene-generate", "text", self.client.patch, "generate_scene"),
             ("scene-generate-image-scene", "image_description", self.client.post, "generate_new_image"),
         )
-        before = self.user.generation_limit_for_ai
         for route, field, method, service in actions:
             for payload in ({}, {field: None}, {field: " "}, {field: []}, {field: "x" * 2001}):
                 with self.subTest(route=route, payload=payload):
@@ -155,52 +140,34 @@ class SceneViewTests(ApiTestCase):
                         )
                     self.assertEqual(response.status_code, 400)
                     work.assert_not_called()
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.generation_limit_for_ai, before)
         self.assertFalse(SceneImage.objects.filter(scene=self.scene).exists())
 
-    def test_stale_user_instances_each_pay_without_overwriting_account_settings(self):
+    def test_scene_jobs_do_not_overwrite_account_settings(self):
         callers = [get_user_model().objects.get(pk=self.user.pk) for _ in range(2)]
-        before = self.user.generation_limit_for_ai
         get_user_model().objects.filter(pk=self.user.pk).update(use_service_api_keys=False)
         with patch("apps.videomanagement.services.SceneServices.generate_scene", return_value="rewritten"):
             for caller in callers:
                 self.client.force_authenticate(caller)
                 self.complete(self.client.patch(reverse("scene-generate", args=[self.scene.pk]), {"text": "rewrite"}, format="json"))
         self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, before - 0.06)
         self.assertFalse(self.user.use_service_api_keys)
 
-    def test_a_stale_permission_check_cannot_spend_exhausted_credit(self):
-        self.user.generation_limit_for_ai = 0.21
-        self.user.save(update_fields=["generation_limit_for_ai"])
-        callers = [get_user_model().objects.get(pk=self.user.pk) for _ in range(2)]
-        url = reverse("scene-generate", args=[self.scene.pk])
-        with patch("apps.videomanagement.services.SceneServices.generate_scene", return_value="rewritten") as work:
-            self.client.force_authenticate(callers[0])
-            self.complete(self.client.patch(url, {"text": "rewrite"}))
-            self.client.force_authenticate(callers[1])
-            self.assertEqual(self.client.patch(url, {"text": "rewrite"}).status_code, 403)
-            work.assert_called_once()
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, 0.18)
 
-    def test_failed_generation_records_failure_without_refunding(self):
-        before = self.user.generation_limit_for_ai
+    def test_failed_generation_preserves_existing_scene_data(self):
+        original_text = self.scene.text
         actions = (
             ("scene-detail", {"text": "new"}, self.client.patch, "apps.videomanagement.services.SceneServices.update_scene"),
             ("scene-generate", {"text": "rewrite"}, self.client.patch, "apps.videomanagement.services.SceneServices.generate_scene"),
             ("scene-generate-image-scene", {"image_description": "cat"}, self.client.post, "apps.videomanagement.utils.scenes.generate_new_image"),
         )
-        for (route, payload, method, service), cost in zip(actions, (0.01, 0.03, 0.08)):
+        for route, payload, method, service in actions:
             with self.subTest(route=route), patch(service, side_effect=RuntimeError("Unavailable")):
                 response = method(reverse(route, args=[self.scene.pk]), payload, format="json")
                 self.assertEqual(response.status_code, 202)
                 with self.assertRaises(RuntimeError):
                     self.run_scene_job()
-                self.user.refresh_from_db()
-                before -= cost
-                self.assertAlmostEqual(self.user.generation_limit_for_ai, before)
+                self.scene.refresh_from_db()
+                self.assertEqual(self.scene.text, original_text)
 
     def test_attaches_an_uploaded_image_to_a_scene_with_none(self):
         response = self.client.post(
@@ -276,16 +243,13 @@ class SceneViewTests(ApiTestCase):
         image.refresh_from_db()
         self.assertTrue(image.with_audio)
 
-    def test_regenerates_a_scenes_image_and_charges_for_it(self):
+    def test_regenerates_a_scenes_image(self):
         scene_image.make(scene=self.scene)
-        before = self.user.generation_limit_for_ai
         with patch("apps.videomanagement.utils.scenes.generate_new_image") as generate:
             response = self.client.post(reverse("scene-generate-image-scene", args=[self.scene.pk]), {"image_description": "a cat"})
             generate.assert_not_called()
             self.complete(response)
         generate.assert_called_once()
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, before - 0.08)
 
     def test_will_not_regenerate_an_image_with_nothing_to_go_on(self):
         response = self.client.post(
@@ -308,10 +272,9 @@ class SceneViewTests(ApiTestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_image_actions_reject_foreign_scenes_without_changes_or_charges(self):
+    def test_image_actions_reject_foreign_scenes_without_changes(self):
         foreign_scene = scene.make(video=self.video_for(owner=user.make()))
         image = scene_image.make(scene=foreign_scene, with_audio=False)
-        balance = self.user.generation_limit_for_ai
         for action in ("change-image-scene", "generate-image-scene"):
             with self.subTest(action=action):
                 with patch("apps.videomanagement.utils.scenes.generate_new_image") as generate:
@@ -324,8 +287,6 @@ class SceneViewTests(ApiTestCase):
                 image.refresh_from_db()
                 self.assertFalse(image.with_audio)
                 self.assertEqual(image.prompt, "an image description")
-                self.user.refresh_from_db()
-                self.assertEqual(self.user.generation_limit_for_ai, balance)
 
     def test_cannot_target_an_image_from_a_different_scene(self):
         for owner in (self.user, user.make()):
@@ -347,14 +308,11 @@ class SceneViewTests(ApiTestCase):
         self.assertEqual(generate.call_args.args[1], self.video)
 
     def test_retry_failure_keeps_existing_dialogue(self):
-        balance = self.user.generation_limit_for_ai
         with patch("apps.videomanagement.utils.audio_utils.narrate_scene", side_effect=RuntimeError("Provider unavailable")):
             response = self.client.patch(reverse("scene-detail", args=[self.scene.pk]), {"text": self.scene.text}, format="json")
             self.assertEqual(response.status_code, 202)
             with self.assertRaises(RuntimeError):
                 self.run_scene_job()
-        self.user.refresh_from_db()
-        self.assertAlmostEqual(self.user.generation_limit_for_ai, balance - 0.01)
         self.scene.refresh_from_db()
         self.assertEqual(self.scene.text, "the old line")
 

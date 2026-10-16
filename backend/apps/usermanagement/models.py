@@ -17,7 +17,6 @@ class User(AbstractUser, PermissionsMixin):
     last_name = models.CharField(max_length=20, blank=False)
     email = models.EmailField(unique=True)
     is_verified = models.BooleanField(default=False)
-    generation_limit_for_ai = models.FloatField(default=0)
     use_service_api_keys = models.BooleanField(default=True)
 
     REQUIRED_FIELDS = ["email"]

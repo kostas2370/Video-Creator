@@ -465,8 +465,8 @@ The private Axios client receives authorization and CSRF headers through
 [useAxiosPrivate](../frontend/src/hooks/useAxiosPrivate.js). Its interceptor refreshes
 and retries once on `401`; `403` permission denials are not treated as expired tokens.
 Cookie and bearer-token authentication is implemented by
-[CustomAuthentication](../backend/apps/usermanagement/authenticate.py); its explicit
-CSRF enforcement call is currently commented out.
+[CustomAuthentication](../backend/apps/usermanagement/authenticate.py), which validates
+access tokens from cookies or the authorization header.
 
 [waitForVideo.js](../frontend/src/api/waitForVideo.js) watches the shared SSE
 subscription while a video is `GENERATION` or `RENDERING`. Defaults are a three-hour
@@ -478,15 +478,13 @@ status changes to `COMPLETED` or `FAILED`. The notification bell receives SSE up
 and supports marking one or all entries read. Missing narration on a `READY` video
 is reported by scene status and editor warnings, not a video-failure notification.
 
-## Charging and current limitations
+## Usage tracking and current limitations
 
-[cost_utils.py](../backend/apps/videomanagement/utils/cost_utils.py) calculates generation
-cost from video type, scene count, voice type, and populated visual file references.
-`charge_user()` uses an `F()` expression for the balance deduction. Scene edits and
-visual regeneration have separate deductions in their API handlers.
+Provider consumption is recorded in `AIUsage` and exposed on the account's Usage page.
+Generation is not gated by an internal balance and does not deduct application credits.
+Provider credentials and upstream limits still apply. Authentication, asset ownership,
+request throttles, and in-flight status checks remain enforced.
 
-An atomic balance decrement is not an idempotent charge: generation currently has no
-per-video charge ledger, and deductions do not enforce a non-negative balance.
 Conditional status claims guard competing API render/resume requests, but do not make
 worker execution idempotent. Creating/claiming a video and publishing its Celery task
 are also separate operations; a broker failure can leave an in-flight row for the
@@ -509,7 +507,7 @@ production-ready by themselves.
 | Add a composition layer | `utils/composer/` and `handle_final_video()` |
 | Change ownership behavior | Owner-scoped querysets, `permissions.py`, `asset_selection.py`, API and service regressions |
 | Change recovery behavior | Task wrappers, `resume_video()`, file-existence helpers, reaper, frontend subscriptions |
-| Change cost calculation | `cost_utils.py` and scene endpoint deductions |
+| Change usage accounting | `utils/usage.py`, `utils/token_usage.py`, and `AIUsageQuerySet` |
 
 Backend tests are grouped under `tests/api/`, `tests/services/`, `tests/utils/`,
 `tests/composer/`, and `tests/image_providers/`, with credential/account tests in their

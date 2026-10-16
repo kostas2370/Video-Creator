@@ -35,9 +35,7 @@ from ..services.editing import editable_video, changed
 from ..services.subtitles import export_subtitles
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
 from ..throttling import RenderRateThrottle, ResumeRateThrottle
-from ..permissions import AiGenerationLimitPermission, IsOwnerPermission, SceneGenerationLimitPermission
-
-from ..utils.cost_utils import reserve_scene_credit
+from ..permissions import IsOwnerPermission
 
 from ..serializers.audio import MusicAudioSerializer
 
@@ -163,7 +161,7 @@ class VideoView(
         )
 
     @action(detail=True, methods=["POST"], throttle_classes=[ResumeRateThrottle],
-            permission_classes=[IsAuthenticated, IsOwnerPermission, AiGenerationLimitPermission])
+            permission_classes=[IsAuthenticated, IsOwnerPermission])
     def approve_script(self, request, pk=None):
         owned_video = self.get_object()
         with transaction.atomic():
@@ -193,7 +191,7 @@ class VideoView(
     @swagger_auto_schema(
         operation_description="Queues the unfinished part of a generation that stopped "
         "early. Only the scenes with no narration and the sentences with no visual are "
-        "worked on again, so nothing already produced is paid for twice. Returns 202; "
+        "worked on again. Returns 202; "
         "poll GET /video/{id}/ until its status becomes READY or FAILED.",
         method="PATCH",
     )
@@ -204,7 +202,6 @@ class VideoView(
         permission_classes=[
             IsAuthenticated,
             IsOwnerPermission,
-            AiGenerationLimitPermission,
         ],
     )
     def resume(self, _, pk):
@@ -352,12 +349,11 @@ class VideoView(
 
     @swagger_auto_schema(request_body=SceneDraftSerializer)
     @action(detail=True, methods=["POST"], permission_classes=[
-        IsAuthenticated, IsOwnerPermission, SceneGenerationLimitPermission,
+        IsAuthenticated, IsOwnerPermission,
     ])
     def draft_scene(self, request, pk):
         video = self.get_object()
         serializer = SceneDraftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        with reserve_scene_credit(request.user, 0.03, SceneGenerationLimitPermission.required_limit):
-            draft = draft_scene(video, **serializer.validated_data)
+        draft = draft_scene(video, **serializer.validated_data)
         return Response(draft)
