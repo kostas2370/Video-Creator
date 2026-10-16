@@ -1,6 +1,11 @@
 from rest_framework.exceptions import APIException
 
 
+class VoiceProviderError(APIException):
+    status_code = 502
+    default_detail = "ElevenLabs could not complete the request. Please try again."
+
+
 class VideoEditConflict(APIException):
     status_code = 409
     default_detail = "Wait for the current video operation to finish."

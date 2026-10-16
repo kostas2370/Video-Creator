@@ -1,6 +1,3 @@
-"""Private ElevenLabs clones. Uploaded samples are transient, never media assets."""
-
-import hashlib
 import logging
 import subprocess
 import tempfile
@@ -10,41 +7,18 @@ import requests
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import ValidationError
 
-from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.apikeysmanagement.models import Provider
 from ..models import VoiceModel, VoiceModelType
+from ..utils.exceptions import VoiceProviderError
 from ..utils.usage import record_usage
+from ..utils.voice_credentials import key_fingerprint, key_source, voice_key
 
 logger = logging.getLogger(__name__)
 BASE_URL = "https://api.elevenlabs.io/v1"
 MAX_VOICES = 3
 PREVIEW_TEXT = "Hello! This is my custom voice, ready to bring my next video to life."
-
-
-class VoiceProviderError(APIException):
-    status_code = 502
-    default_detail = "ElevenLabs could not complete the request. Please try again."
-
-
-def key_fingerprint(key):
-    return hashlib.sha256(key.encode()).hexdigest() if key else ""
-
-
-def key_source(user):
-    return "service" if user.use_service_api_keys else "user"
-
-
-def voice_key(user, voice=None):
-    key = ApiKeys.key_for(user, Provider.ELEVENLABS)
-    if not key:
-        raise ValidationError("An ElevenLabs API key is required. Check API keys and providers.")
-    if voice and (
-        voice.clone_key_source != key_source(user)
-        or voice.clone_key_fingerprint != key_fingerprint(key)
-    ):
-        raise ValidationError("Switch back to the ElevenLabs key used to create this voice.")
-    return key
 
 
 def provider_request(method, path, key, **kwargs):
@@ -128,7 +102,7 @@ def create_clone(user, name, upload):
         except Exception:
             try:
                 provider_request("DELETE", f"voices/{remote_id}", key)
-            except APIException:
+            except VoiceProviderError:
                 logger.error("Could not remove orphaned custom voice %s", remote_id)
             raise
 
@@ -150,7 +124,6 @@ def preview_clone(user, voice):
 def refresh_clone(user, voice):
     key = voice_key(user, voice)
     data = provider_json(provider_request("GET", f"voices/{voice.path}", key))
-    # Missing verification details must never silently unlock a pending voice.
     verification = data.get("voice_verification") or {}
     if not isinstance(verification, dict):
         raise VoiceProviderError()

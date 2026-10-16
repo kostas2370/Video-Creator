@@ -1,14 +1,10 @@
-from rest_framework import mixins, viewsets
-from rest_framework.response import Response
-from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.throttling import UserRateThrottle
 from django.http import HttpResponse
-
 from django_filters.rest_framework import DjangoFilterBackend
-from ..permissions import IsOwnerOrReadOnlyPermission, IsOwnerPermission
+from rest_framework import mixins, viewsets
+from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from ..models import (
     TemplatePrompt,
@@ -18,6 +14,9 @@ from ..models import (
     Avatar,
     SceneImage,
 )
+from ..paginator import AssetResultsPagination
+from ..permissions import IsOwnerOrReadOnlyPermission, IsOwnerPermission
+from ..serializers.custom_voices import CloneVoiceSerializer
 from ..serializers.models import (
     TemplatePromptsSerializer,
     IntroSerializer,
@@ -27,20 +26,9 @@ from ..serializers.models import (
     SceneImageSerializer,
 )
 from ..services.asset_limits import save_limited_clip
-from ..services.editing import editable_video
-from ..paginator import AssetResultsPagination
-from ..serializers.custom_voices import CloneVoiceSerializer
 from ..services.custom_voices import create_clone, delete_clone, preview_clone, refresh_clone
-
-
-class CloneVoiceThrottle(UserRateThrottle):
-    scope = "clone_voice"
-    rate = "5/hour"
-
-
-class VoicePreviewThrottle(UserRateThrottle):
-    scope = "voice_preview"
-    rate = "20/hour"
+from ..services.editing import editable_video
+from ..throttling import CloneVoiceThrottle, VoicePreviewThrottle
 
 
 class SceneImageView(viewsets.GenericViewSet):
@@ -88,9 +76,9 @@ class VoiceView(
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnlyPermission]
 
     def get_queryset(self):
-        if self.action in ("mine", "preview", "refresh", "destroy"):
-            if self.action == "destroy":
-                return VoiceModel.objects.filter(created_by=self.request.user).order_by("id")
+        if self.action == "destroy":
+            return VoiceModel.objects.filter(created_by=self.request.user).order_by("id")
+        if self.action in ("mine", "preview", "refresh"):
             return VoiceModel.objects.filter(created_by=self.request.user, is_cloned=True).order_by("id")
         return VoiceModel.objects.available_to(self.request.user).order_by("id")
 
@@ -119,8 +107,6 @@ class VoiceView(
         return Response(self.get_serializer(voice).data)
 
     def perform_destroy(self, instance):
-        if instance.created_by_id != self.request.user.pk:
-            raise PermissionDenied("Only the owner can delete this voice.")
         if instance.is_cloned:
             delete_clone(self.request.user, instance)
         else:
