@@ -600,7 +600,7 @@ clips appear in playback order alongside the scenes. The active scene is highlig
 and a moving line shows your position within it.
 
 The preview follows saved scene order, durations, pauses and transition settings.
-The first scene fades in only when the video's default transition is **Fade**;
+Without an intro, the first scene fades in only when the video's default transition is **Fade**;
 **Cut** and **Cross dissolve** start directly.
 Narration and retained clip audio play together; pauses hold the final frame in
 silence. Captions appear when subtitles are enabled, using the same estimated phrase
@@ -668,6 +668,12 @@ In **Settings → Scene transitions**, choose the video's default style and dura
 Each scene boundary can use **Video default** or override the style and duration
 independently. Durations range from 0.1 to 3 seconds; **Automatic** lets the renderer
 choose. Cut transitions have no duration, and effects are shortened for short clips.
+
+When an opening clip is selected, **Settings → Opening and ending → After intro**
+controls its transition into the first scene. Choose **Cut**, **Fade through black**,
+or **Cross dissolve**, with a separate duration or the video default. The effect
+appears in preview and the exported video, without changing narration or caption
+timing. Removing the intro leaves the first scene using the normal video default.
 Cross dissolves preserve the total runtime, narration and subtitle timing.
 
 ### Scene timing and pauses

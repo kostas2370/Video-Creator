@@ -9,7 +9,7 @@ from pathlib import Path
 from django.conf import settings
 
 from ...models import RENDERABLE_STATUSES, MotionStyle, VideoStatus
-from ...services.preview import apply_transitions, asset_segment, scene_segment
+from ...services.preview import apply_transitions, asset_segment, intro_segment, scene_segment
 from ...services.subtitles import scene_cues
 from ...video_formats import output_size
 from ..exceptions import RenderFailedException
@@ -239,11 +239,14 @@ def quantized_scenes(segments):
     return quantized
 
 
-def render_scene_clips(segments, directory, size):
+def render_scene_clips(segments, directory, size, opening=None):
     from ..scenes import save_video_frame
 
     quantized = quantized_scenes(segments)
     previous_frame = None
+    if opening and quantized and quantized[0].dissolve_in:
+        previous_frame = Path(directory, "intro-ending.png")
+        save_video_frame(opening.content.file.path, previous_frame, max(0, opening.duration - 1 / FPS))
     files = []
     for index, segment in enumerate(quantized):
         graph = Graph()
@@ -365,7 +368,7 @@ def avatar_layer(graph, video, stream, duration):
 
 
 def final_graph(
-    video, segments, duration, narration_path, directory, size, scene_manifest
+    video, segments, duration, narration_path, directory, size, scene_manifest, opening=None
 ):
     graph = Graph()
     scene_input = graph.input(scene_manifest, ("-f", "concat", "-safe", "1"))
@@ -396,8 +399,7 @@ def final_graph(
         visual = graph.filter([visual], "subtitles=filename=captions.ass")
     visuals, audios = [], []
     total = duration
-    if video.intro:
-        opening = asset_segment(video.intro, "intro", 0)
+    if opening:
         visuals.append(visual_stream(graph, opening, size))
         audios.append(
             audio_stream(
@@ -437,7 +439,8 @@ def make_video(video):
         elapsed += segment.duration
     if not segments:
         raise RenderFailedException("No video scenes were processed.")
-    apply_transitions(segments, choices)
+    opening = intro_segment(video) if video.intro else None
+    apply_transitions(segments, choices, opening)
     video.status = VideoStatus.RENDERING
     video.save(update_fields=["status", "updated_at"])
     destination = Path(video.dir_name).resolve()
@@ -456,7 +459,7 @@ def make_video(video):
         )
         os.replace(narration, destination / "output_audio.wav")
         size = output_size(choices.get("video_format"))
-        manifest = render_scene_clips(segments, directory, size)
+        manifest = render_scene_clips(segments, directory, size, opening)
         graph, visual, audio, total = final_graph(
             video,
             segments,
@@ -465,6 +468,7 @@ def make_video(video):
             directory,
             size,
             manifest,
+            opening,
         )
         output = Path(directory, "output.mp4")
         graph.run(

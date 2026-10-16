@@ -37,6 +37,24 @@ class VideoDetailQueryTests(TestCase):
 
 
 class VideoViewTests(ApiTestCase):
+    def test_intro_transition_settings_save_without_replacing_other_choices(self):
+        made = self.video_for(settings={"narration": False, "transition_default": "CUT"})
+        response = self.client.patch(reverse("video-detail", args=[made.pk]),
+                                     {"intro_transition": "DISSOLVE", "intro_transition_duration": 0.75}, format="json")
+        self.assertEqual(response.status_code, 200)
+        made.refresh_from_db()
+        self.assertEqual(made.settings, {"narration": False, "transition_default": "CUT", "intro_transition": "DISSOLVE", "intro_transition_duration": 0.75})
+
+    def test_intro_transition_validation_and_editing_guards(self):
+        made = self.video_for()
+        url = reverse("video-detail", args=[made.pk])
+        for payload in ({"intro_transition": "invalid"}, *({"intro_transition_duration": value} for value in (0, 4, "NaN", "Infinity"))):
+            self.assertEqual(self.client.patch(url, payload, format="json").status_code, 400)
+        for state in ("GENERATION", "RENDERING", "REVIEW"):
+            made.status = state
+            made.save()
+            self.assertEqual(self.client.patch(url, {"intro_transition": "FADE"}, format="json").status_code, 409)
+
     def test_transition_defaults_save_without_replacing_other_settings(self):
         made = self.video_for(settings={"narration": False, "subtitles": True})
         line = scene.make(video=made, transition_after="CUT")

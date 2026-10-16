@@ -53,6 +53,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [selectedAvatarFile, setSelectedAvatarFile] = useState("");
   const [transitionDefault, setTransitionDefault] = useState("FADE");
   const [transitionDuration, setTransitionDuration] = useState("");
+  const [introTransition, setIntroTransition] = useState("DEFAULT");
+  const [introTransitionDuration, setIntroTransitionDuration] = useState("");
   const [saving, setSaving] = useState(false);
 
 
@@ -77,6 +79,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     setSubtitles(info?.settings?.subtitles === true);
     setTransitionDefault(info?.settings?.transition_default || "FADE");
     setTransitionDuration(info?.settings?.transition_duration ?? "");
+    setIntroTransition(info?.settings?.intro_transition || "DEFAULT");
+    setIntroTransitionDuration(info?.settings?.intro_transition_duration ?? "");
   }, [info?.settings]);
 
   const changePlatform = (value) => {
@@ -101,6 +105,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
         video_format: videoFormat,
         transition_default: transitionDefault,
         transition_duration: transitionDuration === "" ? null : Number(transitionDuration),
+        intro_transition: introTransition,
+        intro_transition_duration: introTransitionDuration === "" ? null : Number(introTransitionDuration),
       };
       if (!avatar && voice && String(voice) !== String(info?.voice_model ?? "")) changes.voice_id = voice;
       if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
@@ -153,6 +159,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
                   <span><span className="block text-xs font-semibold">{option.label}</span><span className="mt-0.5 block text-[10px] text-gray-400">{option.ratio}</span></span>
                 </label>)}
               </div>
+
             </section>
 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
@@ -177,6 +184,21 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
                 <AssetDropBox value={outro} setValue={setOutro} setSelectedFile={setSelectedOutroFile} type="outro" items={outros} selectedFile={selectedOutroFile} />
               <MoreAssetOptions options={outrosOptions} label="outros" />
               </div>
+              {intro && <fieldset disabled={saving} className="mt-4 grid gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-2 dark:border-gray-700">
+                <legend className="px-2 text-sm font-semibold text-gray-700 dark:text-gray-200">After intro</legend>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Transition to first scene
+                  <select aria-label="After intro transition" className="mt-2 block w-full rounded-xl border border-gray-200 bg-white p-3 text-sm dark:border-gray-700 dark:bg-gray-800" value={introTransition} onChange={event => setIntroTransition(event.target.value)}>
+                    <option value="DEFAULT">Video default</option>
+                    {transitionStyles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Duration
+                  <select aria-label="After intro transition duration" disabled={saving || (introTransition === "DEFAULT" ? transitionDefault : introTransition) === "CUT"} className="mt-2 block w-full rounded-xl border border-gray-200 bg-white p-3 text-sm disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800" value={introTransitionDuration} onChange={event => setIntroTransitionDuration(event.target.value)}>
+                    <option value="">Video default ({transitionDuration ? `${transitionDuration}s` : "Automatic"})</option>
+                    {transitionDurations.map(value => <option key={value} value={value}>{value}s</option>)}
+                  </select>
+                </label>
+              </fieldset>}
             </section>
 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
