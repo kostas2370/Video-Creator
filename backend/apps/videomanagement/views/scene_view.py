@@ -44,19 +44,45 @@ class SceneView(viewsets.GenericViewSet):
         SceneGenerationLimitPermission,
     ]
 
+    def get_serializer_class(self):
+        if self.action == "partial_update" and not getattr(self, "swagger_fake_view", False):
+            if self.get_object().video.video_type == VideoType.MANUAL:
+                return ManualTextSerializer
+        return {
+            "overlays": SceneOverlaysSerializer,
+            "audio": SceneAudioSerializer,
+            "voiceover": VoiceoverUploadSerializer,
+            "motion": SceneMotionSerializer,
+            "timing": SceneTimingSerializer,
+            "transition": SceneTransitionSerializer,
+            "partial_update": SceneUpdateSerializer,
+            "generate": SceneUpdateSerializer,
+            "change_image_scene": ChangeSceneImageSerializer,
+            "generate_image_scene": GenerateSceneImageSerializer,
+        }.get(self.action, super().get_serializer_class())
+
     def get_permissions(self):
-        if self.action in ("partial_update", "change_image_scene", "destroy"):
+        if self.action in (
+            "partial_update", "change_image_scene", "destroy", "overlays", "audio",
+            "voiceover", "waveform", "motion", "timing", "transition", "operation",
+        ):
             return [IsAuthenticated(), IsOwnerPermission()]
         return super().get_permissions()
 
+    def get_parsers(self):
+        # DRF sets self.action after parsers; resolve the route from the raw request.
+        action = getattr(self, "action", None) or getattr(self, "action_map", {}).get(
+            self.request.method.lower()
+        )
+        parsers = {
+            "overlays": (JSONParser, MultiPartParser, FormParser),
+            "voiceover": (MultiPartParser, FormParser),
+            "change_image_scene": (MultiPartParser, FormParser, JSONParser),
+        }.get(action)
+        return [parser() for parser in parsers] if parsers else super().get_parsers()
+
     @swagger_auto_schema(responses={200: SceneSerializer})
-    @action(
-        detail=True,
-        methods=["PATCH"],
-        serializer_class=SceneOverlaysSerializer,
-        parser_classes=[JSONParser, MultiPartParser, FormParser],
-        permission_classes=[IsAuthenticated, IsOwnerPermission],
-    )
+    @action(detail=True, methods=["PATCH"])
     def overlays(self, request, pk=None):
         scene = self.get_object()
         serializer = self.get_serializer(data=request.data)
@@ -65,51 +91,50 @@ class SceneView(viewsets.GenericViewSet):
         return Response(SceneSerializer(scene, context=self.get_serializer_context()).data)
 
     @swagger_auto_schema(request_body=SceneAudioSerializer)
-    @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["PATCH"])
     def audio(self, request, pk=None):
         scene = self.get_object()
-        serializer = SceneAudioSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(SceneSerializer(update_audio(scene, serializer.validated_data)).data)
 
-    @action(detail=True, methods=["POST", "DELETE"], parser_classes=[MultiPartParser, FormParser],
-            permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["POST", "DELETE"])
     def voiceover(self, request, pk=None):
         scene = self.get_object()
         upload = None
         if request.method == "POST":
-            serializer = VoiceoverUploadSerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             upload = serializer.validated_data["file"]
         return Response(SceneSerializer(save_voiceover(scene, upload)).data)
 
-    @action(detail=True, methods=["GET"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["GET"])
     def waveform(self, request, pk=None):
         return Response(audio_waveform(self.get_object()), headers={"Cache-Control": "private, no-store"})
 
     @swagger_auto_schema(request_body=SceneMotionSerializer)
-    @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["PATCH"])
     def motion(self, request, pk=None):
         owned_scene = self.get_object()
-        serializer = SceneMotionSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         scene = update_scene_motion(owned_scene, **serializer.validated_data)
         return Response(SceneSerializer(scene).data)
 
     @swagger_auto_schema(request_body=SceneTimingSerializer)
-    @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["PATCH"])
     def timing(self, request, pk=None):
         owned_scene = self.get_object()
-        serializer = SceneTimingSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         scene = update_scene_timing(owned_scene, **serializer.validated_data)
         return Response(SceneSerializer(scene).data)
 
     @swagger_auto_schema(request_body=SceneTransitionSerializer)
-    @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["PATCH"])
     def transition(self, request, pk=None):
         owned_scene = self.get_object()
-        serializer = SceneTransitionSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         scene = update_scene_transition(owned_scene, **serializer.validated_data)
         return Response({"transition_after": scene.transition_after, "transition_duration": scene.transition_duration})
@@ -121,8 +146,7 @@ class SceneView(viewsets.GenericViewSet):
     )
     def partial_update(self, request, pk=None):
         instance = self.get_object()
-        serializer_class = ManualTextSerializer if instance.video.video_type == VideoType.MANUAL else SceneUpdateSerializer
-        serializer = serializer_class(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         if instance.video.video_type == VideoType.MANUAL:
@@ -147,7 +171,7 @@ class SceneView(viewsets.GenericViewSet):
     @action(detail=True, methods=["patch"])
     def generate(self, request, pk):
         scene = self.get_object()
-        serializer = SceneUpdateSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operation = queue_scene_job(
             scene, request.user, rewrite_scene_task, serializer.validated_data["text"], cost=0.03,
@@ -171,11 +195,7 @@ class SceneView(viewsets.GenericViewSet):
             ),
         },
     )
-    @action(
-        detail=True,
-        methods=["POST"],
-        parser_classes=[MultiPartParser, FormParser, JSONParser],
-    )
+    @action(detail=True, methods=["POST"])
     def change_image_scene(self, request, pk):
         scene = self.get_object()
         query_serializer = SceneImageQuerySerializer(data=request.query_params)
@@ -185,9 +205,9 @@ class SceneView(viewsets.GenericViewSet):
         if scene_image_id is not None:
             scene_image = get_object_or_404(SceneImage, pk=scene_image_id, scene=scene)
 
-        serializer = ChangeSceneImageSerializer(
+        serializer = self.get_serializer(
             data=request.data,
-            context={"has_scene_image": scene_image is not None},
+            context={**self.get_serializer_context(), "has_scene_image": scene_image is not None},
         )
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
@@ -220,7 +240,7 @@ class SceneView(viewsets.GenericViewSet):
     @action(detail=True, methods=["POST"])
     def generate_image_scene(self, request, pk):
         scene = self.get_object()
-        serializer = GenerateSceneImageSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         operation = queue_scene_job(
             scene, request.user, generate_scene_image_task, serializer.validated_data["image_description"], cost=0.08,
@@ -228,7 +248,7 @@ class SceneView(viewsets.GenericViewSet):
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(query_serializer=SceneJobQuerySerializer, responses={200: "Background scene job status and result"})
-    @action(detail=True, methods=["GET"], permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["GET"])
     def operation(self, request, pk=None):
         scene = self.get_object()
         query = SceneJobQuerySerializer(data=request.query_params)

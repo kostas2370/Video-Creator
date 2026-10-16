@@ -1,6 +1,6 @@
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.views import APIView
+from rest_framework.generics import GenericAPIView
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.permissions import IsAuthenticated
 from ..serializers.requests import GenerateSerializer
@@ -12,13 +12,14 @@ from ..throttling import GenerateRateThrottle
 from ..models import VideoStatus
 
 
-class GenerateView(APIView):
+class GenerateView(GenericAPIView):
+    serializer_class = GenerateSerializer
     permission_classes = [IsAuthenticated, AiGenerationLimitPermission]
     throttle_classes = [GenerateRateThrottle]
 
     @swagger_auto_schema(...)
     def post(self, request):
-        serializer = GenerateSerializer(data=request.data, context={"request": request})
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         params = dict(serializer.validated_data)
