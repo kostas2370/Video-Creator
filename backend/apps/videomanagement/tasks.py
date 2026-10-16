@@ -191,13 +191,16 @@ def update_user_voices(user_id: str | UUID, provider: str):
     ]
     fetched_voice_ids = {voice["id"] for voice in voices}
 
-    existing_voices = VoiceModel.objects.filter(created_by=user, provider=provider)
+    # Clones are managed by their owner, never duplicated or removed by imports.
+    clone_paths = set(VoiceModel.objects.filter(is_cloned=True, provider=provider).values_list("path", flat=True))
+    voices = [voice for voice in voices if voice["id"] not in clone_paths]
+    existing_voices = VoiceModel.objects.filter(created_by=user, provider=provider, is_cloned=False)
     existing_map = {v.path: v for v in existing_voices}
 
     stale_paths = set(existing_map.keys()) - fetched_voice_ids
     if stale_paths:
         VoiceModel.objects.filter(
-            created_by=user, provider=provider, path__in=stale_paths
+            created_by=user, provider=provider, path__in=stale_paths, is_cloned=False
         ).delete()
 
     added = [

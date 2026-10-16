@@ -95,6 +95,19 @@ class VoiceModelQuerySet(models.QuerySet):
         else:
             scope = shared
 
+        # Clones belong to one user even when created with the service account.
+        from .services.custom_voices import key_fingerprint, key_source
+        from apps.apikeysmanagement.models import Provider
+
+        clones = models.Q(pk__in=[])
+        if user is not None and getattr(user, "is_authenticated", False):
+            clones = models.Q(
+                is_cloned=True, created_by=user, requires_verification=False,
+                clone_key_source=key_source(user),
+                clone_key_fingerprint=key_fingerprint(ApiKeys.key_for(user, Provider.ELEVENLABS)),
+            )
+        scope = (scope & models.Q(is_cloned=False)) | clones
+
         valid_providers = models.Q(provider__in=playable) | (
             models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
         )

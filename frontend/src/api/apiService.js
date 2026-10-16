@@ -29,6 +29,11 @@ export const getVideoSubtitles = id => request({ url: action("videos", id, "subt
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
 export const getVoices = (search, page = 1) => get("voices/", { search: search || undefined, page });
+export const getMyVoices = () => request({ url: "voices/mine/", ...callerHandlesErrors });
+export const cloneVoice = data => post("voices/clone/", data, callerHandlesErrors);
+export const previewVoice = id => post(action("voices", id, "preview"), {}, { ...callerHandlesErrors, responseType: "blob" });
+export const refreshVoice = id => post(action("voices", id, "refresh"), {}, callerHandlesErrors);
+export const deleteVoice = id => remove(detail("voices", id), callerHandlesErrors);
 export const getTemplates = (search, page = 1) => get("templates/", { search: search || undefined, page });
 export const getNotifications = (options = {}) => request({ url: "notifications/", ...options });
 export const getUsage = period => request({ url: "usage/", params: { period }, notifyError: false });
