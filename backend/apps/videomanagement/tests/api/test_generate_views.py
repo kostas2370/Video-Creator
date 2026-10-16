@@ -82,7 +82,40 @@ class GenerateViewTests(ApiTestCase):
                     },
                 )
             self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.data["detail"], "Could not queue generation. Please try again.")
+            failed = Video.objects.get()
+            self.assertEqual(failed.status, "FAILED")
+            self.assertFalse(failed.reference_image)
             self.assertFalse(any(path.is_file() for path in Path(directory).rglob("*")))
+
+    def test_queue_failure_marks_video_failed_without_a_reference(self):
+        with patch("apps.videomanagement.tasks.generate_video_task.delay", side_effect=RuntimeError("offline")):
+            response = self.client.post(reverse("generate"), {"message": "cat"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data["detail"], "Could not queue generation. Please try again.")
+        self.assertEqual(Video.objects.get().status, "FAILED")
+
+    def test_review_stores_replayable_parameters_without_user_or_upload(self):
+        with tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):
+            response, delay = self.post(
+                message="A story about cats", review_script=True, image_mode="AI",
+                provider="OPENAI", reference_image=self.reference_upload(), narration=False,
+            )
+            self.assertEqual(response.status_code, 202, response.data)
+            video = Video.objects.get(pk=response.data["video"]["id"])
+            params = video.settings["generation_params"]
+            self.assertEqual(params["message"], "A story about cats")
+            self.assertFalse(params["review_script"])
+            self.assertFalse(params["narration"])
+            self.assertNotIn("created_by", params)
+            self.assertNotIn("reference_image", params)
+            self.assertTrue(Path(video.reference_image.path).is_file())
+            self.assertTrue(delay.call_args.kwargs["review_script"])
+            self.assertEqual(
+                {**params, "review_script": True, "video_id": video.pk},
+                delay.call_args.kwargs,
+            )
 
     def post(self, **overrides):
         data = {"message": "make me a video about cats"}

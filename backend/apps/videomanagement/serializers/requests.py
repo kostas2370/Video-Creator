@@ -93,6 +93,11 @@ class GenerateSerializer(serializers.Serializer):
     avatar_position = serializers.CharField(required=False, default="right,top")
     genre = serializers.CharField(required=False, default="", allow_blank=True)
 
+    def create(self, validated_data):
+        from ..services.generation_queue import queue_video_generation
+
+        return queue_video_generation(**validated_data)
+
     def validate_reference_image(self, value):
         if value.size > 10 * 1024 * 1024:
             raise serializers.ValidationError("Choose an image smaller than 10 MB.")
