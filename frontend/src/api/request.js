@@ -19,11 +19,14 @@ export function errorMessage(error) {
 }
 
 // All API helpers resolve the same result. HTTP errors never masquerade as data.
-export async function request({ method = "get", url, data, params, client = axiosPrivateInstance, notifyError = true }) {
+export async function request({ method = "get", url, data, params, responseType, client = axiosPrivateInstance, notifyError = true }) {
   try {
-    const response = await client.request({ method, url, data, params });
+    const response = await client.request({ method, url, data, params, ...(responseType ? { responseType } : {}) });
     return { ok: true, data: response.data ?? null, status: response.status, headers: response.headers, message: null, errors: null };
   } catch (error) {
+    if (typeof Blob !== "undefined" && error?.response?.data instanceof Blob) {
+      try { error.response.data = JSON.parse(await error.response.data.text()); } catch { /* Use the standard error message. */ }
+    }
     const message = errorMessage(error);
     if (notifyError) toast.error(message, { toastId: `${method}:${url}:${message}` });
     return { ok: false, data: null, status: error?.response?.status ?? null, headers: error?.response?.headers ?? {}, message, errors: error?.response?.data ?? null };

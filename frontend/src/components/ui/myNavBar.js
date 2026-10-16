@@ -10,6 +10,7 @@ const destinations = [
   { to: "/", label: "Create video", icon: HiOutlinePlusCircle },
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
+  { to: "/voices", label: "My voices", icon: HiOutlineUserCircle },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },
 ];
 const iconButton = "rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white";

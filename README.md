@@ -479,6 +479,32 @@ The built-in voices you can pick follow the keys you hold:
   on *Use my own keys*, and the ones `setup_elevenlabs`/`setup_60db` imported with the
   service key while it is off. Neither set is offered with the wrong key behind it.
 
+**My voices** lets each user record or upload their own voice sample and create a
+private ElevenLabs clone. Apply the `0029_custom_voices` migration before using it.
+The active ElevenLabs account needs voice-cloning access and a free voice slot.
+Samples must contain 10 seconds to 2 minutes of readable audio, up to 20 MB; clear
+speech lasting 1–2 minutes is recommended. FFmpeg validates and normalizes the
+sample, then the backend sends it to ElevenLabs. Temporary sample files are
+deleted after processing; no recording is added to public media storage.
+
+Users must explicitly confirm that the sample is their own voice and consent to
+cloning. Each user can keep three clones, including voices awaiting provider
+verification. Creation is limited to five attempts per hour, and previews/status
+checks share a limit of twenty requests per hour per user. Generated previews
+are recorded in Usage. These limits are independent of provider subscription
+limits and the existing narration usage tracking.
+
+Clones stay private even when created with the shared service key. Ready voices
+appear in existing video/avatar voice selectors. Voices awaiting verification
+stay in My voices but cannot generate audio; complete verification in ElevenLabs
+(through the administrator for service-account voices), then use **Check status**.
+Each clone is tied to its original key and service/personal key mode. Switching
+modes or rotating the key hides it from selectors; restore the original key/mode
+to preview, generate, or delete it. A fingerprint identifies the key without
+storing another copy of it. Voice imports do not publish or remove app-created
+clones. **Delete** removes the provider voice first, then its local entry; provider
+failures retain the entry for retry. Already-generated video audio is retained.
+
 The OpenAI voices the fixtures ship are shared with everyone, because `alloy` and the
 rest are built-in names that work with any OpenAI key — unlike an ElevenLabs voice,
 which is minted inside one account.
