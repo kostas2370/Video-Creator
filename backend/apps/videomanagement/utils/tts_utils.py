@@ -74,15 +74,30 @@ def tts_from_elevenlabs(
 ) -> Optional[requests.Response]:
     logger.warning("API CALL IN ElevenLabs TTS")
 
+    from ..models import VoiceModel
+    from ..services.custom_voices import voice_key
+    from rest_framework.exceptions import PermissionDenied, ValidationError
+
+    clones = VoiceModel.objects.filter(provider=Provider.ELEVENLABS, path=voice, is_cloned=True)
+    is_clone = clones.exists()
+    if is_clone:
+        clone = clones.filter(created_by=user).first() if user else None
+        if clone is None:
+            raise PermissionDenied("This voice belongs to another user.")
+        voice_key(user, clone)
+        if clone.requires_verification:
+            raise ValidationError("This voice requires verification in ElevenLabs.")
+
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
     headers = {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
         "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
     }
+    model = "eleven_multilingual_v2" if is_clone else "eleven_monolingual_v1"
     data = {
         "text": text,
-        "model_id": "eleven_monolingual_v1",
+        "model_id": model,
         "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
     }
 
@@ -92,7 +107,7 @@ def tts_from_elevenlabs(
             url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
         )
         response.raise_for_status()
-        record_usage(user, "tts", Provider.ELEVENLABS, "eleven_monolingual_v1", characters=len(text))
+        record_usage(user, "tts", Provider.ELEVENLABS, model, characters=len(text))
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:

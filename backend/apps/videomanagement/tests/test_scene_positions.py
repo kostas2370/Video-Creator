@@ -106,10 +106,12 @@ class ScenePositionMigrationTests(TransactionTestCase):
         executor = MigrationExecutor(connection)
         leaves = executor.loader.graph.leaf_nodes()
         self.addCleanup(lambda: MigrationExecutor(connection).migrate(leaves))
+        # Recipes use current models; build their relations before downgrading
+        # the schema so future VoiceModel fields do not break this migration test.
+        first_video, other_video = video.make(_quantity=2)
         executor.migrate(self.migrate_from)
         old_apps = executor.loader.project_state(self.migrate_from).apps
         OldScene = old_apps.get_model("videomanagement", "Scene")
-        first_video, other_video = video.make(_quantity=2)
         now = timezone.now()
         second = OldScene.objects.create(video_id=first_video.pk, text="Second", created_at=now)
         first = OldScene.objects.create(video_id=first_video.pk, text="First", created_at=now - timedelta(days=1))
