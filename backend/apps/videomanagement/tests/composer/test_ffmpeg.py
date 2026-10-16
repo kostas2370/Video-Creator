@@ -26,6 +26,42 @@ from ...utils.exceptions import RenderFailedException
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    def test_overlays_follow_timing_and_logo_placement_in_export(self):
+        from ...serializers.overlays import OverlaySerializer
+
+        Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
+        Image.new("RGBA", (32, 32), "red").save(self.root / "logo.png")
+        settings = OverlaySerializer(data=[
+            {"kind": "title", "text": "HELLO", "start": 0.1, "end": 0.3, "size": 8, "background": False},
+            {"kind": "watermark", "logo": True, "position": "top-left", "start": 0.1, "end": 0.3, "width": 20},
+        ], many=True)
+        settings.is_valid(raise_exception=True)
+        self.add_still(overlays=settings.validated_data, overlay_logo="logo.png")
+        make_video(self.row)
+        before, visible, after = self.frame(0), self.frame(0.2), self.frame(0.4)
+        self.assertLess(before.max(), 15)
+        self.assertLess(after.max(), 15)
+        self.assertGreater(visible[6:30, 10:35, 0].mean(), 200)
+        self.assertGreater((visible[30:85, :, :].max(axis=2) > 150).sum(), 10)
+
+    def test_overlay_offsets_include_intro_and_previous_scene_pause(self):
+        from ...serializers.overlays import OverlaySerializer
+
+        Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
+        Image.new("RGBA", (32, 32), "red").save(self.root / "logo.png")
+        self.row.intro = intro.make(file="intro.mp4")
+        self.row.save()
+        self.add_still(pause_after=0.25, transition_after="CUT")
+        settings = OverlaySerializer(data=[
+            {"kind": "watermark", "logo": True, "position": "bottom-right", "start": 0.1, "end": 0.3, "width": 20},
+        ], many=True)
+        settings.is_valid(raise_exception=True)
+        self.add_still(overlays=settings.validated_data, overlay_logo="logo.png")
+        make_video(self.row)
+        self.assertLess(self.frame(0.9).max(), 15)
+        self.assertGreater(self.frame(1.2)[55:80, 125:150, 0].mean(), 200)
+        self.assertLess(self.frame(1.4).max(), 15)
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix="ffmpeg-tests-")
         self.addCleanup(self.directory.cleanup)

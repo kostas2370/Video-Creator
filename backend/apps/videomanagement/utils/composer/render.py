@@ -19,6 +19,7 @@ from ..timing import media_timing
 from ..audio_editing import narration_file, voice_tracks
 from .audio import voice_stream, write_music_envelope
 from .effects import audio_fade_filters
+from .overlays import apply_overlays
 
 logger = logging.getLogger(__name__)
 FPS = 24
@@ -371,6 +372,7 @@ def final_graph(
     scene_input = graph.input(scene_manifest, ("-f", "concat", "-safe", "1"))
     visual = graph.filter([f"{scene_input}:v"], "setpts=PTS-STARTPTS")
     visual = avatar_layer(graph, video, visual, duration)
+    visual = apply_overlays(graph, visual, segments, size, directory)
     audio = audio_stream(graph, [narration_path], duration)
     if video.music:
         index = graph.input(video.music.file.path, ("-stream_loop", "-1"))

@@ -222,6 +222,8 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    overlays = models.JSONField(default=list, blank=True)
+    overlay_logo = models.ImageField(upload_to="media/overlays/%Y/%m/%d", blank=True)
     voiceover = models.FileField(upload_to="media/voiceovers", blank=True, max_length=2000)
     audio_settings = models.JSONField(default=dict, blank=True)
 
