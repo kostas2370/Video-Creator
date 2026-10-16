@@ -49,14 +49,20 @@ class SceneView(viewsets.GenericViewSet):
             return [IsAuthenticated(), IsOwnerPermission()]
         return super().get_permissions()
 
-    @swagger_auto_schema(request_body=SceneOverlaysSerializer)
-    @action(detail=True, methods=["PATCH"], parser_classes=[JSONParser, MultiPartParser, FormParser],
-            permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @swagger_auto_schema(responses={200: SceneSerializer})
+    @action(
+        detail=True,
+        methods=["PATCH"],
+        serializer_class=SceneOverlaysSerializer,
+        parser_classes=[JSONParser, MultiPartParser, FormParser],
+        permission_classes=[IsAuthenticated, IsOwnerPermission],
+    )
     def overlays(self, request, pk=None):
         scene = self.get_object()
-        serializer = SceneOverlaysSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(SceneSerializer(update_overlays(scene, serializer.validated_data)).data)
+        scene = update_overlays(scene, serializer.validated_data)
+        return Response(SceneSerializer(scene, context=self.get_serializer_context()).data)
 
     @swagger_auto_schema(request_body=SceneAudioSerializer)
     @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
