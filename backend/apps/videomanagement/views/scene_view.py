@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404
+
+from .mixins import RequestObjectMixin
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
@@ -35,7 +37,7 @@ from ..serializers.audio import SceneAudioSerializer, VoiceoverUploadSerializer
 from ..services.audio_editing import update_audio, save_voiceover, audio_waveform
 
 
-class SceneView(viewsets.GenericViewSet):
+class SceneView(RequestObjectMixin, viewsets.GenericViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
     permission_classes = [
