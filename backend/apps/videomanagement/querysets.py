@@ -1,6 +1,10 @@
 from django.db import models
 from django.db.models import Count, Min, Q, Sum
 
+from apps.apikeysmanagement.models import ApiKeys, Provider
+from . import models as video_models
+from .utils.voice_credentials import key_fingerprint, key_source
+
 
 TOKEN_METRICS = {
     "input_tokens": "requests_with_input_tokens",
@@ -54,14 +58,10 @@ class VideoQuerySet(models.QuerySet):
 
     def listable(self):
         """Manual projects and AI projects with a generated script."""
-        from .models import VideoType
-
-        return self.filter(Q(gpt_answer__isnull=False) | Q(video_type=VideoType.MANUAL))
+        return self.filter(Q(gpt_answer__isnull=False) | Q(video_type=video_models.VideoType.MANUAL))
 
     def in_flight(self):
-        from .models import IN_FLIGHT_STATUSES
-
-        return self.filter(status__in=IN_FLIGHT_STATUSES)
+        return self.filter(status__in=video_models.IN_FLIGHT_STATUSES)
 
 
 class SceneQuerySet(models.QuerySet):
@@ -72,44 +72,29 @@ class SceneQuerySet(models.QuerySet):
 
 class VoiceModelQuerySet(models.QuerySet):
     def available_to(self, user):
-        from apps.apikeysmanagement.models import ApiKeys
-        from .models import (
-            VOICE_PROVIDERS,
-            ACCOUNT_SCOPED_VOICE_PROVIDERS,
-            VoiceModelType,
-        )
-
         playable = [
-            provider for provider in VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
+            provider for provider in video_models.VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
         ]
-        spending_own_keys = (
-            user is not None
-            and getattr(user, "is_authenticated", False)
-            and not user.use_service_api_keys
-        )
+        authenticated = getattr(user, "is_authenticated", False)
+        spending_own_keys = authenticated and not user.use_service_api_keys
         shared = models.Q(created_by=None)
         if spending_own_keys:
             scope = (
-                shared & ~models.Q(provider__in=ACCOUNT_SCOPED_VOICE_PROVIDERS)
+                shared & ~models.Q(provider__in=video_models.ACCOUNT_SCOPED_VOICE_PROVIDERS)
             ) | models.Q(created_by=user)
         else:
             scope = shared
 
-        # Clones belong to one user even when created with the service account.
-        from .services.custom_voices import key_fingerprint, key_source
-        from apps.apikeysmanagement.models import Provider
-
-        clones = models.Q(pk__in=[])
-        if user is not None and getattr(user, "is_authenticated", False):
-            clones = models.Q(
+        scope &= models.Q(is_cloned=False)
+        if authenticated:
+            scope |= models.Q(
                 is_cloned=True, created_by=user, requires_verification=False,
                 clone_key_source=key_source(user),
                 clone_key_fingerprint=key_fingerprint(ApiKeys.key_for(user, Provider.ELEVENLABS)),
             )
-        scope = (scope & models.Q(is_cloned=False)) | clones
 
         valid_providers = models.Q(provider__in=playable) | (
-            models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
+            models.Q(type=video_models.VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
         )
 
         return self.filter(scope & valid_providers)

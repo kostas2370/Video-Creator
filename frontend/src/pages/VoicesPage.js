@@ -11,6 +11,16 @@ const secondary = "rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-me
 function VoiceCard({ voice, busy, onAction }) {
   const [preview, setPreview] = useState(null);
   const url = useObjectUrl(preview);
+  const listen = () => onAction(async () => {
+    const result = await previewVoice(voice.id);
+    if (result.ok) setPreview(result.data);
+    return result;
+  });
+  const remove = () => {
+    if (window.confirm(`Delete “${voice.name}” from this app and ElevenLabs? Existing audio will stay in your videos. This cannot be undone.`)) {
+      onAction(() => deleteVoice(voice.id), true);
+    }
+  };
   return <article className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
     <div className="flex items-start justify-between gap-3">
       <div><h2 className="font-semibold">{voice.name}</h2><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Private · {voice.clone_key_source === "service" ? "Service account" : "Your ElevenLabs account"}</p></div>
@@ -18,8 +28,8 @@ function VoiceCard({ voice, busy, onAction }) {
     </div>
     {voice.requires_verification && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">ElevenLabs requires verification before this voice can be used. {voice.clone_key_source === "user" ? "Complete verification in your ElevenLabs account, then check its status here." : "Contact the service administrator to complete verification."}</p>}
     <div className="mt-5 flex flex-wrap gap-2">
-      {voice.requires_verification ? <button type="button" disabled={busy} className={secondary} onClick={() => onAction(() => refreshVoice(voice.id), true)}>Check status</button> : <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={() => onAction(async () => { const result = await previewVoice(voice.id); if (result.ok) setPreview(result.data); return result; })}><HiOutlinePlay aria-hidden="true" />Preview voice</button>}
-      <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={() => { if (window.confirm(`Delete “${voice.name}” from this app and ElevenLabs? Existing audio will stay in your videos. This cannot be undone.`)) onAction(() => deleteVoice(voice.id), true); }}><HiOutlineTrash aria-hidden="true" />Delete</button>
+      {voice.requires_verification ? <button type="button" disabled={busy} className={secondary} onClick={() => onAction(() => refreshVoice(voice.id), true)}>Check status</button> : <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={listen}><HiOutlinePlay aria-hidden="true" />Preview voice</button>}
+      <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={remove}><HiOutlineTrash aria-hidden="true" />Delete</button>
     </div>
     {url && <audio key={url} src={url} controls autoPlay className="mt-4 w-full" aria-label={`Preview of ${voice.name}`} />}
   </article>;
@@ -37,6 +47,16 @@ export function Voices() {
   const [reload, setReload] = useState(0);
   const url = useObjectUrl(sample);
   const recorder = useVoiceRecording(setSample, setError, busy || loading || voices.length >= 3, 120);
+  const chooseSample = event => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setError("Audio must be smaller than 20 MB.");
+      return;
+    }
+    setSample(file);
+  };
   useEffect(() => {
     let current = true;
     setLoading(true);
@@ -78,7 +98,7 @@ export function Voices() {
       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Use 10 seconds to 2 minutes of clear speech with no music or other speakers. Aim for 1–2 minutes for better results. Audio is sent to ElevenLabs to create your voice; this app does not keep the recording. Your active <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">ElevenLabs account</Link> needs a plan that supports voice cloning and an available voice slot.</p>
       <fieldset disabled={busy || loading || voices.length >= 3} className="mt-5 space-y-5 disabled:opacity-60">
         <div><label htmlFor="voice-name" className="mb-2 block text-sm font-medium">Voice name</label><input id="voice-name" required maxLength={80} value={name} onChange={event => setName(event.target.value)} placeholder="My narration voice" className="w-full rounded-xl border border-gray-300 bg-transparent px-3 py-2.5 dark:border-gray-600" /></div>
-        <div><label htmlFor="voice-sample" className="mb-2 block text-sm font-medium">Voice sample · up to 20 MB</label><input id="voice-sample" type="file" accept="audio/*,.m4a,.webm" disabled={recorder.recording || recorder.starting} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; if (file.size > 20 * 1024 * 1024) { setError("Audio must be smaller than 20 MB."); return; } setSample(file); }} className="block w-full text-sm" /></div>
+        <div><label htmlFor="voice-sample" className="mb-2 block text-sm font-medium">Voice sample · up to 20 MB</label><input id="voice-sample" type="file" accept="audio/*,.m4a,.webm" disabled={recorder.recording || recorder.starting} onChange={chooseSample} className="block w-full text-sm" /></div>
         <div className="flex flex-wrap items-center gap-3"><button type="button" disabled={recorder.starting} onClick={recorder.recording ? recorder.stop : recorder.start} className={secondary}>{recorder.starting ? "Opening microphone…" : recorder.recording ? `Stop recording · ${recorder.seconds}s` : "Record a sample"}</button><span className="text-xs text-gray-500 dark:text-gray-400">Recording stops after 2 minutes.</span></div>
         {sample && <div><p className="mb-2 truncate text-sm">{sample.name}</p>{url && <audio src={url} controls className="w-full" aria-label="Your uploaded voice sample" />}</div>}
         <label className="flex items-start gap-3 text-sm"><input type="checkbox" required checked={consent} onChange={event => setConsent(event.target.checked)} className="mt-1" /><span>I confirm this is my own voice and consent to sending this recording to ElevenLabs to create a synthetic voice for my narration.</span></label>

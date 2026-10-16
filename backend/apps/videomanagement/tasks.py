@@ -191,7 +191,6 @@ def update_user_voices(user_id: str | UUID, provider: str):
     ]
     fetched_voice_ids = {voice["id"] for voice in voices}
 
-    # Clones are managed by their owner, never duplicated or removed by imports.
     clone_paths = set(VoiceModel.objects.filter(is_cloned=True, provider=provider).values_list("path", flat=True))
     voices = [voice for voice in voices if voice["id"] not in clone_paths]
     existing_voices = VoiceModel.objects.filter(created_by=user, provider=provider, is_cloned=False)

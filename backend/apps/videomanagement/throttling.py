@@ -1,6 +1,16 @@
 from rest_framework.throttling import UserRateThrottle
 
 
+class CloneVoiceThrottle(UserRateThrottle):
+    scope = "clone_voice"
+    rate = "5/hour"
+
+
+class VoicePreviewThrottle(UserRateThrottle):
+    scope = "voice_preview"
+    rate = "20/hour"
+
+
 class BaseThrottle(UserRateThrottle):
     def allow_request(self, request, view):
         if request.user.is_superuser:

@@ -18,9 +18,10 @@ from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
 from ...baker_recipes import voice_model
 from ...models import AIUsage, VoiceModel
-from ...services.custom_voices import key_fingerprint, normalized_sample
+from ...services.custom_voices import normalized_sample
 from ...tasks import update_user_voices
 from ...utils.tts_utils import tts_from_elevenlabs
+from ...utils.voice_credentials import key_fingerprint
 
 
 @override_settings(XI_API_KEY="service-key")
