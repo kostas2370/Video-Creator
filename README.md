@@ -15,6 +15,7 @@ and rendering.
   add a SadTalker presenter, or turn narration off.
 - **Edit scene by scene:** rewrite dialogue, replace visuals, draft additional scenes,
   choose their insertion position and drag scenes into playback order.
+- **Add overlays:** use scene titles, lower thirds, text or logo watermarks, and calls to action with position, timing, size, color and opacity controls.
 - **Animate still images:** choose zoom, directional pan or stable Auto motion per scene, with three intensity levels. Use the scene’s Motion button to try movements in a looping preview, then Save or Cancel. Apply Auto to all image scenes at once with a shared intensity. Pauses hold the final frame.
 - **Control playback:** set pauses and choose cuts, fades through black or cross
   dissolves, with video defaults and overrides between scenes.
@@ -926,3 +927,23 @@ remain optional actions in the editor.
 This mode uses the existing scene editor and preview timeline. It does not add
 multiple video layers or a freeform multitrack editing timeline. Apply the database
 migrations before deploying this version.
+
+
+### Titles, lower thirds, watermarks and calls to action
+
+Choose **Add text & logos** (or **Edit text & logos**) in a scene header, then add a preset. Each scene supports up to
+eight overlays. Edit the text, select one of nine frame positions, and set its start
+time and duration in seconds. Leave duration empty to keep it visible until the
+scene ends, including any pause. Overlays never continue into the next scene.
+Adjust text size, color, black background and opacity, or enable **Use an image
+logo** on a watermark to upload a PNG, JPEG or WebP (up to 10 MB and 16 million
+pixels). Logo watermarks in one scene share its uploaded image. Calls to action are
+on-screen text in the exported video, not clickable links.
+
+Scrub the dialog preview to check timing. **Save overlays** updates the project;
+**Cancel** discards the dialog's edits and pending logo upload. Saved overlays appear
+in the full video preview and in the next render, over the presenter and below
+captions. Fonts and text spacing can differ slightly between browser and export.
+The controls are available for both AI and manual projects and do not call AI
+providers. Apply migration `0029_scene_overlays` before running this version, and
+restart the API and Celery workers after updating.

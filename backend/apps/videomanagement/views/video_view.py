@@ -59,17 +59,17 @@ class VideoView(
     @swagger_auto_schema(request_body=ManualVideoSerializer)
     @action(detail=False, methods=["POST"])
     def manual(self, request):
-        serializer = ManualVideoSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = create_manual_video(request.user, **serializer.validated_data)
         return Response(VideoNestedSerializer(video).data, status=201)
 
-    @action(detail=True, methods=["POST", "DELETE"], parser_classes=[MultiPartParser, FormParser])
+    @action(detail=True, methods=["POST", "DELETE"])
     def music(self, request, pk=None):
         video = self.get_object()
         upload = None
         if request.method == "POST":
-            serializer = VoiceoverUploadSerializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             upload = serializer.validated_data["file"]
         video = set_music(video, upload)
@@ -92,7 +92,19 @@ class VideoView(
         return queryset
 
     def get_serializer_class(self):
+        if self.action == "add_scene" and not getattr(self, "swagger_fake_view", False):
+            if self.get_object().video_type == VideoType.MANUAL:
+                return ManualSceneSerializer
+            if "scenes" in self.request.data:
+                return AddScenesSerializer
         serializer_class = {
+            "manual": ManualVideoSerializer,
+            "music": VoiceoverUploadSerializer,
+            "audio": MusicAudioSerializer,
+            "approve_script": StoryboardSerializer,
+            "auto_motion": BulkAutoMotionSerializer,
+            "reorder_scenes": ReorderScenesSerializer,
+            "draft_scene": SceneDraftSerializer,
             "retrieve": VideoNestedSerializer,
             "partial_update": VideoUpdateSerializer,
             "add_scene": AddSceneSerializer,
@@ -100,6 +112,25 @@ class VideoView(
         }
 
         return serializer_class.get(self.action, VideoSerializer)
+
+    def get_permissions(self):
+        return super().get_permissions()
+
+    def get_throttles(self):
+        if self.action in ("approve_script", "resume"):
+            return [ResumeRateThrottle()]
+        if self.action == "render_video":
+            return [RenderRateThrottle()]
+        return super().get_throttles()
+
+    def get_parsers(self):
+        # DRF sets self.action after parsers; resolve the route from the raw request.
+        action = getattr(self, "action", None) or getattr(self, "action_map", {}).get(
+            self.request.method.lower()
+        )
+        if action == "music":
+            return [MultiPartParser(), FormParser()]
+        return super().get_parsers()
 
     def serialize_video_detail(self, video):
         # Reload after editing: services may return a locked instance, and
@@ -120,7 +151,7 @@ class VideoView(
     @action(detail=True, methods=["PATCH"])
     def audio(self, request, pk=None):
         owned = self.get_object()
-        serializer = MusicAudioSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         with editable_video(owned.pk) as video:
             video.settings = {**(video.settings or {}), **serializer.validated_data}
@@ -160,16 +191,15 @@ class VideoView(
             {"message": "Updated Success", "video": self.serialize_video_detail(outcome)}
         )
 
-    @action(detail=True, methods=["POST"], throttle_classes=[ResumeRateThrottle],
-            permission_classes=[IsAuthenticated, IsOwnerPermission])
+    @action(detail=True, methods=["POST"])
     def approve_script(self, request, pk=None):
         owned_video = self.get_object()
         with transaction.atomic():
             video = Video.objects.select_for_update().get(pk=owned_video.pk)
             if video.status != VideoStatus.REVIEW:
                 return Response({"detail": "This video is not awaiting review."}, status=409)
-            serializer = StoryboardSerializer(
-                data=request.data, context={"narration": video.settings.get("narration", True)}
+            serializer = self.get_serializer(
+                data=request.data, context={**self.get_serializer_context(), "narration": video.settings.get("narration", True)}
             )
             serializer.is_valid(raise_exception=True)
             params = video.settings.get("generation_params")
@@ -195,15 +225,7 @@ class VideoView(
         "poll GET /video/{id}/ until its status becomes READY or FAILED.",
         method="PATCH",
     )
-    @action(
-        detail=True,
-        methods=["PATCH"],
-        throttle_classes=[ResumeRateThrottle],
-        permission_classes=[
-            IsAuthenticated,
-            IsOwnerPermission,
-        ],
-    )
+    @action(detail=True, methods=["PATCH"])
     def resume(self, _, pk):
         video = self.get_object()
 
@@ -251,7 +273,7 @@ class VideoView(
         "until its status becomes COMPLETED or FAILED, then read `output`.",
         method="PATCH",
     )
-    @action(detail=True, methods=["PATCH"], throttle_classes=[RenderRateThrottle])
+    @action(detail=True, methods=["PATCH"])
     def render_video(self, _, pk):
         vid = self.get_object()
         if vid.video_type == VideoType.MANUAL and vid.status in (VideoStatus.READY, VideoStatus.COMPLETED) and not vid.scenes.exists():
@@ -293,15 +315,14 @@ class VideoView(
     def add_scene(self, request, pk):
         video = self.get_object()
         if video.video_type == VideoType.MANUAL:
-            serializer = ManualSceneSerializer(data=request.data, context={"video": video})
+            serializer = self.get_serializer(data=request.data, context={**self.get_serializer_context(), "video": video})
             serializer.is_valid(raise_exception=True)
             add_manual_scene(video, **serializer.validated_data)
             return Response(self.serialize_video_detail(video), status=201)
         is_batch = "scenes" in request.data
         if is_batch and request.FILES:
             return Response({"detail": "Upload a visual when adding a single scene."}, status=400)
-        serializer_class = AddScenesSerializer if is_batch else AddSceneSerializer
-        serializer = serializer_class(data=request.data, context={"video": video})
+        serializer = self.get_serializer(data=request.data, context={**self.get_serializer_context(), "video": video})
         serializer.is_valid(raise_exception=True)
         claimed = Video.objects.filter(
             pk=video.pk, status__in=[VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED]
@@ -333,7 +354,7 @@ class VideoView(
     @action(detail=True, methods=["PATCH"])
     def auto_motion(self, request, pk=None):
         owned_video = self.get_object()
-        serializer = BulkAutoMotionSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = apply_auto_motion(owned_video, serializer.validated_data["motion_intensity"])
         return Response(self.serialize_video_detail(video))
@@ -342,18 +363,16 @@ class VideoView(
     @action(detail=True, methods=["POST"])
     def reorder_scenes(self, request, pk=None):
         owned_video = self.get_object()
-        serializer = ReorderScenesSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = reorder_scenes(owned_video, serializer.validated_data["scene_ids"])
         return Response(self.serialize_video_detail(video))
 
     @swagger_auto_schema(request_body=SceneDraftSerializer)
-    @action(detail=True, methods=["POST"], permission_classes=[
-        IsAuthenticated, IsOwnerPermission,
-    ])
+    @action(detail=True, methods=["POST"])
     def draft_scene(self, request, pk):
         video = self.get_object()
-        serializer = SceneDraftSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         draft = draft_scene(video, **serializer.validated_data)
         return Response(draft)
