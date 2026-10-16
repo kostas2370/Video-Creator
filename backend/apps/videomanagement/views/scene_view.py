@@ -8,6 +8,8 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
+from ..serializers.overlays import SceneOverlaysSerializer
+from ..services.overlays import update_overlays
 from ..serializers.requests import ManualTextSerializer
 from ..models import Scene, SceneImage, VideoType
 from ..schema import SceneImageUploadSchema
@@ -46,6 +48,15 @@ class SceneView(viewsets.GenericViewSet):
         if self.action in ("partial_update", "change_image_scene", "destroy"):
             return [IsAuthenticated(), IsOwnerPermission()]
         return super().get_permissions()
+
+    @swagger_auto_schema(request_body=SceneOverlaysSerializer)
+    @action(detail=True, methods=["PATCH"], parser_classes=[JSONParser, MultiPartParser, FormParser],
+            permission_classes=[IsAuthenticated, IsOwnerPermission])
+    def overlays(self, request, pk=None):
+        scene = self.get_object()
+        serializer = SceneOverlaysSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(SceneSerializer(update_overlays(scene, serializer.validated_data)).data)
 
     @swagger_auto_schema(request_body=SceneAudioSerializer)
     @action(detail=True, methods=["PATCH"], permission_classes=[IsAuthenticated, IsOwnerPermission])
