@@ -5,6 +5,7 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.permissions import IsAuthenticated
 from ..serializers.requests import GenerateSerializer
 from ..serializers.models import VideoSerializer
+from ..services.generation_queue import queue_video_generation
 from ..throttling import GenerateRateThrottle
 
 
@@ -17,7 +18,7 @@ class GenerateView(GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        video = serializer.save()
+        video = queue_video_generation(**serializer.validated_data)
 
         return Response(
             {

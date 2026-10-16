@@ -1,22 +1,10 @@
-"""Prepare a video and hand generation off to a worker."""
-
-from rest_framework.exceptions import APIException
-
 from ..models import VideoStatus
+from ..tasks import generate_video_task
+from ..utils.exceptions import GenerationQueueUnavailable
 from .VideoGenerationServices import create_pending_video
 
 
-class GenerationQueueUnavailable(APIException):
-    status_code = 503
-    default_detail = "Could not queue generation. Please try again."
-    default_code = "generation_queue_unavailable"
-
-
 def queue_video_generation(*, created_by, reference_image=None, **params):
-    # Tasks import serializers and generation services; resolve this only once
-    # the application has loaded, rather than introducing an import cycle.
-    from ..tasks import generate_video_task
-
     video = create_pending_video(
         message=params["message"],
         created_by=created_by,
