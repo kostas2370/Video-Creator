@@ -154,13 +154,6 @@ def validate_visual(value):
     return value
 
 
-class DownloadPlaylistSerializer(serializers.Serializer):
-    link = serializers.URLField(required=True)
-    category = serializers.ChoiceField(
-        choices=["Educational", "Gaming", "Advertisement", "Story", "Other"]
-    )
-
-
 class SceneDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
     use_context = serializers.BooleanField(default=False)
@@ -215,6 +208,8 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    intro_transition = serializers.ChoiceField(choices=TransitionStyle.choices, required=False)
+    intro_transition_duration = TransitionDurationField(required=False, allow_null=True)
     voice_id = serializers.UUIDField(required=False)
     transition_default = serializers.ChoiceField(choices=[choice for choice in TransitionStyle.choices if choice[0] != TransitionStyle.DEFAULT], required=False)
     transition_duration = TransitionDurationField(required=False, allow_null=True)

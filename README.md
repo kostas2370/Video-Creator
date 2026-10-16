@@ -595,14 +595,13 @@ not mean generating the whole thing again.
 ### Preview and timeline
 
 Choose **Preview video** beside **Settings** and **Render video** to open a dedicated
-player with a scene timeline. It plays the current edit without generating a video file or
-spending generation credits. Choose a scene thumbnail to jump to its start, drag the
+player with a scene timeline. It plays the current edit without generating a video file. Choose a scene thumbnail to jump to its start, drag the
 playhead to seek, or use **Play**, **Pause**, **Restart** and **Mute**. Intro and outro
 clips appear in playback order alongside the scenes. The active scene is highlighted,
 and a moving line shows your position within it.
 
 The preview follows saved scene order, durations, pauses and transition settings.
-The first scene fades in only when the video's default transition is **Fade**;
+Without an intro, the first scene fades in only when the video's default transition is **Fade**;
 **Cut** and **Cross dissolve** start directly.
 Narration and retained clip audio play together; pauses hold the final frame in
 silence. Captions appear when subtitles are enabled, using the same estimated phrase
@@ -670,6 +669,12 @@ In **Settings → Scene transitions**, choose the video's default style and dura
 Each scene boundary can use **Video default** or override the style and duration
 independently. Durations range from 0.1 to 3 seconds; **Automatic** lets the renderer
 choose. Cut transitions have no duration, and effects are shortened for short clips.
+
+When an opening clip is selected, **Settings → Opening and ending → After intro**
+controls its transition into the first scene. Choose **Cut**, **Fade through black**,
+or **Cross dissolve**, with a separate duration or the video default. The effect
+appears in preview and the exported video, without changing narration or caption
+timing. Removing the intro leaves the first scene using the normal video default.
 Cross dissolves preserve the total runtime, narration and subtitle timing.
 
 ### Scene timing and pauses
@@ -706,8 +711,7 @@ it to your finished video.
 ### Saving and rendering
 
 **Settings** opens the video's intro, outro, avatar, transition and subtitle controls.
-Reordering scenes, changing transitions or pauses, and downloading SRT files do not
-consume generation credits. Playback edits are blocked during generation, storyboard
+Playback edits are blocked during generation, storyboard
 review and rendering. Changes affect the next render; the existing finished video
 stays available until you render again.
 
@@ -820,6 +824,8 @@ replaced only after a successful render; temporary files are cleaned up on failu
 
 ## Roadmap / To-Do List
 
+- [x] Remove the internal generation credit system; report provider consumption on the Usage page.
+
 - [x] Use native FFmpeg for video rendering and media validation.
 - [x] Add **Celery** support for asynchronous and scheduled tasks.
 - [x] Implement unit tests for models, functions, and views.
@@ -906,7 +912,7 @@ The `0026_scene_audio` database migration adds voiceover storage and audio edits
 ### Manual video projects
 
 Choose **Create video** in the navigation, then **Manual video** to start an empty
-project without AI, API keys, or generation credits. Add your own photos and clips
+project without AI or API keys. Add your own photos and clips
 (or blank scenes), arrange them, enter caption text, and record or upload a voiceover
 using **Audio**. **Upload music** adds your own soundtrack, with the existing volume,
 fade, and ducking controls.
@@ -938,6 +944,6 @@ Scrub the dialog preview to check timing. **Save overlays** updates the project;
 **Cancel** discards the dialog's edits and pending logo upload. Saved overlays appear
 in the full video preview and in the next render, over the presenter and below
 captions. Fonts and text spacing can differ slightly between browser and export.
-The controls are available for both AI and manual projects and use no generation
-credits. Apply migration `0029_scene_overlays` before running this version, and
+The controls are available for both AI and manual projects and do not call AI
+providers. Apply migration `0029_scene_overlays` before running this version, and
 restart the API and Celery workers after updating.

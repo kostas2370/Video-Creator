@@ -9,8 +9,6 @@ from rest_framework.exceptions import APIException, NotFound
 
 from ..events import publish_update
 from ..models import Scene, Video, VideoStatus
-from ..permissions import SceneGenerationLimitPermission
-from ..utils.cost_utils import reserve_scene_credit
 from .editing import editable_video
 
 JOB_SALT = "scene-job"
@@ -40,12 +38,11 @@ def scene_job(scene_id, previous_status):
         restore_video(scene.video_id, previous_status)
 
 
-def queue_scene_job(scene, user, task, value, *, cost):
+def queue_scene_job(scene, task, value):
     with editable_video(scene.video_id) as video:
         previous_status = video.status
-        with reserve_scene_credit(user, cost, SceneGenerationLimitPermission.required_limit):
-            video.status = VideoStatus.GENERATION
-            video.save(update_fields=["status", "updated_at"])
+        video.status = VideoStatus.GENERATION
+        video.save(update_fields=["status", "updated_at"])
     task_id = str(uuid4())
     try:
         task.apply_async(

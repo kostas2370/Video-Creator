@@ -18,7 +18,7 @@ class ScenePositionTests(TestCase):
     def test_inserting_in_the_middle_shifts_later_scenes_only(self):
         made, other = video.make(_quantity=2)
         first = scene.make(video=made, text="First")
-        second = scene.make(video=made, text="Second")
+        scene.make(video=made, text="Second")
         untouched = scene.make(video=other, text="Other")
         inserted = make_scene_speech(made, "Inserted", True, narrate=False, position=2)
         self.assertEqual(inserted.position, 2)

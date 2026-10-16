@@ -7,7 +7,6 @@ from ..utils.audio_editing import narration_file, narration_enabled
 
 from ..models import (
     TemplatePrompt,
-    Music,
     Scene,
     SceneImage,
     VoiceModel,
@@ -34,14 +33,6 @@ class TemplatePromptsSerializer(serializers.ModelSerializer):
         ]
 
 
-class MusicSerializer(serializers.ModelSerializer):
-    created_by = serializers.HiddenField(default=serializers.CurrentUserDefault())
-
-    class Meta:
-        model = Music
-        fields = "__all__"
-
-
 class SceneImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = SceneImage
@@ -57,7 +48,6 @@ class SceneSerializer(serializers.ModelSerializer):
         return scene_timing(obj, next(iter(obj.scene_images.all()), None))
 
     def get_narration_status(self, obj):
-        video = obj.video
         if not narration_enabled(obj):
             return "disabled"
         return "available" if stored_file_exists(narration_file(obj)) else "missing"
@@ -77,12 +67,6 @@ class VoiceModelSerializer(serializers.ModelSerializer):
         model = VoiceModel
         fields = ("id", "created_by", "name", "provider", "type", "sample", "path")
         read_only_fields = fields
-
-
-class AvatarNestedSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Avatar
-        fields = "__all__"
 
 
 class AvatarSerializer(serializers.ModelSerializer):

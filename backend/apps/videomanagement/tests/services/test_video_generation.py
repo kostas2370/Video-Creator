@@ -80,7 +80,6 @@ class GenerateVideoTests(TestCase):
             ("make_scenes_speech", None),
             ("create_image_scenes", None),
             ("download_music", None),
-            ("charge_user", 0.12),
         ):
             patcher = patch.object(VideoGenerationServices, name, return_value=value)
             setattr(self, name, patcher.start())
@@ -109,7 +108,6 @@ class GenerateVideoTests(TestCase):
         self.make_scenes_speech.assert_not_called()
         self.create_image_scenes.assert_not_called()
         self.download_music.assert_not_called()
-        self.charge_user.assert_not_called()
         self.assertEqual(draft.scenes.count(), 0)
         draft.gpt_answer = {**A_SCRIPT, "title": "Edited title"}
         draft.save()
@@ -119,7 +117,6 @@ class GenerateVideoTests(TestCase):
         self.get_reply.assert_called_once()
         self.make_scenes_speech.assert_called_once()
         self.create_image_scenes.assert_called_once()
-        self.charge_user.assert_called_once()
 
     def test_uses_the_voice_that_was_chosen(self):
         chosen = voice_model.make(name="nova")
@@ -234,13 +231,6 @@ class GenerateVideoTests(TestCase):
 
         self.create_image_scenes.assert_not_called()
 
-    def test_charges_the_owner_once_the_video_is_ready(self):
-        video = self.generate()
-
-        self.charge_user.assert_called_once_with(
-            self.user, "generation_limit_for_ai", video
-        )
-
     def test_carries_on_when_the_music_cannot_be_downloaded(self):
         self.download_music.side_effect = RuntimeError("video unavailable")
 
@@ -259,7 +249,6 @@ class GenerateVideoTests(TestCase):
                 self.assertEqual(error.exception.status_code, 404)
                 self.get_reply.assert_not_called()
                 self.make_scenes_speech.assert_not_called()
-                self.charge_user.assert_not_called()
                 self.video.refresh_from_db()
                 self.assertEqual(self.video.status, "GENERATION")
 
@@ -277,7 +266,6 @@ class GenerateVideoTests(TestCase):
         with self.assertRaises(APIException):
             self.generate(voice_id=str(foreign.id))
         self.get_reply.assert_not_called()
-        self.charge_user.assert_not_called()
 
 
 class ResumeGenerationTests(TestCase):

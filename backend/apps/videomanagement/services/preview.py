@@ -8,7 +8,7 @@ from ..utils.exceptions import VideoEditConflict
 from ..utils.file_utils import check_if_video
 from ..utils.timing import file_timing, scene_timing
 from ..utils.audio_editing import narration_file, narration_enabled, voice_tracks
-from ..utils.transitions import scene_transition
+from ..utils.transitions import scene_transition, intro_transition
 from .subtitles import CaptionCue, scene_cues
 
 
@@ -53,6 +53,12 @@ def asset_segment(asset, kind, start):
     )
 
 
+def intro_segment(video):
+    opening = asset_segment(video.intro, "intro", 0)
+    opening.transition, opening.transition_duration = intro_transition(video.settings or {})
+    return opening
+
+
 def scene_segment(scene, index, start, choices):
     """Resolve the scene's playback duration, media timing and transition override."""
     image = next(iter(scene.scene_images.all()), None)
@@ -75,10 +81,12 @@ def fade_duration(segment, requested):
     return min(requested, segment.duration / 2) if requested is not None else segment.duration * 0.2
 
 
-def apply_transitions(segments, choices):
+def apply_transitions(segments, choices, opening=None):
     """Apply scene-boundary effects using the renderer's fade and dissolve limits."""
+    if opening and opening.transition == TransitionStyle.FADE:
+        opening.fade_out = fade_duration(opening, opening.transition_duration)
     for index, segment in enumerate(segments):
-        previous = segments[index - 1] if index else None
+        previous = segments[index - 1] if index else opening
         incoming_style = previous.transition if previous else choices.get("transition_default", TransitionStyle.FADE)
         if incoming_style == TransitionStyle.FADE:
             requested = previous.transition_duration if previous else choices.get("transition_duration")
@@ -99,8 +107,8 @@ def preview_timeline(video):
         raise VideoEditConflict("Wait for processing to finish before previewing your edit.")
     choices = video.settings or {}
     segments, captions, offset = [], [], 0
-    if video.intro:
-        opening = asset_segment(video.intro, "intro", offset)
+    opening = intro_segment(video) if video.intro else None
+    if opening:
         segments.append(opening)
         offset += opening.duration
 
@@ -121,7 +129,7 @@ def preview_timeline(video):
             track = tracks.get(str(segment.content.pk))
             caption_offset = track["start"] - segment.content.audio_settings.get("delay", 0) if track else segment.start
             captions.extend(scene_cues(segment.content, offset=caption_offset, duration=segment.narration_duration))
-    apply_transitions(scene_segments, choices)
+    apply_transitions(scene_segments, choices, opening)
     segments.extend(scene_segments)
 
     if video.outro:
