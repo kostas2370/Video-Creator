@@ -1,6 +1,11 @@
 from rest_framework.exceptions import APIException
 
 
+class VoiceProviderError(APIException):
+    status_code = 502
+    default_detail = "ElevenLabs could not complete the request. Please try again."
+
+
 class GenerationQueueUnavailable(APIException):
     status_code = 503
     default_detail = "Could not queue generation. Please try again."

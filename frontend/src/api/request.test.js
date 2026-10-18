@@ -41,4 +41,13 @@ describe("API request results with the upgraded HTTP client", () => {
       .toMatchObject({ ok: false, status: null, message: "The server could not be reached" });
     expect(toast.error).not.toHaveBeenCalled();
   });
+
+  it("returns private audio as a blob and reads provider errors from blob responses", async () => {
+    const audio = new Blob(["audio"], { type: "audio/mpeg" });
+    axiosPrivateInstance.request.mockResolvedValue({ data: audio, status: 200 });
+    expect((await request({ url: "voices/1/preview/", method: "post", responseType: "blob" })).data).toBe(audio);
+    expect(axiosPrivateInstance.request).toHaveBeenCalledWith(expect.objectContaining({ responseType: "blob" }));
+    axiosPrivateInstance.request.mockRejectedValue({ response: { status: 400, data: new Blob([JSON.stringify({ detail: "Switch back to your voice account." })], { type: "application/json" }) } });
+    expect(await request({ url: "voices/1/preview/", responseType: "blob", notifyError: false })).toMatchObject({ ok: false, message: "Switch back to your voice account." });
+  });
 });

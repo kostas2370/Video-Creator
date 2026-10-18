@@ -15,7 +15,10 @@ class Command(BaseCommand):
             return
 
         voices = get_voices_from_elevenlabs()
+        private_paths = set(VoiceModel.objects.filter(is_cloned=True, provider=Provider.ELEVENLABS).values_list("path", flat=True))
         for voice in voices:
+            if voice["voice_id"] in private_paths:
+                continue
             voice_exists = VoiceModel.objects.filter(
                 created_by=None, provider=Provider.ELEVENLABS, path=voice["voice_id"]
             ).exists()

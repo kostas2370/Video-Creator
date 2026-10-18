@@ -65,7 +65,7 @@ class SceneSerializer(serializers.ModelSerializer):
 class VoiceModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoiceModel
-        fields = ("id", "created_by", "name", "provider", "type", "sample", "path")
+        fields = ("id", "created_by", "name", "provider", "type", "sample", "path", "is_cloned", "clone_key_source", "requires_verification")
         read_only_fields = fields
 
 

@@ -8,10 +8,12 @@ from typing import Optional, Union, Any
 import requests
 from openai import OpenAI
 from rest_framework import status
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
+from ..models import VoiceModel
 from .usage import record_usage
+from .voice_credentials import voice_key
 
 logger = logging.getLogger(__name__)
 
@@ -74,15 +76,21 @@ def tts_from_elevenlabs(
 ) -> Optional[requests.Response]:
     logger.warning("API CALL IN ElevenLabs TTS")
 
+    clone = VoiceModel.objects.filter(provider=Provider.ELEVENLABS, path=voice, is_cloned=True).first()
+    key = voice_key(user, clone) if clone else ApiKeys.key_for(user, Provider.ELEVENLABS)
+    if clone and clone.requires_verification:
+        raise ValidationError("This voice requires verification in ElevenLabs.")
+
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
     headers = {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
-        "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
+        "xi-api-key": key,
     }
+    model = "eleven_multilingual_v2" if clone else "eleven_monolingual_v1"
     data = {
         "text": text,
-        "model_id": "eleven_monolingual_v1",
+        "model_id": model,
         "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
     }
 
@@ -92,7 +100,7 @@ def tts_from_elevenlabs(
             url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
         )
         response.raise_for_status()
-        record_usage(user, "tts", Provider.ELEVENLABS, "eleven_monolingual_v1", characters=len(text))
+        record_usage(user, "tts", Provider.ELEVENLABS, model, characters=len(text))
         with open(save_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=1024):
                 if chunk:

@@ -293,6 +293,11 @@ class VoiceModel(AbstractModel):
     type = models.CharField(max_length=10, choices=VoiceModelType.choices)
     sample = models.URLField(blank=True, null=True, max_length=1000)
     path = models.CharField(max_length=255, blank=False)
+    is_cloned = models.BooleanField(default=False)
+    clone_key_source = models.CharField(max_length=10, blank=True)
+    clone_key_fingerprint = models.CharField(max_length=64, blank=True)
+    consented_at = models.DateTimeField(null=True, blank=True)
+    requires_verification = models.BooleanField(default=False)
     objects = VoiceModelQuerySet.as_manager()
 
     def __str__(self):
