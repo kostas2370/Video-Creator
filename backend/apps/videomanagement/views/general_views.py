@@ -69,6 +69,7 @@ class VoiceView(
 ):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
+    filterset_fields = ["is_cloned"]
     pagination_class = AssetResultsPagination
     ordering = ("id",)
     serializer_class = VoiceModelSerializer
@@ -78,21 +79,20 @@ class VoiceView(
     def get_queryset(self):
         if self.action == "destroy":
             return VoiceModel.objects.filter(created_by=self.request.user).order_by("id")
-        if self.action in ("mine", "preview", "refresh"):
+        if self.action in ("preview", "refresh"):
             return VoiceModel.objects.filter(created_by=self.request.user, is_cloned=True).order_by("id")
         return VoiceModel.objects.available_to(self.request.user).order_by("id")
 
+    def get_serializer_class(self):
+        return CloneVoiceSerializer if self.action == "clone" else super().get_serializer_class()
+
     @action(detail=False, methods=["post"], throttle_classes=[CloneVoiceThrottle])
     def clone(self, request):
-        serializer = CloneVoiceSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         voice = create_clone(request.user, data["name"], data["file"])
         return Response(self.get_serializer(voice).data, status=201)
-
-    @action(detail=False, methods=["get"])
-    def mine(self, request):
-        return Response(self.get_serializer(self.get_queryset(), many=True).data)
 
     @action(detail=True, methods=["post"], throttle_classes=[VoicePreviewThrottle])
     def preview(self, request, pk=None):

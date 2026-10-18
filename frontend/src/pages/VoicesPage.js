@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { HiOutlineMicrophone, HiOutlineTrash, HiOutlinePlay } from "react-icons/hi2";
-import { cloneVoice, deleteVoice, getMyVoices, previewVoice, refreshVoice } from "../api/apiService";
+import { cloneVoice, deleteVoice, getVoices, previewVoice, refreshVoice } from "../api/apiService";
 import { useVoiceRecording } from "../components/useVoiceRecording";
 import { useObjectUrl } from "../hooks/useObjectUrl";
 
@@ -26,9 +26,8 @@ function VoiceCard({ voice, busy, onAction }) {
       <div><h2 className="font-semibold">{voice.name}</h2><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Private · {voice.clone_key_source === "service" ? "Service account" : "Your ElevenLabs account"}</p></div>
       <HiOutlineMicrophone aria-hidden="true" className="h-6 w-6 text-blue-500" />
     </div>
-    {voice.requires_verification && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">ElevenLabs requires verification before this voice can be used. {voice.clone_key_source === "user" ? "Complete verification in your ElevenLabs account, then check its status here." : "Contact the service administrator to complete verification."}</p>}
     <div className="mt-5 flex flex-wrap gap-2">
-      {voice.requires_verification ? <button type="button" disabled={busy} className={secondary} onClick={() => onAction(() => refreshVoice(voice.id), true)}>Check status</button> : <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={listen}><HiOutlinePlay aria-hidden="true" />Preview voice</button>}
+      <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={listen}><HiOutlinePlay aria-hidden="true" />Preview voice</button>
       <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={remove}><HiOutlineTrash aria-hidden="true" />Delete</button>
     </div>
     {url && <audio key={url} src={url} controls autoPlay className="mt-4 w-full" aria-label={`Preview of ${voice.name}`} />}
@@ -44,6 +43,7 @@ export function Voices() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pendingVoice, setPendingVoice] = useState(null);
   const [reload, setReload] = useState(0);
   const url = useObjectUrl(sample);
   const recorder = useVoiceRecording(setSample, setError, busy || loading || voices.length >= 3, 120);
@@ -60,9 +60,9 @@ export function Voices() {
   useEffect(() => {
     let current = true;
     setLoading(true);
-    getMyVoices().then(result => {
+    getVoices(undefined, 1, { is_cloned: true, notifyError: false }).then(result => {
       if (!current) return;
-      if (result.ok) setVoices(result.data);
+      if (result.ok) setVoices(result.data.results);
       else setError(result.message);
       setLoading(false);
     });
@@ -85,14 +85,23 @@ export function Voices() {
     const result = await run(() => cloneVoice(data), true);
     if (result?.ok) {
       setName(""); setSample(null); setConsent(false);
+      setPendingVoice(result.data.requires_verification ? result.data : null);
       setNotice(result.data.requires_verification ? "Voice saved. ElevenLabs requires verification before you can use it." : "Your voice is ready. Choose it in the voice selector when creating or editing a video.");
+    }
+  };
+
+  const checkPending = async () => {
+    const result = await run(() => refreshVoice(pendingVoice.id), true);
+    if (result?.ok) {
+      setPendingVoice(result.data.requires_verification ? result.data : null);
+      setNotice(result.data.requires_verification ? "Verification is still required in ElevenLabs." : "Your voice is ready and now appears below.");
     }
   };
 
   return <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
     <header className="mb-8"><p className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">Sound like yourself</p><h1 className="text-3xl font-bold tracking-tight">My voices</h1><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Create a private voice for your video narration. Keep up to three custom voices.</p></header>
     {error && <div role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{error}<button type="button" className="ml-3 underline" onClick={() => { setError(""); setReload(value => value + 1); }}>Reload voices</button></div>}
-    {notice && <p role="status" className="mb-5 rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-950 dark:text-blue-300">{notice}</p>}
+    {(notice || pendingVoice) && <p role="status" className="mb-5 rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-950 dark:text-blue-300">{notice || "Complete verification in ElevenLabs, then check again."}{pendingVoice && <button type="button" disabled={busy || recorder.recording || recorder.starting} onClick={checkPending} className="ml-3 underline disabled:opacity-50">Check verification</button>}</p>}
     <form onSubmit={upload} className="mb-8 rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
       <h2 className="text-lg font-semibold">Add your voice</h2>
       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Use 10 seconds to 2 minutes of clear speech with no music or other speakers. Aim for 1–2 minutes for better results. Audio is sent to ElevenLabs to create your voice; this app does not keep the recording. Your active <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">ElevenLabs account</Link> needs a plan that supports voice cloning and an available voice slot.</p>
@@ -107,7 +116,7 @@ export function Voices() {
       {busy && <p role="status" className="mt-4 text-sm text-gray-500">Working with ElevenLabs… This can take a minute.</p>}
       {!loading && voices.length >= 3 && <p className="mt-4 text-sm">You have three custom voices. Delete one to make room for another.</p>}
     </form>
-    {loading ? <p role="status">Loading your voices…</p> : voices.length ? <div className="grid gap-5 sm:grid-cols-2">{voices.map(voice => <VoiceCard key={voice.id} voice={voice} busy={busy || recorder.recording || recorder.starting} onAction={run} />)}</div> : <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">Your custom voices will appear here. Only you can access them.</p>}
+    {loading ? <p role="status">Loading your voices…</p> : voices.length ? <div className="grid gap-5 sm:grid-cols-2">{voices.map(voice => <VoiceCard key={voice.id} voice={voice} busy={busy || recorder.recording || recorder.starting} onAction={run} />)}</div> : <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">Your usable custom voices will appear here. Only you can access them.</p>}
     <p className="mt-6 text-xs text-gray-500 dark:text-gray-400">Creating a voice and generating previews may use your provider plan’s limits. Voices remain tied to the account and key used to create them. Deleting a voice removes it from ElevenLabs and from future voice selections; existing generated audio stays in your videos.</p>
   </main>;
 }
