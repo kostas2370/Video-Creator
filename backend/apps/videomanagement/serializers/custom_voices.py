@@ -1,10 +1,15 @@
 from rest_framework import serializers
 
+from .models import VoiceModelSerializer
 
-class CloneVoiceSerializer(serializers.Serializer):
+
+class CloneVoiceSerializer(VoiceModelSerializer):
     name = serializers.CharField(max_length=80)
-    file = serializers.FileField()
-    consent = serializers.BooleanField()
+    file = serializers.FileField(write_only=True)
+    consent = serializers.BooleanField(write_only=True)
+
+    class Meta(VoiceModelSerializer.Meta):
+        fields = (*VoiceModelSerializer.Meta.fields, "file", "consent")
 
     def validate_consent(self, value):
         if not value:

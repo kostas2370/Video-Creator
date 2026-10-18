@@ -63,6 +63,8 @@ class CustomVoiceTests(TestCase):
         self.assertEqual(voice.created_by, self.user)
         self.assertIsNotNone(voice.consented_at)
         self.assertNotIn("clone_key_fingerprint", response.data)
+        self.assertNotIn("file", response.data)
+        self.assertNotIn("consent", response.data)
         call = self.http.call_args
         self.assertEqual(call.kwargs["headers"], {"xi-api-key": "service-key"})
         self.assertEqual(call.kwargs["files"], [("files", ("sample.wav", b"wav", "audio/wav"))])
@@ -77,6 +79,33 @@ class CustomVoiceTests(TestCase):
         with self.assertNumQueries(1):
             self.assertEqual(list(selected.available_to(self.user)), [voice])
 
+    def test_list_only_returns_voices_usable_with_the_active_credentials(self):
+        ready = self.clone(name="Ready")
+        self.clone(name="Pending", path="pending", requires_verification=True)
+        self.clone(name="Other key", path="switched", clone_key_fingerprint="previous-key")
+        other = self.clone(created_by=user.make(), path="other-user")
+        for params in ({}, {"is_cloned": True}, {"created_by": str(other.created_by_id)}):
+            response = self.client.get(reverse("voicemodel-list"), params)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data["count"], 1)
+            self.assertEqual([str(voice["id"]) for voice in response.data["results"]], [str(ready.pk)])
+
+    def test_clone_filter_uses_standard_search_and_pagination(self):
+        self.clone(name="Alpha")
+        self.clone(name="Bravo", path="bravo")
+        voice_model.make(created_by=None, name="Shared", provider=Provider.ELEVENLABS)
+        url = reverse("voicemodel-list")
+        response = self.client.get(url, {"is_cloned": True, "search": "Alpha"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["name"], "Alpha")
+        response = self.client.get(url, {"is_cloned": True, "page_size": 1, "ordering": "name"})
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(response.data["next"], 2)
+        self.assertEqual(response.data["results"][0]["name"], "Alpha")
+        response = self.client.get(url, {"is_cloned": True, "page_size": 1, "ordering": "name", "page": 2})
+        self.assertEqual(response.data["results"][0]["name"], "Bravo")
+
     def test_uses_personal_key_and_hides_clone_after_switching_accounts(self):
         self.user.use_service_api_keys = False
         self.user.save(update_fields=["use_service_api_keys"])
@@ -89,7 +118,7 @@ class CustomVoiceTests(TestCase):
         self.user.use_service_api_keys = True
         self.user.save(update_fields=["use_service_api_keys"])
         self.assertNotIn(voice, VoiceModel.objects.available_to(self.user))
-        self.assertEqual(len(self.client.get(reverse("voicemodel-mine")).data), 1)
+        self.assertEqual(self.client.get(reverse("voicemodel-list"), {"is_cloned": True}).data["results"], [])
         self.http.reset_mock()
         self.assertEqual(self.client.post(reverse("voicemodel-preview", args=[voice.pk])).status_code, 400)
         self.assertEqual(self.client.delete(reverse("voicemodel-detail", args=[voice.pk])).status_code, 400)
@@ -121,12 +150,12 @@ class CustomVoiceTests(TestCase):
         self.http.side_effect = requests.Timeout()
         self.assertEqual(self.upload().status_code, 502)
 
-    def test_pending_verification_stays_manageable_but_unselectable(self):
+    def test_pending_verification_stays_hidden_until_refreshed(self):
         self.http.return_value = self.response({"voice_id": "clone123", "requires_verification": True})
         self.assertEqual(self.upload().status_code, 201)
         voice = VoiceModel.objects.get()
         self.assertNotIn(voice, VoiceModel.objects.available_to(self.user))
-        self.assertEqual(len(self.client.get(reverse("voicemodel-mine")).data), 1)
+        self.assertEqual(self.client.get(reverse("voicemodel-list"), {"is_cloned": True}).data["results"], [])
         self.http.reset_mock()
         self.assertEqual(self.client.post(reverse("voicemodel-preview", args=[voice.pk])).status_code, 400)
         self.http.assert_not_called()
@@ -152,7 +181,7 @@ class CustomVoiceTests(TestCase):
         self.user.is_superuser = True
         self.user.save(update_fields=["is_superuser"])
         self.assertEqual(self.client.delete(reverse("voicemodel-detail", args=[voice.pk])).status_code, 404)
-        self.assertEqual(self.client.get(reverse("voicemodel-mine")).data, [])
+        self.assertEqual(self.client.get(reverse("voicemodel-list"), {"is_cloned": True}).data["results"], [])
         self.http.assert_not_called()
 
     def test_delete_removes_remote_voice_first_and_keeps_record_on_failure(self):
