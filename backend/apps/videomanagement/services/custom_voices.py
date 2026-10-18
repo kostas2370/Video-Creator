@@ -1,4 +1,5 @@
 import logging
+from http import HTTPStatus
 import subprocess
 import tempfile
 import wave
@@ -19,6 +20,15 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://api.elevenlabs.io/v1"
 MAX_VOICES = 3
 PREVIEW_TEXT = "Hello! This is my custom voice, ready to bring my next video to life."
+ACCESS_DENIED_MESSAGE = "ElevenLabs denied access. Check the key, permissions, and voice-cloning plan."
+INVALID_SAMPLE_MESSAGE = "ElevenLabs could not use this sample. Try a clear recording of only your voice, and check available voice slots."
+PROVIDER_ERROR_MESSAGES = {
+    HTTPStatus.BAD_REQUEST: INVALID_SAMPLE_MESSAGE,
+    HTTPStatus.UNAUTHORIZED: ACCESS_DENIED_MESSAGE,
+    HTTPStatus.FORBIDDEN: ACCESS_DENIED_MESSAGE,
+    HTTPStatus.UNPROCESSABLE_ENTITY: INVALID_SAMPLE_MESSAGE,
+    HTTPStatus.TOO_MANY_REQUESTS: "ElevenLabs has reached an account or usage limit. Please try later.",
+}
 
 
 def provider_request(method, path, key, **kwargs):
@@ -27,21 +37,14 @@ def provider_request(method, path, key, **kwargs):
             method, f"{BASE_URL}/{path}", headers={"xi-api-key": key},
             timeout=(10, 90), **kwargs,
         )
-        if method == "DELETE" and response.status_code == 404:
+        if method == "DELETE" and response.status_code == HTTPStatus.NOT_FOUND:
             return response
         response.raise_for_status()
         return response
     except requests.RequestException as exc:
-        response = getattr(exc, "response", None)
-        code = response.status_code if response is not None else None
-        # Do not expose provider responses, which may contain account details.
-        if code in (401, 403):
-            raise VoiceProviderError("ElevenLabs denied access. Check the key, permissions, and voice-cloning plan.") from exc
-        if code == 429:
-            raise VoiceProviderError("ElevenLabs has reached an account or usage limit. Please try later.") from exc
-        if code in (400, 422):
-            raise VoiceProviderError("ElevenLabs could not use this sample. Try a clear recording of only your voice, and check available voice slots.") from exc
-        raise VoiceProviderError() from exc
+        code = exc.response.status_code if exc.response is not None else None
+        # Keep provider/account details out of the public error message.
+        raise VoiceProviderError(PROVIDER_ERROR_MESSAGES.get(code)) from exc
 
 
 def provider_json(response):
