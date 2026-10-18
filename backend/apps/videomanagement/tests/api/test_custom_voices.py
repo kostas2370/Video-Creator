@@ -8,7 +8,7 @@ import requests
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.test import APIClient
@@ -18,10 +18,11 @@ from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
 from ...baker_recipes import voice_model
 from ...models import AIUsage, VoiceModel
-from ...services.custom_voices import normalized_sample
+from ...services.custom_voices import normalized_sample, provider_request
 from ...tasks import update_user_voices
 from ...utils.tts_utils import tts_from_elevenlabs
 from ...utils.voice_credentials import key_fingerprint
+from ...utils.exceptions import VoiceProviderError
 
 
 @override_settings(XI_API_KEY="service-key")
@@ -244,3 +245,29 @@ class SampleValidationTests(TestCase):
         decoded = normalized_sample(SimpleUploadedFile("recording.webm", encoded, "audio/webm"))
         with wave.open(io.BytesIO(decoded), "rb") as audio:
             self.assertAlmostEqual(audio.getnframes() / audio.getframerate(), 12, delta=0.1)
+
+
+class ProviderRequestTests(SimpleTestCase):
+    def test_maps_http_errors_without_exposing_provider_details(self):
+        cases = [(400, "could not use this sample"), (401, "denied access"),
+                 (403, "denied access"), (422, "could not use this sample"),
+                 (429, "account or usage limit"), (500, "could not complete the request")]
+        for code, message in cases:
+            response = requests.Response()
+            response.status_code = code
+            error = requests.HTTPError("private provider account details", response=response)
+            with self.subTest(code=code), patch(
+                "apps.videomanagement.services.custom_voices.requests.request", side_effect=error,
+            ), self.assertRaises(VoiceProviderError) as caught:
+                provider_request("POST", "voices/add", "test-key")
+            self.assertIn(message, str(caught.exception.detail))
+            self.assertNotIn("private provider account details", str(caught.exception.detail))
+            self.assertIs(caught.exception.__cause__, error)
+
+    def test_network_errors_without_a_response_use_the_default_message(self):
+        for error in (requests.Timeout("private connection details"), requests.ConnectionError("private connection details")):
+            with self.subTest(error=type(error).__name__), patch(
+                "apps.videomanagement.services.custom_voices.requests.request", side_effect=error,
+            ), self.assertRaises(VoiceProviderError) as caught:
+                provider_request("POST", "voices/add", "test-key")
+            self.assertEqual(str(caught.exception.detail), VoiceProviderError.default_detail)
