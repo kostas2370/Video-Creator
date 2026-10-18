@@ -1,6 +1,10 @@
 from django.db import models
 from django.db.models import Count, Min, Q, Sum
 
+from apps.apikeysmanagement.models import ApiKeys, Provider
+from . import models as video_models
+from .utils.voice_credentials import key_fingerprint, key_source
+
 
 TOKEN_METRICS = {
     "input_tokens": "requests_with_input_tokens",
@@ -48,20 +52,16 @@ class AIUsageQuerySet(models.QuerySet):
 
 class VideoQuerySet(models.QuerySet):
     def for_user(self, user):
-        if not getattr(user, "is_authenticated", False):
+        if user is None or not user.is_authenticated:
             return self.none()
         return self.filter(created_by=user)
 
     def listable(self):
         """Manual projects and AI projects with a generated script."""
-        from .models import VideoType
-
-        return self.filter(Q(gpt_answer__isnull=False) | Q(video_type=VideoType.MANUAL))
+        return self.filter(Q(gpt_answer__isnull=False) | Q(video_type=video_models.VideoType.MANUAL))
 
     def in_flight(self):
-        from .models import IN_FLIGHT_STATUSES
-
-        return self.filter(status__in=IN_FLIGHT_STATUSES)
+        return self.filter(status__in=video_models.IN_FLIGHT_STATUSES)
 
 
 class SceneQuerySet(models.QuerySet):
@@ -72,31 +72,27 @@ class SceneQuerySet(models.QuerySet):
 
 class VoiceModelQuerySet(models.QuerySet):
     def available_to(self, user):
-        from apps.apikeysmanagement.models import ApiKeys
-        from .models import (
-            VOICE_PROVIDERS,
-            ACCOUNT_SCOPED_VOICE_PROVIDERS,
-            VoiceModelType,
-        )
+        """Shared/account voices plus ready clones created with the active key."""
+        if user is not None and not user.is_authenticated:
+            return self.none()
 
         playable = [
-            provider for provider in VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
+            provider for provider in video_models.VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
         ]
-        spending_own_keys = (
-            user is not None
-            and getattr(user, "is_authenticated", False)
-            and not user.use_service_api_keys
+        valid_providers = Q(provider__in=playable) | Q(
+            type=video_models.VoiceModelType.CUSTOM_API, created_by=user,
         )
-        shared = models.Q(created_by=None)
-        if spending_own_keys:
-            scope = (
-                shared & ~models.Q(provider__in=ACCOUNT_SCOPED_VOICE_PROVIDERS)
-            ) | models.Q(created_by=user)
-        else:
-            scope = shared
+        voices = self.filter(is_cloned=False, created_by=None)
+        if user is None:
+            return voices.filter(valid_providers)
 
-        valid_providers = models.Q(provider__in=playable) | (
-            models.Q(type=VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
+        if not user.use_service_api_keys:
+            voices = voices.exclude(provider__in=video_models.ACCOUNT_SCOPED_VOICE_PROVIDERS)
+            voices |= self.filter(is_cloned=False, created_by=user)
+
+        clones = self.filter(
+            is_cloned=True, created_by=user, requires_verification=False,
+            clone_key_source=key_source(user),
+            clone_key_fingerprint=key_fingerprint(ApiKeys.key_for(user, Provider.ELEVENLABS)),
         )
-
-        return self.filter(scope & valid_providers)
+        return (voices | clones).filter(valid_providers)

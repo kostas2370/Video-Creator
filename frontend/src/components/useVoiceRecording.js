@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useVoiceRecording(onTake, onError, disabled = false) {
+export function useVoiceRecording(onTake, onError, disabled = false, maxSeconds = 900) {
   const [recording, setRecording] = useState(false);
   const [starting, setStarting] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -41,7 +41,7 @@ export function useVoiceRecording(onTake, onError, disabled = false) {
       };
       recorder.onerror = () => { stop(); media.getTracks().forEach(track => track.stop()); if (mounted.current) { setRecording(false); callbacks.current.onError("Recording failed. Try again."); } };
       recorder.start(); setSeconds(0); setRecording(true);
-      limit.current = setTimeout(stop, 900000);
+      limit.current = setTimeout(stop, maxSeconds * 1000);
     } catch { stream.current?.getTracks().forEach(track => track.stop()); if (mounted.current) callbacks.current.onError("Allow microphone access, or upload an audio file."); }
     finally { if (mounted.current) setStarting(false); }
   };

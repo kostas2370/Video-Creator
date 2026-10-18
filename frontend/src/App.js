@@ -15,6 +15,7 @@ import useAuth from "./hooks/useAuth";
 import { AssetPage } from "./pages/AssetPage";
 import { ApiKeys } from "./pages/ApiKeysPage";
 import { Usage } from "./pages/UsagePage";
+import { Voices } from "./pages/VoicesPage";
 import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
 
@@ -66,6 +67,7 @@ function App() {
             <Route path="/assets/" element={<AssetPage />} />
             <Route path="/api-keys/" element={<ApiKeys />} />
             <Route path="/usage/" element={<Usage />} />
+            <Route path="/voices/" element={<Voices />} />
             <Route path="*" element={<>Page not found !</>} />
           </Route>
         </Route>
