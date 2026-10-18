@@ -44,6 +44,8 @@ class PreviewSegmentSerializer(serializers.Serializer):
     transition_duration = serializers.FloatField(allow_null=True)
     motion_style = serializers.SerializerMethodField()
     motion_intensity = serializers.CharField(source="content.motion_intensity", default=MotionIntensity.SUBTLE)
+    overlays = serializers.JSONField(source="content.overlays", default=list)
+    overlay_logo = serializers.FileField(source="content.overlay_logo", default=None, allow_null=True)
     fade_in = serializers.FloatField()
     fade_out = serializers.FloatField()
     dissolve_in = serializers.FloatField()

@@ -6,6 +6,12 @@ class VoiceProviderError(APIException):
     default_detail = "ElevenLabs could not complete the request. Please try again."
 
 
+class GenerationQueueUnavailable(APIException):
+    status_code = 503
+    default_detail = "Could not queue generation. Please try again."
+    default_code = "generation_queue_unavailable"
+
+
 class VideoEditConflict(APIException):
     status_code = 409
     default_detail = "Wait for the current video operation to finish."
