@@ -52,7 +52,7 @@ class AIUsageQuerySet(models.QuerySet):
 
 class VideoQuerySet(models.QuerySet):
     def for_user(self, user):
-        if not getattr(user, "is_authenticated", False):
+        if user is None or not user.is_authenticated:
             return self.none()
         return self.filter(created_by=user)
 
@@ -72,29 +72,27 @@ class SceneQuerySet(models.QuerySet):
 
 class VoiceModelQuerySet(models.QuerySet):
     def available_to(self, user):
+        """Shared/account voices plus ready clones created with the active key."""
+        if user is not None and not user.is_authenticated:
+            return self.none()
+
         playable = [
             provider for provider in video_models.VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
         ]
-        authenticated = getattr(user, "is_authenticated", False)
-        spending_own_keys = authenticated and not user.use_service_api_keys
-        shared = models.Q(created_by=None)
-        if spending_own_keys:
-            scope = (
-                shared & ~models.Q(provider__in=video_models.ACCOUNT_SCOPED_VOICE_PROVIDERS)
-            ) | models.Q(created_by=user)
-        else:
-            scope = shared
-
-        scope &= models.Q(is_cloned=False)
-        if authenticated:
-            scope |= models.Q(
-                is_cloned=True, created_by=user, requires_verification=False,
-                clone_key_source=key_source(user),
-                clone_key_fingerprint=key_fingerprint(ApiKeys.key_for(user, Provider.ELEVENLABS)),
-            )
-
-        valid_providers = models.Q(provider__in=playable) | (
-            models.Q(type=video_models.VoiceModelType.CUSTOM_API) & models.Q(created_by=user)
+        valid_providers = Q(provider__in=playable) | Q(
+            type=video_models.VoiceModelType.CUSTOM_API, created_by=user,
         )
+        voices = self.filter(is_cloned=False, created_by=None)
+        if user is None:
+            return voices.filter(valid_providers)
 
-        return self.filter(scope & valid_providers)
+        if not user.use_service_api_keys:
+            voices = voices.exclude(provider__in=video_models.ACCOUNT_SCOPED_VOICE_PROVIDERS)
+            voices |= self.filter(is_cloned=False, created_by=user)
+
+        clones = self.filter(
+            is_cloned=True, created_by=user, requires_verification=False,
+            clone_key_source=key_source(user),
+            clone_key_fingerprint=key_fingerprint(ApiKeys.key_for(user, Provider.ELEVENLABS)),
+        )
+        return (voices | clones).filter(valid_providers)

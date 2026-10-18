@@ -69,6 +69,13 @@ class CustomVoiceTests(TestCase):
         self.assertNotIn(voice, VoiceModel.objects.available_to(user.make()))
         self.assertNotIn(voice, VoiceModel.objects.available_to(None))
 
+    def test_available_voices_preserve_existing_filters_and_use_one_query(self):
+        voice = self.clone()
+        self.clone(path="another-clone")
+        selected = VoiceModel.objects.filter(pk=voice.pk)
+        with self.assertNumQueries(1):
+            self.assertEqual(list(selected.available_to(self.user)), [voice])
+
     def test_uses_personal_key_and_hides_clone_after_switching_accounts(self):
         self.user.use_service_api_keys = False
         self.user.save(update_fields=["use_service_api_keys"])
