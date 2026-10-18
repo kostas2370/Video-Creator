@@ -101,3 +101,5 @@ export const updateCustomVisualProvider = (id, data) => patch(detail("user-custo
 export const deleteCustomVisualProvider = id => remove(detail("user-custom-visual-providers", id), callerHandlesErrors);
 export const markNotificationRead = id => patch(detail("notifications", id), { read: true });
 export const markAllNotificationsRead = () => patch("notifications/read_all/", {});
+
+export const updateSceneOverlays = (id, data) => patch(action("scenes", id, "overlays"), data, callerHandlesErrors);
