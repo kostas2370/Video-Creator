@@ -128,6 +128,7 @@ VIDEO_RESPONSE_FIELDS = (
     "settings",
     "cover",
     "cover_settings",
+    "tags",
 )
 
 
