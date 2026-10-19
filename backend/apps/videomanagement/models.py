@@ -24,6 +24,36 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def caption_upload_path(instance, filename):
+    from pathlib import Path
+
+    return f"media/captions/{instance.pk}/source{Path(filename).suffix.lower()}"
+
+
+class CaptionProject(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    title = models.CharField(max_length=100)
+    source = models.FileField(upload_to=caption_upload_path, max_length=255)
+    preview = models.FileField(blank=True, max_length=255)
+    output = models.FileField(blank=True, max_length=255)
+    words = models.JSONField(default=list)
+    style = models.JSONField(default=dict)
+    duration = models.FloatField()
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    status = models.CharField(max_length=20, default="QUEUED", choices=[
+        (value, value) for value in ("QUEUED", "TRANSCRIBING", "READY", "RENDER_QUEUED", "RENDERING", "COMPLETED", "FAILED")
+    ])
+    error = models.CharField(max_length=300, blank=True)
+    job_id = models.UUIDField(null=True, editable=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class AIUsage(models.Model):
     """One completed provider request; never stores prompts or credentials."""
 

@@ -42,6 +42,15 @@ export const getUsage = period => request({ url: "usage/", params: { period }, n
 export const createIntro = data => post("intros/", data);
 export const createOutro = data => post("outros/", data);
 export const createAvatar = data => post("avatars/", data);
+export const createStoryVideo = data => post("videos/story/", data, callerHandlesErrors);
+export const draftStory = data => post("videos/draft_story/", data, callerHandlesErrors);
+export const getCaptionProjects = params => request({ url: "captions/", params, ...callerHandlesErrors });
+export const getCaptionProject = id => request({ url: detail("captions", id), ...callerHandlesErrors });
+export const createCaptionProject = data => post("captions/", data, callerHandlesErrors);
+export const saveCaptionProject = (id, data) => patch(`captions/${id}/`, data, callerHandlesErrors);
+export const transcribeCaptionProject = id => post(`captions/${id}/transcribe/`, {}, callerHandlesErrors);
+export const renderCaptionProject = id => post(`captions/${id}/render/`, {}, callerHandlesErrors);
+export const downloadCaptionProject = (id, subtitles = false) => request({ url: action("captions", id, subtitles ? "subtitles" : "download"), responseType: "blob", ...callerHandlesErrors });
 export const createManualVideo = data => post("videos/manual/", data, callerHandlesErrors);
 export const uploadMusic = (id, data) => post(action("videos", id, "music"), data, callerHandlesErrors);
 export const removeMusic = id => remove(action("videos", id, "music"), callerHandlesErrors);
@@ -103,7 +112,6 @@ export const markNotificationRead = id => patch(detail("notifications", id), { r
 export const markAllNotificationsRead = () => patch("notifications/read_all/", {});
 
 export const updateSceneOverlays = (id, data) => patch(action("scenes", id, "overlays"), data, callerHandlesErrors);
-
 export const getSceneCaptions = id => request({ url: action("scenes", id, "captions"), ...callerHandlesErrors });
 export const updateSceneCaptions = (id, data) => patch(action("scenes", id, "captions"), data, callerHandlesErrors);
 

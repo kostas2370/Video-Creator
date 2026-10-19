@@ -23,6 +23,13 @@ from .utils.composer import render
 logger = logging.getLogger(__name__)
 
 
+@shared_task(soft_time_limit=1150, time_limit=1200)
+def caption_project_task(project_id, token, render=False):
+    from .services.captions import process_caption_project
+
+    process_caption_project(project_id, token, render=render)
+
+
 @shared_task
 def update_scene_task(scene_id, text, previous_status):
     """Save dialogue and regenerate its narration."""

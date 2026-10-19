@@ -60,6 +60,35 @@ class SaveTests(TestCase):
         with patch.object(tts_utils, "tts_from_elevenlabs"):
             self.assertIsNone(save(syn, "hello", out, user=self.user))
 
+    def test_creates_missing_video_and_dialogue_folders_before_generating_audio(self):
+        for provider, function in (
+            (Provider.OPENAI, "tts_from_openai"),
+            (Provider.ELEVENLABS, "tts_from_elevenlabs"),
+            (Provider.SIXTYDB, "tts_from_sixtydb"),
+            ("custom-tts", "tts_from_custom_provider"),
+        ):
+            with self.subTest(provider=provider), tempfile.TemporaryDirectory() as root:
+                out = os.path.join(root, "manual", "video-id", "dialogues", "scene.wav")
+                syn = ApiSyn(provider=provider, path="voice-id")
+
+                with patch.object(tts_utils, function, side_effect=wrote(out)):
+                    self.assertEqual(save(syn, "hello", out, user=self.user), out)
+
+                with open(out, "rb") as audio:
+                    self.assertEqual(audio.read(), b"RIFF")
+
+    def test_directory_creation_failure_does_not_call_the_provider(self):
+        syn = ApiSyn(provider=Provider.OPENAI, path="onyx")
+
+        with (
+            patch.object(tts_utils.os, "makedirs", side_effect=PermissionError),
+            patch.object(tts_utils, "tts_from_openai") as provider,
+        ):
+            with self.assertRaises(PermissionError):
+                save(syn, "hello", "dialogues/out.wav", user=self.user)
+
+        provider.assert_not_called()
+
     def test_routes_each_supported_provider_to_its_own_function(self):
         for provider, function in (
             (Provider.OPENAI, "tts_from_openai"),

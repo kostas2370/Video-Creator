@@ -155,6 +155,31 @@ def validate_visual(value):
     return value
 
 
+class StoryDraftSerializer(serializers.Serializer):
+    prompt = serializers.CharField(max_length=2000)
+
+
+class StoryDraftResultSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=50)
+    story = serializers.CharField(max_length=2000)
+
+
+class StoryVideoSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=50)
+    story = serializers.CharField(max_length=2000)
+    gameplay = serializers.FileField()
+    voice_id = serializers.UUIDField()
+    subtitles = serializers.BooleanField(default=True)
+
+    def validate_gameplay(self, value):
+        if not check_if_video(value.name):
+            raise serializers.ValidationError("Choose a gameplay video: MP4, MOV, WebM, AVI, or M4V.")
+        return validate_visual(value)
+
+    def validate_voice_id(self, value):
+        return available_voice(value, self.context["request"].user)
+
+
 class SceneDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
     use_context = serializers.BooleanField(default=False)
@@ -209,8 +234,6 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
-    caption_style = CaptionPresetField(required=False)
-    caption_config = CaptionStyleSerializer(required=False)
     intro_transition = serializers.ChoiceField(choices=TransitionStyle.choices, required=False)
     intro_transition_duration = TransitionDurationField(required=False, allow_null=True)
     voice_id = serializers.UUIDField(required=False)
@@ -223,6 +246,8 @@ class VideoUpdateSerializer(serializers.Serializer):
     video_format = serializers.ChoiceField(choices=VIDEO_FORMAT_CHOICES, required=False)
     platform = serializers.ChoiceField(choices=VIDEO_PLATFORM_CHOICES, required=False)
     subtitles = serializers.BooleanField(required=False)
+    caption_style = CaptionPresetField(required=False)
+    caption_config = CaptionStyleSerializer(required=False)
     avatar_position = serializers.CharField(required=False)
 
     def validate_avatar_position(self, value):

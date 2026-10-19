@@ -40,6 +40,7 @@ class PreviewSegmentSerializer(serializers.Serializer):
     visual = serializers.SerializerMethodField()
     visual_type = serializers.ChoiceField(choices=("image", "video"))
     visual_duration = serializers.FloatField(allow_null=True)
+    loop_visual = serializers.BooleanField()
     clip_audio = serializers.BooleanField()
     narration = serializers.SerializerMethodField()
     narration_duration = serializers.FloatField(allow_null=True)
