@@ -5,6 +5,8 @@ import json
 import math
 import os
 import subprocess
+import tempfile
+from pathlib import Path
 
 from django.conf import settings
 from django.core.cache import cache
@@ -131,3 +133,15 @@ def video_metadata(path):
         "height": stream["height"],
         "audio": any(stream["codec_type"] == "audio" for stream in data["streams"]),
     }
+
+
+def uploaded_video_metadata(upload):
+    """Probe an uploaded video without consuming it before storage saves it."""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=Path(upload.name).suffix.lower()) as temporary:
+            for chunk in upload.chunks():
+                temporary.write(chunk)
+            temporary.flush()
+            return video_metadata(temporary.name)
+    finally:
+        upload.seek(0)
