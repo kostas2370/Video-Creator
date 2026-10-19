@@ -1,7 +1,8 @@
 import { FontPicker } from "../components/FontPicker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { HiOutlineArrowUpTray, HiOutlineSparkles, HiOutlinePlus, HiOutlineTrash, HiOutlineArrowDownTray } from "react-icons/hi2";
+import { HiOutlineArrowUpTray, HiOutlineSparkles, HiOutlineArrowDownTray } from "react-icons/hi2";
+import { CaptionWordEditor } from "../components/CaptionWordEditor";
 import { CaptionLayer } from "../components/CaptionLayer";
 import { VideoCreationMode } from "../components/VideoCreationMode";
 import { editorInput, editorButton } from "../components/ui/EditorDialog";
@@ -12,7 +13,6 @@ import { captionAt, captionBusy, captionGroups, defaultCaptionStyle, validateCap
 
 const statusLabels = { QUEUED: "Waiting to transcribe", TRANSCRIBING: "Listening and aligning words…", READY: "Ready to edit", RENDER_QUEUED: "Waiting to export", RENDERING: "Creating your captioned video…", COMPLETED: "Export ready", FAILED: "Needs attention" };
 const mediaUrl = path => /^https?:\/\//i.test(path || "") ? path : `${API_HOST}${path}`;
-const PAGE_SIZE = 40;
 
 export function Captions() {
   useAxiosPrivate();
@@ -32,7 +32,6 @@ export function Captions() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [time, setTime] = useState(0);
-  const [page, setPage] = useState(0);
   const processing = captionBusy(project?.status);
   const stalled = processing && Date.now() - new Date(project.updated_at).getTime() >= 30 * 60 * 1000;
   const disabled = working || processing;
@@ -57,7 +56,7 @@ export function Captions() {
   }, [dirty]);
   useEffect(() => {
     let cancelled = false;
-    setProject(null); setWords([]); setDirty(false); setError(""); setNotice(""); setPage(0); setTime(0);
+    setProject(null); setWords([]); setDirty(false); setError(""); setNotice(""); setTime(0);
     if (!captionId) { setLoading(false); return; }
     setLoading(true);
     getCaptionProject(captionId).then(response => {
@@ -110,7 +109,7 @@ export function Captions() {
   const save = async () => {
     const problem = validateCaptionWords(words, project.duration);
     if (problem) throw new Error(problem);
-    const response = await saveCaptionProject(project.id, { words, style });
+    const response = await saveCaptionProject(project.id, { words, style, revision: project.revision });
     if (!response.ok) throw new Error(response.message);
     apply(response.data);
     return response.data;
@@ -136,19 +135,7 @@ export function Captions() {
     finally { setWorking(false); }
   };
   const seek = value => { if (player.current) { player.current.currentTime = value; setTime(value); } };
-  const editWord = (index, key, value) => {
-    setWords(current => current.map((word, at) => at === index ? { ...word, [key]: value } : word)); setDirty(true);
-  };
   const editStyle = (key, value) => { setStyle(current => ({ ...current, [key]: value })); setDirty(true); };
-  const addWord = () => {
-    const nextIndex = words.findIndex(word => word.start > time);
-    const index = nextIndex < 0 ? words.length : nextIndex;
-    const start = Math.max(time, index > 0 ? words[index - 1].end : 0);
-    const end = Math.min(project.duration, words[index]?.start ?? project.duration, start + 0.3);
-    if (end <= start) { setError("There isn’t room for a word here. Adjust the neighboring times or seek to a gap first."); return; }
-    setWords(current => [...current.slice(0, index), { text: "", start, end }, ...current.slice(index)]);
-    setPage(Math.floor(index / PAGE_SIZE)); setDirty(true);
-  };
   const leaveProject = event => {
     if (working || (dirty && !window.confirm("Discard unsaved caption changes?"))) event.preventDefault();
   };
@@ -184,11 +171,8 @@ export function Captions() {
           {project.preview ? <video ref={player} src={mediaUrl(project.preview)} controls playsInline preload="metadata" onSeeked={event => setTime(event.currentTarget.currentTime)} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onError={() => setError("Could not play the preview. Reload this project to try again.")} className="h-full w-full object-contain" /> : <div className="flex h-full min-h-[240px] items-center justify-center px-8 text-center text-sm text-gray-300">Your video preview will appear after transcription.</div>}
           <CaptionLayer cue={cue} style={style.preset} size={[project.width, project.height]} config={style} />
         </div><p className="mt-3 text-center text-xs text-gray-400">Preview · Highlights follow the transcribed word timestamps</p></div>
-        <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-4 dark:border-gray-700"><div><h3 className="font-semibold">Words & timing</h3><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Correct a word, adjust its seconds, or jump to it in the preview.</p></div><button disabled={disabled || words.length >= 10000} onClick={addWord} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 disabled:opacity-40"><HiOutlinePlus />Add word</button></div>
-          <fieldset disabled={disabled} className="p-4"><div className="mb-2 grid grid-cols-[32px_minmax(0,1fr)_72px_72px_28px] gap-2 text-xs text-gray-500"><span>#</span><span>Word</span><span>Start (s)</span><span>End (s)</span><span /></div>
-            {words.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((word, at) => { const index = page * PAGE_SIZE + at; return <div key={index} className="mb-2 grid grid-cols-[32px_minmax(0,1fr)_72px_72px_28px] items-center gap-2"><button type="button" onClick={() => seek(word.start)} aria-label={`Play word ${index + 1}`} className={`text-xs tabular-nums ${time >= word.start && time < word.end ? "font-bold text-blue-600" : "text-gray-400"}`}>{index + 1}</button><input aria-label={`Word ${index + 1}`} maxLength={40} value={word.text} onChange={event => editWord(index, "text", event.target.value)} className="min-w-0 rounded-lg border border-gray-200 bg-transparent px-2 py-2 text-sm dark:border-gray-600" /><input aria-label={`Start of word ${index + 1}`} type="number" min={0} max={project.duration} step="0.01" value={Number.isFinite(word.start) ? word.start : ""} onChange={event => editWord(index, "start", event.target.value === "" ? NaN : Number(event.target.value))} className="min-w-0 rounded-lg border border-gray-200 bg-transparent px-2 py-2 text-xs dark:border-gray-600" /><input aria-label={`End of word ${index + 1}`} type="number" min={0} max={project.duration} step="0.01" value={Number.isFinite(word.end) ? word.end : ""} onChange={event => editWord(index, "end", event.target.value === "" ? NaN : Number(event.target.value))} className="min-w-0 rounded-lg border border-gray-200 bg-transparent px-2 py-2 text-xs dark:border-gray-600" /><button aria-label={`Remove word ${index + 1}`} onClick={() => { setWords(current => current.filter((_, i) => i !== index)); setDirty(true); setPage(Math.min(page, Math.max(0, Math.ceil((words.length - 1) / PAGE_SIZE) - 1))); }} className="text-gray-400 hover:text-red-500"><HiOutlineTrash className="h-4 w-4" /></button></div>; })}
-            {!words.length && <p className="py-4 text-sm text-gray-500">{processing ? "Words will appear here when transcription finishes." : "No words yet. Add a word or retry transcription."}</p>}
-          </fieldset>{words.length > PAGE_SIZE && <div className="flex items-center justify-between border-t border-gray-100 p-4 text-sm dark:border-gray-700"><button disabled={page === 0} onClick={() => setPage(page - 1)} className="disabled:opacity-40">Previous</button><span>{page + 1} / {Math.ceil(words.length / PAGE_SIZE)}</span><button disabled={(page + 1) * PAGE_SIZE >= words.length} onClick={() => setPage(page + 1)} className="disabled:opacity-40">Next</button></div>}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <CaptionWordEditor key={project.id} words={words} onChange={next => { setWords(next); setDirty(true); }} duration={project.duration} time={time} disabled={disabled} onSeek={seek} onError={setError} emptyMessage={processing ? "Words will appear here when transcription finishes." : "No words yet. Add a word or retry transcription."} />
         </section></div>
         <fieldset disabled={disabled} className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800"><h3 className="font-semibold">Make it yours</h3><label className="block text-sm">Caption style<select value={style.preset} onChange={event => editStyle("preset", event.target.value)} className={`${editorInput} mt-2`}><option value="TIKTOK">TikTok · word highlights</option><option value="CLASSIC">Classic · simple subtitles</option></select></label><FontPicker value={style.font} onChange={font => editStyle("font", font)} /><label className="block text-sm">Text size <span className="float-right text-gray-400">{style.size}</span><input type="range" min={3} max={9} value={style.size} onChange={event => editStyle("size", Number(event.target.value))} className="mt-3 w-full accent-blue-600" /></label><div className="grid grid-cols-2 gap-4"><label className="text-sm">Text color<input type="color" value={style.color} onChange={event => editStyle("color", event.target.value)} className="mt-2 block h-10 w-full rounded-lg" /></label><label className="text-sm">Highlight<input type="color" disabled={style.preset === "CLASSIC"} value={style.highlight} onChange={event => editStyle("highlight", event.target.value)} className="mt-2 block h-10 w-full rounded-lg disabled:opacity-40" /></label></div><label className="block text-sm">Position<select value={style.position} onChange={event => editStyle("position", event.target.value)} className={`${editorInput} mt-2`}><option value="bottom">Lower area</option><option value="middle">Center</option><option value="top">Upper area</option></select></label><p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Portrait captions leave room near the bottom for social app controls. Transcription may need corrections—review the words before exporting.</p></fieldset>
       </div>

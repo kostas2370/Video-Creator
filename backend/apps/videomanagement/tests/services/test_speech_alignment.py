@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from apps.usermanagement.baker_recipes import user
 from ...baker_recipes import scene, video
@@ -28,9 +28,9 @@ class SpeechAlignmentTests(TestCase):
                        capture_output=True, check=True, timeout=20)
         self.video = video.make(created_by=user.make(), settings={"subtitles": True, "platform": "TIKTOK"})
         self.scene = scene.make(video=self.video, file=str(self.audio), text="Hello world. Again!")
-        self.client = self.enterContext(patch("apps.videomanagement.services.speech_alignment.OpenAI"))
+        self.client = self.enterContext(patch("apps.videomanagement.services.transcription.OpenAI"))
         self.key = self.enterContext(patch("apps.videomanagement.services.speech_alignment.ApiKeys.key_for", return_value="test-key"))
-        self.usage = self.enterContext(patch("apps.videomanagement.services.speech_alignment.record_usage"))
+        self.usage = self.enterContext(patch("apps.videomanagement.services.transcription.record_usage"))
         self.transcribe = self.client.return_value.audio.transcriptions.create
         self.transcribe.return_value = SimpleNamespace(words=[
             SimpleNamespace(word="Hello", start=0.3, end=0.6),
@@ -130,3 +130,19 @@ class SpeechAlignmentTests(TestCase):
         self.assertEqual(words[0]["start"], 0)
         self.assertEqual(words[2]["start"], 0.6)
         self.assertEqual(words[-1]["end"], 4)
+
+
+class TranscriptionNormalizationTests(SimpleTestCase):
+    def test_nonfinite_overlapping_and_multiword_results_are_normalized(self):
+        from ...services.transcription import normalize_words
+
+        words = normalize_words([
+            SimpleNamespace(word="bad", start=float("nan"), end=0.5),
+            SimpleNamespace(word="bad", start=0.2, end=float("nan")),
+            SimpleNamespace(word="Hello there", start=-1, end=0.6),
+            SimpleNamespace(word="overlap", start=0.2, end=0.8),
+            SimpleNamespace(word="last", start=0.8, end=2),
+        ], 1.23456)
+        self.assertEqual([word["text"] for word in words], ["Hello", "there", "overlap", "last"])
+        self.assertEqual(words[-1]["end"], 1.23456)
+        self.assertEqual(words[2]["start"], 0.6)
