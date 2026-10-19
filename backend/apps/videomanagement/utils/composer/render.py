@@ -2,6 +2,7 @@ import logging
 from copy import copy
 import math
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -10,7 +11,8 @@ from django.conf import settings
 
 from ...models import RENDERABLE_STATUSES, MotionStyle, VideoStatus
 from ...services.preview import apply_transitions, asset_segment, intro_segment, scene_segment
-from ...services.subtitles import scene_cues
+from ...services.subtitles import caption_style, scene_cues
+from ...services.speech_alignment import align_scene_narration
 from ...video_formats import output_size
 from ..exceptions import RenderFailedException
 from ..file_utils import check_if_image, stored_file_exists
@@ -304,14 +306,20 @@ def ass_timestamp(value):
 
 def write_captions(path, segments, size):
     font = settings.SUBTITLE_FONT.replace("-", " ").replace(",", " ").replace("\n", " ")
+    tiktok = bool(segments and caption_style(segments[0].content.video) == "TIKTOK")
+    unit = min(size)
+    font_size = round(unit * 0.06, 2) if tiktok else 48
+    outline = round(unit * 0.0045, 2) if tiktok else 2
+    bottom = 0.22 if tiktok and size[1] > size[0] else 0.09 if tiktok else 0.05
     header = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {size[0]}
 PlayResY: {size[1]}
 WrapStyle: 2
+ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,{int(size[0] * 0.08)},{int(size[0] * 0.08)},{int(size[1] * 0.05)},1
+Style: Default,{font},{font_size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,{-1 if tiktok else 0},0,0,0,100,100,0,0,1,{outline},{round(unit * 0.002, 2) if tiktok else 0},2,{int(size[0] * 0.08)},{int(size[0] * (0.14 if tiktok else 0.08))},{int(size[1] * bottom)},1
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
@@ -321,19 +329,29 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         track = tracks.get(str(segment.content.pk))
         offset = track["start"] - segment.content.audio_settings.get("delay", 0) if track else segment.start
         for cue in scene_cues(
-            segment.content, offset=offset, duration=segment.narration_duration
+            segment.content, offset=offset, duration=segment.narration_duration, highlight=True
         ):
-            text = (
-                cue.text.replace("\\", "＼")
-                .replace("{", "｛")
-                .replace("}", "｝")
-                .replace("\n", "\\N")
-                .replace("\r", "")
-            )
+            text = caption_ass_text(cue, tiktok=tiktok)
             lines.append(
                 f"Dialogue: 0,{ass_timestamp(cue.start)},{ass_timestamp(cue.end)},Default,,0,0,0,,{text}"
             )
     Path(path).write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
+
+
+def caption_ass_text(cue, *, tiktok=False):
+    """Escape user text before inserting our own ASS word-color tags."""
+    text = cue.text.replace("\\", "＼").replace("{", "｛").replace("}", "｝").replace("\r", "")
+    if not tiktok:
+        return text.replace("\n", "\\N")
+    word_index = -1
+
+    def color_word(match):
+        nonlocal word_index
+        word_index += 1
+        word = match.group().upper()
+        return r"{\1c&H0046E8FF&}" + word + r"{\1c&H00FFFFFF&}" if word_index == cue.active_word else word
+
+    return re.sub(r"\S+", color_word, text).replace("\n", "\\N")
 
 
 def avatar_layer(graph, video, stream, duration):
@@ -436,6 +454,8 @@ def make_video(video):
     choices = video.settings or {}
     segments, elapsed = [], 0
     for index, scene in enumerate(video.scenes.with_media(), 1):
+        if choices.get("subtitles"):
+            align_scene_narration(scene)
         segment = scene_segment(scene, index, elapsed, choices)
         segments.append(segment)
         elapsed += segment.duration

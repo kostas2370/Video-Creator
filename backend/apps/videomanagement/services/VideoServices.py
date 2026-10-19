@@ -32,7 +32,7 @@ def _apply_video_changes(video, changes):
     if voice_changed:
         updates["voice_model"] = selected_voice
 
-    settings_fields = ("video_format", "platform", "subtitles", "avatar_position", "transition_default", "transition_duration", "intro_transition", "intro_transition_duration")
+    settings_fields = ("video_format", "platform", "subtitles", "caption_style", "avatar_position", "transition_default", "transition_duration", "intro_transition", "intro_transition_duration")
     settings_changes = {
         field: changes[field] for field in settings_fields if field in changes
     }
