@@ -1,9 +1,10 @@
 from datetime import timedelta
 
+from django.db.models import Q
 from django.utils import timezone
 from django_filters import rest_framework as filters
 
-from .models import AIUsage
+from .models import AIUsage, MediaAsset
 
 
 class UsageFilter(filters.FilterSet):
@@ -28,3 +29,30 @@ class UsageFilter(filters.FilterSet):
         return queryset.filter(
             created_at__gte=timezone.now() - timedelta(days=int(value))
         )
+
+
+class MediaAssetFilter(filters.FilterSet):
+    search = filters.CharFilter(method="filter_search")
+    kind = filters.ChoiceFilter(
+        choices=[*MediaAsset.Kind.choices, ("VISUAL", "Images and video")],
+        method="filter_kind",
+    )
+
+    class Meta:
+        model = MediaAsset
+        fields = ("search", "kind")
+
+    def filter_search(self, queryset, name, value):
+        term = value.strip()[:100]
+        return (
+            queryset.filter(Q(title__icontains=term) | Q(tags__icontains=term))
+            if term
+            else queryset
+        )
+
+    def filter_kind(self, queryset, name, value):
+        if value == "VISUAL":
+            return queryset.filter(
+                kind__in=(MediaAsset.Kind.IMAGE, MediaAsset.Kind.VIDEO)
+            )
+        return queryset.filter(kind=value)

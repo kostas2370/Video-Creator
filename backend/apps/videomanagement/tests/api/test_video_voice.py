@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
+
 from ...baker_recipes import avatar, scene, voice_model
 from .base import ApiTestCase
 
@@ -18,7 +19,7 @@ class VideoVoiceTests(ApiTestCase):
 
     def test_changes_voice_and_regenerates_each_scene_without_an_avatar(self):
         scene.make(video=self.video, _quantity=2)
-        with patch("apps.videomanagement.services.VideoServices.update_scene") as narrate:
+        with patch("apps.videomanagement.services.videos.settings.update_scene") as narrate:
             response = self.client.patch(self.url, {"voice_id": str(self.voice.pk)}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         self.video.refresh_from_db()
@@ -32,7 +33,7 @@ class VideoVoiceTests(ApiTestCase):
         self.video.voice_model = self.voice
         self.video.save(update_fields=["voice_model"])
         scene.make(video=self.video)
-        with patch("apps.videomanagement.services.VideoServices.update_scene") as narrate:
+        with patch("apps.videomanagement.services.videos.settings.update_scene") as narrate:
             self.assertEqual(self.client.patch(self.url, {"voice_id": str(self.voice.pk)}).status_code, 200)
             self.video.settings = {"narration": False}
             self.video.save(update_fields=["settings"])
@@ -60,7 +61,7 @@ class VideoVoiceTests(ApiTestCase):
     def test_can_choose_voice_when_removing_avatar(self):
         self.video.avatar = avatar.make(created_by=self.user)
         self.video.save(update_fields=["avatar"])
-        with patch("apps.videomanagement.services.VideoServices.update_scene"):
+        with patch("apps.videomanagement.services.videos.settings.update_scene"):
             response = self.client.patch(self.url, {"avatar": "", "voice_id": str(self.voice.pk)})
         self.assertEqual(response.status_code, 200, response.data)
         self.video.refresh_from_db()

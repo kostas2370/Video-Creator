@@ -7,7 +7,7 @@ from rest_framework.test import APIClient
 from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import video
-from ...tasks import update_scene_task, rewrite_scene_task, generate_scene_image_task
+from ...tasks import generate_scene_image_task, rewrite_scene_task, update_scene_task
 
 
 class ApiTestCase(TestCase):

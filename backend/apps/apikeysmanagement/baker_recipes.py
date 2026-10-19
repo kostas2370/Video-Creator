@@ -1,6 +1,6 @@
 from model_bakery.recipe import Recipe, foreign_key
 
-from .models import ApiKeys, UserCustomTTSProvider, AuthType
+from .models import ApiKeys, AuthType, UserCustomTTSProvider
 
 api_keys = Recipe(
     ApiKeys,

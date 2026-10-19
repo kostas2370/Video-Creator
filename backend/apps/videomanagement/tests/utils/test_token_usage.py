@@ -4,8 +4,8 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from ...utils.token_usage import (
-    TokenUsageAdapter,
     TOKEN_USAGE_ADAPTERS,
+    TokenUsageAdapter,
     normalize_token_usage,
 )
 

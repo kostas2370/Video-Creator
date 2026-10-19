@@ -1,3 +1,4 @@
+
 import json
 import re
 import shutil
@@ -9,8 +10,11 @@ from unittest import skipUnless
 from unittest.mock import patch
 
 import numpy as np
-from PIL import Image
 from django.test import TestCase, override_settings
+from PIL import Image
+
+from apps.videomanagement.exceptions import RenderFailedException
+from apps.videomanagement.utils.frames import still_from_video
 
 from ...baker_recipes import (
     avatar,
@@ -22,8 +26,7 @@ from ...baker_recipes import (
     video,
 )
 from ...serializers.overlays import OverlaySerializer
-from ...utils.composer.render import make_video
-from ...utils.exceptions import RenderFailedException
+from ...utils.composer.render import Graph, make_video
 
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
@@ -405,7 +408,6 @@ class FFmpegRenderTests(TestCase):
         self.assertEqual(self.row.output.name, "output/output_video.mp4")
 
     def test_continuation_frames_are_decoded_with_native_ffmpeg(self):
-        from ...utils.scenes import still_from_video
 
         anchor = still_from_video(
             str(self.root / "clip.mp4"), str(self.root) + "/", end_time=0.2
@@ -417,7 +419,6 @@ class FFmpegRenderTests(TestCase):
         self.assertGreater(pixels[:, :, 1].mean(), pixels[:, :, 0].mean())
 
     def test_many_dissolves_use_only_one_scene_and_one_held_frame_at_a_time(self):
-        from ...utils.composer.render import Graph
 
         for _ in range(10):
             self.add_still(
@@ -442,7 +443,6 @@ class FFmpegRenderTests(TestCase):
         )
 
     def test_sigkill_with_empty_stderr_reports_a_possible_memory_kill(self):
-        from ...utils.composer.render import Graph
 
         graph = Graph()
         stream = graph.filter([], "color=c=black:s=160x90:d=1")

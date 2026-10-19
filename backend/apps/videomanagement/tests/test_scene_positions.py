@@ -7,11 +7,15 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from apps.videomanagement.services.scenes import visuals as scene_utils
+from apps.videomanagement.services.scenes.generation import draft_scene
+from apps.videomanagement.services.scenes.narration import (
+    ensure_scene_rows,
+    make_scene_speech,
+)
+
 from ..baker_recipes import scene, scene_image, video
-from ..services.SceneServices import draft_scene
-from ..utils.audio_utils import ensure_scene_rows, make_scene_speech
 from ..tasks import create_scene_task
-from ..utils import scenes as scene_utils
 
 
 class ScenePositionTests(TestCase):
@@ -92,7 +96,7 @@ class ScenePositionTests(TestCase):
         with patch.object(scene_utils, "stored_file_exists", return_value=True), patch.object(scene_utils, "continuation_frame", return_value="last.png") as frame:
             self.assertEqual(scene_utils.scene_reference(second, made, "sora"), "last.png")
         frame.assert_called_once_with(made, first.text, image.file.path)
-        with patch("apps.videomanagement.services.SceneServices.get_update_sentence", return_value='{"text":"New", "image_description":"A forest"}') as generate:
+        with patch("apps.videomanagement.services.scenes.generation.get_update_sentence", return_value='{"text":"New", "image_description":"A forest"}') as generate:
             draft_scene(made, "Continue", use_context=True)
         prompt = generate.call_args.args[0]
         self.assertLess(prompt.index('"text": "First"'), prompt.index('"text": "Second"'))

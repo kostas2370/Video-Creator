@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.usermanagement.baker_recipes import user
+
 from ..models import UserCustomTTSProvider, UserCustomVisualProvider
 
 

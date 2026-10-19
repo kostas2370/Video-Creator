@@ -1,11 +1,10 @@
-from apps.apikeysmanagement.models import Provider
-
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 
 from apps.apikeysmanagement.baker_recipes import api_keys
+from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import superuser, user
 
 from ..baker_recipes import voice_model

@@ -16,13 +16,17 @@ from rest_framework.test import APIClient
 from apps.apikeysmanagement.baker_recipes import api_keys
 from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.exceptions import VoiceProviderError
+from apps.videomanagement.integrations.tts import tts_from_elevenlabs
+from apps.videomanagement.services.voices.cloning import (
+    normalized_sample,
+    provider_request,
+)
+from apps.videomanagement.services.voices.credentials import key_fingerprint
+
 from ...baker_recipes import voice_model
 from ...models import AIUsage, VoiceModel
-from ...services.custom_voices import normalized_sample, provider_request
 from ...tasks import update_user_voices
-from ...utils.tts_utils import tts_from_elevenlabs
-from ...utils.voice_credentials import key_fingerprint
-from ...utils.exceptions import VoiceProviderError
 
 
 @override_settings(XI_API_KEY="service-key")
@@ -32,7 +36,7 @@ class CustomVoiceTests(TestCase):
         self.user = user.make()
         self.client = APIClient()
         self.client.force_authenticate(self.user)
-        self.remote = patch("apps.videomanagement.services.custom_voices.requests.request")
+        self.remote = patch("apps.videomanagement.services.voices.cloning.requests.request")
         self.http = self.remote.start()
         self.addCleanup(self.remote.stop)
         self.http.return_value = self.response({"voice_id": "clone123", "requires_verification": False})
@@ -52,7 +56,7 @@ class CustomVoiceTests(TestCase):
 
     def upload(self, **kwargs):
         values = {"name": "My voice", "consent": "true", "file": SimpleUploadedFile("voice.wav", b"audio")}
-        with patch("apps.videomanagement.services.custom_voices.normalized_sample", return_value=b"wav"):
+        with patch("apps.videomanagement.services.voices.cloning.normalized_sample", return_value=b"wav"):
             return self.client.post(reverse("voicemodel-clone"), {**values, **kwargs}, format="multipart")
 
     def test_creates_private_voice_with_consent_and_the_effective_key(self):
@@ -203,11 +207,11 @@ class CustomVoiceTests(TestCase):
 
     def test_refresh_and_shared_setup_never_publish_or_remove_clones(self):
         voice = self.clone()
-        with patch("apps.videomanagement.utils.tts_utils.get_voices_from_elevenlabs", return_value=[]):
+        with patch("apps.videomanagement.integrations.tts.get_voices_from_elevenlabs", return_value=[]):
             update_user_voices(self.user.pk, Provider.ELEVENLABS)
         self.assertTrue(VoiceModel.objects.filter(pk=voice.pk).exists())
         remote_voices = [{"voice_id": voice.path, "name": voice.name, "preview_url": ""}]
-        with patch("apps.videomanagement.utils.tts_utils.get_voices_from_elevenlabs", return_value=remote_voices):
+        with patch("apps.videomanagement.integrations.tts.get_voices_from_elevenlabs", return_value=remote_voices):
             update_user_voices(user.make().pk, Provider.ELEVENLABS)
         with patch("apps.videomanagement.management.commands.setup_elevenlabs.get_voices_from_elevenlabs", return_value=remote_voices):
             call_command("setup_elevenlabs", stdout=io.StringIO())
@@ -215,7 +219,7 @@ class CustomVoiceTests(TestCase):
 
     def test_saved_video_cannot_bypass_clone_ownership_or_verification(self):
         voice = self.clone()
-        with patch("apps.videomanagement.utils.tts_utils.requests.post") as speech:
+        with patch("apps.videomanagement.integrations.tts.requests.post") as speech:
             with self.assertRaises(PermissionDenied):
                 tts_from_elevenlabs("Hello", "/tmp/unused.wav", voice.path, user=user.make())
             voice.requires_verification = True
@@ -286,7 +290,7 @@ class ProviderRequestTests(SimpleTestCase):
             response.status_code = code
             error = requests.HTTPError("private provider account details", response=response)
             with self.subTest(code=code), patch(
-                "apps.videomanagement.services.custom_voices.requests.request", side_effect=error,
+                "apps.videomanagement.services.voices.cloning.requests.request", side_effect=error,
             ), self.assertRaises(VoiceProviderError) as caught:
                 provider_request("POST", "voices/add", "test-key")
             self.assertIn(message, str(caught.exception.detail))
@@ -296,7 +300,7 @@ class ProviderRequestTests(SimpleTestCase):
     def test_network_errors_without_a_response_use_the_default_message(self):
         for error in (requests.Timeout("private connection details"), requests.ConnectionError("private connection details")):
             with self.subTest(error=type(error).__name__), patch(
-                "apps.videomanagement.services.custom_voices.requests.request", side_effect=error,
+                "apps.videomanagement.services.voices.cloning.requests.request", side_effect=error,
             ), self.assertRaises(VoiceProviderError) as caught:
                 provider_request("POST", "voices/add", "test-key")
             self.assertEqual(str(caught.exception.detail), VoiceProviderError.default_detail)

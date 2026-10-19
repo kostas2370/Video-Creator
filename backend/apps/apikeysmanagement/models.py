@@ -1,18 +1,19 @@
 from __future__ import annotations
-from uuid import uuid4
 
 import logging
+from uuid import uuid4
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
-from encrypted_model_fields.fields import EncryptedCharField
 from django_lifecycle import (
-    LifecycleModelMixin,
-    hook,
-    AFTER_UPDATE,
     AFTER_CREATE,
     AFTER_DELETE,
+    AFTER_UPDATE,
+    LifecycleModelMixin,
+    hook,
 )
+from encrypted_model_fields.fields import EncryptedCharField
 from requests.auth import HTTPBasicAuth
 
 logger = logging.getLogger(__name__)

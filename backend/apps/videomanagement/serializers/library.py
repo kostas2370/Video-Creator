@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
+from apps.videomanagement.services.media.uploads import inspect_media_upload
+
 from ..models import MediaAsset
-from ..services.media_uploads import inspect_media_upload
 from .audio import FiniteFloat
 
 

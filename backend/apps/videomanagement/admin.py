@@ -1,16 +1,16 @@
 from django.contrib import admin
 
 from .models import (
-    Video,
-    TemplatePrompt,
-    SceneImage,
-    Scene,
-    UserPrompt,
-    Music,
-    VoiceModel,
-    Intro,
-    Outro,
     Avatar,
+    Intro,
+    Music,
+    Outro,
+    Scene,
+    SceneImage,
+    TemplatePrompt,
+    UserPrompt,
+    Video,
+    VoiceModel,
 )
 from .tasks import render_video_task
 

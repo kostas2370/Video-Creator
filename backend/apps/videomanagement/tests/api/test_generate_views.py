@@ -1,17 +1,17 @@
-from unittest.mock import patch
-from io import BytesIO
 import tempfile
+from io import BytesIO
 from pathlib import Path
-from PIL import Image
-from django.core.files.uploadedfile import SimpleUploadedFile
+from unittest.mock import patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
 
-from ...models import Video
 from ...baker_recipes import avatar, intro, outro, voice_model
+from ...models import Video
 from .base import ApiTestCase
 
 
@@ -234,7 +234,7 @@ class StoryboardApprovalTests(ApiTestCase):
         return self.client.post(reverse("video-approve-script", args=[video.pk]),
                                 script or self.script, format="json")
 
-    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_approval_saves_edits_and_queues_once(self, delay):
         video = self.draft()
         response = self.approve(video)
@@ -247,7 +247,7 @@ class StoryboardApprovalTests(ApiTestCase):
         self.assertEqual(self.approve(video).status_code, 409)
         delay.assert_called_once()
 
-    @patch("apps.videomanagement.views.video_view.generate_video_task.delay", side_effect=RuntimeError("offline"))
+    @patch("apps.videomanagement.tasks.generate_video_task.delay", side_effect=RuntimeError("offline"))
     def test_queue_failure_keeps_draft_reviewable(self, delay):
         video = self.draft()
         self.assertEqual(self.approve(video).status_code, 503)
@@ -255,12 +255,12 @@ class StoryboardApprovalTests(ApiTestCase):
         self.assertEqual(video.status, "REVIEW")
         self.assertEqual(video.gpt_answer, self.script)
 
-    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_rejects_foreign_draft(self, delay):
         self.assertEqual(self.approve(self.draft(created_by=user.make())).status_code, 404)
         delay.assert_not_called()
 
-    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_rejects_empty_prompts_or_missing_narration(self, delay):
         video = self.draft()
         for sentence in ({"sentence": "Hello", "image_description": ""}, {"image_description": "A cat"}):
@@ -268,7 +268,7 @@ class StoryboardApprovalTests(ApiTestCase):
             self.assertEqual(self.approve(video, script).status_code, 400)
         delay.assert_not_called()
 
-    @patch("apps.videomanagement.views.video_view.generate_video_task.delay")
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_allows_visual_only_script(self, delay):
         video = self.draft()
         video.settings["narration"] = False

@@ -15,8 +15,13 @@ from django.core.cache import cache
 from django.core.exceptions import SuspiciousFileOperation
 
 from ..models import VideoType
+from .audio_editing import (
+    duration_override,
+    edited_duration,
+    narration_enabled,
+    narration_file,
+)
 from .file_utils import check_if_video
-from .audio_editing import narration_enabled, narration_file, edited_duration, duration_override
 
 
 def media_timing(path):
@@ -72,8 +77,16 @@ def file_timing(field):
 
 def scene_timing(scene, image=None):
     narration = narration_enabled(scene)
-    silent_duration = 5 if getattr(scene.video, "video_type", None) == VideoType.MANUAL else settings.SILENT_SCENE_SECONDS
-    speech = edited_duration(scene, file_timing(narration_file(scene)).get("audio_duration")) if narration else None
+    silent_duration = (
+        5
+        if getattr(scene.video, "video_type", None) == VideoType.MANUAL
+        else settings.SILENT_SCENE_SECONDS
+    )
+    speech = (
+        edited_duration(scene, file_timing(narration_file(scene)).get("audio_duration"))
+        if narration
+        else None
+    )
     visual = (
         file_timing(image.file)
         if image and image.file and check_if_video(image.file.name)
@@ -139,7 +152,9 @@ def video_metadata(path):
 def uploaded_media_path(upload):
     """Expose upload bytes to media tools and always rewind before storage saves."""
     try:
-        with tempfile.NamedTemporaryFile(suffix=Path(upload.name).suffix.lower()) as temporary:
+        with tempfile.NamedTemporaryFile(
+            suffix=Path(upload.name).suffix.lower()
+        ) as temporary:
             for chunk in upload.chunks():
                 temporary.write(chunk)
             temporary.flush()

@@ -42,12 +42,46 @@ ffmpeg's encoding threads do not make the task queue concurrent.
 | --- | --- | --- |
 | Frontend pages and components | Generation, scene editing, media libraries, provider management | [`frontend/src/pages/`](../frontend/src/pages/), [`frontend/src/components/`](../frontend/src/components/) |
 | Frontend API layer | Consistent response envelope, authentication clients, SSE subscriptions | [`frontend/src/api/`](../frontend/src/api/) |
-| Video API | Validate requests, check access, create or claim videos | [`videomanagement/views/`](../backend/apps/videomanagement/views/) |
+| Video API | Validate requests, check access, serialize responses | [`videomanagement/views/`](../backend/apps/videomanagement/views/) |
 | Video services | Coordinate generation, recovery, and edits | [`videomanagement/services/`](../backend/apps/videomanagement/services/) |
 | Background tasks | Invoke services, record failures, import voices, reap stalled work | [`videomanagement/tasks.py`](../backend/apps/videomanagement/tasks.py) |
-| Media utilities | Script processing, narration, visual providers, composition | [`videomanagement/utils/`](../backend/apps/videomanagement/utils/) |
+| Media utilities | Media inspection, caption calculations, script processing, composition | [`videomanagement/utils/`](../backend/apps/videomanagement/utils/) |
 | Provider credentials | Built-in keys, custom TTS configuration, masked API responses | [`apikeysmanagement/`](../backend/apps/apikeysmanagement/) |
 | Accounts and notifications | Authentication, password reset, notifications, email tasks | [`usermanagement/`](../backend/apps/usermanagement/) |
+
+## Backend boundaries
+
+Views own HTTP concerns: authentication, ownership-scoped lookups, request validation,
+response serialization, headers and cookies. Standard CRUD and queryset filtering can
+stay in DRF hooks. Multi-step operations, state transitions, transactions, queue dispatch
+and storage cleanup belong to service functions.
+
+Video services are grouped by feature:
+
+- `services/videos/`: project creation, settings, notes, preview, generation and job dispatch.
+- `services/scenes/`: editing, narration, visuals, playback timing and scene jobs.
+- `services/captions/`: caption projects, transcription, alignment, scene edits and exports.
+- `services/media/`: media library, covers, asset selection, limits, downloads and upload policies.
+- `services/voices/`: voice cloning and credential rules.
+- `services/usage.py`: persistence of provider usage measurements.
+
+`integrations/` contains LLM, TTS and visual-provider adapters. `utils/captions/`
+contains shared styles, word timing and cue/SRT formatting. Other utilities contain
+technical operations such as frame extraction, metadata probing and file handling.
+The existing `utils/composer/` package assembles the rendering pipeline.
+
+Services accept explicit models and validated values; they do not accept request
+objects or request serializers. Provider response schemas live in `schemas/`.
+Use plain functions and add shared helpers only when callers share behavior.
+
+Use module-level imports. The API-key model hooks retain deferred imports because
+video models/tasks import API-key models, and Django loads signal registration in
+`AppConfig.ready()`. Avatar rendering defers SadTalker loading so ordinary requests
+and non-avatar exports do not require or initialize the optional model runtime.
+
+The media-library FilterSet owns `search` and `kind`; ownership remains in the view
+queryset. Invalid media kinds receive a field-level 400 response. Existing simple
+video and voice filters continue to use DRF's generated FilterSets.
 
 ## Data model
 
@@ -138,7 +172,7 @@ calls in these routes still run inside the request.
 
 ## Generation pipeline
 
-[VideoGenerationServices.py](../backend/apps/videomanagement/services/VideoGenerationServices.py)
+[generation.py](../backend/apps/videomanagement/services/videos/generation.py)
 contains `create_pending_video()`, `generate_video()`, and `resume_video()`.
 
 1. **Resolve selections.** Validate the owner's avatar, intro, outro, and available
@@ -160,7 +194,7 @@ contains `create_pending_video()`, `generate_video()`, and `resume_video()`.
    generation cost.
 
 The script format is shared by [defaults.py](../backend/apps/videomanagement/defaults.py),
-`check_json()` in [llm.py](../backend/apps/videomanagement/utils/llm.py), and
+`check_json()` in [llm.py](../backend/apps/videomanagement/integrations/llm.py), and
 `script_lines()` in [prompt_utils.py](../backend/apps/videomanagement/utils/prompt_utils.py).
 Change these together when changing the LLM output shape. Without narration, visual
 descriptions supply scene text instead of spoken sentences. Video providers receive
@@ -210,7 +244,7 @@ stateDiagram-v2
     READY --> GENERATION: API resume with script and directory
 ```
 
-[VideoView](../backend/apps/videomanagement/views/video_view.py) claims render and resume
+[VideoView](../backend/apps/videomanagement/views/videos.py) claims render and resume
 transitions with a conditional database update. Competing requests that no longer
 match an allowed status receive `409`. The frontend also disables the render action
 while submitting or while the video is `RENDERING`. The API accepts resuming a `READY`
@@ -288,7 +322,7 @@ Voice records use that name as their provider identifier.
 | `/api/user-custom-tts-providers/{id}/` | Read, edit, or delete an owned provider |
 | `/api/user-custom-tts-providers/{id}/update-voices/` | Queue a voice import; return `202`, not an import-completion result |
 
-[TTSRegistry](../backend/apps/videomanagement/utils/tts_utils.py) dispatches built-in
+[TTSRegistry](../backend/apps/videomanagement/integrations/tts.py) dispatches built-in
 names to their registered handlers and other names to the custom-provider handler.
 Custom synthesis resolves configuration by **user and provider name**, POSTs JSON
 using configurable text and voice field names, and supports bearer, header, basic,
@@ -319,7 +353,7 @@ built-in visual provider names are reserved.
 Omitting `api_key` during an update preserves it; sending an empty string clears it.
 Read responses contain a masked value. Foreign provider IDs return `404`.
 
-The visual adapter in [custom.py](../backend/apps/videomanagement/utils/image_providers/custom.py)
+The visual adapter in [custom.py](../backend/apps/videomanagement/integrations/visuals/custom.py)
 retrieves the selected configuration for the video owner and posts the prompt under
 `prompt_field_name`, using its configured authentication and extra parameters. It
 accepts raw media bytes or a JSON response containing `url`, `image_url` for images,
@@ -350,11 +384,11 @@ a response containing only a job ID is not supported.
 
 ### Visual and LLM providers
 
-[ImageProviderRegistry](../backend/apps/videomanagement/utils/image_providers/registry.py)
+[ImageProviderRegistry](../backend/apps/videomanagement/integrations/visuals/registry.py)
 uses the same registration pattern as `TTSRegistry`: module-level handlers register
 through decorators, and lookup resolves their current module attributes at call time.
 This keeps provider calls patchable in tests. Importing
-[image_providers/__init__.py](../backend/apps/videomanagement/utils/image_providers/__init__.py)
+[visuals/__init__.py](../backend/apps/videomanagement/integrations/visuals/__init__.py)
 loads the adapters and registers them. Existing callers continue to use
 `resolve(mode, provider)`.
 
@@ -390,12 +424,12 @@ Callers can invoke the resolved handler directly without checking for `None`.
 `OPENAI` is the image provider identifier and uses the configured GPT image model.
 It shares the canonical `OPENAI` credential and TTS identifier. `sora` produces video
 clips; composition chooses still or video handling from the file extension. LLM routing lives in `model_calls` in
-[llm.py](../backend/apps/videomanagement/utils/llm.py).
+[llm.py](../backend/apps/videomanagement/integrations/llm.py).
 
 ## Ownership boundaries
 
 Video querysets are scoped to the caller. Asset selection in
-[asset_selection.py](../backend/apps/videomanagement/services/asset_selection.py)
+[asset_selection.py](../backend/apps/videomanagement/services/media/selection.py)
 requires the avatar, intro, and outro to belong to the video owner and resolves them
 before mutations or external generation work. Missing and foreign assets both return
 `404`. Explicit voices must be available to that owner; avatar voice edits use the
@@ -499,7 +533,7 @@ production-ready by themselves.
 
 | Change | Files to start with |
 | --- | --- |
-| Add a visual provider | New module in `utils/image_providers/`, registration decorator, package import, frontend provider choices |
+| Add a visual provider | New module in `integrations/visuals/`, registration decorator, package import, frontend provider choices |
 | Add a built-in TTS provider | `Provider`, `ApiKeys.FIELDS`, `TTSRegistry` handler, voice availability/import rules, frontend key controls |
 | Connect a user-defined TTS service | Custom-provider configuration and voice import; no registry code change for each user's service |
 | Add an LLM | `llm.py` routing and accepted model settings |
@@ -507,7 +541,7 @@ production-ready by themselves.
 | Add a composition layer | `utils/composer/` and `handle_final_video()` |
 | Change ownership behavior | Owner-scoped querysets, `permissions.py`, `asset_selection.py`, API and service regressions |
 | Change recovery behavior | Task wrappers, `resume_video()`, file-existence helpers, reaper, frontend subscriptions |
-| Change usage accounting | `utils/usage.py`, `utils/token_usage.py`, and `AIUsageQuerySet` |
+| Change usage accounting | `services/usage.py`, `utils/token_usage.py`, and `AIUsageQuerySet` |
 
 Backend tests are grouped under `tests/api/`, `tests/services/`, `tests/utils/`,
 `tests/composer/`, and `tests/image_providers/`, with credential/account tests in their

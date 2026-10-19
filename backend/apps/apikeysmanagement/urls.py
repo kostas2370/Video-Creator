@@ -7,7 +7,6 @@ from .views import (
     UserCustomVisualProviderViewSet,
 )
 
-
 router = DefaultRouter()
 router.register(
     r"user-custom-tts-providers",

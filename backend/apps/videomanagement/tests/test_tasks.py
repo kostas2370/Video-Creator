@@ -9,19 +9,20 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider
 from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
-from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider
+from apps.videomanagement.integrations import tts as tts_utils
+
 from ..baker_recipes import scene, video
 from ..models import SceneImage, Video, VoiceModel, VoiceModelType
-from ..utils import tts_utils
 from ..tasks import (
     create_scene_task,
-    update_user_voices,
-    resume_video_task,
     generate_video_task,
     reap_stalled_videos,
     render_video_task,
+    resume_video_task,
+    update_user_voices,
 )
 
 
@@ -31,7 +32,7 @@ class TaskFailureTests(TestCase):
 
     def test_generation_leaves_the_video_failed_and_re_raises(self):
         with patch(
-            "apps.videomanagement.services.VideoGenerationServices.generate_video",
+            "apps.videomanagement.services.videos.generation.generate_video",
             side_effect=RuntimeError("the model refused"),
         ):
             with self.assertRaises(RuntimeError):
@@ -54,7 +55,7 @@ class TaskFailureTests(TestCase):
 
     def test_resuming_leaves_the_video_failed_and_re_raises(self):
         with patch(
-            "apps.videomanagement.services.VideoGenerationServices.resume_video",
+            "apps.videomanagement.services.videos.generation.resume_video",
             side_effect=RuntimeError("the provider is still down"),
         ):
             with self.assertRaises(RuntimeError):
@@ -70,7 +71,7 @@ class TaskSuccessTests(TestCase):
 
     def test_generation_hands_its_parameters_to_the_service(self):
         with patch(
-            "apps.videomanagement.services.VideoGenerationServices.generate_video"
+            "apps.videomanagement.services.videos.generation.generate_video"
         ) as generate:
             returned = generate_video_task(video_id=self.video.id, message="cats")
 
@@ -86,7 +87,7 @@ class TaskSuccessTests(TestCase):
 
     def test_resuming_hands_the_video_to_the_service(self):
         with patch(
-            "apps.videomanagement.services.VideoGenerationServices.resume_video"
+            "apps.videomanagement.services.videos.generation.resume_video"
         ) as resume:
             returned = resume_video_task(video_id=self.video.id)
 
@@ -100,13 +101,13 @@ class UpdateUserVoicesTests(TestCase):
 
     def labs_returns(self, *voices):
         return patch(
-            "apps.videomanagement.utils.tts_utils.get_voices_from_elevenlabs",
+            "apps.videomanagement.integrations.tts.get_voices_from_elevenlabs",
             return_value=list(voices),
         )
 
     def custom_provider_returns(self, voices):
         return patch(
-            "apps.videomanagement.utils.tts_utils.get_voices_from_custom_provider",
+            "apps.videomanagement.integrations.tts.get_voices_from_custom_provider",
             return_value=voices,
         )
 
@@ -310,7 +311,7 @@ class CreateSceneTaskTests(TestCase):
         def capture(*args):
             self.video.refresh_from_db()
             observed_statuses.append(self.video.status)
-        with patch("apps.videomanagement.services.SceneServices.create_scene", side_effect=capture) as create:
+        with patch("apps.videomanagement.services.scenes.generation.create_scene", side_effect=capture) as create:
             create_scene_task(self.video.pk, {"scenes": scenes})
         self.assertEqual([call.args[1] for call in create.call_args_list], scenes)
         self.assertEqual(observed_statuses, ["GENERATION", "GENERATION"])
@@ -318,7 +319,7 @@ class CreateSceneTaskTests(TestCase):
         self.assertEqual(self.video.status, "READY")
 
     def test_creates_scene_and_marks_video_ready(self):
-        with patch("apps.videomanagement.services.SceneServices.create_scene") as create:
+        with patch("apps.videomanagement.services.scenes.generation.create_scene") as create:
             create_scene_task(self.video.pk, self.data)
             create_scene_task(self.video.pk, self.data)
         create.assert_called_once_with(self.video, self.data, {})
@@ -326,7 +327,7 @@ class CreateSceneTaskTests(TestCase):
         self.assertEqual(self.video.status, "READY")
 
     def test_failure_marks_video_failed(self):
-        with patch("apps.videomanagement.services.SceneServices.create_scene", side_effect=RuntimeError("provider error")):
+        with patch("apps.videomanagement.services.scenes.generation.create_scene", side_effect=RuntimeError("provider error")):
             with self.assertRaises(RuntimeError):
                 create_scene_task(self.video.pk, self.data)
         self.video.refresh_from_db()
@@ -336,7 +337,7 @@ class CreateSceneTaskTests(TestCase):
         with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
             path = default_storage.save("media/scene_uploads/visual.png", SimpleUploadedFile("visual.png", b"image bytes"))
             line = scene.make(video=self.video)
-            with patch("apps.videomanagement.services.SceneServices.make_scene_speech", return_value=line):
+            with patch("apps.videomanagement.services.scenes.generation.make_scene_speech", return_value=line):
                 create_scene_task(self.video.pk, self.data, path)
             image = SceneImage.objects.get(scene=line)
             self.assertNotEqual(image.file.name, path)

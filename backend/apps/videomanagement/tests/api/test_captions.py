@@ -2,16 +2,21 @@ import subprocess
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
-from uuid import uuid4
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.services.captions.projects import (
+    process_caption_project,
+    project_cues,
+    write_project_ass,
+)
+
 from ...models import AIUsage, CaptionProject
-from ...services.captions import process_caption_project, project_cues, write_project_ass
 from ...utils.timing import video_metadata
 from .base import ApiTestCase
 
@@ -41,7 +46,7 @@ class CaptionProjectTests(ApiTestCase):
 
     def transcribe(self, project):
         result = SimpleNamespace(words=[SimpleNamespace(word="Hello", start=0.1, end=0.3), SimpleNamespace(word="world.", start=0.45, end=0.8)])
-        with patch("apps.videomanagement.services.transcription.OpenAI") as client:
+        with patch("apps.videomanagement.services.captions.transcription.OpenAI") as client:
             client.return_value.audio.transcriptions.create.return_value = result
             process_caption_project(str(project.pk), str(project.job_id))
         self.assertEqual(client.return_value.audio.transcriptions.create.call_args.kwargs["timestamp_granularities"], ["word"])
@@ -137,7 +142,7 @@ class CaptionProjectTests(ApiTestCase):
     def test_no_speech_and_provider_failure_are_recoverable(self):
         for result in (SimpleNamespace(words=[]), RuntimeError("provider error with private details")):
             project = self.project()
-            with patch("apps.videomanagement.services.transcription.OpenAI") as client:
+            with patch("apps.videomanagement.services.captions.transcription.OpenAI") as client:
                 if isinstance(result, Exception):
                     client.return_value.audio.transcriptions.create.side_effect = result
                 else:
@@ -150,7 +155,7 @@ class CaptionProjectTests(ApiTestCase):
 
     def test_stale_or_duplicate_worker_never_calls_the_provider(self):
         project = self.project()
-        with patch("apps.videomanagement.services.transcription.OpenAI") as client:
+        with patch("apps.videomanagement.services.captions.transcription.OpenAI") as client:
             process_caption_project(str(project.pk), str(uuid4()))
             CaptionProject.objects.filter(pk=project.pk).update(status="TRANSCRIBING")
             process_caption_project(str(project.pk), str(project.job_id))
@@ -163,7 +168,7 @@ class CaptionProjectTests(ApiTestCase):
         project.save()
         self.client.post(reverse("captionproject-render", args=[project.pk]))
         project.refresh_from_db()
-        with patch("apps.videomanagement.services.captions.run_ffmpeg", side_effect=RuntimeError("encoding failed")):
+        with patch("apps.videomanagement.services.captions.projects.run_ffmpeg", side_effect=RuntimeError("encoding failed")):
             process_caption_project(str(project.pk), str(project.job_id), render=True)
         project.refresh_from_db()
         self.assertEqual(project.status, "READY")
@@ -176,7 +181,7 @@ class CaptionProjectTests(ApiTestCase):
             {"audio": False, "duration": 1, "width": 100, "height": 100},
             {"audio": True, "duration": 901, "width": 100, "height": 100},
         ):
-            with patch("apps.videomanagement.services.caption_uploads.uploaded_video_metadata", return_value=metadata):
+            with patch("apps.videomanagement.services.captions.uploads.uploaded_video_metadata", return_value=metadata):
                 self.assertEqual(self.upload().status_code, 400)
         response = self.client.post(self.url, {"source": SimpleUploadedFile("broken.mp4", b"broken", "video/mp4")}, format="multipart")
         self.assertEqual(response.status_code, 400)
@@ -232,7 +237,7 @@ class CaptionProjectTests(ApiTestCase):
         latest = project.output.path
         self.client.post(render_url)
         project.refresh_from_db()
-        with patch("apps.videomanagement.services.captions.run_ffmpeg", side_effect=RuntimeError("encoding failed")):
+        with patch("apps.videomanagement.services.captions.projects.run_ffmpeg", side_effect=RuntimeError("encoding failed")):
             process_caption_project(str(project.pk), str(project.job_id), render=True)
         project.refresh_from_db()
         self.assertEqual(project.output.path, latest)

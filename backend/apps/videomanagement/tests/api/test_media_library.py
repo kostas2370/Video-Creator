@@ -1,19 +1,20 @@
-from io import BytesIO
-from pathlib import Path
 import subprocess
 import tempfile
-from unittest.mock import patch
 import wave
+from io import BytesIO
+from pathlib import Path
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
 
-from .base import ApiTestCase
-from ...models import MediaAsset
-from ...baker_recipes import scene
 from apps.usermanagement.baker_recipes import user
+
+from ...baker_recipes import scene
+from ...models import MediaAsset
+from .base import ApiTestCase
 
 
 class MediaLibraryTests(ApiTestCase):
@@ -268,3 +269,21 @@ class MediaLibraryTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 400, response.data)
         self.assertIn("file", response.data)
+
+    def test_filterset_combines_search_and_kind_and_rejects_invalid_kind(self):
+        self.upload()
+        self.assertEqual(
+            self.client.get(self.url, {"search": "travel", "kind": "IMAGE"}).data[
+                "count"
+            ],
+            1,
+        )
+        self.assertEqual(
+            self.client.get(self.url, {"search": "travel", "kind": "AUDIO"}).data[
+                "count"
+            ],
+            0,
+        )
+        response = self.client.get(self.url, {"kind": "unknown"})
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("kind", response.data)

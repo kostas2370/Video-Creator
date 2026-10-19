@@ -1,5 +1,4 @@
 from io import BytesIO
-from PIL import Image
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -9,13 +8,14 @@ from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
 from drf_yasg import openapi
 from drf_yasg.generators import OpenAPISchemaGenerator
+from PIL import Image
 from rest_framework.routers import SimpleRouter
 
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.views.scenes import SceneView
 
 from ...baker_recipes import scene, scene_image
 from ...models import SceneImage
-from ...views.scene_view import SceneView
 from .base import ApiTestCase
 
 
@@ -30,7 +30,7 @@ class SceneViewTests(ApiTestCase):
         return self.run_scene_job()
 
     def test_timing_saves_without_regenerating(self):
-        with patch("apps.videomanagement.services.SceneServices.update_scene") as regenerate:
+        with patch("apps.videomanagement.services.scenes.generation.update_scene") as regenerate:
             response = self.client.patch(reverse("scene-timing", args=[self.scene.pk]), {"pause_after": 0.75}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         self.scene.refresh_from_db()
@@ -57,7 +57,7 @@ class SceneViewTests(ApiTestCase):
         self.assertEqual(self.client.patch(url, {"pause_after": 1}, format="json").status_code, 401)
 
     def test_transition_saves_without_regenerating_media(self):
-        with patch("apps.videomanagement.services.SceneServices.update_scene") as regenerate:
+        with patch("apps.videomanagement.services.scenes.generation.update_scene") as regenerate:
             response = self.client.patch(reverse("scene-transition", args=[self.scene.pk]),
                                          {"transition_after": "CUT"}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
@@ -112,13 +112,13 @@ class SceneViewTests(ApiTestCase):
         self.assertEqual(foreign.transition_after, "DEFAULT")
 
     def test_rewrites_a_line(self):
-        with patch("apps.videomanagement.services.SceneServices.update"):
+        with patch("apps.videomanagement.services.scenes.generation.update"):
             response = self.client.patch(reverse("scene-detail", args=[self.scene.pk]), {"text": "a new line"}, format="json")
             result = self.complete(response)
         self.assertEqual(result["text"], "a new line")
 
     def test_asks_the_model_for_a_rewrite(self):
-        with patch("apps.videomanagement.services.SceneServices.get_update_sentence", return_value="a funnier line"):
+        with patch("apps.videomanagement.services.scenes.generation.get_update_sentence", return_value="a funnier line"):
             response = self.client.patch(reverse("scene-generate", args=[self.scene.pk]), {"text": "make it funnier"}, format="json")
             result = self.complete(response)
         self.assertEqual(result["text"], "a funnier line")
@@ -134,7 +134,7 @@ class SceneViewTests(ApiTestCase):
         for route, field, method, service in actions:
             for payload in ({}, {field: None}, {field: " "}, {field: []}, {field: "x" * 2001}):
                 with self.subTest(route=route, payload=payload):
-                    with patch("apps.videomanagement.utils.scenes." + service if service == "generate_new_image" else "apps.videomanagement.services.SceneServices." + service) as work:
+                    with patch("apps.videomanagement.services.scenes.visuals." + service if service == "generate_new_image" else "apps.videomanagement.services.scenes.generation." + service) as work:
                         response = method(
                             reverse(route, args=[self.scene.pk]), payload, format="json"
                         )
@@ -145,7 +145,7 @@ class SceneViewTests(ApiTestCase):
     def test_scene_jobs_do_not_overwrite_account_settings(self):
         callers = [get_user_model().objects.get(pk=self.user.pk) for _ in range(2)]
         get_user_model().objects.filter(pk=self.user.pk).update(use_service_api_keys=False)
-        with patch("apps.videomanagement.services.SceneServices.generate_scene", return_value="rewritten"):
+        with patch("apps.videomanagement.services.scenes.generation.generate_scene", return_value="rewritten"):
             for caller in callers:
                 self.client.force_authenticate(caller)
                 self.complete(self.client.patch(reverse("scene-generate", args=[self.scene.pk]), {"text": "rewrite"}, format="json"))
@@ -156,9 +156,9 @@ class SceneViewTests(ApiTestCase):
     def test_failed_generation_preserves_existing_scene_data(self):
         original_text = self.scene.text
         actions = (
-            ("scene-detail", {"text": "new"}, self.client.patch, "apps.videomanagement.services.SceneServices.update_scene"),
-            ("scene-generate", {"text": "rewrite"}, self.client.patch, "apps.videomanagement.services.SceneServices.generate_scene"),
-            ("scene-generate-image-scene", {"image_description": "cat"}, self.client.post, "apps.videomanagement.utils.scenes.generate_new_image"),
+            ("scene-detail", {"text": "new"}, self.client.patch, "apps.videomanagement.services.scenes.generation.update_scene"),
+            ("scene-generate", {"text": "rewrite"}, self.client.patch, "apps.videomanagement.services.scenes.generation.generate_scene"),
+            ("scene-generate-image-scene", {"image_description": "cat"}, self.client.post, "apps.videomanagement.services.scenes.visuals.generate_new_image"),
         )
         for route, payload, method, service in actions:
             with self.subTest(route=route), patch(service, side_effect=RuntimeError("Unavailable")):
@@ -245,7 +245,7 @@ class SceneViewTests(ApiTestCase):
 
     def test_regenerates_a_scenes_image(self):
         scene_image.make(scene=self.scene)
-        with patch("apps.videomanagement.utils.scenes.generate_new_image") as generate:
+        with patch("apps.videomanagement.services.scenes.visuals.generate_new_image") as generate:
             response = self.client.post(reverse("scene-generate-image-scene", args=[self.scene.pk]), {"image_description": "a cat"})
             generate.assert_not_called()
             self.complete(response)
@@ -277,7 +277,7 @@ class SceneViewTests(ApiTestCase):
         image = scene_image.make(scene=foreign_scene, with_audio=False)
         for action in ("change-image-scene", "generate-image-scene"):
             with self.subTest(action=action):
-                with patch("apps.videomanagement.utils.scenes.generate_new_image") as generate:
+                with patch("apps.videomanagement.services.scenes.visuals.generate_new_image") as generate:
                     response = self.client.post(
                         f"{reverse('scene-' + action, args=[foreign_scene.id])}?scene_image={image.id}",
                         {"with_audio": True, "image_description": "changed"},
@@ -302,13 +302,13 @@ class SceneViewTests(ApiTestCase):
                 self.assertFalse(image.with_audio)
 
     def test_generation_without_an_existing_image_uses_the_authorized_video(self):
-        with patch("apps.videomanagement.utils.scenes.generate_new_image") as generate:
+        with patch("apps.videomanagement.services.scenes.visuals.generate_new_image") as generate:
             self.complete(self.client.post(reverse("scene-generate-image-scene", args=[self.scene.pk]), {"image_description": "a cat"}))
         self.assertEqual(generate.call_args.args[0].scene, self.scene)
         self.assertEqual(generate.call_args.args[1], self.video)
 
     def test_retry_failure_keeps_existing_dialogue(self):
-        with patch("apps.videomanagement.utils.audio_utils.narrate_scene", side_effect=RuntimeError("Provider unavailable")):
+        with patch("apps.videomanagement.services.scenes.narration.narrate_scene", side_effect=RuntimeError("Provider unavailable")):
             response = self.client.patch(reverse("scene-detail", args=[self.scene.pk]), {"text": self.scene.text}, format="json")
             self.assertEqual(response.status_code, 202)
             with self.assertRaises(RuntimeError):
@@ -317,7 +317,7 @@ class SceneViewTests(ApiTestCase):
         self.assertEqual(self.scene.text, "the old line")
 
     def test_retry_reports_available_status_after_audio_is_generated(self):
-        with patch("apps.videomanagement.services.SceneServices.update"), patch("apps.videomanagement.serializers.models.stored_file_exists", return_value=True):
+        with patch("apps.videomanagement.services.scenes.generation.update"), patch("apps.videomanagement.serializers.models.stored_file_exists", return_value=True):
             result = self.complete(self.client.patch(reverse("scene-detail", args=[self.scene.pk]), {"text": self.scene.text}, format="json"))
         self.assertEqual(result["narration_status"], "available")
 

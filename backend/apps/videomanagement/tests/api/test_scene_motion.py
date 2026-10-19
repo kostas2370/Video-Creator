@@ -1,7 +1,11 @@
+
+from unittest.mock import patch
+
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
-from ...baker_recipes import scene
+
+from ...baker_recipes import scene, scene_image
 from ...models import VideoStatus
 from .base import ApiTestCase
 
@@ -69,7 +73,6 @@ class SceneMotionTests(ApiTestCase):
 class BulkAutoMotionTests(ApiTestCase):
     def setUp(self):
         super().setUp()
-        from ...baker_recipes import scene_image
 
         self.video = self.video_for(status="READY")
         self.images = scene.make(video=self.video, motion_style="ZOOM_OUT", _quantity=2)
@@ -134,12 +137,11 @@ class BulkAutoMotionTests(ApiTestCase):
             self.assertEqual(row.motion_style, "ZOOM_OUT")
 
     def test_reapplying_unchanged_auto_does_not_publish_an_update(self):
-        from unittest.mock import patch
 
         self.client.patch(self.url, {"motion_intensity": "SUBTLE"}, format="json")
         self.video.refresh_from_db()
         updated = self.video.updated_at
-        with patch("apps.videomanagement.services.editing.publish_update") as publish:
+        with patch("apps.videomanagement.services.scenes.editing.publish_update") as publish:
             response = self.client.patch(
                 self.url, {"motion_intensity": "SUBTLE"}, format="json"
             )

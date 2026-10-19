@@ -21,7 +21,7 @@ class VideoQueryScalingTests(ApiTestCase):
         return video
 
     def query_count(self, video, action):
-        with patch("apps.videomanagement.services.editing.publish_update"), CaptureQueriesContext(connection) as queries:
+        with patch("apps.videomanagement.services.scenes.editing.publish_update"), CaptureQueriesContext(connection) as queries:
             if action == "update":
                 response = self.client.patch(
                     reverse("video-detail", args=[video.pk]), {"title": "Updated"}, format="json"
