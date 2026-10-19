@@ -1,3 +1,4 @@
+import { editorToolButton } from "./ui/editorStyles";
 import { useEffect, useRef, useState } from "react";
 import { FaPause, FaPlay } from "react-icons/fa";
 import { HiOutlineArrowsPointingOut, HiOutlineArrowPath } from "react-icons/hi2";
@@ -19,7 +20,7 @@ export function SceneMotion({ scene, index, disabled, saving, onChange, videoFor
   if (!still) return null;
   const label = styles.find(([value]) => value === (scene.motion_style || "NONE"))?.[1] || "No motion";
   return <>
-    <button ref={trigger} type="button" disabled={disabled} aria-label={`Edit motion for scene ${index + 1}`} onClick={() => setOpen(true)} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlineArrowsPointingOut aria-hidden="true" className="h-4 w-4" />Motion · {label}</button>
+    <button ref={trigger} type="button" disabled={disabled} aria-label={`Edit motion for scene ${index + 1}`} onClick={() => setOpen(true)} className={editorToolButton}><HiOutlineArrowsPointingOut aria-hidden="true" className="h-5 w-5 shrink-0" />Motion · {label}</button>
     {open && <MotionEditor scene={scene} index={index} disabled={disabled} saving={saving} onChange={onChange} videoFormat={videoFormat} onClose={close} />}
   </>;
 }

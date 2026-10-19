@@ -1,3 +1,4 @@
+import { editorToolButton } from "./ui/editorStyles";
 import { useEffect, useRef, useState } from "react";
 import { HiOutlineRectangleStack } from "react-icons/hi2";
 import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
@@ -23,10 +24,10 @@ export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) 
       aria-haspopup="dialog"
       aria-expanded={open}
       title="Add titles, lower thirds, watermarks and calls to action"
-      className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200 dark:hover:bg-blue-900/50 dark:focus-visible:ring-offset-gray-800"
+      className={editorToolButton}
     >
       <HiOutlineRectangleStack aria-hidden="true" className="h-5 w-5 shrink-0" />
-      <span>{scene.overlays?.length ? "Edit text & logos" : "Add text & logos"}</span>
+      <span>Text & logos</span>
       {scene.overlays?.length > 0 && <span aria-hidden="true" className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-200 px-1 text-xs text-blue-800 dark:bg-blue-800 dark:text-blue-100">{scene.overlays.length}</span>}
     </button>
     {open && <OverlayEditor scene={scene} index={index} disabled={disabled} onSaved={onSaved} onClose={close} videoFormat={videoFormat} />}

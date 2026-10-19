@@ -84,13 +84,16 @@ export function StoryVideo() {
       <fieldset disabled={busy || generating} className="min-w-0 space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <label className="block text-sm font-semibold" htmlFor="story-title">Video title<input id="story-title" required maxLength={50} value={title} onChange={event => setTitle(event.target.value)} className={`${editorInput} mt-2`} placeholder="The message I should have ignored" /></label>
         <div>
-          <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+          <details className="mb-5 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+            <summary className="cursor-pointer rounded text-sm font-semibold text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300">Need a story? Write one with AI</summary>
+            <div className="mt-4">
             <label className="block text-sm font-semibold" htmlFor="story-idea">Story prompt</label>
             <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">The writing instructions are yours to edit. Change the topic, tone, length, language, or ending before generating.</p>
             <textarea id="story-idea" maxLength={2000} rows={7} value={idea} onChange={event => setIdea(event.target.value)} className={`${editorInput} mt-2`} placeholder="Describe your story and how you want it written…" aria-describedby="story-generate-help" />
             <button type="button" onClick={generateStory} disabled={!idea.trim() || generating || busy} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"><HiOutlineSparkles aria-hidden="true" />{generating ? "Writing your story…" : story.trim() ? "Generate another story" : "Generate story"}</button>
             <p id="story-generate-help" role="status" className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{generating ? "Writing a draft using your prompt…" : `Uses your configured AI text model. ${story.trim() ? "A new draft replaces the story below. " : ""}Review and edit it before creating your video.`}</p>
-          </div>
+            </div>
+          </details>
           <label className="block text-sm font-semibold" htmlFor="story-script">Your story</label>
           <p id="story-help" className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Paste the exact words the narrator should say. Start with a hook that makes people want to hear the rest.</p>
           <textarea id="story-script" required maxLength={2000} rows={9} value={story} onChange={event => setStory(event.target.value)} aria-describedby="story-help story-length" className={`${editorInput} mt-3`} placeholder="I thought it was just another wrong number. Then they sent a photo of my front door…" />
