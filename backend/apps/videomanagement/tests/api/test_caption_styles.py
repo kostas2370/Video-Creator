@@ -12,6 +12,14 @@ from ...services.subtitles import CaptionCue, scene_cues, word_cues
 from ...utils.composer.captions import ASS_STYLE_FIELDS, ass_header, caption_ass_text, write_captions
 from .base import ApiTestCase
 
+from ...baker_recipes import scene
+from ...serializers.preview import PreviewTimelineSerializer
+from ...serializers.caption_styles import CaptionStyleSerializer
+from drf_yasg import openapi
+from drf_yasg.generators import OpenAPISchemaGenerator
+from rest_framework.routers import SimpleRouter
+from ...models import Video
+from ...views.video_view import VideoView
 
 class CustomCaptionStyleTests(ApiTestCase):
     def test_user_style_round_trips_and_reaches_preview_and_scene_editor(self):
@@ -30,11 +38,9 @@ class CustomCaptionStyleTests(ApiTestCase):
         self.assertEqual(catalog.status_code, 200)
         self.assertEqual(set(catalog.data["presets"]), set(CAPTION_STYLES))
         self.assertIn(config["font"], catalog.data["fonts"])
-        from ...baker_recipes import scene
         item = scene.make(video=video, text="One two three four")
         cues = scene_cues(item, duration=4, highlight=True)
         self.assertTrue(all(len(cue.text.split()) <= 2 for cue in cues))
-        from ...serializers.preview import PreviewTimelineSerializer
         with patch("apps.videomanagement.services.preview.scene_segment") as segment, patch(
             "apps.videomanagement.serializers.preview.voice_tracks", return_value=[]
         ):
@@ -54,7 +60,6 @@ class CustomCaptionStyleTests(ApiTestCase):
             with self.subTest(config=config):
                 # Infinity is tested directly because JSON intentionally disallows it.
                 if "shadow" in config:
-                    from ...serializers.caption_styles import CaptionStyleSerializer
                     self.assertFalse(CaptionStyleSerializer(data=config).is_valid())
                     continue
                 response = self.client.patch(reverse("video-detail", args=[video.pk]),
@@ -110,11 +115,6 @@ class CaptionStyleRenderingTests(SimpleTestCase):
 
 class VideoCaptionSchemaTests(SimpleTestCase):
     def test_style_catalog_has_no_request_body_and_manual_keeps_its_schema(self):
-        from drf_yasg import openapi
-        from drf_yasg.generators import OpenAPISchemaGenerator
-        from rest_framework.routers import SimpleRouter
-        from ...models import Video
-        from ...views.video_view import VideoView
 
         router = SimpleRouter()
         router.register("videos", VideoView, basename="video")

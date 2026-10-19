@@ -16,11 +16,17 @@ from .events import publish_update
 from .models import SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
 from .services import SceneServices, VideoGenerationServices
 from .services.scene_jobs import scene_job
+from .services.captions import process_caption_project
 from .serializers.models import SceneSerializer
 from .utils import scenes, tts_utils
 from .utils.composer import render
 
 logger = logging.getLogger(__name__)
+
+
+@shared_task(soft_time_limit=1150, time_limit=1200)
+def caption_project_task(project_id, token, render=False):
+    process_caption_project(project_id, token, render=render)
 
 
 @shared_task

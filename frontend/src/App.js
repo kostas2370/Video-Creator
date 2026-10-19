@@ -3,6 +3,8 @@ import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
 import Login from "./pages/LoginPage";
 import Home from "./pages/HomePage";
+import { StoryVideo } from "./pages/StoryVideoPage";
+import { Captions } from "./pages/CaptionsPage";
 import { ManualVideo } from "./pages/ManualVideoPage";
 import Register from "./pages/RegisterPage";
 import ForgotPassword from "./pages/ForgotPasswordPage";
@@ -60,6 +62,9 @@ function App() {
 
           <Route element={<RequireAuth />}>
             <Route index element={<Home />} />
+            <Route path="/story/" element={<StoryVideo />} />
+            <Route path="/captions/" element={<Captions />} />
+            <Route path="/captions/:captionId/" element={<Captions />} />
             <Route path="/manual/" element={<ManualVideo />} />
             <Route path="/avatars/" element={<Avatar />} />
             <Route path="/videos/" element={<Videos />} />

@@ -11,6 +11,7 @@ from .views.generate_view import GenerateView
 from .views.scene_view import SceneView
 from .views.video_view import VideoView
 from .views.usage_view import UsageView
+from .views.captions import CaptionProjectView
 
 from rest_framework import routers
 from django.urls import path
@@ -19,6 +20,7 @@ router = routers.DefaultRouter()
 
 
 router.register("videos", VideoView)
+router.register("captions", CaptionProjectView)
 router.register("avatars", AvatarView)
 router.register("voices", VoiceView)
 router.register("scenes", SceneView)

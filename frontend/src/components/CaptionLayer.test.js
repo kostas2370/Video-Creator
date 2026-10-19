@@ -50,3 +50,11 @@ describe("user-defined caption appearance", () => {
     expect(html).toContain("font-weight:400");
   });
 });
+
+
+it("supports the standalone caption studio's appearance fields", () => {
+  const html = renderToStaticMarkup(<CaptionLayer style="TIKTOK" cue={{ text: "a".repeat(30), active_word: 0 }} config={{ font: "DejaVu Serif", size: 6, color: "#aaffff", highlight: "#00ff00", position: "top" }} />);
+  expect(html).toContain("font-size:4.333333333333333cqw");
+  expect(html).toContain("top:9%");
+  expect(html).toContain("color:#00ff00");
+});

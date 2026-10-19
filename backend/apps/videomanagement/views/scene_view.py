@@ -47,7 +47,8 @@ class SceneView(viewsets.GenericViewSet):
 
     def get_serializer_class(self):
         if self.action == "partial_update" and not getattr(self, "swagger_fake_view", False):
-            if self.get_object().video.video_type == VideoType.MANUAL:
+            video = self.get_object().video
+            if video.video_type == VideoType.MANUAL and not (video.settings or {}).get("narration", False):
                 return ManualTextSerializer
         return {
             "captions": SceneCaptionsSerializer,
@@ -155,7 +156,7 @@ class SceneView(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        if instance.video.video_type == VideoType.MANUAL:
+        if instance.video.video_type == VideoType.MANUAL and not (instance.video.settings or {}).get("narration", False):
             with editable_video(instance.video_id) as video:
                 instance.text = serializer.validated_data["text"]
                 instance.save(update_fields=["text"])
