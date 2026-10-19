@@ -8,7 +8,7 @@ from unittest.mock import patch
 from celery import shared_task
 from celery.signals import before_task_publish
 from django.http import HttpResponse
-from django.test import SimpleTestCase, RequestFactory, override_settings
+from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.urls import path
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.response import Response
@@ -45,7 +45,7 @@ def captured_json():
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
     handler.setFormatter(JsonFormatter())
-    logger = logging.getLogger("video_creator.observability")
+    logger = logging.getLogger("video_creator.exceptions")
     previous_level = logger.level
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
@@ -131,6 +131,8 @@ class ObservabilityTests(SimpleTestCase):
         record.request = request
         row = json.loads(JsonFormatter().format(record))
         self.assertEqual(row["request_id"], request.request_id)
+        del request.request_id
+        self.assertNotIn("request_id", json.loads(JsonFormatter().format(record)))
 
     def test_publication_and_worker_logs_share_the_request_reference(self):
         @shared_task(name="test.observability")
