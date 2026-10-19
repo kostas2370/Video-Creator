@@ -202,7 +202,7 @@ SESSION_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 
 # Django REST Framework
 REST_FRAMEWORK = {
-    "EXCEPTION_HANDLER": "video_creator.observability.api_exception_handler",
+    "EXCEPTION_HANDLER": "video_creator.exceptions.api_exception_handler",
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
