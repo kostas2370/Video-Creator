@@ -1016,3 +1016,19 @@ captions. Fonts and text spacing can differ slightly between browser and export.
 The controls are available for both AI and manual projects and do not call AI
 providers. Apply migration `0029_scene_overlays` before running this version, and
 restart the API and Celery workers after updating.
+
+### Video covers and reusable media
+
+- Open an exported video and choose **Cover**. Scrub the video and choose **Use
+  current frame**, or enter a timestamp. Add a title, font, color, placement, and
+  background, then preview and save a PNG. Saved covers appear in **My videos**
+  and can be downloaded from the cover creator.
+- **My assets → Media library** stores images, video clips, and audio. Search by
+  name or tag, filter by type, and edit tags. Files are limited to 100 MB and
+  audio/video to 15 minutes.
+- Reuse media through **Choose from media library** in scene upload/visual tools
+  and **From library** in background music. **Use media** in the library can also
+  add a scene or soundtrack to an existing project. Project media is copied, so
+  removing a library item does not remove copies already used in videos.
+- Apply database migrations before using these features:
+  `python manage.py migrate` (includes migration `0034_media_library_and_covers`).

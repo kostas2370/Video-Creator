@@ -1,3 +1,4 @@
+import { API_HOST } from "../endpoints";
 
 import { useState } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
@@ -63,7 +64,7 @@ export function DefaultTable({ data, setVideos }) {
       />
 
       <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-        {data?.map(({ title, status, output, id, prompt, music, gpt_answer }) => {
+        {data?.map(({ title, status, output, id, prompt, music, gpt_answer, cover }) => {
           const isCompleted = status === "COMPLETED";
           const isRenderable = !(renderPending && id === selectedId) && (isCompleted || status === "READY");
           const isEditable = isRenderable || status === "REVIEW";
@@ -72,7 +73,7 @@ export function DefaultTable({ data, setVideos }) {
           const statusColor = isCompleted ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : status === "FAILED" ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300" : status === "READY" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
           return <li key={id} className="flex flex-col gap-4 p-5 transition hover:bg-gray-50/80 sm:flex-row sm:items-center dark:hover:bg-gray-900/20">
             <div className="flex min-w-0 flex-1 items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400 dark:bg-gray-700"><HiOutlineFilm className="h-6 w-6" /></div>
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400 dark:bg-gray-700">{cover ? <img src={/^https?:\/\//i.test(cover) ? cover : `${API_HOST}${cover}`} alt="" className="h-full w-full rounded-xl object-cover" /> : <HiOutlineFilm className="h-6 w-6" />}</div>
               <div className="min-w-0"><h3 className="break-words text-sm font-semibold text-gray-900 dark:text-white">{title || "Untitled video"}</h3><div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColor}`}>{status?.replaceAll("_", " ").toLowerCase()}</span><span className="text-xs text-gray-400">Generated video</span></div></div>
             </div>
             <div className="flex shrink-0 items-center justify-end gap-2">

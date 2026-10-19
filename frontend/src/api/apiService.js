@@ -117,3 +117,12 @@ export const getSceneCaptions = id => request({ url: action("scenes", id, "capti
 export const updateSceneCaptions = (id, data) => patch(action("scenes", id, "captions"), data, callerHandlesErrors);
 
 export const getCaptionStyles = () => request({ url: "videos/caption_styles/", ...callerHandlesErrors });
+
+export const getMediaAssets = (search, page = 1, kind) => get("media-assets/", { search: search || undefined, page: page || 1, kind: kind || undefined });
+export const createMediaAsset = data => post("media-assets/", data, callerHandlesErrors);
+export const editMediaAsset = (id, data) => patch(detail("media-assets", id), data, callerHandlesErrors);
+export const deleteMediaAsset = id => remove(detail("media-assets", id), callerHandlesErrors);
+export const useMediaAsset = (id, data) => post(action("media-assets", id, "use"), data, callerHandlesErrors);
+export const previewVideoCover = (id, data) => post(action("videos", id, "cover_preview"), data, { ...callerHandlesErrors, responseType: "blob" });
+export const saveVideoCover = (id, data) => post(action("videos", id, "cover"), data, callerHandlesErrors);
+export const downloadVideoCover = id => request({ url: action("videos", id, "cover_download"), responseType: "blob", ...callerHandlesErrors });

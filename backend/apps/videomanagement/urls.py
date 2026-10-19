@@ -1,3 +1,4 @@
+from .views.library import MediaAssetView
 from .views.general_views import (
     IntroView,
     OutroView,
@@ -19,6 +20,7 @@ from django.urls import path
 router = routers.DefaultRouter()
 
 
+router.register("media-assets", MediaAssetView)
 router.register("videos", VideoView)
 router.register("captions", CaptionProjectView)
 router.register("avatars", AvatarView)

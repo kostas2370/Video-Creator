@@ -381,6 +381,8 @@ class Video(LifecycleModelMixin, AbstractModel):
         ordering = ["created_at"]
 
     reference_image = models.ImageField(upload_to="media/references/%Y/%m/%d", blank=True)
+    cover = models.ImageField(upload_to="media/covers/%Y/%m/%d", blank=True)
+    cover_settings = models.JSONField(default=dict, blank=True)
     notes = models.TextField(blank=True, default="", max_length=10000)
     title = models.CharField(max_length=50, blank=False)
     url = models.URLField(blank=True)
@@ -465,3 +467,15 @@ class Video(LifecycleModelMixin, AbstractModel):
             link=f"/videos/{self.pk}/",
         )
         send_email.delay(name=subject, email=self.created_by.email, text=message)
+
+
+class MediaAsset(AbstractModel):
+    title = models.CharField(max_length=100)
+    file = models.FileField(upload_to="media/library/%Y/%m/%d", max_length=255)
+    kind = models.CharField(max_length=10, choices=(("IMAGE", "Image"), ("VIDEO", "Video"), ("AUDIO", "Audio")))
+    tags = models.JSONField(default=list, blank=True)
+    duration = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
