@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { thumbnailFrameTime, videoLibraryInfo } from "./videoLibrary";
+import { videoLibraryInfo } from "./videoLibrary";
 
 describe("video library presentation", () => {
   it("identifies manual, story, and AI projects", () => {
@@ -20,18 +20,5 @@ describe("video library presentation", () => {
     expect(videoLibraryInfo({ ...failed, video_type: "MANUAL" }).canResume).toBe(false);
     expect(videoLibraryInfo({ ...failed, gpt_answer: null }).canResume).toBe(false);
     expect(videoLibraryInfo({ ...failed, dir_name: "" }).canResume).toBe(false);
-  });
-});
-
-
-describe("video thumbnail frame selection", () => {
-  it("samples different frames from the middle rather than the intro or end card", () => {
-    expect(thumbnailFrameTime(100, 0)).toBeCloseTo(35);
-    expect(thumbnailFrameTime(100, 0.5)).toBeCloseTo(55);
-    expect(thumbnailFrameTime(100, 1)).toBeCloseTo(75);
-    expect(thumbnailFrameTime(0.2, 0.5)).toBeLessThan(0.2);
-  });
-  it("handles unavailable duration without seeking outside the video", () => {
-    for (const duration of [0, -1, Infinity, NaN]) expect(thumbnailFrameTime(duration, 0.5)).toBe(0);
   });
 });

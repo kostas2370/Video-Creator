@@ -25,6 +25,7 @@ export const getIntro = (search, page = 1) => get("intros/", { search: search ||
 export const getOutro = (search, page = 1) => get("outros/", { search: search || undefined, page });
 export const getAvatars = (search, page = 1) => get("avatars/", { search: search || undefined, page });
 export const getVideos = (search, page, status) => get("videos/", { search: search || undefined, page: page || undefined, status: status || undefined });
+export const ensureVideoThumbnail = id => post(action("videos", id, "thumbnail"), {}, callerHandlesErrors);
 export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
