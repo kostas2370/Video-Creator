@@ -25,7 +25,9 @@ export const getIntro = (search, page = 1) => get("intros/", { search: search ||
 export const getOutro = (search, page = 1) => get("outros/", { search: search || undefined, page });
 export const getAvatars = (search, page = 1) => get("avatars/", { search: search || undefined, page });
 export const getVideos = (search, page, status, filters = {}) => get("videos/", { search: search || undefined, page: page || undefined, status: status || undefined, ...filters });
-export const setVideoFavorite = (id, isFavorite) => patch(`${detail("videos", id)}favorite/`, { is_favorite: isFavorite });
+export const setVideoFavorite = (id, isFavorite) => isFavorite
+  ? patch(action("videos", id, "favorite"))
+  : remove(action("videos", id, "favorite"));
 export const ensureVideoThumbnail = id => post(action("videos", id, "thumbnail"), {}, callerHandlesErrors);
 export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });

@@ -15,7 +15,7 @@ describe("video library API", () => {
   it("explicitly saves both favorite and unfavorite without updating video settings", () => {
     setVideoFavorite("video-1", true);
     setVideoFavorite("video-1", false);
-    expect(request).toHaveBeenNthCalledWith(1, { method: "patch", url: "videos/video-1/favorite/", data: { is_favorite: true } });
-    expect(request).toHaveBeenNthCalledWith(2, { method: "patch", url: "videos/video-1/favorite/", data: { is_favorite: false } });
+    expect(request).toHaveBeenNthCalledWith(1, { method: "patch", url: "videos/video-1/favorite/", data: undefined });
+    expect(request).toHaveBeenNthCalledWith(2, { method: "delete", url: "videos/video-1/favorite/" });
   });
 });

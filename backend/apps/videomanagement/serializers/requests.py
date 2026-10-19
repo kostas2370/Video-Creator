@@ -368,7 +368,3 @@ class VideoNotesSerializer(serializers.Serializer):
     previous_notes = serializers.CharField(
         allow_blank=True, max_length=10000, trim_whitespace=False, write_only=True
     )
-
-
-class VideoFavoriteSerializer(serializers.Serializer):
-    is_favorite = serializers.BooleanField()

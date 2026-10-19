@@ -38,7 +38,6 @@ from apps.videomanagement.serializers.requests import (
     StoryboardSerializer,
     StoryDraftSerializer,
     StoryVideoSerializer,
-    VideoFavoriteSerializer,
     VideoNotesSerializer,
     VideoUpdateSerializer,
 )
@@ -96,14 +95,16 @@ class VideoView(
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
 
-    @swagger_auto_schema(request_body=VideoFavoriteSerializer)
     @action(detail=True, methods=["PATCH"])
     def favorite(self, request, pk=None):
         video = self.get_object()
-        serializer = VideoFavoriteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        video.is_favorite = serializer.validated_data["is_favorite"]
-        video.save(update_fields=["is_favorite"])
+        video.set_favorite(True)
+        return Response({"is_favorite": video.is_favorite})
+
+    @favorite.mapping.delete
+    def unfavorite(self, request, pk=None):
+        video = self.get_object()
+        video.set_favorite(False)
         return Response({"is_favorite": video.is_favorite})
 
     @action(detail=False, methods=["GET"])
