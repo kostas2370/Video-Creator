@@ -106,3 +106,21 @@ class CaptionStyleRenderingTests(SimpleTestCase):
         self.assertEqual([cue.text for cue in cues], ["Hello", "world"])
         self.assertTrue(all(cue.active_word == 0 for cue in cues))
         self.assertEqual(caption_ass_text(cues[0], style=replace(style, highlight_words=False)), "Hello")
+
+
+class VideoCaptionSchemaTests(SimpleTestCase):
+    def test_style_catalog_has_no_request_body_and_manual_keeps_its_schema(self):
+        from drf_yasg import openapi
+        from drf_yasg.generators import OpenAPISchemaGenerator
+        from rest_framework.routers import SimpleRouter
+        from ...models import Video
+        from ...views.video_view import VideoView
+
+        router = SimpleRouter()
+        router.register("videos", VideoView, basename="video")
+        with patch.object(VideoView, "get_queryset", return_value=Video.objects.none()):
+            schema = OpenAPISchemaGenerator(
+                info=openapi.Info(title="Videos", default_version="v1"), patterns=router.urls,
+            ).get_schema(request=None, public=True)
+        self.assertFalse(any(item["in"] == "body" for item in schema.paths["/videos/caption_styles/"]["get"].get("parameters", [])))
+        self.assertTrue(any(item["in"] == "body" for item in schema.paths["/videos/manual/"]["post"].get("parameters", [])))
