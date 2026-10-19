@@ -116,3 +116,18 @@ class SceneCaptionEditingTests(ApiTestCase):
         self.scene.file = None
         self.scene.save(update_fields=["file"])
         self.assertEqual(self.client.get(self.url).status_code, 400)
+
+    def test_saving_unchanged_estimates_preserves_preview_render_and_srt(self):
+        self.scene.text = "One two six ten"
+        self.scene.save(update_fields=["text"])
+        before = preview_timeline(self.video).captions
+        srt = export_subtitles(self.video)
+        data = self.client.get(self.url).data
+        self.assertEqual(self.save(words=data["words"], revision=data["revision"]).status_code, 200)
+        self.assertEqual(preview_timeline(self.video).captions, before)
+        self.assertEqual(export_subtitles(self.video), srt)
+        destination = self.audio.with_suffix(".ass")
+        write_captions(destination, preview_timeline(self.video).segments, (1080, 1920))
+        rendered = destination.read_text()
+        self.assertIn("0:00:00.00,0:00:01.00", rendered)
+        self.assertIn("0:00:03.00,0:00:04.00", rendered)
