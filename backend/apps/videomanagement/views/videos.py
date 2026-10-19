@@ -8,11 +8,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement.filters import VideoFilter
 from apps.videomanagement.models import SceneImage, Video, VideoStatus, VideoType
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.permissions import IsOwnerPermission
@@ -88,11 +89,17 @@ class VideoView(
 ):
     serializer_class = VideoSerializer
     queryset = Video.objects.all()
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ["title", "tags__tiktok", "tags__youtube", "tags__search"]
-    filterset_fields = ["status", "video_type"]
+    filterset_class = VideoFilter
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
+
+    @action(detail=True, methods=["PATCH"])
+    def favorite(self, request, pk=None):
+        video = self.get_object()
+        video.toggle_favorite()
+        return Response({"is_favorite": video.is_favorite})
 
     @action(detail=False, methods=["GET"])
     def caption_styles(self, request):
@@ -142,7 +149,7 @@ class VideoView(
             return Video.objects.none()
         queryset = (
             Video.objects.for_user(self.request.user)
-            .order_by("-created_at")
+            .order_by("-updated_at", "-id")
             .select_related("music", "prompt")
         )
         if self.action == "list":
