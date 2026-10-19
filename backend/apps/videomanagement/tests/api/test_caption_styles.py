@@ -40,7 +40,7 @@ class CustomCaptionStyleTests(ApiTestCase):
         ):
             segment.return_value = SimpleNamespace(kind="scene", content=item, narration_duration=4,
                 duration=4, start=0, base_duration=4, image=None, index=1, visual_duration=None,
-                visual_type="image", clip_audio=False, transition="CUT", transition_duration=None,
+                visual_type="image", loop_visual=False, clip_audio=False, transition="CUT", transition_duration=None,
                 fade_in=0, fade_out=0, dissolve_in=0)
             data = PreviewTimelineSerializer(video).data
         self.assertEqual(data["caption_config"], resolved.to_dict())
