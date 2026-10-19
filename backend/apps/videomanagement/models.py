@@ -489,9 +489,14 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
 
 
 class MediaAsset(AbstractModel):
+    class Kind(models.TextChoices):
+        IMAGE = "IMAGE", "Image"
+        VIDEO = "VIDEO", "Video"
+        AUDIO = "AUDIO", "Audio"
+
     title = models.CharField(max_length=100)
     file = models.FileField(upload_to="media/library/%Y/%m/%d", max_length=255)
-    kind = models.CharField(max_length=10, choices=(("IMAGE", "Image"), ("VIDEO", "Video"), ("AUDIO", "Audio")))
+    kind = models.CharField(max_length=10, choices=Kind.choices)
     tags = models.JSONField(default=list, blank=True)
     duration = models.FloatField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
