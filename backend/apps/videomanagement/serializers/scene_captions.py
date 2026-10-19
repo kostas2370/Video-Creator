@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .captions import CaptionWordSerializer
+from .caption_words import CaptionWordSerializer
 
 
 class SceneCaptionsSerializer(serializers.Serializer):
