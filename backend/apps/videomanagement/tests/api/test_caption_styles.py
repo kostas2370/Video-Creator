@@ -9,7 +9,8 @@ from django.urls import reverse
 
 from ...services.caption_styles import CAPTION_STYLES, video_caption_style, resolve_style
 from ...services.subtitles import CaptionCue, scene_cues, word_cues
-from ...utils.composer.captions import ASS_STYLE_FIELDS, ass_header, caption_ass_text, write_captions
+from ...utils.composer.ass import ASS_STYLE_FIELDS
+from ...utils.composer.captions import ass_header, caption_ass_text, write_captions
 from .base import ApiTestCase
 
 from ...baker_recipes import scene
@@ -50,6 +51,15 @@ class CustomCaptionStyleTests(ApiTestCase):
                 fade_in=0, fade_out=0, dissolve_in=0)
             data = PreviewTimelineSerializer(video).data
         self.assertEqual(data["caption_config"], resolved.to_dict())
+
+    def test_bundled_font_choices_round_trip(self):
+        video = self.video_for()
+        for font in ("Poppins", "Lato", "Bebas Neue"):
+            response = self.client.patch(reverse("video-detail", args=[video.pk]),
+                {"caption_style": "CUSTOM", "caption_config": {"font": font}}, format="json")
+            self.assertEqual(response.status_code, 200, response.data)
+            video.refresh_from_db()
+            self.assertEqual(video_caption_style(video).font, font)
 
     def test_invalid_styles_and_raw_renderer_options_are_rejected(self):
         video = self.video_for()

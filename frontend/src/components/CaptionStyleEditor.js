@@ -1,3 +1,5 @@
+import { FontPicker } from "./FontPicker";
+import { captionWithFont } from "../utils/fonts";
 import { useEffect, useMemo, useState } from "react";
 import { getCaptionStyles } from "../api/apiService";
 import { CaptionLayer } from "./CaptionLayer";
@@ -28,10 +30,11 @@ export function CaptionStyleEditor({ preset, config, onChange, videoFormat }) {
       {Object.entries(catalog.presets).map(([key, style]) => <option key={key} value={key}>{style.name}</option>)}
       <option value="CUSTOM">Custom · make your own</option>
     </select></label>
+    <FontPicker value={resolved.font} fonts={catalog.fonts} onChange={font => onChange("CUSTOM", captionWithFont(resolved, font, size))} />
     <div className="relative h-32 overflow-hidden rounded-xl bg-gray-900" aria-label="Caption style preview"><CaptionLayer cue={{ text: "Make every word count", active_word: 2 }} size={size} config={resolved} /></div>
     {preset === "CUSTOM" && <div className="space-y-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
       <label className="block text-sm">Style name<input maxLength={50} value={custom.name} onChange={event => edit("name", event.target.value)} className={`${editorInput} mt-1`} /></label>
-      <label className="block text-sm">Font<select value={custom.font} onChange={event => edit("font", event.target.value)} className={`${editorInput} mt-1`}>{catalog.fonts.map(font => <option key={font}>{font}</option>)}</select></label>
+
       <label className="block text-sm">Text size · {custom.font_size}%<input type="range" min={1} max={15} step={0.25} value={custom.font_size} onChange={event => edit("font_size", Number(event.target.value))} className="mt-2 w-full accent-blue-600" /></label>
       <div className="grid grid-cols-3 gap-3">{[["color", "Text color"], ["highlight_color", "Highlight color"], ["outline_color", "Outline color"]].map(([field, label]) => <label key={field} className="block text-xs">{label}<input aria-label={label} type="color" value={custom[field]} onChange={event => edit(field, event.target.value)} className="mt-2 h-10 w-full" /></label>)}</div>
       <label className="block text-sm">Outline width · {custom.outline_width}%<input type="range" min={0} max={1.5} step={0.05} value={custom.outline_width} onChange={event => edit("outline_width", Number(event.target.value))} className="mt-2 w-full accent-blue-600" /></label>

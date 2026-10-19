@@ -5,6 +5,7 @@ import { RiMoonLine, RiSunLine } from "react-icons/ri";
 import { HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup } from "react-icons/hi2";
 import { NotificationBell } from "./NotificationBell";
 import useLogout from "../../hooks/useLogout";
+import { isCreationPath } from "../../utils/creationModes";
 
 const destinations = [
   { to: "/", label: "Create video", icon: HiOutlinePlusCircle },
@@ -29,9 +30,8 @@ function Navbar({ theme, toggleTheme }) {
     return () => document.removeEventListener("keydown", close);
   }, [isMenuOpen]);
 
-  const creationPath = /^\/manual\/?$/.test(location.pathname) ? "/manual/" : "/";
   const links = mobile => destinations.map(({ to, label, icon: Icon }) => (
-    <NavLink key={to} to={to === "/" ? creationPath : to} end={to === "/"} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${mobile ? "" : "whitespace-nowrap"} ${isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}>
+    <NavLink key={to} to={to} end={to === "/"} aria-current={to === "/" && isCreationPath(location.pathname) ? "page" : undefined} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${mobile ? "" : "whitespace-nowrap"} ${(to === "/" ? isCreationPath(location.pathname) : isActive) ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}>
       <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />{label}
     </NavLink>
   ));

@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +21,7 @@ from ...baker_recipes import (
     scene_image,
     video,
 )
+from ...serializers.overlays import OverlaySerializer
 from ...utils.composer.render import make_video
 from ...utils.exceptions import RenderFailedException
 
@@ -43,8 +45,40 @@ class FFmpegRenderTests(TestCase):
 
         self.assertLess(yellow_x(0.08), yellow_x(0.38))
 
+    def test_bundled_font_is_loaded_for_captions_and_overlays(self):
+        Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
+        item = self.add_still(text="Caption")
+        run = subprocess.run
+        logs = []
+
+        def capture_font_selection(command, *args, **kwargs):
+            command = list(command)
+            final_render = command[0] == "ffmpeg" and "-filter_complex_script" in command
+            if final_render:
+                command[command.index("-loglevel") + 1] = "info"
+            result = run(command, *args, **kwargs)
+            if final_render:
+                log = kwargs["stderr"]
+                log.seek(0)
+                logs.append(log.read().decode("utf-8", errors="replace"))
+            return result
+
+        for font, face in (("Poppins", "Poppins-Bold"), ("Lato", "Lato-Bold"), ("Bebas Neue", "BebasNeue-Regular")):
+            with self.subTest(font=font):
+                logs.clear()
+                self.row.settings.update(subtitles=True, caption_style="CUSTOM", caption_config={"font": font})
+                self.row.save()
+                overlay = OverlaySerializer(data={"kind": "title", "text": "TITLE", "font": font, "position": "top-center"})
+                overlay.is_valid(raise_exception=True)
+                item.overlays = [overlay.validated_data]
+                item.save(update_fields=["overlays"])
+                with patch("apps.videomanagement.utils.composer.render.subprocess.run", side_effect=capture_font_selection):
+                    make_video(self.row)
+                selected = re.findall(r"fontselect: .* -> .*" + re.escape(face), "\n".join(logs))
+                # Captions and overlays use separate libass filters: both must load this face.
+                self.assertGreaterEqual(len(selected), 2, "\n".join(logs))
+
     def test_overlays_follow_timing_and_logo_placement_in_export(self):
-        from ...serializers.overlays import OverlaySerializer
 
         Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
         Image.new("RGBA", (32, 32), "red").save(self.root / "logo.png")
@@ -62,7 +96,6 @@ class FFmpegRenderTests(TestCase):
         self.assertGreater((visible[30:85, :, :].max(axis=2) > 150).sum(), 10)
 
     def test_overlay_offsets_include_intro_and_previous_scene_pause(self):
-        from ...serializers.overlays import OverlaySerializer
 
         Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
         Image.new("RGBA", (32, 32), "red").save(self.root / "logo.png")
@@ -78,6 +111,23 @@ class FFmpegRenderTests(TestCase):
         self.assertLess(self.frame(0.9).max(), 15)
         self.assertGreater(self.frame(1.2)[55:80, 125:150, 0].mean(), 200)
         self.assertLess(self.frame(1.4).max(), 15)
+
+    def test_wide_overlay_text_stays_inside_the_export_frame(self):
+        Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
+        overlay = OverlaySerializer(data={
+            "kind": "title", "text": "W" * 200, "font": "Poppins",
+            "size": 8, "position": "middle-center", "background": False,
+        })
+        overlay.is_valid(raise_exception=True)
+        self.add_still(overlays=[overlay.validated_data])
+        make_video(self.row)
+        frame = self.frame(0.1)
+        ys, xs = np.where(frame.max(axis=2) > 100)
+        self.assertGreater(len(xs), 10)
+        self.assertGreater(xs.min(), 3)
+        self.assertLess(xs.max(), 156)
+        self.assertGreater(ys.min(), 2)
+        self.assertLess(ys.max(), 87)
 
     def test_intro_cut_fade_and_dissolve_are_present_in_the_export(self):
         Image.new("RGB", (160, 90), "red").save(self.root / "still.png")

@@ -4,6 +4,8 @@ import math
 
 from rest_framework import serializers
 
+from ..services.caption_styles import FONTS
+
 POSITIONS = (
     "top-left",
     "top-center",
@@ -19,6 +21,7 @@ POSITIONS = (
 
 class OverlaySerializer(serializers.Serializer):
     kind = serializers.ChoiceField(choices=("title", "lower-third", "watermark", "cta"))
+    font = serializers.ChoiceField(choices=FONTS, required=False)
     text = serializers.CharField(max_length=200, allow_blank=True, default="")
     logo = serializers.BooleanField(default=False)
     position = serializers.ChoiceField(choices=POSITIONS, default="middle-center")

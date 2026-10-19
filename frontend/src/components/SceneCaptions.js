@@ -1,3 +1,4 @@
+import { editorToolButton } from "./ui/editorStyles";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HiOutlineChatBubbleBottomCenterText } from "react-icons/hi2";
 import { getSceneCaptions, updateSceneCaptions } from "../api/apiService";
@@ -15,7 +16,7 @@ export function SceneCaptions({ scene, index, disabled, onSaved, videoFormat }) 
   const trigger = useRef(null);
   const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
   return <>
-    <button ref={trigger} type="button" disabled={disabled || scene.narration_status !== "available"} onClick={() => setOpen(true)} aria-label={`Edit captions for scene ${index + 1}`} aria-haspopup="dialog" aria-expanded={open} title={scene.narration_status !== "available" ? "Add narration or a voiceover to edit timed captions" : "Correct caption words and their timing"} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-40 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+    <button ref={trigger} type="button" disabled={disabled || scene.narration_status !== "available"} onClick={() => setOpen(true)} aria-label={`Edit captions for scene ${index + 1}`} aria-haspopup="dialog" aria-expanded={open} title={scene.narration_status !== "available" ? "Add narration or a voiceover to edit timed captions" : "Correct caption words and their timing"} className={editorToolButton}>
       <HiOutlineChatBubbleBottomCenterText aria-hidden="true" className="h-5 w-5" />Captions
     </button>
     {open && <SceneCaptionEditor scene={scene} index={index} disabled={disabled} onSaved={onSaved} onClose={close} videoFormat={videoFormat} />}
