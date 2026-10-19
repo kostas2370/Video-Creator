@@ -67,20 +67,26 @@ def caption_ass_text(cue, *, style):
 
 def write_captions(path, segments, size):
     style = video_caption_style(segments[0].content.video) if segments else resolve_style("CLASSIC")
-    header = ass_header(style, size)
     tracks = {track["id"]: track for track in voice_tracks(segments)} if any(
         segment.content.audio_settings.get("crossfade") for segment in segments
     ) else {}
-    lines = []
+    cues = []
     for segment in segments:
         scene = segment.content
         track = tracks.get(str(scene.pk))
         offset = track["start"] - scene.audio_settings.get("delay", 0) if track else segment.start
-        for cue in scene_cues(scene, offset=offset, duration=segment.narration_duration, highlight=True):
-            text = caption_ass_text(cue, style=style)
-            scale = style.text_scale(cue.text, size)
-            if scale < 1:
-                percent = round(scale * 100, 3)
-                text = "{\\fscx" + str(percent) + "\\fscy" + str(percent) + "}" + text
-            lines.append(f"Dialogue: 0,{ass_timestamp(cue.start)},{ass_timestamp(cue.end)},Default,,0,0,0,,{text}")
+        cues.extend(scene_cues(scene, offset=offset, duration=segment.narration_duration, highlight=True))
+    write_ass(path, cues, size, style)
+
+
+def write_ass(path, cues, size, style):
+    header = ass_header(style, size)
+    lines = []
+    for cue in cues:
+        text = caption_ass_text(cue, style=style)
+        scale = style.text_scale(cue.text, size)
+        if scale < 1:
+            percent = round(scale * 100, 3)
+            text = "{\\fscx" + str(percent) + "\\fscy" + str(percent) + "}" + text
+        lines.append(f"Dialogue: 0,{ass_timestamp(cue.start)},{ass_timestamp(cue.end)},Default,,0,0,0,,{text}")
     Path(path).write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
