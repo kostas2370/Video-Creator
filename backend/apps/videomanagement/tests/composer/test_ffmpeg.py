@@ -104,6 +104,8 @@ class FFmpegRenderTests(TestCase):
                     self.assertLess(boundary[0], 20)
 
     def setUp(self):
+        # Rendering fixtures use synthetic tones; speech providers stay mocked.
+        self.enterContext(patch("apps.videomanagement.utils.composer.render.align_scene_narration"))
         self.directory = tempfile.TemporaryDirectory(prefix="ffmpeg-tests-")
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
