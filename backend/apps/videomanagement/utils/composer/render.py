@@ -206,7 +206,7 @@ def visual_stream(graph, segment, size):
                     motion_filter(segment.content, segment.base_duration, size),
                 )
     else:
-        index = graph.input(field.path)
+        index = graph.input(field.path, ("-stream_loop", "-1") if segment.loop_visual else ())
         stream = graph.filter(
             [f"{index}:v"], f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={FPS}"
         )

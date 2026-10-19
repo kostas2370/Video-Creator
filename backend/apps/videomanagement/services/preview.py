@@ -23,6 +23,7 @@ class PreviewSegmentTiming:
     image: SceneImage | None = None
     index: int = 0
     visual_duration: float | None = None
+    loop_visual: bool = False
     clip_audio: bool = False
     narration_duration: float | None = None
     transition: str = TransitionStyle.CUT
@@ -72,6 +73,7 @@ def scene_segment(scene, index, start, choices):
         start=start, duration=timing["duration"], base_duration=timing["base_duration"],
         visual_type="video" if is_video else "image",
         visual_duration=visual_timing.get("duration"),
+        loop_visual=is_video and choices.get("loop_visual", False),
         clip_audio=bool(is_video and image.with_audio and visual_timing.get("audio_duration")),
         narration_duration=speech, transition=style, transition_duration=transition_duration,
     )

@@ -225,6 +225,10 @@ def save(
         logger.error("No TTS handler registered for provider: %s", syn.provider)
         return None
 
+    # Scene edits can narrate videos whose media folders do not exist yet.
+    # Prepare the destination before requesting audio from any provider.
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+
     handler(
         text,
         save_path,

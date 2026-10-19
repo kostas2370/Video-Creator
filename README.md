@@ -755,6 +755,28 @@ but requires recorded narration and waits until processing finishes. The downloa
 belongs to the current edit; render again after changing scenes or timing to match
 it to your finished video.
 
+### Captioning an uploaded video
+
+Open **Captions** in the navigation to create a separate caption project from an
+MP4, MOV, WebM, or M4V video (up to 100 MB and 15 minutes, with spoken audio).
+Choose **Generate captions** to transcribe its audio in the background using the
+configured OpenAI key. This workspace uses Whisper's measured
+[word timestamps](https://developers.openai.com/api/docs/guides/speech-to-text),
+rather than estimating timing from the text. Transcription usage is recorded in
+seconds on the Usage page.
+
+Review the video, correct individual words, and adjust their start/end times.
+Click a word number to seek to it; **Add word** inserts a word at the playhead,
+between neighboring words when there is space. Choose TikTok word highlights or
+Classic subtitles, then customize the font, text size, colors, and placement.
+Save edits, download an SRT, or export a captioned MP4 with the original framing
+and sound. Editing captions invalidates a previous export until rendered again.
+Caption projects are saved separately and are available only in their owner's
+project list. Failed processing can be retried without uploading the video again.
+
+This feature requires the caption-project migration and an updated Celery worker
+alongside the backend and frontend updates.
+
 ### Saving and rendering
 
 **Settings** opens the video's intro, outro, avatar, transition and subtitle controls.
