@@ -5,11 +5,18 @@ from django.db.models import Max
 from rest_framework import serializers
 
 from apps.apikeysmanagement.models import Provider
+from apps.videomanagement.services.media.selection import available_voice, owned_asset
+from apps.videomanagement.services.media.uploads import validate_visual
 
-from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle, ImageMode, TransitionStyle
-from ..services.asset_selection import available_voice, owned_asset
-from ..services.VideoServices import video_update
-from ..services.media_uploads import validate_visual
+from ..models import (
+    Avatar,
+    ImageMode,
+    Intro,
+    MotionIntensity,
+    MotionStyle,
+    Outro,
+    TransitionStyle,
+)
 from ..utils.file_utils import check_if_video
 from ..video_formats import (
     DEFAULT_VIDEO_FORMAT,
@@ -17,7 +24,6 @@ from ..video_formats import (
     VIDEO_FORMAT_CHOICES,
     VIDEO_PLATFORM_CHOICES,
 )
-
 from .audio import FiniteFloat
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
 
@@ -29,7 +35,9 @@ class TransitionDurationField(serializers.FloatField):
     def to_internal_value(self, data):
         value = super().to_internal_value(data)
         if not math.isfinite(value):
-            raise serializers.ValidationError("Choose a duration between 0.1 and 3 seconds.")
+            raise serializers.ValidationError(
+                "Choose a duration between 0.1 and 3 seconds."
+            )
         return value
 
 
@@ -51,7 +59,9 @@ def normalize_avatar_position(value):
 
 class GenerateSerializer(serializers.Serializer):
     review_script = serializers.BooleanField(required=False, default=False)
-    scene_count = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=60)
+    scene_count = serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=60
+    )
     reference_image = serializers.ImageField(required=False)
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
@@ -69,7 +79,9 @@ class GenerateSerializer(serializers.Serializer):
         default=settings.DEFAULT_GPT_MODEL,
     )
     image_mode = serializers.ChoiceField(
-        required=False, choices=[*ImageMode.choices, (False, "No visuals")], default=ImageMode.WEB
+        required=False,
+        choices=[*ImageMode.choices, (False, "No visuals")],
+        default=ImageMode.WEB,
     )
     avatar_selection = serializers.CharField(
         required=False, max_length=36, default="", allow_blank=True, allow_null=True
@@ -126,17 +138,16 @@ class GenerateSerializer(serializers.Serializer):
 class ManualVideoSerializer(serializers.Serializer):
     subtitles = serializers.BooleanField(default=True)
     title = serializers.CharField(max_length=50)
-    video_format = serializers.ChoiceField(choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT)
-    platform = serializers.ChoiceField(choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM)
+    video_format = serializers.ChoiceField(
+        choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT
+    )
+    platform = serializers.ChoiceField(
+        choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM
+    )
 
 
 class StoryDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
-
-
-class StoryDraftResultSerializer(serializers.Serializer):
-    title = serializers.CharField(max_length=50)
-    story = serializers.CharField(max_length=2000)
 
 
 class StoryVideoSerializer(serializers.Serializer):
@@ -148,7 +159,9 @@ class StoryVideoSerializer(serializers.Serializer):
 
     def validate_gameplay(self, value):
         if not check_if_video(value.name):
-            raise serializers.ValidationError("Choose a gameplay video: MP4, MOV, WebM, AVI, or M4V.")
+            raise serializers.ValidationError(
+                "Choose a gameplay video: MP4, MOV, WebM, AVI, or M4V."
+            )
         return validate_visual(value)
 
     def validate_voice_id(self, value):
@@ -158,25 +171,17 @@ class StoryVideoSerializer(serializers.Serializer):
 class SceneDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
     use_context = serializers.BooleanField(default=False)
-    draft_type = serializers.ChoiceField(choices=["sentence", "section", "story"], default="sentence")
+    draft_type = serializers.ChoiceField(
+        choices=["sentence", "section", "story"], default="sentence"
+    )
     sentence_count = serializers.IntegerField(default=1, min_value=1, max_value=12)
 
     def validate(self, attrs):
         if attrs["draft_type"] == "sentence" and attrs["sentence_count"] != 1:
-            raise serializers.ValidationError("A sentence draft contains exactly one sentence.")
+            raise serializers.ValidationError(
+                "A sentence draft contains exactly one sentence."
+            )
         return attrs
-
-
-class SceneDraftResultSerializer(serializers.Serializer):
-    text = serializers.CharField(max_length=320)
-    image_description = serializers.CharField(max_length=600)
-
-    def to_internal_value(self, data):
-        if isinstance(data, dict):
-            for field in self.fields:
-                if field in data and not isinstance(data[field], str):
-                    raise serializers.ValidationError({field: "Expected a string."})
-        return super().to_internal_value(data)
 
 
 class ManualTextSerializer(serializers.Serializer):
@@ -209,10 +214,19 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
-    intro_transition = serializers.ChoiceField(choices=TransitionStyle.choices, required=False)
+    intro_transition = serializers.ChoiceField(
+        choices=TransitionStyle.choices, required=False
+    )
     intro_transition_duration = TransitionDurationField(required=False, allow_null=True)
     voice_id = serializers.UUIDField(required=False)
-    transition_default = serializers.ChoiceField(choices=[choice for choice in TransitionStyle.choices if choice[0] != TransitionStyle.DEFAULT], required=False)
+    transition_default = serializers.ChoiceField(
+        choices=[
+            choice
+            for choice in TransitionStyle.choices
+            if choice[0] != TransitionStyle.DEFAULT
+        ],
+        required=False,
+    )
     transition_duration = TransitionDurationField(required=False, allow_null=True)
     avatar = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     intro = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -228,9 +242,6 @@ class VideoUpdateSerializer(serializers.Serializer):
     def validate_avatar_position(self, value):
         return normalize_avatar_position(value)
 
-    def update(self, instance, validated_data):
-        return video_update(instance, **validated_data)
-
 
 class ScenePositionSerializer(serializers.Serializer):
     position = serializers.IntegerField(required=False, allow_null=True, min_value=1)
@@ -240,14 +251,20 @@ class ScenePositionSerializer(serializers.Serializer):
         if position is not None and video is not None:
             last = video.scenes.aggregate(last=Max("position"))["last"] or 0
             if position > last + 1:
-                raise serializers.ValidationError("Choose a position within the current video.")
+                raise serializers.ValidationError(
+                    "Choose a position within the current video."
+                )
         return position
 
 
 class ManualSceneSerializer(ScenePositionSerializer):
-    text = serializers.CharField(required=False, allow_blank=True, max_length=2000, default="")
+    text = serializers.CharField(
+        required=False, allow_blank=True, max_length=2000, default=""
+    )
     image = serializers.FileField(required=False)
-    duration = FiniteFloat(min_value=0.1, max_value=900, required=False, allow_null=True)
+    duration = FiniteFloat(
+        min_value=0.1, max_value=900, required=False, allow_null=True
+    )
     with_audio = serializers.BooleanField(default=True)
 
     def validate_image(self, value):
@@ -283,7 +300,9 @@ class StoryboardSceneSerializer(serializers.Serializer):
 
 class StoryboardSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=50)
-    target_audience = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    target_audience = serializers.CharField(
+        required=False, allow_blank=True, max_length=2000
+    )
     topic = serializers.CharField(required=False, allow_blank=True, max_length=2000)
     scenes = StoryboardSceneSerializer(many=True, min_length=1, max_length=60)
 
@@ -292,7 +311,8 @@ class StoryboardSerializer(serializers.Serializer):
             raise serializers.ValidationError("Use at most 120 shots.")
         if self.context.get("narration", True) and any(
             not sentence.get("sentence", "").strip()
-            for scene in scenes for sentence in scene["sentences"]
+            for scene in scenes
+            for sentence in scene["sentences"]
         ):
             raise serializers.ValidationError("Add narration for each shot.")
         return scenes
@@ -318,18 +338,23 @@ class BulkAutoMotionSerializer(serializers.Serializer):
 
 class SceneMotionSerializer(serializers.Serializer):
     motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
-    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices, required=False)
+    motion_intensity = serializers.ChoiceField(
+        choices=MotionIntensity.choices, required=False
+    )
 
 
 class SceneTimingSerializer(serializers.Serializer):
-    duration = FiniteFloat(min_value=0.1, max_value=900, required=False, allow_null=True)
+    duration = FiniteFloat(
+        min_value=0.1, max_value=900, required=False, allow_null=True
+    )
     pause_after = FiniteFloat(min_value=0, max_value=10, required=False)
 
     def validate(self, attrs):
         if not attrs:
-            raise serializers.ValidationError("Supply a duration or a pause to update timing.")
+            raise serializers.ValidationError(
+                "Supply a duration or a pause to update timing."
+            )
         return attrs
-
 
 
 class SceneJobQuerySerializer(serializers.Serializer):
@@ -337,5 +362,9 @@ class SceneJobQuerySerializer(serializers.Serializer):
 
 
 class VideoNotesSerializer(serializers.Serializer):
-    notes = serializers.CharField(allow_blank=True, max_length=10000, trim_whitespace=False)
-    previous_notes = serializers.CharField(allow_blank=True, max_length=10000, trim_whitespace=False, write_only=True)
+    notes = serializers.CharField(
+        allow_blank=True, max_length=10000, trim_whitespace=False
+    )
+    previous_notes = serializers.CharField(
+        allow_blank=True, max_length=10000, trim_whitespace=False, write_only=True
+    )

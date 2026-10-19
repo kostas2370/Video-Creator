@@ -1,21 +1,24 @@
-import tempfile
+
 import subprocess
+import tempfile
 import wave
 from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
-from django.core.files.uploadedfile import SimpleUploadedFile
 
-from ...baker_recipes import scene
+from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.services.scenes.timeline import scene_audio_segments
+
+from ...baker_recipes import music, scene
 from ...models import VideoStatus
 from ...utils.audio_editing import music_gain, voice_tracks
-from ...utils.audio_editing import scene_audio_segments
-from ...utils.composer.render import narration_graph
+from ...utils.composer.render import make_video, narration_graph
+from ...utils.timing import media_timing
 from .base import ApiTestCase
-from apps.usermanagement.baker_recipes import user
 
 
 class AudioEditingTests(ApiTestCase):
@@ -87,7 +90,6 @@ class AudioEditingTests(ApiTestCase):
         return SimpleUploadedFile("voiceover.webm", path.read_bytes(), content_type="audio/webm;codecs=opus")
 
     def test_browser_recording_without_duration_can_be_saved_previewed_and_rendered(self):
-        from ...utils.timing import media_timing
 
         upload = self.browser_recording()
         self.assertEqual(media_timing(Path(self.directory.name, "recording.webm")), {})
@@ -177,9 +179,6 @@ class AudioEditingTests(ApiTestCase):
         self.assertEqual(len(response.data["audio_tracks"]), 1)
 
     def test_real_video_render_contains_edited_voice_and_ducked_music(self):
-        from ...baker_recipes import music
-        from ...utils.composer.render import make_video
-        from ...utils.timing import media_timing
         self.scene.audio_settings = {"trim_start": 1, "trim_end": 3, "fade_in": 0.2, "crossfade": 0.5}
         self.scene.save()
         scene.make(video=self.video, file="voice.wav", is_last=False,
@@ -197,8 +196,6 @@ class AudioEditingTests(ApiTestCase):
         self.assertAlmostEqual(metadata["audio_duration"], 4, delta=0.05)
 
     def test_ducked_music_recovers_during_voice_silence_in_export(self):
-        from ...baker_recipes import music
-        from ...utils.composer.render import make_video
         path = Path(self.directory.name, "music.wav")
         with wave.open(str(path), "wb") as output:
             output.setnchannels(1)

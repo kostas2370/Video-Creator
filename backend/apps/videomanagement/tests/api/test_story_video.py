@@ -11,7 +11,7 @@ from django.urls import reverse
 from rest_framework.exceptions import NotFound
 
 from ...baker_recipes import voice_model
-from ...models import Video, VideoStatus, SceneImage
+from ...models import SceneImage, Video, VideoStatus
 from ...utils.composer.render import make_video
 from ...utils.timing import media_timing
 from .base import ApiTestCase
@@ -54,7 +54,7 @@ class StoryVideoTests(ApiTestCase):
         return scene
 
     def test_creates_portrait_draft_and_queues_only_narration(self):
-        with patch("apps.videomanagement.views.video_view.generate_video_task.delay") as generation:
+        with patch("apps.videomanagement.tasks.generate_video_task.delay") as generation:
             response = self.create()
         self.assertEqual(response.status_code, 202, response.data)
         generation.assert_not_called()
@@ -67,7 +67,7 @@ class StoryVideoTests(ApiTestCase):
         self.assertTrue(video.settings["subtitles"])
         self.assertTrue(video.settings["loop_visual"])
         self.assertFalse(video.scenes.get().scene_images.get().with_audio)
-        with patch("apps.videomanagement.utils.audio_utils.narrate_scene", side_effect=self.supply_narration):
+        with patch("apps.videomanagement.services.scenes.narration.narrate_scene", side_effect=self.supply_narration):
             self.run_scene_job()
         video.refresh_from_db()
         self.assertEqual(video.status, VideoStatus.READY)
@@ -85,7 +85,7 @@ class StoryVideoTests(ApiTestCase):
     def test_render_repeats_motion_beyond_original_clip_and_stops_at_voice_end(self):
         response = self.create(subtitles=False)
         self.assertEqual(response.status_code, 202, response.data)
-        with patch("apps.videomanagement.utils.audio_utils.narrate_scene", side_effect=self.supply_narration):
+        with patch("apps.videomanagement.services.scenes.narration.narrate_scene", side_effect=self.supply_narration):
             self.run_scene_job()
         video = Video.objects.get(pk=response.data["id"])
         with patch("apps.videomanagement.utils.composer.render.output_size", return_value=(90, 160)):
@@ -102,7 +102,7 @@ class StoryVideoTests(ApiTestCase):
     def test_story_text_edits_and_missing_narration_retry_use_voice_jobs(self):
         response = self.create()
         video = Video.objects.get(pk=response.data["id"])
-        with patch("apps.videomanagement.utils.audio_utils.narrate_scene", side_effect=RuntimeError("Provider down")):
+        with patch("apps.videomanagement.services.scenes.narration.narrate_scene", side_effect=RuntimeError("Provider down")):
             with self.assertRaises(RuntimeError):
                 self.run_scene_job()
         video.refresh_from_db()
@@ -110,7 +110,7 @@ class StoryVideoTests(ApiTestCase):
         scene = video.scenes.get()
         response = self.client.patch(reverse("scene-detail", args=[scene.pk]), {"text": "A different story."}, format="json")
         self.assertEqual(response.status_code, 202, response.data)
-        with patch("apps.videomanagement.utils.audio_utils.narrate_scene", side_effect=self.supply_narration):
+        with patch("apps.videomanagement.services.scenes.narration.narrate_scene", side_effect=self.supply_narration):
             result = self.run_scene_job()
         self.assertEqual(result["narration_status"], "available")
         scene.refresh_from_db()

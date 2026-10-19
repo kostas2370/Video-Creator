@@ -1,4 +1,5 @@
 import subprocess
+
 import numpy as np
 from django.test import SimpleTestCase
 

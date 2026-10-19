@@ -1,8 +1,9 @@
+import logging
 import os
 import subprocess
-import logging
 
 from vendor.sadtalker.inference import lip
+
 from ...models import Avatar
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,9 @@ def create_avatar_video(avatar: Avatar, dir_name: str) -> str:
         logger.error("SadTalker returned no avatar video for %s", avatar.pk)
         return ""
 
-    avatar_cam_path = avatar_cam if os.path.isabs(avatar_cam) else os.path.abspath(avatar_cam)
+    avatar_cam_path = (
+        avatar_cam if os.path.isabs(avatar_cam) else os.path.abspath(avatar_cam)
+    )
     output = os.path.join(video_dir, "output_avatar.mp4")
 
     try:
@@ -69,7 +72,9 @@ def create_avatar_video(avatar: Avatar, dir_name: str) -> str:
             text=True,
         )
         if result.returncode != 0:
-            logger.error("FFmpeg could not encode the SadTalker output: %s", result.stderr)
+            logger.error(
+                "FFmpeg could not encode the SadTalker output: %s", result.stderr
+            )
             return ""
     except Exception:
         logger.exception("Failed to run ffmpeg for the avatar video")

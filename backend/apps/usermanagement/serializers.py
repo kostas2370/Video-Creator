@@ -1,11 +1,12 @@
+from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
-from django.contrib.auth import authenticate
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt import (
-    serializers as jwt_serializers,
     exceptions as jwt_exceptions,
+)
+from rest_framework_simplejwt import (
+    serializers as jwt_serializers,
 )
 
 from .models import Notification
@@ -67,6 +68,7 @@ class LoginSerializer(serializers.ModelSerializer):
             raise AuthenticationFailed(
                 "You have to verify your account to be able to have access to your account"
             )
+        self.user = auser
         remember_me = attrs.get("remember_me", False)
 
         return {

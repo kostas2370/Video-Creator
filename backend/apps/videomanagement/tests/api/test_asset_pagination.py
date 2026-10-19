@@ -2,6 +2,7 @@ from django.urls import reverse
 from model_bakery.recipe import seq
 
 from apps.usermanagement.baker_recipes import user
+
 from ...baker_recipes import avatar, intro, outro, template_prompt, voice_model
 from .base import ApiTestCase
 

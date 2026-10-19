@@ -1,6 +1,6 @@
-from apps.apikeysmanagement.models import Provider
-
 from model_bakery.recipe import Recipe, foreign_key
+
+from apps.apikeysmanagement.models import Provider
 
 from .models import (
     Avatar,

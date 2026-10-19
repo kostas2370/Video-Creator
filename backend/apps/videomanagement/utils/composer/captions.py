@@ -1,10 +1,14 @@
 """Translate resolved caption styles and timed cues into an ASS document."""
+
 import re
 
-from ...services.caption_styles import resolve_style, video_caption_style
-from ...services.subtitles import scene_cues
-from ..audio_editing import voice_tracks
+from apps.videomanagement.services.captions.subtitles import scene_cues
+from apps.videomanagement.utils.captions.styles import (
+    resolve_style,
+    video_caption_style,
+)
 
+from ..audio_editing import voice_tracks
 from .ass import (
     ass_color,
     ass_event,
@@ -17,12 +21,17 @@ from .ass import (
 def caption_style_fields(style, size):
     layout = style.layout(size)
     values = {
-        "Fontname": style.font, "Fontsize": layout["font_size"],
-        "PrimaryColour": ass_color(style.color), "SecondaryColour": ass_color(style.highlight_color),
+        "Fontname": style.font,
+        "Fontsize": layout["font_size"],
+        "PrimaryColour": ass_color(style.color),
+        "SecondaryColour": ass_color(style.highlight_color),
         "OutlineColour": ass_color(style.outline_color),
         "Bold": -1 if style.bold else 0,
-        "Outline": layout["outline"], "Shadow": layout["shadow"], "Alignment": layout["alignment"],
-        "MarginL": layout["margin_left"], "MarginR": layout["margin_right"],
+        "Outline": layout["outline"],
+        "Shadow": layout["shadow"],
+        "Alignment": layout["alignment"],
+        "MarginL": layout["margin_left"],
+        "MarginR": layout["margin_right"],
         "MarginV": layout["margin_vertical"],
     }
     return values
@@ -45,23 +54,48 @@ def caption_ass_text(cue, *, style):
             word_index += 1
             if word_index != cue.active_word:
                 return match.group()
-            return "{\\1c" + ass_color(style.highlight_color) + "}" + match.group() + "{\\1c" + ass_color(style.color) + "}"
+            return (
+                "{\\1c"
+                + ass_color(style.highlight_color)
+                + "}"
+                + match.group()
+                + "{\\1c"
+                + ass_color(style.color)
+                + "}"
+            )
 
         text = re.sub(r"\S+", color_word, text)
     return text.replace("\n", "\\N")
 
 
 def write_captions(path, segments, size):
-    style = video_caption_style(segments[0].content.video) if segments else resolve_style("CLASSIC")
-    tracks = {track["id"]: track for track in voice_tracks(segments)} if any(
-        segment.content.audio_settings.get("crossfade") for segment in segments
-    ) else {}
+    style = (
+        video_caption_style(segments[0].content.video)
+        if segments
+        else resolve_style("CLASSIC")
+    )
+    tracks = (
+        {track["id"]: track for track in voice_tracks(segments)}
+        if any(segment.content.audio_settings.get("crossfade") for segment in segments)
+        else {}
+    )
     cues = []
     for segment in segments:
         scene = segment.content
         track = tracks.get(str(scene.pk))
-        offset = track["start"] - scene.audio_settings.get("delay", 0) if track else segment.start
-        cues.extend(scene_cues(scene, offset=offset, duration=segment.narration_duration, highlight=True))
+        offset = (
+            track["start"] - scene.audio_settings.get("delay", 0)
+            if track
+            else segment.start
+        )
+        cues.extend(
+            scene_cues(
+                scene,
+                offset=offset,
+                duration=segment.narration_duration,
+                highlight=True,
+            )
+        )
     write_ass(path, cues, size, style)
 
 

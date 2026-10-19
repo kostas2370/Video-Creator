@@ -2,9 +2,9 @@ from django.db import models
 from django.db.models import Count, Min, Q, Sum
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
-from . import models as video_models
-from .utils.voice_credentials import key_fingerprint, key_source
+from apps.videomanagement.services.voices.credentials import key_fingerprint, key_source
 
+from . import models as video_models
 
 TOKEN_METRICS = {
     "input_tokens": "requests_with_input_tokens",
@@ -58,7 +58,9 @@ class VideoQuerySet(models.QuerySet):
 
     def listable(self):
         """Manual projects and AI projects with a generated script."""
-        return self.filter(Q(gpt_answer__isnull=False) | Q(video_type=video_models.VideoType.MANUAL))
+        return self.filter(
+            Q(gpt_answer__isnull=False) | Q(video_type=video_models.VideoType.MANUAL)
+        )
 
     def in_flight(self):
         return self.filter(status__in=video_models.IN_FLIGHT_STATUSES)
@@ -77,22 +79,31 @@ class VoiceModelQuerySet(models.QuerySet):
             return self.none()
 
         playable = [
-            provider for provider in video_models.VOICE_PROVIDERS if ApiKeys.key_for(user, provider)
+            provider
+            for provider in video_models.VOICE_PROVIDERS
+            if ApiKeys.key_for(user, provider)
         ]
         valid_providers = Q(provider__in=playable) | Q(
-            type=video_models.VoiceModelType.CUSTOM_API, created_by=user,
+            type=video_models.VoiceModelType.CUSTOM_API,
+            created_by=user,
         )
         voices = self.filter(is_cloned=False, created_by=None)
         if user is None:
             return voices.filter(valid_providers)
 
         if not user.use_service_api_keys:
-            voices = voices.exclude(provider__in=video_models.ACCOUNT_SCOPED_VOICE_PROVIDERS)
+            voices = voices.exclude(
+                provider__in=video_models.ACCOUNT_SCOPED_VOICE_PROVIDERS
+            )
             voices |= self.filter(is_cloned=False, created_by=user)
 
         clones = self.filter(
-            is_cloned=True, created_by=user, requires_verification=False,
+            is_cloned=True,
+            created_by=user,
+            requires_verification=False,
             clone_key_source=key_source(user),
-            clone_key_fingerprint=key_fingerprint(ApiKeys.key_for(user, Provider.ELEVENLABS)),
+            clone_key_fingerprint=key_fingerprint(
+                ApiKeys.key_for(user, Provider.ELEVENLABS)
+            ),
         )
         return (voices | clones).filter(valid_providers)

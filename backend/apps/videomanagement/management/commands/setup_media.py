@@ -2,8 +2,9 @@ import pathlib
 
 from django.core.management import BaseCommand
 
+from apps.videomanagement.services.media.downloads import download_video
+
 from ...models import Intro, Outro
-from ...utils.media import download_video
 
 
 class Command(BaseCommand):

@@ -24,3 +24,6 @@ dependencies = { file = ["backend/requirements/requirements.txt"] }
 
 [tool.ruff]
 exclude = ["backend/vendor"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "video_creator", "vendor"]

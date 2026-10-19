@@ -1,3 +1,6 @@
+
+from types import SimpleNamespace
+
 from django.test import TestCase
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.test import APIRequestFactory
@@ -148,9 +151,6 @@ class CookieTokenRefreshSerializerTests(TestCase):
 
 class LegacyRefreshTokenTests(TestCase):
     def test_legacy_user_ids_require_sign_in_instead_of_crashing(self):
-        from types import SimpleNamespace
-        from rest_framework_simplejwt.tokens import RefreshToken
-        from rest_framework_simplejwt.exceptions import InvalidToken
 
         for user_id in (1, "1", "not-a-uuid"):
             with self.subTest(user_id=user_id):

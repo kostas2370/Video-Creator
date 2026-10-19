@@ -1,13 +1,15 @@
 """Compose timed scene logos and text over the rendered picture."""
+
 from pathlib import Path
 
 from django.conf import settings
 
-from .ass import ass_color, ass_event, escape_ass_text, write_document
-from ..exceptions import RenderFailedException
+from apps.videomanagement.exceptions import RenderFailedException
+
 from ..file_utils import stored_file_exists
 from ..fonts import subtitles_filter
 from ..overlay_text import overlay_text_layout
+from .ass import ass_color, ass_event, escape_ass_text, write_document
 
 
 def placement(position, width, height):
@@ -24,7 +26,9 @@ def placement(position, width, height):
 def add_logo(graph, stream, scene, item, size, start, end):
     field = scene.overlay_logo
     if not stored_file_exists(field):
-        raise RenderFailedException("A watermark logo is missing. Upload it again before rendering.")
+        raise RenderFailedException(
+            "A watermark logo is missing. Upload it again before rendering."
+        )
     alignment, x, y = placement(item["position"], *size)
     index = graph.input(field.path, ("-loop", "1", "-framerate", "24"))
     width = max(2, round(size[0] * item["width"] / 100))
@@ -45,17 +49,25 @@ def text_style(item, name, font, font_size, alignment):
     color = ass_color(item["color"], item["opacity"])
     black = ass_color("#000000", item["opacity"])
     return {
-        "Name": name, "Fontname": font, "Fontsize": font_size,
-        "PrimaryColour": color, "SecondaryColour": color,
-        "OutlineColour": black, "BackColour": black, "Bold": -1,
+        "Name": name,
+        "Fontname": font,
+        "Fontsize": font_size,
+        "PrimaryColour": color,
+        "SecondaryColour": color,
+        "OutlineColour": black,
+        "BackColour": black,
+        "Bold": -1,
         "BorderStyle": 3 if item["background"] else 1,
-        "Outline": 6 if item["background"] else 1, "Alignment": alignment,
+        "Outline": 6 if item["background"] else 1,
+        "Alignment": alignment,
     }
 
 
 def text_overlay(item, name, size, start, end):
     font = item.get("font") or settings.SUBTITLE_FONT
-    wrapped, fitted_size = overlay_text_layout(escape_ass_text(item["text"]), item["size"], font, size)
+    wrapped, fitted_size = overlay_text_layout(
+        escape_ass_text(item["text"]), item["size"], font, size
+    )
     alignment, x, y = placement(item["position"], *size)
     style = text_style(item, name, font, size[0] * fitted_size / 100, alignment)
     safe = wrapped.replace("\n", "\\N")
@@ -68,14 +80,21 @@ def apply_overlays(graph, stream, segments, size, directory):
     for segment in segments:
         for item in getattr(segment.content, "overlays", []):
             start = min(segment.duration, item["start"])
-            end = min(segment.duration, item["end"] if item["end"] is not None else segment.duration)
+            end = min(
+                segment.duration,
+                item["end"] if item["end"] is not None else segment.duration,
+            )
             if end <= start:
                 continue
             start, end = start + segment.start, end + segment.start
             if item["logo"]:
-                stream = add_logo(graph, stream, segment.content, item, size, start, end)
+                stream = add_logo(
+                    graph, stream, segment.content, item, size, start, end
+                )
             else:
-                style, event = text_overlay(item, f"Overlay{len(styles)}", size, start, end)
+                style, event = text_overlay(
+                    item, f"Overlay{len(styles)}", size, start, end
+                )
                 styles.append(style)
                 events.append(event)
     if styles:

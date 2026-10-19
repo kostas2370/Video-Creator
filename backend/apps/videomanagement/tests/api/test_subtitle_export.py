@@ -6,6 +6,7 @@ from django.test import override_settings
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
+
 from ...baker_recipes import intro, scene, scene_image
 from .base import ApiTestCase
 

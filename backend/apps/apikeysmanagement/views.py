@@ -1,8 +1,7 @@
-from rest_framework import generics
+from rest_framework import generics, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.decorators import action
-from rest_framework import viewsets, status
 
 from .models import ApiKeys, UserCustomTTSProvider, UserCustomVisualProvider
 from .serializers import (
@@ -10,7 +9,7 @@ from .serializers import (
     UserCustomTTSProviderSerializer,
     UserCustomVisualProviderSerializer,
 )
-from apps.videomanagement.tasks import update_user_voices
+from .services import queue_voice_refresh
 
 
 class ApiKeysView(generics.RetrieveUpdateDestroyAPIView):
@@ -26,6 +25,8 @@ class CustomProviderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return super().get_queryset().none()
         return super().get_queryset().filter(user=self.request.user)
 
     def perform_create(self, serializer):
@@ -39,7 +40,7 @@ class UserCustomTTSProviderViewSet(CustomProviderViewSet):
     @action(detail=True, methods=["post"], url_path="update-voices")
     def update_voices(self, request, pk=None):
         provider = self.get_object()
-        update_user_voices.delay(provider.user.id, provider.name)
+        queue_voice_refresh(provider)
         return Response(status=status.HTTP_202_ACCEPTED)
 
 

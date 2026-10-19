@@ -2,11 +2,10 @@
 
 
 import numpy as np
+from django.test import SimpleTestCase
 from PIL import Image
 
-from django.test import SimpleTestCase
 from vendor.sadtalker.src.utils.croper import Preprocesser
-
 
 
 class FaceAlignmentTests(SimpleTestCase):

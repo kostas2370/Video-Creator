@@ -1,9 +1,9 @@
 from django.core.management import BaseCommand
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.videomanagement.integrations.tts import get_voices_from_elevenlabs
 
 from ...models import VoiceModel
-from ...utils.tts_utils import get_voices_from_elevenlabs
 
 
 class Command(BaseCommand):
@@ -15,7 +15,11 @@ class Command(BaseCommand):
             return
 
         voices = get_voices_from_elevenlabs()
-        private_paths = set(VoiceModel.objects.filter(is_cloned=True, provider=Provider.ELEVENLABS).values_list("path", flat=True))
+        private_paths = set(
+            VoiceModel.objects.filter(
+                is_cloned=True, provider=Provider.ELEVENLABS
+            ).values_list("path", flat=True)
+        )
         for voice in voices:
             if voice["voice_id"] in private_paths:
                 continue

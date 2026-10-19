@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
-from rest_framework_simplejwt import authentication as jwt_authentication
 from rest_framework import exceptions as rest_exceptions
+from rest_framework_simplejwt import authentication as jwt_authentication
 
 
 class CustomAuthentication(jwt_authentication.JWTAuthentication):
@@ -23,6 +23,8 @@ class CustomAuthentication(jwt_authentication.JWTAuthentication):
             try:
                 return self.get_user(validated_token), validated_token
             except ValidationError as exc:
-                raise rest_exceptions.AuthenticationFailed("Invalid user identifier.") from exc
+                raise rest_exceptions.AuthenticationFailed(
+                    "Invalid user identifier."
+                ) from exc
 
         return None

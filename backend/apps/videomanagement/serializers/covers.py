@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from ..services.caption_styles import FONTS
+from apps.videomanagement.utils.captions.styles import FONTS
+
 from .audio import FiniteFloat
 
 

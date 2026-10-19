@@ -1,8 +1,8 @@
 from datetime import timedelta
 
 from django.test import TestCase
-from rest_framework.test import APIRequestFactory
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.test import APIRequestFactory
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from ..authenticate import CustomAuthentication

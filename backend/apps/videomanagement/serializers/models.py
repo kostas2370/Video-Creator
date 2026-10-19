@@ -1,21 +1,20 @@
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from ..utils.file_utils import stored_file_exists
-from ..utils.timing import file_timing, scene_timing
-from ..utils.audio_editing import narration_file, narration_enabled
-
 from ..models import (
-    TemplatePrompt,
-    Scene,
-    SceneImage,
-    VoiceModel,
     Avatar,
-    UserPrompt,
-    Video,
     Intro,
     Outro,
+    Scene,
+    SceneImage,
+    TemplatePrompt,
+    UserPrompt,
+    Video,
+    VoiceModel,
 )
+from ..utils.audio_editing import narration_enabled, narration_file
+from ..utils.file_utils import stored_file_exists
+from ..utils.timing import file_timing, scene_timing
 
 
 class TemplatePromptsSerializer(serializers.ModelSerializer):
@@ -65,7 +64,18 @@ class SceneSerializer(serializers.ModelSerializer):
 class VoiceModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = VoiceModel
-        fields = ("id", "created_by", "name", "provider", "type", "sample", "path", "is_cloned", "clone_key_source", "requires_verification")
+        fields = (
+            "id",
+            "created_by",
+            "name",
+            "provider",
+            "type",
+            "sample",
+            "path",
+            "is_cloned",
+            "clone_key_source",
+            "requires_verification",
+        )
         read_only_fields = fields
 
 
@@ -81,7 +91,9 @@ class AvatarSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
         self.fields["voice"].queryset = (
-            VoiceModel.objects.available_to(request.user) if request else VoiceModel.objects.none()
+            VoiceModel.objects.available_to(request.user)
+            if request
+            else VoiceModel.objects.none()
         )
 
     def get_sample(self, obj):
@@ -95,9 +107,27 @@ class UserPromptSerializer(serializers.ModelSerializer):
 
 
 VIDEO_RESPONSE_FIELDS = (
-    "id", "created_by", "title", "url", "gpt_answer", "prompt", "genre", "output",
-    "dir_name", "voice_model", "avatar", "status", "updated_at", "music",
-    "intro", "outro", "video_type", "mode", "settings", "cover", "cover_settings",
+    "id",
+    "created_by",
+    "title",
+    "url",
+    "gpt_answer",
+    "prompt",
+    "genre",
+    "output",
+    "dir_name",
+    "voice_model",
+    "avatar",
+    "status",
+    "updated_at",
+    "music",
+    "intro",
+    "outro",
+    "video_type",
+    "mode",
+    "settings",
+    "cover",
+    "cover_settings",
 )
 
 
@@ -123,7 +153,11 @@ class VideoNestedSerializer(serializers.ModelSerializer):
     extra_duration = serializers.SerializerMethodField()
 
     def get_extra_duration(self, obj):
-        durations = [file_timing(asset.file).get("duration") for asset in (obj.intro, obj.outro) if asset]
+        durations = [
+            file_timing(asset.file).get("duration")
+            for asset in (obj.intro, obj.outro)
+            if asset
+        ]
         return sum(durations) if all(value is not None for value in durations) else None
 
     class Meta:
