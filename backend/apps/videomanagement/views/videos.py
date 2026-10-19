@@ -98,13 +98,7 @@ class VideoView(
     @action(detail=True, methods=["PATCH"])
     def favorite(self, request, pk=None):
         video = self.get_object()
-        video.set_favorite(True)
-        return Response({"is_favorite": video.is_favorite})
-
-    @favorite.mapping.delete
-    def unfavorite(self, request, pk=None):
-        video = self.get_object()
-        video.set_favorite(False)
+        video.toggle_favorite()
         return Response({"is_favorite": video.is_favorite})
 
     @action(detail=False, methods=["GET"])
