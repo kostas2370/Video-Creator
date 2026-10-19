@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HiOutlineChatBubbleBottomCenterText, HiOutlinePlus, HiOutlineTrash } from "react-icons/hi2";
+import { HiOutlineChatBubbleBottomCenterText } from "react-icons/hi2";
 import { getSceneCaptions, updateSceneCaptions } from "../api/apiService";
 import { API_HOST } from "../endpoints";
-import { captionAt, captionGroups, insertCaptionWord, validateCaptionWords } from "../utils/captions";
+import { captionAt, captionGroups, validateCaptionWords } from "../utils/captions";
 import { isVideo } from "../utils/media";
+import { CaptionWordEditor } from "./CaptionWordEditor";
 import { CaptionLayer } from "./CaptionLayer";
-import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
+import { EditorDialog, editorButton } from "./ui/EditorDialog";
 
-const PAGE_SIZE = 50;
 const mediaUrl = path => /^https?:\/\//i.test(path) ? path : `${API_HOST}${path}`;
 
 export function SceneCaptions({ scene, index, disabled, onSaved, videoFormat }) {
@@ -29,7 +29,6 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(0);
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const player = useRef(null);
@@ -61,13 +60,7 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [playing]);
-  const edit = (index, key, value) => { setWords(current => current.map((word, at) => at === index ? { ...word, [key]: value } : word)); setDirty(true); };
   const seek = seconds => { if (player.current) player.current.currentTime = seconds; setTime(seconds); };
-  const add = () => {
-    const inserted = insertCaptionWord(words, time, data.duration);
-    if (!inserted) { setError("There isn’t room for a word here. Adjust the neighboring times or jump to a gap first."); return; }
-    setWords(inserted.words); setPage(Math.floor(inserted.index / PAGE_SIZE)); setDirty(true); setError("");
-  };
   const save = async () => {
     if (saving.current || locked || !data) return;
     const issue = validateCaptionWords(words, data.duration);
@@ -95,20 +88,7 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
           <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Listen to the original voice audio while editing. Times start at the beginning of this audio, before trims and delays. Jump to a gap, then use Add word to insert a missing word. Saved captions follow those edits in the full video preview and export.</p>
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{data.timing === "estimated" ? "These times are estimated. Adjust them while listening to the voice." : data.timing === "edited" ? "Your saved caption corrections." : "Word times measured from the spoken audio."} Save, then render again to update the finished video.</p>
         </div>
-        <div className="min-w-0">
-          <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Words & timing</h3><button type="button" disabled={locked || words.length >= 10000} onClick={add} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 disabled:opacity-40"><HiOutlinePlus />Add word</button></div>
-          <fieldset disabled={locked}>
-            <div className="mb-2 grid grid-cols-[28px_minmax(0,1fr)_70px_70px_26px] gap-2 text-xs text-gray-500"><span>#</span><span>Word</span><span>Start (s)</span><span>End (s)</span><span /></div>
-            {words.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((word, at) => { const index = page * PAGE_SIZE + at; return <div key={index} className="mb-2 grid grid-cols-[28px_minmax(0,1fr)_70px_70px_26px] items-center gap-2">
-              <button type="button" onClick={() => seek(word.start)} aria-label={`Jump to word ${index + 1}`} className={`text-xs tabular-nums ${time >= word.start && time < word.end ? "font-bold text-blue-600" : "text-gray-400"}`}>{index + 1}</button>
-              <input aria-label={`Word ${index + 1}`} maxLength={40} value={word.text} onChange={event => edit(index, "text", event.target.value)} className={`${editorInput} min-w-0 !px-2`} />
-              {["start", "end"].map(key => <input key={key} aria-label={`${key === "start" ? "Start" : "End"} of word ${index + 1}`} type="number" min={0} max={data.duration} step="0.01" value={Number.isFinite(word[key]) ? Number(word[key].toFixed(3)) : ""} onChange={event => edit(index, key, event.target.value === "" ? NaN : Number(event.target.value))} className={`${editorInput} min-w-0 !px-2 !text-xs`} />)}
-              <button type="button" aria-label={`Remove word ${index + 1}`} onClick={() => { setWords(current => current.filter((_, at) => at !== index)); setDirty(true); setPage(Math.min(page, Math.max(0, Math.ceil((words.length - 1) / PAGE_SIZE) - 1))); }} className="text-gray-400 hover:text-red-500"><HiOutlineTrash className="h-4 w-4" /></button>
-            </div>; })}
-            {!words.length && <p className="py-4 text-sm text-gray-500">No captions for this scene. Add words, or save to leave this scene without captions.</p>}
-          </fieldset>
-          {words.length > PAGE_SIZE && <div className="mt-4 flex items-center justify-between text-sm"><button type="button" disabled={page === 0} onClick={() => setPage(page - 1)} className="disabled:opacity-40">Previous</button><span>{page + 1} / {Math.ceil(words.length / PAGE_SIZE)}</span><button type="button" disabled={(page + 1) * PAGE_SIZE >= words.length} onClick={() => setPage(page + 1)} className="disabled:opacity-40">Next</button></div>}
-        </div>
+        <CaptionWordEditor words={words} onChange={next => { setWords(next); setDirty(true); }} duration={data.duration} time={time} disabled={locked} onSeek={seek} onError={setError} emptyMessage="No captions for this scene. Add words, or save to leave this scene without captions." />
       </div>
     </>}
   </EditorDialog>;
