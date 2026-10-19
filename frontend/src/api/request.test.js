@@ -59,4 +59,26 @@ describe("API request results with the upgraded HTTP client", () => {
     axiosPrivateInstance.request.mockRejectedValue({ response: { status: 400, data: new Blob([JSON.stringify({ detail: "Switch back to your voice account." })], { type: "application/json" }) } });
     expect(await request({ url: "voices/1/preview/", responseType: "blob", notifyError: false })).toMatchObject({ ok: false, message: "Switch back to your voice account." });
   });
+  it("includes the server reference in error notifications and the returned result", async () => {
+    const id = "a".repeat(32);
+    axiosPrivateInstance.request.mockRejectedValue({ response: {
+      status: 500, headers: { "x-request-id": id }, data: { detail: "Something went wrong. Please try again.", request_id: id },
+    } });
+    const result = await request({ url: "videos/" });
+    expect(result.requestId).toBe(id);
+    expect(result.message).toContain(`Reference: ${id}`);
+    expect(toast.error).toHaveBeenCalledWith(result.message, expect.any(Object));
+  });
+
+  it("keeps validation messages short and ignores malformed references", async () => {
+    axiosPrivateInstance.request.mockRejectedValue({ response: {
+      status: 400, headers: { "x-request-id": "a".repeat(32) }, data: { title: ["Required"] },
+    } });
+    expect((await request({ url: "videos/" })).message).toBe("title: Required");
+    axiosPrivateInstance.request.mockRejectedValue({ response: {
+      status: 500, headers: { "x-request-id": "untrusted text" }, data: { detail: "Try again" },
+    } });
+    expect(await request({ url: "videos/" })).toMatchObject({ requestId: null, message: "Try again" });
+  });
+
 });
