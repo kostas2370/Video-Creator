@@ -1,3 +1,5 @@
+import { FontPicker } from "./FontPicker";
+import { editorToolButton } from "./ui/editorStyles";
 import { useEffect, useRef, useState } from "react";
 import { HiOutlineRectangleStack } from "react-icons/hi2";
 import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
@@ -7,7 +9,7 @@ import { API_HOST } from "../endpoints";
 import { isVideo } from "../utils/media";
 
 const names = { title: "Title", "lower-third": "Lower third", watermark: "Watermark", cta: "Call to action" };
-const preset = kind => ({ kind, text: { title: "Your title", "lower-third": "Name · Role", watermark: "Your brand", cta: "Learn more" }[kind], logo: false, position: { title: "middle-center", "lower-third": "bottom-left", watermark: "top-right", cta: "bottom-center" }[kind], start: 0, end: null, size: kind === "watermark" ? 2 : 4, width: 20, color: "#ffffff", background: kind !== "watermark", opacity: kind === "watermark" ? 0.7 : 1 });
+const preset = kind => ({ kind, font: "DejaVu Sans", text: { title: "Your title", "lower-third": "Name · Role", watermark: "Your brand", cta: "Learn more" }[kind], logo: false, position: { title: "middle-center", "lower-third": "bottom-left", watermark: "top-right", cta: "bottom-center" }[kind], start: 0, end: null, size: kind === "watermark" ? 2 : 4, width: 20, color: "#ffffff", background: kind !== "watermark", opacity: kind === "watermark" ? 0.7 : 1 });
 
 export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) {
   const [open, setOpen] = useState(false);
@@ -23,10 +25,10 @@ export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) 
       aria-haspopup="dialog"
       aria-expanded={open}
       title="Add titles, lower thirds, watermarks and calls to action"
-      className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-200 dark:hover:bg-blue-900/50 dark:focus-visible:ring-offset-gray-800"
+      className={editorToolButton}
     >
       <HiOutlineRectangleStack aria-hidden="true" className="h-5 w-5 shrink-0" />
-      <span>{scene.overlays?.length ? "Edit text & logos" : "Add text & logos"}</span>
+      <span>Text & logos</span>
       {scene.overlays?.length > 0 && <span aria-hidden="true" className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-200 px-1 text-xs text-blue-800 dark:bg-blue-800 dark:text-blue-100">{scene.overlays.length}</span>}
     </button>
     {open && <OverlayEditor scene={scene} index={index} disabled={disabled} onSaved={onSaved} onClose={close} videoFormat={videoFormat} />}
@@ -73,7 +75,7 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
       <div className="md:sticky md:top-0">
         <div className="relative mx-auto w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: videoFormat === "PORTRAIT" ? "9 / 16" : videoFormat === "SQUARE" ? "1" : "16 / 9", maxWidth: videoFormat === "PORTRAIT" ? 240 : undefined }}>
           {media && (isVideo(source) ? <OverlayVideo source={media} time={time} /> : <img src={media} alt={`Scene ${index + 1}`} className="absolute inset-0 h-full w-full object-cover" />)}
-          <OverlayLayer overlays={items} logo={logo} time={time} duration={duration} />
+          <OverlayLayer frameSize={videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080]} overlays={items} logo={logo} time={time} duration={duration} />
         </div>
         <label className="mt-4 block text-sm text-gray-600 dark:text-gray-300">Preview time · {time.toFixed(1)}s / {duration.toFixed(1)}s<input aria-label="Overlay preview time" type="range" min="0" max={duration} step="0.05" value={time} onChange={e => setTime(Number(e.target.value))} className="mt-2 w-full accent-blue-600" /></label>
         <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Timing starts at the beginning of this scene and includes its pause. Overlays stop at the scene boundary. Save to update the full preview, then render to export. Text appearance can vary slightly in the export.</p>
@@ -87,6 +89,7 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
         {item ? <div className="mt-4 space-y-4">
           {item.kind === "watermark" && <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"><input type="checkbox" checked={item.logo} onChange={e => update({ logo: e.target.checked })} />Use an image logo</label>}
           {item.logo ? <label className="block text-sm text-gray-700 dark:text-gray-200">Watermark logo<input type="file" accept="image/png,image/jpeg,image/webp" className="mt-2 block w-full text-sm" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 10 * 1024 * 1024) { setError("Use a logo smaller than 10 MB."); e.target.value = ""; } else { setLogoFile(file || null); setError(""); } }} /><span className="mt-1 block text-xs text-gray-500">PNG, JPEG or WebP · 10 MB maximum. Shared by logo watermarks in this scene.</span></label> : <label className="block text-sm text-gray-700 dark:text-gray-200">Text<textarea rows="3" maxLength="200" value={item.text} onChange={e => update({ text: e.target.value })} className={`${editorInput} mt-1`} /></label>}
+          {!item.logo && <FontPicker value={item.font} onChange={font => update({ font })} />}
           <label className="block text-sm text-gray-700 dark:text-gray-200">Position<select value={item.position} onChange={e => update({ position: e.target.value })} className={`${editorInput} mt-1`}>{overlayPositions.map(position => <option key={position} value={position}>{position.replace("middle", "center").replace("-", " ")}</option>)}</select></label>
           <div className="grid grid-cols-2 gap-3"><label className="block text-sm text-gray-700 dark:text-gray-200">Start (seconds)<input type="number" min="0" max="86400" step="0.1" value={Number.isFinite(item.start) ? item.start : ""} onChange={e => { const start = e.target.value === "" ? NaN : Number(e.target.value); update({ start, end: item.end != null && Number.isFinite(start) && Number.isFinite(item.start) ? start + item.end - item.start : item.end }); }} className={`${editorInput} mt-1`} /></label><label className="block text-sm text-gray-700 dark:text-gray-200">Duration (seconds)<input type="number" min="0.1" max="86400" step="0.1" placeholder="To scene end" value={item.end == null ? "" : Math.round((item.end - item.start) * 100) / 100} onChange={e => update({ end: e.target.value === "" ? null : item.start + Number(e.target.value) })} className={`${editorInput} mt-1`} /></label></div>
           <label className="block text-sm text-gray-700 dark:text-gray-200">{item.logo ? "Logo width" : "Text size"} · {item.logo ? item.width : item.size}% of frame width<input type="range" min={item.logo ? 5 : 2} max={item.logo ? 50 : 8} step={item.logo ? 1 : 0.25} value={item.logo ? item.width : item.size} onChange={e => update({ [item.logo ? "width" : "size"]: Number(e.target.value) })} className="mt-2 w-full accent-blue-600" /></label>

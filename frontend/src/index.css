@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./videoFonts.css";
 @config "../tailwind.config.js";
 @source "../node_modules/@material-tailwind/react/components";
 @source "../node_modules/@material-tailwind/react/theme/components";
@@ -37,4 +38,54 @@
     @apply bg-gray-900;
     color-scheme: dark;
   }
+}
+
+/* The editor uses distinct slate surfaces instead of Material's similar grays. */
+.dark .editor-workspace .editor-toolbar {
+  background: #0f172a;
+  border-color: #334155;
+}
+.dark .editor-workspace .editor-panel {
+  background: #182234;
+  border-color: #3b4c63;
+}
+.dark .editor-workspace .editor-strip {
+  background: #101827;
+  border-color: #334155;
+}
+.dark .editor-workspace .editor-card {
+  background: #1e293b;
+  border-color: #475569;
+}
+.dark .editor-workspace .editor-card-selected {
+  background: #173357;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 1px #60a5fa;
+}
+.dark .editor-workspace .editor-inset {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.editor-workspace summary {
+  border-radius: 0.5rem;
+}
+.editor-workspace summary:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 4px;
+}
+@media (max-width: 639px) {
+  .editor-workspace [aria-label="Video actions"] > button {
+    flex: 1 1 auto;
+    padding-inline: 0.75rem;
+  }
+}
+.dark .editor-tool {
+  background: #25344a;
+  border-color: #52657d;
+  color: #e2e8f0;
+}
+.dark .editor-tool:hover:not(:disabled) {
+  background: #304663;
+  border-color: #60a5fa;
+  color: #ffffff;
 }

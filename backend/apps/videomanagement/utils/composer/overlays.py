@@ -1,11 +1,13 @@
-"""Scene-local overlays, assembled after the presenter and before captions."""
-
+"""Compose timed scene logos and text over the rendered picture."""
 from pathlib import Path
 
 from django.conf import settings
 
+from .ass import ass_color, ass_event, escape_ass_text, write_document
 from ..exceptions import RenderFailedException
 from ..file_utils import stored_file_exists
+from ..fonts import subtitles_filter
+from ..overlay_text import overlay_text_layout
 
 
 def placement(position, width, height):
@@ -19,105 +21,64 @@ def placement(position, width, height):
     )
 
 
-def timestamp(value):
-    ticks = max(0, round(value * 100))
-    return f"{ticks // 360000}:{ticks // 6000 % 60:02}:{ticks // 100 % 60:02}.{ticks % 100:02}"
+def add_logo(graph, stream, scene, item, size, start, end):
+    field = scene.overlay_logo
+    if not stored_file_exists(field):
+        raise RenderFailedException("A watermark logo is missing. Upload it again before rendering.")
+    alignment, x, y = placement(item["position"], *size)
+    index = graph.input(field.path, ("-loop", "1", "-framerate", "24"))
+    width = max(2, round(size[0] * item["width"] / 100))
+    logo = graph.filter(
+        [f"{index}:v"],
+        f"scale={width}:{int(size[1] * 0.5)}:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa={item['opacity']}",
+    )
+    column, row = (alignment - 1) % 3, (alignment - 1) // 3
+    lx = f"{x}-overlay_w*{(0, 0.5, 1)[column]}"
+    ly = f"{y}-overlay_h*{(1, 0.5, 0)[row]}"
+    return graph.filter(
+        [stream, logo],
+        f"overlay=x={lx}:y={ly}:enable='gte(t,{start})*lt(t,{end})':eof_action=pass:shortest=0",
+    )
 
 
-def wrap_text(text, size):
-    # Explicit breaks keep browser and export wrapping consistent at every format.
-    columns = max(10, int(140 / size))
-    paragraphs = []
-    for line in text.split("\n"):
-        lines, current = [], ""
-        for word in line.split():
-            if current and len(current) + len(word) + 1 > columns:
-                lines.append(current)
-                current = ""
-            if current:
-                current += " "
-            while len(word) > columns:
-                lines.append(word[:columns])
-                word = word[columns:]
-            current += word
-        if current:
-            lines.append(current)
-        paragraphs.append("\n".join(lines))
-    return "\n".join(paragraphs)
+def text_style(item, name, font, font_size, alignment):
+    color = ass_color(item["color"], item["opacity"])
+    black = ass_color("#000000", item["opacity"])
+    return {
+        "Name": name, "Fontname": font, "Fontsize": font_size,
+        "PrimaryColour": color, "SecondaryColour": color,
+        "OutlineColour": black, "BackColour": black, "Bold": -1,
+        "BorderStyle": 3 if item["background"] else 1,
+        "Outline": 6 if item["background"] else 1, "Alignment": alignment,
+    }
+
+
+def text_overlay(item, name, size, start, end):
+    font = item.get("font") or settings.SUBTITLE_FONT
+    wrapped, fitted_size = overlay_text_layout(escape_ass_text(item["text"]), item["size"], font, size)
+    alignment, x, y = placement(item["position"], *size)
+    style = text_style(item, name, font, size[0] * fitted_size / 100, alignment)
+    safe = wrapped.replace("\n", "\\N")
+    text = f"{{\\an{alignment}\\pos({x},{y})}}{safe}"
+    return style, ass_event(start, end, text, name)
 
 
 def apply_overlays(graph, stream, segments, size, directory):
-    font = settings.SUBTITLE_FONT.replace("-", " ").replace(",", " ").replace("\n", " ")
-    lines = []
+    styles, events = [], []
     for segment in segments:
         for item in getattr(segment.content, "overlays", []):
             start = min(segment.duration, item["start"])
-            end = min(
-                segment.duration,
-                item["end"] if item["end"] is not None else segment.duration,
-            )
+            end = min(segment.duration, item["end"] if item["end"] is not None else segment.duration)
             if end <= start:
                 continue
-            start += segment.start
-            end += segment.start
-            alignment, x, y = placement(item["position"], *size)
+            start, end = start + segment.start, end + segment.start
             if item["logo"]:
-                field = segment.content.overlay_logo
-                if not stored_file_exists(field):
-                    raise RenderFailedException(
-                        "A watermark logo is missing. Upload it again before rendering."
-                    )
-                index = graph.input(field.path, ("-loop", "1", "-framerate", "24"))
-                width = max(2, round(size[0] * item["width"] / 100))
-                logo = graph.filter(
-                    [f"{index}:v"],
-                    f"scale={width}:{int(size[1] * 0.5)}:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa={item['opacity']}",
-                )
-                column, row = (alignment - 1) % 3, (alignment - 1) // 3
-                lx = f"{x}-overlay_w*{(0, 0.5, 1)[column]}"
-                ly = f"{y}-overlay_h*{(1, 0.5, 0)[row]}"
-                stream = graph.filter(
-                    [stream, logo],
-                    f"overlay=x={lx}:y={ly}:enable='gte(t,{start})*lt(t,{end})':eof_action=pass:shortest=0",
-                )
-                continue
-            color = item["color"].lstrip("#")
-            bgr = color[4:6] + color[2:4] + color[0:2]
-            alpha = round((1 - item["opacity"]) * 255)
-            border = 3 if item["background"] else 1
-            # Separate styles allow each block its own opaque box and color.
-            name = f"Overlay{len(lines)}"
-            safe = (
-                wrap_text(item["text"], item["size"])
-                .replace("\\", "＼")
-                .replace("{", "｛")
-                .replace("}", "｝")
-                .replace("\r", "")
-                .replace("\n", "\\N")
-            )
-            lines.append(
-                (
-                    f"Style: {name},{font},{size[0] * item['size'] / 100},&H{alpha:02X}{bgr},&H{alpha:02X}{bgr},&H{alpha:02X}000000,&H{alpha:02X}000000,-1,0,0,0,100,100,0,0,{border},{6 if item['background'] else 1},0,{alignment},0,0,0,1",
-                    f"Dialogue: 0,{timestamp(start)},{timestamp(end)},{name},,0,0,0,,{{\\an{alignment}\\pos({x},{y})}}{safe}",
-                )
-            )
-    if lines:
-        header = f"""[Script Info]
-ScriptType: v4.00+
-PlayResX: {size[0]}
-PlayResY: {size[1]}
-WrapStyle: 2
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-"""
-        events = "\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
-        Path(directory, "overlays.ass").write_text(
-            header
-            + "\n".join(s for s, _ in lines)
-            + events
-            + "\n".join(e for _, e in lines)
-            + "\n",
-            encoding="utf-8",
-        )
-        stream = graph.filter([stream], "subtitles=filename=overlays.ass")
+                stream = add_logo(graph, stream, segment.content, item, size, start, end)
+            else:
+                style, event = text_overlay(item, f"Overlay{len(styles)}", size, start, end)
+                styles.append(style)
+                events.append(event)
+    if styles:
+        write_document(Path(directory, "overlays.ass"), size, styles, events)
+        stream = graph.filter([stream], subtitles_filter("overlays.ass", directory))
     return stream

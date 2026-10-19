@@ -5,6 +5,8 @@ import tempfile
 from pathlib import Path
 from uuid import uuid4
 
+from ..utils.fonts import subtitles_filter
+
 from django.core.files import File
 from django.db import transaction
 from django.utils import timezone
@@ -98,7 +100,7 @@ def process_caption_project(project_id, token, render=False):
             if render:
                 write_project_ass(project, Path(directory, "captions.ass"))
                 output = Path(directory, "captioned.mp4")
-                run_ffmpeg(["-i", project.source.path, "-map", "0:v:0", "-map", "0:a:0", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,subtitles=filename=captions.ass", "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(output)], cwd=directory)
+                run_ffmpeg(["-i", project.source.path, "-map", "0:v:0", "-map", "0:a:0", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2," + subtitles_filter("captions.ass", directory), "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(output)], cwd=directory)
                 with output.open("rb") as file:
                     name = project.output.storage.save(f"media/captions/{project.pk}/{token}.mp4", File(file))
                 updates = {"status": CaptionProjectStatus.COMPLETED, "output": name}

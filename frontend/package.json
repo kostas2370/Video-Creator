@@ -18,6 +18,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "fonts:sync": "node ../scripts/sync-video-fonts.mjs",
+    "fonts:check": "node ../scripts/sync-video-fonts.mjs --check",
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
