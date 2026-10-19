@@ -431,6 +431,7 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
     cover = models.ImageField(upload_to="media/covers/%Y/%m/%d", blank=True)
     thumbnail = models.ImageField(upload_to="media/thumbnails/%Y/%m/%d", blank=True)
     cover_settings = models.JSONField(default=dict, blank=True)
+    is_favorite = models.BooleanField(default=False)
     tags = models.JSONField(default=dict, blank=True)
     notes = models.TextField(blank=True, default="", max_length=10000)
     title = models.CharField(max_length=50, blank=False)
@@ -478,6 +479,10 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
     )
 
     objects = VideoQuerySet.as_manager()
+
+    def toggle_favorite(self):
+        self.is_favorite = not self.is_favorite
+        self.save(update_fields=["is_favorite"])
 
     def __str__(self):
         return f"{self.title}"
