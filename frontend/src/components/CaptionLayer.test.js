@@ -1,3 +1,4 @@
+import { resolveCaptionConfig } from "../utils/captions";
 import { describe, expect, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -26,9 +27,9 @@ describe("TikTok captions", () => {
     expect(renderToStaticMarkup(<CaptionLayer />)).toBe("");
   });
   it("applies custom colors, font, placement, and fits long words", () => {
-    const html = renderToStaticMarkup(<CaptionLayer style="TIKTOK" cue={{ text: "a".repeat(30), active_word: 0 }} config={{ font: "DejaVu Serif", size: 6, color: "#aaffff", highlight: "#00ff00", position: "top" }} />);
+    const html = renderToStaticMarkup(<CaptionLayer style="TIKTOK" cue={{ text: "a".repeat(30), active_word: 0 }} config={{ ...resolveCaptionConfig("TIKTOK"), font: "DejaVu Serif", color: "#aaffff", highlight_color: "#00ff00", position: "top" }} />);
     expect(html).toContain("top:9%");
-    expect(html).toContain("font-size:4cqw");
+    expect(html).toContain("font-size:4.333333333333333cqw");
     expect(html).toContain("Georgia, serif");
     expect(html).toContain("color:#00ff00");
   });

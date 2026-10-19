@@ -1,13 +1,10 @@
-export const defaultCaptionStyle = { preset: "TIKTOK", font: "DejaVu Sans", size: 6, color: "#ffffff", highlight: "#ffe846", position: "bottom" };
-export const captionBusy = status => ["QUEUED", "TRANSCRIBING", "RENDER_QUEUED", "RENDERING"].includes(status);
-
 // Video previews receive the resolved definition from the backend. These defaults
 // also support existing callers that only supply a legacy preset name.
 export function resolveCaptionConfig(preset = "CLASSIC", config) {
   if (config?.font_size != null) return config;
   if (preset && typeof preset === "object") return preset;
   const highlighted = preset === "TIKTOK";
-  const base = {
+  return {
     font: "DejaVu Sans", font_size: highlighted ? 6 : 48, scale_with_frame: highlighted,
     color: "#ffffff", highlight_color: "#ffe846", outline_color: "#000000",
     outline_width: highlighted ? 0.45 : 2, shadow: highlighted ? 0.2 : 0,
@@ -17,13 +14,6 @@ export function resolveCaptionConfig(preset = "CLASSIC", config) {
     line_width: highlighted ? 20 : 32, max_words: highlighted ? 4 : 10,
     max_characters: highlighted ? 38 : 62,
   };
-  if (!config) return base;
-  // Compatibility for the standalone caption studio's original appearance fields.
-  return { ...base, font: config.font || base.font, font_size: config.size || 6,
-    scale_with_frame: true, color: config.color || base.color,
-    highlight_color: config.highlight || base.highlight_color,
-    outline_width: 0.45, shadow: 0, position: config.position || "bottom",
-    margin_right: 14, margin_vertical: 9, portrait_margin_vertical: 22 };
 }
 
 export function captionGroups(words, preset = "TIKTOK") {
@@ -65,7 +55,7 @@ export function validateCaptionWords(words, duration) {
   let previous = 0;
   for (const [index, word] of words.entries()) {
     if (!word.text.trim() || /\s/u.test(word.text.trim()) || [...word.text].length > 40) return `Word ${index + 1}: enter one word, up to 40 characters.`;
-    if (!Number.isFinite(word.start) || !Number.isFinite(word.end) || word.start < previous || word.end <= word.start || word.end > duration + 0.01) return `Word ${index + 1}: check its start and end times. Words must stay in order without overlapping.`;
+    if (!Number.isFinite(word.start) || !Number.isFinite(word.end) || word.start < previous || word.end <= word.start || word.end > duration) return `Word ${index + 1}: check its start and end times. Words must stay in order without overlapping.`;
     previous = word.end;
   }
   return "";

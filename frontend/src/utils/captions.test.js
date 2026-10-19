@@ -54,3 +54,8 @@ it("groups and highlights according to a custom style definition", () => {
   expect(groups).toHaveLength(3);
   expect(captionAt(groups, 0.2, style)).toEqual({ text: "Hello", active_word: null });
 });
+
+
+it("rejects a word just beyond the source duration", () => {
+  expect(validateCaptionWords([{ text: "End", start: 0, end: 1.005 }], 1)).toContain("check");
+});
