@@ -22,3 +22,19 @@ export function videoLibraryInfo(video) {
     canDelete: !processing,
   };
 }
+
+
+export const libraryTypes = [
+  { value: "", label: "All types" },
+  { value: "AI", label: "AI videos" },
+  { value: "MANUAL", label: "Manual edits" },
+  { value: "STORY", label: "Story videos" },
+];
+
+export const librarySorts = [
+  { value: "-updated_at", label: "Recently edited" },
+  { value: "-created_at", label: "Newest created" },
+  { value: "created_at", label: "Oldest created" },
+  { value: "title", label: "Title A–Z" },
+  { value: "-title", label: "Title Z–A" },
+];

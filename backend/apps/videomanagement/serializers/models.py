@@ -133,6 +133,7 @@ VIDEO_RESPONSE_FIELDS = (
     "cover_settings",
     "tags",
     "thumbnail",
+    "is_favorite",
 )
 
 
