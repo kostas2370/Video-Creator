@@ -1,3 +1,4 @@
+from .covers import VideoCoverMixin
 import logging
 
 from django.core.files.storage import default_storage
@@ -47,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 class VideoView(
+    VideoCoverMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.DestroyModelMixin,

@@ -1,0 +1,24 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAssetOptions } from "../hooks/useAssetOptions";
+import { getVideos, useMediaAsset } from "../api/apiService";
+import { MoreAssetOptions } from "./ui/MoreAssetOptions";
+import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
+
+export function UseLibraryMedia({ asset, onClose }) {
+  const videos = useAssetOptions(getVideos);
+  const [video, setVideo] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const navigate = useNavigate();
+  const use = async () => {
+    setBusy(true); setError("");
+    const response = await useMediaAsset(asset.id, { video_id: video, purpose: asset.kind === "AUDIO" ? "music" : "new_scene", with_audio: asset.kind === "VIDEO" });
+    if (response.ok) { onClose(); navigate(`/videos/${video}/`); } else setError(response.message);
+    setBusy(false);
+  };
+  return <EditorDialog open onClose={onClose} busy={busy} title="Use media in a video" description={`${asset.title} · ${asset.kind === "AUDIO" ? "Replaces the project's background music." : "Adds a new scene at the end of the project."}`} maxWidth="max-w-lg" footer={<div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={onClose} className="px-4 py-3 text-sm text-gray-500">Cancel</button><button type="button" disabled={!video || busy} onClick={use} className={editorButton}>{busy ? "Adding…" : "Use in video"}</button></div>}>
+    <label className="block text-sm">Choose a video<select disabled={busy} value={video} onChange={event => setVideo(event.target.value)} className={`${editorInput} mt-2`}><option value="">{videos.loading ? "Loading videos…" : "Choose a project"}</option>{videos.items.map(item => <option key={item.id} value={item.id} disabled={!["READY", "COMPLETED", "FAILED"].includes(item.status)}>{item.title}{!["READY", "COMPLETED", "FAILED"].includes(item.status) ? " · Processing" : ""}</option>)}</select></label>
+    <MoreAssetOptions options={videos} label="videos" />
+    {!videos.loading && !videos.failed && !videos.items.length && <p className="mt-3 text-sm text-gray-500">Create a video project first, then reuse media here.</p>}
+    {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">{error}</p>}
+  </EditorDialog>;
+}
