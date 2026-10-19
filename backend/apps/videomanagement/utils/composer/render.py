@@ -512,5 +512,6 @@ def make_video(video):
         destination / "output_video.mp4", settings.MEDIA_ROOT
     )
     video.status = VideoStatus.COMPLETED
-    video.save(update_fields=["output", "status", "updated_at"])
+    video.thumbnail = ""
+    video.save(update_fields=["output", "status", "updated_at", "thumbnail"])
     return video

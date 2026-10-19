@@ -1060,7 +1060,10 @@ video title or tag and a filter for project status. Both the selected layout and
 filters are preserved in the page URL. Each project shows its creation mode,
 last update, and a clear action to open the editor or watch an available export.
 
-Saved covers take priority for thumbnails. Otherwise, exported videos use a
-random frame sampled from the middle 35–75% of the video to reduce intro and
-outro frames. Drafts fall back to the first available scene image or clip. Video
-previews load near the viewport and remain silent; they do not autoplay.
+Saved covers take priority for thumbnails. Otherwise, the backend generates and saves a small JPEG once, sampling a random
+frame from the middle 35–75% of the content and excluding known intro/outro
+durations. Later visits reuse that image without loading or seeking the video.
+Drafts use a scene image or a saved frame from their first clip. Thumbnails are
+created only for visible cards that need them, and a successful new export clears
+the old thumbnail so it can be regenerated. Apply migration `0036_video_thumbnail`
+and restart the API and workers when deploying.

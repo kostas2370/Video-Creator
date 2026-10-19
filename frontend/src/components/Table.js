@@ -7,7 +7,8 @@ import {
 } from "react-icons/hi2";
 import { formatDistanceToNow, isValid, parseISO } from "date-fns";
 import { API_HOST } from "../endpoints";
-import { thumbnailFrameTime, videoLibraryInfo } from "../utils/videoLibrary";
+import { videoLibraryInfo } from "../utils/videoLibrary";
+import { loadVideoThumbnail, thumbnailRequestKey } from "../utils/videoThumbnails";
 import { videoFormats } from "../utils/videoFormats";
 import { deleteVideo } from "../api/apiService";
 import { DeleteModal } from "./DeleteModal";
@@ -21,18 +22,16 @@ const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:rin
 function VideoThumbnail({ video, compact }) {
   const container = useRef(null);
   const [visible, setVisible] = useState(false);
-  const [frameSample] = useState(() => Math.random());
-  const [failedCover, setFailedCover] = useState(null);
-  const [failedVideo, setFailedVideo] = useState(null);
-  const [readySource, setReadySource] = useState(null);
+  const [failedImages, setFailedImages] = useState([]);
+  const [generated, setGenerated] = useState(null);
   const mediaUrl = value => value && (/^https?:\/\//i.test(value) ? value : `${API_HOST}${value}`);
-  const sceneImage = video.preview_media?.type === "image" ? video.preview_media.url : null;
-  const sceneVideo = video.preview_media?.type === "video" ? video.preview_media.url : null;
-  const cover = mediaUrl(video.cover || sceneImage);
-  const output = mediaUrl(video.output || sceneVideo);
-  const preferImage = !!video.cover || !video.output;
-  const showCover = cover && failedCover !== cover && (preferImage || failedVideo === output);
-  const showVideo = !showCover && output && failedVideo !== output;
+  const requestKey = thumbnailRequestKey(video);
+  const generatedUrl = generated?.key === requestKey ? generated.url : null;
+  const storedImages = [video.cover, video.thumbnail, generatedUrl].map(mediaUrl).filter(Boolean);
+  const hasStoredThumbnail = storedImages.some(url => !failedImages.includes(url));
+  const sceneImage = video.preview_media?.type === "image" ? mediaUrl(video.preview_media.url) : null;
+  const image = [...storedImages, sceneImage].find(url => url && !failedImages.includes(url));
+  const source = video.output || (video.preview_media?.type === "video" && video.preview_media.url);
 
   useEffect(() => {
     if (!container.current) return;
@@ -44,16 +43,18 @@ function VideoThumbnail({ video, compact }) {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!visible || hasStoredThumbnail || !source || video.status === "RENDERING") return;
+    let cancelled = false;
+    loadVideoThumbnail(video).then(response => {
+      if (!cancelled && response.ok) setGenerated({ key: requestKey, url: response.data.thumbnail });
+    }).catch(() => { /* Keep the scene image or placeholder when a thumbnail cannot be made. */ });
+    return () => { cancelled = true; };
+  }, [visible, hasStoredThumbnail, source, video, requestKey]);
+
   return <Link ref={container} to={`/videos/${video.id}/`} aria-label={`Open ${video.title || "Untitled video"}`} className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 text-blue-300 ${focus} dark:from-gray-800 dark:via-slate-800 dark:to-slate-900 dark:text-slate-600 ${compact ? "h-20 w-28 rounded-xl sm:h-20 sm:w-36" : "aspect-video w-full rounded-t-2xl"}`}>
     <HiOutlineFilm aria-hidden="true" className={compact ? "h-8 w-8" : "h-12 w-12"} />
-    {showCover && <img src={cover} loading="lazy" alt="" onError={() => setFailedCover(cover)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105" />}
-    {showVideo && visible && <video key={output} src={output} muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1}
-      onLoadedMetadata={event => {
-        const player = event.currentTarget;
-        if (Number.isFinite(player.duration) && player.duration > 0) player.currentTime = thumbnailFrameTime(player.duration, frameSample);
-      }}
-      onSeeked={() => setReadySource(output)} onError={() => setFailedVideo(output)}
-      className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity ${readySource === output ? "opacity-100" : "opacity-0"}`} />}
+    {image && <img src={image} loading="lazy" alt="" onError={() => setFailedImages(current => [...current, image])} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105" />}
     {!compact && <span className="absolute bottom-3 right-3 rounded-md bg-gray-950/65 px-2 py-1 text-[10px] font-medium text-white">{videoFormats.find(format => format.value === video.settings?.video_format)?.ratio || "Video"}</span>}
   </Link>;
 }

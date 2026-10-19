@@ -22,9 +22,3 @@ export function videoLibraryInfo(video) {
     canDelete: !processing,
   };
 }
-
-// Sample the middle portion so intros and end cards do not dominate the library.
-export function thumbnailFrameTime(duration, sample) {
-  if (!Number.isFinite(duration) || duration <= 0) return 0;
-  return duration * (0.35 + Math.min(1, Math.max(0, sample)) * 0.4);
-}

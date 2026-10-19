@@ -72,11 +72,13 @@ from apps.videomanagement.throttling import (
 from apps.videomanagement.utils.captions.styles import style_catalog
 from apps.videomanagement.views.covers import VideoCoverMixin
 from apps.videomanagement.views.tags import VideoTagsMixin
+from apps.videomanagement.views.thumbnails import VideoThumbnailMixin
 
 logger = logging.getLogger(__name__)
 
 
 class VideoView(
+    VideoThumbnailMixin,
     VideoTagsMixin,
     VideoCoverMixin,
     mixins.ListModelMixin,
