@@ -1,3 +1,4 @@
+
 import tempfile
 import wave
 from pathlib import Path
@@ -7,11 +8,13 @@ from django.test import override_settings
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
+
 from ...baker_recipes import intro, outro, scene, scene_image
-from .base import ApiTestCase
 from ...models import Video
 from ...serializers.preview import PreviewTimelineSerializer
+from ...utils.motion import resolved_motion
 from ...utils.timing import media_timing
+from .base import ApiTestCase
 
 
 class PreviewTests(ApiTestCase):
@@ -74,7 +77,6 @@ class PreviewTests(ApiTestCase):
         self.url = reverse("video-preview", args=[self.video.pk])
 
     def test_preview_resolves_auto_motion_for_images_only(self):
-        from ...utils.motion import resolved_motion
 
         self.first.motion_style = "AUTO"
         self.first.motion_intensity = "STRONG"

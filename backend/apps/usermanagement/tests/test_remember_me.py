@@ -19,7 +19,7 @@ class RememberMeTests(TestCase):
         self.user.save()
         self.client = APIClient()
 
-        notify = patch("apps.usermanagement.views.send_email.delay")
+        notify = patch("apps.usermanagement.services.send_email.delay")
         self.send_email = notify.start()
         self.addCleanup(notify.stop)
 

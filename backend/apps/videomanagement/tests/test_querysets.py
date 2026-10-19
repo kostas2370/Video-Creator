@@ -2,7 +2,8 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase, override_settings
 
 from apps.usermanagement.baker_recipes import user
-from ..baker_recipes import video, scene, scene_image, voice_model
+
+from ..baker_recipes import scene, scene_image, video, voice_model
 from ..models import Video, VideoStatus, VideoType, VoiceModel
 
 

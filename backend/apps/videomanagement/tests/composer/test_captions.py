@@ -4,8 +4,9 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from ...services.subtitles import CaptionCue
-from ...services.caption_styles import resolve_style
+from apps.videomanagement.utils.captions.cues import CaptionCue
+from apps.videomanagement.utils.captions.styles import resolve_style
+
 from ...utils.composer.captions import caption_ass_text, write_captions
 
 

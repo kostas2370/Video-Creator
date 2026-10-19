@@ -1,9 +1,9 @@
 from django.core.management import BaseCommand
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.videomanagement.integrations.tts import get_voices_from_sixtydb
 
 from ...models import VoiceModel
-from ...utils.tts_utils import get_voices_from_sixtydb
 
 
 class Command(BaseCommand):

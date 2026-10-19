@@ -1,15 +1,15 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework import routers
 
 from apps.videomanagement.event_stream import event_updates
 
 from .views import (
+    CookieTokenRefreshView,
     LoginView,
     NotificationView,
-    logout_view,
-    CookieTokenRefreshView,
     UserRegisterView,
     VerifyEmail,
+    logout_view,
 )
 
 router = routers.DefaultRouter()

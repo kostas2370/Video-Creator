@@ -128,14 +128,14 @@ class VideoViewTests(ApiTestCase):
     def test_add_scene_queues_selected_position(self):
         made = self.video_for()
         scene.make(video=made)
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
             response = self.client.post(reverse("video-add-scene", args=[made.pk]), {"text": "Inserted", "position": 1})
         self.assertEqual(response.status_code, 202, response.data)
         self.assertEqual(delay.call_args.args[1]["position"], 1)
 
     def test_add_scene_rejects_out_of_range_position_before_queueing(self):
         made = self.video_for()
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
             response = self.client.post(reverse("video-add-scene", args=[made.pk]), {"text": "Inserted", "position": 2})
         self.assertEqual(response.status_code, 400)
         delay.assert_not_called()
@@ -270,7 +270,7 @@ class VideoUpdateViewTests(ApiTestCase):
         for field, recipe in (("avatar", avatar), ("intro", intro), ("outro", outro)):
             with self.subTest(field=field):
                 asset = recipe.make(created_by=user.make())
-                with patch("apps.videomanagement.services.VideoServices.update_scene") as regenerate:
+                with patch("apps.videomanagement.services.videos.settings.update_scene") as regenerate:
                     response = self.client.patch(
                         reverse("video-detail", args=[row.id]),
                         {"title": "Changed", field: str(asset.id)},
@@ -346,7 +346,7 @@ class AddSceneViewTests(ApiTestCase):
     def test_queues_a_reviewed_section_as_one_job(self):
         row = self.video_for()
         scenes = [{"text": "First sentence."}, {"text": "Second sentence.", "is_last": True}]
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
             response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"scenes": scenes}, format="json")
         self.assertEqual(response.status_code, 202)
         queued = delay.call_args.args[1]["scenes"]
@@ -358,7 +358,7 @@ class AddSceneViewTests(ApiTestCase):
     def test_validates_every_sentence_before_claiming_a_batch(self):
         row = self.video_for()
         for scenes in ([], [{"text": "Valid"}, {"text": " "}], [{"text": "A line"}] * 13):
-            with self.subTest(scenes=scenes), patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+            with self.subTest(scenes=scenes), patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
                 response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"scenes": scenes}, format="json")
             self.assertEqual(response.status_code, 400)
             delay.assert_not_called()
@@ -367,7 +367,7 @@ class AddSceneViewTests(ApiTestCase):
 
     def test_queues_without_running_providers_and_persists_progress(self):
         row = self.video_for()
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
             response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"text": "New line"})
         self.assertEqual(response.status_code, 202)
         self.assertEqual(delay.call_args.args[0], row.pk)
@@ -381,7 +381,7 @@ class AddSceneViewTests(ApiTestCase):
 
     def test_rejects_invalid_input_before_queueing(self):
         row = self.video_for()
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
             response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"text": " "})
         self.assertEqual(response.status_code, 400)
         delay.assert_not_called()
@@ -390,20 +390,20 @@ class AddSceneViewTests(ApiTestCase):
 
     def test_duplicate_submission_and_render_are_blocked_until_done(self):
         row = self.video_for()
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
             url = reverse("video-add-scene", args=[row.pk])
             self.client.post(url, {"text": "New line"})
             response = self.client.post(url, {"text": "New line"})
         self.assertEqual(response.status_code, 409)
         self.assertEqual(delay.call_count, 1)
-        with patch("apps.videomanagement.views.video_view.render_video_task.delay") as render:
+        with patch("apps.videomanagement.tasks.render_video_task.delay") as render:
             response = self.client.patch(reverse("video-render-video", args=[row.pk]))
         self.assertEqual(response.status_code, 409)
         render.assert_not_called()
 
     def test_queue_failure_restores_video_and_returns_retryable_error(self):
         row = self.video_for(status="COMPLETED")
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay", side_effect=RuntimeError("offline")):
+        with patch("apps.videomanagement.tasks.create_scene_task.delay", side_effect=RuntimeError("offline")):
             response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"text": "New line"})
         self.assertEqual(response.status_code, 503)
         row.refresh_from_db()
@@ -411,7 +411,7 @@ class AddSceneViewTests(ApiTestCase):
 
     def test_cannot_queue_for_another_users_video(self):
         row = self.video_for(owner=user.make())
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as delay:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as delay:
             response = self.client.post(reverse("video-add-scene", args=[row.pk]), {"text": "New line"})
         self.assertEqual(response.status_code, 404)
         delay.assert_not_called()
@@ -495,7 +495,7 @@ class SceneDraftApiTests(ApiTestCase):
 
     def test_draft_is_reviewable_without_saving(self):
         draft = {"text": "Next scene", "image_description": "The road ahead"}
-        with patch("apps.videomanagement.views.video_view.draft_scene", return_value=draft) as generate:
+        with patch("apps.videomanagement.views.videos.draft_scene", return_value=draft) as generate:
             response = self.client.post(self.url, {"prompt": "Continue", "use_context": True}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, draft)
@@ -504,27 +504,27 @@ class SceneDraftApiTests(ApiTestCase):
 
     def test_invalid_inputs_do_not_generate(self):
         for data in ({}, {"prompt": " "}, {"prompt": "x" * 2001}, {"prompt": "Next", "use_context": "invalid"}):
-            with self.subTest(data=data), patch("apps.videomanagement.views.video_view.draft_scene") as generate:
+            with self.subTest(data=data), patch("apps.videomanagement.views.videos.draft_scene") as generate:
                 response = self.client.post(self.url, data, format="json")
             self.assertEqual(response.status_code, 400)
             generate.assert_not_called()
 
     def test_other_users_cannot_request_scenario_context(self):
         other = self.video_for(owner=user.make())
-        with patch("apps.videomanagement.views.video_view.draft_scene") as generate:
+        with patch("apps.videomanagement.views.videos.draft_scene") as generate:
             response = self.client.post(reverse("video-draft-scene", args=[other.pk]), {"prompt": "Next", "use_context": True}, format="json")
         self.assertEqual(response.status_code, 404)
         generate.assert_not_called()
 
     def test_provider_failure_is_reported(self):
 
-        with patch("apps.videomanagement.views.video_view.draft_scene", side_effect=APIException("Unavailable")):
+        with patch("apps.videomanagement.views.videos.draft_scene", side_effect=APIException("Unavailable")):
             response = self.client.post(self.url, {"prompt": "Next"}, format="json")
         self.assertEqual(response.status_code, 500)
 
     def test_anonymous_users_cannot_request_a_draft(self):
         self.client.force_authenticate(None)
-        with patch("apps.videomanagement.views.video_view.draft_scene") as generate:
+        with patch("apps.videomanagement.views.videos.draft_scene") as generate:
             response = self.client.post(self.url, {"prompt": "Next"}, format="json")
         self.assertEqual(response.status_code, 401)
         generate.assert_not_called()

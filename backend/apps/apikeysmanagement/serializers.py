@@ -2,10 +2,10 @@ from rest_framework import serializers
 
 from .models import (
     ApiKeys,
-    UserCustomTTSProvider,
-    UserCustomVisualProvider,
     AuthType,
     Provider,
+    UserCustomTTSProvider,
+    UserCustomVisualProvider,
 )
 
 KEY_FIELDS = (

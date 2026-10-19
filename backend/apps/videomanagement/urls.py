@@ -1,21 +1,22 @@
-from .views.library import MediaAssetView
-from .views.general_views import (
+from django.urls import path
+from rest_framework import routers
+
+from apps.videomanagement.views.assets import (
+    AvatarView,
     IntroView,
     OutroView,
-    AvatarView,
-    VoiceView,
     SceneImageView,
     TemplatePromptView,
+    VoiceView,
 )
-from .event_stream import event_updates
-from .views.generate_view import GenerateView
-from .views.scene_view import SceneView
-from .views.video_view import VideoView
-from .views.usage_view import UsageView
-from .views.captions import CaptionProjectView
+from apps.videomanagement.views.generation import GenerateView
+from apps.videomanagement.views.scenes import SceneView
+from apps.videomanagement.views.usage import UsageView
+from apps.videomanagement.views.videos import VideoView
 
-from rest_framework import routers
-from django.urls import path
+from .event_stream import event_updates
+from .views.captions import CaptionProjectView
+from .views.library import MediaAssetView
 
 router = routers.DefaultRouter()
 

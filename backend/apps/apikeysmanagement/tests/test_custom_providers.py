@@ -125,14 +125,14 @@ class CustomProviderApiTests(TestCase):
                 self.assertIn(field, response.data)
 
     def test_refresh_queues_the_owners_provider_and_returns_accepted(self):
-        with patch("apps.apikeysmanagement.views.update_user_voices.delay") as queue:
+        with patch("apps.videomanagement.tasks.update_user_voices.delay") as queue:
             response = self.client.post(self.refresh_url, {}, format="json")
         self.assertEqual(response.status_code, 202)
         queue.assert_called_once_with(self.user.pk, self.provider.name)
 
     def test_one_user_cannot_read_edit_delete_or_refresh_another_users_provider(self):
         self.client.force_authenticate(self.stranger)
-        with patch("apps.apikeysmanagement.views.update_user_voices.delay") as queue:
+        with patch("apps.videomanagement.tasks.update_user_voices.delay") as queue:
             for method, url, data in (
                 ("get", self.detail_url, None),
                 ("patch", self.detail_url, {"api_key": "stolen"}),

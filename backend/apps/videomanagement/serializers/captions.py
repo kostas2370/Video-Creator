@@ -1,9 +1,14 @@
 from rest_framework import serializers
 
+from apps.videomanagement.services.captions.uploads import validate_caption_upload
+from apps.videomanagement.utils.captions.styles import (
+    CAPTION_STYLES,
+    FONTS,
+    PROJECT_STYLE_DEFAULTS,
+)
+from apps.videomanagement.utils.captions.timing import validate_word_bounds
+
 from ..models import CaptionProject
-from ..services.caption_styles import CAPTION_STYLES, FONTS
-from ..services.caption_timing import validate_word_bounds
-from ..services.caption_uploads import validate_caption_upload
 from .caption_words import CaptionWordSerializer
 
 
@@ -17,12 +22,24 @@ class CaptionUploadSerializer(serializers.Serializer):
 
 
 class CaptionProjectStyleSerializer(serializers.Serializer):
-    preset = serializers.ChoiceField(choices=tuple(CAPTION_STYLES), default="TIKTOK")
-    font = serializers.ChoiceField(choices=FONTS, default="DejaVu Sans")
-    size = serializers.IntegerField(min_value=3, max_value=9, default=6)
-    color = serializers.RegexField(r"^#[0-9a-fA-F]{6}$", default="#ffffff")
-    highlight = serializers.RegexField(r"^#[0-9a-fA-F]{6}$", default="#ffe846")
-    position = serializers.ChoiceField(choices=("bottom", "middle", "top"), default="bottom")
+    preset = serializers.ChoiceField(
+        choices=tuple(CAPTION_STYLES), default=PROJECT_STYLE_DEFAULTS["preset"]
+    )
+    font = serializers.ChoiceField(
+        choices=FONTS, default=PROJECT_STYLE_DEFAULTS["font"]
+    )
+    size = serializers.IntegerField(
+        min_value=3, max_value=9, default=PROJECT_STYLE_DEFAULTS["size"]
+    )
+    color = serializers.RegexField(
+        r"^#[0-9a-fA-F]{6}$", default=PROJECT_STYLE_DEFAULTS["color"]
+    )
+    highlight = serializers.RegexField(
+        r"^#[0-9a-fA-F]{6}$", default=PROJECT_STYLE_DEFAULTS["highlight"]
+    )
+    position = serializers.ChoiceField(
+        choices=("bottom", "middle", "top"), default=PROJECT_STYLE_DEFAULTS["position"]
+    )
 
 
 class CaptionEditSerializer(serializers.Serializer):
@@ -41,8 +58,20 @@ class CaptionProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = CaptionProject
         fields = (
-            "id", "title", "source", "preview", "output", "words", "style",
-            "duration", "width", "height", "status", "error", "updated_at", "revision",
+            "id",
+            "title",
+            "source",
+            "preview",
+            "output",
+            "words",
+            "style",
+            "duration",
+            "width",
+            "height",
+            "status",
+            "error",
+            "updated_at",
+            "revision",
         )
         read_only_fields = fields
 

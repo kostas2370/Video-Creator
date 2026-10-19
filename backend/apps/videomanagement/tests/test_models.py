@@ -1,4 +1,13 @@
+
+from datetime import timedelta
+from importlib import import_module
+from types import SimpleNamespace
+from uuid import UUID
+
+from django.apps import apps
+from django.db import connection
 from django.test import TestCase
+from django.utils import timezone
 
 from ..baker_recipes import (
     avatar,
@@ -7,7 +16,7 @@ from ..baker_recipes import (
     video,
     voice_model,
 )
-from ..models import UserPrompt, Video, VoiceModel
+from ..models import Scene, SceneImage, UserPrompt, Video, VoiceModel
 
 
 class VideoDefaultsTests(TestCase):
@@ -80,10 +89,8 @@ class StringRepresentationTests(TestCase):
 
 class UUIDOrderingTests(TestCase):
     def test_scene_and_visual_order_does_not_depend_on_uuid_value(self):
-        from uuid import UUID
-        from datetime import timedelta
-        from django.utils import timezone
-        from ..models import Scene, SceneImage
+
+
 
         made = video.make()
         now = timezone.now()
@@ -98,10 +105,7 @@ class UUIDOrderingTests(TestCase):
 
 class BackgroundRemovalMigrationTests(TestCase):
     def test_existing_review_parameters_keep_working_without_background(self):
-        from importlib import import_module
-        from types import SimpleNamespace
-        from django.apps import apps
-        from django.db import connection
+
 
         existing = video.make(status="REVIEW", settings={"generation_params": {"background": None, "message": "Keep this story", "music": "music-url"}, "narration": True})
         migration = import_module("apps.videomanagement.migrations.0025_remove_backgrounds")

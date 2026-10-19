@@ -1,3 +1,4 @@
+
 import io
 import subprocess
 import tempfile
@@ -10,11 +11,14 @@ from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
 
-from ...models import Video, VideoStatus, VideoType
+from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.services.scenes.visuals import generate_new_image
+from apps.videomanagement.services.videos.manual import add_manual_scene
+
+from ...models import Music, SceneImage, Video, VideoStatus, VideoType
 from ...utils.composer.render import make_video
 from ...utils.timing import media_timing
 from .base import ApiTestCase
-from apps.usermanagement.baker_recipes import user
 
 
 class ManualVideoTests(ApiTestCase):
@@ -51,7 +55,7 @@ class ManualVideoTests(ApiTestCase):
         return response
 
     def test_empty_project_is_ready_and_listed_without_ai_keys(self):
-        with patch("apps.videomanagement.views.video_view.generate_video_task.delay") as generation:
+        with patch("apps.videomanagement.tasks.generate_video_task.delay") as generation:
             video = self.create_project(video_format="PORTRAIT")
         generation.assert_not_called()
         self.assertEqual(video.status, VideoStatus.READY)
@@ -63,13 +67,13 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(video.scenes.count(), 0)
         response = self.client.get(reverse("video-list"))
         self.assertIn(str(video.pk), [str(row["id"]) for row in response.data["results"]])
-        with patch("apps.videomanagement.views.video_view.render_video_task.delay") as render:
+        with patch("apps.videomanagement.tasks.render_video_task.delay") as render:
             self.assertEqual(self.client.patch(reverse("video-render-video", args=[video.pk])).status_code, 400)
         render.assert_not_called()
 
     def test_upload_insert_edit_caption_duration_and_export_without_generation(self):
         video = self.create_project()
-        with patch("apps.videomanagement.views.video_view.create_scene_task.delay") as generation:
+        with patch("apps.videomanagement.tasks.create_scene_task.delay") as generation:
             self.add_scene(video, image=self.photo(), text="My own caption", duration=2)
             self.add_scene(video, image=self.photo(), position=1, duration=1)
         generation.assert_not_called()
@@ -77,7 +81,7 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual([scene.position for scene in scenes], [1, 2])
         self.assertEqual(scenes[1].text, "My own caption")
         self.assertTrue(Path(scenes[0].scene_images.first().file.path).exists())
-        with patch("apps.videomanagement.views.scene_view.queue_scene_job") as job:
+        with patch("apps.videomanagement.views.scenes.queue_scene_job") as job:
             response = self.client.patch(reverse("scene-detail", args=[scenes[1].pk]), {"text": "Updated caption"}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         job.assert_not_called()
@@ -134,7 +138,6 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(self.client.delete(reverse("video-music", args=[video.pk])).status_code, 200)
         video.refresh_from_db()
         self.assertIsNone(video.music_id)
-        from ...models import Music
         self.assertFalse(Music.objects.filter(pk=old_music).exists())
 
     def test_manual_actions_check_ownership_and_editing_locks(self):
@@ -199,13 +202,12 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.data["captions"][-1]["end"], 3)
 
     def test_optional_ai_visual_generation_resolves_a_provider_only_when_requested(self):
-        from ...models import SceneImage
-        from ...utils.scenes import generate_new_image
+
 
         video = self.create_project()
         self.add_scene(video, text="My scene")
         visual = SceneImage.objects.create(scene=video.scenes.first(), prompt="A blue ocean")
-        with patch("apps.videomanagement.utils.scenes.ImageProviderRegistry.resolve") as resolve:
+        with patch("apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve") as resolve:
             resolve.return_value.return_value = "generated.png"
             generate_new_image(visual, video)
         resolve.assert_called_once_with("AI", "OPENAI")
@@ -231,8 +233,7 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.data["timing"]["duration"], 2)
 
     def test_failed_visual_save_rolls_back_scene_order_and_removes_uploaded_file(self):
-        from ...models import SceneImage
-        from ...services.manual import add_manual_scene
+
 
         video = self.create_project()
         self.add_scene(video, text="Existing scene")
@@ -254,8 +255,7 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(list(Path(self.directory.name).rglob("*.png")), [])
 
     def test_failure_before_visual_upload_does_not_delete_an_existing_file(self):
-        from ...models import SceneImage
-        from ...services.manual import add_manual_scene
+
 
         video = self.create_project()
         existing_file = Path(self.directory.name, "photo.png")

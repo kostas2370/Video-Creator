@@ -1,39 +1,28 @@
-import jwt
 import logging
 
-from django.middleware import csrf
 from django.conf import settings
-from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
 from django.contrib.sites.shortcuts import get_current_site
-from django.db.models import F
+from django.middleware import csrf
 from django.urls import reverse
-from django.core.mail import send_mail
-
-from rest_framework_simplejwt import views as jwt_views
-from rest_framework import generics
-from rest_framework import mixins
-from rest_framework import status
-from rest_framework import viewsets
+from rest_framework import generics, mixins, status, viewsets
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import ParseError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.exceptions import ParseError
 from rest_framework_simplejwt import tokens
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework_simplejwt import views as jwt_views
 from rest_framework_simplejwt.exceptions import TokenError
-
-from apps.videomanagement.events import publish_update
 
 from .models import Login, Notification
 from .serializers import (
+    CookieTokenRefreshSerializer,
+    LoginSerializer,
     NotificationSerializer,
     RegisterSerializer,
     UserSerializer,
-    LoginSerializer,
     VerifySerializer,
-    CookieTokenRefreshSerializer,
 )
-from .tasks import send_email
+from .services import mark_notifications_read, record_login, register_user, verify_email
 
 logger = logging.getLogger(__name__)
 
@@ -44,29 +33,12 @@ class UserRegisterView(generics.GenericAPIView):
     authentication_classes = []
 
     def post(self, request):
-        if get_user_model().objects.all().count() >= settings.USER_LIMIT:
-            return Response(
-                {"message": "User limit reached, contact the admin !"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-
-        token = tokens.RefreshToken.for_user(user).access_token
-
-        current_site = get_current_site(request).domain
-
-        absurl = f"{current_site}{reverse('email-verify')}?token={str(token)}"
-
-        send_mail(
-            subject="Register verification for video creator !",
-            recipient_list=[user.email],
-            message=f"Thank you, here is the verification link : {absurl}",
-            from_email=settings.EMAIL_HOST_USER,
+        verification_url = (
+            f"{get_current_site(request).domain}{reverse('email-verify')}"
         )
-
+        user = register_user(serializer.validated_data, verification_url)
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
@@ -75,31 +47,7 @@ class VerifyEmail(generics.GenericAPIView):
     serializer_class = VerifySerializer
 
     def get(self, request):
-        token = request.GET.get("token")
-        try:
-            load = jwt.decode(token, settings.SECRET_KEY, algorithms="HS256")
-
-        except jwt.ExpiredSignatureError:
-            return Response({"error": "Token Expired"}, status=400)
-
-        except jwt.DecodeError:
-            return Response({"error": "Invalid Token"}, status=400)
-
-        try:
-            user = get_user_model().objects.filter(id=load["user_id"]).first()
-        except (KeyError, ValidationError, ValueError, TypeError):
-            return Response({"error": "Invalid Token"}, status=400)
-        if user is None:
-            return Response({"error": "Invalid Token"}, status=400)
-
-        if user.is_verified:
-            return Response(
-                {"error": "User is already verified"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        user.is_verified = True
-        user.save()
+        verify_email(request.query_params.get("token"))
         return Response({"email": "Successfully Activated"}, status=status.HTTP_200_OK)
 
 
@@ -112,18 +60,7 @@ class LoginView(generics.GenericAPIView):
 
         serializer.is_valid(raise_exception=True)
 
-        user = get_user_model().objects.get(username=request.data.get("username"))
-        user_ip = Login.get_user_ip(request)
-
-        login, created = Login.objects.get_or_create(user=user, ip=user_ip)
-        Login.objects.filter(pk=login.pk).update(count=F("count") + 1)
-
-        if created:
-            send_email.delay(
-                "Someone accessed your account!",
-                user.email,
-                f"Someone with this ip : {user_ip} accessed your account,",
-            )
+        record_login(serializer.user, Login.get_user_ip(request))
 
         response = Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -231,6 +168,8 @@ class NotificationView(
     pagination_class = None
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Notification.objects.none()
         return Notification.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
@@ -245,8 +184,4 @@ class NotificationView(
 
     @action(detail=False, methods=["PATCH"])
     def read_all(self, request):
-        marked = self.get_queryset().filter(read=False).update(read=True)
-        if marked:
-            publish_update(f"notifications.{request.user.pk}", kind="notification")
-
-        return Response({"read": marked})
+        return Response({"read": mark_notifications_read(request.user)})

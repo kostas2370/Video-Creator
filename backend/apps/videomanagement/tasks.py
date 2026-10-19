@@ -1,24 +1,27 @@
-from uuid import UUID
 import logging
 from contextlib import nullcontext
 from datetime import timedelta
+from pathlib import Path
+from uuid import UUID
+
 from celery import shared_task
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.files import File
 from django.core.files.storage import default_storage
-from pathlib import Path
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
+from apps.videomanagement.integrations import tts as tts_utils
+from apps.videomanagement.services.captions.projects import process_caption_project
+from apps.videomanagement.services.scenes import generation as scene_generation
+from apps.videomanagement.services.scenes import visuals as scenes
+from apps.videomanagement.services.scenes.jobs import scene_job
+from apps.videomanagement.services.videos import generation as video_generation
 
 from .events import publish_update
 from .models import SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
-from .services import SceneServices, VideoGenerationServices
-from .services.scene_jobs import scene_job
-from .services.captions import process_caption_project
 from .serializers.models import SceneSerializer
-from .utils import scenes, tts_utils
 from .utils.composer import render
 
 logger = logging.getLogger(__name__)
@@ -33,15 +36,18 @@ def caption_project_task(project_id, token, render=False):
 def update_scene_task(scene_id, text, previous_status):
     """Save dialogue and regenerate its narration."""
     with scene_job(scene_id, previous_status) as scene:
-        text = SceneServices.update_scene(text, scene)
-        return {"text": text, "narration_status": SceneSerializer(scene).data["narration_status"]}
+        text = scene_generation.update_scene(text, scene)
+        return {
+            "text": text,
+            "narration_status": SceneSerializer(scene).data["narration_status"],
+        }
 
 
 @shared_task
 def rewrite_scene_task(scene_id, instructions, previous_status):
     """Return a dialogue draft for the user to review."""
     with scene_job(scene_id, previous_status) as scene:
-        return {"text": SceneServices.generate_scene(instructions, scene)}
+        return {"text": scene_generation.generate_scene(instructions, scene)}
 
 
 @shared_task
@@ -74,7 +80,7 @@ def generate_video_task(self, video_id: str | UUID, **params):
     video = Video.objects.get(pk=video_id)
 
     try:
-        VideoGenerationServices.generate_video(video=video, **params)
+        video_generation.generate_video(video=video, **params)
     except Exception:
         logger.exception("Generation failed for video %s", video_id)
         _mark_failed(video_id)
@@ -89,7 +95,7 @@ def resume_video_task(self, video_id: str | UUID):
     video = Video.objects.get(pk=video_id)
 
     try:
-        VideoGenerationServices.resume_video(video)
+        video_generation.resume_video(video)
     except Exception:
         logger.exception("Resume failed for video %s", video_id)
         _mark_failed(video_id)
@@ -120,18 +126,26 @@ def create_scene_task(video_id: str | UUID, data: dict, upload_path=None):
         video = Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).first()
         if video is None:
             return
-        with (default_storage.open(upload_path, "rb") if upload_path else nullcontext()) as upload:
-            files = {"image": File(upload, name=Path(upload_path).name)} if upload_path else {}
+        with (
+            default_storage.open(upload_path, "rb") if upload_path else nullcontext()
+        ) as upload:
+            files = (
+                {"image": File(upload, name=Path(upload_path).name)}
+                if upload_path
+                else {}
+            )
             for index, item in enumerate(data.get("scenes", [data])):
                 if "scenes" in data and data.get("position") is not None:
                     item = {**item, "position": data["position"] + index}
-                SceneServices.create_scene(video, item, files)
+                scene_generation.create_scene(video, item, files)
     except Exception:
         logger.exception("Scene creation failed for video %s", video_id)
         _mark_failed(video_id)
         raise
     else:
-        Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(status=VideoStatus.READY)
+        Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(
+            status=VideoStatus.READY
+        )
         publish_update(f"video.{video_id}", video_id=video_id)
     finally:
         if upload_path:
@@ -197,9 +211,15 @@ def update_user_voices(user_id: str | UUID, provider: str):
     ]
     fetched_voice_ids = {voice["id"] for voice in voices}
 
-    clone_paths = set(VoiceModel.objects.filter(is_cloned=True, provider=provider).values_list("path", flat=True))
+    clone_paths = set(
+        VoiceModel.objects.filter(is_cloned=True, provider=provider).values_list(
+            "path", flat=True
+        )
+    )
     voices = [voice for voice in voices if voice["id"] not in clone_paths]
-    existing_voices = VoiceModel.objects.filter(created_by=user, provider=provider, is_cloned=False)
+    existing_voices = VoiceModel.objects.filter(
+        created_by=user, provider=provider, is_cloned=False
+    )
     existing_map = {v.path: v for v in existing_voices}
 
     stale_paths = set(existing_map.keys()) - fetched_voice_ids
