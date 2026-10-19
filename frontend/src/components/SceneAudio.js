@@ -1,3 +1,4 @@
+import { editorToolButton } from "./ui/editorStyles";
 import { useObjectUrl } from "../hooks/useObjectUrl";
 import { useEffect, useRef, useState } from "react";
 import { HiOutlineArrowUpTray, HiOutlineMicrophone, HiOutlinePlay, HiOutlinePause, HiOutlineSpeakerWave } from "react-icons/hi2";
@@ -17,7 +18,7 @@ const quietButton = "rounded-lg border border-gray-200 px-3 py-2 text-sm font-me
 export function SceneAudio({ scene, index = 0, nextScene, disabled, onSaved }) {
   const [open, setOpen] = useState(false);
   return <>
-    <button type="button" disabled={disabled} aria-haspopup="dialog" aria-label={`Edit audio for scene ${index + 1}`} onClick={() => setOpen(true)} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"><HiOutlineSpeakerWave aria-hidden="true" className="h-4 w-4" />Audio</button>
+    <button type="button" disabled={disabled} aria-haspopup="dialog" aria-label={`Edit audio for scene ${index + 1}`} onClick={() => setOpen(true)} className={editorToolButton}><HiOutlineSpeakerWave aria-hidden="true" className="h-5 w-5 shrink-0" />Audio</button>
     {open && <AudioEditor scene={scene} index={index} nextScene={nextScene} disabled={disabled} onSaved={onSaved} onClose={() => setOpen(false)} />}
   </>;
 }

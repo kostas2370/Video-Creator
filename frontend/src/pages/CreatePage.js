@@ -1,0 +1,28 @@
+import { Link } from "react-router-dom";
+import { HiOutlineArrowRight, HiOutlineFilm, HiOutlinePlay, HiOutlineCheck } from "react-icons/hi2";
+import { creationModes } from "../utils/creationModes";
+
+function ModePreview({ mode }) {
+  return <div aria-hidden="true" className={`relative flex h-40 items-center justify-center overflow-hidden rounded-xl ${mode.background}`}>
+    {mode.preview === "ai" && <div className="w-4/5 max-w-64 -rotate-3 rounded-xl border border-blue-200 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-gray-900"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-300"><mode.icon className="h-4 w-4" />An idea becomes a story</div><div className="grid grid-cols-3 gap-2">{["bg-blue-100 dark:bg-blue-900", "bg-indigo-100 dark:bg-indigo-900", "bg-sky-100 dark:bg-sky-900"].map((color, i) => <div key={color} className={`flex h-14 items-center justify-center rounded-lg ${color}`}><span className="text-xs font-semibold text-blue-700 dark:text-blue-200">0{i + 1}</span></div>)}</div></div>}
+    {mode.preview === "story" && <div className="relative flex h-32 w-24 -rotate-6 items-center justify-center rounded-2xl border-4 border-gray-800 bg-gradient-to-br from-violet-600 to-indigo-950 shadow-lg"><HiOutlinePlay className="h-8 w-8 text-white/30" /><span className="absolute inset-x-1 bottom-5 text-center text-xs font-black leading-tight text-white">THEN <span className="text-yellow-300">EVERYTHING</span><br />CHANGED.</span><span className="absolute -right-20 top-8 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-violet-700 shadow-sm dark:bg-gray-800 dark:text-violet-200">Your story. Your voice.</span></div>}
+    {mode.preview === "manual" && <div className="w-4/5 max-w-64 rotate-2 rounded-xl border border-emerald-200 bg-white p-4 shadow-sm dark:border-emerald-800 dark:bg-gray-900"><div className="mb-3 flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300"><HiOutlineFilm className="h-4 w-4" />Make it yours</div><div className="flex gap-1.5">{["bg-emerald-200 dark:bg-emerald-800", "bg-teal-200 dark:bg-teal-800", "bg-green-200 dark:bg-green-800"].map(color => <div key={color} className={`h-9 flex-1 rounded ${color}`} />)}</div><div className="mt-2 h-3 rounded bg-emerald-100 dark:bg-emerald-900" /><div className="mt-1.5 h-2 w-2/3 rounded bg-teal-100 dark:bg-teal-900" /></div>}
+    {mode.preview === "captions" && <div className="text-center"><p className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">EVERY WORD.<br /><span className="rounded bg-amber-300 px-2 text-gray-950">RIGHT ON TIME.</span></p><div className="mt-4 flex justify-center gap-1">{[3, 6, 4, 8, 5, 9, 4, 6, 3, 7, 5, 3, 6, 4, 7].map((height, i) => <span key={i} style={{ height: height * 2 }} className="w-1 self-center rounded-full bg-amber-400 dark:bg-amber-500" />)}</div></div>}
+  </div>;
+}
+
+export default function CreatePage() {
+  return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+    <header className="mb-9 flex flex-wrap items-end justify-between gap-5">
+      <div><p className="mb-3 text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-300">Your creative workspace</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">What will you create today?</h1><p className="mt-3 max-w-xl leading-relaxed text-gray-500 dark:text-gray-400">Start with an idea, a story, or footage you already love.<br className="hidden sm:block" />Choose your starting point. Make it yours in the editor.</p></div>
+      <Link to="/videos/" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 hover:border-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">Continue a video<HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+    </header>
+    <section aria-label="Choose a creation tool" className="grid gap-5 md:grid-cols-2">
+      {creationModes.map(mode => <Link key={mode.to} to={mode.to} className="group flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:p-5 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500">
+        <ModePreview mode={mode} />
+        <div className="flex flex-1 flex-col px-1 pb-1 pt-5"><p className={`text-xs font-semibold ${mode.color}`}>{mode.eyebrow}</p><h2 className="mt-1.5 text-xl font-bold tracking-tight">{mode.label}</h2><p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{mode.description}</p><p className="mb-5 mt-4 flex items-start gap-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400"><HiOutlineCheck aria-hidden="true" className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${mode.color}`} />{mode.requirement}</p><span className={`mt-auto flex items-center justify-between border-t border-gray-100 pt-4 text-sm font-semibold dark:border-gray-700 ${mode.color}`}>{mode.action}<HiOutlineArrowRight aria-hidden="true" className="h-4 w-4 transition-transform motion-safe:group-hover:translate-x-1" /></span></div>
+      </Link>)}
+    </section>
+    <footer className="mt-7 flex flex-wrap items-center justify-between gap-3 px-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400"><p>AI tools use the providers you connect. You can edit your own media without API keys.</p><Link to="/api-keys/" className="font-semibold text-blue-600 hover:underline dark:text-blue-300">Manage providers →</Link></footer>
+  </main>;
+}

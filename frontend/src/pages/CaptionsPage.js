@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { HiOutlineArrowUpTray, HiOutlineSparkles, HiOutlinePlus, HiOutlineTrash, HiOutlineArrowDownTray } from "react-icons/hi2";
 import { CaptionLayer } from "../components/CaptionLayer";
+import { VideoCreationMode } from "../components/VideoCreationMode";
 import { editorInput, editorButton } from "../components/ui/EditorDialog";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 import { createCaptionProject, getCaptionProject, getCaptionProjects, saveCaptionProject, transcribeCaptionProject, renderCaptionProject, downloadCaptionProject } from "../api/apiService";
@@ -152,6 +153,7 @@ export function Captions() {
   };
 
   return <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    {!captionId && !working && <VideoCreationMode />}
     <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
       <div><p className="text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-300">Caption studio</p><h1 className="mt-2 text-3xl font-bold tracking-tight">Make every word stand out.</h1><p className="mt-3 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">Upload a video, turn its speech into timed captions, and make them your own.</p></div>
       {project && <Link to="/captions/" onClick={leaveProject} className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold dark:border-gray-700">New caption project</Link>}

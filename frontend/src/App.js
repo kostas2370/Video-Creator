@@ -3,6 +3,7 @@ import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
 import Login from "./pages/LoginPage";
 import Home from "./pages/HomePage";
+import CreatePage from "./pages/CreatePage";
 import { StoryVideo } from "./pages/StoryVideoPage";
 import { Captions } from "./pages/CaptionsPage";
 import { ManualVideo } from "./pages/ManualVideoPage";
@@ -61,7 +62,8 @@ function App() {
           <Route path="/reset-password/" element={<ResetPassword />} />
 
           <Route element={<RequireAuth />}>
-            <Route index element={<Home />} />
+            <Route index element={<CreatePage />} />
+            <Route path="/ai/" element={<Home />} />
             <Route path="/story/" element={<StoryVideo />} />
             <Route path="/captions/" element={<Captions />} />
             <Route path="/captions/:captionId/" element={<Captions />} />
