@@ -1,3 +1,4 @@
+import { ThumbnailCreator } from "../components/ThumbnailCreator";
 import { VideoNotes } from "../components/VideoNotes";
 import { formatDuration } from "../utils/timing";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
@@ -34,6 +35,7 @@ export const Video = () => {
   const [showAddSceneModal, setShowAddSceneModal] = useState(false);
   const [showStoryboard, setShowStoryboard] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [showCover, setShowCover] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [downloadingSubtitles, setDownloadingSubtitles] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState(null);
@@ -165,6 +167,7 @@ export const Video = () => {
 
   return (
     <>
+      <ThumbnailCreator open={showCover} onClose={() => setShowCover(false)} video={videoInfo} onSaved={changes => setVideoInfo(current => ({ ...current, ...changes }))} />
       <VideoPreviewModal open={showPreview} onClose={() => setShowPreview(false)} video={videoInfo} disabled={sceneChangePending || renderPending} />
       <StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} />
       <VideoConfigModal
@@ -224,6 +227,7 @@ export const Video = () => {
           <div aria-label="Video actions" className="flex flex-wrap items-center gap-2">
             <button type="button" disabled={!canPreview} aria-label="Preview video" title={canPreview ? "Preview your saved edits" : "Preview is available after processing and saving scenes"} onClick={() => setShowPreview(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><FaPlay aria-hidden="true" className="h-3.5 w-3.5" /><span>Preview<span className="hidden sm:inline"> video</span></span></button>
             <button type="button" disabled={!videoInfo || videoInfo.status === "REVIEW"} aria-label="Video settings" onClick={() => setShowConfigModal(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><IoIosSettings className="h-5 w-5" />Settings</button>
+            <button type="button" disabled={!videoInfo?.output || processing || renderPending} title={videoInfo?.output ? "Choose a frame and add a cover title" : "Export the video to create a cover"} onClick={() => setShowCover(true)} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">Cover</button>
             {isResumable && <button type="button" onClick={() => setShowResumeModal(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"><FaRedo />Retry generation</button>}
             <button type="button" disabled={!isRenderable} aria-label={renderPending ? "Starting export" : videoInfo?.status === "RENDERING" ? "Exporting video" : "Export video"} title={isRenderable ? "Export your current edit" : sceneChangePending ? "Wait for your changes to save" : !scenes.length ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`} onClick={() => setShowRenderModal(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"><GiProcessor className="h-5 w-5" />{renderPending ? "Starting export…" : videoInfo?.status === "RENDERING" ? "Exporting…" : <span>Export<span className="hidden sm:inline"> video</span></span>}</button>
           </div>

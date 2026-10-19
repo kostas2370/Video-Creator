@@ -79,6 +79,7 @@ export const Scene = ({ manual, scene, setUpdated, video_format = "LANDSCAPE", i
         scene_info={{
           image: MEDIA_URL + scene?.scene_image?.file,
           scene_id: scene.id,
+          video_id: scene.video,
           scene_image_id: scene?.scene_image?.id,
           prompt: scene.scene_image?.prompt,
           with_audio: scene.scene_image?.with_audio,

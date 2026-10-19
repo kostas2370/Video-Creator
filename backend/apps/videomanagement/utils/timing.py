@@ -6,6 +6,8 @@ import math
 import os
 import subprocess
 import tempfile
+from contextlib import contextmanager
+from fractions import Fraction
 from pathlib import Path
 
 from django.conf import settings
@@ -97,8 +99,6 @@ def scene_timing(scene, image=None):
 
 
 def video_metadata(path):
-    from fractions import Fraction
-
     result = subprocess.run(
         [
             "ffprobe",
@@ -135,13 +135,19 @@ def video_metadata(path):
     }
 
 
-def uploaded_video_metadata(upload):
-    """Probe an uploaded video without consuming it before storage saves it."""
+@contextmanager
+def uploaded_media_path(upload):
+    """Expose upload bytes to media tools and always rewind before storage saves."""
     try:
         with tempfile.NamedTemporaryFile(suffix=Path(upload.name).suffix.lower()) as temporary:
             for chunk in upload.chunks():
                 temporary.write(chunk)
             temporary.flush()
-            return video_metadata(temporary.name)
+            yield temporary.name
     finally:
         upload.seek(0)
+
+
+def uploaded_video_metadata(upload):
+    with uploaded_media_path(upload) as path:
+        return video_metadata(path)
