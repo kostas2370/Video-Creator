@@ -17,7 +17,7 @@ from rest_framework.exceptions import APIException
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from ..models import CaptionProject
 from ..utils.usage import record_usage
-from ..utils.composer.render import ass_timestamp
+from ..utils.composer.captions import ass_timestamp
 from .subtitles import word_cues
 
 BUSY_STATUSES = {"QUEUED", "TRANSCRIBING", "RENDER_QUEUED", "RENDERING"}
