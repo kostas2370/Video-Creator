@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import {
-  HiOutlineEllipsisHorizontal, HiOutlineFilm, HiOutlinePlay, HiOutlineArrowRight,
+  HiOutlineStar, HiStar, HiOutlineEllipsisHorizontal, HiOutlineFilm, HiOutlinePlay, HiOutlineArrowRight,
   HiOutlineArrowPath, HiOutlineArrowUpTray, HiOutlineInformationCircle, HiOutlineTrash,
 } from "react-icons/hi2";
 import { formatDistanceToNow, isValid, parseISO } from "date-fns";
@@ -10,7 +10,7 @@ import { API_HOST } from "../endpoints";
 import { videoLibraryInfo } from "../utils/videoLibrary";
 import { loadVideoThumbnail, thumbnailRequestKey } from "../utils/videoThumbnails";
 import { videoFormats } from "../utils/videoFormats";
-import { deleteVideo } from "../api/apiService";
+import { deleteVideo, setVideoFavorite } from "../api/apiService";
 import { DeleteModal } from "./DeleteModal";
 import { VideoInfoModal } from "./VideoInfoModal";
 import { RenderModal } from "./RenderModal";
@@ -59,7 +59,7 @@ function VideoThumbnail({ video, compact }) {
   </Link>;
 }
 
-export function DefaultTable({ data, setVideos, view = "grid", onUpdated }) {
+export function DefaultTable({ data, setVideos, view = "grid", onUpdated, favoritesOnly = false }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
@@ -67,10 +67,31 @@ export function DefaultTable({ data, setVideos, view = "grid", onUpdated }) {
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [id, setId] = useState("");
   const [videoInfo, setVideoInfo] = useState(null);
+  const [savingFavorites, setSavingFavorites] = useState(new Set());
+  const pendingFavorites = useRef(new Set());
+  const [favoriteError, setFavoriteError] = useState("");
+  const toggleFavorite = async video => {
+    if (pendingFavorites.current.has(video.id)) return;
+    pendingFavorites.current.add(video.id);
+    setSavingFavorites(new Set(pendingFavorites.current));
+    setFavoriteError("");
+    try {
+      const { data: response } = await setVideoFavorite(video.id, !video.is_favorite);
+      if (!response || typeof response.is_favorite !== "boolean") throw new Error();
+      if (favoritesOnly && !response.is_favorite) onUpdated?.();
+      else setVideos(current => current.map(item => item.id === video.id ? { ...item, is_favorite: response.is_favorite } : item));
+    } catch {
+      setFavoriteError("Could not update this favorite. Please try again.");
+    } finally {
+      pendingFavorites.current.delete(video.id);
+      setSavingFavorites(new Set(pendingFavorites.current));
+    }
+  };
   const compact = view === "list";
   const showDetails = video => { setVideoInfo(video); setShowVideoModal(true); };
 
   return <>
+    {favoriteError && <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">{favoriteError}</p>}
     <DeleteModal showModal={showDeleteModal} setShowModal={setShowDeleteModal} id={id} setItems={setVideos} deleteFunction={deleteVideo} name="video" />
     <RenderModal showModal={showRenderModal} setShowModal={setShowRenderModal} id={id} setItems={setVideos} name="video" onPendingChange={setRenderPending} onFinished={onUpdated} />
     <ResumeModal showModal={showResumeModal} setShowModal={setShowResumeModal} id={id} setItems={setVideos} name="this video" onFinished={onUpdated} />
@@ -93,7 +114,8 @@ export function DefaultTable({ data, setVideos, view = "grid", onUpdated }) {
             <div className={`flex flex-wrap items-center gap-2 ${compact ? "mt-3" : "mt-auto pt-4"}`}>
               <Link to={`/videos/${video.id}/`} aria-label={`Open editor for ${title}`} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-blue-500/15 dark:hover:text-blue-300 ${focus}`}>{video.status === "REVIEW" ? "Review script" : "Open editor"}<HiOutlineArrowRight aria-hidden="true" className="h-3.5 w-3.5" /></Link>
               {video.status === "COMPLETED" && video.output && <button type="button" aria-label={`Watch ${title}`} onClick={() => showDetails(video)} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10 ${focus}`}><HiOutlinePlay aria-hidden="true" className="h-3.5 w-3.5" />Watch</button>}
-              <Menu as="div" className="relative ml-auto">
+              <button type="button" aria-label={`${video.is_favorite ? "Remove" : "Add"} ${title} ${video.is_favorite ? "from" : "to"} favorites`} aria-pressed={!!video.is_favorite} disabled={savingFavorites.has(video.id)} onClick={() => toggleFavorite(video)} className={`ml-auto rounded-lg p-2 transition disabled:opacity-40 hover:bg-amber-50 dark:hover:bg-amber-500/10 ${video.is_favorite ? "text-amber-500" : "text-gray-400 hover:text-amber-500"} ${focus}`}>{video.is_favorite ? <HiStar aria-hidden="true" className="h-5 w-5" /> : <HiOutlineStar aria-hidden="true" className="h-5 w-5" />}</button>
+              <Menu as="div" className="relative">
                 <MenuButton aria-label={`Actions for ${title}`} className={`rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white ${focus}`}><HiOutlineEllipsisHorizontal aria-hidden="true" className="h-5 w-5" /></MenuButton>
                 <MenuItems anchor="bottom end" className="z-50 mt-1 w-52 rounded-xl border border-gray-200 bg-white p-1 shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800">
                   <MenuItem><button className={menuItemClass} onClick={() => showDetails(video)}><HiOutlineInformationCircle aria-hidden="true" className="h-4 w-4" />Video details</button></MenuItem>
