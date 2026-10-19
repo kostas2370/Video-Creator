@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 
 from ...services.subtitles import CaptionCue
 from ...services.caption_styles import resolve_style
-from ...utils.composer.render import caption_ass_text, write_captions
+from ...utils.composer.captions import caption_ass_text, write_captions
 
 
 class CaptionRenderTests(SimpleTestCase):
