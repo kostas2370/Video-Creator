@@ -62,11 +62,11 @@ class VideoView(
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
 
-    @swagger_auto_schema(request_body=ManualVideoSerializer)
     @action(detail=False, methods=["GET"])
     def caption_styles(self, request):
         return Response(style_catalog())
 
+    @swagger_auto_schema(request_body=ManualVideoSerializer)
     @action(detail=False, methods=["POST"])
     def manual(self, request):
         serializer = self.get_serializer(data=request.data)
