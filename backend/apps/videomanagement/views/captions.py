@@ -60,6 +60,10 @@ class CaptionProjectView(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
                 raise CaptionConflict()
             serializer = CaptionEditSerializer(project, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
+            if "revision" not in serializer.validated_data:
+                raise ValidationError({"revision": "Reload this project before saving."})
+            if serializer.validated_data.pop("revision") != project.updated_at:
+                raise CaptionConflict("This project changed in another editor. Reload it before saving; your changes are still here.")
             for key, value in serializer.validated_data.items():
                 setattr(project, key, {**project.style, **value} if key == "style" else value)
             if {"words", "style"} & serializer.validated_data.keys():

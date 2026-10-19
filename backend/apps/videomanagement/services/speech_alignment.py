@@ -1,18 +1,13 @@
 """Persist measured word timing outside preview and subtitle download requests."""
 import hashlib
 import logging
-import math
-import re
-import subprocess
 import tempfile
 from pathlib import Path
-
-from openai import OpenAI
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from ..utils.audio_editing import narration_enabled, narration_file
 from ..utils.timing import file_timing
-from ..utils.usage import record_usage
+from .transcription import transcribe_audio
 
 logger = logging.getLogger(__name__)
 
@@ -59,32 +54,7 @@ def align_scene_narration(scene):
         if not duration:
             return
         with tempfile.TemporaryDirectory(prefix="narration-captions-") as directory:
-            audio = Path(directory, "speech.mp3")
-            subprocess.run(
-                ["ffmpeg", "-v", "error", "-nostdin", "-y", "-i", narration_file(scene).path,
-                 "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", str(audio)],
-                capture_output=True, check=True, timeout=120,
-            )
-            client = OpenAI(api_key=key, timeout=180, max_retries=1)
-            with audio.open("rb") as file:
-                result = client.audio.transcriptions.create(
-                    file=file, model="whisper-1", response_format="verbose_json",
-                    timestamp_granularities=["word"],
-                )
-            record_usage(scene.video.created_by, "stt", Provider.OPENAI, "whisper-1", seconds=math.ceil(duration))
-        words, previous_end = [], 0
-        for item in result.words or []:
-            start, end = float(item.start), float(item.end)
-            if not math.isfinite(start) or not math.isfinite(end):
-                continue
-            start, end = max(previous_end, 0, start), min(duration, end)
-            tokens = re.findall(r"\S{1,40}", item.word.strip())
-            if not tokens or end <= start:
-                continue
-            for index, token in enumerate(tokens):
-                words.append({"text": token, "start": start + (end-start)*index/len(tokens),
-                              "end": start + (end-start)*(index+1)/len(tokens)})
-            previous_end = end
+            words = transcribe_audio(narration_file(scene).path, scene.video.created_by, duration, directory, api_key=key)
         if words and narration_identity(scene) == identity:
             alignment = {"source": identity, "words": words}
             # Do not overwrite other edits with the worker's scene instance.
