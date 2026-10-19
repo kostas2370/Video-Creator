@@ -72,7 +72,6 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
     if (saving.current || locked || !data) return;
     const issue = validateCaptionWords(words, data.duration);
     if (issue) { setError(issue); return; }
-    if (words.some(word => word.end > data.duration)) { setError("Words must end within the source audio duration."); return; }
     saving.current = true; setBusy(true); setError("");
     try {
       const response = await updateSceneCaptions(scene.id, { words, revision: data.revision });
