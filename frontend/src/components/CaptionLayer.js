@@ -1,27 +1,31 @@
+import { resolveCaptionConfig } from "../utils/captions";
+
 export function CaptionLayer({ cue, style = "CLASSIC", size = [1080, 1920], config }) {
   if (!cue) return null;
-  const tiktok = style === "TIKTOK";
-  const unit = Math.min(1, size[1] / size[0]);
-  const position = config?.position || "bottom";
+  const spec = resolveCaptionConfig(style, config);
+  const factor = spec.scale_with_frame ? Math.min(...size) / size[0] : 100 / size[0];
+  const vertical = spec.position === "top" ? spec.margin_vertical : size[1] > size[0] ? spec.portrait_margin_vertical : spec.margin_vertical;
   const longestLine = Math.max(...cue.text.split("\n").map(line => [...line].length), 1);
-  const fit = config ? Math.min(1, (tiktok ? 20 * 6 : 32 * 4) / config.size / longestLine) : 1;
-  const fallbackFont = config?.font?.includes("Mono") ? "monospace" : config?.font?.includes("Serif") ? "Georgia, serif" : "Arial, sans-serif";
+  const legacyConfig = config && config.font_size == null;
+  const fit = legacyConfig ? Math.min(1, (spec.highlight_words ? 20 * 6 : 32 * 4) / config.size / longestLine) : Math.min(1, (100 - spec.margin_left - spec.margin_right) / (longestLine * spec.font_size * factor * 0.6));
+  const fallbackFont = spec.font.includes("Mono") ? "monospace" : spec.font.includes("Serif") ? "Georgia, serif" : "Arial, sans-serif";
+  const display = token => spec.uppercase ? token.toUpperCase() : token;
   let word = -1;
   return <div className="pointer-events-none absolute inset-0 z-10" style={{ containerType: "inline-size" }}>
     <div data-preview-caption style={{
-      position: "absolute", left: "8%", right: tiktok || config ? "14%" : "8%",
-      ...(position === "middle" ? { top: "50%", transform: "translateY(-50%)" } : position === "top" ? { top: "9%" } : { bottom: tiktok || config ? (size[1] > size[0] ? "22%" : "9%") : "5%" }),
+      position: "absolute", left: `${spec.margin_left}%`, right: `${spec.margin_right}%`,
+      ...(spec.position === "middle" ? { top: "50%", transform: "translateY(-50%)" } : spec.position === "top" ? { top: `${vertical}%` } : { bottom: `${vertical}%` }),
       textAlign: "center", whiteSpace: "pre-line", lineHeight: 1.16,
-      fontFamily: `"${config?.font || "DejaVu Sans"}", ${fallbackFont}`, fontWeight: tiktok ? 800 : 400,
-      fontSize: `${(config ? config.size * unit : tiktok ? 6 * unit : 4800 / size[0]) * fit}cqw`, color: config?.color || "white",
-      WebkitTextStroke: `${tiktok || config ? 0.45 * unit : 200 / size[0]}cqw black`,
-      paintOrder: "stroke fill", textShadow: tiktok && !config ? "0 0.2em 0.1em #0008" : undefined,
+      fontFamily: `"${spec.font}", ${fallbackFont}`, fontWeight: spec.bold ? 800 : 400,
+      fontSize: `${spec.font_size * factor * fit}cqw`, color: spec.color,
+      WebkitTextStroke: `${spec.outline_width * factor}cqw ${spec.outline_color}`,
+      paintOrder: "stroke fill", textShadow: spec.shadow ? `0 ${spec.shadow * factor}cqw ${spec.outline_width * factor}cqw #0008` : undefined,
     }}>
-      {tiktok ? cue.text.split(/(\s+)/u).map((token, index) => {
+      {spec.highlight_words ? cue.text.split(/(\s+)/u).map((token, index) => {
         if (!token.trim()) return token;
         word += 1;
-        return <span key={index} style={{ color: word === cue.active_word ? (config?.highlight || "#ffe846") : (config?.color || "white") }}>{token.toUpperCase()}</span>;
-      }) : cue.text}
+        return <span key={index} style={{ color: word === cue.active_word ? spec.highlight_color : spec.color }}>{display(token)}</span>;
+      }) : display(cue.text)}
     </div>
   </div>;
 }

@@ -15,6 +15,7 @@ from ..utils.timing import file_timing
 from .editing import changed, editable_video
 from .speech_alignment import aligned_words, has_caption_alignment, narration_identity
 from .subtitles import caption_style
+from .caption_styles import video_caption_style
 
 
 def scene_caption_data(scene):
@@ -40,7 +41,7 @@ def scene_caption_data(scene):
             words.append({"text": token, "start": start, "end": duration * consumed / total})
     revision = hashlib.sha256(json.dumps([identity, scene.caption_alignment], sort_keys=True).encode()).hexdigest()
     return {"words": words, "duration": duration, "revision": revision, "audio": audio_url,
-            "style": caption_style(scene.video), "enabled": bool((scene.video.settings or {}).get("subtitles")),
+            "style": caption_style(scene.video), "config": video_caption_style(scene.video).to_dict(), "enabled": bool((scene.video.settings or {}).get("subtitles")),
             "timing": "edited" if measured and scene.caption_alignment.get("edited") else "measured" if measured else "estimated"}
 
 

@@ -33,3 +33,19 @@ describe("TikTok captions", () => {
     expect(html).toContain("color:#00ff00");
   });
 });
+
+describe("user-defined caption appearance", () => {
+  it("uses a resolved custom style without depending on a preset name", () => {
+    const config = { font: "DejaVu Serif", font_size: 7, scale_with_frame: true,
+      color: "#aaffff", highlight_color: "#00ff00", outline_color: "#113355", outline_width: 0.3,
+      shadow: 0, uppercase: false, bold: false, highlight_words: true, position: "top",
+      margin_left: 10, margin_right: 12, margin_vertical: 11, portrait_margin_vertical: 20 };
+    const html = renderToStaticMarkup(<CaptionLayer style="MY_STYLE" cue={{ text: "Hello world", active_word: 1 }} config={config} />);
+    expect(html).toContain("font-size:7cqw");
+    expect(html).toContain("top:11%");
+    expect(html).toContain("left:10%");
+    expect(html).toContain('color:#00ff00">world</span>');
+    expect(html).not.toContain("WORLD");
+    expect(html).toContain("font-weight:400");
+  });
+});
