@@ -122,6 +122,16 @@ class ObservabilityTests(SimpleTestCase):
 
         asyncio.run(exercise())
 
+    def test_django_logs_keep_reference_after_middleware_context_is_closed(self):
+        request = RequestFactory().get("/api/test/")
+        request.request_id = "b" * 32
+        record = logging.LogRecord(
+            "django.request", logging.ERROR, "test.py", 1, "Server error", (), None
+        )
+        record.request = request
+        row = json.loads(JsonFormatter().format(record))
+        self.assertEqual(row["request_id"], request.request_id)
+
     def test_publication_and_worker_logs_share_the_request_reference(self):
         @shared_task(name="test.observability")
         def task():

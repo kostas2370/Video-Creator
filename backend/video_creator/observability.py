@@ -34,7 +34,9 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        reference = current_request_id()
+        reference = current_request_id() or getattr(
+            getattr(record, "request", None), "request_id", None
+        )
         if reference:
             entry["request_id"] = reference
         request = request_context.get() or getattr(record, "request", None)
