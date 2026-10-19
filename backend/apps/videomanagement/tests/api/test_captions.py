@@ -41,7 +41,7 @@ class CaptionProjectTests(ApiTestCase):
 
     def transcribe(self, project):
         result = SimpleNamespace(words=[SimpleNamespace(word="Hello", start=0.1, end=0.3), SimpleNamespace(word="world.", start=0.45, end=0.8)])
-        with patch("apps.videomanagement.services.captions.OpenAI") as client:
+        with patch("apps.videomanagement.services.transcription.OpenAI") as client:
             client.return_value.audio.transcriptions.create.return_value = result
             process_caption_project(str(project.pk), str(project.job_id))
         self.assertEqual(client.return_value.audio.transcriptions.create.call_args.kwargs["timestamp_granularities"], ["word"])
@@ -60,7 +60,7 @@ class CaptionProjectTests(ApiTestCase):
         self.assertEqual(project.words[0], {"text": "Hello", "start": 0.1, "end": 0.3})
         self.assertEqual(AIUsage.objects.get(service="stt").seconds, 1)
         words = [{**word, "text": "Hi" if index == 0 else word["text"]} for index, word in enumerate(project.words)]
-        response = self.client.patch(reverse("captionproject-detail", args=[project.pk]), {"words": words, "style": {"preset": "TIKTOK", "color": "#aaffff", "highlight": "#00ff00"}}, format="json")
+        response = self.client.patch(reverse("captionproject-detail", args=[project.pk]), {"revision": self.client.get(reverse("captionproject-detail", args=[project.pk])).data["revision"], "words": words, "style": {"preset": "TIKTOK", "color": "#aaffff", "highlight": "#00ff00"}}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         response = self.client.get(reverse("captionproject-subtitles", args=[project.pk]))
         self.assertContains(response, "Hi world.")
@@ -83,7 +83,7 @@ class CaptionProjectTests(ApiTestCase):
         response.close()
         previous_output = project.output.path
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.patch(reverse("captionproject-detail", args=[project.pk]), {"style": {"position": "top"}}, format="json")
+            response = self.client.patch(reverse("captionproject-detail", args=[project.pk]), {"revision": self.client.get(reverse("captionproject-detail", args=[project.pk])).data["revision"], "style": {"position": "top"}}, format="json")
         self.assertEqual(response.status_code, 200)
         project.refresh_from_db()
         self.assertFalse(project.output)
@@ -137,7 +137,7 @@ class CaptionProjectTests(ApiTestCase):
     def test_no_speech_and_provider_failure_are_recoverable(self):
         for result in (SimpleNamespace(words=[]), RuntimeError("provider error with private details")):
             project = self.project()
-            with patch("apps.videomanagement.services.captions.OpenAI") as client:
+            with patch("apps.videomanagement.services.transcription.OpenAI") as client:
                 if isinstance(result, Exception):
                     client.return_value.audio.transcriptions.create.side_effect = result
                 else:
@@ -150,7 +150,7 @@ class CaptionProjectTests(ApiTestCase):
 
     def test_stale_or_duplicate_worker_never_calls_the_provider(self):
         project = self.project()
-        with patch("apps.videomanagement.services.captions.OpenAI") as client:
+        with patch("apps.videomanagement.services.transcription.OpenAI") as client:
             process_caption_project(str(project.pk), str(uuid4()))
             CaptionProject.objects.filter(pk=project.pk).update(status="TRANSCRIBING")
             process_caption_project(str(project.pk), str(project.job_id))
@@ -193,3 +193,47 @@ class CaptionProjectTests(ApiTestCase):
         path = Path(self.directory.name, "captions.ass")
         write_project_ass(project, path)
         self.assertNotIn(r"{\pos", path.read_text())
+
+    def test_stale_editor_cannot_overwrite_newer_words(self):
+        project = self.transcribe(self.project())
+        url = reverse("captionproject-detail", args=[project.pk])
+        stale = self.client.get(url).data
+        current_words = [{**word, "text": "New"} for word in project.words]
+        response = self.client.patch(url, {"revision": stale["revision"], "words": current_words}, format="json")
+        self.assertEqual(response.status_code, 200)
+        response = self.client.patch(url, {"revision": stale["revision"], "words": stale["words"], "style": {**stale["style"], "position": "top"}}, format="json")
+        self.assertEqual(response.status_code, 409)
+        project.refresh_from_db()
+        self.assertEqual(project.words, current_words)
+
+    def test_save_requires_revision_and_strict_source_bounds(self):
+        project = self.transcribe(self.project())
+        url = reverse("captionproject-detail", args=[project.pk])
+        self.assertEqual(self.client.patch(url, {"words": project.words}, format="json").status_code, 400)
+        revision = self.client.get(url).data["revision"]
+        response = self.client.patch(url, {"revision": revision, "words": [{"text": "End", "start": 0, "end": project.duration + 0.005}]}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_reexport_removes_previous_output_after_success(self):
+        project = self.transcribe(self.project())
+        render_url = reverse("captionproject-render", args=[project.pk])
+        for attempt in range(2):
+            self.assertEqual(self.client.post(render_url).status_code, 202)
+            project.refresh_from_db()
+            with self.captureOnCommitCallbacks(execute=True):
+                process_caption_project(str(project.pk), str(project.job_id), render=True)
+            project.refresh_from_db()
+            self.assertEqual(project.status, "COMPLETED", project.error)
+            if attempt == 0:
+                previous = Path(project.output.path)
+        self.assertNotEqual(str(previous), project.output.path)
+        self.assertFalse(previous.exists())
+        self.assertTrue(Path(project.output.path).exists())
+        latest = project.output.path
+        self.client.post(render_url)
+        project.refresh_from_db()
+        with patch("apps.videomanagement.services.captions.run_ffmpeg", side_effect=RuntimeError("encoding failed")):
+            process_caption_project(str(project.pk), str(project.job_id), render=True)
+        project.refresh_from_db()
+        self.assertEqual(project.output.path, latest)
+        self.assertTrue(Path(latest).exists())
