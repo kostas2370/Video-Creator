@@ -1,0 +1,94 @@
+[
+  {
+    "family": "DejaVu Sans",
+    "fallback": "Arial, sans-serif",
+    "bundled": false,
+    "license": "dejavu-LICENSE.txt",
+    "faces": [
+      {
+        "file": "DejaVuSans.ttf",
+        "weight": 400
+      },
+      {
+        "file": "DejaVuSans-Bold.ttf",
+        "weight": 700
+      }
+    ]
+  },
+  {
+    "family": "DejaVu Serif",
+    "fallback": "Georgia, serif",
+    "bundled": false,
+    "license": "dejavu-LICENSE.txt",
+    "faces": [
+      {
+        "file": "DejaVuSerif.ttf",
+        "weight": 400
+      },
+      {
+        "file": "DejaVuSerif-Bold.ttf",
+        "weight": 700
+      }
+    ]
+  },
+  {
+    "family": "DejaVu Sans Mono",
+    "fallback": "monospace",
+    "bundled": false,
+    "license": "dejavu-LICENSE.txt",
+    "faces": [
+      {
+        "file": "DejaVuSansMono.ttf",
+        "weight": 400
+      },
+      {
+        "file": "DejaVuSansMono-Bold.ttf",
+        "weight": 700
+      }
+    ]
+  },
+  {
+    "family": "Poppins",
+    "fallback": "\"DejaVu Sans\", Arial, sans-serif",
+    "bundled": true,
+    "license": "poppins-OFL.txt",
+    "faces": [
+      {
+        "file": "Poppins-Regular.ttf",
+        "weight": 400
+      },
+      {
+        "file": "Poppins-Bold.ttf",
+        "weight": 700
+      }
+    ]
+  },
+  {
+    "family": "Lato",
+    "fallback": "\"DejaVu Sans\", Arial, sans-serif",
+    "bundled": true,
+    "license": "lato-OFL.txt",
+    "faces": [
+      {
+        "file": "Lato-Regular.ttf",
+        "weight": 400
+      },
+      {
+        "file": "Lato-Bold.ttf",
+        "weight": 700
+      }
+    ]
+  },
+  {
+    "family": "Bebas Neue",
+    "fallback": "\"DejaVu Sans\", Arial, sans-serif",
+    "bundled": true,
+    "license": "bebasneue-OFL.txt",
+    "faces": [
+      {
+        "file": "BebasNeue-Regular.ttf",
+        "weight": 400
+      }
+    ]
+  }
+]
