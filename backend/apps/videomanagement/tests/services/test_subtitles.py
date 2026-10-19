@@ -3,10 +3,39 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from ...services.subtitles import caption_phrases, scene_cues, cues_to_srt, CaptionCue, srt_timestamp
+from ...services.subtitles import caption_phrases, caption_style, scene_cues, cues_to_srt, CaptionCue, srt_timestamp
 
 
 class CaptionCueTests(SimpleTestCase):
+    def test_tiktok_defaults_and_explicit_classic_choice(self):
+        video = SimpleNamespace(settings={"platform": "TIKTOK"})
+        self.assertEqual(caption_style(video), "TIKTOK")
+        video.settings["caption_style"] = "CLASSIC"
+        self.assertEqual(caption_style(video), "CLASSIC")
+
+    def test_tiktok_word_highlights_share_phrases_and_cover_narration(self):
+        scene = SimpleNamespace(text="You need to hear this amazing story today.", video=SimpleNamespace(settings={"platform": "TIKTOK"}))
+        phrases = scene_cues(scene, duration=4, offset=2)
+        cues = scene_cues(scene, duration=4, offset=2, highlight=True)
+        self.assertEqual(len(cues), 8)
+        self.assertEqual(cues[0].start, 2)
+        self.assertEqual(cues[-1].end, 6)
+        for first, second in zip(cues, cues[1:]):
+            self.assertAlmostEqual(first.end, second.start)
+        self.assertTrue(all(len(cue.text.split()) <= 4 for cue in cues))
+        self.assertEqual([cue.active_word for cue in cues[:4]], [0, 1, 2, 3])
+        self.assertEqual(cues[0].text, cues[1].text)
+        # SRT uses one cue per phrase rather than repeating it for every word.
+        self.assertTrue(all(cue.active_word is None for cue in phrases))
+        self.assertEqual(" ".join(" ".join(cue.text for cue in phrases).split()), scene.text)
+
+    def test_trimmed_tiktok_highlights_keep_original_word_and_delay(self):
+        scene = SimpleNamespace(text="One two six ten", video=SimpleNamespace(settings={"platform": "TIKTOK"}), audio_settings={"trim_start": 1, "trim_end": 3, "delay": 0.5})
+        cues = scene_cues(scene, duration=4, offset=2, highlight=True)
+        self.assertEqual([cue.active_word for cue in cues], [1, 2])
+        self.assertEqual(cues[0].start, 2.5)
+        self.assertEqual(cues[-1].end, 4.5)
+
     def test_long_dialogue_is_split_without_losing_words(self):
         text = "This is the first sentence. " + "A longer explanation with several useful details for the viewer " * 8
         phrases = caption_phrases(text)

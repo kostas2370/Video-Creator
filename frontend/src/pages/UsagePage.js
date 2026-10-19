@@ -4,7 +4,7 @@ import { getUsage } from "../api/apiService";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
 const number = value => (value ?? 0).toLocaleString();
-const services = { text: "Text / GPT", images: "Images", tts: "Voice / TTS", video: "Video" };
+const services = { text: "Text / GPT", images: "Images", tts: "Voice / TTS", video: "Video", stt: "Transcription" };
 const providers = { OPENAI: "OpenAI", ANTHROPIC: "Anthropic", GEMINI: "Gemini", ELEVENLABS: "ElevenLabs", SIXTYDB: "60dB", STABLE_DIFFUSION: "Stable Diffusion", MIDJOURNEY: "Midjourney" };
 const card = "rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800";
 
@@ -66,7 +66,7 @@ export function Usage() {
               <td className="px-3 py-4">{row.key_source === "service" ? "Service" : "Personal"}</td>
               <td className="px-3 py-4">{number(row.requests)}</td>
               {["input_tokens", "output_tokens", "total_tokens"].map(field => <td key={field} className="px-3 py-4"><TokenValue row={row} field={field} /></td>)}
-              <td className="px-3 py-4">{row.service === "tts" ? `${number(row.characters)} characters` : row.service === "images" ? `${number(row.images)} images` : row.service === "video" && row.seconds ? `${number(row.seconds)} seconds` : "—"}</td>
+              <td className="px-3 py-4">{row.service === "tts" ? `${number(row.characters)} characters` : row.service === "images" ? `${number(row.images)} images` : ["video", "stt"].includes(row.service) && row.seconds ? `${number(row.seconds)} seconds` : "—"}</td>
             </tr>)}</tbody>
           </table>
         </div>}

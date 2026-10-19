@@ -208,6 +208,7 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    caption_style = serializers.ChoiceField(choices=("CLASSIC", "TIKTOK"), required=False)
     intro_transition = serializers.ChoiceField(choices=TransitionStyle.choices, required=False)
     intro_transition_duration = TransitionDurationField(required=False, allow_null=True)
     voice_id = serializers.UUIDField(required=False)

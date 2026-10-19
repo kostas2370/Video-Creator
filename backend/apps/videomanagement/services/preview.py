@@ -120,7 +120,7 @@ def preview_timeline(video):
         segment = scene_segment(scene, index, offset, choices)
         scene_segments.append(segment)
         if choices.get("subtitles", False):
-            captions.extend(scene_cues(scene, offset=offset, duration=segment.narration_duration))
+            captions.extend(scene_cues(scene, offset=offset, duration=segment.narration_duration, highlight=True))
         offset += segment.duration
     if choices.get("subtitles", False) and any(scene.audio_settings.get("crossfade") for scene in scenes):
         tracks = {track["id"]: track for track in voice_tracks(scene_segments)}
@@ -128,7 +128,7 @@ def preview_timeline(video):
         for segment in scene_segments:
             track = tracks.get(str(segment.content.pk))
             caption_offset = track["start"] - segment.content.audio_settings.get("delay", 0) if track else segment.start
-            captions.extend(scene_cues(segment.content, offset=caption_offset, duration=segment.narration_duration))
+            captions.extend(scene_cues(segment.content, offset=caption_offset, duration=segment.narration_duration, highlight=True))
     apply_transitions(scene_segments, choices, opening)
     segments.extend(scene_segments)
 

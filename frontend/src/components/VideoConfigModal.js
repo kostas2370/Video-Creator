@@ -8,6 +8,7 @@ import { AssetDropBox } from "./ui/assetDropBox";
 import { toast } from "react-toastify";
 import { CloseModalButton } from "./ui/CloseModalButton";
 import { RiSettings3Line, RiMovieLine, RiUser3Line } from "react-icons/ri";
+import { editorInput } from "./ui/EditorDialog";
 
 const positions = [
   ["left,top", "Top left"],
@@ -45,6 +46,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [intro, setIntro] = useState("");
   const [outro, setOutro] = useState("");
   const [subtitles, setSubtitles] = useState(false);
+  const [captionStyle, setCaptionStyle] = useState("CLASSIC");
   const [avatarPosition, setAvatarPosition] = useState("right,top");
   const [platform, setPlatform] = useState("GENERAL");
   const [videoFormat, setVideoFormat] = useState("LANDSCAPE");
@@ -77,6 +79,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     setPlatform(info?.settings?.platform || "GENERAL");
     setVideoFormat(info?.settings?.video_format || "LANDSCAPE");
     setSubtitles(info?.settings?.subtitles === true);
+    setCaptionStyle(info?.settings?.caption_style || (info?.settings?.platform === "TIKTOK" ? "TIKTOK" : "CLASSIC"));
     setTransitionDefault(info?.settings?.transition_default || "FADE");
     setTransitionDuration(info?.settings?.transition_duration ?? "");
     setIntroTransition(info?.settings?.intro_transition || "DEFAULT");
@@ -88,6 +91,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     if (value === "TIKTOK") {
       setVideoFormat("PORTRAIT");
       setSubtitles(true);
+      setCaptionStyle("TIKTOK");
     }
   };
 
@@ -101,6 +105,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
         title,
         avatar,
         subtitles,
+        caption_style: captionStyle,
         platform,
         video_format: videoFormat,
         transition_default: transitionDefault,
@@ -236,6 +241,14 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
                 <span className="flex-1"><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Subtitles</span><span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{info?.video_type === "MANUAL" ? "Show the text you add to each scene." : "Show narration as on-screen captions."}</span></span>
                 <span className={`relative h-6 w-11 rounded-full transition ${subtitles ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"}`} aria-hidden="true"><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${subtitles ? "left-6" : "left-1"}`} /></span>
               </label>
+              {subtitles && <div className="mt-3">
+                <label htmlFor="caption-style" className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Caption style</label>
+                <select id="caption-style" value={captionStyle} onChange={event => setCaptionStyle(event.target.value)} className={`${editorInput} mt-2`}>
+                  <option value="TIKTOK">TikTok · bold with word highlights</option>
+                  <option value="CLASSIC">Classic · simple subtitles</option>
+                </select>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{captionStyle === "TIKTOK" ? "Short phrases, yellow word highlights, and raised placement. Edit words and timing with Captions in each scene." : "Sentence-style captions along the bottom of your video."}</p>
+              </div>}
             </section>
           </div>
 

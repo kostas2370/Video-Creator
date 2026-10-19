@@ -10,6 +10,7 @@ from .file_utils import stored_file_exists
 from .prompt_utils import script_lines
 from .tts_utils import ApiSyn, save
 from ..models import Scene, Video
+from ..services.speech_alignment import align_scene_narration
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ def narrate_scene(scene: Scene, voice_model, dir_name: str, user=None) -> Scene:
     )
     scene.save()
 
+    align_scene_narration(scene)
     return scene
 
 
@@ -83,7 +85,10 @@ def make_scenes_speech(video: Video) -> None:
     for line in lines:
         scene = existing[line.text]
 
-        if not narrate or stored_file_exists(scene.file):
+        if not narrate:
+            continue
+        if stored_file_exists(scene.file):
+            align_scene_narration(scene)
             continue
 
         try:

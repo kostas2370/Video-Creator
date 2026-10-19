@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from ..serializers.overlays import SceneOverlaysSerializer
+from ..serializers.scene_captions import SceneCaptionsSerializer
+from ..services.scene_captions import scene_caption_data, update_scene_captions
 from ..services.overlays import update_overlays
 from ..serializers.requests import ManualTextSerializer
 from ..models import Scene, SceneImage, VideoType
@@ -48,6 +50,7 @@ class SceneView(viewsets.GenericViewSet):
             if self.get_object().video.video_type == VideoType.MANUAL:
                 return ManualTextSerializer
         return {
+            "captions": SceneCaptionsSerializer,
             "overlays": SceneOverlaysSerializer,
             "audio": SceneAudioSerializer,
             "voiceover": VoiceoverUploadSerializer,
@@ -62,6 +65,15 @@ class SceneView(viewsets.GenericViewSet):
 
     def get_permissions(self):
         return super().get_permissions()
+
+    @action(detail=True, methods=["GET", "PATCH"])
+    def captions(self, request, pk=None):
+        scene = self.get_object()
+        if request.method == "GET":
+            return Response(scene_caption_data(scene))
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(update_scene_captions(scene, **serializer.validated_data))
 
     def get_parsers(self):
         # DRF sets self.action after parsers; resolve the route from the raw request.

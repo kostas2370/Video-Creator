@@ -15,6 +15,17 @@ from ...utils.timing import media_timing
 
 
 class PreviewTests(ApiTestCase):
+    def test_tiktok_style_is_saved_and_preview_exposes_word_highlights(self):
+        response = self.client.patch(reverse("video-detail", args=[self.video.pk]), {"caption_style": "TIKTOK"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        data = self.client.get(self.url).data
+        self.assertEqual(data["caption_style"], "TIKTOK")
+        self.assertTrue(data["captions"])
+        self.assertTrue(all(cue["active_word"] is not None for cue in data["captions"]))
+        self.assertTrue(all(len(cue["text"].split()) <= 4 for cue in data["captions"]))
+        response = self.client.patch(reverse("video-detail", args=[self.video.pk]), {"caption_style": "UNKNOWN"}, format="json")
+        self.assertEqual(response.status_code, 400)
+
     def test_intro_effects_are_independent_of_scene_defaults_and_keep_caption_offsets(self):
         self.video.intro = intro.make(file="speech.wav", created_by=self.user)
         for style, expected in (("CUT", (0, 0, 0)), ("FADE", (0.25, 0.25, 0)), ("DISSOLVE", (0, 0, 0.25))):
