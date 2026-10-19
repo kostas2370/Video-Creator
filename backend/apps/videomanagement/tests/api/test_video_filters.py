@@ -110,8 +110,8 @@ class VideoFilterTests(ApiTestCase):
         video = self.video_for(status="RENDERING")
         original_time, original_settings = video.updated_at, video.settings.copy()
         url = reverse("video-favorite", args=[video.pk])
-        for value in (True, True, False):
-            response = self.client.patch(url) if value else self.client.delete(url)
+        for value in (True, False, True, False):
+            response = self.client.patch(url)
             self.assertEqual(response.status_code, 200, response.data)
             video.refresh_from_db()
             self.assertEqual(video.is_favorite, value)
@@ -132,8 +132,6 @@ class VideoFilterTests(ApiTestCase):
         foreign = self.video_for(owner=user.make())
         foreign_url = reverse("video-favorite", args=[foreign.pk])
         owned_url = reverse("video-favorite", args=[self.video_for().pk])
-        for method in (self.client.patch, self.client.delete):
-            self.assertEqual(method(foreign_url).status_code, 404)
+        self.assertEqual(self.client.patch(foreign_url).status_code, 404)
         self.client.force_authenticate(None)
-        for method in (self.client.patch, self.client.delete):
-            self.assertIn(method(owned_url).status_code, [401, 403])
+        self.assertIn(self.client.patch(owned_url).status_code, [401, 403])

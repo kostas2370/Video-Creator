@@ -480,8 +480,8 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
 
     objects = VideoQuerySet.as_manager()
 
-    def set_favorite(self, value=True):
-        self.is_favorite = value
+    def toggle_favorite(self):
+        self.is_favorite = not self.is_favorite
         self.save(update_fields=["is_favorite"])
 
     def __str__(self):

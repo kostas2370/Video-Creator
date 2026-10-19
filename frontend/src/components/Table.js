@@ -10,7 +10,7 @@ import { API_HOST } from "../endpoints";
 import { videoLibraryInfo } from "../utils/videoLibrary";
 import { loadVideoThumbnail, thumbnailRequestKey } from "../utils/videoThumbnails";
 import { videoFormats } from "../utils/videoFormats";
-import { deleteVideo, setVideoFavorite } from "../api/apiService";
+import { deleteVideo, toggleVideoFavorite } from "../api/apiService";
 import { DeleteModal } from "./DeleteModal";
 import { VideoInfoModal } from "./VideoInfoModal";
 import { RenderModal } from "./RenderModal";
@@ -76,7 +76,7 @@ export function DefaultTable({ data, setVideos, view = "grid", onUpdated, favori
     setSavingFavorites(new Set(pendingFavorites.current));
     setFavoriteError("");
     try {
-      const { data: response } = await setVideoFavorite(video.id, !video.is_favorite);
+      const { data: response } = await toggleVideoFavorite(video.id);
       if (!response || typeof response.is_favorite !== "boolean") throw new Error();
       if (favoritesOnly && !response.is_favorite) onUpdated?.();
       else setVideos(current => current.map(item => item.id === video.id ? { ...item, is_favorite: response.is_favorite } : item));
