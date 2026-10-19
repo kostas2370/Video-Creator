@@ -9,8 +9,9 @@ from dataclasses import dataclass
 
 from rest_framework.exceptions import ValidationError
 
-from .speech_alignment import aligned_words, has_caption_alignment
-from .caption_styles import resolve_style, video_caption_style
+from .speech_alignment import caption_words
+from .caption_timing import estimated_words
+from .caption_styles import caption_style as caption_style, resolve_style, video_caption_style
 from ..models import VideoStatus, VideoType
 from ..utils.exceptions import VideoEditConflict
 from ..utils.timing import file_timing, scene_timing
@@ -23,31 +24,6 @@ class CaptionCue:
     end: float
     text: str
     active_word: int | None = None
-
-
-def caption_style(video):
-    choices = video.settings or {}
-    return choices.get("caption_style") or ("TIKTOK" if choices.get("platform") == "TIKTOK" else "CLASSIC")
-
-
-def caption_phrases(text, width=32, max_words=10):
-    wrapper = textwrap.TextWrapper(width=width, break_on_hyphens=False)
-    words = re.findall(r"\S+", text or "")
-    # An unusually long token must still fit inside a two-line caption.
-    words = [word[i:i + width * 2] for word in words for i in range(0, len(word), width * 2)]
-    phrases, current = [], []
-    for word in words:
-        candidate = [*current, word]
-        if current and (len(candidate) > max_words or len(wrapper.wrap(" ".join(candidate))) > 2):
-            phrases.append("\n".join(wrapper.wrap(" ".join(current))))
-            current = []
-        current.append(word)
-        if re.search(r'[.!?;…]["”’\')]*$', word):
-            phrases.append("\n".join(wrapper.wrap(" ".join(current))))
-            current = []
-    if current:
-        phrases.append("\n".join(wrapper.wrap(" ".join(current))))
-    return phrases
 
 
 def caption_groups(words, preset="TIKTOK"):
@@ -97,30 +73,11 @@ def scene_cues(scene, *, offset=0, duration=None, highlight=False):
     if duration is None or not math.isfinite(duration) or duration <= 0:
         return []
     style = video_caption_style(scene.video)
-    words = aligned_words(scene)
-    if has_caption_alignment(scene):
-        cues = [CaptionCue(cue.start + offset, cue.end + offset, cue.text, cue.active_word)
-                for cue in word_cues(words, style, highlight=highlight)]
-    else:
-        phrases = caption_phrases(scene.text, width=style.line_width, max_words=style.max_words)
-        weights = [max(1, len(re.sub(r"\s", "", text))) for text in phrases]
-        total = sum(weights)
-        cues, consumed = [], 0
-        for text, weight in zip(phrases, weights):
-            start = offset + duration * consumed / total
-            consumed += weight
-            end = offset + duration * consumed / total
-            if style.highlight_words and highlight:
-                words = text.split()
-                word_total = sum(len(word) for word in words)
-                word_consumed = 0
-                for index, word in enumerate(words):
-                    word_start = start + (end - start) * word_consumed / word_total
-                    word_consumed += len(word)
-                    word_end = start + (end - start) * word_consumed / word_total
-                    cues.append(CaptionCue(word_start, word_end, text, index))
-            else:
-                cues.append(CaptionCue(start, end, text))
+    words = caption_words(scene)
+    if words is None:
+        words = estimated_words(scene.text, duration)
+    cues = [CaptionCue(cue.start + offset, cue.end + offset, cue.text, cue.active_word)
+            for cue in word_cues(words, style, highlight=highlight)]
     choices = getattr(scene, "audio_settings", None) or {}
     trim_start, trim_end = audio_bounds(scene, duration)
     delay = choices.get("delay", 0)
