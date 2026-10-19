@@ -1067,3 +1067,27 @@ Drafts use a scene image or a saved frame from their first clip. Thumbnails are
 created only for visible cards that need them, and a successful new export clears
 the old thumbnail so it can be regenerated. Apply migration `0036_video_thumbnail`
 and restart the API and workers when deploying.
+
+
+## Diagnosing failures
+
+API responses include an `X-Request-ID` reference. Unexpected API errors return a
+safe message; server-error notifications include the reference so a user can report
+it. API and worker application logs use one JSON record per line, with UTC timestamps,
+severity and logger names. API records include the reference, method, view name,
+status and duration. Jobs queued by that request inherit the reference and include
+the Celery task ID and name in their logs, including failures.
+
+Search the API and worker logs for a reported reference:
+
+```sh
+docker compose -f backend/docker-compose.yml logs video_creator celery | rg 'REFERENCE'
+```
+
+`LOG_LEVEL` controls console verbosity (default `INFO`; use `WARNING` to reduce
+request-completion logs). The added request records omit bodies, headers, query
+strings and task arguments. Exception tracebacks remain server-side; existing
+provider error messages may contain provider details, so restrict access to logs.
+Server startup output and third-party print statements may remain plain text.
+Console output still needs retention/rotation configured by the deployment. This
+change does not add an external error-reporting service or alerting.
