@@ -8,9 +8,15 @@ from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from ..models import CaptionProject
+from ..models import CaptionProject, CaptionProjectStatus
 from ..paginator import StandardResultsSetPagination
-from ..serializers.captions import CaptionUploadSerializer, CaptionEditSerializer, CaptionProjectSerializer, CaptionProjectSummarySerializer, CaptionStyleSerializer
+from ..serializers.captions import (
+    CaptionEditSerializer,
+    CaptionProjectSerializer,
+    CaptionProjectStyleSerializer,
+    CaptionProjectSummarySerializer,
+    CaptionUploadSerializer,
+)
 from ..services.captions import BUSY_STATUSES, CaptionConflict, project_cues, queue_caption_job
 from ..services.subtitles import cues_to_srt
 from ..throttling import CaptionRateThrottle
@@ -36,7 +42,7 @@ class CaptionProjectView(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         serializer = CaptionUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         metadata = serializer.metadata
-        style = CaptionStyleSerializer(data={})
+        style = CaptionProjectStyleSerializer(data={})
         style.is_valid(raise_exception=True)
         project = CaptionProject.objects.create(
             created_by=request.user, source=serializer.validated_data["source"],
@@ -48,7 +54,7 @@ class CaptionProjectView(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         except APIException as exc:
             # Retain the upload and its ID so the user can retry without reuploading.
             project.refresh_from_db()
-            if exc.status_code != 503 or project.status != "FAILED":
+            if exc.status_code != 503 or project.status != CaptionProjectStatus.FAILED:
                 raise
         return Response(self.get_serializer(project).data, status=201)
 
@@ -69,7 +75,7 @@ class CaptionProjectView(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             if {"words", "style"} & serializer.validated_data.keys():
                 old_output = project.output.name
                 project.output = ""
-                project.status = "READY" if project.words else "FAILED"
+                project.status = CaptionProjectStatus.READY if project.words else CaptionProjectStatus.FAILED
                 if old_output:
                     transaction.on_commit(lambda: project.output.storage.delete(old_output))
             project.error = ""

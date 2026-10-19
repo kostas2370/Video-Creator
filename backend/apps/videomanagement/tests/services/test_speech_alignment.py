@@ -14,6 +14,7 @@ from ...services.preview import preview_timeline
 from ...utils.audio_utils import narrate_scene
 from ...utils.composer.render import write_captions
 
+from ...services.transcription import normalize_words
 
 class SpeechAlignmentTests(TestCase):
     def setUp(self):
@@ -134,7 +135,6 @@ class SpeechAlignmentTests(TestCase):
 
 class TranscriptionNormalizationTests(SimpleTestCase):
     def test_nonfinite_overlapping_and_multiword_results_are_normalized(self):
-        from ...services.transcription import normalize_words
 
         words = normalize_words([
             SimpleNamespace(word="bad", start=float("nan"), end=0.5),
