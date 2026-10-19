@@ -1,27 +1,91 @@
 from __future__ import annotations
+
+import logging
+from pathlib import Path
+from random import randint
 from uuid import uuid4
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, router, transaction
 from django.utils import timezone
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.contrib.auth import get_user_model
-from random import randint
-from django_resized import ResizedImageField
-from django.conf import settings
-from django_lifecycle import LifecycleModelMixin, hook, AFTER_UPDATE
+from django_lifecycle import AFTER_UPDATE, LifecycleModelMixin, hook
 from django_lifecycle.conditions import WhenFieldValueChangesTo
+from django_resized import ResizedImageField
+
 from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
-from .querysets import AIUsageQuerySet, VideoQuerySet, SceneQuerySet, VoiceModelQuerySet
+from .querysets import AIUsageQuerySet, SceneQuerySet, VideoQuerySet, VoiceModelQuerySet
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
     VIDEO_FORMAT_CHOICES,
     VIDEO_PLATFORM_CHOICES,
 )
-import logging
 
 logger = logging.getLogger(__name__)
+
+
+def caption_upload_path(instance, filename):
+    return f"media/captions/{instance.pk}/source{Path(filename).suffix.lower()}"
+
+
+class UUIDModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+
+    class Meta:
+        abstract = True
+
+
+class TimestampedModel(models.Model):
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class AbstractModel(UUIDModel):
+    created_by = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, blank=True, null=True
+    )
+    objects = models.Manager()
+
+    class Meta:
+        abstract = True
+
+
+class CaptionProjectStatus(models.TextChoices):
+    QUEUED = "QUEUED", "QUEUED"
+    TRANSCRIBING = "TRANSCRIBING", "TRANSCRIBING"
+    READY = "READY", "READY"
+    RENDER_QUEUED = "RENDER_QUEUED", "RENDER_QUEUED"
+    RENDERING = "RENDERING", "RENDERING"
+    COMPLETED = "COMPLETED", "COMPLETED"
+    FAILED = "FAILED", "FAILED"
+
+
+class CaptionProject(UUIDModel, TimestampedModel):
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    title = models.CharField(max_length=100)
+    source = models.FileField(upload_to=caption_upload_path, max_length=255)
+    preview = models.FileField(blank=True, max_length=255)
+    output = models.FileField(blank=True, max_length=255)
+    words = models.JSONField(default=list)
+    style = models.JSONField(default=dict)
+    duration = models.FloatField()
+    width = models.PositiveIntegerField()
+    height = models.PositiveIntegerField()
+    status = models.CharField(
+        max_length=20, choices=CaptionProjectStatus.choices, default=CaptionProjectStatus.QUEUED,
+    )
+    error = models.CharField(max_length=300, blank=True)
+    job_id = models.UUIDField(null=True, editable=False)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class AIUsage(models.Model):
@@ -117,17 +181,6 @@ def default_video_settings() -> dict:
     }
 
 
-class AbstractModel(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    created_by = models.ForeignKey(
-        get_user_model(), on_delete=models.CASCADE, blank=True, null=True
-    )
-    objects = models.Manager()
-
-    class Meta:
-        abstract = True
-
-
 class TemplatePrompt(AbstractModel):
     title = models.CharField(max_length=50, blank=False)
     scene_count = models.PositiveSmallIntegerField(
@@ -210,8 +263,7 @@ class Music(AbstractModel):
         return self.name
 
 
-class UserPrompt(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+class UserPrompt(UUIDModel):
     prompt = models.TextField(blank=False)
     objects = models.Manager()
 
@@ -219,7 +271,7 @@ class UserPrompt(models.Model):
         return f"{self.id}"
 
 
-class Scene(models.Model):
+class Scene(UUIDModel):
     caption_alignment = models.JSONField(default=dict, blank=True)
     overlays = models.JSONField(default=list, blank=True)
     overlay_logo = models.ImageField(upload_to="media/overlays/%Y/%m/%d", blank=True)
@@ -245,7 +297,6 @@ class Scene(models.Model):
             models.UniqueConstraint(fields=["video", "position"], name="unique_scene_position"),
         ]
 
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     video = models.ForeignKey("Video", on_delete=models.CASCADE, related_name="scenes")
     file = models.FileField(
         upload_to="media/speech", blank=True, null=True, max_length=2000
@@ -270,13 +321,12 @@ class Scene(models.Model):
         return str(self.id)
 
 
-class SceneImage(models.Model):
+class SceneImage(UUIDModel):
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
 
     class Meta:
         ordering = ["created_at"]
 
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     scene = models.ForeignKey(
         Scene, on_delete=models.CASCADE, related_name="scene_images"
     )
@@ -344,7 +394,7 @@ class Outro(AbstractModel):
     objects = models.Manager()
 
 
-class Video(LifecycleModelMixin, AbstractModel):
+class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
     created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
 
     class Meta:
@@ -380,7 +430,6 @@ class Video(LifecycleModelMixin, AbstractModel):
     status = models.CharField(
         max_length=20, choices=VideoStatus.choices, default=VideoStatus.RENDERING
     )
-    updated_at = models.DateTimeField(auto_now=True)
     music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
     intro = models.ForeignKey(Intro, blank=True, null=True, on_delete=models.SET_NULL)
     outro = models.ForeignKey(Outro, blank=True, null=True, on_delete=models.SET_NULL)

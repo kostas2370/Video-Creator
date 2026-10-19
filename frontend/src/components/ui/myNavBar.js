@@ -9,6 +9,7 @@ import useLogout from "../../hooks/useLogout";
 const destinations = [
   { to: "/", label: "Create video", icon: HiOutlinePlusCircle },
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
+  { to: "/captions", label: "Captions", icon: HiOutlineSquares2X2 },
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
   { to: "/voices", label: "My voices", icon: HiOutlineUserCircle },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },

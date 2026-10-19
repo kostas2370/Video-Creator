@@ -23,9 +23,10 @@ from rest_framework.permissions import IsAuthenticated
 from ..services.caption_styles import style_catalog
 from ..events import publish_update
 from ..models import Video, VideoStatus, VideoType
-from ..serializers.requests import ManualVideoSerializer, ManualSceneSerializer
+from ..serializers.requests import ManualVideoSerializer, ManualSceneSerializer, StoryVideoSerializer, StoryDraftSerializer, StoryDraftResultSerializer
 from ..serializers.audio import VoiceoverUploadSerializer
-from ..services.manual import create_manual_video, add_manual_scene, set_music
+from ..services.manual import create_manual_video, add_manual_scene, set_music, create_story_video
+from ..services.story import draft_story
 from ..paginator import StandardResultsSetPagination
 from ..serializers.requests import BulkAutoMotionSerializer, VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
 from ..serializers.models import VideoSerializer, VideoNestedSerializer
@@ -35,7 +36,9 @@ from ..services.editing import reorder_scenes, apply_auto_motion
 from ..services.editing import editable_video, changed
 from ..services.subtitles import export_subtitles
 from ..tasks import render_video_task, resume_video_task, create_scene_task, generate_video_task
-from ..throttling import RenderRateThrottle, ResumeRateThrottle
+from ..throttling import RenderRateThrottle, ResumeRateThrottle, StoryDraftRateThrottle
+from ..tasks import update_scene_task
+from ..services.scene_jobs import queue_scene_job, QueueUnavailable
 from ..permissions import IsOwnerPermission
 
 from ..serializers.audio import MusicAudioSerializer
@@ -68,6 +71,30 @@ class VideoView(
         serializer.is_valid(raise_exception=True)
         video = create_manual_video(request.user, **serializer.validated_data)
         return Response(VideoNestedSerializer(video).data, status=201)
+
+    @swagger_auto_schema(request_body=StoryDraftSerializer, responses={200: StoryDraftResultSerializer})
+    @action(detail=False, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
+    def draft_story(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(draft_story(request.user, **serializer.validated_data))
+
+    @swagger_auto_schema(request_body=StoryVideoSerializer)
+    @action(detail=False, methods=["POST"])
+    def story(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video, scene = create_story_video(request.user, **serializer.validated_data)
+        warning = None
+        try:
+            queue_scene_job(scene, update_scene_task, scene.text)
+        except QueueUnavailable:
+            warning = "Project saved. Narration could not be queued; use Retry narration in the editor."
+        video.refresh_from_db()
+        data = dict(VideoNestedSerializer(video).data)
+        if warning:
+            data["warning"] = warning
+        return Response(data, status=201 if warning else 202)
 
     @action(detail=True, methods=["POST", "DELETE"])
     def music(self, request, pk=None):
@@ -104,6 +131,8 @@ class VideoView(
                 return AddScenesSerializer
         serializer_class = {
             "manual": ManualVideoSerializer,
+            "story": StoryVideoSerializer,
+            "draft_story": StoryDraftSerializer,
             "music": VoiceoverUploadSerializer,
             "audio": MusicAudioSerializer,
             "approve_script": StoryboardSerializer,
@@ -122,7 +151,7 @@ class VideoView(
         return super().get_permissions()
 
     def get_throttles(self):
-        if self.action in ("approve_script", "resume"):
+        if self.action in ("approve_script", "resume", "story"):
             return [ResumeRateThrottle()]
         if self.action == "render_video":
             return [RenderRateThrottle()]
@@ -133,7 +162,7 @@ class VideoView(
         action = getattr(self, "action", None) or getattr(self, "action_map", {}).get(
             self.request.method.lower()
         )
-        if action == "music":
+        if action in ("music", "story"):
             return [MultiPartParser(), FormParser()]
         return super().get_parsers()
 

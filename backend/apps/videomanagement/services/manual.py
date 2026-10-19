@@ -67,3 +67,25 @@ def set_music(video, upload=None):
             saved.storage.delete(saved.name)
         raise
     return locked
+
+
+def create_story_video(user, *, title, story, gameplay, voice_id, subtitles=True):
+    """Persist an editable story and muted gameplay before queuing narration."""
+    visual = None
+    try:
+        with transaction.atomic():
+            video = create_manual_video(
+                user, title=title, video_format="PORTRAIT", platform="TIKTOK",
+                subtitles=subtitles, narration=True, creation_mode="STORY",
+                loop_visual=True,
+            )
+            video.voice_model = voice_id
+            video.save(update_fields=["voice_model"])
+            scene = make_scene_speech(video, story, False, narrate=False)
+            visual = SceneImage(scene=scene, file=gameplay, with_audio=False)
+            visual.save()
+    except Exception:
+        if visual and visual.file._committed:
+            visual.file.delete(save=False)
+        raise
+    return video, scene

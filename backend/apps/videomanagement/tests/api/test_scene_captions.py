@@ -56,7 +56,7 @@ class SceneCaptionEditingTests(ApiTestCase):
         self.assertIn("0:00:00.50,0:00:01.50", ass.read_text())
         self.assertIn("Corrected caption.", export_subtitles(self.video))
         self.assertEqual(self.client.get(self.url).data["words"], self.words)
-        with patch("apps.videomanagement.services.speech_alignment.OpenAI") as provider:
+        with patch("apps.videomanagement.services.transcription.OpenAI") as provider:
             align_scene_narration(self.scene)
         provider.assert_not_called()
 
@@ -64,7 +64,7 @@ class SceneCaptionEditingTests(ApiTestCase):
         self.assertEqual(self.save(words=[]).status_code, 200)
         self.scene.refresh_from_db()
         self.assertEqual(preview_timeline(self.video).captions, [])
-        with patch("apps.videomanagement.services.speech_alignment.OpenAI") as provider:
+        with patch("apps.videomanagement.services.transcription.OpenAI") as provider:
             align_scene_narration(self.scene)
         provider.assert_not_called()
         self.assertEqual(self.client.get(self.url).data["words"], [])
