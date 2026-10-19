@@ -1,3 +1,4 @@
+
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -6,14 +7,18 @@ from django.db import DatabaseError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from rest_framework.exceptions import APIException
 from rest_framework.test import APIClient
 
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.integrations import llm as llm
+from apps.videomanagement.integrations import tts as tts_utils
+from apps.videomanagement.integrations.visuals import openai_images
+from apps.videomanagement.services.usage import record_usage
+
 from ...models import AIUsage
 from ...serializers.usage import UsageSerializer
-from ...utils import llm, tts_utils
-from ...utils.image_providers import openai_images
-from ...utils.usage import record_usage
 
 
 class UsageTests(TestCase):
@@ -161,7 +166,6 @@ class UsageTests(TestCase):
         self.assertEqual(response.data["totals"]["requests"], 0)
         self.assertEqual(response.data["breakdown"], [])
         self.assertEqual(response.data["period"], "30")
-        from django.utils.dateparse import parse_datetime
 
         self.assertEqual(parse_datetime(response.data["first_recorded_at"]), first)
 
@@ -173,7 +177,7 @@ class UsageTests(TestCase):
 
     def test_measurement_failure_does_not_break_generation_or_transaction(self):
         with patch(
-            "apps.videomanagement.utils.usage.AIUsage.objects.create",
+            "apps.videomanagement.services.usage.AIUsage.objects.create",
             side_effect=DatabaseError,
         ):
             record_usage(self.user, "text", "OPENAI")
@@ -222,7 +226,6 @@ class UsageTests(TestCase):
         client = MagicMock()
         client.chat.completions.create.side_effect = RuntimeError("upstream")
         with patch.object(llm, "OpenAI", return_value=client):
-            from rest_framework.exceptions import APIException
 
             with self.assertRaises(APIException):
                 llm.official_gpt_call("prompt", user=self.user)

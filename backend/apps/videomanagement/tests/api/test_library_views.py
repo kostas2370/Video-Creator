@@ -1,11 +1,12 @@
+from unittest.mock import Mock
+
 from django.test import override_settings
 from django.urls import reverse
-from unittest.mock import Mock
-from ...serializers.models import AvatarSerializer
 
 from apps.usermanagement.baker_recipes import superuser, user
 
 from ...baker_recipes import avatar, intro, voice_model
+from ...serializers.models import AvatarSerializer
 from .base import ApiTestCase
 
 

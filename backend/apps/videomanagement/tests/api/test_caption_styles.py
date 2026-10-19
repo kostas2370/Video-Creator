@@ -1,26 +1,32 @@
+import tempfile
 from dataclasses import replace
 from pathlib import Path
-import tempfile
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
 from django.urls import reverse
+from drf_yasg import openapi
+from drf_yasg.generators import OpenAPISchemaGenerator
+from rest_framework.routers import SimpleRouter
 
-from ...services.caption_styles import CAPTION_STYLES, video_caption_style, resolve_style
-from ...services.subtitles import CaptionCue, scene_cues, word_cues
+from apps.videomanagement.services.captions.subtitles import scene_cues
+from apps.videomanagement.utils.captions.cues import CaptionCue, word_cues
+from apps.videomanagement.utils.captions.styles import (
+    CAPTION_STYLES,
+    resolve_style,
+    video_caption_style,
+)
+from apps.videomanagement.views.videos import VideoView
+
+from ...baker_recipes import scene
+from ...models import Video
+from ...serializers.caption_styles import CaptionStyleSerializer
+from ...serializers.preview import PreviewTimelineSerializer
 from ...utils.composer.ass import ASS_STYLE_FIELDS
 from ...utils.composer.captions import ass_header, caption_ass_text, write_captions
 from .base import ApiTestCase
 
-from ...baker_recipes import scene
-from ...serializers.preview import PreviewTimelineSerializer
-from ...serializers.caption_styles import CaptionStyleSerializer
-from drf_yasg import openapi
-from drf_yasg.generators import OpenAPISchemaGenerator
-from rest_framework.routers import SimpleRouter
-from ...models import Video
-from ...views.video_view import VideoView
 
 class CustomCaptionStyleTests(ApiTestCase):
     def test_user_style_round_trips_and_reaches_preview_and_scene_editor(self):
@@ -42,7 +48,7 @@ class CustomCaptionStyleTests(ApiTestCase):
         item = scene.make(video=video, text="One two three four")
         cues = scene_cues(item, duration=4, highlight=True)
         self.assertTrue(all(len(cue.text.split()) <= 2 for cue in cues))
-        with patch("apps.videomanagement.services.preview.scene_segment") as segment, patch(
+        with patch("apps.videomanagement.services.videos.preview.scene_segment") as segment, patch(
             "apps.videomanagement.serializers.preview.voice_tracks", return_value=[]
         ):
             segment.return_value = SimpleNamespace(kind="scene", content=item, narration_duration=4,

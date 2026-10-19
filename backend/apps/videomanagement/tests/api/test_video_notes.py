@@ -1,6 +1,8 @@
 from django.urls import reverse
-from .base import ApiTestCase
+
 from apps.usermanagement.baker_recipes import user
+
+from .base import ApiTestCase
 
 
 class VideoNotesTests(ApiTestCase):

@@ -1,25 +1,32 @@
-from .captions import write_captions
 import logging
-from copy import copy
 import math
 import os
 import subprocess
 import tempfile
+from copy import copy
 from pathlib import Path
 
 from django.conf import settings
 
+from apps.videomanagement.exceptions import RenderFailedException
+from apps.videomanagement.services.captions.alignment import align_scene_narration
+from apps.videomanagement.services.videos.preview import (
+    apply_transitions,
+    asset_segment,
+    intro_segment,
+    scene_segment,
+)
+from apps.videomanagement.utils.frames import save_video_frame
+
 from ...models import RENDERABLE_STATUSES, MotionStyle, VideoStatus
-from ...services.preview import apply_transitions, asset_segment, intro_segment, scene_segment
-from ...services.speech_alignment import align_scene_narration
 from ...video_formats import output_size
-from ..fonts import subtitles_filter
-from ..exceptions import RenderFailedException
+from ..audio_editing import narration_file, voice_tracks
 from ..file_utils import check_if_image, stored_file_exists
+from ..fonts import subtitles_filter
 from ..motion import AMOUNTS, resolved_motion
 from ..timing import media_timing
-from ..audio_editing import narration_file, voice_tracks
 from .audio import voice_stream, write_music_envelope
+from .captions import write_captions
 from .effects import audio_fade_filters
 from .overlays import apply_overlays
 
@@ -123,12 +130,24 @@ def audio_stream(graph, sources, duration):
 
 def narration_graph(segments, choices):
     graph = Graph()
-    if any(segment.content.voiceover or segment.content.audio_settings for segment in segments):
+    if any(
+        segment.content.voiceover or segment.content.audio_settings
+        for segment in segments
+    ):
         tracks = voice_tracks(segments)
         by_id = {str(segment.content.pk): segment.content for segment in segments}
-        voices = [voice_stream(graph, narration_file(by_id[track["id"]]).path, track) for track in tracks]
-        originals = [audio_stream(graph, [segment.image.file.path] if segment.clip_audio else [], segment.duration)
-                     for segment in segments]
+        voices = [
+            voice_stream(graph, narration_file(by_id[track["id"]]).path, track)
+            for track in tracks
+        ]
+        originals = [
+            audio_stream(
+                graph,
+                [segment.image.file.path] if segment.clip_audio else [],
+                segment.duration,
+            )
+            for segment in segments
+        ]
         original = graph.filter(originals, f"concat=n={len(originals)}:v=0:a=1")
         if voices:
             original = graph.filter(
@@ -207,7 +226,9 @@ def visual_stream(graph, segment, size):
                     motion_filter(segment.content, segment.base_duration, size),
                 )
     else:
-        index = graph.input(field.path, ("-stream_loop", "-1") if segment.loop_visual else ())
+        index = graph.input(
+            field.path, ("-stream_loop", "-1") if segment.loop_visual else ()
+        )
         stream = graph.filter(
             [f"{index}:v"], f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={FPS}"
         )
@@ -243,13 +264,15 @@ def quantized_scenes(segments):
 
 
 def render_scene_clips(segments, directory, size, opening=None):
-    from ..scenes import save_video_frame
-
     quantized = quantized_scenes(segments)
     previous_frame = None
     if opening and quantized and quantized[0].dissolve_in:
         previous_frame = Path(directory, "intro-ending.png")
-        save_video_frame(opening.content.file.path, previous_frame, max(0, opening.duration - 1 / FPS))
+        save_video_frame(
+            opening.content.file.path,
+            previous_frame,
+            max(0, opening.duration - 1 / FPS),
+        )
     files = []
     for index, segment in enumerate(quantized):
         graph = Graph()
@@ -304,6 +327,7 @@ def avatar_layer(graph, video, stream, duration):
         return stream
     path = Path(video.dir_name, "output_avatar.mp4").resolve()
     if not path.exists():
+        # SadTalker is an optional, heavyweight dependency used only for avatar renders.
         from .avatar import create_avatar_video
 
         generated = create_avatar_video(video.avatar, video.dir_name)
@@ -332,7 +356,14 @@ def avatar_layer(graph, video, stream, duration):
 
 
 def final_graph(
-    video, segments, duration, narration_path, directory, size, scene_manifest, opening=None
+    video,
+    segments,
+    duration,
+    narration_path,
+    directory,
+    size,
+    scene_manifest,
+    opening=None,
 ):
     graph = Graph()
     scene_input = graph.input(scene_manifest, ("-f", "concat", "-safe", "1"))
@@ -343,20 +374,38 @@ def final_graph(
     if video.music:
         index = graph.input(video.music.file.path, ("-stream_loop", "-1"))
         choices = video.settings or {}
-        filters = ["aresample=44100", "aformat=sample_fmts=fltp:channel_layouts=stereo",
-                   f"atrim=duration={duration}", "asetpts=PTS-STARTPTS"]
+        filters = [
+            "aresample=44100",
+            "aformat=sample_fmts=fltp:channel_layouts=stereo",
+            f"atrim=duration={duration}",
+            "asetpts=PTS-STARTPTS",
+        ]
         if choices.get("music_ducking"):
-            speech = [interval for track in voice_tracks(segments) for interval in track["speech"]]
+            speech = [
+                interval
+                for track in voice_tracks(segments)
+                for interval in track["speech"]
+            ]
             envelope_path = Path(directory, "music-envelope.f32")
             write_music_envelope(envelope_path, duration, choices, speech)
-            control = graph.input(envelope_path, ("-f", "f32le", "-ar", "44100", "-ac", "2"))
-            envelope = graph.filter([f"{control}:a"], "aformat=sample_fmts=fltp:channel_layouts=stereo")
+            control = graph.input(
+                envelope_path, ("-f", "f32le", "-ar", "44100", "-ac", "2")
+            )
+            envelope = graph.filter(
+                [f"{control}:a"], "aformat=sample_fmts=fltp:channel_layouts=stereo"
+            )
             music = graph.filter([f"{index}:a"], ",".join(filters))
             music = graph.filter([music, envelope], "amultiply")
         else:
             fade = min(4, duration * 0.1)
             filters.append(f"volume={choices.get('music_volume', 0.07)}")
-            filters.extend(audio_fade_filters(duration, fade_in=choices.get("music_fade_in", fade), fade_out=choices.get("music_fade_out", fade)))
+            filters.extend(
+                audio_fade_filters(
+                    duration,
+                    fade_in=choices.get("music_fade_in", fade),
+                    fade_out=choices.get("music_fade_out", fade),
+                )
+            )
             music = graph.filter([f"{index}:a"], ",".join(filters))
         audio = graph.filter([audio, music], "amix=inputs=2:duration=first:normalize=0")
     if (video.settings or {}).get("subtitles", False):

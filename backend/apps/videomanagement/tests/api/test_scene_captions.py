@@ -7,10 +7,14 @@ from django.test import override_settings
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.services.captions.alignment import (
+    align_scene_narration,
+    narration_identity,
+)
+from apps.videomanagement.services.captions.subtitles import export_subtitles
+from apps.videomanagement.services.videos.preview import preview_timeline
+
 from ...baker_recipes import scene
-from ...services.preview import preview_timeline
-from ...services.speech_alignment import align_scene_narration, narration_identity
-from ...services.subtitles import export_subtitles
 from ...utils.composer.render import write_captions
 from .base import ApiTestCase
 
@@ -56,7 +60,7 @@ class SceneCaptionEditingTests(ApiTestCase):
         self.assertIn("0:00:00.50,0:00:01.50", ass.read_text())
         self.assertIn("Corrected caption.", export_subtitles(self.video))
         self.assertEqual(self.client.get(self.url).data["words"], self.words)
-        with patch("apps.videomanagement.services.transcription.OpenAI") as provider:
+        with patch("apps.videomanagement.services.captions.transcription.OpenAI") as provider:
             align_scene_narration(self.scene)
         provider.assert_not_called()
 
@@ -64,7 +68,7 @@ class SceneCaptionEditingTests(ApiTestCase):
         self.assertEqual(self.save(words=[]).status_code, 200)
         self.scene.refresh_from_db()
         self.assertEqual(preview_timeline(self.video).captions, [])
-        with patch("apps.videomanagement.services.transcription.OpenAI") as provider:
+        with patch("apps.videomanagement.services.captions.transcription.OpenAI") as provider:
             align_scene_narration(self.scene)
         provider.assert_not_called()
         self.assertEqual(self.client.get(self.url).data["words"], [])

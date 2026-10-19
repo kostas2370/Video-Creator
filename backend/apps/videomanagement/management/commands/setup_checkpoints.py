@@ -4,6 +4,11 @@ from dataclasses import dataclass
 
 from django.core.management import BaseCommand
 
+try:
+    import gdown
+except ImportError:
+    gdown = None
+
 
 @dataclass(frozen=True)
 class Checkpoint:
@@ -78,9 +83,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        try:
-            import gdown
-        except ImportError:
+        if gdown is None:
             self.stderr.write(
                 self.style.ERROR(
                     "gdown is not installed. It is in the requirements files; "

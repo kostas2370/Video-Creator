@@ -735,7 +735,7 @@ In **Settings → Caption style**, choose Classic, TikTok, or **Custom**. Custom
 styles save their name, font, size, colors, outline, placement, casing, word
 highlights, and phrase length with the video. Preview and export consume the same
 resolved definition. Custom sizes are percentages of the shorter frame dimension.
-Developers can add built-in styles in `services/caption_styles.py`; grouping and
+Developers can add built-in styles in `utils/captions/styles.py`; grouping and
 ASS rendering use the definition rather than branching on its preset name.
 
 Use **Captions** in a scene header to correct individual words and adjust their

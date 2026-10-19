@@ -17,6 +17,7 @@ from django_resized import ResizedImageField
 from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
+
 from .querysets import AIUsageQuerySet, SceneQuerySet, VideoQuerySet, VoiceModelQuerySet
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
@@ -79,7 +80,9 @@ class CaptionProject(UUIDModel, TimestampedModel):
     width = models.PositiveIntegerField()
     height = models.PositiveIntegerField()
     status = models.CharField(
-        max_length=20, choices=CaptionProjectStatus.choices, default=CaptionProjectStatus.QUEUED,
+        max_length=20,
+        choices=CaptionProjectStatus.choices,
+        default=CaptionProjectStatus.QUEUED,
     )
     error = models.CharField(max_length=300, blank=True)
     job_id = models.UUIDField(null=True, editable=False)
@@ -93,9 +96,16 @@ class AIUsage(models.Model):
 
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(default=timezone.now)
-    service = models.CharField(max_length=10, choices=[
-        ("text", "Text"), ("images", "Images"), ("tts", "Voice"), ("video", "Video"), ("stt", "Transcription")
-    ])
+    service = models.CharField(
+        max_length=10,
+        choices=[
+            ("text", "Text"),
+            ("images", "Images"),
+            ("tts", "Voice"),
+            ("video", "Video"),
+            ("stt", "Transcription"),
+        ],
+    )
     provider = models.CharField(max_length=100)
     model = models.CharField(max_length=100, blank=True)
     key_source = models.CharField(max_length=10)
@@ -108,7 +118,9 @@ class AIUsage(models.Model):
     objects = AIUsageQuerySet.as_manager()
 
     class Meta:
-        indexes = [models.Index(fields=["user", "created_at"], name="ai_usage_user_date")]
+        indexes = [
+            models.Index(fields=["user", "created_at"], name="ai_usage_user_date")
+        ]
 
 
 class MotionStyle(models.TextChoices):
@@ -275,9 +287,10 @@ class Scene(UUIDModel):
     caption_alignment = models.JSONField(default=dict, blank=True)
     overlays = models.JSONField(default=list, blank=True)
     overlay_logo = models.ImageField(upload_to="media/overlays/%Y/%m/%d", blank=True)
-    voiceover = models.FileField(upload_to="media/voiceovers", blank=True, max_length=2000)
+    voiceover = models.FileField(
+        upload_to="media/voiceovers", blank=True, max_length=2000
+    )
     audio_settings = models.JSONField(default=dict, blank=True)
-
 
     motion_style = models.CharField(
         max_length=10, choices=MotionStyle.choices, default=MotionStyle.NONE
@@ -286,15 +299,21 @@ class Scene(UUIDModel):
         max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
     )
     pause_after = models.FloatField(default=0)
-    transition_after = models.CharField(max_length=8, choices=TransitionStyle.choices, default=TransitionStyle.DEFAULT)
+    transition_after = models.CharField(
+        max_length=8, choices=TransitionStyle.choices, default=TransitionStyle.DEFAULT
+    )
     transition_duration = models.FloatField(null=True, blank=True, default=None)
     position = models.PositiveIntegerField(default=None, editable=False)
-    created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+    created_at = models.DateTimeField(
+        default=timezone.now, editable=False, db_index=True
+    )
 
     class Meta:
         ordering = ["position"]
         constraints = [
-            models.UniqueConstraint(fields=["video", "position"], name="unique_scene_position"),
+            models.UniqueConstraint(
+                fields=["video", "position"], name="unique_scene_position"
+            ),
         ]
 
     video = models.ForeignKey("Video", on_delete=models.CASCADE, related_name="scenes")
@@ -311,9 +330,11 @@ class Scene(UUIDModel):
         using = kwargs.get("using") or router.db_for_write(type(self), instance=self)
         with transaction.atomic(using=using):
             Video.objects.using(using).select_for_update().get(pk=self.video_id)
-            last = Scene.objects.using(using).filter(video_id=self.video_id).aggregate(
-                last=models.Max("position")
-            )["last"]
+            last = (
+                Scene.objects.using(using)
+                .filter(video_id=self.video_id)
+                .aggregate(last=models.Max("position"))["last"]
+            )
             self.position = (last or 0) + 1
             return super().save(*args, **{**kwargs, "using": using})
 
@@ -322,7 +343,9 @@ class Scene(UUIDModel):
 
 
 class SceneImage(UUIDModel):
-    created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+    created_at = models.DateTimeField(
+        default=timezone.now, editable=False, db_index=True
+    )
 
     class Meta:
         ordering = ["created_at"]
@@ -395,12 +418,16 @@ class Outro(AbstractModel):
 
 
 class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
-    created_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+    created_at = models.DateTimeField(
+        default=timezone.now, editable=False, db_index=True
+    )
 
     class Meta:
         ordering = ["created_at"]
 
-    reference_image = models.ImageField(upload_to="media/references/%Y/%m/%d", blank=True)
+    reference_image = models.ImageField(
+        upload_to="media/references/%Y/%m/%d", blank=True
+    )
     cover = models.ImageField(upload_to="media/covers/%Y/%m/%d", blank=True)
     cover_settings = models.JSONField(default=dict, blank=True)
     notes = models.TextField(blank=True, default="", max_length=10000)

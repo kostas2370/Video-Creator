@@ -1,4 +1,5 @@
 """Audio timing and envelopes shared by editor manifests and rendering."""
+
 import hashlib
 import os
 import subprocess
@@ -12,7 +13,9 @@ def narration_file(scene):
 
 
 def narration_enabled(scene):
-    return bool(getattr(scene, "voiceover", None)) or (scene.video.settings or {}).get("narration", True)
+    return bool(getattr(scene, "voiceover", None)) or (scene.video.settings or {}).get(
+        "narration", True
+    )
 
 
 def duration_override(scene):
@@ -36,22 +39,49 @@ def edited_duration(scene, duration):
 def waveform(path):
     """Bounded mono analysis; cache against file identity, including replacements."""
     stat = os.stat(path)
-    key = "audio-waveform:v1:" + hashlib.sha256(f"{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
+    key = (
+        "audio-waveform:v1:"
+        + hashlib.sha256(
+            f"{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()
+        ).hexdigest()
+    )
     cached = cache.get(key)
     if cached is not None:
         return cached
-    result = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-t", "900", "-vn",
-                             "-ac", "1", "-ar", "8000", "-f", "f32le", "pipe:1"],
-                            capture_output=True, timeout=30, check=True)
+    result = subprocess.run(
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-i",
+            str(path),
+            "-t",
+            "900",
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            "8000",
+            "-f",
+            "f32le",
+            "pipe:1",
+        ],
+        capture_output=True,
+        timeout=30,
+        check=True,
+    )
     samples = np.frombuffer(result.stdout, dtype="<f4")
     if not len(samples):
         raise ValueError("No audio samples found.")
-    peaks = [round(float(np.max(np.abs(chunk))), 4) for chunk in np.array_split(samples, min(600, len(samples)))]
+    peaks = [
+        round(float(np.max(np.abs(chunk))), 4)
+        for chunk in np.array_split(samples, min(600, len(samples)))
+    ]
     intervals = []
     # RMS above -40 dB marks activity; short silent gaps belong to the same phrase.
     for index in range(0, len(samples), 800):
-        chunk = samples[index:index + 800]
-        if float(np.sqrt(np.mean(chunk ** 2))) < 0.01:
+        chunk = samples[index : index + 800]
+        if float(np.sqrt(np.mean(chunk**2))) < 0.01:
             continue
         start, end = index / 8000, min((index + 800) / 8000, len(samples) / 8000)
         if intervals and start - intervals[-1][1] < 0.25:
@@ -74,7 +104,10 @@ def voice_tracks(segments):
             continue
         choices = getattr(scene, "audio_settings", None) or {}
         trim_start, trim_end = audio_bounds(scene, duration)
-        length = min(trim_end - trim_start, max(0, segment.base_duration - choices.get("delay", 0)))
+        length = min(
+            trim_end - trim_start,
+            max(0, segment.base_duration - choices.get("delay", 0)),
+        )
         if length <= 0:
             continue
         trim_end = trim_start + length
@@ -83,42 +116,40 @@ def voice_tracks(segments):
         overlap = 0
         # Crossfade only adjacent voice clips that reach the scene boundary.
         if previous and abs(previous["start"] + previous["duration"] - start) < 0.02:
-            overlap = min(previous.pop("crossfade"), previous["duration"] / 2, length / 2)
+            overlap = min(
+                previous.pop("crossfade"), previous["duration"] / 2, length / 2
+            )
             previous["fade_out"] = max(previous["fade_out"], overlap)
             start -= overlap
             fade_in = max(fade_in, overlap)
-        track = {"id": str(scene.pk), "source": narration_file(scene).url, "start": start,
-                 "duration": length, "trim_start": trim_start, "fade_in": fade_in,
-                 "fade_out": min(choices.get("fade_out", 0), length / 2),
-                 "volume": choices.get("volume", 1), "crossfade": choices.get("crossfade", 0)}
+        track = {
+            "id": str(scene.pk),
+            "source": narration_file(scene).url,
+            "start": start,
+            "duration": length,
+            "trim_start": trim_start,
+            "fade_in": fade_in,
+            "fade_out": min(choices.get("fade_out", 0), length / 2),
+            "volume": choices.get("volume", 1),
+            "crossfade": choices.get("crossfade", 0),
+        }
         try:
             activity = waveform(narration_file(scene).path)["speech"]
         except (OSError, ValueError, subprocess.SubprocessError):
             activity = [[trim_start, trim_end]]
-        track["speech"] = [[start + max(a, trim_start) - trim_start, start + min(b, trim_end) - trim_start]
-                           for a, b in activity if b > trim_start and a < trim_end and track["volume"] > 0]
+        track["speech"] = [
+            [
+                start + max(a, trim_start) - trim_start,
+                start + min(b, trim_end) - trim_start,
+            ]
+            for a, b in activity
+            if b > trim_start and a < trim_end and track["volume"] > 0
+        ]
         tracks.append(track)
         previous = track
     for track in tracks:
         track.pop("crossfade", None)
     return tracks
-
-
-def scene_audio_segments(scenes):
-    # Local import avoids a timing/preview import cycle.
-    from ..services.preview import scene_segment
-    segments, offset = [], 0
-    for index, scene in enumerate(scenes, 1):
-        segment = scene_segment(scene, index, offset, scene.video.settings or {})
-        segments.append(segment)
-        offset += segment.duration
-    return segments
-
-
-def caption_offsets(scenes):
-    by_id = {str(scene.pk): scene for scene in scenes}
-    return {track["id"]: track["start"] - (by_id[track["id"]].audio_settings or {}).get("delay", 0)
-            for track in voice_tracks(scene_audio_segments(scenes))}
 
 
 def music_gain(t, duration, choices, speech):
@@ -135,8 +166,10 @@ def music_gain(t, duration, choices, speech):
         attack = choices.get("duck_attack", 0.2)
         release = choices.get("duck_release", 0.8)
         for start, end in speech:
-            envelope = np.minimum(np.clip((times - start + attack) / attack, 0, 1),
-                                  np.clip((end + release - times) / release, 0, 1))
+            envelope = np.minimum(
+                np.clip((times - start + attack) / attack, 0, 1),
+                np.clip((end + release - times) / release, 0, 1),
+            )
             activity = np.maximum(activity, envelope)
         gain *= 1 - activity * (1 - choices.get("duck_level", 0.25))
     return gain * choices.get("music_volume", 0.07)

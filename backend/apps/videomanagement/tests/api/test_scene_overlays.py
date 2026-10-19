@@ -2,12 +2,13 @@ import io
 import json
 import tempfile
 
-from PIL import Image
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
+
 from ...baker_recipes import scene
 from .base import ApiTestCase
 
