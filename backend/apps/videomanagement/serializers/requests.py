@@ -1,11 +1,9 @@
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
 import math
-from pathlib import Path
-import tempfile
 import subprocess
 
 from PIL import Image, UnidentifiedImageError
-from ..utils.timing import video_metadata
+from ..utils.timing import uploaded_video_metadata
 from ..utils.file_utils import check_if_image, check_if_video
 from .audio import FiniteFloat
 
@@ -139,13 +137,9 @@ def validate_visual(value):
         if check_if_image(value.name):
             Image.open(value).verify()
         elif check_if_video(value.name):
-            with tempfile.NamedTemporaryFile(suffix=Path(value.name).suffix) as temporary:
-                for chunk in value.chunks():
-                    temporary.write(chunk)
-                temporary.flush()
-                metadata = video_metadata(temporary.name)
-                if metadata["duration"] > 900:
-                    raise serializers.ValidationError("Choose a clip up to 15 minutes long.")
+            metadata = uploaded_video_metadata(value)
+            if metadata["duration"] > 900:
+                raise serializers.ValidationError("Choose a clip up to 15 minutes long.")
         else:
             raise serializers.ValidationError("Choose a JPEG, PNG, WebP, MP4, MOV, WebM, AVI, or M4V file.")
     except (OSError, ValueError, KeyError, StopIteration, UnidentifiedImageError, Image.DecompressionBombError, subprocess.SubprocessError):
