@@ -1,22 +1,20 @@
 import { ThumbnailCreator } from "../components/ThumbnailCreator";
+import { VideoTags } from "../components/VideoTags";
 import { VideoNotes } from "../components/VideoNotes";
-import { formatDuration } from "../utils/timing";
-import { HiOutlineCheckCircle } from "react-icons/hi2";
 import { videoFormats } from "../utils/videoFormats";
 import { Link, useParams } from "react-router-dom";
 import React, { useCallback, useState, useEffect, useRef } from "react";
 import { getVideo, reorderScenes, updateSceneTransition, updateSceneTiming, updateSceneMotion, applyAutoMotion, getVideoSubtitles } from "../api/apiService";
 import { subscribeUpdates } from "../api/subscribeUpdates";
-import { IoIosSettings } from "react-icons/io";
 import { FaPlus } from "react-icons/fa6";
 import { VideoConfigModal } from "../components/VideoConfigModal";
 import { ReorderableScenes } from "../components/ReorderableScenes";
 import { toast } from "react-toastify";
-import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "../components/RenderModal";
 import { StoryboardModal } from "../components/StoryboardModal";
 import { ResumeModal } from "../components/ResumeModal";
-import { FaRedo, FaDownload, FaPlay } from "react-icons/fa";
+import { FaDownload } from "react-icons/fa";
+import { VideoToolbar } from "../components/VideoToolbar";
 import { ManualSceneModal } from "../components/ManualSceneModal";
 import { SceneCreationModal } from "../components/CreateSceneModal";
 import { MusicAudio } from "../components/MusicAudio";
@@ -223,20 +221,13 @@ export const Video = () => {
 
           </div>
         </header>
-        <div className="editor-toolbar sticky top-0 z-20 mb-4 rounded-2xl border border-gray-200 bg-gray-50 p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-          <div aria-label="Video actions" className="flex flex-wrap items-center gap-2">
-            <button type="button" disabled={!canPreview} aria-label="Preview video" title={canPreview ? "Preview your saved edits" : "Preview is available after processing and saving scenes"} onClick={() => setShowPreview(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><FaPlay aria-hidden="true" className="h-3.5 w-3.5" /><span>Preview<span className="hidden sm:inline"> video</span></span></button>
-            <button type="button" disabled={!videoInfo || videoInfo.status === "REVIEW"} aria-label="Video settings" onClick={() => setShowConfigModal(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"><IoIosSettings className="h-5 w-5" />Settings</button>
-            <button type="button" disabled={!videoInfo?.output || processing || renderPending} title={videoInfo?.output ? "Choose a frame and add a cover title" : "Export the video to create a cover"} onClick={() => setShowCover(true)} className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">Cover</button>
-            {isResumable && <button type="button" onClick={() => setShowResumeModal(true)} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"><FaRedo />Retry generation</button>}
-            <button type="button" disabled={!isRenderable} aria-label={renderPending ? "Starting export" : videoInfo?.status === "RENDERING" ? "Exporting video" : "Export video"} title={isRenderable ? "Export your current edit" : sceneChangePending ? "Wait for your changes to save" : !scenes.length ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`} onClick={() => setShowRenderModal(true)} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"><GiProcessor className="h-5 w-5" />{renderPending ? "Starting export…" : videoInfo?.status === "RENDERING" ? "Exporting…" : <span>Export<span className="hidden sm:inline"> video</span></span>}</button>
-          </div>
-          <div aria-label="Project overview" className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-200 px-1 pt-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-          <span role="status" className="inline-flex items-center gap-2 font-semibold text-blue-700 dark:text-blue-300"><HiOutlineCheckCircle aria-hidden="true" className="h-4 w-4" />{statusLabel}</span>
-          <span>{scenes.length} {scenes.length === 1 ? "scene" : "scenes"}</span><span>{formatDuration(runtime)}</span>{format && <span>{format.label} · {format.ratio}</span>}
-          <span className="hidden sm:ml-auto sm:inline">{sceneChangePending ? "Saving your edit…" : "Scene tools save changes individually"}</span>
-        </div>
-        </div>
+        <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
+          statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
+          renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}
+          onPreview={() => setShowPreview(true)} onSettings={() => setShowConfigModal(true)}
+          onCover={() => setShowCover(true)} onExport={() => setShowRenderModal(true)} onResume={() => setShowResumeModal(true)}
+          tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <VideoTags key={`tags-${videoInfo.id}`} videoId={videoInfo.id} tags={videoInfo.tags} onSaved={tags => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, tags } : current)} />}
+        />
         {updateError && !processing && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p>{videoInfo ? "Could not refresh your project. Reconnecting…" : "Could not load this project. Check your connection and try again."}</p><button type="button" onClick={setUpdated} className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-700">Try again</button></div>}
         {videoInfo?.status === "REVIEW" && <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-900/20">
           <p className="font-semibold">Your storyboard is ready for review</p>
@@ -254,7 +245,7 @@ export const Video = () => {
           <p className="mt-1">Your script and visuals are saved. Retry narration in the scenes below, or render with the available audio.</p>
           <div className="mt-3 flex flex-wrap gap-2">{videoInfo.scenes.map((scene, index) => scene.narration_status === "missing" && <a key={scene.id} href={`#scene-${scene.id}`} onClick={() => selectScene(scene.id)} className="rounded-lg border border-amber-300 px-3 py-1 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">Scene {index + 1}</a>)}</div>
         </div>}
-          {videoInfo && String(videoInfo.id) === String(videoId) && <VideoNotes key={videoInfo.id} videoId={videoInfo.id} notes={videoInfo.notes} onSaved={notes => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, notes } : current)} />}
+          {videoInfo && String(videoInfo.id) === String(videoId) && <VideoNotes key={`notes-${videoInfo.id}`} videoId={videoInfo.id} notes={videoInfo.notes} onSaved={notes => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, notes } : current)} />}
           <section aria-label="Scenes" className="min-w-0 space-y-5">
             <ReorderableScenes actions={<button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40"><FaPlus aria-hidden="true" />Add scene</button>} selectedSceneId={focusedScene?.id} onSelectScene={selectScene} manual={manual && !story} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : manual ? "Add your photos or video clips. Use Audio to record a voiceover and Music to add a soundtrack." : "Add a scene to start building your video."}</p></div>}

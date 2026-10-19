@@ -4,7 +4,14 @@ import { axiosPrivateInstance } from "./axiosPrivate";
 export function errorMessage(error) {
   const data = error?.response?.data;
   if (!data) return "The server could not be reached";
-  if (typeof data === "string") return data;
+  if (typeof data === "string") {
+    if (/^\s*(?:<!doctype\s+html|<html\b)/i.test(data)) {
+      return error.response.status === 404
+        ? "This feature is unavailable on the server. Please refresh and try again."
+        : "The server could not complete the request. Please try again.";
+    }
+    return data;
+  }
   const first = value => {
     if (Array.isArray(value)) return first(value[0]);
     if (value && typeof value === "object") {

@@ -27,4 +27,7 @@ export const creationModes = [
   },
 ];
 
-export const isCreationPath = pathname => ["/", ...creationModes.filter(mode => mode.preview !== "captions").map(mode => mode.to)].includes(pathname.replace(/\/$/, "") + "/");
+export const isCreationPath = pathname => {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return path === "/" || creationModes.some(mode => mode.to.replace(/\/$/, "") === path) || path.startsWith("/captions/");
+};

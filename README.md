@@ -1032,3 +1032,38 @@ restart the API and Celery workers after updating.
   removing a library item does not remove copies already used in videos.
 - Apply database migrations before using these features:
   `python manage.py migrate` (includes migration `0034_media_library_and_covers`).
+
+### Video tags
+
+Choose **Tags** in the video editor toolbar, then **Generate tags** to create
+TikTok hashtags, YouTube keyword phrases, and platform search tags from the
+current title and script. Generated tags are always in English, with TikTok audience
+and niche hashtags and YouTube phrases aimed at relevant viewer searches. Switch
+between TikTok, YouTube, and Library tabs to edit or copy tags. Generation uses the
+configured text model and API key.
+Tags are saved with the video; edit each group and choose **Save changes**, or use
+**Copy** to copy hashtags or comma-separated keywords for posting. Regenerate
+after changing the video content. Library search matches titles and saved tags.
+
+The API exposes `POST /api/videos/{id}/generate_tags/` with `previous_tags`, and
+`PATCH /api/videos/{id}/tags/` with `tags` and `previous_tags`. The `tags` object
+contains `tiktok`, `youtube`, and `search` arrays. Pass the previously retrieved
+object (initially `{}`) as `previous_tags` to avoid overwriting another session.
+The editor accepts up to 20 tags per group and 80 characters per tag. Saving tags
+does not change render state or require rendering again. Apply migrations when
+updating an existing installation.
+
+### Video library
+
+**My videos** provides a thumbnail grid and a compact list view, with search by
+video title or tag and a filter for project status. Both the selected layout and
+filters are preserved in the page URL. Each project shows its creation mode,
+last update, and a clear action to open the editor or watch an available export.
+
+Saved covers take priority for thumbnails. Otherwise, the backend generates and saves a small JPEG once, sampling a random
+frame from the middle 35–75% of the content and excluding known intro/outro
+durations. Later visits reuse that image without loading or seeking the video.
+Drafts use a scene image or a saved frame from their first clip. Thumbnails are
+created only for visible cards that need them, and a successful new export clears
+the old thumbnail so it can be regenerated. Apply migration `0036_video_thumbnail`
+and restart the API and workers when deploying.

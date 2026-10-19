@@ -8,9 +8,10 @@ import useLogout from "../../hooks/useLogout";
 import { isCreationPath } from "../../utils/creationModes";
 
 const destinations = [
-  { to: "/", label: "Create video", icon: HiOutlinePlusCircle },
+  { to: "/", label: "Create", icon: HiOutlinePlusCircle },
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
-  { to: "/captions", label: "Captions", icon: HiOutlineSquares2X2 },
+];
+const resources = [
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
   { to: "/voices", label: "My voices", icon: HiOutlineUserCircle },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },
@@ -22,6 +23,7 @@ function Navbar({ theme, toggleTheme }) {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useLogout();
+  const inResources = resources.some(({ to }) => location.pathname === to || location.pathname.startsWith(`${to}/`));
   useEffect(() => setIsMenuOpen(false), [location.pathname]);
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -38,12 +40,20 @@ function Navbar({ theme, toggleTheme }) {
 
   return (
     <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <NavLink to="/" aria-label="Video Creator home" className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm"><HiOutlineFilm aria-hidden="true" className="h-5 w-5" /></span>
           <span className="hidden text-base font-bold tracking-tight text-gray-900 sm:block dark:text-white">Video Creator</span>
         </NavLink>
-        <nav aria-label="Main navigation" className="hidden items-center gap-1 xl:flex">{links(false)}</nav>
+        <nav aria-label="Main navigation" className="hidden items-center gap-1 md:flex">
+          {links(false)}
+          <Menu as="div" className="relative">
+            <MenuButton className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${inResources ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}><HiOutlineSquares2X2 aria-hidden="true" className="h-4 w-4" />Resources<HiOutlineChevronDown aria-hidden="true" className="h-3 w-3" /></MenuButton>
+            <MenuItems anchor="bottom start" className="z-50 mt-2 w-52 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+              {resources.map(({ to, label, icon: Icon }) => <MenuItem key={to}><NavLink to={to} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-3 text-sm data-[focus]:bg-gray-50 dark:data-[focus]:bg-gray-700 ${isActive ? "text-blue-600 dark:text-blue-300" : "text-gray-600 dark:text-gray-300"}`}><Icon aria-hidden="true" className="h-4 w-4" />{label}</NavLink></MenuItem>)}
+            </MenuItems>
+          </Menu>
+        </nav>
         <div className="flex shrink-0 items-center gap-1">
           <button type="button" onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} className={iconButton}>{theme === "dark" ? <RiSunLine className="h-5 w-5" /> : <RiMoonLine className="h-5 w-5" />}</button>
           <NotificationBell />
@@ -57,10 +67,10 @@ function Navbar({ theme, toggleTheme }) {
               <MenuItem><button type="button" onClick={async () => { if (await logout()) navigate("/login/"); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-gray-500 data-[focus]:bg-gray-50 dark:text-gray-300 dark:data-[focus]:bg-gray-700"><HiOutlineArrowRightOnRectangle className="h-4 w-4" />Sign out</button></MenuItem>
             </MenuItems>
           </Menu>
-          <button type="button" aria-label={isMenuOpen ? "Close main menu" : "Open main menu"} aria-controls="mobile-menu" aria-expanded={isMenuOpen} onClick={() => setIsMenuOpen(open => !open)} className={`${iconButton} xl:hidden`}>{isMenuOpen ? <HiOutlineXMark className="h-6 w-6" /> : <HiOutlineBars3 className="h-6 w-6" />}</button>
+          <button type="button" aria-label={isMenuOpen ? "Close main menu" : "Open main menu"} aria-controls="mobile-menu" aria-expanded={isMenuOpen} onClick={() => setIsMenuOpen(open => !open)} className={`${iconButton} md:hidden`}>{isMenuOpen ? <HiOutlineXMark className="h-6 w-6" /> : <HiOutlineBars3 className="h-6 w-6" />}</button>
         </div>
       </div>
-      {isMenuOpen && <nav id="mobile-menu" aria-label="Mobile navigation" className="border-t border-gray-100 px-4 py-3 xl:hidden dark:border-gray-800"><div className="mx-auto grid max-w-7xl gap-1 sm:grid-cols-2">{links(true)}</div></nav>}
+      {isMenuOpen && <nav id="mobile-menu" aria-label="Mobile navigation" className="border-t border-gray-100 px-4 py-3 md:hidden dark:border-gray-800"><div className="mx-auto grid max-w-7xl gap-1 sm:grid-cols-2">{links(true)}<div className="col-span-full mt-2 border-t border-gray-100 pt-3 dark:border-gray-700"><p className="px-3 pb-2 text-xs font-medium text-gray-400">Resources</p><div className="grid gap-1 sm:grid-cols-2">{resources.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"}`}><Icon aria-hidden="true" className="h-4 w-4" />{label}</NavLink>)}</div></div></div></nav>}
     </header>
   );
 }
