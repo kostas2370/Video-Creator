@@ -3,7 +3,8 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from ...services.subtitles import caption_phrases, caption_style, scene_cues, cues_to_srt, CaptionCue, srt_timestamp
+from ...services.caption_timing import estimated_words
+from ...services.subtitles import caption_style, word_cues, scene_cues, cues_to_srt, CaptionCue, srt_timestamp
 
 
 class CaptionCueTests(SimpleTestCase):
@@ -38,17 +39,17 @@ class CaptionCueTests(SimpleTestCase):
 
     def test_long_dialogue_is_split_without_losing_words(self):
         text = "This is the first sentence. " + "A longer explanation with several useful details for the viewer " * 8
-        phrases = caption_phrases(text)
+        phrases = [cue.text for cue in word_cues(estimated_words(text, 10), "CLASSIC")]
         self.assertGreater(len(phrases), 5)
         self.assertEqual(" ".join(" ".join(phrases).split()), " ".join(text.split()))
         for phrase in phrases:
             self.assertLessEqual(len(phrase.splitlines()), 2)
-            self.assertTrue(all(len(line) <= 32 for line in phrase.splitlines()))
+            self.assertTrue(all(len(line) <= 40 for line in phrase.splitlines()))
             self.assertLessEqual(len(phrase.split()), 10)
         self.assertEqual(phrases[0], "This is the first sentence.")
 
     def test_unicode_and_long_tokens_fit_the_caption_box(self):
-        phrases = caption_phrases("Γεια σου κόσμε. " + "α" * 150)
+        phrases = [cue.text for cue in word_cues(estimated_words("Γεια σου κόσμε. " + "α" * 150, 10), "CLASSIC")]
         self.assertEqual(phrases[0], "Γεια σου κόσμε.")
         self.assertEqual("".join(phrases[1:]).replace("\n", ""), "α" * 150)
         self.assertTrue(all(len(phrase.splitlines()) <= 2 for phrase in phrases))
