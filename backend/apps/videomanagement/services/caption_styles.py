@@ -84,3 +84,15 @@ def video_caption_style(video):
 def style_catalog():
     return {"presets": {key: resolve_style(key).to_dict() for key in CAPTION_STYLES},
             "custom_defaults": CUSTOM_STYLE.to_dict(), "fonts": list(FONTS)}
+
+
+def project_caption_style(project):
+    """Adapt the caption studio's saved controls to the common style definition."""
+    style = project.style
+    return replace(
+        resolve_style(style.get("preset", "TIKTOK")),
+        font=style.get("font", "DejaVu Sans"), font_size=style.get("size", 6),
+        scale_with_frame=True, color=style.get("color", "#ffffff"),
+        highlight_color=style.get("highlight", "#ffe846"), position=style.get("position", "bottom"),
+        outline_width=0.45, shadow=0, margin_right=14, margin_vertical=9, portrait_margin_vertical=22,
+    )

@@ -11,3 +11,14 @@ def estimated_words(text, duration):
         consumed += len(token)
         words.append({"text": token, "start": start, "end": duration * consumed / total})
     return words
+
+
+def validate_word_bounds(words, duration):
+    from rest_framework.exceptions import ValidationError
+
+    previous_end = 0
+    for word in words:
+        if word["start"] < previous_end or word["end"] > duration:
+            raise ValidationError("Keep words in order, without overlaps, and within the source audio duration.")
+        previous_end = word["end"]
+    return words

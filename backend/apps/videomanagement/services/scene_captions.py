@@ -13,7 +13,7 @@ from ..utils.exceptions import VideoEditConflict
 from ..utils.timing import file_timing
 from .editing import changed, editable_video
 from .speech_alignment import caption_words, narration_identity
-from .caption_timing import estimated_words
+from .caption_timing import estimated_words, validate_word_bounds
 from .subtitles import caption_style
 from .caption_styles import video_caption_style
 
@@ -46,11 +46,7 @@ def update_scene_captions(scene, *, words, revision):
         current = scene_caption_data(scene)
         if revision != current["revision"]:
             raise VideoEditConflict("The narration or captions changed. Close and reopen the caption editor before saving.")
-        previous_end = 0
-        for word in words:
-            if word["start"] < previous_end or word["end"] > current["duration"]:
-                raise ValidationError({"words": "Keep words in order, without overlaps, and within the source audio duration."})
-            previous_end = word["end"]
+        validate_word_bounds(words, current["duration"])
         scene.caption_alignment = {"source": narration_identity(scene), "words": words, "edited": True}
         scene.save(update_fields=["caption_alignment"])
         changed(video, invalidate_avatar=False)

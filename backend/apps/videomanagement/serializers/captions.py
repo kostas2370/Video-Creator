@@ -8,6 +8,8 @@ from rest_framework import serializers
 
 from ..models import CaptionProject
 from ..utils.timing import video_metadata
+from ..services.caption_styles import CAPTION_STYLES, FONTS
+from ..services.caption_timing import validate_word_bounds
 
 
 class CaptionUploadSerializer(serializers.Serializer):
@@ -54,8 +56,8 @@ class CaptionWordSerializer(serializers.Serializer):
 
 
 class CaptionStyleSerializer(serializers.Serializer):
-    preset = serializers.ChoiceField(choices=("TIKTOK", "CLASSIC"), default="TIKTOK")
-    font = serializers.ChoiceField(choices=("DejaVu Sans", "DejaVu Serif", "DejaVu Sans Mono"), default="DejaVu Sans")
+    preset = serializers.ChoiceField(choices=tuple(CAPTION_STYLES), default="TIKTOK")
+    font = serializers.ChoiceField(choices=FONTS, default="DejaVu Sans")
     size = serializers.IntegerField(min_value=3, max_value=9, default=6)
     color = serializers.RegexField(r"^#[0-9a-fA-F]{6}$", default="#ffffff")
     highlight = serializers.RegexField(r"^#[0-9a-fA-F]{6}$", default="#ffe846")
@@ -63,23 +65,21 @@ class CaptionStyleSerializer(serializers.Serializer):
 
 
 class CaptionEditSerializer(serializers.Serializer):
+    revision = serializers.DateTimeField()
     title = serializers.CharField(max_length=100, required=False)
     words = CaptionWordSerializer(many=True, required=False, max_length=10000)
     style = CaptionStyleSerializer(required=False)
 
     def validate_words(self, words):
-        previous_end = 0
-        for word in words:
-            if word["start"] < previous_end or word["end"] > self.instance.duration + 0.01:
-                raise serializers.ValidationError("Words must be in order, without overlap, and within the video duration.")
-            previous_end = word["end"]
-        return words
+        return validate_word_bounds(words, self.instance.duration)
 
 
 class CaptionProjectSerializer(serializers.ModelSerializer):
+    revision = serializers.DateTimeField(source="updated_at", read_only=True)
+
     class Meta:
         model = CaptionProject
-        fields = ("id", "title", "source", "preview", "output", "words", "style", "duration", "width", "height", "status", "error", "updated_at")
+        fields = ("id", "title", "source", "preview", "output", "words", "style", "duration", "width", "height", "status", "error", "updated_at", "revision")
         read_only_fields = fields
 
 
