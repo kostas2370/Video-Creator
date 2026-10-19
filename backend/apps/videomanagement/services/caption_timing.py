@@ -1,6 +1,8 @@
 """Fallback source-word timing shared by the editor, preview and exports."""
 import re
 
+from rest_framework.exceptions import ValidationError
+
 
 def estimated_words(text, duration):
     tokens = re.findall(r"\S{1,40}", text or "")
@@ -14,8 +16,6 @@ def estimated_words(text, duration):
 
 
 def validate_word_bounds(words, duration):
-    from rest_framework.exceptions import ValidationError
-
     previous_end = 0
     for word in words:
         if word["start"] < previous_end or word["end"] > duration:
