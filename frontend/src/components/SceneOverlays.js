@@ -75,7 +75,7 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
       <div className="md:sticky md:top-0">
         <div className="relative mx-auto w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: videoFormat === "PORTRAIT" ? "9 / 16" : videoFormat === "SQUARE" ? "1" : "16 / 9", maxWidth: videoFormat === "PORTRAIT" ? 240 : undefined }}>
           {media && (isVideo(source) ? <OverlayVideo source={media} time={time} /> : <img src={media} alt={`Scene ${index + 1}`} className="absolute inset-0 h-full w-full object-cover" />)}
-          <OverlayLayer overlays={items} logo={logo} time={time} duration={duration} />
+          <OverlayLayer frameSize={videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080]} overlays={items} logo={logo} time={time} duration={duration} />
         </div>
         <label className="mt-4 block text-sm text-gray-600 dark:text-gray-300">Preview time · {time.toFixed(1)}s / {duration.toFixed(1)}s<input aria-label="Overlay preview time" type="range" min="0" max={duration} step="0.05" value={time} onChange={e => setTime(Number(e.target.value))} className="mt-2 w-full accent-blue-600" /></label>
         <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Timing starts at the beginning of this scene and includes its pause. Overlays stop at the scene boundary. Save to update the full preview, then render to export. Text appearance can vary slightly in the export.</p>
