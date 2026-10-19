@@ -7,6 +7,7 @@ from rest_framework import serializers
 from ..models import Video, TransitionStyle, MotionStyle, MotionIntensity
 from ..services.preview import PreviewTimeline, preview_timeline
 from ..services.subtitles import caption_style
+from ..services.caption_styles import video_caption_style
 from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
 from ..video_formats import output_size
 from ..utils.audio_editing import narration_file, voice_tracks
@@ -89,9 +90,13 @@ class PreviewTimelineSerializer(serializers.Serializer):
     segments = PreviewSegmentSerializer(source="timeline.segments", many=True)
     captions = PreviewCaptionSerializer(source="timeline.captions", many=True)
     caption_style = serializers.SerializerMethodField()
+    caption_config = serializers.SerializerMethodField()
     render_only = serializers.SerializerMethodField()
     audio_tracks = serializers.SerializerMethodField()
     music = serializers.SerializerMethodField()
+
+    def get_caption_config(self, obj):
+        return video_caption_style(obj.video).to_dict()
 
     def get_caption_style(self, obj):
         return caption_style(obj.video)

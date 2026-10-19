@@ -34,8 +34,8 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
   const [playing, setPlaying] = useState(false);
   const player = useRef(null);
   const saving = useRef(false);
-  const groups = useMemo(() => captionGroups(words, data?.style || "CLASSIC"), [words, data?.style]);
-  const cue = useMemo(() => captionAt(groups, time, data?.style || "CLASSIC"), [groups, time, data?.style]);
+  const groups = useMemo(() => captionGroups(words, data?.config || data?.style || "CLASSIC"), [words, data?.style, data?.config]);
+  const cue = useMemo(() => captionAt(groups, time, data?.config || data?.style || "CLASSIC"), [groups, time, data?.style, data?.config]);
   const size = videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080];
   const locked = loading || busy || disabled;
   const close = () => { if (!saving.current && (!dirty || window.confirm("Discard unsaved caption changes?"))) onClose(); };
@@ -90,7 +90,7 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
         <div className="md:sticky md:top-0">
           <div className={`relative mx-auto overflow-hidden rounded-xl bg-black ${size[1] > size[0] ? "w-40 md:w-full" : "w-full"}`} style={{ aspectRatio: `${size[0]} / ${size[1]}`, maxWidth: size[1] > size[0] ? 260 : undefined }}>
             {visual && (isVideo(visual) ? <video src={mediaUrl(visual)} muted playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" /> : <img src={mediaUrl(visual)} alt={`Scene ${index + 1}`} className="absolute inset-0 h-full w-full object-cover" />)}
-            <CaptionLayer cue={cue} style={data.style} size={size} />
+            <CaptionLayer cue={cue} style={data.style} size={size} config={data.config} />
           </div>
           <audio ref={player} controls preload="metadata" src={mediaUrl(data.audio)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onError={() => setError("Could not play the source audio. Close and reopen the editor to try again.")} onTimeUpdate={event => setTime(event.currentTarget.currentTime)} onSeeked={event => setTime(event.currentTarget.currentTime)} className="mt-4 h-10 w-full" aria-label="Caption source narration" />
           <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Listen to the original voice audio while editing. Times start at the beginning of this audio, before trims and delays. Jump to a gap, then use Add word to insert a missing word. Saved captions follow those edits in the full video preview and export.</p>

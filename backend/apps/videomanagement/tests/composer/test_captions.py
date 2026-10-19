@@ -5,13 +5,14 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from ...services.subtitles import CaptionCue
+from ...services.caption_styles import resolve_style
 from ...utils.composer.render import caption_ass_text, write_captions
 
 
 class CaptionRenderTests(SimpleTestCase):
     def test_word_colors_cannot_enable_ass_tags_from_user_text(self):
         cue = CaptionCue(0, 1, r"Hello {\pos(0,0)}" + "\nworld", 2)
-        text = caption_ass_text(cue, tiktok=True)
+        text = caption_ass_text(cue, style=resolve_style("TIKTOK"))
         self.assertIn(r"{\1c&H0046E8FF&}WORLD{\1c&H00FFFFFF&}", text)
         self.assertNotIn(r"{\pos", text)
         self.assertIn(r"\N", text)

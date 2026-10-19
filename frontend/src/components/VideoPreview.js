@@ -210,7 +210,7 @@ function VideoPreview({ video, disabled = false }) {
             {(manifest.audio_tracks || []).filter(track => time >= track.start - 0.5 && time <= track.start + track.duration + 0.1).map(track => <Track key={`voice-${track.id}`} source={track.source} time={time - track.start} trimStart={track.trim_start} duration={track.duration} volume={voiceGain(time - track.start, track)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />)}
             {manifest.music && <Track key={`music-${manifest.music.source}`} source={manifest.music.source} loop time={time - manifest.music.start} duration={manifest.music.duration} volume={musicGain(time - manifest.music.start, manifest.music.duration, manifest.music.settings, (manifest.audio_tracks || []).flatMap(track => track.speech.map(([a, b]) => [a - manifest.music.start, b - manifest.music.start])))} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {active && <OverlayLayer overlays={active.overlays} logo={active.overlay_logo} time={local} duration={active.duration} />}
-            <CaptionLayer cue={cue} style={manifest.caption_style} size={manifest.size} />
+            <CaptionLayer cue={cue} style={manifest.caption_style} size={manifest.size} config={manifest.caption_config} />
           </div>
         </div>
         <div className="mt-4 flex items-center gap-2 sm:gap-3">

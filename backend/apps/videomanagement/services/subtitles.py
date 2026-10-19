@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from rest_framework.exceptions import ValidationError
 
 from .speech_alignment import aligned_words, has_caption_alignment
+from .caption_styles import resolve_style, video_caption_style
 from ..models import VideoStatus, VideoType
 from ..utils.exceptions import VideoEditConflict
 from ..utils.timing import file_timing, scene_timing
@@ -51,8 +52,8 @@ def caption_phrases(text, width=32, max_words=10):
 
 def caption_groups(words, preset="TIKTOK"):
     groups, group = [], []
-    limit = 4 if preset == "TIKTOK" else 10
-    characters = 38 if preset == "TIKTOK" else 62
+    style = resolve_style(preset)
+    limit, characters = style.max_words, style.max_characters
     for word in words:
         if group and (len(group) >= limit or len(" ".join(item["text"] for item in [*group, word])) > characters or word["start"] - group[-1]["end"] > 0.5):
             groups.append(group)
@@ -67,12 +68,12 @@ def caption_groups(words, preset="TIKTOK"):
 
 
 def word_cues(words, preset="TIKTOK", *, highlight=False):
-    tiktok = preset == "TIKTOK"
+    style = resolve_style(preset)
     cues = []
-    for group in caption_groups(words, "TIKTOK" if tiktok else "CLASSIC"):
-        text = textwrap.fill(" ".join(word["text"] for word in group), width=20 if tiktok else 32,
+    for group in caption_groups(words, style):
+        text = textwrap.fill(" ".join(word["text"] for word in group), width=style.line_width,
                              break_long_words=False, break_on_hyphens=False)
-        if tiktok and highlight:
+        if style.highlight_words and highlight:
             for index, word in enumerate(group):
                 # Highlight advances at measured word boundaries, preserving pauses between phrases.
                 end = group[index+1]["start"] if index+1 < len(group) else word["end"]
@@ -95,13 +96,13 @@ def scene_cues(scene, *, offset=0, duration=None, highlight=False):
         duration = scene_timing(scene, next(iter(scene.scene_images.all()), None))["base_duration"]
     if duration is None or not math.isfinite(duration) or duration <= 0:
         return []
-    tiktok = caption_style(scene.video) == "TIKTOK"
+    style = video_caption_style(scene.video)
     words = aligned_words(scene)
     if has_caption_alignment(scene):
         cues = [CaptionCue(cue.start + offset, cue.end + offset, cue.text, cue.active_word)
-                for cue in word_cues(words, "TIKTOK" if tiktok else "CLASSIC", highlight=highlight)]
+                for cue in word_cues(words, style, highlight=highlight)]
     else:
-        phrases = caption_phrases(scene.text, width=20, max_words=4) if tiktok else caption_phrases(scene.text)
+        phrases = caption_phrases(scene.text, width=style.line_width, max_words=style.max_words)
         weights = [max(1, len(re.sub(r"\s", "", text))) for text in phrases]
         total = sum(weights)
         cues, consumed = [], 0
@@ -109,7 +110,7 @@ def scene_cues(scene, *, offset=0, duration=None, highlight=False):
             start = offset + duration * consumed / total
             consumed += weight
             end = offset + duration * consumed / total
-            if tiktok and highlight:
+            if style.highlight_words and highlight:
                 words = text.split()
                 word_total = sum(len(word) for word in words)
                 word_consumed = 0

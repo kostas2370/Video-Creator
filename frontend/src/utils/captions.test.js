@@ -47,3 +47,10 @@ describe("caption word insertion", () => {
     expect(insertCaptionWord(words, 2, 2)).toBeNull();
   });
 });
+
+it("groups and highlights according to a custom style definition", () => {
+  const style = { max_words: 1, max_characters: 100, line_width: 30, highlight_words: false };
+  const groups = captionGroups(words, style);
+  expect(groups).toHaveLength(3);
+  expect(captionAt(groups, 0.2, style)).toEqual({ text: "Hello", active_word: null });
+});
