@@ -1,3 +1,4 @@
+import { LibraryPicker } from "./LibraryPicker";
 import { useObjectUrl } from "../hooks/useObjectUrl";
 import { isVideo } from "../utils/media";
 import { useEffect, useState } from "react";
@@ -7,6 +8,7 @@ import { EditorDialog, editorInput, editorButton } from "./ui/EditorDialog";
 import { ScenePositionPicker } from "./ui/ScenePositionPicker";
 
 export function ManualSceneModal({ id, showModal, setShowModal, setItems, scenes = [] }) {
+  const [library, setLibrary] = useState(false);
   const [file, setFile] = useState(null), [text, setText] = useState("");
   const [duration, setDuration] = useState(""), [position, setPosition] = useState("");
   const [withAudio, setWithAudio] = useState(true);
@@ -30,9 +32,11 @@ export function ManualSceneModal({ id, showModal, setShowModal, setItems, scenes
     finally { setBusy(false); }
   };
   return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Add your media" description="Upload a photo or clip, or start with a blank scene for captions and a voiceover." busy={busy} footer={<div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm text-gray-500">Cancel</button><button type="submit" form="manual-scene" disabled={busy} className={editorButton}>{busy ? "Adding…" : "Add scene"}</button></div>}>
+    <LibraryPicker open={library} onClose={() => setLibrary(false)} videoId={id} purpose="new_scene" onSaved={() => { setItems(); setShowModal(false); }} sceneData={{ text: text.trim(), with_audio: withAudio, ...(duration !== "" ? { duration: Number(duration) } : {}), ...(position ? { position: Number(position) } : {}) }} />
     <form id="manual-scene" onSubmit={save}><fieldset disabled={busy} className="space-y-5">
       <ScenePositionPicker scenes={scenes} value={position} onChange={setPosition} disabled={busy} />
       <label className="block text-sm font-semibold" htmlFor="manual-media">Photo or video<input key={String(showModal)} id="manual-media" type="file" accept=".jpg,.jpeg,.png,.webp,.mp4,.mov,.webm,.avi,.m4v" className={`${editorInput} mt-2`} onChange={event => setFile(event.target.files[0] || null)} /></label>
+      <button type="button" onClick={() => setLibrary(true)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-blue-600 dark:border-gray-600 dark:text-blue-300">Choose from media library</button>
       {preview && (isVideo(file) ? <video controls src={preview} className="max-h-60 w-full rounded-xl bg-black" /> : <img src={preview} alt="New scene" className="max-h-60 w-full rounded-xl object-contain" />)}
       <p className="text-xs text-gray-500">Up to 100 MB per file. Video clips can be up to 15 minutes long.</p>
       <label className="block text-sm font-semibold" htmlFor="manual-caption">Caption text (optional)<textarea id="manual-caption" rows={3} maxLength={2000} value={text} onChange={event => setText(event.target.value)} className={`${editorInput} mt-2`} placeholder="Text to display in this scene" /></label>
