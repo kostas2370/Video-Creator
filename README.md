@@ -630,7 +630,7 @@ The preview follows saved scene order, durations, pauses and transition settings
 Without an intro, the first scene fades in only when the video's default transition is **Fade**;
 **Cut** and **Cross dissolve** start directly.
 Narration and retained clip audio play together; pauses hold the final frame in
-silence. Captions appear when subtitles are enabled, using the same estimated phrase
+silence. Captions appear when subtitles are enabled, using the same caption
 cues as rendering and SRT export. Portrait, landscape and square framing use the
 selected output format. Playback waits for buffering and pauses when you leave the tab.
 Closing the preview stops all media and returns you to editing. Use the close button,
@@ -720,11 +720,32 @@ a pause also clears cached avatar output so the next render uses the updated tim
 ### Subtitles and SRT export
 
 Enable **Subtitles** in video settings to include narration captions in the next
-render. Dialogue is split at sentence boundaries and into short phrases, wrapped
-into one or two lines. Phrase timing is estimated from text length and the recorded
-narration duration; voice providers currently do not return word timestamps.
+render. With subtitles enabled and an OpenAI key available, generated narration is
+transcribed with Whisper word timestamps. These timestamps are saved per audio
+file and shared by preview, rendered captions and SRT export. TikTok captions
+highlight each spoken word; Classic captions use measured phrase boundaries.
+Pauses between phrases stay clear. Regenerating narration refreshes the timestamps;
+existing narration is aligned on its next render. Transcription usage appears in
+Usage. If transcription fails or no OpenAI key is configured, captions fall back
+to timing estimated from text length and narration duration.
 Captions stay out of added pauses and ending holds, and scenes without recorded
 narration have no captions.
+
+In **Settings → Caption style**, choose Classic, TikTok, or **Custom**. Custom
+styles save their name, font, size, colors, outline, placement, casing, word
+highlights, and phrase length with the video. Preview and export consume the same
+resolved definition. Custom sizes are percentages of the shorter frame dimension.
+Developers can add built-in styles in `services/caption_styles.py`; grouping and
+ASS rendering use the definition rather than branching on its preset name.
+
+Use **Captions** in a scene header to correct individual words and adjust their
+start and end times while listening to the source voice. Caption edits leave the
+script and voice audio unchanged. Times refer to the original audio, before trims
+and delays; the full preview and export apply those edits automatically. Remove
+all words and save to hide captions for that scene. Saving preserves corrections
+across renders, while replacing narration starts fresh for the new audio. Older
+scenes without measured timestamps offer estimated times you can edit. Enable
+**Subtitles** in video settings to show captions, then render again after saving.
 
 Choose **Download SRT** in the editor sidebar to download a UTF-8 subtitle file for
 the current edit. It uses the same phrase cues as rendered captions, follows scene

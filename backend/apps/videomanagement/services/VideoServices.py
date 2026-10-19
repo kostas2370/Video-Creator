@@ -7,7 +7,7 @@ from ..utils.audio_utils import update_scene
 
 def video_update(video: Video, **changes) -> Video:
     """Apply only supplied fields, resolving every asset before changing the video."""
-    if {"transition_default", "transition_duration", "intro_transition", "intro_transition_duration", "intro", "voice_id"} & changes.keys():
+    if {"transition_default", "transition_duration", "intro_transition", "intro_transition_duration", "intro", "voice_id", "caption_style", "caption_config"} & changes.keys():
         with editable_video(video.pk) as locked_video:
             return _apply_video_changes(locked_video, changes)
     return _apply_video_changes(video, changes)
@@ -32,7 +32,7 @@ def _apply_video_changes(video, changes):
     if voice_changed:
         updates["voice_model"] = selected_voice
 
-    settings_fields = ("video_format", "platform", "subtitles", "avatar_position", "transition_default", "transition_duration", "intro_transition", "intro_transition_duration")
+    settings_fields = ("video_format", "platform", "subtitles", "caption_style", "caption_config", "avatar_position", "transition_default", "transition_duration", "intro_transition", "intro_transition_duration")
     settings_changes = {
         field: changes[field] for field in settings_fields if field in changes
     }
