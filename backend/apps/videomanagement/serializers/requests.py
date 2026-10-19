@@ -359,3 +359,8 @@ class SceneTimingSerializer(serializers.Serializer):
 
 class SceneJobQuerySerializer(serializers.Serializer):
     job = serializers.CharField(max_length=512)
+
+
+class VideoNotesSerializer(serializers.Serializer):
+    notes = serializers.CharField(allow_blank=True, max_length=10000, trim_whitespace=False)
+    previous_notes = serializers.CharField(allow_blank=True, max_length=10000, trim_whitespace=False, write_only=True)
