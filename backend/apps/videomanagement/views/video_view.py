@@ -28,7 +28,7 @@ from ..serializers.audio import VoiceoverUploadSerializer
 from ..services.manual import create_manual_video, add_manual_scene, set_music, create_story_video
 from ..services.story import draft_story
 from ..paginator import StandardResultsSetPagination
-from ..serializers.requests import BulkAutoMotionSerializer, VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
+from ..serializers.requests import BulkAutoMotionSerializer, VideoNotesSerializer, VideoUpdateSerializer, AddSceneSerializer, AddScenesSerializer, SceneDraftSerializer, StoryboardSerializer, ReorderScenesSerializer
 from ..serializers.models import VideoSerializer, VideoNestedSerializer
 from ..serializers.preview import PreviewTimelineSerializer
 from ..services.SceneServices import draft_scene
@@ -131,6 +131,7 @@ class VideoView(
                 return AddScenesSerializer
         serializer_class = {
             "manual": ManualVideoSerializer,
+            "notes": VideoNotesSerializer,
             "story": StoryVideoSerializer,
             "draft_story": StoryDraftSerializer,
             "music": VoiceoverUploadSerializer,
@@ -224,6 +225,23 @@ class VideoView(
         return Response(
             {"message": "Updated Success", "video": self.serialize_video_detail(outcome)}
         )
+
+    @action(detail=True, methods=["PATCH"])
+    def notes(self, request, pk=None):
+        owned_video = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        with transaction.atomic():
+            video = Video.objects.select_for_update().get(pk=owned_video.pk)
+            if video.notes not in (values["previous_notes"], values["notes"]):
+                return Response({"detail": "Notes changed in another session. Your draft has been kept.",
+                                 "notes": video.notes}, status=409)
+            video.notes = values["notes"]
+            # Notes are project metadata: keep render state, timing and assets intact.
+            video.save(update_fields=["notes"])
+            publish_update(f"video.{video.pk}", video_id=video.pk)
+        return Response({"notes": video.notes})
 
     @action(detail=True, methods=["POST"])
     def approve_script(self, request, pk=None):

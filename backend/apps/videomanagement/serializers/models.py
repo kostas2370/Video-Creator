@@ -128,7 +128,7 @@ class VideoNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Video
-        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration")
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes")
         read_only_fields = fields
 
     def get_scenes(self, obj):
