@@ -35,8 +35,13 @@ def has_caption_alignment(scene):
     return bool(alignment.get("source") and alignment["source"] == narration_identity(scene))
 
 
+def caption_words(scene):
+    """None means no valid alignment; an empty list means captions were cleared."""
+    return scene.caption_alignment.get("words", []) if has_caption_alignment(scene) else None
+
+
 def aligned_words(scene):
-    return scene.caption_alignment.get("words", []) if has_caption_alignment(scene) else []
+    return caption_words(scene) or []
 
 
 def align_scene_narration(scene):

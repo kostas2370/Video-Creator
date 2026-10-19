@@ -1,7 +1,6 @@
 """Edit caption words independently of a scene's script and voice track."""
 import hashlib
 import json
-import re
 from pathlib import Path
 
 from django.conf import settings
@@ -13,7 +12,8 @@ from ..utils.audio_editing import narration_enabled, narration_file
 from ..utils.exceptions import VideoEditConflict
 from ..utils.timing import file_timing
 from .editing import changed, editable_video
-from .speech_alignment import aligned_words, has_caption_alignment, narration_identity
+from .speech_alignment import caption_words, narration_identity
+from .caption_timing import estimated_words
 from .subtitles import caption_style
 from .caption_styles import video_caption_style
 
@@ -30,15 +30,10 @@ def scene_caption_data(scene):
     audio_url = field.storage.url(relative)
     if not audio_url.startswith(("http://", "https://", "/")):
         audio_url = "/" + audio_url
-    measured = has_caption_alignment(scene)
-    words = aligned_words(scene) if measured else []
+    words = caption_words(scene)
+    measured = words is not None
     if not measured:
-        tokens = re.findall(r"\S{1,40}", scene.text or "")
-        total, consumed = sum(len(word) for word in tokens), 0
-        for token in tokens:
-            start = duration * consumed / total
-            consumed += len(token)
-            words.append({"text": token, "start": start, "end": duration * consumed / total})
+        words = estimated_words(scene.text, duration)
     revision = hashlib.sha256(json.dumps([identity, scene.caption_alignment], sort_keys=True).encode()).hexdigest()
     return {"words": words, "duration": duration, "revision": revision, "audio": audio_url,
             "style": caption_style(scene.video), "config": video_caption_style(scene.video).to_dict(), "enabled": bool((scene.video.settings or {}).get("subtitles")),

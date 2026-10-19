@@ -72,10 +72,13 @@ def resolve_style(preset="TIKTOK", custom=None):
     return replace(CAPTION_STYLES.get(preset, CAPTION_STYLES["CLASSIC"]), font=settings.SUBTITLE_FONT)
 
 
-def video_caption_style(video):
+def caption_style(video):
     choices = video.settings or {}
-    preset = choices.get("caption_style") or ("TIKTOK" if choices.get("platform") == "TIKTOK" else "CLASSIC")
-    return resolve_style(preset, choices.get("caption_config"))
+    return choices.get("caption_style") or ("TIKTOK" if choices.get("platform") == "TIKTOK" else "CLASSIC")
+
+
+def video_caption_style(video):
+    return resolve_style(caption_style(video), (video.settings or {}).get("caption_config"))
 
 
 def style_catalog():
