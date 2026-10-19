@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from django.core.files.storage import default_storage
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
@@ -133,12 +136,25 @@ VIDEO_RESPONSE_FIELDS = (
 
 
 class VideoSerializer(serializers.ModelSerializer):
+    preview_media = serializers.SerializerMethodField()
+
+    def get_preview_media(self, obj):
+        source = getattr(obj, "scene_preview", None)
+        if not source:
+            return None
+        media_type = (
+            "video"
+            if Path(source).suffix.lower() in {".mp4", ".webm", ".mov", ".m4v"}
+            else "image"
+        )
+        return {"url": default_storage.url(source), "type": media_type}
+
     prompt = UserPromptSerializer(read_only=True)
     music = serializers.SerializerMethodField()
 
     class Meta:
         model = Video
-        fields = VIDEO_RESPONSE_FIELDS
+        fields = (*VIDEO_RESPONSE_FIELDS, "preview_media")
         read_only_fields = fields
 
     def get_music(self, obj):

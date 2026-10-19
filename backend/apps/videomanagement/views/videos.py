@@ -1,5 +1,6 @@
 import logging
 
+from django.db.models import OuterRef, Subquery
 from django.http import HttpResponse
 from django.utils.http import content_disposition_header
 from django.utils.text import slugify
@@ -12,7 +13,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.videomanagement.models import Video, VideoStatus, VideoType
+from apps.videomanagement.models import SceneImage, Video, VideoStatus, VideoType
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
@@ -143,7 +144,15 @@ class VideoView(
             .select_related("music", "prompt")
         )
         if self.action == "list":
-            queryset = queryset.listable()
+            queryset = queryset.listable().annotate(
+                scene_preview=Subquery(
+                    SceneImage.objects.filter(scene__video_id=OuterRef("pk"))
+                    .exclude(file="")
+                    .exclude(file__isnull=True)
+                    .order_by("scene__position", "created_at", "id")
+                    .values("file")[:1]
+                )
+            )
 
         if self.action in ("retrieve", "preview"):
             queryset = queryset.select_related("intro", "outro").prefetch_related(

@@ -1,191 +1,111 @@
-import { API_HOST } from "../endpoints";
-
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
-import { HiOutlineEllipsisVertical, HiOutlineFilm } from "react-icons/hi2";
-import { FaRegEye, FaPencilAlt, FaRedo } from "react-icons/fa";
-import { RiDeleteBin6Fill } from "react-icons/ri";
-import { DeleteModal } from "./DeleteModal";
+import {
+  HiOutlineEllipsisHorizontal, HiOutlineFilm, HiOutlinePlay, HiOutlineArrowRight,
+  HiOutlineArrowPath, HiOutlineArrowUpTray, HiOutlineInformationCircle, HiOutlineTrash,
+} from "react-icons/hi2";
+import { formatDistanceToNow, isValid, parseISO } from "date-fns";
+import { API_HOST } from "../endpoints";
+import { thumbnailFrameTime, videoLibraryInfo } from "../utils/videoLibrary";
+import { videoFormats } from "../utils/videoFormats";
 import { deleteVideo } from "../api/apiService";
+import { DeleteModal } from "./DeleteModal";
 import { VideoInfoModal } from "./VideoInfoModal";
-import { GiProcessor } from "react-icons/gi";
 import { RenderModal } from "./RenderModal";
 import { ResumeModal } from "./ResumeModal";
-import { useNavigate } from "react-router-dom";
 
+const menuItemClass = "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-gray-700 data-[focus]:bg-gray-100 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-gray-200 dark:data-[focus]:bg-gray-700";
+const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 
-const menuItemClass =
-  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 data-[focus]:bg-gray-100 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-gray-200 dark:data-[focus]:bg-gray-700";
+function VideoThumbnail({ video, compact }) {
+  const container = useRef(null);
+  const [visible, setVisible] = useState(false);
+  const [frameSample] = useState(() => Math.random());
+  const [failedCover, setFailedCover] = useState(null);
+  const [failedVideo, setFailedVideo] = useState(null);
+  const [readySource, setReadySource] = useState(null);
+  const mediaUrl = value => value && (/^https?:\/\//i.test(value) ? value : `${API_HOST}${value}`);
+  const sceneImage = video.preview_media?.type === "image" ? video.preview_media.url : null;
+  const sceneVideo = video.preview_media?.type === "video" ? video.preview_media.url : null;
+  const cover = mediaUrl(video.cover || sceneImage);
+  const output = mediaUrl(video.output || sceneVideo);
+  const preferImage = !!video.cover || !video.output;
+  const showCover = cover && failedCover !== cover && (preferImage || failedVideo === output);
+  const showVideo = !showCover && output && failedVideo !== output;
 
-export function DefaultTable({ data, setVideos }) {
+  useEffect(() => {
+    if (!container.current) return;
+    if (typeof IntersectionObserver === "undefined") { setVisible(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setVisible(true); observer.disconnect(); }
+    }, { rootMargin: "150px" });
+    observer.observe(container.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return <Link ref={container} to={`/videos/${video.id}/`} aria-label={`Open ${video.title || "Untitled video"}`} className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 text-blue-300 ${focus} dark:from-gray-800 dark:via-slate-800 dark:to-slate-900 dark:text-slate-600 ${compact ? "h-20 w-28 rounded-xl sm:h-20 sm:w-36" : "aspect-video w-full rounded-t-2xl"}`}>
+    <HiOutlineFilm aria-hidden="true" className={compact ? "h-8 w-8" : "h-12 w-12"} />
+    {showCover && <img src={cover} loading="lazy" alt="" onError={() => setFailedCover(cover)} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105" />}
+    {showVideo && visible && <video key={output} src={output} muted playsInline preload="metadata" aria-hidden="true" tabIndex={-1}
+      onLoadedMetadata={event => {
+        const player = event.currentTarget;
+        if (Number.isFinite(player.duration) && player.duration > 0) player.currentTime = thumbnailFrameTime(player.duration, frameSample);
+      }}
+      onSeeked={() => setReadySource(output)} onError={() => setFailedVideo(output)}
+      className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity ${readySource === output ? "opacity-100" : "opacity-0"}`} />}
+    {!compact && <span className="absolute bottom-3 right-3 rounded-md bg-gray-950/65 px-2 py-1 text-[10px] font-medium text-white">{videoFormats.find(format => format.value === video.settings?.video_format)?.ratio || "Video"}</span>}
+  </Link>;
+}
+
+export function DefaultTable({ data, setVideos, view = "grid", onUpdated }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [renderPending, setRenderPending] = useState(false);
   const [showResumeModal, setShowResumeModal] = useState(false);
-  const navigate = useNavigate();
-
   const [id, setId] = useState("");
-  const selectedId = id;
   const [videoInfo, setVideoInfo] = useState(null);
+  const compact = view === "list";
+  const showDetails = video => { setVideoInfo(video); setShowVideoModal(true); };
 
-  return (
-    <>
-      <DeleteModal
-        showModal={showDeleteModal}
-        setShowModal={setShowDeleteModal}
-        id={id}
-        setItems={setVideos}
-        deleteFunction={deleteVideo}
-        name="video"
-      />
-
-      <RenderModal
-        showModal={showRenderModal}
-        setShowModal={setShowRenderModal}
-        id={id}
-        setItems={setVideos}
-        name="video"
-        onPendingChange={setRenderPending}
-      />
-
-      <ResumeModal
-        showModal={showResumeModal}
-        setShowModal={setShowResumeModal}
-        id={id}
-        setItems={setVideos}
-        name="this video"
-      />
-
-      <VideoInfoModal
-        showModal={showVideoModal}
-        setShowModal={setShowVideoModal}
-        videoInfo={videoInfo}
-      />
-
-      <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-        {data?.map(({ title, status, output, id, prompt, music, gpt_answer, cover }) => {
-          const isCompleted = status === "COMPLETED";
-          const isRenderable = !(renderPending && id === selectedId) && (isCompleted || status === "READY");
-          const isEditable = isRenderable || status === "REVIEW";
-          const isDeletable = status !== "RENDERING";
-          const isResumable = status === "FAILED";
-          const statusColor = isCompleted ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : status === "FAILED" ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300" : status === "READY" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
-          return <li key={id} className="flex flex-col gap-4 p-5 transition hover:bg-gray-50/80 sm:flex-row sm:items-center dark:hover:bg-gray-900/20">
-            <div className="flex min-w-0 flex-1 items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-400 dark:bg-gray-700">{cover ? <img src={/^https?:\/\//i.test(cover) ? cover : `${API_HOST}${cover}`} alt="" className="h-full w-full rounded-xl object-cover" /> : <HiOutlineFilm className="h-6 w-6" />}</div>
-              <div className="min-w-0"><h3 className="break-words text-sm font-semibold text-gray-900 dark:text-white">{title || "Untitled video"}</h3><div className="mt-2 flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColor}`}>{status?.replaceAll("_", " ").toLowerCase()}</span><span className="text-xs text-gray-400">Generated video</span></div></div>
+  return <>
+    <DeleteModal showModal={showDeleteModal} setShowModal={setShowDeleteModal} id={id} setItems={setVideos} deleteFunction={deleteVideo} name="video" />
+    <RenderModal showModal={showRenderModal} setShowModal={setShowRenderModal} id={id} setItems={setVideos} name="video" onPendingChange={setRenderPending} onFinished={onUpdated} />
+    <ResumeModal showModal={showResumeModal} setShowModal={setShowResumeModal} id={id} setItems={setVideos} name="this video" onFinished={onUpdated} />
+    <VideoInfoModal showModal={showVideoModal} setShowModal={setShowVideoModal} videoInfo={videoInfo} />
+    <ul className={compact ? "divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-800" : "grid gap-5 sm:grid-cols-2 lg:grid-cols-3"}>
+      {data?.map(video => {
+        const title = video.title || "Untitled video";
+        const info = videoLibraryInfo(video);
+        const canExport = !(renderPending && video.id === id) && ["COMPLETED", "READY"].includes(video.status);
+        const updated = video.updated_at && parseISO(video.updated_at);
+        return <li key={video.id} className={`group min-w-0 ${compact ? "flex flex-wrap items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-900/20" : "flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition-shadow hover:shadow-lg hover:shadow-gray-900/5 dark:border-gray-700 dark:bg-gray-800"}`}>
+          <VideoThumbnail video={video} compact={compact} />
+          <div className={compact ? "min-w-0 flex-1" : "flex flex-1 flex-col p-4"}>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-gray-500 dark:text-gray-400">{info.mode}</span>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold ${info.color}`}>{info.processing && <HiOutlineArrowPath aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />}{info.label}</span>
             </div>
-            <div className="flex shrink-0 items-center justify-end gap-2">
-              {isEditable && <button type="button" aria-label={`Edit ${title}`} onClick={() => navigate(`/videos/${id}/`)} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:border-blue-300 hover:text-blue-600 dark:border-gray-600 dark:text-gray-300"><FaPencilAlt />{status === "REVIEW" ? "Review prompts" : "Edit scenes"}</button>}
-              {isCompleted && output && <button type="button" aria-label={`Watch ${title}`} onClick={() => { setVideoInfo({title,prompt,gpt_answer,music,output}); setShowVideoModal(true); }} className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"><FaRegEye />Watch</button>}
-                      <Menu as="div" className="relative inline-block text-left">
-                        <MenuButton
-                          aria-label={`Actions for ${title}`}
-                          className="rounded-full p-2 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:hover:bg-gray-700"
-                        >
-                          <HiOutlineEllipsisVertical className="h-5 w-5 text-gray-700 dark:text-gray-200" />
-                        </MenuButton>
-                        <MenuItems
-                          anchor="bottom end"
-                          className="z-50 mt-1 w-52 rounded-xl border border-gray-200 bg-white p-1 shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800"
-                        >
-                          <MenuItem>
-                            <button
-                              className={menuItemClass}
-                              onClick={() => {
-                                setVideoInfo({
-                                  title: title,
-                                  prompt: prompt,
-                                  gpt_answer: gpt_answer,
-                                  music: music,
-                                  output: output,
-                                });
-                                setShowVideoModal(true);
-                              }}
-                            >
-                              <FaRegEye className="h-4 w-4 text-blue-500" />
-                              Video details
-                            </button>
-                          </MenuItem>
-
-                          <MenuItem disabled={!isEditable}>
-                            <button
-                              disabled={!isEditable}
-                              className={menuItemClass}
-                              title={
-                                isEditable
-                                  ? "Open the scenes of this video"
-                                  : `Cannot edit while ${status}`
-                              }
-                              onClick={() => navigate("/videos/" + id + "/")}
-                            >
-                              <FaPencilAlt className="h-4 w-4 text-orange-500" />
-                              Edit scenes
-                            </button>
-                          </MenuItem>
-
-                          <MenuItem disabled={!isRenderable}>
-                            <button
-                              disabled={!isRenderable}
-                              className={menuItemClass}
-                              title={
-                                isRenderable
-                                  ? "Render this video"
-                                  : `Cannot render while ${status}`
-                              }
-                              onClick={() => {
-                                setId(id);
-                                setShowRenderModal(true);
-                              }}
-                            >
-                              <GiProcessor className="h-4 w-4 text-purple-500" />
-                              Render
-                            </button>
-                          </MenuItem>
-
-                          {isResumable ? (
-                            <MenuItem>
-                              <button
-                                className={menuItemClass}
-                                title="Carry on generating this video"
-                                onClick={() => {
-                                  setId(id);
-                                  setShowResumeModal(true);
-                                }}
-                              >
-                                <FaRedo className="h-4 w-4 text-green-500" />
-                                Carry on generating
-                              </button>
-                            </MenuItem>
-                          ) : null}
-
-                          <div className="my-1 border-t border-gray-200 dark:border-gray-700" />
-
-                          <MenuItem disabled={!isDeletable}>
-                            <button
-                              disabled={!isDeletable}
-                              className={`${menuItemClass} text-red-600 dark:text-red-400`}
-                              title={
-                                isDeletable
-                                  ? "Delete this video"
-                                  : `Cannot delete while ${status}`
-                              }
-                              onClick={() => {
-                                setId(id);
-                                setShowDeleteModal(true);
-                              }}
-                            >
-                              <RiDeleteBin6Fill className="h-4 w-4" />
-                              Delete
-                            </button>
-                          </MenuItem>
-                        </MenuItems>
-                      </Menu>
+            <h2 className="text-sm font-semibold leading-6 text-gray-900 dark:text-white"><Link to={`/videos/${video.id}/`} className={`line-clamp-2 rounded hover:text-blue-600 dark:hover:text-blue-300 ${focus}`}>{title}</Link></h2>
+            {updated && isValid(updated) && <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">Updated <time dateTime={video.updated_at} title={updated.toLocaleString()}>{formatDistanceToNow(updated, { addSuffix: true })}</time></p>}
+            <div className={`flex flex-wrap items-center gap-2 ${compact ? "mt-3" : "mt-auto pt-4"}`}>
+              <Link to={`/videos/${video.id}/`} aria-label={`Open editor for ${title}`} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-blue-500/15 dark:hover:text-blue-300 ${focus}`}>{video.status === "REVIEW" ? "Review script" : "Open editor"}<HiOutlineArrowRight aria-hidden="true" className="h-3.5 w-3.5" /></Link>
+              {video.status === "COMPLETED" && video.output && <button type="button" aria-label={`Watch ${title}`} onClick={() => showDetails(video)} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10 ${focus}`}><HiOutlinePlay aria-hidden="true" className="h-3.5 w-3.5" />Watch</button>}
+              <Menu as="div" className="relative ml-auto">
+                <MenuButton aria-label={`Actions for ${title}`} className={`rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white ${focus}`}><HiOutlineEllipsisHorizontal aria-hidden="true" className="h-5 w-5" /></MenuButton>
+                <MenuItems anchor="bottom end" className="z-50 mt-1 w-52 rounded-xl border border-gray-200 bg-white p-1 shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+                  <MenuItem><button className={menuItemClass} onClick={() => showDetails(video)}><HiOutlineInformationCircle aria-hidden="true" className="h-4 w-4" />Video details</button></MenuItem>
+                  <MenuItem disabled={!canExport}><button disabled={!canExport} className={menuItemClass} title={canExport ? "Export this video" : "Open the editor to check processing status"} onClick={() => { setId(video.id); setShowRenderModal(true); }}><HiOutlineArrowUpTray aria-hidden="true" className="h-4 w-4" />Export video</button></MenuItem>
+                  {info.canResume && <MenuItem><button className={menuItemClass} onClick={() => { setId(video.id); setShowResumeModal(true); }}><HiOutlineArrowPath aria-hidden="true" className="h-4 w-4" />Retry generation</button></MenuItem>}
+                  <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                  <MenuItem disabled={!info.canDelete}><button disabled={!info.canDelete} className={`${menuItemClass} text-red-600 dark:text-red-400`} title={info.canDelete ? "Delete this video" : "Wait for processing to finish"} onClick={() => { setId(video.id); setShowDeleteModal(true); }}><HiOutlineTrash aria-hidden="true" className="h-4 w-4" />Delete video</button></MenuItem>
+                </MenuItems>
+              </Menu>
             </div>
-          </li>;
-        })}
-      </ul>
-    </>
-  );
+          </div>
+        </li>;
+      })}
+    </ul>
+  </>;
 }
