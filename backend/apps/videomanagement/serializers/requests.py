@@ -1,26 +1,26 @@
-from .caption_styles import CaptionPresetField, CaptionStyleSerializer
 import math
-import subprocess
-
-from PIL import Image, UnidentifiedImageError
-from ..utils.timing import uploaded_video_metadata
-from ..utils.file_utils import check_if_image, check_if_video
-from .audio import FiniteFloat
 
 from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle, ImageMode, TransitionStyle
 from apps.apikeysmanagement.models import Provider
+
+from ..models import Avatar, Intro, Outro, MotionIntensity, MotionStyle, ImageMode, TransitionStyle
 from ..services.asset_selection import available_voice, owned_asset
 from ..services.VideoServices import video_update
+from ..services.media_uploads import validate_visual
+from ..utils.file_utils import check_if_video
 from ..video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
     VIDEO_FORMAT_CHOICES,
     VIDEO_PLATFORM_CHOICES,
 )
+
+from .audio import FiniteFloat
+from .caption_styles import CaptionPresetField, CaptionStyleSerializer
+
 
 class TransitionDurationField(serializers.FloatField):
     def __init__(self, **kwargs):
@@ -128,25 +128,6 @@ class ManualVideoSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=50)
     video_format = serializers.ChoiceField(choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT)
     platform = serializers.ChoiceField(choices=VIDEO_PLATFORM_CHOICES, default=DEFAULT_VIDEO_PLATFORM)
-
-
-def validate_visual(value):
-    if value.size > 100 * 1024 * 1024:
-        raise serializers.ValidationError("Choose media smaller than 100 MB.")
-    try:
-        if check_if_image(value.name):
-            Image.open(value).verify()
-        elif check_if_video(value.name):
-            metadata = uploaded_video_metadata(value)
-            if metadata["duration"] > 900:
-                raise serializers.ValidationError("Choose a clip up to 15 minutes long.")
-        else:
-            raise serializers.ValidationError("Choose a JPEG, PNG, WebP, MP4, MOV, WebM, AVI, or M4V file.")
-    except (OSError, ValueError, KeyError, StopIteration, UnidentifiedImageError, Image.DecompressionBombError, subprocess.SubprocessError):
-        raise serializers.ValidationError("Could not read this image or video. Choose another file.")
-    finally:
-        value.seek(0)
-    return value
 
 
 class StoryDraftSerializer(serializers.Serializer):

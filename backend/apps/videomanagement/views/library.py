@@ -33,7 +33,7 @@ class MediaAssetView(viewsets.ModelViewSet):
             rows = rows.filter(Q(title__icontains=term) | Q(tags__icontains=term))
         kind = self.request.query_params.get("kind")
         if kind == "VISUAL":
-            rows = rows.filter(kind__in=("IMAGE", "VIDEO"))
+            rows = rows.filter(kind__in=(MediaAsset.Kind.IMAGE, MediaAsset.Kind.VIDEO))
         elif kind:
             rows = rows.filter(kind=kind)
         return rows
@@ -56,7 +56,7 @@ class MediaAssetView(viewsets.ModelViewSet):
         if not stored_file_exists(asset.file):
             raise ValidationError("This library file is missing. Upload it again.")
         purpose = data["purpose"]
-        if (purpose == "music") != (asset.kind == "AUDIO"):
+        if (purpose == "music") != (asset.kind == MediaAsset.Kind.AUDIO):
             raise ValidationError("Use audio as background music, and images or clips as scene visuals.")
         scene = None
         with asset.file.open("rb") as source:

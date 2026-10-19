@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import NotFound
 
 from ..models import Video
-from ..serializers.library import CoverSerializer
+from ..serializers.covers import CoverSerializer
 from ..services.covers import create_cover
 from ..utils.file_utils import stored_file_exists
 
