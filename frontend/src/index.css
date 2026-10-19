@@ -42,7 +42,7 @@
 
 /* The editor uses distinct slate surfaces instead of Material's similar grays. */
 .dark .editor-workspace .editor-toolbar {
-  background: #0f172a;
+  background: rgb(15 23 42 / 94%);
   border-color: #334155;
 }
 .dark .editor-workspace .editor-panel {
@@ -72,12 +72,6 @@
 .editor-workspace summary:focus-visible {
   outline: 2px solid #3b82f6;
   outline-offset: 4px;
-}
-@media (max-width: 639px) {
-  .editor-workspace [aria-label="Video actions"] > button {
-    flex: 1 1 auto;
-    padding-inline: 0.75rem;
-  }
 }
 .dark .editor-tool {
   background: #25344a;

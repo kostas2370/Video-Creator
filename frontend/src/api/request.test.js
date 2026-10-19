@@ -35,6 +35,15 @@ describe("API request results with the upgraded HTTP client", () => {
     expect(toast.error).toHaveBeenCalledWith("settings: voice: Choose a voice", expect.any(Object));
   });
 
+  it("replaces HTML error pages with a readable message", async () => {
+    axiosPrivateInstance.request.mockRejectedValue({
+      response: { status: 404, data: '<!DOCTYPE html><html><body>Server routes</body></html>' },
+    });
+    const result = await request({ url: "videos/7/generate_tags/", notifyError: false });
+    expect(result.message).toBe("This feature is unavailable on the server. Please refresh and try again.");
+    expect(result.message).not.toContain("<html>");
+  });
+
   it("reports connection failures while keeping background requests quiet", async () => {
     axiosPrivateInstance.request.mockRejectedValue(new Error("Network Error"));
     expect(await request({ url: "videos/", notifyError: false }))

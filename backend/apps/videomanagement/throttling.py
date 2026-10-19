@@ -42,3 +42,8 @@ class ResumeRateThrottle(BaseThrottle):
 class RenderRateThrottle(BaseThrottle):
     scope = "render"
     rate = "1/day"
+
+
+class TagGenerationRateThrottle(BaseThrottle):
+    scope = "tag_generation"
+    rate = "15/hour"

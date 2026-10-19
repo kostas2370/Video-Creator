@@ -70,11 +70,13 @@ from apps.videomanagement.throttling import (
 )
 from apps.videomanagement.utils.captions.styles import style_catalog
 from apps.videomanagement.views.covers import VideoCoverMixin
+from apps.videomanagement.views.tags import VideoTagsMixin
 
 logger = logging.getLogger(__name__)
 
 
 class VideoView(
+    VideoTagsMixin,
     VideoCoverMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -84,7 +86,7 @@ class VideoView(
     serializer_class = VideoSerializer
     queryset = Video.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["title"]
+    search_fields = ["title", "tags__tiktok", "tags__youtube", "tags__search"]
     filterset_fields = ["status", "video_type"]
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
