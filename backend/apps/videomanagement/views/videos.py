@@ -1,5 +1,6 @@
 import logging
 
+from django.db.models import OuterRef, Subquery
 from django.http import HttpResponse
 from django.utils.http import content_disposition_header
 from django.utils.text import slugify
@@ -12,7 +13,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.videomanagement.models import Video, VideoStatus, VideoType
+from apps.videomanagement.models import SceneImage, Video, VideoStatus, VideoType
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
@@ -70,11 +71,15 @@ from apps.videomanagement.throttling import (
 )
 from apps.videomanagement.utils.captions.styles import style_catalog
 from apps.videomanagement.views.covers import VideoCoverMixin
+from apps.videomanagement.views.tags import VideoTagsMixin
+from apps.videomanagement.views.thumbnails import VideoThumbnailMixin
 
 logger = logging.getLogger(__name__)
 
 
 class VideoView(
+    VideoThumbnailMixin,
+    VideoTagsMixin,
     VideoCoverMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -84,7 +89,7 @@ class VideoView(
     serializer_class = VideoSerializer
     queryset = Video.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["title"]
+    search_fields = ["title", "tags__tiktok", "tags__youtube", "tags__search"]
     filterset_fields = ["status", "video_type"]
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
@@ -141,7 +146,15 @@ class VideoView(
             .select_related("music", "prompt")
         )
         if self.action == "list":
-            queryset = queryset.listable()
+            queryset = queryset.listable().annotate(
+                scene_preview=Subquery(
+                    SceneImage.objects.filter(scene__video_id=OuterRef("pk"))
+                    .exclude(file="")
+                    .exclude(file__isnull=True)
+                    .order_by("scene__position", "created_at", "id")
+                    .values("file")[:1]
+                )
+            )
 
         if self.action in ("retrieve", "preview"):
             queryset = queryset.select_related("intro", "outro").prefetch_related(

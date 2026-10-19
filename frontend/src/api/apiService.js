@@ -24,7 +24,8 @@ export const logout = () => post("logout/", undefined, callerHandlesErrors);
 export const getIntro = (search, page = 1) => get("intros/", { search: search || undefined, page });
 export const getOutro = (search, page = 1) => get("outros/", { search: search || undefined, page });
 export const getAvatars = (search, page = 1) => get("avatars/", { search: search || undefined, page });
-export const getVideos = (search, page) => get("videos/", { search: search || undefined, page: page || undefined });
+export const getVideos = (search, page, status) => get("videos/", { search: search || undefined, page: page || undefined, status: status || undefined });
+export const ensureVideoThumbnail = id => post(action("videos", id, "thumbnail"), {}, callerHandlesErrors);
 export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
@@ -81,6 +82,8 @@ export const updateSceneMotion = (id, changes) => patch(action("scenes", id, "mo
 export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);
 export const updateScene = (id, data) => sceneOperation(id, () => patch(detail("scenes", id), data));
+export const generateVideoTags = (id, previousTags) => post(action("videos", id, "generate_tags"), { previous_tags: previousTags }, callerHandlesErrors);
+export const saveVideoTags = (id, tags, previousTags) => patch(action("videos", id, "tags"), { tags, previous_tags: previousTags }, callerHandlesErrors);
 export const saveVideoNotes = (id, notes, previousNotes) => patch(`${detail("videos", id)}notes/`, { notes, previous_notes: previousNotes }, callerHandlesErrors);
 export const updateVideo = (id, data) => patch(detail("videos", id), data);
 export const generateScene = (id, data) => sceneOperation(id, () => patch(action("scenes", id, "generate"), data));

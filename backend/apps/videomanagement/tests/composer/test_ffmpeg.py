@@ -270,12 +270,16 @@ class FFmpegRenderTests(TestCase):
         return np.frombuffer(raw, dtype=np.uint8).reshape((90, 160, 3))
 
     def test_native_motion_and_pause_produce_seekable_h264_aac(self):
+        self.row.thumbnail = "media/thumbnails/previous.jpg"
+        self.row.save(update_fields=["thumbnail"])
         self.add_still(
             motion_style="PAN_RIGHT", motion_intensity="STRONG", pause_after=0.25
         )
         make_video(self.row)
         data = self.metadata()
         self.assertEqual(self.row.status, "COMPLETED")
+        self.row.refresh_from_db()
+        self.assertFalse(self.row.thumbnail)
         self.assertEqual(
             [(s["codec_type"], s["codec_name"]) for s in data["streams"]],
             [("video", "h264"), ("audio", "aac")],
@@ -341,6 +345,8 @@ class FFmpegRenderTests(TestCase):
         )
 
     def test_failure_preserves_previous_output_and_cleans_temporary_files(self):
+        self.row.thumbnail = "media/thumbnails/previous.jpg"
+        self.row.save(update_fields=["thumbnail"])
         self.add_still()
         output = Path(self.row.dir_name)
         output.mkdir()
@@ -353,6 +359,8 @@ class FFmpegRenderTests(TestCase):
                 make_video(self.row)
         self.assertEqual((output / "output_video.mp4").read_bytes(), b"previous render")
         self.assertEqual(list(output.glob("ffmpeg-render-*")), [])
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.thumbnail.name, "media/thumbnails/previous.jpg")
 
     def test_ending_holds_and_pauses_are_silent_after_narration(self):
         row = self.add_still(pause_after=0.25)
