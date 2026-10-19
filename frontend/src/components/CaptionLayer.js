@@ -6,7 +6,8 @@ export function CaptionLayer({ cue, style = "CLASSIC", size = [1080, 1920], conf
   const factor = spec.scale_with_frame ? Math.min(...size) / size[0] : 100 / size[0];
   const vertical = spec.position === "top" ? spec.margin_vertical : size[1] > size[0] ? spec.portrait_margin_vertical : spec.margin_vertical;
   const longestLine = Math.max(...cue.text.split("\n").map(line => [...line].length), 1);
-  const fit = Math.min(1, (100 - spec.margin_left - spec.margin_right) / (longestLine * spec.font_size * factor * 0.6));
+  const legacyConfig = config && config.font_size == null;
+  const fit = legacyConfig ? Math.min(1, (spec.highlight_words ? 20 * 6 : 32 * 4) / config.size / longestLine) : Math.min(1, (100 - spec.margin_left - spec.margin_right) / (longestLine * spec.font_size * factor * 0.6));
   const fallbackFont = spec.font.includes("Mono") ? "monospace" : spec.font.includes("Serif") ? "Georgia, serif" : "Arial, sans-serif";
   const display = token => spec.uppercase ? token.toUpperCase() : token;
   let word = -1;
