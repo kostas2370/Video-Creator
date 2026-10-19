@@ -112,6 +112,23 @@ class FFmpegRenderTests(TestCase):
         self.assertGreater(self.frame(1.2)[55:80, 125:150, 0].mean(), 200)
         self.assertLess(self.frame(1.4).max(), 15)
 
+    def test_wide_overlay_text_stays_inside_the_export_frame(self):
+        Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
+        overlay = OverlaySerializer(data={
+            "kind": "title", "text": "W" * 200, "font": "Poppins",
+            "size": 8, "position": "middle-center", "background": False,
+        })
+        overlay.is_valid(raise_exception=True)
+        self.add_still(overlays=[overlay.validated_data])
+        make_video(self.row)
+        frame = self.frame(0.1)
+        ys, xs = np.where(frame.max(axis=2) > 100)
+        self.assertGreater(len(xs), 10)
+        self.assertGreater(xs.min(), 3)
+        self.assertLess(xs.max(), 156)
+        self.assertGreater(ys.min(), 2)
+        self.assertLess(ys.max(), 87)
+
     def test_intro_cut_fade_and_dissolve_are_present_in_the_export(self):
         Image.new("RGB", (160, 90), "red").save(self.root / "still.png")
         self.add_still(transition_after="CUT")

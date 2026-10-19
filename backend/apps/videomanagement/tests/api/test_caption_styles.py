@@ -9,7 +9,8 @@ from django.urls import reverse
 
 from ...services.caption_styles import CAPTION_STYLES, video_caption_style, resolve_style
 from ...services.subtitles import CaptionCue, scene_cues, word_cues
-from ...utils.composer.captions import ASS_STYLE_FIELDS, ass_header, caption_ass_text, write_captions
+from ...utils.composer.ass import ASS_STYLE_FIELDS
+from ...utils.composer.captions import ass_header, caption_ass_text, write_captions
 from .base import ApiTestCase
 
 from ...baker_recipes import scene
