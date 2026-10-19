@@ -13,6 +13,7 @@ from ...models import RENDERABLE_STATUSES, MotionStyle, VideoStatus
 from ...services.preview import apply_transitions, asset_segment, intro_segment, scene_segment
 from ...services.speech_alignment import align_scene_narration
 from ...video_formats import output_size
+from ..fonts import subtitles_filter
 from ..exceptions import RenderFailedException
 from ..file_utils import check_if_image, stored_file_exists
 from ..motion import AMOUNTS, resolved_motion
@@ -360,7 +361,7 @@ def final_graph(
         audio = graph.filter([audio, music], "amix=inputs=2:duration=first:normalize=0")
     if (video.settings or {}).get("subtitles", False):
         write_captions(Path(directory, "captions.ass"), segments, size)
-        visual = graph.filter([visual], "subtitles=filename=captions.ass")
+        visual = graph.filter([visual], subtitles_filter("captions.ass", directory))
     visuals, audios = [], []
     total = duration
     if opening:

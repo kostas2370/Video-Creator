@@ -4,6 +4,7 @@ from pathlib import Path
 
 from django.conf import settings
 
+from ..fonts import subtitles_filter
 from ..exceptions import RenderFailedException
 from ..file_utils import stored_file_exists
 
@@ -81,6 +82,7 @@ def apply_overlays(graph, stream, segments, size, directory):
                     f"overlay=x={lx}:y={ly}:enable='gte(t,{start})*lt(t,{end})':eof_action=pass:shortest=0",
                 )
                 continue
+            item_font = item.get("font", font)
             color = item["color"].lstrip("#")
             bgr = color[4:6] + color[2:4] + color[0:2]
             alpha = round((1 - item["opacity"]) * 255)
@@ -97,7 +99,7 @@ def apply_overlays(graph, stream, segments, size, directory):
             )
             lines.append(
                 (
-                    f"Style: {name},{font},{size[0] * item['size'] / 100},&H{alpha:02X}{bgr},&H{alpha:02X}{bgr},&H{alpha:02X}000000,&H{alpha:02X}000000,-1,0,0,0,100,100,0,0,{border},{6 if item['background'] else 1},0,{alignment},0,0,0,1",
+                    f"Style: {name},{item_font},{size[0] * item['size'] / 100},&H{alpha:02X}{bgr},&H{alpha:02X}{bgr},&H{alpha:02X}000000,&H{alpha:02X}000000,-1,0,0,0,100,100,0,0,{border},{6 if item['background'] else 1},0,{alignment},0,0,0,1",
                     f"Dialogue: 0,{timestamp(start)},{timestamp(end)},{name},,0,0,0,,{{\\an{alignment}\\pos({x},{y})}}{safe}",
                 )
             )
@@ -119,5 +121,5 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
             + "\n",
             encoding="utf-8",
         )
-        stream = graph.filter([stream], "subtitles=filename=overlays.ass")
+        stream = graph.filter([stream], subtitles_filter("overlays.ass", directory))
     return stream

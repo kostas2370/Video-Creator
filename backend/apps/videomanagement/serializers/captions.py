@@ -1,3 +1,4 @@
+from ..services.caption_styles import FONTS
 import math
 import re
 import subprocess
@@ -55,7 +56,7 @@ class CaptionWordSerializer(serializers.Serializer):
 
 class CaptionStyleSerializer(serializers.Serializer):
     preset = serializers.ChoiceField(choices=("TIKTOK", "CLASSIC"), default="TIKTOK")
-    font = serializers.ChoiceField(choices=("DejaVu Sans", "DejaVu Serif", "DejaVu Sans Mono"), default="DejaVu Sans")
+    font = serializers.ChoiceField(choices=FONTS, default="DejaVu Sans")
     size = serializers.IntegerField(min_value=3, max_value=9, default=6)
     color = serializers.RegexField(r"^#[0-9a-fA-F]{6}$", default="#ffffff")
     highlight = serializers.RegexField(r"^#[0-9a-fA-F]{6}$", default="#ffe846")

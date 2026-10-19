@@ -24,7 +24,9 @@ class SceneOverlayTests(ApiTestCase):
         override.enable()
         self.addCleanup(override.disable)
 
-    def test_save_clear_and_preview_without_generating_media(self):
+    def test_save_clear_and_preview_without_generation_credits(self):
+        self.user.generation_limit_for_ai = 0
+        self.user.save()
         response = self.client.patch(
             self.url,
             {"overlays": [{"kind": "title", "text": "Hello", "start": 0.2, "end": 2}]},
@@ -42,6 +44,22 @@ class SceneOverlayTests(ApiTestCase):
         self.scene.refresh_from_db()
         self.assertEqual(self.scene.overlays, [])
         self.scene_queue.assert_not_called()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.generation_limit_for_ai, 0)
+
+    def test_font_choice_round_trips_into_the_preview(self):
+        response = self.client.patch(self.url, {"overlays": [
+            {"kind": "title", "text": "My title", "font": "Poppins"}
+        ]}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.overlays[0]["font"], "Poppins")
+        preview = self.client.get(reverse("video-preview", args=[self.video.pk]))
+        self.assertEqual(preview.data["segments"][0]["overlays"][0]["font"], "Poppins")
+        invalid = self.client.patch(self.url, {"overlays": [
+            {"kind": "title", "text": "My title", "font": "/tmp/custom.ttf"}
+        ]}, format="json")
+        self.assertEqual(invalid.status_code, 400)
 
     def test_multipart_logo_and_json_settings_are_saved_together(self):
         buffer = io.BytesIO()

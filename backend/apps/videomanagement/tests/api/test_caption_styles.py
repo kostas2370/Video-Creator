@@ -45,6 +45,15 @@ class CustomCaptionStyleTests(ApiTestCase):
             data = PreviewTimelineSerializer(video).data
         self.assertEqual(data["caption_config"], resolved.to_dict())
 
+    def test_bundled_font_choices_round_trip(self):
+        video = self.video_for()
+        for font in ("Poppins", "Lato", "Bebas Neue"):
+            response = self.client.patch(reverse("video-detail", args=[video.pk]),
+                {"caption_style": "CUSTOM", "caption_config": {"font": font}}, format="json")
+            self.assertEqual(response.status_code, 200, response.data)
+            video.refresh_from_db()
+            self.assertEqual(video_caption_style(video).font, font)
+
     def test_invalid_styles_and_raw_renderer_options_are_rejected(self):
         video = self.video_for()
         invalid = [{"font": "/tmp/font.ttf"}, {"color": "red"}, {"font_size": 100},
