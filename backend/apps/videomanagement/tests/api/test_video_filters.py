@@ -111,7 +111,7 @@ class VideoFilterTests(ApiTestCase):
         original_time, original_settings = video.updated_at, video.settings.copy()
         url = reverse("video-favorite", args=[video.pk])
         for value in (True, True, False):
-            response = self.client.patch(url, {"is_favorite": value}, format="json")
+            response = self.client.patch(url) if value else self.client.delete(url)
             self.assertEqual(response.status_code, 200, response.data)
             video.refresh_from_db()
             self.assertEqual(video.is_favorite, value)
@@ -128,26 +128,12 @@ class VideoFilterTests(ApiTestCase):
             self.assertEqual(row["is_favorite"], value)
         self.scene_queue.assert_not_called()
 
-    def test_favorites_reject_foreign_anonymous_and_invalid_requests(self):
+    def test_favorites_reject_foreign_and_anonymous_requests(self):
         foreign = self.video_for(owner=user.make())
-        self.assertEqual(
-            self.client.patch(
-                reverse("video-favorite", args=[foreign.pk]),
-                {"is_favorite": True},
-                format="json",
-            ).status_code,
-            404,
-        )
-        owned = self.video_for()
-        url = reverse("video-favorite", args=[owned.pk])
-        for payload in ({}, {"is_favorite": "invalid"}, {"is_favorite": None}):
-            self.assertEqual(
-                self.client.patch(url, payload, format="json").status_code, 400
-            )
-        owned.refresh_from_db()
-        self.assertFalse(owned.is_favorite)
+        foreign_url = reverse("video-favorite", args=[foreign.pk])
+        owned_url = reverse("video-favorite", args=[self.video_for().pk])
+        for method in (self.client.patch, self.client.delete):
+            self.assertEqual(method(foreign_url).status_code, 404)
         self.client.force_authenticate(None)
-        self.assertIn(
-            self.client.patch(url, {"is_favorite": True}, format="json").status_code,
-            [401, 403],
-        )
+        for method in (self.client.patch, self.client.delete):
+            self.assertIn(method(owned_url).status_code, [401, 403])
