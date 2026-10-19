@@ -1,4 +1,5 @@
 """Timestamped captions over an uploaded video's original picture and sound."""
+import logging
 import subprocess
 import tempfile
 from pathlib import Path
@@ -11,13 +12,21 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
-from ..models import CaptionProject
+from ..models import CaptionProject, CaptionProjectStatus
 from ..utils.composer.captions import write_ass
+from ..utils.timing import video_metadata
 from .caption_styles import project_caption_style
 from .transcription import transcribe_audio
 from .subtitles import word_cues
 
-BUSY_STATUSES = {"QUEUED", "TRANSCRIBING", "RENDER_QUEUED", "RENDERING"}
+logger = logging.getLogger(__name__)
+
+BUSY_STATUSES = {
+    CaptionProjectStatus.QUEUED,
+    CaptionProjectStatus.TRANSCRIBING,
+    CaptionProjectStatus.RENDER_QUEUED,
+    CaptionProjectStatus.RENDERING,
+}
 
 
 class CaptionConflict(APIException):
@@ -26,6 +35,7 @@ class CaptionConflict(APIException):
 
 
 def queue_caption_job(project, *, render=False):
+    # tasks imports this service; defer the reverse import until jobs are queued.
     from ..tasks import caption_project_task
 
     token = uuid4()
@@ -36,14 +46,14 @@ def queue_caption_job(project, *, render=False):
             raise CaptionConflict()
         if render and not locked.words:
             raise CaptionConflict("Add some caption words before exporting.")
-        locked.status = "RENDER_QUEUED" if render else "QUEUED"
+        locked.status = CaptionProjectStatus.RENDER_QUEUED if render else CaptionProjectStatus.QUEUED
         locked.job_id, locked.error = token, ""
         locked.save(update_fields=["status", "job_id", "error", "updated_at"])
     try:
         caption_project_task.apply_async(args=(str(project.pk), str(token), render))
     except Exception as exc:
         CaptionProject.objects.filter(pk=project.pk, job_id=token).update(
-            status="READY" if locked.words else "FAILED", error="Could not queue processing. Please retry.", updated_at=timezone.now()
+            status=CaptionProjectStatus.READY if locked.words else CaptionProjectStatus.FAILED, error="Could not queue processing. Please retry.", updated_at=timezone.now()
         )
         error = APIException("Project saved, but processing could not be queued. Please retry.")
         error.status_code = 503
@@ -75,7 +85,10 @@ def write_project_ass(project, path):
 
 
 def process_caption_project(project_id, token, render=False):
-    queued, running = ("RENDER_QUEUED", "RENDERING") if render else ("QUEUED", "TRANSCRIBING")
+    queued, running = (
+        (CaptionProjectStatus.RENDER_QUEUED, CaptionProjectStatus.RENDERING)
+        if render else (CaptionProjectStatus.QUEUED, CaptionProjectStatus.TRANSCRIBING)
+    )
     rows = CaptionProject.objects.filter(pk=project_id, job_id=token)
     if not rows.filter(status=queued).update(status=running, updated_at=timezone.now()):
         return
@@ -90,15 +103,13 @@ def process_caption_project(project_id, token, render=False):
                 run_ffmpeg(["-i", project.source.path, "-map", "0:v:0", "-map", "0:a:0", "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2," + subtitles_filter("captions.ass", directory), "-c:v", "libx264", "-preset", "fast", "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(output)], cwd=directory)
                 with output.open("rb") as file:
                     name = project.output.storage.save(f"media/captions/{project.pk}/{token}.mp4", File(file))
-                updates = {"status": "COMPLETED", "output": name}
+                updates = {"status": CaptionProjectStatus.COMPLETED, "output": name}
             else:
                 words, preview = transcribe_project(project, directory)
-                from ..utils.timing import video_metadata
-
                 metadata = video_metadata(preview)
                 with preview.open("rb") as file:
                     name = project.preview.storage.save(f"media/captions/{project.pk}/{token}-preview.mp4", File(file))
-                updates = {"status": "READY", "words": words, "preview": name, "width": metadata["width"], "height": metadata["height"]}
+                updates = {"status": CaptionProjectStatus.READY, "words": words, "preview": name, "width": metadata["width"], "height": metadata["height"]}
             field = project.output if render else project.preview
             with transaction.atomic():
                 current = rows.select_for_update().filter(status=running).first()
@@ -110,8 +121,6 @@ def process_caption_project(project_id, token, render=False):
                 else:
                     field.storage.delete(name)
     except Exception as exc:
-        import logging
-
-        logging.getLogger(__name__).exception("Caption processing failed for %s", project_id)
+        logger.exception("Caption processing failed for %s", project_id)
         message = str(exc) if isinstance(exc, ValueError) else "Could not export the video. Please retry." if render else "Could not finish processing. Check your OpenAI key or try again."
-        rows.filter(status=running).update(status="READY" if project.words else "FAILED", error=message[:300], updated_at=timezone.now())
+        rows.filter(status=running).update(status=CaptionProjectStatus.READY if project.words else CaptionProjectStatus.FAILED, error=message[:300], updated_at=timezone.now())
