@@ -13,3 +13,9 @@ package and retain its accompanying license.
 
 The renderer stages this directory next to each temporary ASS file and passes it
 to libass through fontsdir. It does not depend on a system font-cache refresh.
+
+`manifest.json` is the font catalog used by the backend. Run
+`npm run fonts:sync` from `frontend` after changing it to regenerate the browser
+catalog and CSS and sync bundled font files and licenses. CI runs
+`npm run fonts:check` to reject stale generated files or mismatched font assets.
+DejaVu rendering uses the system package; its browser copies remain vendored.

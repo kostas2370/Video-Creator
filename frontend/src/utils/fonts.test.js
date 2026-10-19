@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { captionWithFont } from "./fonts";
+import { captionWithFont, videoFontFamily } from "./fonts";
 import { resolveCaptionConfig } from "./captions";
 
 describe("caption font changes", () => {
@@ -19,5 +19,15 @@ describe("caption font changes", () => {
     expect(style.highlight_color).toBe(original.highlight_color);
     expect(style.max_words).toBe(original.max_words);
     expect(style.highlight_words).toBe(true);
+  });
+});
+
+
+describe("video font fallbacks", () => {
+  it("preserves serif and monospace fallbacks and rejects unknown families", () => {
+    expect(videoFontFamily("DejaVu Serif")).toBe('"DejaVu Serif", Georgia, serif');
+    expect(videoFontFamily("DejaVu Sans Mono")).toBe('"DejaVu Sans Mono", monospace');
+    expect(videoFontFamily("Poppins")).toContain('"Poppins", "DejaVu Sans"');
+    expect(videoFontFamily("unknown")).toBe(videoFontFamily());
   });
 });
