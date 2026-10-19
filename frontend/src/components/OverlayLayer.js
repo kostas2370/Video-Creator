@@ -1,3 +1,4 @@
+import { videoFontFamily } from "../utils/fonts";
 import { API_HOST } from "../endpoints";
 
 export const overlayPositions = ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"];
@@ -28,7 +29,7 @@ export function OverlayLayer({ overlays = [], logo, time = 0, duration = Infinit
       const column = { left: 0, center: 1, right: 2 }[horizontal];
       const row = { top: 0, middle: 1, bottom: 2 }[vertical];
       const style = { position: "absolute", left: `${[5, 50, 95][column]}%`, top: `${[5, 50, 95][row]}%`, transform: `translate(${-column * 50}%, ${-row * 50}%)`, opacity: item.opacity };
-      return item.logo ? (logo && <img key={index} alt="" src={mediaUrl(logo)} style={{ ...style, width: `${item.width}%`, maxHeight: "50%", objectFit: "contain", objectPosition: `${horizontal} ${vertical === "middle" ? "center" : vertical}` }} />) : <div key={index} style={{ ...style, color: item.color, fontSize: `${item.size}cqw`, fontFamily: '"DejaVu Sans", sans-serif', fontWeight: 700, lineHeight: 1.2, whiteSpace: "pre", textAlign: horizontal === "center" ? "center" : horizontal, background: item.background ? "black" : "transparent", padding: item.background ? "0.3cqw" : 0, textShadow: item.background ? undefined : "0 1px 1px black" }}>{wrapOverlayText(item.text, item.size)}</div>;
+      return item.logo ? (logo && <img key={index} alt="" src={mediaUrl(logo)} style={{ ...style, width: `${item.width}%`, maxHeight: "50%", objectFit: "contain", objectPosition: `${horizontal} ${vertical === "middle" ? "center" : vertical}` }} />) : <div key={index} style={{ ...style, color: item.color, fontSize: `${item.size}cqw`, fontFamily: videoFontFamily(item.font), fontWeight: 700, lineHeight: 1.2, whiteSpace: "pre", textAlign: horizontal === "center" ? "center" : horizontal, background: item.background ? "black" : "transparent", padding: item.background ? "0.3cqw" : 0, textShadow: item.background ? undefined : "0 1px 1px black" }}>{wrapOverlayText(item.text, item.size)}</div>;
     })}
   </div>;
 }

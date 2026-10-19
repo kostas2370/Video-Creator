@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass, replace
 
 from django.conf import settings
 
-FONTS = ("DejaVu Sans", "DejaVu Serif", "DejaVu Sans Mono")
+FONTS = ("DejaVu Sans", "DejaVu Serif", "DejaVu Sans Mono", "Poppins", "Lato", "Bebas Neue")
 
 
 @dataclass(frozen=True)

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./videoFonts.css";
 @config "../tailwind.config.js";
 @source "../node_modules/@material-tailwind/react/components";
 @source "../node_modules/@material-tailwind/react/theme/components";

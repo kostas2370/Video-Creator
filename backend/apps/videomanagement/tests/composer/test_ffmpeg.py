@@ -43,6 +43,18 @@ class FFmpegRenderTests(TestCase):
 
         self.assertLess(yellow_x(0.08), yellow_x(0.38))
 
+    def test_bundled_font_is_loaded_for_captions_and_overlays(self):
+        from ...serializers.overlays import OverlaySerializer
+        Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
+        self.row.settings.update(subtitles=True, caption_style="CUSTOM", caption_config={"font": "Poppins"})
+        self.row.save()
+        overlay = OverlaySerializer(data={"kind": "title", "text": "TITLE", "font": "Bebas Neue", "position": "top-center"})
+        overlay.is_valid(raise_exception=True)
+        self.add_still(text="Caption", overlays=[overlay.validated_data])
+        make_video(self.row)
+        frame = self.frame(0.1)
+        self.assertGreater(int(frame.max()), 100)
+
     def test_overlays_follow_timing_and_logo_placement_in_export(self):
         from ...serializers.overlays import OverlaySerializer
 

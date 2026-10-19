@@ -24,6 +24,10 @@ describe("overlay playback", () => {
     expect(html).toContain("translate(0%, -100%)");
     expect(html).toContain("&lt;script&gt;");
   });
+  it("uses the selected font in the preview", () => {
+    expect(render({ ...overlay, font: "Poppins" }, 1)).toContain("Poppins");
+    expect(render(overlay, 1)).toContain("DejaVu Sans");
+  });
   it("wraps long text and preserves deliberate line breaks", () => {
     expect(wrapOverlayText("One two three four five six seven eight nine ten\nNext line", 8)).toBe("One two three\nfour five six\nseven eight nine\nten\nNext line");
   });
