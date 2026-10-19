@@ -30,7 +30,7 @@ class AIUsage(models.Model):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(default=timezone.now)
     service = models.CharField(max_length=10, choices=[
-        ("text", "Text"), ("images", "Images"), ("tts", "Voice"), ("video", "Video")
+        ("text", "Text"), ("images", "Images"), ("tts", "Voice"), ("video", "Video"), ("stt", "Transcription")
     ])
     provider = models.CharField(max_length=100)
     model = models.CharField(max_length=100, blank=True)
@@ -220,6 +220,7 @@ class UserPrompt(models.Model):
 
 
 class Scene(models.Model):
+    caption_alignment = models.JSONField(default=dict, blank=True)
     overlays = models.JSONField(default=list, blank=True)
     overlay_logo = models.ImageField(upload_to="media/overlays/%Y/%m/%d", blank=True)
     voiceover = models.FileField(upload_to="media/voiceovers", blank=True, max_length=2000)

@@ -1,3 +1,4 @@
+from .captions import write_captions
 import logging
 from copy import copy
 import math
@@ -10,7 +11,7 @@ from django.conf import settings
 
 from ...models import RENDERABLE_STATUSES, MotionStyle, VideoStatus
 from ...services.preview import apply_transitions, asset_segment, intro_segment, scene_segment
-from ...services.subtitles import scene_cues
+from ...services.speech_alignment import align_scene_narration
 from ...video_formats import output_size
 from ..exceptions import RenderFailedException
 from ..file_utils import check_if_image, stored_file_exists
@@ -297,45 +298,6 @@ def render_scene_clips(segments, directory, size, opening=None):
     return manifest
 
 
-def ass_timestamp(value):
-    ticks = max(0, round(value * 100))
-    return f"{ticks // 360000}:{ticks // 6000 % 60:02}:{ticks // 100 % 60:02}.{ticks % 100:02}"
-
-
-def write_captions(path, segments, size):
-    font = settings.SUBTITLE_FONT.replace("-", " ").replace(",", " ").replace("\n", " ")
-    header = f"""[Script Info]
-ScriptType: v4.00+
-PlayResX: {size[0]}
-PlayResY: {size[1]}
-WrapStyle: 2
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,{font},48,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,{int(size[0] * 0.08)},{int(size[0] * 0.08)},{int(size[1] * 0.05)},1
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-    lines = []
-    tracks = {track["id"]: track for track in voice_tracks(segments)} if any(segment.content.audio_settings.get("crossfade") for segment in segments) else {}
-    for segment in segments:
-        track = tracks.get(str(segment.content.pk))
-        offset = track["start"] - segment.content.audio_settings.get("delay", 0) if track else segment.start
-        for cue in scene_cues(
-            segment.content, offset=offset, duration=segment.narration_duration
-        ):
-            text = (
-                cue.text.replace("\\", "＼")
-                .replace("{", "｛")
-                .replace("}", "｝")
-                .replace("\n", "\\N")
-                .replace("\r", "")
-            )
-            lines.append(
-                f"Dialogue: 0,{ass_timestamp(cue.start)},{ass_timestamp(cue.end)},Default,,0,0,0,,{text}"
-            )
-    Path(path).write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
-
-
 def avatar_layer(graph, video, stream, duration):
     if not video.avatar:
         return stream
@@ -436,6 +398,8 @@ def make_video(video):
     choices = video.settings or {}
     segments, elapsed = [], 0
     for index, scene in enumerate(video.scenes.with_media(), 1):
+        if choices.get("subtitles"):
+            align_scene_narration(scene)
         segment = scene_segment(scene, index, elapsed, choices)
         segments.append(segment)
         elapsed += segment.duration

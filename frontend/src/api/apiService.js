@@ -103,3 +103,8 @@ export const markNotificationRead = id => patch(detail("notifications", id), { r
 export const markAllNotificationsRead = () => patch("notifications/read_all/", {});
 
 export const updateSceneOverlays = (id, data) => patch(action("scenes", id, "overlays"), data, callerHandlesErrors);
+
+export const getSceneCaptions = id => request({ url: action("scenes", id, "captions"), ...callerHandlesErrors });
+export const updateSceneCaptions = (id, data) => patch(action("scenes", id, "captions"), data, callerHandlesErrors);
+
+export const getCaptionStyles = () => request({ url: "videos/caption_styles/", ...callerHandlesErrors });

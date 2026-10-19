@@ -22,6 +22,13 @@ from ...models import Video
 
 
 class VideoUpdateTests(TestCase):
+    def test_caption_style_is_saved_without_regenerating_narration(self):
+        with patch.object(VideoServices, "update_scene") as narrate:
+            video_update(self.video, caption_style="TIKTOK")
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.settings["caption_style"], "TIKTOK")
+        narrate.assert_not_called()
+
     def setUp(self):
         self.video = video.make(created_by=user.make())
 

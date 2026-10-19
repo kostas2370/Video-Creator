@@ -26,6 +26,23 @@ from ...utils.exceptions import RenderFailedException
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    def test_tiktok_caption_highlight_moves_to_the_next_word_in_export(self):
+        Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
+        self.row.settings.update(subtitles=True, platform="TIKTOK")
+        self.row.save()
+        self.add_still(text="One two")
+        make_video(self.row)
+
+        def yellow_x(timestamp):
+            frame = self.frame(timestamp)
+            mask = (frame[:, :, 0] > 120) & (frame[:, :, 1] > 120) & (frame[:, :, 2] < 110)
+            ys, xs = np.where(mask)
+            self.assertGreater(len(xs), 2)
+            self.assertTrue((ys > 55).all())
+            return xs.mean()
+
+        self.assertLess(yellow_x(0.08), yellow_x(0.38))
+
     def test_overlays_follow_timing_and_logo_placement_in_export(self):
         from ...serializers.overlays import OverlaySerializer
 
@@ -87,6 +104,8 @@ class FFmpegRenderTests(TestCase):
                     self.assertLess(boundary[0], 20)
 
     def setUp(self):
+        # Rendering fixtures use synthetic tones; speech providers stay mocked.
+        self.enterContext(patch("apps.videomanagement.utils.composer.render.align_scene_narration"))
         self.directory = tempfile.TemporaryDirectory(prefix="ffmpeg-tests-")
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)

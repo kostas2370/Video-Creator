@@ -20,6 +20,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 
 from rest_framework.permissions import IsAuthenticated
 
+from ..services.caption_styles import style_catalog
 from ..events import publish_update
 from ..models import Video, VideoStatus, VideoType
 from ..serializers.requests import ManualVideoSerializer, ManualSceneSerializer
@@ -55,6 +56,10 @@ class VideoView(
     filterset_fields = ["status", "video_type"]
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
+
+    @action(detail=False, methods=["GET"])
+    def caption_styles(self, request):
+        return Response(style_catalog())
 
     @swagger_auto_schema(request_body=ManualVideoSerializer)
     @action(detail=False, methods=["POST"])

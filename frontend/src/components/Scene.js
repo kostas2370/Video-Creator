@@ -11,6 +11,7 @@ import { EditSceneModal } from "./EditSceneModal";
 import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
 import { SceneOverlays } from "./SceneOverlays";
+import { SceneCaptions } from "./SceneCaptions";
 import { SceneAudio } from "./SceneAudio";
 
 import { SceneMotion } from "./SceneMotion";
@@ -88,7 +89,7 @@ export const Scene = ({ manual, scene, setUpdated, video_format = "LANDSCAPE", i
       <article id={`scene-${scene.id}`} className="scroll-mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
           <div className="flex items-center gap-2">{reorderHandle}<h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2></div>
-          <div className="flex flex-wrap items-center gap-2"><SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} /><SceneAudio scene={scene} index={index} nextScene={nextScene} disabled={timingDisabled} onSaved={setUpdated} /><button type="button" aria-label="Delete scene" onClick={() => setShowDeleteSceneModal(true)} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><IoTrashBinSharp className="h-4 w-4" /></button></div>
+          <div className="flex flex-wrap items-center gap-2"><SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} /><SceneCaptions scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} /><SceneAudio scene={scene} index={index} nextScene={nextScene} disabled={timingDisabled} onSaved={setUpdated} /><button type="button" aria-label="Delete scene" onClick={() => setShowDeleteSceneModal(true)} className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"><IoTrashBinSharp className="h-4 w-4" /></button></div>
         </header>
         <div className="grid gap-6 p-5 md:grid-cols-2">
           <div className="min-w-0">
