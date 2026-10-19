@@ -401,6 +401,7 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
         ordering = ["created_at"]
 
     reference_image = models.ImageField(upload_to="media/references/%Y/%m/%d", blank=True)
+    notes = models.TextField(blank=True, default="", max_length=10000)
     title = models.CharField(max_length=50, blank=False)
     url = models.URLField(blank=True)
     gpt_answer = models.JSONField(blank=True, null=True)
