@@ -189,6 +189,7 @@ def generate_video(
     template_format = script_format(
         video=ImageProviderRegistry.is_video(provider, user=video.created_by),
         narration=narration,
+        image_mode=image_mode,
     )
 
     prompt = format_prompt(
@@ -198,6 +199,7 @@ def generate_video(
         target_audience=target_audience,
         platform=platform,
         scene_count=scene_count,
+        image_mode=image_mode,
     )
 
     if video.gpt_answer and video.dir_name:

@@ -38,18 +38,22 @@ _SHOT = "<the shot to film: subject, action, setting, camera move>"
 _IMAGE = "<the image to show while it is spoken>"
 
 
-def script_format(video: bool = False, narration: bool = True) -> str:
+def script_format(video: bool = False, narration: bool = True, image_mode: str = None) -> str:
     brief = _VIDEO_BRIEF if video else _STILL_BRIEF
     visual = "a description of a short live-action shot that illustrates it"
     if not video:
         visual = "a description of an image that illustrates it"
+
+    if image_mode == "WEB":
+        brief = _STILL_BRIEF
+        visual = "one concise image search query that illustrates it"
 
     parts = f"the narration and {visual}" if narration else visual.capitalize()
     if not narration:
         parts = f"only {visual} — there is no narration, so write no spoken lines"
 
     fields = (_NARRATION_FIELD if narration else "") + _STILL_FIELD.format(
-        _SHOT if video else _IMAGE
+        "<concise image search terms>" if image_mode == "WEB" else _SHOT if video else _IMAGE
     )
 
     return brief.format(parts=parts) + _SHAPE.format(fields=fields)

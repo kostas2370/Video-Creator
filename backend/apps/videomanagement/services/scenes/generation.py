@@ -127,7 +127,9 @@ def draft_scene(
                 for scene in video.scenes.order_by("position").with_media()
             ],
         }
-    instructions = format_scene_draft(prompt, draft_type, sentence_count, scenario)
+    instructions = format_scene_draft(
+        prompt, draft_type, sentence_count, scenario, image_mode=video.mode
+    )
     reply = get_update_sentence(instructions, user=video.created_by)
     try:
         # Accept the Markdown fences commonly returned by text-mode providers.
