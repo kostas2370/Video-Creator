@@ -3,10 +3,10 @@ import json
 from django.test import SimpleTestCase
 
 from ...utils.prompt_utils import (
+    build_scene_draft_prompt,
+    build_script_prompt,
     format_cover_prompt,
     format_image_prompt,
-    format_prompt,
-    format_scene_draft,
     format_sora_prompt,
     format_update_form,
     scene_text,
@@ -15,76 +15,71 @@ from ...utils.prompt_utils import (
 
 class FormatPromptTests(SimpleTestCase):
     def test_carries_every_part_of_the_brief_into_the_prompt(self):
-        prompt = format_prompt(
-            template_format="a structure",
+        prompt = build_script_prompt(
             genre="EDUCATIONAL",
             userprompt="explain photosynthesis",
             title="How Plants Eat",
             target_audience="children",
         )
 
-        self.assertIn("a structure", prompt)
         self.assertIn("EDUCATIONAL", prompt)
         self.assertIn("explain photosynthesis", prompt)
         self.assertIn("How Plants Eat", prompt)
         self.assertIn("children", prompt)
 
     def test_web_mode_requests_search_terms_without_generation_directions(self):
-        from ...defaults import script_format
-
         for narration in (True, False):
-            template = script_format(video=True, narration=narration, image_mode="WEB")
-            prompt = format_prompt(template, "", image_mode="WEB")
+            prompt = build_script_prompt(video=True, narration=narration, image_mode="WEB")
             self.assertIn("concise image search query", prompt)
             self.assertIn("3–8 words", prompt)
-            self.assertNotIn("camera move", template)
+            self.assertNotIn("<the shot to film", prompt)
             self.assertNotIn("highly detailed visual descriptions", prompt)
-            self.assertIn('"image_description"', template)
+            self.assertIn('"image_description"', prompt)
 
     def test_ai_mode_preserves_detailed_visual_instructions(self):
-        prompt = format_prompt("", "", image_mode="AI")
+        prompt = build_script_prompt("", image_mode="AI")
         self.assertIn("highly detailed visual descriptions", prompt)
         self.assertNotIn("image search query", prompt)
 
     def test_web_scene_drafts_request_search_terms(self):
-        prompt = format_scene_draft("Paris", image_mode="WEB")
+        prompt = build_scene_draft_prompt("Paris", image_mode="WEB")
         self.assertIn("concise image search query", prompt)
         self.assertNotIn("own visual description", prompt)
-        self.assertIn("highly detailed visual descriptions", format_scene_draft("Paris"))
+        self.assertIn("highly detailed visual descriptions", build_scene_draft_prompt("Paris"))
 
     def test_hands_the_title_back_to_the_model_when_none_was_given(self):
-        prompt = format_prompt(template_format="", genre="")
+        prompt = build_script_prompt(genre="")
 
         self.assertIn("The title will be selected by you", prompt)
 
     def test_hands_the_audience_back_to_the_model_when_none_was_given(self):
-        prompt = format_prompt(template_format="", genre="")
+        prompt = build_script_prompt(genre="")
 
         self.assertIn("Select an appropriate target audience", prompt)
 
     def test_video_drafts_include_action_and_camera_guidance_with_selected_style(self):
-        prompt = format_scene_draft("A cat", video=True, style="watercolor")
+        prompt = build_scene_draft_prompt("A cat", video=True, style="watercolor")
         self.assertIn("camera move", prompt)
         self.assertIn("one achievable action", prompt)
         self.assertIn("watercolor", prompt)
         self.assertNotIn("short live-action shot", prompt)
 
     def test_silent_tiktok_script_does_not_request_spoken_lines(self):
-        prompt = format_prompt("", "", narration=False, platform="TIKTOK", scene_count=3)
+        prompt = build_script_prompt("", narration=False, platform="TIKTOK", scene_count=3)
         self.assertIn("Omit all sentence narration fields", prompt)
         self.assertNotIn("Each spoken entry", prompt)
         self.assertNotIn("Open the narration", prompt)
         self.assertNotIn("call to action", prompt)
 
     def test_web_ignores_generation_style_and_video_instructions(self):
-        prompt = format_scene_draft("Paris", video=True, image_mode="WEB", style="oil paint")
+        prompt = build_scene_draft_prompt("Paris", video=True, image_mode="WEB", style="oil paint")
         self.assertIn("self-contained", prompt)
         self.assertIn("English search terms", prompt)
         self.assertNotIn("Selected visual style", prompt)
         self.assertNotIn("one achievable action", prompt)
 
     def test_generation_context_and_language_are_explicit(self):
-        prompt = format_prompt("", "", video=True, style="animation")
+        prompt = build_script_prompt("", video=True, style="animation")
         self.assertIn("animation", prompt)
         self.assertIn("language explicitly requested", prompt)
         self.assertIn("intentional changes", prompt)

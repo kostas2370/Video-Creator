@@ -14,7 +14,7 @@ from apps.videomanagement.services.scenes.visuals import (
     scene_reference,
 )
 from apps.videomanagement.utils.prompt_utils import (
-    format_scene_draft,
+    build_scene_draft_prompt,
     format_update_form,
 )
 
@@ -129,7 +129,7 @@ def draft_scene(
             ],
         }
     settings = video.settings or {}
-    instructions = format_scene_draft(
+    instructions = build_scene_draft_prompt(
         prompt, draft_type, sentence_count, scenario, image_mode=video.mode,
         video=ImageProviderRegistry.is_video(settings.get("provider"), user=video.created_by),
         style=settings.get("style", ""),

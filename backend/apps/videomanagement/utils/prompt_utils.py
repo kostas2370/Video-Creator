@@ -1,8 +1,14 @@
+"""Prompt builders and shared visual rules.
+
+Generation services pass settings to build_script_prompt or build_scene_draft_prompt.
+Both resolve the visual type once, then use its brief for structure and instructions.
+Model calls, response validation, and retries live in integrations.llm.
+"""
+
 import json
 from dataclasses import dataclass
+from enum import Enum
 from typing import Iterator
-
-from ..defaults import VIDEO_INSTRUCTIONS
 
 
 _WEB_IMAGE_INSTRUCTIONS = (
@@ -34,20 +40,97 @@ _LANGUAGE_INSTRUCTIONS = (
 )
 
 
-def visual_instructions(image_mode=None, video=False, style=""):
-    """Use the same visual contract for initial scripts and editor drafts."""
+_VIDEO_INSTRUCTIONS = (
+    "For each image_description, describe one short continuous video shot: subject, "
+    "one achievable action, setting, and camera move (a slow push in, pan, or locked-off shot). "
+    "Match the selected visual style; do not assume live action. "
+    "Do not describe edits, cuts, titles, or text overlays."
+)
+
+_STILL_BRIEF = """
+Organise the scenario into scenes. Each scene is made up of sentences. For every
+sentence, write {parts}.
+"""
+
+_SHAPE = """
+Answer with JSON only — no prose, no markdown, no code fences — in exactly this shape:
+{{
+  "title": "<short title for the video>",
+  "target_audience": "<who the video is for>",
+  "topic": "<the topic in one line>",
+  "scenes": [
+    {{
+      "scene": "<short label for the scene>",
+      "sentences": [
+        {{{fields}
+        }}
+      ]
+    }}
+  ]
+}}
+"""
+
+_NARRATION_FIELD = '\n          "sentence": "<the narration to be spoken>",'
+_STILL_FIELD = '\n          "image_description": "{}"'
+_SHOT = "<the shot to film: subject, action, setting, camera move>"
+_IMAGE = "<the image to show while it is spoken>"
+
+
+class VisualType(Enum):
+    WEB_SEARCH = "web_search"
+    IMAGE = "image"
+    VIDEO = "video"
+
+
+@dataclass(frozen=True)
+class _VisualBrief:
+    description: str
+    placeholder: str
+    instructions: str
+    generated: bool = True
+
+    def guidance(self, style=""):
+        if not self.generated:
+            return self.instructions
+        result = self.instructions + " " + _CONTINUITY_INSTRUCTIONS
+        if style:
+            result += " Selected visual style: " + json.dumps(style, ensure_ascii=False)
+        return result
+
+
+_VISUAL_BRIEFS = {
+    VisualType.WEB_SEARCH: _VisualBrief(
+        "one concise image search query that illustrates it",
+        "<concise image search terms>",
+        _WEB_IMAGE_INSTRUCTIONS,
+        generated=False,
+    ),
+    VisualType.IMAGE: _VisualBrief(
+        "a description of an image that illustrates it", _IMAGE, _IMAGE_INSTRUCTIONS,
+    ),
+    VisualType.VIDEO: _VisualBrief(
+        "a description of a short video shot that illustrates it", _SHOT, _VIDEO_INSTRUCTIONS,
+    ),
+}
+
+
+def resolve_visual_type(image_mode=None, video=False):
+    """Web mode overrides stale provider selections; otherwise use provider output type."""
     if image_mode == "WEB":
-        return _WEB_IMAGE_INSTRUCTIONS
-    instructions = VIDEO_INSTRUCTIONS if video else _IMAGE_INSTRUCTIONS
-    instructions += " " + _CONTINUITY_INSTRUCTIONS
-    if style:
-        instructions += " Selected visual style: " + json.dumps(style, ensure_ascii=False)
-    return instructions
+        return VisualType.WEB_SEARCH
+    return VisualType.VIDEO if video else VisualType.IMAGE
 
 
-def format_prompt(
-    template_format: str,
-    genre: str,
+def _script_structure(brief, narration):
+    parts = f"the narration and {brief.description}"
+    if not narration:
+        parts = f"only {brief.description} — there is no narration, so write no spoken lines"
+    fields = (_NARRATION_FIELD if narration else "") + _STILL_FIELD.format(brief.placeholder)
+    return _STILL_BRIEF.format(parts=parts) + _SHAPE.format(fields=fields)
+
+
+def build_script_prompt(
+    genre: str = "",
     userprompt: str = "",
     title: str = "",
     target_audience: str = "",
@@ -58,38 +141,9 @@ def format_prompt(
     style: str = "",
     narration: bool = True,
 ) -> str:
-    """
-    Generate a formatted script prompt for video creation.
-
-    Parameters:
-    -----------
-    template_format : str
-        The structure/format of the video script.
-    genre : str
-        The genre/category of the video.
-    userprompt : str, optional
-        The user's prompt or request. Default is an empty string.
-    title : str, optional
-        The title of the scenario. If not provided, it will be generated based on the prompt.
-    target_audience : str, optional
-        The target audience for the video. Default is an empty string.
-
-    Returns:
-    --------
-    str
-        The formatted script prompt.
-
-    Detailed Steps:
-    ---------------
-    1. If 'title' is not provided, generate it based on the prompt.
-    2. If 'target_audience' is not provided, generate a suggestion.
-    3. Construct the formatted script prompt with the provided parameters.
-
-    Notes:
-    ------
-    - This function generates a script prompt for video creation, tailored to the specified format, category, user
-      prompt, title, and target audience.
-    """
+    """Build the complete script request from video settings and a creative brief."""
+    brief = _VISUAL_BRIEFS[resolve_visual_type(image_mode, video)]
+    template_format = _script_structure(brief, narration)
 
     if title == "":
         title = "The title will be selected by you, depending on the prompt"
@@ -107,7 +161,7 @@ def format_prompt(
         f"Structure : {template_format}\n\n"
         f"IMPORTANT INSTRUCTIONS FOR SCENES:\n"
     )
-    output += visual_instructions(image_mode, video, style) + "\n" + _LANGUAGE_INSTRUCTIONS
+    output += brief.guidance(style) + "\n" + _LANGUAGE_INSTRUCTIONS
     if narration:
         output += " Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph."
     else:
@@ -231,7 +285,7 @@ def format_update_form(text: str, prompt: str) -> str:
     )
 
 
-def format_scene_draft(
+def build_scene_draft_prompt(
     prompt: str,
     draft_type: str = "sentence",
     sentence_count: int = 1,
@@ -240,6 +294,8 @@ def format_scene_draft(
     video: bool = False,
     style: str = "",
 ) -> str:
+    """Build an editor draft using the same visual rules as full script generation."""
+    brief = _VISUAL_BRIEFS[resolve_visual_type(image_mode, video)]
     shape = (
         '{"text":"...","image_description":"..."}'
         if sentence_count == 1
@@ -248,7 +304,7 @@ def format_scene_draft(
     instructions = (
         f"Write a {draft_type} containing exactly {sentence_count} short spoken sentences. "
         "Each text must contain ONE concise sentence, ideally 8–25 words, at most 320 characters. "
-        + visual_instructions(image_mode, video, style)
+        + brief.guidance(style)
         + " Give each sentence its own visual entry, at most 600 characters. "
         + _LANGUAGE_INSTRUCTIONS + " "
         + "For a section, develop one focused moment. For a story, include a beginning, "
