@@ -16,6 +16,9 @@ from apps.videomanagement.utils.file_utils import (
 from apps.videomanagement.utils.timing import file_timing
 
 
+VIDEO_VISUAL_LABELS = {"reference_image": "reference image", "cover": "video cover"}
+
+
 def visual_kind(name):
     if check_if_image(name):
         return MediaAsset.Kind.IMAGE
@@ -88,8 +91,7 @@ def retain_stored_visual(video, field, *, title, tags):
         )
 
 
-def retain_scene_visual(visual, source=None):
-    source = visual.file if source is None else source
+def retain_scene_visual(visual, source):
     video = visual.scene.video
     label = "scene video" if check_if_video(source.name or "") else "scene image"
     asset = retain_stored_visual(
@@ -104,22 +106,14 @@ def retain_scene_visual(visual, source=None):
             visual.asset_id = asset.pk
 
 
-def retain_video_visuals(video, update_fields=None, sources=None):
-    fields = {"reference_image": "reference image", "cover": "video cover"}
-    sources = (
-        sources
-        if sources is not None
-        else {name: getattr(video, name) for name in fields}
+def retain_video_visual(video, field_name, source):
+    label = VIDEO_VISUAL_LABELS[field_name]
+    return retain_stored_visual(
+        video,
+        source,
+        title=f"{video.title} · {label.title()}",
+        tags=[label],
     )
-    for field, label in fields.items():
-        if update_fields is not None and field not in update_fields:
-            continue
-        retain_stored_visual(
-            video,
-            sources[field],
-            title=f"{video.title} · {label.title()}",
-            tags=[label],
-        )
 
 
 def retain_generated_cover(video, image):

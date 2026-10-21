@@ -71,20 +71,10 @@ def backfill_visual_assets(apps, schema_editor):
             existing = assets.filter(
                 created_by_id=video.created_by_id, checksum=checksum
             ).first()
-            if existing:
-                # Old entries may point directly at a project file. Give the library
-                # its own copy without deleting the source used by that project.
-                if existing.file.name == field.name:
-                    original_name = existing.file.name
-                    existing.file.save(f"{uuid4().hex}{extension}", source, save=False)
-                    try:
-                        existing.save(using=alias, update_fields=["file"])
-                    except Exception:
-                        existing.file.storage.delete(existing.file.name)
-                        existing.file.name = original_name
-                        raise
+            if existing and existing.file.name != field.name:
                 return existing
-            asset = Asset(
+            # An existing entry sharing the project path also needs its own copy.
+            asset = existing or Asset(
                 created_by_id=video.created_by_id,
                 checksum=checksum,
                 source_video_id=video.pk,

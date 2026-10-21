@@ -1,3 +1,4 @@
+from copy import copy
 from functools import partial
 from pathlib import Path
 from uuid import uuid4
@@ -14,7 +15,7 @@ from apps.videomanagement.exceptions import (
     VideoEditConflict,
 )
 from apps.videomanagement.models import Video, VideoStatus, VideoType
-from apps.videomanagement.services.media.retention import retain_video_visuals
+from apps.videomanagement.services.media.retention import retain_video_visual
 from apps.videomanagement.services.videos.generation import create_pending_video
 
 
@@ -47,7 +48,14 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
         raise GenerationQueueUnavailable() from exc
 
     if reference_image:
-        transaction.on_commit(partial(retain_video_visuals, video, {"reference_image"}))
+        transaction.on_commit(
+            partial(
+                retain_video_visual,
+                video,
+                "reference_image",
+                copy(video.reference_image),
+            )
+        )
     return video
 
 
