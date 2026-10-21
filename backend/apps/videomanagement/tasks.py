@@ -27,6 +27,20 @@ from .utils.composer import render
 logger = logging.getLogger(__name__)
 
 
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def generate_cover_task(video_id, user_id, choices):
+    import base64
+    from .services.media.covers import generate_cover_image
+
+    video = Video.objects.select_related("created_by", "prompt").get(
+        pk=video_id, created_by_id=user_id
+    )
+    if not video.created_by.is_active:
+        raise ValueError("Account is inactive")
+    image = generate_cover_image(video, video.created_by, choices)
+    return {"image": base64.b64encode(image).decode("ascii")}
+
+
 @shared_task(soft_time_limit=1150, time_limit=1200)
 def caption_project_task(project_id, token, render=False):
     process_caption_project(project_id, token, render=render)

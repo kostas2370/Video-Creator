@@ -128,5 +128,7 @@ export const editMediaAsset = (id, data) => patch(detail("media-assets", id), da
 export const deleteMediaAsset = id => remove(detail("media-assets", id), callerHandlesErrors);
 export const useMediaAsset = (id, data) => post(action("media-assets", id, "use"), data, callerHandlesErrors);
 export const previewVideoCover = (id, data) => post(action("videos", id, "cover_preview"), data, { ...callerHandlesErrors, responseType: "blob" });
+export const generateVideoCover = (id, data) => post(action("videos", id, "cover_generate"), data, callerHandlesErrors);
+export const getVideoCoverJob = (id, job, image = false) => request({ url: action("videos", id, "cover_job"), params: { job, ...(image ? { image: "1" } : {}) }, ...(image ? { responseType: "blob" } : {}), ...callerHandlesErrors });
 export const saveVideoCover = (id, data) => post(action("videos", id, "cover"), data, callerHandlesErrors);
 export const downloadVideoCover = id => request({ url: action("videos", id, "cover_download"), responseType: "blob", ...callerHandlesErrors });

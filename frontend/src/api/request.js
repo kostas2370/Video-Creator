@@ -32,7 +32,11 @@ export async function request({ method = "get", url, data, params, responseType,
     return { ok: true, data: response.data ?? null, status: response.status, headers: response.headers, message: null, errors: null };
   } catch (error) {
     if (typeof Blob !== "undefined" && error?.response?.data instanceof Blob) {
-      try { error.response.data = JSON.parse(await error.response.data.text()); } catch { /* Use the standard error message. */ }
+      try {
+        const body = await error.response.data.text();
+        try { error.response.data = JSON.parse(body); }
+        catch { error.response.data = body; }
+      } catch { /* Use the standard error message if the body cannot be read. */ }
     }
     const message = errorMessage(error);
     if (notifyError) toast.error(message, { toastId: `${method}:${url}:${message}` });
