@@ -108,6 +108,12 @@ class GenerateVideoTests(TestCase):
         self.make_scenes_speech.assert_called_once()
         self.create_image_scenes.assert_called_once()
 
+    def test_ai_scene_editing_is_requested_and_saved_with_review_settings(self):
+        generated = self.generate(ai_scene_editing=True, review_script=True)
+        self.assertTrue(generated.settings["ai_scene_editing"])
+        self.assertTrue(self.get_reply.call_args.kwargs["ai_scene_editing"])
+        self.assertIn('"editing"', self.get_reply.call_args.args[0])
+
     def test_uses_the_voice_that_was_chosen(self):
         chosen = voice_model.make(name="nova")
 

@@ -16,6 +16,11 @@ from .base import ApiTestCase
 
 
 class GenerateViewTests(ApiTestCase):
+    def test_ai_scene_editing_opt_in_reaches_the_worker(self):
+        response, delay = self.post(ai_scene_editing=True)
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertTrue(delay.call_args.kwargs["ai_scene_editing"])
+
     def reference_upload(self, image_format="PNG"):
         data = BytesIO()
         Image.new("RGB", (32, 32)).save(data, format=image_format)
@@ -233,6 +238,27 @@ class StoryboardApprovalTests(ApiTestCase):
     def approve(self, video, script=None):
         return self.client.post(reverse("video-approve-script", args=[video.pk]),
                                 script or self.script, format="json")
+
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
+    def test_ai_editing_survives_review_and_rejects_missing_or_invalid_plans(self, delay):
+        from copy import deepcopy
+        from ..test_ai_scene_editing import PLAN
+        video = self.draft()
+        video.settings["ai_scene_editing"] = True
+        video.settings["generation_params"]["ai_scene_editing"] = True
+        video.settings["generation_params"]["image_mode"] = "AI"
+        video.settings["generation_params"]["provider"] = "sora"
+        video.save()
+        self.assertEqual(self.approve(video).status_code, 400)
+        script = deepcopy(self.script)
+        script["scenes"][0]["sentences"][0]["editing"] = dict(PLAN)
+        self.assertEqual(self.approve(video, script).status_code, 400)
+        delay.assert_not_called()
+        script["scenes"][0]["sentences"][0]["editing"]["motion_style"] = "NONE"
+        self.assertEqual(self.approve(video, script).status_code, 202)
+        video.refresh_from_db()
+        self.assertEqual(video.gpt_answer["scenes"][0]["sentences"][0]["editing"]["motion_style"], "NONE")
+        self.assertTrue(delay.call_args.kwargs["ai_scene_editing"])
 
     @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_approval_saves_edits_and_queues_once(self, delay):

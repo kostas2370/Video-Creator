@@ -12,6 +12,7 @@ from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.services.usage import record_usage
+from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
@@ -33,7 +34,7 @@ def token_limit_kwarg(model: str) -> dict:
     }
 
 
-def script_errors(data, narration=None, scene_count=None):
+def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False):
     """Validate the structure consumed by scene and media generation."""
     def nonempty(value):
         return isinstance(value, str) and bool(value.strip())
@@ -67,6 +68,12 @@ def script_errors(data, narration=None, scene_count=None):
                 continue
             if not nonempty(entry.get("image_description")):
                 errors.append(f"{label} image_description must be a nonempty string.")
+            if ai_scene_editing:
+                plan = SceneEditingPlanSerializer(
+                    data=entry.get("editing"), context={"video_provider": video_provider}
+                )
+                if not plan.is_valid():
+                    errors.append(f"{label} editing: {plan.errors}")
             if narration is True and not nonempty(entry.get("sentence")):
                 errors.append(f"{label} sentence must contain nonempty narration.")
             if narration is False and "sentence" in entry:
@@ -143,7 +150,7 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None):
 
 
 def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4", user=None,
-              narration=None, scene_count=None):
+              narration=None, scene_count=None, ai_scene_editing=False, video_provider=False):
     """Route text requests and retry invalid scripts with specific correction feedback."""
     original_prompt = prompt
     for attempt in range(time, 5):
@@ -159,7 +166,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4", user=None,
         try:
             # Retain compatibility with providers wrapping JSON in prose or fences.
             data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-            errors = script_errors(data, narration, scene_count)
+            errors = script_errors(data, narration, scene_count, ai_scene_editing, video_provider)
             if not errors:
                 return data
         except (ValueError, TypeError):

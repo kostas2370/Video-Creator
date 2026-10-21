@@ -122,6 +122,7 @@ def generate_video(
     platform: str = "GENERAL",
     scene_count: int = None,
     review_script: bool = False,
+    ai_scene_editing: bool = False,
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -196,6 +197,7 @@ def generate_video(
         video=video_provider,
         style=style,
         narration=narration,
+        ai_scene_editing=ai_scene_editing,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -206,6 +208,8 @@ def generate_video(
         x = get_reply(
             prompt, gpt_model=gpt_model, user=video.created_by,
             narration=narration, scene_count=scene_count,
+            ai_scene_editing=ai_scene_editing,
+            video_provider=image_mode != "WEB" and video_provider,
         )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
@@ -229,6 +233,8 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if ai_scene_editing:
+        vid.settings["ai_scene_editing"] = True
     if scene_count is not None:
         vid.settings["scene_count"] = scene_count
     if review_script:
