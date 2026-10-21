@@ -55,6 +55,16 @@ Source: [Meta's official Instagram API collection](https://www.postman.com/meta/
 
 ## Deploying and testing
 
+### Local testing with an HTTPS tunnel
+
+For the Docker development stack, point the tunnel at the frontend on port 3000. Its existing proxy serves `/api/` from the backend, so the browser starts OAuth and receives its callback on the same HTTPS hostname. A backend-only tunnel combined with a localhost frontend will not receive the initiating browser's OAuth cookie at the public callback.
+
+Set both `SOCIAL_PUBLIC_BASE_URL` and `FRONTEND_URL` to that HTTPS origin, register the exact callback URLs with the providers, and recreate the backend and worker containers to reload their environment. Open Viddie through that HTTPS address and sign in there before connecting an account. Tunnel hostnames are temporary: update configuration and provider redirect URLs whenever the hostname changes. Cloudflare Quick Tunnels do not support SSE, so live progress notifications may not work through this test tunnel.
+
+Google's testing consent screen must list the test account and declare `youtube.upload` and `youtube.readonly`; enable YouTube Data API v3. For TikTok, use a named sandbox and its own client credentials, configure Web/Login Kit and Direct Post, and authorize a target test account in the sandbox dashboard. The sandbox form also requires an app icon, category and published legal-page URLs before saving changes. Viddie's public `/terms/` and `/privacy/` pages were approved by the operator for the local testing deployment; review their content and deployment-specific disclosures before a production launch. Platform review and public-posting restrictions still apply.
+
+### Verification
+
 1. Apply migrations with `python manage.py migrate`.
 2. Restart backend and Celery workers so the new app, configuration, and tasks are loaded. Ensure the queue is running.
 3. Export a video, open **Publish**, connect a developer test account, review the export and posting details, and submit.
