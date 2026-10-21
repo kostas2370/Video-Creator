@@ -76,10 +76,6 @@ def script_errors(data, narration=None, scene_count=None):
     return errors
 
 
-def check_json(json_file, narration=None, scene_count=None):
-    return not script_errors(json_file, narration, scene_count)
-
-
 def official_gpt_call(prompt: str, gpt_model=None, user=None):
     x = io.StringIO()
     logger.warning("API CALL IN OFFICIAL GPT")
