@@ -1030,7 +1030,9 @@ restart the API and Celery workers after updating.
   placement as part of the design. Leave the title blank for no text; changing
   the title requires regeneration. Each generation uses image credits and runs
   as a background job. You can close the dialog, continue editing, and reopen
-  **Cover** to retrieve the draft, including after refreshing the page. Preview
+  **Cover** to retrieve the draft, including after refreshing the page. Each successful
+  generation is also kept in **My assets → Media library**, including versions you
+  do not choose as the current cover. Preview
   the lettering before saving. You can also choose **Upload image** (PNG, JPEG, or WebP up to
   10 MB), or **Video frame** after exporting. Add a title, font, color, placement,
   and background, then preview and save a PNG. The saved image matches the
@@ -1047,6 +1049,32 @@ restart the API and Celery workers after updating.
   removing a library item does not remove copies already used in videos.
 - Apply database migrations before using these features:
   `python manage.py migrate` (includes migration `0034_media_library_and_covers`).
+
+### Scene assets
+
+Each scene image or video clip is stored once in a **MediaAsset**. A SceneImage
+references that asset and keeps its scene-specific settings; its file URL comes
+from the asset. Generated files are registered at their existing storage paths,
+and uploaded visuals are saved directly in library storage. Reusing library media
+links the same asset to the new scene without copying its file.
+
+Generated AI thumbnail variations are saved as assets as soon as generation
+succeeds. Use **Download** to save an asset locally, or **Use media** to reuse it in
+another scene or as the source of a rendered video cover. References and rendered
+covers remain project files.
+
+Replacing or deleting scenes, or deleting a project, preserves its assets.
+Deleting an asset that is still used by a scene is rejected; remove it from those
+scenes first. Identical uploaded visuals are deduplicated per account.
+
+Run `python manage.py migrate` after updating, with existing media storage mounted.
+Migration `0038_persistent_visual_assets` adds asset links and provenance;
+`0039_backfill_visual_assets` registers existing scene files without copying or
+moving them, including paths whose files are currently missing. It preserves
+existing library metadata when an entry already owns that path and is safe to
+retry. `0040_sceneimage_asset_owns_file` removes the redundant scene file column.
+No additional media storage is needed for the migration. Completed exports,
+generated audio, and temporary previews are not automatically saved as assets.
 
 ### Video tags
 

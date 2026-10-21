@@ -125,6 +125,7 @@ export const getCaptionStyles = () => request({ url: "videos/caption_styles/", .
 export const getMediaAssets = (search, page = 1, kind) => get("media-assets/", { search: search || undefined, page: page || 1, kind: kind || undefined });
 export const createMediaAsset = data => post("media-assets/", data, callerHandlesErrors);
 export const editMediaAsset = (id, data) => patch(detail("media-assets", id), data, callerHandlesErrors);
+export const downloadMediaAsset = id => request({ url: action("media-assets", id, "download"), responseType: "blob", ...callerHandlesErrors });
 export const deleteMediaAsset = id => remove(detail("media-assets", id), callerHandlesErrors);
 export const useMediaAsset = (id, data) => post(action("media-assets", id, "use"), data, callerHandlesErrors);
 export const previewVideoCover = (id, data) => post(action("videos", id, "cover_preview"), data, { ...callerHandlesErrors, responseType: "blob" });

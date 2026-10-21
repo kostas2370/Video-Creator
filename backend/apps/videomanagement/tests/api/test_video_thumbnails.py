@@ -99,7 +99,8 @@ class VideoThumbnailTests(ApiTestCase):
         self.video.save(update_fields=["output", "status"])
         visual = scene_image.make(scene=scene.make(video=self.video), file="")
         with self.source.open("rb") as file:
-            visual.file.save("gameplay.mp4", File(file))
+            visual.file = File(file, name="gameplay.mp4")
+            visual.save()
         response = self.client.post(self.url, {}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         self.video.refresh_from_db()

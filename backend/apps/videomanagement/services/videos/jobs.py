@@ -29,8 +29,13 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
 
     try:
         if reference_image:
-            video.reference_image = reference_image
-            video.save(update_fields=["reference_image"])
+            # The worker needs the reference path before dispatch.
+            video.reference_image.save(
+                reference_image.name, reference_image, save=False
+            )
+            Video.objects.filter(pk=video.pk).update(
+                reference_image=video.reference_image.name
+            )
         tasks.generate_video_task.delay(video_id=video.id, **params)
     except Exception as exc:
         video.reference_image.delete(save=False)

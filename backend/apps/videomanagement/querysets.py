@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import Count, Min, Q, Sum
+from django.db.models import Count, Min, Prefetch, Q, Sum
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.services.voices.credentials import key_fingerprint, key_source
@@ -69,7 +69,12 @@ class VideoQuerySet(models.QuerySet):
 class SceneQuerySet(models.QuerySet):
     def with_media(self):
         """Load scene visuals in one extra query, retaining existing ordering."""
-        return self.prefetch_related("scene_images")
+        return self.prefetch_related(
+            Prefetch(
+                "scene_images",
+                queryset=video_models.SceneImage.objects.select_related("asset"),
+            )
+        )
 
 
 class VoiceModelQuerySet(models.QuerySet):

@@ -1,10 +1,11 @@
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
+from django_cleanup.signals import cleanup_pre_delete
 
 from apps.usermanagement.models import Notification
 
 from .events import publish_update
-from .models import Scene, SceneImage, Video
+from .models import MediaAsset, Scene, SceneImage, Video
 
 
 @receiver(post_save, sender=Video)
@@ -47,3 +48,10 @@ def notification_changed(sender, instance, using, **kwargs):
         publish_update(
             f"notifications.{instance.user_id}", kind="notification", using=using
         )
+
+
+@receiver(cleanup_pre_delete, sender=MediaAsset)
+def preserve_shared_asset_file(sender, file, file_name, **kwargs):
+    # Older library entries can share a path; only its last owner deletes the file.
+    if MediaAsset.objects.filter(file=file_name).exists():
+        file.name = None

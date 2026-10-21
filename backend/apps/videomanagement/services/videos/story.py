@@ -57,8 +57,8 @@ def create_story_video(user, *, title, story, gameplay, voice_id, subtitles=True
             visual = SceneImage(scene=scene, file=gameplay, with_audio=False)
             visual.save()
     except Exception:
-        if visual and visual.file._committed:
-            visual.file.delete(save=False)
+        if visual:
+            visual.discard_upload()
         raise
     return video, scene
 
