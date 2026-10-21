@@ -1,12 +1,18 @@
 from rest_framework import serializers
 
+from .accounts import needs_reconnect
 from .models import PublishJob, SocialAccount
 
 
 class AccountSerializer(serializers.ModelSerializer):
+    needs_reconnect = serializers.SerializerMethodField()
+
+    def get_needs_reconnect(self, account):
+        return needs_reconnect(account)
+
     class Meta:
         model = SocialAccount
-        fields = ["id", "platform", "display_name", "expires_at"]
+        fields = ["id", "platform", "display_name", "expires_at", "needs_reconnect"]
 
 
 class JobSerializer(serializers.ModelSerializer):
