@@ -5,22 +5,18 @@ from uuid import uuid4
 
 from celery.result import AsyncResult
 from django.core import signing
-from rest_framework.exceptions import APIException, NotFound
+from rest_framework.exceptions import NotFound
+
+from apps.videomanagement import tasks
+from apps.videomanagement.exceptions import CoverQueueUnavailable
 
 SALT = "video-cover-job"
 
 
-class CoverQueueUnavailable(APIException):
-    status_code = 503
-    default_detail = "Could not queue the thumbnail. Please try again."
-
-
 def queue_cover(video, user, choices):
-    from apps.videomanagement.tasks import generate_cover_task
-
     task_id = str(uuid4())
     try:
-        generate_cover_task.apply_async(
+        tasks.generate_cover_task.apply_async(
             args=(str(video.pk), str(user.pk), choices), task_id=task_id
         )
     except Exception as exc:
@@ -41,9 +37,9 @@ def cover_result(video, user, token, image=False):
     job = AsyncResult(task_id)
     state = job.state
     if state == "SUCCESS":
-        if image:
-            return base64.b64decode(job.result["image"])
-        return {"status": "SUCCEEDED"}
+        return (
+            base64.b64decode(job.result["image"]) if image else {"status": "SUCCEEDED"}
+        )
     if state in ("FAILURE", "REVOKED"):
         return {
             "status": "FAILED",

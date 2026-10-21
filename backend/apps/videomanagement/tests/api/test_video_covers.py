@@ -1,7 +1,8 @@
-from io import BytesIO
-from pathlib import Path
+import base64
 import subprocess
 import tempfile
+from io import BytesIO
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from django.core.files import File
@@ -10,8 +11,17 @@ from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
 
-from .base import ApiTestCase
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.models import Intro, Outro, Scene, SceneImage
+from apps.videomanagement.serializers.covers import CoverSerializer
+from apps.videomanagement.services.media.covers import (
+    cover_reference,
+    create_cover,
+    generate_cover_image,
+)
+from apps.videomanagement.tasks import generate_cover_task
+
+from .base import ApiTestCase
 
 
 class VideoCoverTests(ApiTestCase):
@@ -245,8 +255,6 @@ class VideoCoverTests(ApiTestCase):
         self.assertTrue(self.video.cover.storage.exists(previous))
 
     def test_ai_can_generate_before_export(self):
-        from apps.videomanagement.services.media.covers import generate_cover_image
-
         empty = self.video_for(status="READY")
         generated = self.root / "draft.png"
         Image.new("RGB", (600, 400), "green").save(generated)
@@ -261,8 +269,6 @@ class VideoCoverTests(ApiTestCase):
         self.assertEqual(Image.open(BytesIO(result)).size, (1280, 720))
 
     def test_ai_uses_real_reference_and_returns_youtube_size(self):
-        from apps.videomanagement.services.media.covers import generate_cover_image
-
         generated = self.root / "generated.png"
         Image.new("RGB", (600, 400), "green").save(generated)
 
@@ -286,8 +292,6 @@ class VideoCoverTests(ApiTestCase):
         self.assertEqual(Image.open(BytesIO(result)).size, (1280, 720))
 
     def test_background_job_status_image_and_signed_ownership(self):
-        import base64
-
         with patch(
             "apps.videomanagement.tasks.generate_cover_task.apply_async"
         ) as dispatch:
@@ -344,9 +348,6 @@ class VideoCoverTests(ApiTestCase):
         self.assertEqual(self.video.status, "COMPLETED")
 
     def test_background_worker_uses_owner_and_returns_draft(self):
-        import base64
-        from apps.videomanagement.tasks import generate_cover_task
-
         with patch(
             "apps.videomanagement.services.media.covers.generate_cover_image",
             return_value=b"draft",
@@ -361,9 +362,6 @@ class VideoCoverTests(ApiTestCase):
         self.assertFalse(self.video.cover)
 
     def test_ai_title_is_not_overlaid_again(self):
-        from apps.videomanagement.serializers.covers import CoverSerializer
-        from apps.videomanagement.services.media.covers import create_cover
-
         serializer = CoverSerializer(
             data={
                 "source": "ai",
@@ -378,9 +376,6 @@ class VideoCoverTests(ApiTestCase):
         self.assertEqual(Image.open(BytesIO(result)).getpixel((320, 180)), (255, 0, 0))
 
     def test_reference_prefers_identity_then_scene_art_over_export(self):
-        from apps.videomanagement.models import Scene, SceneImage
-        from apps.videomanagement.services.media.covers import cover_reference
-
         scene = Scene.objects.create(video=self.video, text="The actual scene")
         SceneImage.objects.create(scene=scene, file="missing.png")
         visual = SceneImage.objects.create(scene=scene, file=self.uploaded_image())
@@ -396,9 +391,6 @@ class VideoCoverTests(ApiTestCase):
             frame.assert_not_called()
 
     def test_export_reference_skips_intro_and_outro(self):
-        from apps.videomanagement.models import Intro, Outro
-        from apps.videomanagement.services.media.covers import cover_reference
-
         self.video.intro = Intro.objects.create(
             name="Intro", file=self.video.output.name
         )
