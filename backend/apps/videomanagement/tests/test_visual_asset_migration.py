@@ -19,7 +19,7 @@ from apps.videomanagement.services.videos.jobs import queue_video_generation
 
 class VisualAssetMigrationTests(TransactionTestCase):
     migrate_from = [("videomanagement", "0037_video_is_favorite")]
-    migrate_to = [("videomanagement", "0039_backfill_visual_assets")]
+    migrate_to = [("videomanagement", "0040_sceneimage_asset_owns_file")]
 
     def image(self, color):
         data = BytesIO()
@@ -75,40 +75,68 @@ class VisualAssetMigrationTests(TransactionTestCase):
         other_scene = Scene.objects.create(video=other_video, text="Other", position=1)
         other = Visual.objects.create(scene=other_scene, file=self.image("blue"))
         paths = {row.pk: row.file.name for row in (shared, image, clip, missing, other)}
+        files_before = {
+            path.relative_to(directory.name)
+            for path in Path(directory.name).rglob("*")
+            if path.is_file()
+        }
+        executor = MigrationExecutor(connection)
+        backfill = [("videomanagement", "0039_backfill_visual_assets")]
+        executor.migrate(backfill)
+        state = executor.loader.project_state(backfill).apps
+        migration = import_module(
+            "apps.videomanagement.migrations.0039_backfill_visual_assets"
+        )
+        count = state.get_model("videomanagement", "MediaAsset").objects.count()
+        with connection.schema_editor() as editor:
+            migration.backfill_visual_assets(state, editor)
+        self.assertEqual(
+            state.get_model("videomanagement", "MediaAsset").objects.count(), count
+        )
         executor = MigrationExecutor(connection)
         executor.migrate(self.migrate_to)
         new = executor.loader.project_state(self.migrate_to).apps
         Asset = new.get_model("videomanagement", "MediaAsset")
         Visual = new.get_model("videomanagement", "SceneImage")
         self.assertEqual(Asset.objects.count(), 6)
-        self.assertEqual(Visual.objects.get(pk=shared.pk).asset_id, library.pk)
+        self.assertNotEqual(Visual.objects.get(pk=shared.pk).asset_id, library.pk)
         self.assertNotEqual(Visual.objects.get(pk=other.pk).asset_id, library.pk)
-        self.assertIsNone(Visual.objects.get(pk=missing.pk).asset_id)
+        self.assertIsNotNone(Visual.objects.get(pk=missing.pk).asset_id)
         existing = Asset.objects.get(pk=library.pk)
         self.assertEqual(existing.title, "Keep my name")
         self.assertEqual(existing.tags, ["favorite"])
         for row in Visual.objects.all():
-            self.assertEqual(row.file.name, paths[row.pk])
+            asset = Asset.objects.get(pk=row.asset_id)
+            self.assertEqual(asset.file.name, paths[row.pk])
             if row.pk == missing.pk:
                 continue
-            asset = Asset.objects.get(pk=row.asset_id)
-            self.assertNotEqual(asset.file.name, row.file.name)
             self.assertTrue(asset.file.storage.exists(asset.file.name))
         self.assertEqual(
             Asset.objects.get(pk=Visual.objects.get(pk=clip.pk).asset_id).kind, "VIDEO"
         )
-        saved_names = set(Asset.objects.values_list("file", flat=True))
-        # Simulate retrying an interrupted/non-atomic data migration.
-        migration = import_module(
-            "apps.videomanagement.migrations.0039_backfill_visual_assets"
+        self.assertEqual(
+            {
+                path.relative_to(directory.name)
+                for path in Path(directory.name).rglob("*")
+                if path.is_file()
+            },
+            files_before,
         )
-        with connection.schema_editor() as editor:
-            migration.backfill_visual_assets(new, editor)
-        self.assertEqual(set(Asset.objects.values_list("file", flat=True)), saved_names)
-        original = Visual.objects.get(pk=image.pk)
-        asset = Asset.objects.get(pk=original.asset_id)
-        original.file.storage.delete(original.file.name)
-        self.assertTrue(asset.file.storage.exists(asset.file.name))
+        self.assertNotIn("file", {field.name for field in Visual._meta.fields})
+        # Reversing the column removal restores each scene's original file path.
+        executor = MigrationExecutor(connection)
+        executor.migrate(backfill)
+        restored = executor.loader.project_state(backfill).apps.get_model(
+            "videomanagement", "SceneImage"
+        )
+        self.assertEqual(
+            {row.pk: row.file.name for row in restored.objects.all()}, paths
+        )
+        MigrationExecutor(connection).migrate(self.migrate_to)
+        Video = new.get_model("videomanagement", "Video")
+        Video.objects.filter(pk=video.pk).delete()
+        for asset in Asset.objects.exclude(file="missing.png"):
+            self.assertTrue(asset.file.storage.exists(asset.file.name))
 
 
 class VisualAssetCommitTests(TransactionTestCase):
@@ -155,3 +183,54 @@ class VisualAssetCommitTests(TransactionTestCase):
                 )
         self.assertEqual(MediaAsset.objects.count(), 0)
         self.assertFalse(any(path.is_file() for path in self.root.rglob("*")))
+
+    def test_generated_file_is_registered_without_writing_another_copy(self):
+        source = self.root / "generated.png"
+        source.write_bytes(self.image("blue").read())
+        scene = Scene.objects.create(video=self.video, text="Generated")
+        visual = SceneImage.objects.create(scene=scene, file="generated.png")
+        self.assertEqual(visual.asset.file.name, "generated.png")
+        self.assertEqual(list(self.root.rglob("*.png")), [source])
+        scene.delete()
+        self.assertTrue(source.exists())
+        self.assertTrue(MediaAsset.objects.filter(pk=visual.asset_id).exists())
+
+    def test_failed_scene_edit_does_not_remove_a_reused_asset(self):
+        scene = Scene.objects.create(video=self.video, text="Original")
+        visual = SceneImage.objects.create(scene=scene, file=self.image("blue"))
+        asset = visual.asset
+        source = Path(asset.file.path)
+        with self.assertRaises(RuntimeError):
+            with transaction.atomic():
+                visual.file = self.image("blue")
+                visual.save()
+                raise RuntimeError("Edit rolled back")
+        visual.discard_upload()
+        self.assertTrue(source.exists())
+        self.assertEqual(MediaAsset.objects.count(), 1)
+        self.assertEqual(visual.asset_id, asset.pk)
+
+    def test_deleting_a_legacy_duplicate_keeps_the_file_used_by_another_asset(self):
+        scene = Scene.objects.create(video=self.video, text="Shared legacy path")
+        visual = SceneImage.objects.create(scene=scene, file=self.image("blue"))
+        asset = visual.asset
+        duplicate = MediaAsset.objects.create(
+            created_by=self.owner,
+            title="Legacy duplicate",
+            kind="IMAGE",
+            file=asset.file.name,
+        )
+        duplicate.delete()
+        self.assertTrue(Path(asset.file.path).exists())
+        scene.delete()
+        asset.delete()
+        self.assertFalse(Path(asset.file.path).exists())
+
+    def test_account_deletion_can_delete_scenes_and_their_assets_together(self):
+        scene = Scene.objects.create(video=self.video, text="Account scene")
+        visual = SceneImage.objects.create(scene=scene, file=self.image("blue"))
+        source = Path(visual.file.path)
+        self.owner.delete()
+        self.assertFalse(SceneImage.objects.filter(pk=visual.pk).exists())
+        self.assertFalse(MediaAsset.objects.filter(pk=visual.asset_id).exists())
+        self.assertFalse(source.exists())

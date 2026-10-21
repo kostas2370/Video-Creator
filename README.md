@@ -1050,31 +1050,31 @@ restart the API and Celery workers after updating.
 - Apply database migrations before using these features:
   `python manage.py migrate` (includes migration `0034_media_library_and_covers`).
 
-### Automatic visual asset archiving
+### Scene assets
 
-Scene images and video clips, project reference images, and saved covers are
-archived automatically in **My assets → Media library**. Generated AI thumbnail
-variations are archived as soon as generation succeeds, even if they are never
-saved as the video's cover. Search by the video name or the automatic labels
-`scene image`, `scene video`, `reference image`, `video cover`, and `ai thumbnail`.
-Identical file contents are deduplicated per account; existing library names and
-tags are preserved. Reusing media copies it into the project and links the scene
-to its library asset. Deleting a library asset does not break existing project
-copies, and deleting a project does not delete its archived assets.
+Each scene image or video clip is stored once in a **MediaAsset**. A SceneImage
+references that asset and keeps its scene-specific settings; its file URL comes
+from the asset. Generated files are registered at their existing storage paths,
+and uploaded visuals are saved directly in library storage. Reusing library media
+links the same asset to the new scene without copying its file.
 
-Use **Download** to keep a local copy. For an image, **Use media → Video cover**
-restores it as another project's cover without another AI generation.
+Generated AI thumbnail variations are saved as assets as soon as generation
+succeeds. Use **Download** to save an asset locally, or **Use media** to reuse it in
+another scene or as the source of a rendered video cover. References and rendered
+covers remain project files.
 
-Run `python manage.py migrate` after updating. Migration
-`0038_persistent_visual_assets` adds the asset links, provenance, and owner-scoped
-checksums. `0039_backfill_visual_assets` archives existing scene images/clips,
-reference images, and saved covers, linking existing scenes to their assets while
-leaving their original files in place. It copies files into library storage and
-can safely resume if interrupted. It preserves existing library entries and logs
-missing or ownerless source files that cannot be archived. Rolling back leaves
-archived media in the library. Mount the existing media storage while migrating;
-the library copies require additional storage. Completed exports, generated audio,
-and temporary frame/preview files are not automatically archived.
+Replacing or deleting scenes, or deleting a project, preserves its assets.
+Deleting an asset that is still used by a scene is rejected; remove it from those
+scenes first. Identical uploaded visuals are deduplicated per account.
+
+Run `python manage.py migrate` after updating, with existing media storage mounted.
+Migration `0038_persistent_visual_assets` adds asset links and provenance;
+`0039_backfill_visual_assets` registers existing scene files without copying or
+moving them, including paths whose files are currently missing. It preserves
+existing library metadata when an entry already owns that path and is safe to
+retry. `0040_sceneimage_asset_owns_file` removes the redundant scene file column.
+No additional media storage is needed for the migration. Completed exports,
+generated audio, and temporary previews are not automatically saved as assets.
 
 ### Video tags
 

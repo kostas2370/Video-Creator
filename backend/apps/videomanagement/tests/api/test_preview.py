@@ -84,7 +84,9 @@ class PreviewTests(ApiTestCase):
         segments = self.client.get(self.url).data["segments"]
         self.assertEqual(segments[0]["motion_style"], resolved_motion(self.first))
         self.assertEqual(segments[0]["motion_intensity"], "STRONG")
-        self.first.scene_images.update(file="clip.mp4")
+        visual = self.first.scene_images.get()
+        visual.file = "clip.mp4"
+        visual.save()
         self.assertEqual(self.client.get(self.url).data["segments"][0]["motion_style"], "NONE")
 
     def test_timeline_and_captions_share_pauses_and_intro_offsets_without_charging(self):
@@ -124,7 +126,10 @@ class PreviewTests(ApiTestCase):
         self.assertEqual(self.client.get(self.url).data["segments"][0]["duration"], 4.75)
         self.video.settings = {"narration": False, "subtitles": True, "video_format": "PORTRAIT"}
         self.video.save()
-        self.first.scene_images.update(file="clip.mp4", with_audio=True)
+        visual = self.first.scene_images.get()
+        visual.file = "clip.mp4"
+        visual.with_audio = True
+        visual.save()
         Path(self.directory.name, "clip.mp4").write_bytes(b"demo video")
         original = media_timing
         def timing(path):
@@ -174,7 +179,7 @@ class PreviewTests(ApiTestCase):
         self.video.outro = outro.make(file="speech.wav", created_by=self.user)
         self.video.save()
         video = Video.objects.select_related("intro", "outro").prefetch_related(
-            "scenes__scene_images",
+            "scenes__scene_images__asset",
         ).get(pk=self.video.pk)
         with self.assertNumQueries(0):
             data = PreviewTimelineSerializer(video).data
@@ -195,9 +200,13 @@ class PreviewTests(ApiTestCase):
             self.assertEqual(segment["pause"], 0)
 
     def test_unusable_scene_visual_is_not_exposed(self):
-        self.first.scene_images.update(file="speech.wav")
+        visual = self.first.scene_images.get()
+        visual.file = "speech.wav"
+        visual.save()
         self.assertIsNone(self.client.get(self.url).data["segments"][0]["visual"])
-        self.first.scene_images.update(file="missing.png")
+        visual = self.first.scene_images.get()
+        visual.file = "missing.png"
+        visual.save()
         self.assertIsNone(self.client.get(self.url).data["segments"][0]["visual"])
 
     def test_opening_uses_video_default_instead_of_scene_outgoing_override(self):

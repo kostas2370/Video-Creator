@@ -38,7 +38,14 @@ def create_manual_video(user, **choices):
 
 
 def add_manual_scene(
-    video, *, text="", image=None, duration=None, position=None, with_audio=True
+    video,
+    *,
+    text="",
+    image=None,
+    duration=None,
+    position=None,
+    with_audio=True,
+    asset=None,
 ):
     visual = None
     try:
@@ -49,13 +56,15 @@ def add_manual_scene(
             if duration is not None:
                 scene.audio_settings = {"duration": duration}
                 scene.save(update_fields=["audio_settings"])
-            if image:
-                visual = SceneImage(scene=scene, file=image, with_audio=with_audio)
+            if image or asset:
+                visual = SceneImage(scene=scene, asset=asset, with_audio=with_audio)
+                if image:
+                    visual.file = image
                 visual.save()
             changed(locked)
     except Exception:
         # Database rollback does not remove files already written to storage.
-        if visual and visual.file._committed:
-            visual.file.delete(save=False)
+        if visual:
+            visual.discard_upload()
         raise
     return scene

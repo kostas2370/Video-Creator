@@ -51,7 +51,8 @@ class VisualArchivingTests(ApiTestCase):
         self.assertEqual(first.created_by_id, self.user.pk)
         self.assertEqual(first.source_video_id, self.video.pk)
         self.assertIn("scene image", first.tags)
-        self.assertNotEqual(first.file.name, visual.file.name)
+        self.assertEqual(first.file.name, visual.file.name)
+        self.assertEqual(len(list(self.media_root.rglob("*.png"))), 1)
         first_bytes = first.file.read()
         with self.captureOnCommitCallbacks(execute=True):
             visual.file = self.image("red")
@@ -94,20 +95,21 @@ class VisualArchivingTests(ApiTestCase):
         self.assertEqual(str(visual.asset_id), str(first.data["id"]))
         self.assertEqual(MediaAsset.objects.count(), 1)
         original_file = visual.file.name
-        with self.captureOnCommitCallbacks(execute=True):
-            self.assertEqual(
-                self.request(
-                    "delete", reverse("mediaasset-detail", args=[first.data["id"]])
-                ).status_code,
-                204,
-            )
+        response = self.request(
+            "delete", reverse("mediaasset-detail", args=[first.data["id"]])
+        )
+        self.assertEqual(response.status_code, 400)
         visual.refresh_from_db()
-        self.assertIsNone(visual.asset_id)
+        self.assertEqual(str(visual.asset_id), str(first.data["id"]))
         self.assertEqual(visual.file.name, original_file)
         self.assertTrue(visual.file.storage.exists(original_file))
-        visual.with_audio = False
-        visual.save(update_fields=["with_audio"])
-        self.assertEqual(MediaAsset.objects.count(), 0)
+        visual.scene.delete()
+        self.assertTrue(visual.file.storage.exists(original_file))
+        response = self.request(
+            "delete", reverse("mediaasset-detail", args=[first.data["id"]])
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(visual.file.storage.exists(original_file))
 
     def test_identical_media_is_deduplicated_per_owner_and_download_is_private(self):
         first = self.request(
@@ -171,14 +173,12 @@ class VisualArchivingTests(ApiTestCase):
             self.assertEqual(cover.read(), self.image().read())
         self.assertEqual(MediaAsset.objects.count(), 2)
 
-    def test_reference_images_are_saved_and_missing_files_are_skipped(self):
-        with self.captureOnCommitCallbacks(execute=True):
-            self.video.reference_image.save("reference.png", self.image())
-        self.assertEqual(MediaAsset.objects.count(), 1)
-        self.assertIn("reference image", MediaAsset.objects.get().tags)
+    def test_missing_scene_file_still_has_an_asset_record(self):
         scene = Scene.objects.create(video=self.video, text="Missing")
         visual = SceneImage.objects.create(scene=scene, file="missing.png")
-        self.assertIsNone(visual.asset_id)
+        self.assertIsNotNone(visual.asset_id)
+        self.assertEqual(visual.asset.file.name, "missing.png")
+        self.assertEqual(visual.file.name, "missing.png")
         self.assertEqual(MediaAsset.objects.count(), 1)
 
     def test_asset_job_results_remain_owner_bound_and_handle_deleted_assets(self):
@@ -214,7 +214,9 @@ class VisualArchivingTests(ApiTestCase):
                 "FAILED",
             )
             result.result = {"asset_id": str(visual.asset_id)}
-            visual.asset.delete()
+            asset = visual.asset
+            visual.delete()
+            asset.delete()
             self.assertEqual(
                 self.request("get", endpoint, {"job": queued.data["id"]}).data[
                     "status"
@@ -251,4 +253,4 @@ class VisualArchivingTests(ApiTestCase):
         self.assertIn("scene video", asset.tags)
         self.assertGreater(asset.duration, 0)
         self.assertLess(asset.duration, 1)
-        self.assertNotEqual(asset.file.name, visual.file.name)
+        self.assertEqual(asset.file.name, visual.file.name)
