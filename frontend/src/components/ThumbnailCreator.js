@@ -27,13 +27,15 @@ export function ThumbnailCreator({ open, onClose, video, onSaved }) {
   const currentPreview = !!preview && previewKey === key;
   useEffect(() => {
     sequence.current += 1;
-    if (open) { setChoices({ time: 0, title: video?.title || "", font: "Poppins", color: "#ffffff", position: "bottom", size: 8, background: true, ...video?.cover_settings, source: "ai" }); setPreview(null); setPreviewKey(""); setError(""); setSourceImage(null); setPrompt(""); setDuration(0); setBusy("");
-      try {
-        const pending = JSON.parse(localStorage.getItem(`cover-job:${video.id}`) || "null");
-        setJob(pending);
-        if (pending) { setChoices(pending.choices); setPrompt(pending.prompt || ""); }
-      } catch { setJob(null); }
-    }
+    if (!open) return;
+    setChoices({ time: 0, title: video?.title || "", font: "Poppins", color: "#ffffff", position: "bottom", size: 8, background: true, ...video?.cover_settings, source: "ai" });
+    setPreview(null); setPreviewKey(""); setError(""); setSourceImage(null);
+    setPrompt(""); setDuration(0); setBusy("");
+    try {
+      const pending = JSON.parse(localStorage.getItem(`cover-job:${video.id}`) || "null");
+      setJob(pending);
+      if (pending) { setChoices(pending.choices); setPrompt(pending.prompt || ""); }
+    } catch { setJob(null); }
   }, [open, video?.id]);
   useEffect(() => {
     if (!open || !job) return;
@@ -57,8 +59,12 @@ export function ThumbnailCreator({ open, onClose, video, onSaved }) {
       if (response.data.status === "SUCCEEDED") {
         const image = await getVideoCoverJob(video.id, job.id, true);
         if (cancelled) return;
-        if (image.ok) { setSourceImage(image.data); setPreview(image.data); setPreviewKey(JSON.stringify(job.choices)); finish(false); }
-        else setError(image.message || "Could not load the thumbnail. Reopen this editor to retry.");
+        if (!image.ok) {
+          setError(image.message || "Could not load the thumbnail. Reopen this editor to retry.");
+          return;
+        }
+        setSourceImage(image.data); setPreview(image.data);
+        setPreviewKey(JSON.stringify(job.choices)); finish(false);
         return;
       }
       timer = setTimeout(poll, 2000);
@@ -98,7 +104,7 @@ export function ThumbnailCreator({ open, onClose, video, onSaved }) {
     const token = ++sequence.current;
     setBusy("preview"); setError("");
     const response = await previewVideoCover(video.id, payload());
-    if (token !== sequence.current) { setBusy(""); return; }
+    if (token !== sequence.current) return;
     if (response.ok) { setPreview(response.data); setPreviewKey(key); }
     else setError(response.message || "Could not preview this frame.");
     setBusy("");

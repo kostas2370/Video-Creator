@@ -1,3 +1,4 @@
+import base64
 import logging
 from contextlib import nullcontext
 from datetime import timedelta
@@ -14,6 +15,7 @@ from django.utils import timezone
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations import tts as tts_utils
 from apps.videomanagement.services.captions.projects import process_caption_project
+from apps.videomanagement.services.media import covers
 from apps.videomanagement.services.scenes import generation as scene_generation
 from apps.videomanagement.services.scenes import visuals as scenes
 from apps.videomanagement.services.scenes.jobs import scene_job
@@ -29,15 +31,12 @@ logger = logging.getLogger(__name__)
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def generate_cover_task(video_id, user_id, choices):
-    import base64
-    from .services.media.covers import generate_cover_image
-
     video = Video.objects.select_related("created_by", "prompt").get(
         pk=video_id, created_by_id=user_id
     )
     if not video.created_by.is_active:
         raise ValueError("Account is inactive")
-    image = generate_cover_image(video, video.created_by, choices)
+    image = covers.generate_cover_image(video, video.created_by, choices)
     return {"image": base64.b64encode(image).decode("ascii")}
 
 
