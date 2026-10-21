@@ -133,3 +133,11 @@ export const generateVideoCover = (id, data) => post(action("videos", id, "cover
 export const getVideoCoverJob = (id, job, image = false) => request({ url: action("videos", id, "cover_job"), params: { job, ...(image ? { image: "1" } : {}) }, ...(image ? { responseType: "blob" } : {}), ...callerHandlesErrors });
 export const saveVideoCover = (id, data) => post(action("videos", id, "cover"), data, callerHandlesErrors);
 export const downloadVideoCover = id => request({ url: action("videos", id, "cover_download"), responseType: "blob", ...callerHandlesErrors });
+
+export const getSocialConnections = () => request({ url: "publishing/connections/", ...callerHandlesErrors });
+export const disconnectSocialAccount = id => remove(`publishing/connections/${id}/`, callerHandlesErrors);
+export const connectSocialAccount = (platform, video) => post(`publishing/oauth/${platform}/start/`, { video }, callerHandlesErrors);
+export const getPostingContext = id => request({ url: `publishing/connections/${id}/context/`, ...callerHandlesErrors });
+export const getPublishJobs = video => request({ url: "publishing/jobs/", params: { video }, ...callerHandlesErrors });
+export const publishVideo = data => post("publishing/jobs/", data, callerHandlesErrors);
+export const refreshPublishStatus = id => post(`publishing/jobs/${id}/refresh/`, {}, callerHandlesErrors);
