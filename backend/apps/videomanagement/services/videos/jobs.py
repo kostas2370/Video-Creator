@@ -1,3 +1,4 @@
+from functools import partial
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from apps.videomanagement.exceptions import (
     VideoEditConflict,
 )
 from apps.videomanagement.models import Video, VideoStatus, VideoType
+from apps.videomanagement.services.media.retention import retain_video_visuals
 from apps.videomanagement.services.videos.generation import create_pending_video
 
 
@@ -29,8 +31,13 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
 
     try:
         if reference_image:
-            video.reference_image = reference_image
-            video.save(update_fields=["reference_image"])
+            # Publish the reference before dispatch, but retain it only if queuing succeeds.
+            video.reference_image.save(
+                reference_image.name, reference_image, save=False
+            )
+            Video.objects.filter(pk=video.pk).update(
+                reference_image=video.reference_image.name
+            )
         tasks.generate_video_task.delay(video_id=video.id, **params)
     except Exception as exc:
         video.reference_image.delete(save=False)
@@ -39,6 +46,8 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
         video.save(update_fields=["reference_image", "status"])
         raise GenerationQueueUnavailable() from exc
 
+    if reference_image:
+        transaction.on_commit(partial(retain_video_visuals, video, {"reference_image"}))
     return video
 
 
