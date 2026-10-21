@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 from ...utils.prompt_utils import (
     build_scene_draft_prompt,
     build_script_prompt,
+    build_story_draft_prompt,
     format_cover_prompt,
     format_image_prompt,
     format_sora_prompt,
@@ -88,6 +89,22 @@ class FormatPromptTests(SimpleTestCase):
         prompt = format_image_prompt("Cats", "a cat")
         self.assertIn("Video context only", prompt)
         self.assertIn("Do not render the video title", prompt)
+
+    def test_scripts_share_progression_across_visual_modes_and_silent_videos(self):
+        for mode, video in (("WEB", False), ("AI", False), ("AI", True)):
+            for narration in (False, True):
+                with self.subTest(mode=mode, video=video, narration=narration):
+                    prompt = build_script_prompt(image_mode=mode, video=video, narration=narration)
+                    self.assertIn("hook → development → payoff", prompt)
+                    self.assertIn("not a requirement for exactly three scenes", prompt)
+                    self.assertIn("avoid repeating earlier points", prompt)
+
+    def test_complete_story_drafts_share_progression_without_forcing_it_on_sections(self):
+        self.assertIn("hook → development → payoff", build_story_draft_prompt("Cats"))
+        self.assertIn("hook → development → payoff", build_scene_draft_prompt("Cats", draft_type="story", sentence_count=4))
+        for draft_type, count in (("sentence", 1), ("section", 3), ("story", 1)):
+            prompt = build_scene_draft_prompt("Cats", draft_type=draft_type, sentence_count=count)
+            self.assertNotIn("hook → development → payoff", prompt)
 
 
 class SceneTextTests(SimpleTestCase):
