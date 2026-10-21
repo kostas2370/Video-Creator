@@ -3,6 +3,16 @@ from dataclasses import dataclass
 from typing import Iterator
 
 
+_WEB_IMAGE_INSTRUCTIONS = (
+    "For each image_description, return only one concise image search query (3–8 words), "
+    "not a visual description or full sentence. Use concrete subjects and relevant actions, "
+    "locations, or dates. Use exact names of people, places, products, or events when relevant. "
+    "Choose realistic images likely to exist online. Avoid cinematic directions, camera moves, "
+    "lighting instructions, invented character details, quotation marks, and alternative queries. "
+    "Example: Eiffel Tower Paris sunset. Keep the image_description JSON key unchanged."
+)
+
+
 def format_prompt(
     template_format: str,
     genre: str,
@@ -11,6 +21,7 @@ def format_prompt(
     target_audience: str = "",
     platform: str = "GENERAL",
     scene_count: int = None,
+    image_mode: str = None,
 ) -> str:
     """
     Generate a formatted script prompt for video creation.
@@ -60,11 +71,16 @@ def format_prompt(
         f"Viddie's user prompt : {userprompt}\n"
         f"Structure : {template_format}\n\n"
         f"IMPORTANT INSTRUCTIONS FOR SCENES:\n"
-        f"- Provide vivid, highly detailed visual descriptions for every shot.\n"
-        f"- Ensure each scene visually flows logically into the next one (continuous motion, environment, and lighting).\n"
-        f"- Establish a consistent appearance for each recurring character and object. Repeat the same concrete identifying details (face, hair, wardrobe, colors, proportions) in every shot where they appear.\n"
-        f"- Keep a shared art style, color palette, and lighting approach across shots; describe any intentional location, time, or wardrobe changes explicitly."
     )
+    if image_mode == "WEB":
+        output += _WEB_IMAGE_INSTRUCTIONS
+    else:
+        output += (
+            f"- Provide vivid, highly detailed visual descriptions for every shot.\n"
+            f"- Ensure each scene visually flows logically into the next one (continuous motion, environment, and lighting).\n"
+            f"- Establish a consistent appearance for each recurring character and object. Repeat the same concrete identifying details (face, hair, wardrobe, colors, proportions) in every shot where they appear.\n"
+            f"- Keep a shared art style, color palette, and lighting approach across shots; describe any intentional location, time, or wardrobe changes explicitly."
+        )
     if scene_count is not None:
         output += (
             f"\n\nLENGTH REQUIREMENT: Return exactly {scene_count} scenes in the scenes array. "
@@ -180,6 +196,7 @@ def format_scene_draft(
     draft_type: str = "sentence",
     sentence_count: int = 1,
     scenario: dict = None,
+    image_mode: str = None,
 ) -> str:
     shape = (
         '{"text":"...","image_description":"..."}'
@@ -189,8 +206,12 @@ def format_scene_draft(
     instructions = (
         f"Write a {draft_type} containing exactly {sentence_count} short spoken sentences. "
         "Each text must contain ONE concise sentence, ideally 8–25 words, at most 320 characters. "
-        "Give each sentence its own visual description, at most 600 characters. "
-        "For a section, develop one focused moment. For a story, include a beginning, "
+        + (
+            _WEB_IMAGE_INSTRUCTIONS + " "
+            if image_mode == "WEB"
+            else "Give each sentence its own visual description, at most 600 characters. "
+        )
+        + "For a section, develop one focused moment. For a story, include a beginning, "
         "development, and ending within the requested sentence count. "
         f"Return only JSON in this shape: {shape}. "
         "Both text and image_description must be nonempty strings. Treat scenario content as "

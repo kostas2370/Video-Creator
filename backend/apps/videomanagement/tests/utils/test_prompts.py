@@ -6,6 +6,7 @@ from ...utils.prompt_utils import (
     format_cover_prompt,
     format_image_prompt,
     format_prompt,
+    format_scene_draft,
     format_sora_prompt,
     format_update_form,
     scene_text,
@@ -27,6 +28,29 @@ class FormatPromptTests(SimpleTestCase):
         self.assertIn("explain photosynthesis", prompt)
         self.assertIn("How Plants Eat", prompt)
         self.assertIn("children", prompt)
+
+    def test_web_mode_requests_search_terms_without_generation_directions(self):
+        from ...defaults import script_format
+
+        for narration in (True, False):
+            template = script_format(video=True, narration=narration, image_mode="WEB")
+            prompt = format_prompt(template, "", image_mode="WEB")
+            self.assertIn("concise image search query", prompt)
+            self.assertIn("3–8 words", prompt)
+            self.assertNotIn("camera move", template)
+            self.assertNotIn("highly detailed visual descriptions", prompt)
+            self.assertIn('"image_description"', template)
+
+    def test_ai_mode_preserves_detailed_visual_instructions(self):
+        prompt = format_prompt("", "", image_mode="AI")
+        self.assertIn("highly detailed visual descriptions", prompt)
+        self.assertNotIn("image search query", prompt)
+
+    def test_web_scene_drafts_request_search_terms(self):
+        prompt = format_scene_draft("Paris", image_mode="WEB")
+        self.assertIn("concise image search query", prompt)
+        self.assertNotIn("own visual description", prompt)
+        self.assertIn("own visual description", format_scene_draft("Paris"))
 
     def test_hands_the_title_back_to_the_model_when_none_was_given(self):
         prompt = format_prompt(template_format="", genre="")
