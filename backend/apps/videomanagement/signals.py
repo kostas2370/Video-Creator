@@ -9,7 +9,11 @@ from apps.usermanagement.models import Notification
 
 from .events import publish_update
 from .models import Scene, SceneImage, Video
-from .services.media.retention import retain_scene_visual, retain_video_visuals
+from .services.media.retention import (
+    VIDEO_VISUAL_LABELS,
+    retain_scene_visual,
+    retain_video_visual,
+)
 
 
 @receiver(post_save, sender=Video)
@@ -61,7 +65,7 @@ def mark_changed_visual_files(
 ):
     if raw:
         return
-    fields = {"file"} if sender is SceneImage else {"reference_image", "cover"}
+    fields = {"file"} if sender is SceneImage else set(VIDEO_VISUAL_LABELS)
     selected = fields if update_fields is None else fields.intersection(update_fields)
     if not selected or instance._state.adding:
         instance._library_fields = selected
@@ -76,20 +80,16 @@ def mark_changed_visual_files(
 
 
 @receiver(post_save, sender=SceneImage)
-def retain_saved_scene_visual(sender, instance, raw=False, **kwargs):
-    if not raw and "file" in getattr(instance, "_library_fields", set()):
-        transaction.on_commit(
-            partial(retain_scene_visual, instance, copy(instance.file)),
-            using=kwargs.get("using"),
-        )
-
-
 @receiver(post_save, sender=Video)
-def retain_saved_video_visuals(sender, instance, raw=False, **kwargs):
-    if not raw:
-        fields = getattr(instance, "_library_fields", set())
-        sources = {name: copy(getattr(instance, name)) for name in fields}
-        transaction.on_commit(
-            partial(retain_video_visuals, instance, fields, sources),
-            using=kwargs.get("using"),
+def retain_saved_visuals(sender, instance, raw=False, **kwargs):
+    if raw:
+        return
+    for name in getattr(instance, "_library_fields", ()):
+        # Freeze each file before another save can replace it on this instance.
+        source = copy(getattr(instance, name))
+        callback = (
+            partial(retain_scene_visual, instance, source)
+            if sender is SceneImage
+            else partial(retain_video_visual, instance, name, source)
         )
+        transaction.on_commit(callback, using=kwargs.get("using"))
