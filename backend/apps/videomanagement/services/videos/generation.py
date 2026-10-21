@@ -48,7 +48,7 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
     clip's final frame as an input to the next scene.
     """
     if not image_mode or ImageProviderRegistry.is_video(
-        provider, user=video.created_by
+        provider, user=video.created_by, mode=image_mode
     ):
         make_scenes_speech(video)
         if image_mode:
@@ -186,7 +186,9 @@ def generate_video(
     )
 
     logger.info("Retrieved template")
-    video_provider = ImageProviderRegistry.is_video(provider, user=video.created_by)
+    video_provider = ImageProviderRegistry.is_video(
+        provider, user=video.created_by, mode=image_mode
+    )
     prompt = build_script_prompt(
         genre=genre,
         userprompt=message,
@@ -209,7 +211,7 @@ def generate_video(
             prompt, gpt_model=gpt_model, user=video.created_by,
             narration=narration, scene_count=scene_count,
             ai_scene_editing=ai_scene_editing,
-            video_provider=image_mode != "WEB" and video_provider,
+            video_provider=video_provider,
         )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
