@@ -127,7 +127,7 @@ class VisualAssetCommitTests(TransactionTestCase):
         Image.new("RGB", (16, 16), color).save(data, format="PNG")
         return ContentFile(data.getvalue(), name=f"{color}.png")
 
-    def test_versions_saved_inside_one_transaction_are_both_retained(self):
+    def test_versions_saved_inside_one_transaction_are_both_archived(self):
         scene = Scene.objects.create(video=self.video, text="Two versions")
         with transaction.atomic():
             visual = SceneImage.objects.create(scene=scene, file=self.image("blue"))
@@ -142,7 +142,7 @@ class VisualAssetCommitTests(TransactionTestCase):
             )
         )
 
-    def test_failed_queue_does_not_retain_a_reference_in_autocommit(self):
+    def test_failed_queue_does_not_archive_a_reference_in_autocommit(self):
         with patch(
             "apps.videomanagement.tasks.generate_video_task.delay",
             side_effect=ConnectionError("offline"),

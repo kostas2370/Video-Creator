@@ -17,7 +17,7 @@ from apps.videomanagement.tasks import generate_cover_task
 from .base import ApiTestCase
 
 
-class VisualRetentionTests(ApiTestCase):
+class VisualArchivingTests(ApiTestCase):
     def setUp(self):
         super().setUp()
         directory = tempfile.TemporaryDirectory()
@@ -222,7 +222,7 @@ class VisualRetentionTests(ApiTestCase):
                 "FAILED",
             )
 
-    def test_video_clips_are_retained_with_their_duration(self):
+    def test_video_clips_are_archived_with_their_duration(self):
         path = self.media_root / "source.mp4"
         subprocess.run(
             [

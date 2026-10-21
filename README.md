@@ -1050,7 +1050,7 @@ restart the API and Celery workers after updating.
 - Apply database migrations before using these features:
   `python manage.py migrate` (includes migration `0034_media_library_and_covers`).
 
-### Automatic visual asset retention
+### Automatic visual asset archiving
 
 Scene images and video clips, project reference images, and saved covers are
 archived automatically in **My assets → Media library**. Generated AI thumbnail

@@ -15,7 +15,7 @@ from apps.videomanagement.exceptions import (
     VideoEditConflict,
 )
 from apps.videomanagement.models import Video, VideoStatus, VideoType
-from apps.videomanagement.services.media.retention import retain_video_visual
+from apps.videomanagement.services.media.archive import archive_video_visual
 from apps.videomanagement.services.videos.generation import create_pending_video
 
 
@@ -32,7 +32,7 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
 
     try:
         if reference_image:
-            # Publish the reference before dispatch, but retain it only if queuing succeeds.
+            # Publish the reference before dispatch, but archive it only if queuing succeeds.
             video.reference_image.save(
                 reference_image.name, reference_image, save=False
             )
@@ -49,12 +49,7 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
 
     if reference_image:
         transaction.on_commit(
-            partial(
-                retain_video_visual,
-                video,
-                "reference_image",
-                copy(video.reference_image),
-            )
+            partial(archive_video_visual, video, copy(video.reference_image))
         )
     return video
 

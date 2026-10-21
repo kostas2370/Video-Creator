@@ -9,10 +9,10 @@ from apps.usermanagement.models import Notification
 
 from .events import publish_update
 from .models import Scene, SceneImage, Video
-from .services.media.retention import (
+from .services.media.archive import (
     VIDEO_VISUAL_LABELS,
-    retain_scene_visual,
-    retain_video_visual,
+    archive_scene_visual,
+    archive_video_visual,
 )
 
 
@@ -81,15 +81,13 @@ def mark_changed_visual_files(
 
 @receiver(post_save, sender=SceneImage)
 @receiver(post_save, sender=Video)
-def retain_saved_visuals(sender, instance, raw=False, **kwargs):
+def archive_saved_visuals(sender, instance, raw=False, **kwargs):
     if raw:
         return
+    archive = archive_scene_visual if sender is SceneImage else archive_video_visual
     for name in getattr(instance, "_library_fields", ()):
         # Freeze each file before another save can replace it on this instance.
         source = copy(getattr(instance, name))
-        callback = (
-            partial(retain_scene_visual, instance, source)
-            if sender is SceneImage
-            else partial(retain_video_visual, instance, name, source)
+        transaction.on_commit(
+            partial(archive, instance, source), using=kwargs.get("using")
         )
-        transaction.on_commit(callback, using=kwargs.get("using"))
