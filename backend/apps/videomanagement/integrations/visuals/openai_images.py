@@ -32,10 +32,13 @@ def generate_openai_image(
 
     client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
 
-    image_prompt = format_image_prompt(title=title, image_description=prompt)
-    # Express the visual style in the prompt.
-    if style:
-        image_prompt = f"{image_prompt}\nStyle: {style}"
+    has_reference = bool(reference and os.path.isfile(reference))
+    image_prompt = format_image_prompt(
+        title=title,
+        image_description=prompt,
+        style=style,
+        preserve_reference=has_reference,
+    )
 
     request = dict(
         model=settings.IMAGE_MODEL,
@@ -45,15 +48,7 @@ def generate_openai_image(
         n=1,
         output_format="png",
     )
-    if reference and os.path.isfile(reference):
-        request["prompt"] += (
-            "\nUse the reference as the visual identity guide for this video. "
-            "Preserve recurring characters' facial features, hair, clothing, and "
-            "proportions, recurring objects, art style, and color palette. "
-            "Create the new shot described above; change pose, framing, action, "
-            "and location as required by the shot. Do not copy the old composition "
-            "or introduce reference subjects that are absent from this shot."
-        )
+    if has_reference:
         if settings.IMAGE_MODEL in {"gpt-image-1", "gpt-image-1.5"}:
             request["input_fidelity"] = "high"
         with open(reference, "rb") as anchor:

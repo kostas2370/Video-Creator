@@ -1019,10 +1019,25 @@ restart the API and Celery workers after updating.
 
 ### Video covers and reusable media
 
-- Open an exported video and choose **Cover**. Scrub the video and choose **Use
-  current frame**, or enter a timestamp. Add a title, font, color, placement, and
-  background, then preview and save a PNG. Saved covers appear in **My videos**
-  and can be downloaded from the cover creator.
+- Choose **Cover** in the video editor. **AI thumbnail** creates a separate
+  1280 × 720 image from the current video content. Its style reference is the
+  project's reference image, or an available scene image; otherwise it uses a
+  frame from the main export content, skipping the intro and outro. The prompt
+  asks the AI to preserve the reference's medium, rendering, and palette.
+  Add optional visual direction,
+  then generate or regenerate using your configured OpenAI image model and key.
+  The AI draws the exact cover title into the artwork, choosing typography and
+  placement as part of the design. Leave the title blank for no text; changing
+  the title requires regeneration. Each generation uses image credits and runs
+  as a background job. You can close the dialog, continue editing, and reopen
+  **Cover** to retrieve the draft, including after refreshing the page. Preview
+  the lettering before saving. You can also choose **Upload image** (PNG, JPEG, or WebP up to
+  10 MB), or **Video frame** after exporting. Add a title, font, color, placement,
+  and background, then preview and save a PNG. The saved image matches the
+  preview, appears in **My videos**, and can be downloaded from the cover creator.
+  Generated and uploaded covers are available before exporting the video.
+  Restart both the API and Celery worker after updating to register the thumbnail
+  endpoints and background task. Failed generation leaves the saved cover unchanged.
 - **My assets → Media library** stores images, video clips, and audio. Search by
   name or tag, filter by type, and edit tags. Files are limited to 100 MB and
   audio/video to 15 minutes.

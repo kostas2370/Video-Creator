@@ -1,18 +1,22 @@
-"""Create title covers from actual exported video frames."""
+"""Create covers from video frames, generated images, or uploads."""
 
 import subprocess
+import tempfile
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
 
 from django.core.files.base import ContentFile
 from django.db import transaction
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from rest_framework.exceptions import ValidationError
 
-from apps.videomanagement.models import Video
-from apps.videomanagement.utils.file_utils import stored_file_exists
+from apps.videomanagement.integrations.visuals import openai_images
+from apps.videomanagement.models import SceneImage, Video
+from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.fonts import FONT_DIRECTORY
-from apps.videomanagement.utils.timing import media_timing
+from apps.videomanagement.utils.prompt_utils import format_cover_prompt
+from apps.videomanagement.utils.timing import file_timing, media_timing
 
 FONT_FILES = {
     "Poppins": "Poppins-Bold.ttf",
@@ -35,11 +39,11 @@ def cover_font(family, size):
         )
 
 
-def create_cover(video, choices):
+def frame_image(video, time):
     if video.status == "RENDERING" or not stored_file_exists(video.output):
         raise ValidationError("Export the video before creating a cover.")
     duration = media_timing(video.output.path).get("duration")
-    if not duration or choices["time"] >= duration:
+    if not duration or time >= duration:
         raise ValidationError({"time": "Choose a frame within the exported video."})
     try:
         result = subprocess.run(
@@ -49,7 +53,7 @@ def create_cover(video, choices):
                 "error",
                 "-nostdin",
                 "-ss",
-                str(choices["time"]),
+                str(time),
                 "-i",
                 video.output.path,
                 "-frames:v",
@@ -66,12 +70,80 @@ def create_cover(video, choices):
             check=True,
             timeout=30,
         )
-        image = Image.open(BytesIO(result.stdout)).convert("RGBA")
+        return Image.open(BytesIO(result.stdout)).convert("RGBA")
     except (OSError, ValueError, subprocess.SubprocessError):
         raise ValidationError(
             "Could not read this frame. Choose a slightly earlier time and try again."
         )
-    title = choices["title"].strip()
+
+
+def cover_reference(video, directory, time=0):
+    """Prefer the video's visual identity and scene art over branded intros."""
+    candidates = [video.reference_image]
+    candidates.extend(
+        visual.file
+        for visual in SceneImage.objects.filter(scene__video=video)
+        .exclude(file="")
+        .exclude(file__isnull=True)
+        .order_by("scene__position", "created_at", "id")
+    )
+    for candidate in candidates:
+        if not stored_file_exists(candidate) or check_if_video(candidate.name):
+            continue
+        try:
+            with Image.open(candidate.path) as image:
+                image.verify()
+        except (OSError, ValueError):
+            continue
+        return candidate.path
+    if not stored_file_exists(video.output):
+        return None
+    if not time:
+        duration = file_timing(video.output).get("duration", 0)
+        intro, outro = (
+            file_timing(asset.file if asset else None).get("duration", 0)
+            for asset in (video.intro, video.outro)
+        )
+        time = (
+            (intro + duration - outro) / 2 if duration > intro + outro else duration / 2
+        )
+    reference = str(Path(directory) / "reference.png")
+    frame_image(video, time).save(reference)
+    return reference
+
+
+def generate_cover_image(video, user, choices):
+    scenes = list(video.scenes.order_by("position").values_list("text", flat=True))
+    content = {
+        "title": video.title,
+        "content": scenes or video.gpt_answer or video.prompt.prompt,
+    }
+    prompt = format_cover_prompt(content, choices.get("title", ""), choices["prompt"])
+    with tempfile.TemporaryDirectory() as directory:
+        reference = cover_reference(video, directory, choices["time"])
+        path = openai_images.generate_openai_image(
+            prompt, directory + "/", style="", user=user, reference=reference
+        )
+        with Image.open(path) as image:
+            image = ImageOps.fit(
+                image.convert("RGB"), (1280, 720), method=Image.Resampling.LANCZOS
+            )
+            output = BytesIO()
+            image.save(output, format="PNG")
+            return output.getvalue()
+
+
+def create_cover(video, choices):
+    if choices.get("source", "frame") == "frame":
+        image = frame_image(video, choices["time"])
+    else:
+        uploaded = choices["image"]
+        uploaded.seek(0)
+        with Image.open(uploaded) as source:
+            image = ImageOps.exif_transpose(source).convert("RGBA")
+        image.thumbnail((1280, 1280))
+    # AI thumbnails already contain their title; never draw it a second time.
+    title = "" if choices.get("source") == "ai" else choices["title"].strip()
     if title:
         width, height = image.size
         font_size = max(12, round(width * choices["size"] / 100))
@@ -147,7 +219,9 @@ def save_cover(video, choices):
             f"{video.pk}-{uuid4().hex}.png", ContentFile(image), save=False
         )
         try:
-            video.cover_settings = choices
+            video.cover_settings = {
+                key: value for key, value in choices.items() if key != "image"
+            }
             video.save(update_fields=["cover", "cover_settings"])
         except Exception:
             video.cover.storage.delete(video.cover.name)

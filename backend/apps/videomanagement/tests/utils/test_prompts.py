@@ -1,6 +1,9 @@
+import json
+
 from django.test import SimpleTestCase
 
 from ...utils.prompt_utils import (
+    format_cover_prompt,
     format_image_prompt,
     format_prompt,
     format_sora_prompt,
@@ -91,3 +94,30 @@ class OtherPromptTests(SimpleTestCase):
         self.assertIn("the old line", prompt)
         self.assertIn("make it funnier", prompt)
         self.assertIn("around the same length", prompt)
+
+
+class CoverPromptTests(SimpleTestCase):
+    def test_cover_keeps_exact_title_and_unicode_context_separate_from_direction(self):
+        title = 'A "quoted" title — Ελληνικά'
+        content = {"title": "Video", "content": ["First scene", "Δεύτερη σκηνή"]}
+        prompt = format_cover_prompt(content, title, "Warm lighting")
+        self.assertIn(json.dumps(title, ensure_ascii=False), prompt)
+        self.assertIn(json.dumps(content, ensure_ascii=False), prompt)
+        self.assertTrue(prompt.endswith("Visual direction: Warm lighting"))
+
+    def test_large_context_does_not_truncate_title_or_visual_direction(self):
+        prompt = format_cover_prompt(
+            {"content": "x" * 20000}, "My title", "Keep the atlas style"
+        )
+        self.assertIn('Title: "My title"', prompt)
+        self.assertTrue(prompt.endswith("Visual direction: Keep the atlas style"))
+        self.assertNotIn("x" * 18001, prompt)
+
+    def test_reference_guidance_is_only_added_when_requested(self):
+        plain = format_image_prompt("Video", "Atlas", style="watercolor")
+        anchored = format_image_prompt(
+            "Video", "Atlas", style="watercolor", preserve_reference=True
+        )
+        self.assertIn("Style: watercolor", plain)
+        self.assertNotIn("Preserve recurring characters", plain)
+        self.assertIn("Preserve recurring characters", anchored)
