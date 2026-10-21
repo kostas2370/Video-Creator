@@ -8,7 +8,6 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from slugify import slugify
 
-from apps.videomanagement.defaults import script_format
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import (
@@ -28,7 +27,7 @@ from apps.videomanagement.services.scenes.narration import (
 )
 from apps.videomanagement.services.scenes.visuals import create_image_scenes
 from apps.videomanagement.utils.file_utils import generate_directory
-from apps.videomanagement.utils.prompt_utils import format_prompt
+from apps.videomanagement.utils.prompt_utils import build_script_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -187,14 +186,7 @@ def generate_video(
 
     logger.info("Retrieved template")
     video_provider = ImageProviderRegistry.is_video(provider, user=video.created_by)
-    template_format = script_format(
-        video=video_provider,
-        narration=narration,
-        image_mode=image_mode,
-    )
-
-    prompt = format_prompt(
-        template_format=template_format,
+    prompt = build_script_prompt(
         genre=genre,
         userprompt=message,
         target_audience=target_audience,
