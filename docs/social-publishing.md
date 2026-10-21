@@ -57,6 +57,19 @@ Source: [Meta's official Instagram API collection](https://www.postman.com/meta/
 
 ### Local testing with an HTTPS tunnel
 
+On macOS or Linux, install `cloudflared` and Docker, start the Docker app, then run these commands from the repository root:
+
+```bash
+# Enable public access; keep this terminal open.
+python3 scripts/local-tunnel.py start
+
+# In another terminal, inspect or disable the managed tunnel.
+python3 scripts/local-tunnel.py status
+python3 scripts/local-tunnel.py stop
+```
+
+Start creates a temporary public HTTPS address for port 3000, updates only `SOCIAL_PUBLIC_BASE_URL` and `FRONTEND_URL` in your ignored `backend/.env`, and reloads the backend and workers. It prints the three callback URLs to register in the developer dashboards. Dashboard callbacks and policy/website URLs must still be updated manually when the hostname changes. Logs and local control files are ignored under `backend/.local-tunnel/`. Stop and Ctrl+C end public access without stopping the Docker app. These controls manage only tunnels launched by this script; stop any older manually launched tunnel from its own terminal first. Stopping the app with `docker compose down` makes the public link unavailable even if the tunnel is still running. Restarting the script creates a new address.
+
 For the Docker development stack, point the tunnel at the frontend on port 3000. Its existing proxy serves `/api/` from the backend, so the browser starts OAuth and receives its callback on the same HTTPS hostname. A backend-only tunnel combined with a localhost frontend will not receive the initiating browser's OAuth cookie at the public callback.
 
 Set both `SOCIAL_PUBLIC_BASE_URL` and `FRONTEND_URL` to that HTTPS origin, register the exact callback URLs with the providers, and recreate the backend and worker containers to reload their environment. Open Viddie through that HTTPS address and sign in there before connecting an account. Tunnel hostnames are temporary: update configuration and provider redirect URLs whenever the hostname changes. Cloudflare Quick Tunnels do not support SSE, so live progress notifications may not work through this test tunnel.
