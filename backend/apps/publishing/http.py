@@ -11,23 +11,32 @@ class ProviderError(Exception):
     pass
 
 
-def api(method, url, token=None, **kwargs):
+def request_json(method, url, token=None, **kwargs):
+    """Send a platform request and return a JSON object, with sanitized errors."""
     headers = dict(kwargs.pop("headers", {}))
     if token:
         headers["Authorization"] = f"Bearer {token}"
     try:
-        response = requests.request(method, url, headers=headers, timeout=(10, 90), allow_redirects=False, **kwargs)
+        response = requests.request(
+            method, url, headers=headers,
+            timeout=(10, 90), allow_redirects=False, **kwargs,
+        )
         if not 200 <= response.status_code < 300:
             raise ProviderError("The platform rejected the request. Check the account permissions and posting settings.")
         data = response.json()
-        if not isinstance(data, dict):
-            raise ProviderError("The platform returned an unexpected response.")
-        error = data.get("error")
-        if error and (not isinstance(error, dict) or error.get("code") not in (None, "ok", 0)):
-            raise ProviderError("The platform could not complete the request. Check account permissions and posting limits.")
-        return data
     except (requests.RequestException, ValueError) as exc:
         raise ProviderError("The platform request did not complete. Check its status before trying another upload.") from exc
+
+    if not isinstance(data, dict):
+        raise ProviderError("The platform returned an unexpected response.")
+
+    error = data.get("error")
+    if error:
+        # TikTok includes an error object with code "ok" on successful requests.
+        is_success_status = isinstance(error, dict) and error.get("code") in (None, "ok", 0)
+        if not is_success_status:
+            raise ProviderError("The platform could not complete the request. Check account permissions and posting limits.")
+    return data
 
 
 def checked_upload_url(url, platform):

@@ -3,7 +3,7 @@
 from urllib.parse import urlencode
 
 from ..config import callback_url, require_configured
-from ..http import api
+from ..http import request_json
 from ..models import Platform
 
 
@@ -27,8 +27,8 @@ def exchange_code(code):
         "client_id": config["client_id"], "client_secret": config["client_secret"],
         "code": code, "redirect_uri": callback_url(Platform.INSTAGRAM),
     }
-    short = api("GET", f"{meta_base()}/oauth/access_token", params=payload)
-    return api("GET", f"{meta_base()}/oauth/access_token", params={
+    short = request_json("GET", f"{meta_base()}/oauth/access_token", params=payload)
+    return request_json("GET", f"{meta_base()}/oauth/access_token", params={
         "grant_type": "fb_exchange_token", "client_id": config["client_id"],
         "client_secret": config["client_secret"], "fb_exchange_token": short["access_token"],
     })
@@ -41,7 +41,7 @@ def identities(tokens):
     params = {"fields": "name,access_token,instagram_business_account{id,username}", "limit": 100}
     # Cursors, not provider-supplied URLs, keep credentials on the known Graph host.
     for _ in range(20):
-        data = api("GET", endpoint, token, params=params)
+        data = request_json("GET", endpoint, token, params=params)
         for page in data.get("data", []):
             profile = page.get("instagram_business_account")
             if profile:

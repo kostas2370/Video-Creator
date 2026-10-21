@@ -5,7 +5,7 @@ from urllib.parse import quote
 from rest_framework.exceptions import ValidationError
 
 from ..models import Platform, PublishJob
-from ..http import ProviderError, api, checked_upload_url
+from ..http import ProviderError, request_json, checked_upload_url
 from .base import Publisher
 from .common import put_binary, update, validate_caption
 
@@ -54,7 +54,7 @@ class TikTokPublisher(Publisher):
                 "chunk_size": chunk, "total_chunk_count": count,
             },
         }
-        result = api("POST", f"{API_URL}/video/init/", token=self.token, json=payload)["data"]
+        result = request_json("POST", f"{API_URL}/video/init/", token=self.token, json=payload)["data"]
         update(job, remote_id=result["publish_id"])
         upload_url = checked_upload_url(result["upload_url"], Platform.TIKTOK)
         with job.media.open("rb") as source:
@@ -77,7 +77,7 @@ class TikTokPublisher(Publisher):
         update(job, status=PublishJob.Status.PROCESSING)
 
     def check_status(self, job):
-        result = api(
+        result = request_json(
             "POST", f"{API_URL}/status/fetch/", token=self.token,
             json={"publish_id": job.remote_id},
         )["data"]

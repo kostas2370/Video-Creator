@@ -3,7 +3,7 @@
 from urllib.parse import urlencode
 
 from ..config import callback_url, require_configured
-from ..http import ProviderError, api
+from ..http import ProviderError, request_json
 from ..models import Platform
 
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -28,7 +28,7 @@ def exchange_code(code):
         "code": code, "redirect_uri": callback_url(Platform.YOUTUBE),
         "grant_type": "authorization_code",
     }
-    return api("POST", TOKEN_URL, data=payload)
+    return request_json("POST", TOKEN_URL, data=payload)
 
 
 def refresh_token(token):
@@ -37,12 +37,12 @@ def refresh_token(token):
         "client_id": config["client_id"], "client_secret": config["client_secret"],
         "refresh_token": token, "grant_type": "refresh_token",
     }
-    return api("POST", TOKEN_URL, data=payload)
+    return request_json("POST", TOKEN_URL, data=payload)
 
 
 def identities(tokens):
     token = tokens["access_token"]
-    data = api(
+    data = request_json(
         "GET", "https://www.googleapis.com/youtube/v3/channels", token=token,
         params={"part": "snippet", "mine": "true"},
     )

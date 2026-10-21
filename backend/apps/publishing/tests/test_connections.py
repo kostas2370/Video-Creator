@@ -33,7 +33,7 @@ class ConnectionTests(SimpleTestCase):
             (youtube, Platform.YOUTUBE, "client_id"),
             (tiktok, Platform.TIKTOK, "client_key"),
         ):
-            with self.subTest(platform=platform), patch.object(module, "api", return_value={"access_token": "token"}) as request:
+            with self.subTest(platform=platform), patch.object(module, "request_json", return_value={"access_token": "token"}) as request:
                 module.exchange_code("auth-code")
                 payload = request.call_args.kwargs["data"]
                 self.assertEqual(payload[client_field], "client-id")
@@ -46,24 +46,24 @@ class ConnectionTests(SimpleTestCase):
                 self.assertEqual(payload["grant_type"], "refresh_token")
 
     def test_meta_exchanges_short_token_for_long_lived_token(self):
-        with patch.object(meta, "api", side_effect=[{"access_token": "short"}, {"access_token": "long"}]) as request:
+        with patch.object(meta, "request_json", side_effect=[{"access_token": "short"}, {"access_token": "long"}]) as request:
             self.assertEqual(meta.exchange_code("code"), {"access_token": "long"})
         self.assertEqual(request.call_args_list[0].kwargs["params"]["code"], "code")
         self.assertEqual(request.call_args.kwargs["params"]["fb_exchange_token"], "short")
 
     def test_youtube_requires_one_channel_and_tiktok_reads_creator_identity(self):
-        with patch.object(youtube, "api", return_value={"items": []}):
+        with patch.object(youtube, "request_json", return_value={"items": []}):
             with self.assertRaises(ProviderError):
                 youtube.identities({"access_token": "token"})
-        with patch.object(youtube, "api", return_value={"items": [{"id": "channel", "snippet": {"title": "Creator"}}]}):
+        with patch.object(youtube, "request_json", return_value={"items": [{"id": "channel", "snippet": {"title": "Creator"}}]}):
             self.assertEqual(youtube.identities({"access_token": "token"})[0]["external_id"], "channel")
-        with patch.object(tiktok, "api", return_value={"data": {"user": {"open_id": "creator", "display_name": "Creator"}}}):
+        with patch.object(tiktok, "request_json", return_value={"data": {"user": {"open_id": "creator", "display_name": "Creator"}}}):
             self.assertEqual(tiktok.identities({"access_token": "token"})[0]["external_id"], "creator")
 
     def test_meta_pagination_keeps_tokens_on_the_graph_host(self):
         first = {"data": [], "paging": {"next": "https://untrusted.test/?token=secret", "cursors": {"after": "cursor"}}}
         second = {"data": [{"name": "Page", "access_token": "page-token", "instagram_business_account": {"id": "instagram", "username": "creator"}}]}
-        with patch.object(meta, "api", side_effect=[first, second]) as request:
+        with patch.object(meta, "request_json", side_effect=[first, second]) as request:
             profiles = meta.identities({"access_token": "user-token"})
         self.assertEqual(profiles, [{"external_id": "instagram", "display_name": "creator", "access_token": "page-token"}])
         self.assertEqual(request.call_args.args[1], "https://graph.facebook.com/v25.0/me/accounts")
