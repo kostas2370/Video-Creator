@@ -10,7 +10,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location("local_tunnel", Path(__file__).parents[1] / "local-tunnel.py")
 tunnel = importlib.util.module_from_spec(SPEC)
@@ -105,6 +105,53 @@ class TunnelTests(unittest.TestCase):
             tunnel.status()
         process.assert_not_called()
         self.assertEqual(self.env.read_text(), self.original)
+
+    def test_interruption_closes_child_and_releases_session(self):
+        self.real_popen = subprocess.Popen
+        with contextlib.redirect_stdout(io.StringIO()), patch.object(tunnel.subprocess, "Popen", side_effect=self.fake_child):
+            with self.assertRaises(KeyboardInterrupt):
+                with tunnel.tunnel_session():
+                    (tunnel.STATE / "url").write_text("https://test.trycloudflare.com")
+                    raise KeyboardInterrupt
+        self.assertIsNotNone(self.child.poll())
+        self.assertFalse((tunnel.STATE / "url").exists())
+        self.assertEqual(self.env.read_text(), self.original)
+        with tunnel.tunnel_lock() as acquired:
+            self.assertTrue(acquired)
+
+    def test_startup_stop_does_not_change_configuration(self):
+        self.real_popen = subprocess.Popen
+        wait_for_url = tunnel.wait_for_url
+        def stop_before_url(process):
+            (tunnel.STATE / "stop").touch()
+            return wait_for_url(process)
+        with contextlib.redirect_stdout(io.StringIO()), patch.object(tunnel.shutil, "which", return_value="fake"), \
+                patch.object(tunnel.urllib.request, "urlopen"), \
+                patch.object(tunnel.subprocess, "Popen", side_effect=self.fake_child), \
+                patch.object(tunnel, "wait_for_url", side_effect=stop_before_url), \
+                patch.object(tunnel, "reload_backend") as reload:
+            tunnel.start()
+        reload.assert_not_called()
+        self.assertEqual(self.env.read_text(), self.original)
+        self.assertIsNotNone(self.child.poll())
+        self.assertFalse((tunnel.STATE / "stop").exists())
+
+    def test_url_timeout_and_child_exit_report_startup_failure(self):
+        tunnel.STATE.mkdir()
+        (tunnel.STATE / "cloudflared.log").write_text("")
+        process = Mock()
+        process.poll.return_value = None
+        with patch.object(tunnel.time, "monotonic", side_effect=[0, 91]):
+            with self.assertRaisesRegex(RuntimeError, "Timed out"):
+                tunnel.wait_for_url(process)
+        process.poll.return_value = 1
+        with self.assertRaisesRegex(RuntimeError, "did not start"):
+            tunnel.wait_for_url(process)
+
+    def test_no_action_defaults_to_start(self):
+        with patch.object(sys, "argv", ["local-tunnel.py"]), patch.object(tunnel.signal, "signal"), patch.object(tunnel, "start") as start:
+            self.assertEqual(tunnel.main(), 0)
+        start.assert_called_once()
 
 
 if __name__ == "__main__":

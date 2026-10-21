@@ -1125,7 +1125,7 @@ configuration, redirect URLs, platform requirements, private snapshot storage,
 and the distinction between automated checks and real platform testing.
 
 For local HTTPS testing on macOS/Linux, install `cloudflared`, start the Docker
-app, then run `python3 scripts/local-tunnel.py start` from the repository root.
+app, then run `python3 scripts/local-tunnel.py` from the repository root.
 Keep that terminal open; use Ctrl+C or `python3 scripts/local-tunnel.py stop` to
 disable public access, and `python3 scripts/local-tunnel.py status` to inspect it.
 Start updates the local app origins and reloads the backend/workers. Each restart

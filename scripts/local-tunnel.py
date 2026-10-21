@@ -38,19 +38,17 @@ def tunnel_lock():
 
 def update_origins(url):
     """Keep credentials, comments and unrelated configuration unchanged."""
-    lines = ENV.read_text().splitlines(keepends=True)
+    content = ENV.read_text()
     for key in ("SOCIAL_PUBLIC_BASE_URL", "FRONTEND_URL"):
-        pattern = re.compile(rf"^\s*(?:export\s+)?{key}\s*=")
-        found = False
-        for index, line in enumerate(lines):
-            if pattern.match(line):
-                lines[index] = f"{key}={url}\n"
-                found = True
-        if not found:
-            if lines and not lines[-1].endswith("\n"):
-                lines[-1] += "\n"
-            lines.append(f"{key}={url}\n")
-    ENV.write_text("".join(lines))
+        content, count = re.subn(
+            rf"(?m)^[ \t]*(?:export[ \t]+)?{key}[ \t]*=[^\r\n]*",
+            f"{key}={url}", content,
+        )
+        if not count:
+            if content and not content.endswith("\n"):
+                content += "\n"
+            content += f"{key}={url}\n"
+    ENV.write_text(content)
 
 
 def reload_backend():
@@ -59,6 +57,52 @@ def reload_backend():
          "video_creator", "celery", "celery-beat"],
         cwd=ROOT / "backend", check=True, timeout=120,
     )
+
+
+@contextlib.contextmanager
+def tunnel_session():
+    """Own the lock, child process and runtime files for one tunnel."""
+    with tunnel_lock() as acquired:
+        if not acquired:
+            raise RuntimeError("A managed tunnel is already running. Use status or stop.")
+        for name in ("stop", "url"):
+            (STATE / name).unlink(missing_ok=True)
+        log_path = STATE / "cloudflared.log"
+        with log_path.open("w") as log:
+            os.chmod(log_path, 0o600)
+            process = subprocess.Popen(
+                ["cloudflared", "tunnel", "--url", "http://127.0.0.1:3000", "--no-autoupdate"],
+                stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+            )
+            try:
+                yield process
+            finally:
+                if process.poll() is None:
+                    process.terminate()
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                for name in ("url", "stop"):
+                    (STATE / name).unlink(missing_ok=True)
+                print("Tunnel stopped. Docker containers are left running.", flush=True)
+
+
+def wait_for_url(process):
+    """Return the public URL, or None when stop is requested during startup."""
+    deadline = time.monotonic() + 90
+    log_path = STATE / "cloudflared.log"
+    while not (STATE / "stop").exists():
+        if process.poll() is not None:
+            raise RuntimeError(f"Cloudflare did not start a tunnel. Inspect {log_path}.")
+        match = URL_PATTERN.search(log_path.read_text(errors="replace"))
+        if match:
+            return match.group()
+        if time.monotonic() > deadline:
+            raise RuntimeError(f"Timed out waiting for the public URL. Inspect {log_path}.")
+        time.sleep(0.25)
+    return None
 
 
 def start():
@@ -75,71 +119,35 @@ def start():
     except urllib.error.URLError as error:
         raise RuntimeError("Start the Docker app on port 3000 first.") from error
 
-    with tunnel_lock() as acquired:
-        if not acquired:
-            raise RuntimeError("A managed tunnel is already running. Use status or stop.")
-        stop_file = STATE / "stop"
-        url_file = STATE / "url"
-        stop_file.unlink(missing_ok=True)
-        url_file.unlink(missing_ok=True)
+    with tunnel_session() as process:
         print("Exposing the local app and API on port 3000 through temporary public HTTPS.", flush=True)
-        process = None
+        url = wait_for_url(process)
+        if url is None:
+            return
+        original_env = ENV.read_text()
         try:
-            log_path = STATE / "cloudflared.log"
-            with log_path.open("w") as log:
-                os.chmod(log_path, 0o600)
-                process = subprocess.Popen(
-                    ["cloudflared", "tunnel", "--url", "http://127.0.0.1:3000", "--no-autoupdate"],
-                    stdout=log, stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                )
-                deadline = time.monotonic() + 90
-                url = None
-                while process.poll() is None and not stop_file.exists():
-                    match = URL_PATTERN.search(log_path.read_text(errors="replace"))
-                    if match:
-                        url = match.group()
-                        break
-                    if time.monotonic() > deadline:
-                        raise RuntimeError(f"Timed out waiting for the public URL. Inspect {log_path}.")
-                    time.sleep(0.25)
-                if stop_file.exists():
-                    return
-                if not url or process.poll() is not None:
-                    raise RuntimeError(f"Cloudflare did not start a tunnel. Inspect {log_path}.")
-                original_env = ENV.read_text()
-                update_origins(url)
-                try:
-                    reload_backend()
-                except (OSError, subprocess.SubprocessError) as error:
-                    ENV.write_text(original_env)
-                    raise RuntimeError(
-                        "Backend reload failed; backend/.env was restored. "
-                        "Reload the backend and workers before continuing."
-                    ) from error
-                if process.poll() is not None:
-                    raise RuntimeError("The tunnel stopped while reloading the backend. Start it again.")
-                url_file.write_text(url + "\n")
-                print(f"\nViddie: {url}\nUpdated backend/.env and reloaded the backend and workers.", flush=True)
-                print("Update the callback URLs in your Google, TikTok and Meta developer dashboards:", flush=True)
-                for platform in ("youtube", "tiktok", "instagram"):
-                    print(f"  {platform}: {url}/api/publishing/oauth/{platform}/callback/", flush=True)
-                print("\nKeep this terminal open. Press Ctrl+C, or run the stop command in another terminal.", flush=True)
-                while process.poll() is None and not stop_file.exists():
-                    time.sleep(0.25)
-                if not stop_file.exists():
-                    raise RuntimeError(f"The tunnel exited unexpectedly. Inspect {log_path}.")
-        finally:
-            if process is not None and process.poll() is None:
-                process.terminate()
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
-            url_file.unlink(missing_ok=True)
-            stop_file.unlink(missing_ok=True)
-            print("Tunnel stopped. Docker containers are left running.", flush=True)
+            update_origins(url)
+            reload_backend()
+        except (OSError, subprocess.SubprocessError) as error:
+            ENV.write_text(original_env)
+            raise RuntimeError(
+                "Backend reload failed; backend/.env was restored. "
+                "Reload the backend and workers before continuing."
+            ) from error
+        if (STATE / "stop").exists():
+            return
+        if process.poll() is not None:
+            raise RuntimeError("The tunnel stopped while reloading the backend. Start it again.")
+        (STATE / "url").write_text(url + "\n")
+        print(f"\nViddie: {url}\nUpdated backend/.env and reloaded the backend and workers.", flush=True)
+        print("Update the callback URLs in your Google, TikTok and Meta developer dashboards:", flush=True)
+        for platform in ("youtube", "tiktok", "instagram"):
+            print(f"  {platform}: {url}/api/publishing/oauth/{platform}/callback/", flush=True)
+        print("\nKeep this terminal open. Press Ctrl+C, or run the stop command in another terminal.", flush=True)
+        while not (STATE / "stop").exists():
+            if process.poll() is not None:
+                raise RuntimeError(f"The tunnel exited unexpectedly. Inspect {STATE / 'cloudflared.log'}.")
+            time.sleep(0.25)
 
 
 def status():
@@ -170,7 +178,7 @@ def stop():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("start", "stop", "status"))
+    parser.add_argument("action", nargs="?", default="start", choices=("start", "stop", "status"))
     args = parser.parse_args()
     if args.action == "start":
         def interrupt(_signum, _frame):

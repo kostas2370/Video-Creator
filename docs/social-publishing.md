@@ -73,12 +73,14 @@ On macOS or Linux, install `cloudflared` and Docker, start the Docker app, then 
 
 ```bash
 # Enable public access; keep this terminal open.
-python3 scripts/local-tunnel.py start
+python3 scripts/local-tunnel.py
 
 # In another terminal, inspect or disable the managed tunnel.
 python3 scripts/local-tunnel.py status
 python3 scripts/local-tunnel.py stop
 ```
+
+The action defaults to `start`; the existing explicit `start` command still works.
 
 Start creates a temporary public HTTPS address for port 3000, updates only `SOCIAL_PUBLIC_BASE_URL` and `FRONTEND_URL` in your ignored `backend/.env`, and reloads the backend and workers. It prints the three callback URLs to register in the developer dashboards. Dashboard callbacks and policy/website URLs must still be updated manually when the hostname changes. Logs and local control files are ignored under `backend/.local-tunnel/`. Stop and Ctrl+C end public access without stopping the Docker app. These controls manage only tunnels launched by this script; stop any older manually launched tunnel from its own terminal first. Stopping the app with `docker compose down` makes the public link unavailable even if the tunnel is still running. Restarting the script creates a new address.
 
