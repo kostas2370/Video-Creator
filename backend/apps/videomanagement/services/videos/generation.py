@@ -186,8 +186,9 @@ def generate_video(
     )
 
     logger.info("Retrieved template")
+    video_provider = ImageProviderRegistry.is_video(provider, user=video.created_by)
     template_format = script_format(
-        video=ImageProviderRegistry.is_video(provider, user=video.created_by),
+        video=video_provider,
         narration=narration,
         image_mode=image_mode,
     )
@@ -200,6 +201,9 @@ def generate_video(
         platform=platform,
         scene_count=scene_count,
         image_mode=image_mode,
+        video=video_provider,
+        style=style,
+        narration=narration,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -207,7 +211,10 @@ def generate_video(
         x = video.gpt_answer
         dir_name = video.dir_name
     else:
-        x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
+        x = get_reply(
+            prompt, gpt_model=gpt_model, user=video.created_by,
+            narration=narration, scene_count=scene_count,
+        )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     user_prompt = video.prompt

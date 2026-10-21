@@ -139,11 +139,12 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(generated.settings["scene_count"], 1)
         self.assertIn("exactly 1 scenes", self.get_reply.call_args.args[0])
 
-    def test_accepts_the_returned_script_when_the_scene_count_differs(self):
+    def test_passes_scene_count_to_script_validation(self):
         generated = self.generate(scene_count=3)
         self.assertEqual(generated.gpt_answer, A_SCRIPT)
         self.assertEqual(generated.status, "READY")
         self.assertEqual(generated.settings["scene_count"], 3)
+        self.assertEqual(self.get_reply.call_args.kwargs["scene_count"], 3)
 
     def test_records_the_choices_the_render_will_need(self):
         video = self.generate(
@@ -163,15 +164,21 @@ class GenerateVideoTests(TestCase):
             ),
         )
 
+    def test_web_mode_takes_precedence_over_a_stale_video_provider(self):
+        self.generate(provider="sora", image_mode="WEB")
+        prompt = self.get_reply.call_args.args[0]
+        self.assertIn("concise image search query", prompt)
+        self.assertNotIn("one achievable action", prompt)
+
     def test_asks_for_a_still_brief_for_an_image_provider(self):
-        self.generate(provider="OPENAI")
+        self.generate(provider="OPENAI", image_mode="AI")
 
         self.assertNotIn("camera move", self.get_reply.call_args.args[0])
 
     def test_asks_for_a_shot_brief_for_a_video_provider(self):
         # A still model wastes most of its value on "a tray of donuts", and the other
         # way round.
-        self.generate(provider="sora")
+        self.generate(provider="sora", image_mode="AI")
 
         self.assertIn("camera move", self.get_reply.call_args.args[0])
 

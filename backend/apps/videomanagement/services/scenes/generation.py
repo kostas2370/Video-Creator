@@ -4,6 +4,7 @@ import logging
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, SceneImage, Video
 from apps.videomanagement.schemas.drafts import SceneDraftResultSerializer
 from apps.videomanagement.services.scenes.narration import make_scene_speech
@@ -127,8 +128,11 @@ def draft_scene(
                 for scene in video.scenes.order_by("position").with_media()
             ],
         }
+    settings = video.settings or {}
     instructions = format_scene_draft(
-        prompt, draft_type, sentence_count, scenario, image_mode=video.mode
+        prompt, draft_type, sentence_count, scenario, image_mode=video.mode,
+        video=ImageProviderRegistry.is_video(settings.get("provider"), user=video.created_by),
+        style=settings.get("style", ""),
     )
     reply = get_update_sentence(instructions, user=video.created_by)
     try:

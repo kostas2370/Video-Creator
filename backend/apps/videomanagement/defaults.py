@@ -1,17 +1,13 @@
+VIDEO_INSTRUCTIONS = (
+    "For each image_description, describe one short continuous video shot: subject, "
+    "one achievable action, setting, and camera move (a slow push in, pan, or locked-off shot). "
+    "Match the selected visual style; do not assume live action. "
+    "Do not describe edits, cuts, titles, or text overlays."
+)
+
 _STILL_BRIEF = """
 Organise the scenario into scenes. Each scene is made up of sentences. For every
 sentence, write {parts}.
-"""
-
-_VIDEO_BRIEF = """
-Organise the scenario into scenes. Each scene is made up of sentences. For every
-sentence, write {parts}.
-
-Each shot is filmed separately and lasts only a few seconds, so describe one
-continuous moment: name the subject, the action it performs, the setting, and the
-camera move (for example a slow push in, a pan, or a locked-off shot). Keep the
-subject and setting consistent from shot to shot so the finished video looks like one
-piece. Do not describe cuts, titles, text on screen, or real people by name.
 """
 
 _SHAPE = """
@@ -39,8 +35,8 @@ _IMAGE = "<the image to show while it is spoken>"
 
 
 def script_format(video: bool = False, narration: bool = True, image_mode: str = None) -> str:
-    brief = _VIDEO_BRIEF if video else _STILL_BRIEF
-    visual = "a description of a short live-action shot that illustrates it"
+    brief = _STILL_BRIEF
+    visual = "a description of a short video shot that illustrates it"
     if not video:
         visual = "a description of an image that illustrates it"
 
