@@ -16,7 +16,7 @@ from apps.videomanagement.models import SceneImage, Video
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.fonts import FONT_DIRECTORY
 from apps.videomanagement.utils.prompt_utils import format_cover_prompt
-from apps.videomanagement.utils.timing import media_timing
+from apps.videomanagement.utils.timing import file_timing, media_timing
 
 FONT_FILES = {
     "Poppins": "Poppins-Bold.ttf",
@@ -99,20 +99,17 @@ def cover_reference(video, directory, time=0):
     if not stored_file_exists(video.output):
         return None
     if not time:
-        duration = media_timing(video.output.path).get("duration", 0)
-        intro, outro = (_asset_duration(asset) for asset in (video.intro, video.outro))
+        duration = file_timing(video.output).get("duration", 0)
+        intro, outro = (
+            file_timing(asset.file if asset else None).get("duration", 0)
+            for asset in (video.intro, video.outro)
+        )
         time = (
             (intro + duration - outro) / 2 if duration > intro + outro else duration / 2
         )
     reference = str(Path(directory) / "reference.png")
     frame_image(video, time).save(reference)
     return reference
-
-
-def _asset_duration(asset):
-    if not asset or not stored_file_exists(asset.file):
-        return 0
-    return media_timing(asset.file.path).get("duration", 0)
 
 
 def generate_cover_image(video, user, choices):
