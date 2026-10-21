@@ -399,7 +399,7 @@ class VideoCoverTests(ApiTestCase):
         )
         with (
             patch(
-                "apps.videomanagement.services.media.covers.media_timing",
+                "apps.videomanagement.utils.timing.media_timing",
                 side_effect=[{"duration": 100}, {"duration": 10}, {"duration": 20}],
             ),
             patch(

@@ -14,7 +14,7 @@ from rest_framework.exceptions import ValidationError
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.models import SceneImage, Video, VideoStatus
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
-from apps.videomanagement.utils.timing import media_timing
+from apps.videomanagement.utils.timing import file_timing, media_timing
 
 logger = logging.getLogger(__name__)
 CHANGED_MESSAGE = "The video changed. Try creating its thumbnail again."
@@ -49,14 +49,6 @@ def _thumbnail_source(video):
     raise ValidationError("Add a visual or export the video to create a thumbnail.")
 
 
-def _asset_duration(asset):
-    return (
-        media_timing(asset.file.path).get("duration", 0)
-        if asset and stored_file_exists(asset.file)
-        else 0
-    )
-
-
 def _create_thumbnail(video, source):
     try:
         path = Path(source.path)
@@ -65,7 +57,10 @@ def _create_thumbnail(video, source):
         if not duration:
             raise ValidationError("This video's duration could not be read.")
         intro, outro = (
-            (_asset_duration(video.intro), _asset_duration(video.outro))
+            tuple(
+                file_timing(asset.file if asset else None).get("duration", 0)
+                for asset in (video.intro, video.outro)
+            )
             if source == video.output
             else (0, 0)
         )
