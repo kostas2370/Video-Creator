@@ -1,6 +1,6 @@
 Django==5.2.18
 djangorestframework==3.18.3
-Pillow==12.3.0
+Pillow==13.0.0
 celery[redis]==5.6.3
 django-eventstream[drf]==5.3.4
 asgiref==3.12.1
