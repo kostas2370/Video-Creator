@@ -38,9 +38,10 @@ def _thumbnail_source(video):
     if stored_file_exists(video.output):
         return video.output
     visual = (
-        SceneImage.objects.filter(scene__video=video)
-        .exclude(file="")
-        .exclude(file__isnull=True)
+        SceneImage.objects.select_related("asset")
+        .filter(scene__video=video)
+        .exclude(asset__file="")
+        .exclude(asset__file__isnull=True)
         .order_by("scene__position", "created_at", "id")
         .first()
     )

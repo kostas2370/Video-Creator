@@ -13,8 +13,29 @@ class MediaAssetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MediaAsset
-        fields = ("id", "title", "file", "kind", "tags", "duration", "created_at")
-        read_only_fields = ("id", "kind", "duration", "created_at")
+        fields = (
+            "id",
+            "title",
+            "file",
+            "kind",
+            "tags",
+            "duration",
+            "created_at",
+            "source_video",
+        )
+        read_only_fields = ("id", "kind", "duration", "created_at", "source_video")
+
+    def create(self, validated_data):
+        if validated_data["kind"] == MediaAsset.Kind.AUDIO:
+            return super().create(validated_data)
+        return MediaAsset.from_visual(
+            user=validated_data["created_by"],
+            upload=validated_data["file"],
+            title=validated_data["title"],
+            tags=validated_data.get("tags", []),
+            kind=validated_data["kind"],
+            duration=validated_data.get("duration"),
+        )
 
     def validate_tags(self, value):
         if not isinstance(value, list) or any(
@@ -48,7 +69,7 @@ class MediaAssetSerializer(serializers.ModelSerializer):
 
 class UseMediaSerializer(serializers.Serializer):
     video_id = serializers.UUIDField()
-    purpose = serializers.ChoiceField(choices=("new_scene", "visual", "music"))
+    purpose = serializers.ChoiceField(choices=("new_scene", "visual", "music", "cover"))
     scene_id = serializers.UUIDField(required=False)
     text = serializers.CharField(
         required=False, allow_blank=True, max_length=2000, default=""

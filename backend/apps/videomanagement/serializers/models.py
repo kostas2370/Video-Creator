@@ -36,6 +36,8 @@ class TemplatePromptsSerializer(serializers.ModelSerializer):
 
 
 class SceneImageSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(read_only=True)
+
     class Meta:
         model = SceneImage
         exclude = ("scene",)

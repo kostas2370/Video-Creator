@@ -153,7 +153,6 @@ def clear_scene_image(image):
 
 
 def update_scene_image(scene, scene_image=None, *, image=None, with_audio=False):
-    saved = None
     try:
         with editable_video(scene.video_id) as video:
             if scene_image is not None:
@@ -164,19 +163,13 @@ def update_scene_image(scene, scene_image=None, *, image=None, with_audio=False)
                 )
             else:
                 scene_image = SceneImage(scene=scene)
-            old_file = scene_image.file if image and scene_image.pk else None
             if image:
                 scene_image.file = image
             scene_image.with_audio = with_audio
             scene_image.save()
-            saved = scene_image.file if image else None
             changed(video)
-            if old_file:
-                transaction.on_commit(
-                    lambda: old_file.storage.delete(old_file.name), robust=True
-                )
         return scene_image
     except Exception:
-        if saved:
-            saved.storage.delete(saved.name)
+        if scene_image:
+            scene_image.discard_upload()
         raise

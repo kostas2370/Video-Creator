@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 from pathlib import Path
 from random import randint
@@ -8,7 +9,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models, router, transaction
+from django.db import IntegrityError, models, router, transaction
 from django.utils import timezone
 from django_lifecycle import AFTER_UPDATE, LifecycleModelMixin, hook
 from django_lifecycle.conditions import WhenFieldValueChangesTo
@@ -19,6 +20,8 @@ from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
 
 from .querysets import AIUsageQuerySet, SceneQuerySet, VideoQuerySet, VoiceModelQuerySet
+from .utils.file_utils import check_if_video, stored_file_exists
+from .utils.timing import file_timing
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -343,6 +346,15 @@ class Scene(UUIDModel):
 
 
 class SceneImage(UUIDModel):
+    asset = models.ForeignKey(
+        "MediaAsset",
+        null=True,
+        blank=True,
+        on_delete=models.RESTRICT,
+        related_name="scene_visuals",
+        editable=False,
+    )
+
     created_at = models.DateTimeField(
         default=timezone.now, editable=False, db_index=True
     )
@@ -353,12 +365,42 @@ class SceneImage(UUIDModel):
     scene = models.ForeignKey(
         Scene, on_delete=models.CASCADE, related_name="scene_images"
     )
-    file = models.FileField(
-        upload_to="media/images", null=True, blank=True, max_length=2000
-    )
     prompt = models.TextField(default="", blank=True, null=True)
     with_audio = models.BooleanField(default=False)
     objects = models.Manager()
+
+    @property
+    def file(self):
+        """Rendering and API compatibility; the asset owns the actual file."""
+        if hasattr(self, "_pending_asset"):
+            return self._pending_asset.file
+        return self.asset.file if self.asset_id else MediaAsset().file
+
+    @file.setter
+    def file(self, value):
+        self._pending_asset = MediaAsset(file=value)
+
+    def save(self, *args, **kwargs):
+        pending = getattr(self, "_pending_asset", None)
+        if pending is None:
+            return super().save(*args, **kwargs)
+        self._uploaded_file = None
+        try:
+            with transaction.atomic():
+                self.asset = MediaAsset.from_scene_file(self.scene, pending.file)
+                self._uploaded_file = getattr(self.asset, "_uploaded_file", None)
+                result = super().save(*args, **kwargs)
+            del self._pending_asset
+            return result
+        except Exception:
+            self.discard_upload()
+            raise
+
+    def discard_upload(self):
+        """Remove a newly written file only when its asset transaction rolled back."""
+        file = getattr(self, "_uploaded_file", None)
+        if file and not MediaAsset.objects.filter(file=file.name).exists():
+            file.storage.delete(file.name)
 
 
 class VoiceModel(AbstractModel):
@@ -523,13 +565,23 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
 
 
 class MediaAsset(AbstractModel):
+    checksum = models.CharField(max_length=64, null=True, blank=True, editable=False)
+    source_video = models.ForeignKey(
+        Video,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="library_assets",
+        editable=False,
+    )
+
     class Kind(models.TextChoices):
         IMAGE = "IMAGE", "Image"
         VIDEO = "VIDEO", "Video"
         AUDIO = "AUDIO", "Audio"
 
     title = models.CharField(max_length=100)
-    file = models.FileField(upload_to="media/library/%Y/%m/%d", max_length=255)
+    file = models.FileField(upload_to="media/library/%Y/%m/%d", max_length=2000)
     kind = models.CharField(max_length=10, choices=Kind.choices)
     tags = models.JSONField(default=list, blank=True)
     duration = models.FloatField(null=True, blank=True)
@@ -537,3 +589,85 @@ class MediaAsset(AbstractModel):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("created_by", "checksum"), name="unique_owner_visual_checksum"
+            )
+        ]
+
+    @classmethod
+    def from_scene_file(cls, scene, file):
+        """Register an existing scene file or save its upload directly as an asset."""
+        if not file:
+            return None
+        kind = cls.Kind.VIDEO if check_if_video(file.name) else cls.Kind.IMAGE
+        defaults = {
+            "title": f"{scene.video.title} · Scene {scene.position}"[:100],
+            "tags": ["scene video" if kind == cls.Kind.VIDEO else "scene image"],
+            "kind": kind,
+            "source_video": scene.video,
+        }
+        if not file._committed:
+            return cls.from_visual(
+                user=scene.video.created_by, upload=file.file, **defaults
+            )
+        existing = cls.objects.filter(
+            created_by=scene.video.created_by, file=file.name
+        ).first()
+        if existing:
+            return existing
+        return cls.objects.create(
+            created_by=scene.video.created_by,
+            file=file.name,
+            duration=file_timing(file).get("duration")
+            if kind == cls.Kind.VIDEO
+            else None,
+            **defaults,
+        )
+
+    @classmethod
+    def from_visual(
+        cls, *, user, upload, title, tags, kind, duration=None, source_video=None
+    ):
+        """Save an uploaded visual once, reusing identical assets for this owner."""
+        digest = hashlib.sha256()
+        upload.seek(0)
+        for chunk in upload.chunks():
+            digest.update(chunk)
+        upload.seek(0)
+        checksum = digest.hexdigest()
+        matches = cls.objects.filter(created_by=user, checksum=checksum)
+        existing = matches.first()
+        if existing and stored_file_exists(existing.file):
+            return existing
+        asset = existing or cls(
+            created_by=user,
+            checksum=checksum,
+            title=title[:100],
+            tags=tags,
+            kind=kind,
+            duration=duration,
+            source_video=source_video,
+        )
+        name = f"{uuid4().hex}{Path(upload.name).suffix.lower()}"
+        asset.file.save(name, upload, save=False)
+        saved_name = asset.file.name
+        try:
+            with transaction.atomic():
+                if kind == cls.Kind.VIDEO and duration is None:
+                    asset.duration = file_timing(asset.file).get("duration")
+                asset.save()
+        except IntegrityError:
+            asset.file.storage.delete(saved_name)
+            # A concurrent request may have archived the same bytes first.
+            winner = matches.first()
+            if winner:
+                return winner
+            raise
+        except Exception:
+            asset.file.storage.delete(saved_name)
+            raise
+        finally:
+            upload.seek(0)
+        asset._uploaded_file = asset.file
+        return asset

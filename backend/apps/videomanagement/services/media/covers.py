@@ -82,9 +82,10 @@ def cover_reference(video, directory, time=0):
     candidates = [video.reference_image]
     candidates.extend(
         visual.file
-        for visual in SceneImage.objects.filter(scene__video=video)
-        .exclude(file="")
-        .exclude(file__isnull=True)
+        for visual in SceneImage.objects.select_related("asset")
+        .filter(scene__video=video)
+        .exclude(asset__file="")
+        .exclude(asset__file__isnull=True)
         .order_by("scene__position", "created_at", "id")
     )
     for candidate in candidates:

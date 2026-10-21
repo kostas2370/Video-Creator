@@ -1,4 +1,3 @@
-import base64
 import logging
 from contextlib import nullcontext
 from datetime import timedelta
@@ -16,6 +15,7 @@ from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations import tts as tts_utils
 from apps.videomanagement.services.captions.projects import process_caption_project
 from apps.videomanagement.services.media import covers
+from apps.videomanagement.services.media.archive import archive_generated_cover
 from apps.videomanagement.services.scenes import generation as scene_generation
 from apps.videomanagement.services.scenes import visuals as scenes
 from apps.videomanagement.services.scenes.jobs import scene_job
@@ -37,7 +37,8 @@ def generate_cover_task(video_id, user_id, choices):
     if not video.created_by.is_active:
         raise ValueError("Account is inactive")
     image = covers.generate_cover_image(video, video.created_by, choices)
-    return {"image": base64.b64encode(image).decode("ascii")}
+    asset = archive_generated_cover(video, image)
+    return {"asset_id": str(asset.pk)}
 
 
 @shared_task(soft_time_limit=1150, time_limit=1200)
