@@ -1,3 +1,4 @@
+from apps.publishing.platforms import instagram, tiktok, youtube
 import io
 import tempfile
 from datetime import timedelta
@@ -201,14 +202,14 @@ class PublishingTests(ApiTestCase):
         job = self.new_job()
         def uploaded(job, token):
             tasks.update(job, status=PublishJob.Status.PROCESSING, remote_id="uploaded")
-        with patch("apps.publishing.tasks.upload_youtube", side_effect=uploaded) as upload, patch("apps.publishing.tasks.schedule_status"):
+        with patch("apps.publishing.platforms.youtube.upload", side_effect=uploaded) as upload, patch("apps.publishing.tasks.schedule_status"):
             tasks.upload_job.run(str(job.pk))
             tasks.upload_job.run(str(job.pk))
         upload.assert_called_once()
 
     def test_uncertain_upload_never_blindly_retries(self):
         job = self.new_job()
-        with patch("apps.publishing.tasks.upload_youtube", side_effect=requests.Timeout("sensitive URL")) as upload:
+        with patch("apps.publishing.platforms.youtube.upload", side_effect=requests.Timeout("sensitive URL")) as upload:
             tasks.upload_job.run(str(job.pk))
             tasks.upload_job.run(str(job.pk))
         job.refresh_from_db()
@@ -218,7 +219,7 @@ class PublishingTests(ApiTestCase):
 
     def test_instagram_publish_is_claimed_once_after_container_finishes(self):
         job = self.new_job("instagram", status="PROCESSING", remote_id="container")
-        with patch("apps.publishing.tasks.api", side_effect=[{"status_code": "FINISHED"}, {"id": "posted"}, {"permalink": "https://www.instagram.com/reel/result/"}]) as request:
+        with patch("apps.publishing.platforms.instagram.api", side_effect=[{"status_code": "FINISHED"}, {"id": "posted"}, {"permalink": "https://www.instagram.com/reel/result/"}]) as request:
             tasks.poll_job.run(str(job.pk))
             tasks.poll_job.run(str(job.pk))
         self.assertEqual(sum("media_publish" in call.args[1] for call in request.call_args_list), 1)
@@ -278,7 +279,7 @@ class PublishingTests(ApiTestCase):
 
     def test_tiktok_chunk_plan_merges_trailing_bytes(self):
         for size in (100, 4 * 1024**2, 10 * 1024**2 + 1, 4 * 1024**3):
-            chunk, count = tasks.tiktok_chunk_plan(size)
+            chunk, count = tiktok.chunk_plan(size)
             lengths = [chunk] * (count - 1) + [size - chunk * (count - 1)]
             self.assertEqual(sum(lengths), size)
             self.assertLessEqual(max(lengths), 128 * 1024**2)
@@ -293,8 +294,8 @@ class PublishingTests(ApiTestCase):
         def transfer(url, **kwargs):
             self.assertEqual(kwargs["data"].read(), b"snapshot")
             return uploaded
-        with patch("apps.publishing.tasks.requests.post", return_value=session) as start, patch("apps.publishing.tasks.requests.put", side_effect=transfer):
-            tasks.upload_youtube(job, "auth-token")
+        with patch("apps.publishing.platforms.youtube.requests.post", return_value=session) as start, patch("apps.publishing.platforms.common.requests.put", side_effect=transfer):
+            youtube.upload(job, "auth-token")
         self.assertEqual(start.call_args.kwargs["json"]["status"]["privacyStatus"], "private")
         self.assertEqual(job.remote_id, "remote-video")
         self.assertEqual(job.status, "PROCESSING")
@@ -303,8 +304,8 @@ class PublishingTests(ApiTestCase):
         job = self.new_job("tiktok")
         job.options.update(privacy="SELF_ONLY", music_consent=True, synthetic=True)
         response = {"data": {"publish_id": "publish-id", "upload_url": "https://open-upload.tiktokapis.com/video/"}}
-        with patch("apps.publishing.tasks.api", return_value=response) as init, patch("apps.publishing.tasks.put_binary") as upload:
-            tasks.upload_tiktok(job, "auth-token")
+        with patch("apps.publishing.platforms.tiktok.api", return_value=response) as init, patch("apps.publishing.platforms.tiktok.put_binary") as upload:
+            tiktok.upload(job, "auth-token")
         self.assertEqual(init.call_args.kwargs["json"]["post_info"]["privacy_level"], "SELF_ONLY")
         self.assertTrue(init.call_args.kwargs["json"]["post_info"]["is_aigc"])
         self.assertEqual(upload.call_args.args[1], b"snapshot")
@@ -312,15 +313,15 @@ class PublishingTests(ApiTestCase):
 
     def test_private_tiktok_completion_does_not_invent_a_public_url(self):
         job = self.new_job("tiktok", status="PROCESSING", remote_id="publish-id")
-        with patch("apps.publishing.tasks.api", return_value={"data": {"status": "PUBLISH_COMPLETE", "publicaly_available_post_id": []}}):
+        with patch("apps.publishing.platforms.tiktok.api", return_value={"data": {"status": "PUBLISH_COMPLETE", "publicaly_available_post_id": []}}):
             tasks.poll_once(job)
         self.assertEqual(job.status, "PUBLISHED")
         self.assertEqual(job.url, "")
 
     def test_instagram_initialization_uses_signed_snapshot_not_a_user_supplied_url(self):
         job = self.new_job("instagram")
-        with patch("apps.publishing.tasks.api", return_value={"id": "container"}) as init:
-            tasks.upload_instagram(job, "auth-token")
+        with patch("apps.publishing.platforms.instagram.api", return_value={"id": "container"}) as init:
+            instagram.upload(job, "auth-token")
         source = init.call_args.kwargs["data"]["video_url"]
         self.assertTrue(source.startswith("https://app.test/api/publishing/media/"))
         self.assertNotIn("private-token", source)
