@@ -47,6 +47,8 @@ Enable YouTube Data API v3 in a Google Cloud project and create a Web applicatio
 
 Creators explicitly choose public, unlisted, or private visibility and whether the content is made for kids. The upload sets the altered/synthetic media disclosure selected by the creator. A processed private or unlisted upload is still reported as successfully completed; this does not mean it is public.
 
+YouTube publishing also snapshots the saved project cover, or its existing library thumbnail when no cover is available. The form previews the image; the worker sends a JPEG copy through `thumbnails.set` after the video upload succeeds. The channel must have custom-thumbnail access. A thumbnail failure appears as a warning without failing or repeating the video upload; check or replace that image in YouTube Studio. If neither image exists, no custom thumbnail is sent. Existing published videos are not changed automatically.
+
 Sources: [OAuth for server applications](https://developers.google.com/youtube/data/guides/auth/server-side-web-apps), [video uploads](https://developers.google.com/youtube/data/reference/rest/v3/videos/insert), [resumable uploads](https://developers.google.com/youtube/data/guides/using_resumable_upload_protocol).
 
 ### TikTok
@@ -90,6 +92,8 @@ Set both `SOCIAL_PUBLIC_BASE_URL` and `FRONTEND_URL` to that HTTPS origin, regis
 
 Google's testing consent screen must list the test account and declare `youtube.upload` and `youtube.readonly`; enable YouTube Data API v3. For TikTok, use a named sandbox and its own client credentials, configure Web/Login Kit and Direct Post, and authorize a target test account in the sandbox dashboard. The sandbox form also requires an app icon, category and published legal-page URLs before saving changes. Viddie's public `/terms/` and `/privacy/` pages were approved by the operator for the local testing deployment; review their content and deployment-specific disclosures before a production launch. Platform review and public-posting restrictions still apply.
 
+TikTok's `non_sandbox_target` login error means the TikTok account has not been added to the sandbox's target users. In the developer console, open the matching app and sandbox, then **Sandbox settings → Target users → Add account**. Sign in to the TikTok account you will publish to. TikTok says new target users can take up to an hour to appear; then connect again from Viddie. See [TikTok's sandbox guide](https://developers.tiktok.com/docs/en/add-a-sandbox). This is a login restriction before an upload job is created.
+
 ### Verification
 
 1. Apply migrations with `python manage.py migrate`.
@@ -106,5 +110,5 @@ Google's testing consent screen must list the test account and declare `youtube.
 - Repeated submissions use an idempotency key. Workers claim jobs once. An uncertain remote result is never automatically uploaded again. Instagram's final publishing step is claimed separately so competing polls cannot publish it twice.
 - `NEEDS_CHECK` means inspect the destination before starting another post. Refresh can query a known YouTube/TikTok upload without uploading again. An uncertain Instagram publish is not automatically repeated.
 - The first release supports exports up to 4 GB. Instagram enforces the Reel limits documented by Meta's collection (including a 1 GB maximum). It does not transcode incompatible exports automatically.
-- Snapshots use `PUBLISHING_SNAPSHOT_ROOT` (default `backend/private-publishing/`), outside public media routes. Mount durable private storage there for backend and workers. Upload snapshots and job history remain until their job/project is deleted; factor their storage into retention planning. Scheduling, public webhooks, custom YouTube thumbnails, and analytics are future work.
+- Snapshots use `PUBLISHING_SNAPSHOT_ROOT` (default `backend/private-publishing/`), outside public media routes. Mount durable private storage there for backend and workers. Upload snapshots, thumbnail snapshots and job history remain until their job/project is deleted; factor their storage into retention planning. Scheduling, public webhooks, and analytics are future work.
 - Automated tests mock provider calls. Credentials and platform approval are required for real end-to-end validation; passing tests does not imply an app has been reviewed by a platform.

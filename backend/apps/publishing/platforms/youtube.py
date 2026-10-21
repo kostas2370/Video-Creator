@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from ..models import Platform, PublishJob
 from ..http import ProviderError, request_json, checked_upload_url
+from ..diagnostics import log_failure
 from .base import Publisher
 from .common import put_binary, update
 
@@ -65,6 +66,22 @@ class YouTubePublisher(Publisher):
         video_id = result.json()["id"]
         update(job, remote_id=video_id, url="https://www.youtube.com/watch?v=" + quote(video_id),
                status=PublishJob.Status.PROCESSING)
+        if job.thumbnail:
+            self.upload_thumbnail(job)
+
+    def upload_thumbnail(self, job):
+        try:
+            with job.thumbnail.open("rb") as image:
+                request_json(
+                    "POST", "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
+                    token=self.token,
+                    params={"videoId": job.remote_id, "uploadType": "media"},
+                    headers={"Content-Type": "image/jpeg"}, data=image,
+                )
+        except Exception as exc:
+            # The video already exists; never repeat its upload for a thumbnail failure.
+            log_failure("upload_thumbnail", platform=job.platform, reference=job.pk, error=exc)
+            update(job, warning="The video uploaded, but its thumbnail could not be confirmed. Check the thumbnail in YouTube Studio. Your channel may need custom-thumbnail access.")
 
     def check_status(self, job):
         result = request_json(

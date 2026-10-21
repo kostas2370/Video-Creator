@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import requests
+from PIL import Image
 from django.core.files.base import ContentFile
 from django.db import connection
 from django.test import override_settings
@@ -148,6 +149,38 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(response.status_code, 400)
         self.queue.assert_not_called()
 
+    def test_youtube_submission_snapshots_cover_without_exposing_its_file(self):
+        for field, color in ((self.video.cover, "red"), (self.video.thumbnail, "blue")):
+            image = io.BytesIO()
+            Image.new("RGB", (160, 90), color).save(image, format="PNG")
+            field.save("cover.png", ContentFile(image.getvalue()))
+        payload = self.payload()
+        response = self.client.post(reverse("publishing-jobs"), payload, format="json")
+        self.assertEqual(response.status_code, 202)
+        job = PublishJob.objects.get()
+        snapshot = job.thumbnail.read()
+        with Image.open(io.BytesIO(snapshot)) as image:
+            red, green, blue = image.getpixel((0, 0))
+            self.assertGreater(red, 200)
+            self.assertLess(blue, 30)
+        self.video.cover.save("changed.png", ContentFile(b"changed"))
+        duplicate = self.client.post(reverse("publishing-jobs"), payload, format="json")
+        self.assertEqual(duplicate.data["id"], response.data["id"])
+        with job.thumbnail.open("rb") as image:
+            self.assertEqual(image.read(), snapshot)
+        with self.assertRaises(ValueError):
+            _ = job.thumbnail.url
+        self.assertNotIn("thumbnail", response.data)
+        self.queue.assert_called_once()
+
+    def test_invalid_cover_leaves_no_job_or_orphaned_export(self):
+        self.video.cover.save("invalid.png", ContentFile(b"not an image"))
+        self.assertEqual(self.post().status_code, 400)
+        self.assertFalse(PublishJob.objects.exists())
+        from pathlib import Path
+        self.assertEqual(list(Path(self.directory.name, "snapshots").rglob("*.mp4")), [])
+        self.queue.assert_not_called()
+
     def test_queue_failure_is_stored_without_uploading(self):
         self.queue.side_effect = RuntimeError("offline")
         response = self.post()
@@ -205,6 +238,18 @@ class PublishingTests(ApiTestCase):
         self.assertTrue(cookie["httponly"])
         self.assertEqual(cookie["samesite"], "Lax")
         self.assertNotIn("app-secret", response.data["url"])
+
+    def test_tiktok_sandbox_rejection_returns_actionable_result(self):
+        from urllib.parse import parse_qs, urlparse
+        url, browser = oauth.begin(self.user, "tiktok", self.video)
+        state = parse_qs(urlparse(url).query)["state"][0]
+        self.client.cookies[oauth.COOKIE_NAME] = browser
+        response = self.client.get(reverse("publishing-callback", args=["tiktok"]), {
+            "state": state, "error": "access_denied", "error_type": "non_sandbox_target",
+        })
+        self.assertIn("publishing=tiktok_sandbox_required", response.url)
+        self.assertIn(str(self.video.pk), response.url)
+        self.assertFalse(SocialAccount.objects.filter(platform="tiktok").exists())
 
     def test_refreshing_tokens_uses_server_credentials_without_exposing_them(self):
         self.account.expires_at = timezone.now() - timedelta(seconds=1)
@@ -371,6 +416,45 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(start.call_args.kwargs["json"]["status"]["privacyStatus"], "private")
         self.assertEqual(job.remote_id, "remote-video")
         self.assertEqual(job.status, "PROCESSING")
+
+    def test_youtube_upload_sends_the_saved_thumbnail_after_the_video(self):
+        job = self.new_job()
+        job.thumbnail.save("thumb.jpg", ContentFile(b"thumbnail"))
+        session = Mock(status_code=200, headers={"Location": "https://www.googleapis.com/upload?upload_id=test"})
+        uploaded = Mock()
+        uploaded.json.return_value = {"id": "remote-video"}
+        def set_thumbnail(method, url, **kwargs):
+            self.assertEqual(job.remote_id, "remote-video")
+            self.assertEqual(url, "https://www.googleapis.com/upload/youtube/v3/thumbnails/set")
+            self.assertEqual(kwargs["params"]["videoId"], "remote-video")
+            self.assertEqual(kwargs["headers"]["Content-Type"], "image/jpeg")
+            self.assertEqual(kwargs["data"].read(), b"thumbnail")
+            return {"items": [{}]}
+        with patch("apps.publishing.platforms.youtube.requests.post", return_value=session), patch("apps.publishing.platforms.youtube.put_binary", return_value=uploaded), patch("apps.publishing.platforms.youtube.request_json", side_effect=set_thumbnail) as thumbnail:
+            youtube.YouTubePublisher(job.account, "token").upload(job)
+        thumbnail.assert_called_once()
+        job.refresh_from_db()
+        self.assertEqual(job.status, "PROCESSING")
+        self.assertEqual(job.warning, "")
+
+    def test_thumbnail_failure_does_not_fail_or_repeat_the_video_upload(self):
+        job = self.new_job()
+        job.thumbnail.save("thumb.jpg", ContentFile(b"thumbnail"))
+        session = Mock(status_code=200, headers={"Location": "https://www.googleapis.com/upload?upload_id=test"})
+        uploaded = Mock()
+        uploaded.json.return_value = {"id": "remote-video"}
+        with patch("apps.publishing.platforms.youtube.requests.post", return_value=session) as start, patch("apps.publishing.platforms.youtube.put_binary", return_value=uploaded) as transfer, patch("apps.publishing.platforms.youtube.request_json", side_effect=http.ProviderError("sensitive")), patch("apps.publishing.tasks.schedule_status") as schedule:
+            tasks.upload_job.run(str(job.pk))
+            tasks.upload_job.run(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "PROCESSING")
+        self.assertEqual(job.remote_id, "remote-video")
+        self.assertIn("thumbnail", job.warning)
+        self.assertNotIn("sensitive", job.warning)
+        self.assertEqual(job.error, "")
+        start.assert_called_once()
+        transfer.assert_called_once()
+        schedule.assert_called_once()
 
     def test_tiktok_upload_preserves_creator_choices_and_byte_ranges(self):
         job = self.new_job("tiktok")

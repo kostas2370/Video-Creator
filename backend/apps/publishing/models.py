@@ -59,10 +59,12 @@ class PublishJob(models.Model):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
     options = models.JSONField(default=dict)
     media = models.FileField(upload_to="exports/%Y/%m/%d", storage=PrivateExportStorage(), max_length=2000)
+    thumbnail = models.FileField(upload_to="thumbnails/%Y/%m/%d", storage=PrivateExportStorage(), max_length=2000, blank=True)
     metadata = models.JSONField(default=dict)
     remote_id = models.CharField(max_length=255, blank=True)
     url = models.URLField(max_length=2000, blank=True)
     error = models.CharField(max_length=500, blank=True)
+    warning = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

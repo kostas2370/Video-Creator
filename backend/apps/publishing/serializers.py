@@ -18,7 +18,7 @@ class AccountSerializer(serializers.ModelSerializer):
 class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = PublishJob
-        fields = ["id", "video", "platform", "account_name", "status", "url", "error", "created_at"]
+        fields = ["id", "video", "platform", "account_name", "status", "url", "error", "warning", "created_at"]
 
 
 class PublishSerializer(serializers.Serializer):

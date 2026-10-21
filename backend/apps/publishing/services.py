@@ -1,11 +1,15 @@
 """Take an immutable export snapshot only after an explicit creator submission."""
 
+from io import BytesIO
+
 from django.contrib.auth import get_user_model
 from django.core.files import File
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
+from PIL import Image, ImageOps
 
 from apps.videomanagement.models import Video, VideoStatus
 from apps.videomanagement.utils.file_utils import stored_file_exists
@@ -35,6 +39,22 @@ def posting_context(account):
     return {"privacy_level_options": ["private", "unlisted", "public"] if account.platform == Platform.YOUTUBE else []}
 
 
+def thumbnail_snapshot(video):
+    """Prefer the creator's cover, falling back to the existing library thumbnail."""
+    source = next((image for image in (video.cover, video.thumbnail) if stored_file_exists(image)), None)
+    if source is None:
+        return None
+    try:
+        with source.open("rb") as file, Image.open(file) as image:
+            image = ImageOps.exif_transpose(image).convert("RGB")
+            image.thumbnail((1280, 720))
+            output = BytesIO()
+            image.save(output, format="JPEG", quality=90)
+            return ContentFile(output.getvalue())
+    except (OSError, ValueError) as exc:
+        raise ValidationError("The saved thumbnail could not be read. Recreate it before publishing to YouTube.") from exc
+
+
 def create_job(user, data):
     from .tasks import upload_job
     account = account_for(user, data["account"])
@@ -47,7 +67,7 @@ def create_job(user, data):
         return existing
     context = posting_context(account)
     options = {key: value for key, value in data.items() if key not in ("account", "video", "request_id", "export_updated_at")}
-    media_name = None
+    job = None
     try:
         with transaction.atomic():
             get_user_model().objects.select_for_update().get(pk=user.pk)
@@ -70,11 +90,16 @@ def create_job(user, data):
                              platform=account.platform, request_id=data["request_id"], options=options, metadata=metadata)
             with video.output.open("rb") as source:
                 job.media.save(f"{job.pk}.mp4", File(source), save=False)
-            media_name = job.media.name
+            if account.platform == Platform.YOUTUBE:
+                thumbnail = thumbnail_snapshot(video)
+                if thumbnail is not None:
+                    job.thumbnail.save(f"{job.pk}.jpg", thumbnail, save=False)
             job.save()
     except Exception:
-        if media_name:
-            job.media.storage.delete(media_name)
+        if job is not None:
+            for snapshot in (job.media, job.thumbnail):
+                if snapshot:
+                    snapshot.delete(save=False)
         raise
     try:
         upload_job.delay(str(job.pk))
