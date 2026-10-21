@@ -200,16 +200,16 @@ class PublishingTests(ApiTestCase):
 
     def test_upload_task_is_claimed_once_and_does_not_reupload_on_replay(self):
         job = self.new_job()
-        def uploaded(job, token):
+        def uploaded(job):
             tasks.update(job, status=PublishJob.Status.PROCESSING, remote_id="uploaded")
-        with patch("apps.publishing.platforms.youtube.upload", side_effect=uploaded) as upload, patch("apps.publishing.tasks.schedule_status"):
+        with patch("apps.publishing.platforms.youtube.YouTubePublisher.upload", side_effect=uploaded) as upload, patch("apps.publishing.tasks.schedule_status"):
             tasks.upload_job.run(str(job.pk))
             tasks.upload_job.run(str(job.pk))
         upload.assert_called_once()
 
     def test_uncertain_upload_never_blindly_retries(self):
         job = self.new_job()
-        with patch("apps.publishing.platforms.youtube.upload", side_effect=requests.Timeout("sensitive URL")) as upload:
+        with patch("apps.publishing.platforms.youtube.YouTubePublisher.upload", side_effect=requests.Timeout("sensitive URL")) as upload:
             tasks.upload_job.run(str(job.pk))
             tasks.upload_job.run(str(job.pk))
         job.refresh_from_db()
@@ -295,7 +295,7 @@ class PublishingTests(ApiTestCase):
             self.assertEqual(kwargs["data"].read(), b"snapshot")
             return uploaded
         with patch("apps.publishing.platforms.youtube.requests.post", return_value=session) as start, patch("apps.publishing.platforms.common.requests.put", side_effect=transfer):
-            youtube.upload(job, "auth-token")
+            youtube.YouTubePublisher(job.account, "auth-token").upload(job)
         self.assertEqual(start.call_args.kwargs["json"]["status"]["privacyStatus"], "private")
         self.assertEqual(job.remote_id, "remote-video")
         self.assertEqual(job.status, "PROCESSING")
@@ -305,11 +305,31 @@ class PublishingTests(ApiTestCase):
         job.options.update(privacy="SELF_ONLY", music_consent=True, synthetic=True)
         response = {"data": {"publish_id": "publish-id", "upload_url": "https://open-upload.tiktokapis.com/video/"}}
         with patch("apps.publishing.platforms.tiktok.api", return_value=response) as init, patch("apps.publishing.platforms.tiktok.put_binary") as upload:
-            tiktok.upload(job, "auth-token")
+            tiktok.TikTokPublisher(job.account, "auth-token").upload(job)
         self.assertEqual(init.call_args.kwargs["json"]["post_info"]["privacy_level"], "SELF_ONLY")
         self.assertTrue(init.call_args.kwargs["json"]["post_info"]["is_aigc"])
-        self.assertEqual(upload.call_args.args[1], b"snapshot")
-        self.assertEqual(upload.call_args.args[2]["Content-Range"], "bytes 0-7/8")
+        self.assertEqual(upload.call_args.kwargs["data"], b"snapshot")
+        self.assertEqual(upload.call_args.kwargs["headers"]["Content-Range"], "bytes 0-7/8")
+
+    def test_youtube_status_marks_processed_upload_published(self):
+        job = self.new_job(status="PROCESSING", remote_id="remote-video")
+        result = {"items": [{"status": {"uploadStatus": "processed"}}]}
+        with patch("apps.publishing.platforms.youtube.api", return_value=result) as request:
+            tasks.poll_once(job)
+        self.assertEqual(request.call_args.kwargs["params"]["id"], "remote-video")
+        self.assertEqual(request.call_args.kwargs["token"], job.account.access_token)
+        job.refresh_from_db()
+        self.assertEqual(job.status, "PUBLISHED")
+
+    def test_publisher_requires_both_upload_and_status_methods(self):
+        from apps.publishing.platforms.base import Publisher
+
+        class UploadOnly(Publisher):
+            def upload(self, job):
+                pass
+
+        with self.assertRaises(TypeError):
+            UploadOnly(None, "token")
 
     def test_private_tiktok_completion_does_not_invent_a_public_url(self):
         job = self.new_job("tiktok", status="PROCESSING", remote_id="publish-id")
@@ -321,7 +341,7 @@ class PublishingTests(ApiTestCase):
     def test_instagram_initialization_uses_signed_snapshot_not_a_user_supplied_url(self):
         job = self.new_job("instagram")
         with patch("apps.publishing.platforms.instagram.api", return_value={"id": "container"}) as init:
-            instagram.upload(job, "auth-token")
+            instagram.InstagramPublisher(job.account, "auth-token").upload(job)
         source = init.call_args.kwargs["data"]["video_url"]
         self.assertTrue(source.startswith("https://app.test/api/publishing/media/"))
         self.assertNotIn("private-token", source)

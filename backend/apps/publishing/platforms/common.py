@@ -11,8 +11,7 @@ def update(job, **values):
     job.save(update_fields=[*values, "updated_at"])
 
 
-
-def put_binary(url, data, headers):
+def put_binary(url, *, data, headers):
     try:
         response = requests.put(url, data=data, headers=headers, timeout=(10, 300), allow_redirects=False)
     except requests.RequestException as exc:
