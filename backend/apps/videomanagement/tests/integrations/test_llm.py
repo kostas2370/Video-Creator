@@ -84,6 +84,23 @@ class CheckJsonTests(SimpleTestCase):
             check_json(a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []}))
         )
 
+    def test_rejects_invalid_types_and_empty_values(self):
+        for value in (None, [], {"title": "t", "scenes": "oops"},
+                      a_reply(None), a_reply(a_scene(None)),
+                      a_reply(a_scene({"image_description": " "})),
+                      a_reply(a_scene({"image_description": 1}))):
+            with self.subTest(value=value):
+                self.assertFalse(check_json(value))
+
+    def test_validates_requested_narration_and_scene_count(self):
+        silent = a_reply(a_scene({"image_description": "cat"}))
+        spoken = a_reply(a_scene(A_SENTENCE))
+        self.assertTrue(check_json(silent, narration=False, scene_count=1))
+        self.assertFalse(check_json(silent, narration=True))
+        self.assertFalse(check_json(spoken, narration=False))
+        self.assertFalse(check_json(spoken, scene_count=2))
+        self.assertFalse(check_json(a_reply(a_scene(A_SENTENCE, A_SENTENCE)), scene_count=1))
+
 
 class OfficialGptCallTests(SimpleTestCase):
     @override_settings(OPEN_API_KEY="key", MAX_TOKENS=100, DEFAULT_GPT_MODEL="gpt-4")
@@ -237,11 +254,20 @@ class GetReplyParsingTests(SimpleTestCase):
         with self.assertRaises(Exception) as caught:
             self.reply(*['{"title": "Cats"}'] * 5)
 
-        self.assertIn("Max gpt limit is 5", str(caught.exception))
+        self.assertIn("after 5 attempts", str(caught.exception))
 
-    def test_raises_rather_than_retrying_when_the_reply_is_not_json_at_all(self):
-        with self.assertRaises(APIException):
-            self.reply("I cannot help with that.")
+    def test_retries_non_json_with_correction_feedback(self):
+        parsed, call = self.reply("Not JSON", A_SCRIPT)
+        self.assertEqual(parsed["title"], "Cats")
+        self.assertIn("syntactically valid JSON", call.call_args.args[0])
+
+    def test_retry_explains_count_and_narration_errors(self):
+        import json
+        fixed = json.loads(A_SCRIPT)
+        fixed["scenes"] *= 2
+        parsed, call = self.reply(A_SCRIPT, json.dumps(fixed), scene_count=2, narration=True)
+        self.assertEqual(len(parsed["scenes"]), 2)
+        self.assertIn("exactly 2 scenes", call.call_args.args[0])
 
     def test_returns_the_raw_stream_when_no_json_was_asked_for(self):
         stream = io.StringIO("just words")
@@ -279,3 +305,22 @@ class SelectFromVisionTests(SimpleTestCase):
             "content"
         ]
         self.assertEqual([part["type"] for part in content[1:]], ["image_url"] * 3)
+
+    def test_rejects_ambiguous_or_out_of_range_selections(self):
+        for answer in ("", "12", "0", "4", "Image 2", "1 or 3"):
+            with self.subTest(answer=answer), self.assertRaises(APIException):
+                self.answer(answer)
+
+    def test_candidate_count_is_dynamic(self):
+        client = MagicMock()
+        client.chat.completions.create.return_value.choices[0].message.content = "2"
+        with patch.object(llm, "OpenAI", return_value=client):
+            self.assertEqual(select_from_vision("cat", ["a", "b"]), 1)
+        content = client.chat.completions.create.call_args.kwargs["messages"][0]["content"][0]["text"]
+        self.assertIn("these 2 images", content)
+        self.assertIn("1 to 2", content)
+
+    def test_rejects_empty_candidate_list_without_calling_provider(self):
+        with patch.object(llm, "OpenAI") as client, self.assertRaises(ValueError):
+            select_from_vision("cat", [])
+        client.assert_not_called()

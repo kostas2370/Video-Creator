@@ -20,6 +20,7 @@ def draft_story(user, prompt):
         "Create a story draft following the user's prompt below. "
         "Return ONLY a JSON object with title (at most 50 characters) and story "
         "(plain narration only, no headings, scene directions, hashtags, or markdown). "
+        "Use the language requested by the user, otherwise the language of their prompt. "
         "The story must fit the editor's limit of 2000 characters.\nUser prompt: "
         + json.dumps(prompt, ensure_ascii=False)
     )

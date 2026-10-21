@@ -15,7 +15,7 @@ class ScriptFormatTests(SimpleTestCase):
     def test_asks_for_footage_for_a_video_provider(self):
         brief = script_format(video=True)
 
-        self.assertIn("live-action shot", brief)
+        self.assertIn("video shot", brief)
         # A still model would waste most of its value on this direction.
         self.assertIn("camera move", brief)
 

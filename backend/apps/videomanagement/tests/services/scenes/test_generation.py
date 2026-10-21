@@ -131,6 +131,23 @@ class CreateSceneTests(TestCase):
 
 
 class DraftSceneTests(TestCase):
+    def test_draft_uses_selected_visual_mode_and_style(self):
+        for mode, provider, expected in (
+            ("AI", "sora", "one achievable action"),
+            ("WEB", "sora", "concise image search query"),
+            ("AI", "OPENAI", "highly detailed visual descriptions"),
+        ):
+            with self.subTest(mode=mode, provider=provider):
+                vid = video.make(mode=mode, settings={"provider": provider, "style": "watercolor"})
+                with patch.object(SceneServices, "get_update_sentence", return_value='{"text":"A cat.","image_description":"A cat"}') as generate:
+                    draft_scene(vid, "A cat")
+                prompt = generate.call_args.args[0]
+                self.assertIn(expected, prompt)
+                if mode == "AI":
+                    self.assertIn("watercolor", prompt)
+                else:
+                    self.assertNotIn("one achievable action", prompt)
+
     def test_a_section_returns_the_requested_short_scenes_without_saving(self):
 
         vid = video.make()
