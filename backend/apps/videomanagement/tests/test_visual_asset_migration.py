@@ -13,7 +13,13 @@ from PIL import Image
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import video
 from apps.videomanagement.exceptions import GenerationQueueUnavailable
-from apps.videomanagement.models import MediaAsset, Scene, SceneImage
+from apps.videomanagement.models import (
+    MediaAsset,
+    Scene,
+    SceneImage,
+    Video,
+    VideoStatus,
+)
 from apps.videomanagement.services.videos.jobs import queue_video_generation
 
 
@@ -170,7 +176,8 @@ class VisualAssetCommitTests(TransactionTestCase):
             )
         )
 
-    def test_failed_queue_does_not_archive_a_reference_in_autocommit(self):
+    @patch("apps.videomanagement.models.send_email.delay")
+    def test_failed_queue_removes_uploaded_reference_in_autocommit(self, send_email):
         with patch(
             "apps.videomanagement.tasks.generate_video_task.delay",
             side_effect=ConnectionError("offline"),
@@ -181,6 +188,10 @@ class VisualAssetCommitTests(TransactionTestCase):
                     message="A test",
                     reference_image=self.image("blue"),
                 )
+        failed = Video.objects.exclude(pk=self.video.pk).get()
+        self.assertEqual(failed.status, VideoStatus.FAILED)
+        self.assertFalse(failed.reference_image)
+        send_email.assert_called_once()
         self.assertEqual(MediaAsset.objects.count(), 0)
         self.assertFalse(any(path.is_file() for path in self.root.rglob("*")))
 
