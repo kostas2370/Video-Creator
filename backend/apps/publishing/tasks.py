@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from .models import Platform, PublishJob
 from .providers import ProviderError, access_token
-from .platforms import check_status, upload_video
+from .platforms import get_publisher
 from .platforms.common import update
 from .services import posting_context, validate_options
 
@@ -17,20 +17,21 @@ def upload_job(job_id):
     if not PublishJob.objects.filter(pk=job_id, status=PublishJob.Status.QUEUED).update(status=PublishJob.Status.UPLOADING, updated_at=timezone.now()):
         return
     job = PublishJob.objects.select_related("account", "user").get(pk=job_id)
-    started = False
+    if not job.account or not job.user.is_active:
+        update(job, status=PublishJob.Status.FAILED, error="The account was disconnected or is inactive. Nothing was sent.")
+        return
     try:
-        if not job.account or not job.user.is_active:
-            update(job, status=PublishJob.Status.FAILED, error="The account was disconnected or is inactive. Nothing was sent.")
-            return
         token = access_token(job.account)
         if job.platform == Platform.TIKTOK:
             validate_options(job.account, job.options, job.metadata, job.media.size, posting_context(job.account))
-        started = True
-        upload_video(job, token)
+        publisher = get_publisher(job.account, token)
     except Exception:
-        if not started:
-            update(job, status=PublishJob.Status.FAILED, error="The account connection or posting permissions changed. Reconnect the account and review its settings. Nothing was uploaded.")
-            return
+        update(job, status=PublishJob.Status.FAILED, error="The account connection or posting permissions changed. Reconnect the account and review its settings. Nothing was uploaded.")
+        return
+
+    try:
+        publisher.upload(job)
+    except Exception:
         # A remote side effect may have succeeded before the response was lost.
         update(job, status=PublishJob.Status.NEEDS_CHECK, error="Upload confirmation was interrupted. Check the connected platform before creating another publishing request.")
         return
@@ -47,7 +48,7 @@ def schedule_status(job):
 def poll_once(job):
     if not job.account:
         raise ProviderError("The account was disconnected. Check the result on the platform.")
-    check_status(job, access_token(job.account))
+    get_publisher(job.account, access_token(job.account)).check_status(job)
 
 
 @shared_task(soft_time_limit=110, time_limit=120)
@@ -63,8 +64,9 @@ def poll_job(job_id):
     except Exception:
         update(job, status=PublishJob.Status.NEEDS_CHECK, error="The platform status could not be confirmed. Check the platform before uploading again.")
         return
-    if job.status == PublishJob.Status.PROCESSING:
-        if job.created_at < timezone.now() - timedelta(hours=6):
-            update(job, status=PublishJob.Status.NEEDS_CHECK, error="Processing is taking longer than expected. Check the platform before uploading again.")
-        else:
-            schedule_status(job)
+    if job.status != PublishJob.Status.PROCESSING:
+        return
+    if job.created_at < timezone.now() - timedelta(hours=6):
+        update(job, status=PublishJob.Status.NEEDS_CHECK, error="Processing is taking longer than expected. Check the platform before uploading again.")
+        return
+    schedule_status(job)

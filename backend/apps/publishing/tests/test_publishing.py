@@ -217,6 +217,16 @@ class PublishingTests(ApiTestCase):
         self.assertNotIn("sensitive", job.error)
         upload.assert_called_once()
 
+    def test_connection_failure_stops_before_upload(self):
+        job = self.new_job()
+        with patch("apps.publishing.tasks.access_token", side_effect=providers.ProviderError("expired")), patch("apps.publishing.platforms.youtube.YouTubePublisher.upload") as upload, patch("apps.publishing.tasks.schedule_status") as schedule:
+            tasks.upload_job.run(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "FAILED")
+        self.assertIn("Nothing was uploaded", job.error)
+        upload.assert_not_called()
+        schedule.assert_not_called()
+
     def test_instagram_publish_is_claimed_once_after_container_finishes(self):
         job = self.new_job("instagram", status="PROCESSING", remote_id="container")
         with patch("apps.publishing.platforms.instagram.api", side_effect=[{"status_code": "FINISHED"}, {"id": "posted"}, {"permalink": "https://www.instagram.com/reel/result/"}]) as request:
@@ -233,6 +243,15 @@ class PublishingTests(ApiTestCase):
         poll.assert_not_called()
         job.refresh_from_db()
         self.assertEqual(job.status, "NEEDS_CHECK")
+
+    def test_instagram_publish_timeout_does_not_repeat_publish(self):
+        job = self.new_job("instagram", status="PROCESSING", remote_id="container")
+        with patch("apps.publishing.platforms.instagram.api", side_effect=[{"status_code": "FINISHED"}, providers.ProviderError("timeout")]) as request:
+            tasks.poll_job.run(str(job.pk))
+            tasks.poll_job.run(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "NEEDS_CHECK")
+        self.assertEqual(sum("media_publish" in call.args[1] for call in request.call_args_list), 1)
 
     def test_signed_media_urls_are_bound_to_one_job(self):
         from urllib.parse import parse_qs, urlparse

@@ -13,13 +13,5 @@ PUBLISHERS = {
 
 
 def get_publisher(account, token):
+    """Select the upload and status implementation for a connected account."""
     return PUBLISHERS[account.platform](account, token)
-
-
-def upload_video(job, token):
-    """Upload the job's immutable video export to its connected account."""
-    get_publisher(job.account, token).upload(job)
-
-
-def check_status(job, token):
-    get_publisher(job.account, token).check_status(job)
