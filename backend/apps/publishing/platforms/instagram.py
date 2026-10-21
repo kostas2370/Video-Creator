@@ -8,7 +8,8 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from ..models import PublishJob
-from ..providers import ProviderError, api, meta_base
+from ..http import ProviderError, api
+from ..connections.meta import meta_base
 from .base import Publisher
 from .common import update, validate_caption
 

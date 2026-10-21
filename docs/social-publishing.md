@@ -2,6 +2,18 @@
 
 Creators can publish the last completed video export to YouTube, TikTok, or Instagram Reels from **Publish** in the editor toolbar. Each platform is connected by its official authorization screen. Viddie never asks for a creator's social password. This first release submits to one account at a time; scheduling and analytics are not included.
 
+## Account controls and code structure
+
+Each connected account has **Reconnect** and **Disconnect** actions. Reconnect opens the platform's authorization screen; choose the same account to update its saved connection. Connecting a different account adds it separately. An expired connection that cannot refresh shows **Reconnect required** and cannot be selected for publishing. Google and TikTok connections with refresh tokens remain selectable so the server can renew them. This status uses saved token expiry; revoked permissions are detected when requesting the platform.
+
+The publishing backend separates responsibilities:
+
+- `connections/youtube.py`, `connections/tiktok.py` and `connections/meta.py` own authorization URLs, code exchange and account discovery. Google and TikTok also renew tokens there.
+- `accounts.py` locks and updates encrypted account tokens. `oauth.py` owns browser binding, one-use state and saving connected identities.
+- `http.py` handles shared HTTP requests and upload URL checks.
+- `platforms/` contains publisher classes with validation, upload and processing-status methods. `services.py` prepares immutable exports; `tasks.py` runs uploads and polling.
+- `diagnostics.py` logs failed operations with platform, job/user reference and exception type. It omits exception messages, tracebacks, request URLs, credentials and provider response bodies. These logs use the existing application logging configuration.
+
 ## Developer app setup
 
 A platform stays visibly unavailable until its server configuration is supplied. Register applications before testing real account connections. Configure a public HTTPS backend address; account callbacks and Instagram's media fetcher must be reachable from the internet. Do not expose a development server without the normal production deployment configuration.

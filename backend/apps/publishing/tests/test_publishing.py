@@ -16,7 +16,7 @@ from rest_framework.exceptions import ValidationError
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.tests.api.base import ApiTestCase
 
-from apps.publishing import oauth, providers, tasks
+from apps.publishing import accounts, http, oauth, tasks
 from apps.publishing.models import OAuthAttempt, Platform, PublishJob, SocialAccount
 from apps.publishing.serializers import PublishSerializer
 from apps.publishing.platforms import get_publisher
@@ -73,6 +73,23 @@ class PublishingTests(ApiTestCase):
         with connection.cursor() as cursor:
             cursor.execute("SELECT access_token FROM publishing_socialaccount WHERE external_id = %s", ["channel"])
             self.assertNotIn("secret-access", cursor.fetchone()[0])
+
+    def test_connection_status_distinguishes_refreshable_and_expired_accounts(self):
+        self.account.expires_at = timezone.now() - timedelta(seconds=1)
+        self.account.save()
+        response = self.client.get(reverse("publishing-connections"))
+        self.assertFalse(response.data["accounts"][0]["needs_reconnect"])
+        self.account.refresh_token = ""
+        self.account.save()
+        response = self.client.get(reverse("publishing-connections"))
+        self.assertTrue(response.data["accounts"][0]["needs_reconnect"])
+        self.account.platform = "instagram"
+        self.account.refresh_token = "unused"
+        self.account.save()
+        response = self.client.get(reverse("publishing-connections"))
+        self.assertTrue(response.data["accounts"][0]["needs_reconnect"])
+        with self.assertRaises(http.ProviderError):
+            accounts.access_token(self.account)
 
     @override_settings(SOCIAL_PUBLISHING={})
     def test_missing_app_configuration_is_explicit_and_cannot_connect(self):
@@ -192,8 +209,8 @@ class PublishingTests(ApiTestCase):
     def test_refreshing_tokens_uses_server_credentials_without_exposing_them(self):
         self.account.expires_at = timezone.now() - timedelta(seconds=1)
         self.account.save()
-        with patch("apps.publishing.providers.api", return_value={"access_token": "refreshed", "expires_in": 3600}) as request:
-            token = providers.access_token(self.account)
+        with patch("apps.publishing.connections.youtube.api", return_value={"access_token": "refreshed", "expires_in": 3600}) as request:
+            token = accounts.access_token(self.account)
         self.assertEqual(token, "refreshed")
         self.assertEqual(request.call_args.kwargs["data"]["refresh_token"], "secret-refresh")
         self.account.refresh_from_db()
@@ -220,7 +237,7 @@ class PublishingTests(ApiTestCase):
 
     def test_connection_failure_stops_before_upload(self):
         job = self.new_job()
-        with patch("apps.publishing.tasks.access_token", side_effect=providers.ProviderError("expired")), patch("apps.publishing.platforms.youtube.YouTubePublisher.upload") as upload, patch("apps.publishing.tasks.schedule_status") as schedule:
+        with patch("apps.publishing.tasks.access_token", side_effect=http.ProviderError("expired")), patch("apps.publishing.platforms.youtube.YouTubePublisher.upload") as upload, patch("apps.publishing.tasks.schedule_status") as schedule:
             tasks.upload_job.run(str(job.pk))
         job.refresh_from_db()
         self.assertEqual(job.status, "FAILED")
@@ -247,7 +264,7 @@ class PublishingTests(ApiTestCase):
 
     def test_instagram_publish_timeout_does_not_repeat_publish(self):
         job = self.new_job("instagram", status="PROCESSING", remote_id="container")
-        with patch("apps.publishing.platforms.instagram.api", side_effect=[{"status_code": "FINISHED"}, providers.ProviderError("timeout")]) as request:
+        with patch("apps.publishing.platforms.instagram.api", side_effect=[{"status_code": "FINISHED"}, http.ProviderError("timeout")]) as request:
             tasks.poll_job.run(str(job.pk))
             tasks.poll_job.run(str(job.pk))
         job.refresh_from_db()
@@ -328,9 +345,9 @@ class PublishingTests(ApiTestCase):
 
     def test_upload_urls_cannot_send_tokens_to_untrusted_hosts(self):
         for url in ("http://www.googleapis.com/upload", "https://evil.test/upload", "https://www.googleapis.com.evil.test/upload", "https://user@www.googleapis.com/upload"):
-            with self.subTest(url=url), self.assertRaises(providers.ProviderError):
-                providers.checked_upload_url(url, "youtube")
-        self.assertEqual(providers.checked_upload_url("https://upload.us.tiktokapis.com/video/", "tiktok"), "https://upload.us.tiktokapis.com/video/")
+            with self.subTest(url=url), self.assertRaises(http.ProviderError):
+                http.checked_upload_url(url, "youtube")
+        self.assertEqual(http.checked_upload_url("https://upload.us.tiktokapis.com/video/", "tiktok"), "https://upload.us.tiktokapis.com/video/")
 
     def test_tiktok_chunk_plan_merges_trailing_bytes(self):
         for size in (100, 4 * 1024**2, 10 * 1024**2 + 1, 4 * 1024**3):
@@ -405,9 +422,9 @@ class PublishingTests(ApiTestCase):
     def test_provider_errors_do_not_leak_response_bodies(self):
         response = Mock(status_code=400)
         response.json.return_value = {"error": "secret-access"}
-        with patch("apps.publishing.providers.requests.request", return_value=response):
-            with self.assertRaises(providers.ProviderError) as caught:
-                providers.api("GET", "https://www.googleapis.com/test", "secret-access")
+        with patch("apps.publishing.http.requests.request", return_value=response):
+            with self.assertRaises(http.ProviderError) as caught:
+                http.api("GET", "https://www.googleapis.com/test", "secret-access")
         self.assertNotIn("secret-access", str(caught.exception))
 
     def test_successful_callback_saves_to_the_initiating_creator_only(self):
@@ -416,10 +433,23 @@ class PublishingTests(ApiTestCase):
         state = parse_qs(urlparse(url).query)["state"][0]
         self.client.force_authenticate(None)
         self.client.cookies[oauth.COOKIE_NAME] = browser
-        with patch("apps.publishing.oauth.exchange_code", return_value={"access_token": "new-secret", "refresh_token": "new-refresh", "expires_in": 3600}), patch("apps.publishing.oauth.identities", return_value=[{"external_id": "another-channel", "display_name": "New channel", "access_token": "new-secret"}]):
+        with patch("apps.publishing.connections.youtube.exchange_code", return_value={"access_token": "new-secret", "refresh_token": "new-refresh", "expires_in": 3600}), patch("apps.publishing.connections.youtube.identities", return_value=[{"external_id": "another-channel", "display_name": "New channel", "access_token": "new-secret"}]):
             response = self.client.get(reverse("publishing-callback", args=["youtube"]), {"state": state, "code": "code"})
         self.assertIn("publishing=connected", response.url)
         self.assertEqual(SocialAccount.objects.get(external_id="another-channel").user, self.user)
+
+    def test_reconnect_updates_existing_account_and_preserves_refresh_token(self):
+        attempt = OAuthAttempt.objects.create(
+            user=self.user, platform="youtube", state_hash="reconnect", browser_hash="browser",
+            expires_at=timezone.now() + timedelta(minutes=10),
+        )
+        with patch("apps.publishing.connections.youtube.exchange_code", return_value={"access_token": "new-token", "expires_in": 3600}), patch("apps.publishing.connections.youtube.identities", return_value=[{"external_id": "channel", "display_name": "Updated channel", "access_token": "new-token"}]):
+            oauth.finish(attempt, "code")
+        self.assertEqual(SocialAccount.objects.count(), 1)
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.display_name, "Updated channel")
+        self.assertEqual(self.account.access_token, "new-token")
+        self.assertEqual(self.account.refresh_token, "secret-refresh")
 
     def test_signed_media_supports_byte_ranges_for_platform_fetchers(self):
         from urllib.parse import parse_qs, urlparse

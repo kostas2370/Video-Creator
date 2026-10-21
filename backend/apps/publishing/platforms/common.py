@@ -3,7 +3,7 @@
 import requests
 from rest_framework.exceptions import ValidationError
 
-from ..providers import ProviderError
+from ..http import ProviderError
 
 
 def validate_caption(caption):

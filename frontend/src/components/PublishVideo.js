@@ -5,6 +5,7 @@ import {
   getSocialConnections, publishVideo, refreshPublishStatus,
 } from "../api/apiService";
 import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
+import { PublishingAccounts } from "./PublishingAccounts";
 import { toolbarAction } from "./VideoToolbar";
 
 const active = new Set(["QUEUED", "UPLOADING", "PROCESSING", "PUBLISHING"]);
@@ -123,20 +124,11 @@ export function PublishVideo({ video, disabled = false }) {
         <p className="text-sm text-gray-500">Publishing uses your last export. Export again after making edits. Each platform has its own account permissions and approval requirements.</p>
         {video.output && <video src={video.output} controls preload="metadata" className="mx-auto max-h-72 w-full rounded-xl bg-black" />}
         {loading && <p role="status">Loading connected accounts…</p>}
-        <section className="space-y-3" aria-label="Connected publishing accounts">
-          <h3 className="font-semibold">Creator accounts</h3>
-          {connections.platforms.map(item => <div key={item.id} className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
-            <div className="flex items-center justify-between gap-3"><span className="font-medium">{item.name}</span><button type="button" disabled={!!busy || !item.configured} onClick={() => connect(item.id)} className="text-sm font-medium text-blue-600 disabled:text-gray-400">Connect account</button></div>
-            {item.setup_message && <p className="mt-1 text-xs text-gray-500">{item.setup_message}</p>}
-            {item.id === "instagram" && <p className="mt-1 text-xs text-gray-500">Use a Business or Creator account linked to a Facebook Page.</p>}
-            {item.id === "tiktok" && <p className="mt-1 text-xs text-gray-500">Public posting requires TikTok to approve the app. Until then, developer testing is restricted.</p>}
-            {connections.accounts.filter(row => row.platform === item.id).map(row => <div key={row.id} className="mt-2 flex justify-between gap-3 text-sm"><span>{row.display_name}</span><button type="button" disabled={!!busy} onClick={() => disconnect(row.id)} className="text-gray-500 underline">Disconnect</button></div>)}
-          </div>)}
-        </section>
+        <PublishingAccounts connections={connections} busy={!!busy} onConnect={connect} onDisconnect={disconnect} />
         {connections.accounts.length > 0 && <form onSubmit={submit} className="space-y-4">
           <h3 className="font-semibold">Post details</h3>
           <fieldset disabled={!!busy || submitted} className="space-y-4">
-            <label className="block text-sm">Publish to<select required value={accountId} onChange={event => { setError(""); setAccountId(event.target.value); }} className={`${editorInput} mt-1`}><option value="">Choose an account</option>{connections.accounts.map(row => <option key={row.id} value={row.id}>{row.platform} · {row.display_name}</option>)}</select></label>
+            <label className="block text-sm">Publish to<select required value={accountId} onChange={event => { setError(""); setAccountId(event.target.value); }} className={`${editorInput} mt-1`}><option value="">Choose an account</option>{connections.accounts.map(row => <option key={row.id} value={row.id} disabled={row.needs_reconnect}>{row.platform} · {row.display_name}{row.needs_reconnect ? " · Reconnect required" : ""}</option>)}</select></label>
             {account && <>
               {platform === "tiktok" && <p className="text-sm">Posting as <strong>{context?.creator_nickname || account.display_name}</strong>{context?.max_video_post_duration_sec ? ` · Up to ${context.max_video_post_duration_sec} seconds` : ""}</p>}
               {platform === "youtube" && <label className="block text-sm">Title<input required name="title" value={options.title} maxLength={100} onChange={change} className={`${editorInput} mt-1`} /></label>}

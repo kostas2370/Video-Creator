@@ -5,7 +5,7 @@ from urllib.parse import quote
 from rest_framework.exceptions import ValidationError
 
 from ..models import Platform, PublishJob
-from ..providers import ProviderError, api, checked_upload_url
+from ..http import ProviderError, api, checked_upload_url
 from .base import Publisher
 from .common import put_binary, update, validate_caption
 

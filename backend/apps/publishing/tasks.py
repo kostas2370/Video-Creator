@@ -6,7 +6,9 @@ from celery import shared_task
 from django.utils import timezone
 
 from .models import Platform, PublishJob
-from .providers import ProviderError, access_token
+from .diagnostics import log_failure
+from .http import ProviderError
+from .accounts import access_token
 from .platforms import get_publisher
 from .platforms.common import update
 from .services import posting_context
@@ -25,13 +27,15 @@ def upload_job(job_id):
         publisher = get_publisher(job.account, token)
         if job.platform == Platform.TIKTOK:
             publisher.validate_options(job.options, job.metadata, job.media.size, posting_context(job.account))
-    except Exception:
+    except Exception as exc:
+        log_failure("prepare_upload", platform=job.platform, reference=job.pk, error=exc)
         update(job, status=PublishJob.Status.FAILED, error="The account connection or posting permissions changed. Reconnect the account and review its settings. Nothing was uploaded.")
         return
 
     try:
         publisher.upload(job)
-    except Exception:
+    except Exception as exc:
+        log_failure("upload", platform=job.platform, reference=job.pk, error=exc)
         # A remote side effect may have succeeded before the response was lost.
         update(job, status=PublishJob.Status.NEEDS_CHECK, error="Upload confirmation was interrupted. Check the connected platform before creating another publishing request.")
         return
@@ -41,7 +45,8 @@ def upload_job(job_id):
 def schedule_status(job):
     try:
         poll_job.apply_async(args=[str(job.pk)], countdown=15)
-    except Exception:
+    except Exception as exc:
+        log_failure("queue_status", platform=job.platform, reference=job.pk, error=exc)
         update(job, status=PublishJob.Status.NEEDS_CHECK, error="The platform is processing this upload. Refresh its status here before attempting another upload.")
 
 
@@ -61,7 +66,8 @@ def poll_job(job_id):
         return
     try:
         poll_once(job)
-    except Exception:
+    except Exception as exc:
+        log_failure("check_status", platform=job.platform, reference=job.pk, error=exc)
         update(job, status=PublishJob.Status.NEEDS_CHECK, error="The platform status could not be confirmed. Check the platform before uploading again.")
         return
     if job.status != PublishJob.Status.PROCESSING:

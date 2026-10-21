@@ -12,8 +12,10 @@ from apps.videomanagement.utils.file_utils import stored_file_exists
 from apps.videomanagement.utils.timing import video_metadata
 
 from .config import require_configured
+from .diagnostics import log_failure
 from .models import Platform, PublishJob, SocialAccount
-from .providers import creator_info, access_token
+from .accounts import access_token
+from .connections.tiktok import creator_info
 from .platforms import get_publisher
 
 
@@ -24,7 +26,7 @@ def account_for(user, account_id):
 def posting_context(account):
     require_configured(account.platform)
     if account.platform == Platform.TIKTOK:
-        info = creator_info(account)
+        info = creator_info(access_token(account))
         return {key: info.get(key) for key in (
             "creator_nickname", "privacy_level_options", "comment_disabled", "duet_disabled",
             "stitch_disabled", "max_video_post_duration_sec",
@@ -76,7 +78,8 @@ def create_job(user, data):
         raise
     try:
         upload_job.delay(str(job.pk))
-    except Exception:
+    except Exception as exc:
+        log_failure("queue_upload", platform=job.platform, reference=job.pk, error=exc)
         PublishJob.objects.filter(pk=job.pk, status=PublishJob.Status.QUEUED).update(
             status=PublishJob.Status.FAILED,
             error="The upload could not be queued. Nothing was sent. Start a new publish request when the queue is available.",

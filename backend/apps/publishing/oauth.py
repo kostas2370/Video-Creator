@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from .models import OAuthAttempt, SocialAccount
-from .providers import authorization_url, exchange_code, identities
+from .connections import get_connection
 
 COOKIE_NAME = "publishing_oauth"
 COOKIE_PATH = "/api/publishing/oauth/"
@@ -21,7 +21,7 @@ def digest(value):
 
 def begin(user, platform, video):
     state, browser = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
-    url = authorization_url(platform, state)
+    url = get_connection(platform).authorization_url(state)
     OAuthAttempt.objects.filter(expires_at__lt=timezone.now()).delete()
     OAuthAttempt.objects.create(user=user, platform=platform, state_hash=digest(state),
                                 browser_hash=digest(browser), expires_at=timezone.now() + timedelta(minutes=10), video=video)
@@ -43,8 +43,9 @@ def consume(platform, state, browser):
 
 
 def finish(attempt, code):
-    tokens = exchange_code(attempt.platform, code)
-    profiles = identities(attempt.platform, tokens)
+    connection = get_connection(attempt.platform)
+    tokens = connection.exchange_code(code)
+    profiles = connection.identities(tokens)
     if not profiles:
         raise ValidationError("No eligible account was found. Instagram needs a professional account linked to a Facebook Page.")
     expiry = timezone.now() + timedelta(seconds=int(tokens.get("expires_in", 3600)))

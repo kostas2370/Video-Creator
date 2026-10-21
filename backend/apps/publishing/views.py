@@ -17,8 +17,9 @@ from apps.videomanagement.models import Video
 
 from . import oauth
 from .config import setup_message
+from .diagnostics import log_failure
 from .models import Platform, PublishJob, SocialAccount
-from .providers import ProviderError
+from .http import ProviderError
 from .serializers import AccountSerializer, JobSerializer, PublishSerializer
 from .services import account_for, create_job, posting_context
 from .tasks import poll_job
@@ -30,6 +31,7 @@ class CreatorView(APIView):
 
     def handle_exception(self, exc):
         if isinstance(exc, ProviderError):
+            log_failure("account_request", platform=self.kwargs.get("platform", "unknown"), reference=self.request.user.pk, error=exc)
             error = APIException(str(exc))
             error.status_code = 502
             exc = error
@@ -81,8 +83,8 @@ class CallbackView(APIView):
             if request.query_params.get("code") and not request.query_params.get("error"):
                 oauth.finish(attempt, request.query_params["code"])
                 result = "connected"
-        except (ValidationError, ProviderError, KeyError, ValueError, TypeError):
-            pass
+        except (ValidationError, ProviderError, KeyError, ValueError, TypeError) as exc:
+            log_failure("oauth_callback", platform=platform, reference="callback", error=exc)
         response = HttpResponseRedirect(settings.FRONTEND_URL + target + "?" + urlencode({"publishing": result}))
         response.delete_cookie(oauth.COOKIE_NAME, path=oauth.COOKIE_PATH, samesite="Lax")
         response["Referrer-Policy"] = "no-referrer"
