@@ -8,7 +8,7 @@ from rest_framework.exceptions import APIException
 
 from apps.videomanagement.integrations import llm as llm
 from apps.videomanagement.integrations.llm import (
-    check_json,
+    script_errors,
     claude_call,
     gemini_call,
     get_reply,
@@ -56,32 +56,32 @@ def a_scene(*sentences):
 A_SENTENCE = {"sentence": "hello", "image_description": "a cat"}
 
 
-class CheckJsonTests(SimpleTestCase):
+class ScriptErrorsTests(SimpleTestCase):
     def test_accepts_a_reply_with_the_shape_the_pipeline_walks(self):
-        self.assertTrue(check_json(a_reply(a_scene(A_SENTENCE))))
+        self.assertFalse(script_errors(a_reply(a_scene(A_SENTENCE))))
 
     def test_rejects_a_reply_with_no_scenes_key(self):
-        self.assertFalse(check_json({"title": "t"}))
+        self.assertTrue(script_errors({"title": "t"}))
 
     def test_rejects_a_reply_with_no_title(self):
-        self.assertFalse(check_json({"scenes": [{"scene": "one"}]}))
+        self.assertTrue(script_errors({"scenes": [{"scene": "one"}]}))
 
     def test_rejects_an_empty_scene_list(self):
-        self.assertFalse(check_json({"title": "t", "scenes": []}))
+        self.assertTrue(script_errors({"title": "t", "scenes": []}))
 
     def test_rejects_scenes_that_are_not_labelled(self):
-        self.assertFalse(check_json({"title": "t", "scenes": [{"sentences": []}]}))
+        self.assertTrue(script_errors({"title": "t", "scenes": [{"sentences": []}]}))
 
     def test_rejects_a_scene_with_no_sentences(self):
-        self.assertFalse(check_json(a_reply({"scene": "one"})))
-        self.assertFalse(check_json(a_reply(a_scene())))
+        self.assertTrue(script_errors(a_reply({"scene": "one"})))
+        self.assertTrue(script_errors(a_reply(a_scene())))
 
     def test_rejects_a_sentence_with_nothing_to_illustrate(self):
-        self.assertFalse(check_json(a_reply(a_scene({"sentence": "hello"}))))
+        self.assertTrue(script_errors(a_reply(a_scene({"sentence": "hello"}))))
 
     def test_rejects_a_later_scene_that_is_malformed(self):
-        self.assertFalse(
-            check_json(a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []}))
+        self.assertTrue(
+            script_errors(a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []}))
         )
 
     def test_rejects_invalid_types_and_empty_values(self):
@@ -90,16 +90,16 @@ class CheckJsonTests(SimpleTestCase):
                       a_reply(a_scene({"image_description": " "})),
                       a_reply(a_scene({"image_description": 1}))):
             with self.subTest(value=value):
-                self.assertFalse(check_json(value))
+                self.assertTrue(script_errors(value))
 
     def test_validates_requested_narration_and_scene_count(self):
         silent = a_reply(a_scene({"image_description": "cat"}))
         spoken = a_reply(a_scene(A_SENTENCE))
-        self.assertTrue(check_json(silent, narration=False, scene_count=1))
-        self.assertFalse(check_json(silent, narration=True))
-        self.assertFalse(check_json(spoken, narration=False))
-        self.assertFalse(check_json(spoken, scene_count=2))
-        self.assertFalse(check_json(a_reply(a_scene(A_SENTENCE, A_SENTENCE)), scene_count=1))
+        self.assertFalse(script_errors(silent, narration=False, scene_count=1))
+        self.assertTrue(script_errors(silent, narration=True))
+        self.assertTrue(script_errors(spoken, narration=False))
+        self.assertTrue(script_errors(spoken, scene_count=2))
+        self.assertTrue(script_errors(a_reply(a_scene(A_SENTENCE, A_SENTENCE)), scene_count=1))
 
 
 class OfficialGptCallTests(SimpleTestCase):
