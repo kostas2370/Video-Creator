@@ -12,7 +12,7 @@ from django.urls import reverse
 from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.models import Intro, Outro, Scene, SceneImage
+from apps.videomanagement.models import Intro, MediaAsset, Outro, Scene, SceneImage
 from apps.videomanagement.serializers.covers import CoverSerializer
 from apps.videomanagement.services.media.covers import (
     cover_reference,
@@ -319,7 +319,7 @@ class VideoCoverTests(ApiTestCase):
             return_value=result,
         ) as load:
             self.assertEqual(
-                self.client.get(endpoint, {"job": job}).data, {"status": "SUCCEEDED"}
+                self.client.get(endpoint, {"job": job}).data["status"], "SUCCEEDED"
             )
             self.assertEqual(
                 self.client.get(endpoint, {"job": job, "image": "1"}).content,
@@ -355,7 +355,9 @@ class VideoCoverTests(ApiTestCase):
             result = generate_cover_task.run(
                 str(self.video.pk), str(self.user.pk), {"title": "Draw this"}
             )
-        self.assertEqual(base64.b64decode(result["image"]), b"draft")
+        asset = MediaAsset.objects.get(pk=result["asset_id"])
+        with asset.file.open("rb") as saved:
+            self.assertEqual(saved.read(), b"draft")
         self.assertEqual(generate.call_args.args[1], self.user)
         self.assertEqual(generate.call_args.args[2]["title"], "Draw this")
         self.video.refresh_from_db()

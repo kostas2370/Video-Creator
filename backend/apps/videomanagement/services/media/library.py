@@ -6,6 +6,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.models import MediaAsset, SceneImage
+from apps.videomanagement.serializers.covers import CoverSerializer
+from apps.videomanagement.services.media.covers import save_cover
 from apps.videomanagement.services.media.music import set_music
 from apps.videomanagement.services.scenes.editing import changed, editable_video
 from apps.videomanagement.services.videos.manual import add_manual_scene
@@ -26,10 +28,19 @@ def use_media_asset(asset, video, *, purpose, scene_id=None, **options):
         raise ValidationError(
             "Use audio as background music, and images or clips as scene visuals."
         )
+    if purpose == "cover" and asset.kind != MediaAsset.Kind.IMAGE:
+        raise ValidationError("Choose an image for a video cover.")
     if purpose == "visual" and scene_id is None:
         raise ValidationError({"scene_id": "Choose a scene to replace its visual."})
     with asset.file.open("rb") as source:
         upload = File(source, name=Path(asset.file.name).name)
+        if purpose == "cover":
+            choices = CoverSerializer(
+                data={"source": "upload", "image": upload, "title": ""}
+            )
+            choices.is_valid(raise_exception=True)
+            save_cover(video, choices.validated_data)
+            return None
         if purpose == "music":
             set_music(video, upload)
             return None

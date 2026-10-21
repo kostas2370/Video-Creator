@@ -1,7 +1,11 @@
+from pathlib import Path
+
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -15,6 +19,7 @@ from ..models import MediaAsset, Video
 from ..paginator import AssetResultsPagination
 from ..permissions import IsOwnerPermission
 from ..serializers.library import MediaAssetSerializer, UseMediaSerializer
+from ..utils.file_utils import stored_file_exists
 
 
 class MediaAssetView(viewsets.ModelViewSet):
@@ -36,6 +41,17 @@ class MediaAssetView(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         delete_media_asset(instance)
+
+    @action(detail=True, methods=["GET"])
+    def download(self, request, pk=None):
+        asset = self.get_object()
+        if not stored_file_exists(asset.file):
+            raise NotFound("This library file is missing.")
+        return FileResponse(
+            asset.file.open("rb"),
+            as_attachment=True,
+            filename=f"{asset.title}{Path(asset.file.name).suffix}",
+        )
 
     @action(detail=True, methods=["POST"])
     def use(self, request, pk=None):

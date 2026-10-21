@@ -1030,7 +1030,9 @@ restart the API and Celery workers after updating.
   placement as part of the design. Leave the title blank for no text; changing
   the title requires regeneration. Each generation uses image credits and runs
   as a background job. You can close the dialog, continue editing, and reopen
-  **Cover** to retrieve the draft, including after refreshing the page. Preview
+  **Cover** to retrieve the draft, including after refreshing the page. Each successful
+  generation is also kept in **My assets → Media library**, including versions you
+  do not choose as the current cover. Preview
   the lettering before saving. You can also choose **Upload image** (PNG, JPEG, or WebP up to
   10 MB), or **Video frame** after exporting. Add a title, font, color, placement,
   and background, then preview and save a PNG. The saved image matches the
@@ -1047,6 +1049,32 @@ restart the API and Celery workers after updating.
   removing a library item does not remove copies already used in videos.
 - Apply database migrations before using these features:
   `python manage.py migrate` (includes migration `0034_media_library_and_covers`).
+
+### Automatic visual asset retention
+
+Scene images and video clips, project reference images, and saved covers are
+archived automatically in **My assets → Media library**. Generated AI thumbnail
+variations are archived as soon as generation succeeds, even if they are never
+saved as the video's cover. Search by the video name or the automatic labels
+`scene image`, `scene video`, `reference image`, `video cover`, and `ai thumbnail`.
+Identical file contents are deduplicated per account; existing library names and
+tags are preserved. Reusing media copies it into the project and links the scene
+to its library asset. Deleting a library asset does not break existing project
+copies, and deleting a project does not delete its archived assets.
+
+Use **Download** to keep a local copy. For an image, **Use media → Video cover**
+restores it as another project's cover without another AI generation.
+
+Run `python manage.py migrate` after updating. Migration
+`0038_persistent_visual_assets` adds the asset links, provenance, and owner-scoped
+checksums. `0039_backfill_visual_assets` archives existing scene images/clips,
+reference images, and saved covers, linking existing scenes to their assets while
+leaving their original files in place. It copies files into library storage and
+can safely resume if interrupted. It preserves existing library entries and logs
+missing or ownerless source files that cannot be archived. Rolling back leaves
+archived media in the library. Mount the existing media storage while migrating;
+the library copies require additional storage. Completed exports, generated audio,
+and temporary frame/preview files are not automatically archived.
 
 ### Video tags
 

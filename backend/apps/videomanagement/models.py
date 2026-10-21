@@ -343,6 +343,15 @@ class Scene(UUIDModel):
 
 
 class SceneImage(UUIDModel):
+    asset = models.ForeignKey(
+        "MediaAsset",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="scene_visuals",
+        editable=False,
+    )
+
     created_at = models.DateTimeField(
         default=timezone.now, editable=False, db_index=True
     )
@@ -523,6 +532,16 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
 
 
 class MediaAsset(AbstractModel):
+    checksum = models.CharField(max_length=64, null=True, blank=True, editable=False)
+    source_video = models.ForeignKey(
+        Video,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="library_assets",
+        editable=False,
+    )
+
     class Kind(models.TextChoices):
         IMAGE = "IMAGE", "Image"
         VIDEO = "VIDEO", "Video"
@@ -537,3 +556,8 @@ class MediaAsset(AbstractModel):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("created_by", "checksum"), name="unique_owner_visual_checksum"
+            )
+        ]

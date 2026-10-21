@@ -146,7 +146,7 @@ export function ThumbnailCreator({ open, onClose, video, onSaved }) {
         {choices.source === "ai" && <p className="text-sm leading-relaxed text-gray-500">The AI designs the title’s font, placement, and colors as part of the image. Leave the title blank for an image without text. Check the lettering before saving.</p>}
       </fieldset>
     </div>
-    {generating && <p role="status" className="mt-4 text-sm text-blue-600 dark:text-blue-300">Your thumbnail is generating in the background. You can close this editor and return to Cover to view it.</p>}
+    {generating && <p role="status" className="mt-4 text-sm text-blue-600 dark:text-blue-300">Your thumbnail is generating in the background and will be saved to your Media Library. You can close this editor and return to Cover to view it.</p>}
     {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-300">{error}</p>}
   </EditorDialog>;
 }
