@@ -123,8 +123,9 @@ def approve_script(video, storyboard):
             errors = script_errors(
                 storyboard, narration=params.get("narration", True),
                 scene_count=params.get("scene_count"), ai_scene_editing=True,
-                video_provider=params.get("image_mode") != "WEB" and ImageProviderRegistry.is_video(
-                    params.get("provider"), user=video.created_by
+                video_provider=ImageProviderRegistry.is_video(
+                    params.get("provider"), user=video.created_by,
+                    mode=params.get("image_mode", "WEB"),
                 ),
             )
             if errors:

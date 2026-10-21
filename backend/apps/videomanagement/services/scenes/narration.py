@@ -119,8 +119,9 @@ def ensure_scene_rows(video: Video):
 
     choices = video.settings or {}
     video_provider = (
-        choices.get("ai_scene_editing") and video.mode != "WEB"
-        and ImageProviderRegistry.is_video(choices.get("provider"), user=video.created_by)
+        choices.get("ai_scene_editing") and ImageProviderRegistry.is_video(
+            choices.get("provider"), user=video.created_by, mode=video.mode
+        )
     )
     for line in lines:
         if line.text not in existing:

@@ -131,7 +131,9 @@ def draft_scene(
     settings = video.settings or {}
     instructions = build_scene_draft_prompt(
         prompt, draft_type, sentence_count, scenario, image_mode=video.mode,
-        video=ImageProviderRegistry.is_video(settings.get("provider"), user=video.created_by),
+        video=ImageProviderRegistry.is_video(
+            settings.get("provider"), user=video.created_by, mode=video.mode
+        ),
         style=settings.get("style", ""),
     )
     reply = get_update_sentence(instructions, user=video.created_by)

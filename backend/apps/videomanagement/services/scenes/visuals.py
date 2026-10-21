@@ -166,7 +166,7 @@ def create_image_scenes(
     if not pending:
         return
 
-    is_video = ImageProviderRegistry.is_video(provider, user=video.created_by)
+    is_video = ImageProviderRegistry.is_video(provider, user=video.created_by, mode=mode)
     shared_image_reference = mode == ImageMode.AI and provider in (
         None,
         "",
