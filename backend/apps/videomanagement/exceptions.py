@@ -6,6 +6,11 @@ class VoiceProviderError(APIException):
     default_detail = "ElevenLabs could not complete the request. Please try again."
 
 
+class CoverQueueUnavailable(APIException):
+    status_code = 503
+    default_detail = "Could not queue the thumbnail. Please try again."
+
+
 class GenerationQueueUnavailable(APIException):
     status_code = 503
     default_detail = "Could not queue generation. Please try again."
