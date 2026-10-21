@@ -44,6 +44,15 @@ describe("API request results with the upgraded HTTP client", () => {
     expect(result.message).not.toContain("<html>");
   });
 
+  it("explains missing image endpoints when the server returns an HTML blob", async () => {
+    axiosPrivateInstance.request.mockRejectedValue({ response: {
+      status: 404,
+      data: new Blob(['<!DOCTYPE html><html><body>Not found</body></html>'], { type: "text/html" }),
+    } });
+    expect(await request({ url: "videos/7/cover_generate/", responseType: "blob", notifyError: false }))
+      .toMatchObject({ ok: false, status: 404, message: "This feature is unavailable on the server. Please refresh and try again." });
+  });
+
   it("reports connection failures while keeping background requests quiet", async () => {
     axiosPrivateInstance.request.mockRejectedValue(new Error("Network Error"));
     expect(await request({ url: "videos/", notifyError: false }))
