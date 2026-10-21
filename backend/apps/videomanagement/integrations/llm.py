@@ -149,9 +149,10 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None):
         raise APIException(err, code=status.HTTP_400_BAD_REQUEST)
 
 
-def get_reply(prompt, time=0, reply_format="json", gpt_model="gpt-4", user=None,
+def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
               narration=None, scene_count=None, ai_scene_editing=False, video_provider=False):
     """Route text requests and retry invalid scripts with specific correction feedback."""
+    gpt_model = gpt_model or settings.DEFAULT_GPT_MODEL
     original_prompt = prompt
     for attempt in range(time, 5):
         for key, call in model_calls:
