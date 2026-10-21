@@ -65,6 +65,9 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
                   <label className="block text-sm font-medium">Visual prompt
                     <textarea required maxLength={2000} rows={3} disabled={busy} value={shot.image_description || ""} onChange={event => changeShot(sceneIndex, shotIndex, "image_description", event.target.value)} className={inputClass} />
                   </label>
+                  {video?.settings?.ai_scene_editing && shot.editing && <p className="text-xs text-gray-500 dark:text-gray-400">
+                    AI editing: {shot.editing.motion_style.toLowerCase().replaceAll("_", " ")} · {shot.editing.transition_after.toLowerCase()} · {shot.editing.pause_after}s pause. You can adjust these in the scene editor.
+                  </p>}
                 </div>
               ))}
             </section>

@@ -16,6 +16,12 @@ class TemplateApiTestCase(ApiTestCase):
 
 
 class SaveTemplateTests(TemplateApiTestCase):
+    def test_preserves_ai_scene_editing_preference(self):
+        response = self.save(ai_scene_editing=True)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data["ai_scene_editing"])
+        self.assertTrue(TemplatePrompt.objects.get(title="Shorts").ai_scene_editing)
+
     def test_preserves_the_selected_scene_count(self):
         response = self.save(scene_count=7)
         self.assertEqual(response.status_code, 201)

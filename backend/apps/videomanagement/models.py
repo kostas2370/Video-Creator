@@ -197,6 +197,7 @@ def default_video_settings() -> dict:
 
 
 class TemplatePrompt(AbstractModel):
+    ai_scene_editing = models.BooleanField(default=False)
     title = models.CharField(max_length=50, blank=False)
     scene_count = models.PositiveSmallIntegerField(
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(60)]

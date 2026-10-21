@@ -134,12 +134,34 @@ def resolve_visual_type(image_mode=None, video=False):
     return VisualType.VIDEO if video else VisualType.IMAGE
 
 
-def _script_structure(brief, narration):
+def _script_structure(brief, narration, ai_scene_editing=False):
     parts = f"the narration and {brief.description}"
     if not narration:
         parts = f"only {brief.description} — there is no narration, so write no spoken lines"
     fields = (_NARRATION_FIELD if narration else "") + _STILL_FIELD.format(brief.placeholder)
+    if ai_scene_editing:
+        fields += (',\n          "editing": {"motion_style":"NONE", "motion_intensity":"SUBTLE", '
+                   '"transition_after":"CUT", "transition_duration":0.2, "pause_after":0}')
     return _STILL_BRIEF.format(parts=parts) + _SHAPE.format(fields=fields)
+
+
+def _scene_editing_instructions(visual_type):
+    instructions = (
+        "Return an editing object on every sentences entry using only these settings. "
+        "motion_style: NONE, AUTO, ZOOM_IN, ZOOM_OUT, PAN_LEFT, PAN_RIGHT, PAN_UP, PAN_DOWN. "
+        "motion_intensity: SUBTLE, MEDIUM, or STRONG; prefer SUBTLE and avoid STRONG unless "
+        "explicitly requested. transition_after: CUT, FADE, DISSOLVE, or DEFAULT. "
+        "transition_duration: 0.1–0.6 seconds. pause_after: 0–0.8 seconds. "
+        "Choose settings to support the story, not to add effects to every scene. "
+        "Prefer cuts for momentum, and use short fades or dissolves only for meaningful "
+        "changes in time or mood. Use zero pause by default, with a short pause for an "
+        "important reveal or final takeaway. Avoid repetitive motion. "
+        "These are editor settings; keep them out of narration and visual descriptions. "
+        "For the final shot, use CUT and transition_duration 0.1; it has no following shot. "
+    )
+    if visual_type == VisualType.VIDEO:
+        return instructions + "Use motion_style NONE for every shot; camera movement comes from the generated video."
+    return instructions + "For still images, use subtle zooms or pans selectively and keep some shots still."
 
 
 def build_script_prompt(
@@ -153,10 +175,12 @@ def build_script_prompt(
     video: bool = False,
     style: str = "",
     narration: bool = True,
+    ai_scene_editing: bool = False,
 ) -> str:
     """Build the complete script request from video settings and a creative brief."""
-    brief = _VISUAL_BRIEFS[resolve_visual_type(image_mode, video)]
-    template_format = _script_structure(brief, narration)
+    visual_type = resolve_visual_type(image_mode, video)
+    brief = _VISUAL_BRIEFS[visual_type]
+    template_format = _script_structure(brief, narration, ai_scene_editing)
 
     if title == "":
         title = "The title will be selected by you, depending on the prompt"
@@ -178,6 +202,8 @@ def build_script_prompt(
         brief.guidance(style) + "\n" + _LANGUAGE_INSTRUCTIONS
         + "\nSTORY PROGRESSION:\n" + _STORY_PROGRESSION_INSTRUCTIONS
     )
+    if ai_scene_editing:
+        output += "\nAI SCENE EDITING:\n" + _scene_editing_instructions(visual_type)
     if narration:
         output += " Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph."
     else:
@@ -218,6 +244,7 @@ class ScriptLine:
     text: str
     image_description: str
     is_last: bool
+    editing: dict = None
 
 
 def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
@@ -228,6 +255,7 @@ def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
                 text=scene_text(sentence),
                 image_description=sentence["image_description"],
                 is_last=index == len(sentences) - 1,
+                editing=sentence.get("editing"),
             )
 
 
