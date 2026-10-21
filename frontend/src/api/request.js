@@ -34,8 +34,13 @@ export async function request({ method = "get", url, data, params, responseType,
     if (typeof Blob !== "undefined" && error?.response?.data instanceof Blob) {
       try { error.response.data = JSON.parse(await error.response.data.text()); } catch { /* Use the standard error message. */ }
     }
-    const message = errorMessage(error);
+    const headers = error?.response?.headers;
+    const reference = headers?.["x-request-id"] || error?.response?.data?.request_id;
+    const requestId = typeof reference === "string" && /^[a-f0-9]{32}$/.test(reference) ? reference : null;
+    const baseMessage = errorMessage(error);
+    const message = error?.response?.status >= 500 && requestId
+      ? `${baseMessage} Reference: ${requestId}` : baseMessage;
     if (notifyError) toast.error(message, { toastId: `${method}:${url}:${message}` });
-    return { ok: false, data: null, status: error?.response?.status ?? null, headers: error?.response?.headers ?? {}, message, errors: error?.response?.data ?? null };
+    return { ok: false, requestId, data: null, status: error?.response?.status ?? null, headers: error?.response?.headers ?? {}, message, errors: error?.response?.data ?? null };
   }
 }

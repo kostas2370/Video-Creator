@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 
 # Middleware
 MIDDLEWARE = [
+    "video_creator.observability.request_logging",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -124,20 +125,30 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # Logging
-# The root level is per-environment; local.py turns it down to INFO.
+# JSON console output is shared by the API and Celery workers.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "formatters": {"json": {"()": "video_creator.observability.JsonFormatter"}},
     "handlers": {
         "console": {
+            "formatter": "json",
+            "level": os.getenv("LOG_LEVEL") or "INFO",
             "class": "logging.StreamHandler",
         },
     },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "celery.app.trace": {"level": "WARNING"},
+    },
     "root": {
         "handlers": ["console"],
-        "level": "WARNING",
+        "level": os.getenv("LOG_LEVEL") or "INFO",
     },
 }
+
+# Keep the same JSON formatter in Celery instead of replacing root handlers.
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
@@ -181,7 +192,7 @@ PASSWORD_RESET_PATH = os.getenv("PASSWORD_RESET_PATH") or "/reset-password"
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
-CORS_EXPOSE_HEADERS = ["Content-Type", "X-CSRFToken"]
+CORS_EXPOSE_HEADERS = ["Content-Type", "X-CSRFToken", "X-Request-ID"]
 CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 CSRF_COOKIE_SECURE = COOKIES_SECURE
 CSRF_COOKIE_HTTP_ONLY = True
@@ -191,6 +202,7 @@ SESSION_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 
 # Django REST Framework
 REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "video_creator.exceptions.api_exception_handler",
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
