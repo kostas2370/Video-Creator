@@ -16,7 +16,7 @@ VISUAL_KINDS = dict.fromkeys(IMAGE_EXTENSIONS, "IMAGE") | dict.fromkeys(
 )
 
 
-# Keep this implementation frozen against historical models; runtime retention
+# Keep this implementation frozen against historical models; runtime archiving
 # helpers will continue to evolve after this migration has shipped.
 def digest_file(source):
     digest = hashlib.sha256()

@@ -10,7 +10,7 @@ from rest_framework.exceptions import NotFound
 from apps.videomanagement import tasks
 from apps.videomanagement.exceptions import CoverQueueUnavailable
 from apps.videomanagement.models import MediaAsset
-from apps.videomanagement.services.media.retention import retain_generated_cover
+from apps.videomanagement.services.media.archive import archive_generated_cover
 from apps.videomanagement.utils.file_utils import stored_file_exists
 
 SALT = "video-cover-job"
@@ -51,8 +51,8 @@ def cover_result(video, user, token, image=False):
     if asset_id:
         asset = MediaAsset.objects.filter(pk=asset_id, created_by=user).first()
     else:
-        # Retain drafts from jobs started before the update as they are retrieved.
-        asset = retain_generated_cover(video, base64.b64decode(job.result["image"]))
+        # Archive drafts from jobs started before the update as they are retrieved.
+        asset = archive_generated_cover(video, base64.b64decode(job.result["image"]))
     if not asset or not stored_file_exists(asset.file):
         return {
             "status": "FAILED",

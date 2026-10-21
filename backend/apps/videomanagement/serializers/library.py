@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from apps.videomanagement.services.media.retention import save_visual_asset
+from apps.videomanagement.services.media.archive import save_visual_asset
 from apps.videomanagement.services.media.uploads import inspect_media_upload
 
 from ..models import MediaAsset

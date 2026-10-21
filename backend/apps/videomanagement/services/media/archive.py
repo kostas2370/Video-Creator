@@ -1,4 +1,4 @@
-"""Keep independent, owner-scoped library copies of project visuals."""
+"""Archive independent, owner-scoped library copies of project visuals."""
 
 import hashlib
 from pathlib import Path
@@ -37,7 +37,8 @@ def save_visual_asset(
         digest.update(chunk)
     upload.seek(0)
     checksum = digest.hexdigest()
-    existing = MediaAsset.objects.filter(created_by=user, checksum=checksum).first()
+    matches = MediaAsset.objects.filter(created_by=user, checksum=checksum)
+    existing = matches.first()
     if existing and stored_file_exists(existing.file):
         return existing
     asset = existing or MediaAsset(
@@ -58,7 +59,7 @@ def save_visual_asset(
     except IntegrityError:
         asset.file.storage.delete(saved_name)
         # A concurrent request may have archived the same bytes first.
-        winner = MediaAsset.objects.filter(created_by=user, checksum=checksum).first()
+        winner = matches.first()
         if winner:
             return winner
         raise
@@ -70,7 +71,7 @@ def save_visual_asset(
     return asset
 
 
-def retain_stored_visual(video, field, *, title, tags):
+def archive_stored_visual(video, field, *, title, tags):
     if not video.created_by_id or not stored_file_exists(field):
         return None
     kind = visual_kind(field.name)
@@ -91,10 +92,10 @@ def retain_stored_visual(video, field, *, title, tags):
         )
 
 
-def retain_scene_visual(visual, source):
+def archive_scene_visual(visual, source):
     video = visual.scene.video
     label = "scene video" if check_if_video(source.name or "") else "scene image"
-    asset = retain_stored_visual(
+    asset = archive_stored_visual(
         video,
         source,
         title=f"{video.title} · Scene {visual.scene.position}",
@@ -106,9 +107,9 @@ def retain_scene_visual(visual, source):
             visual.asset_id = asset.pk
 
 
-def retain_video_visual(video, field_name, source):
-    label = VIDEO_VISUAL_LABELS[field_name]
-    return retain_stored_visual(
+def archive_video_visual(video, source):
+    label = VIDEO_VISUAL_LABELS[source.field.name]
+    return archive_stored_visual(
         video,
         source,
         title=f"{video.title} · {label.title()}",
@@ -116,7 +117,7 @@ def retain_video_visual(video, field_name, source):
     )
 
 
-def retain_generated_cover(video, image):
+def archive_generated_cover(video, image):
     return save_visual_asset(
         user=video.created_by,
         upload=ContentFile(image, name="thumbnail.png"),
