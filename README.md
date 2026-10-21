@@ -1124,6 +1124,14 @@ See [the creator publishing setup guide](docs/social-publishing.md) for server
 configuration, redirect URLs, platform requirements, private snapshot storage,
 and the distinction between automated checks and real platform testing.
 
+For local HTTPS testing on macOS/Linux, install `cloudflared`, start the Docker
+app, then run `python3 scripts/local-tunnel.py start` from the repository root.
+Keep that terminal open; use Ctrl+C or `python3 scripts/local-tunnel.py stop` to
+disable public access, and `python3 scripts/local-tunnel.py status` to inspect it.
+Start updates the local app origins and reloads the backend/workers. Each restart
+creates a new URL, so update the callback and website URLs in the provider
+dashboards using the addresses printed by the script.
+
 ## Diagnosing failures
 
 API responses include an `X-Request-ID` reference. Unexpected API errors return a
