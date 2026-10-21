@@ -38,10 +38,15 @@ class Migration(migrations.Migration):
                 blank=True,
                 editable=False,
                 null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
+                on_delete=django.db.models.deletion.RESTRICT,
                 related_name="scene_visuals",
                 to="videomanagement.mediaasset",
             ),
+        ),
+        migrations.AlterField(
+            model_name="mediaasset",
+            name="file",
+            field=models.FileField(upload_to="media/library/%Y/%m/%d", max_length=2000),
         ),
         migrations.AddConstraint(
             model_name="mediaasset",

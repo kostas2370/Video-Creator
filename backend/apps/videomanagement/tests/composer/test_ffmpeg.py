@@ -407,7 +407,9 @@ class FFmpegRenderTests(TestCase):
             self.add_still(pause_after=0.13)
         final = self.add_still(pause_after=0.13)
         Image.new("RGB", (160, 90), "red").save(self.root / "red.png")
-        final.scene_images.update(file="red.png")
+        visual = final.scene_images.get()
+        visual.file = "red.png"
+        visual.save()
         make_video(self.row)
         self.assertGreater(self.frame(5.8)[:, :, 0].mean(), 200)
         self.assertAlmostEqual(

@@ -14,7 +14,6 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import SuspiciousFileOperation
 
-from ..models import VideoType
 from .audio_editing import (
     duration_override,
     edited_duration,
@@ -79,7 +78,7 @@ def scene_timing(scene, image=None):
     narration = narration_enabled(scene)
     silent_duration = (
         5
-        if getattr(scene.video, "video_type", None) == VideoType.MANUAL
+        if getattr(scene.video, "video_type", None) == "MANUAL"
         else settings.SILENT_SCENE_SECONDS
     )
     speech = (

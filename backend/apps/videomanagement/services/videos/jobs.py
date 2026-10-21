@@ -1,5 +1,3 @@
-from copy import copy
-from functools import partial
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,7 +13,6 @@ from apps.videomanagement.exceptions import (
     VideoEditConflict,
 )
 from apps.videomanagement.models import Video, VideoStatus, VideoType
-from apps.videomanagement.services.media.archive import archive_video_visual
 from apps.videomanagement.services.videos.generation import create_pending_video
 
 
@@ -32,7 +29,7 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
 
     try:
         if reference_image:
-            # Publish the reference before dispatch, but archive it only if queuing succeeds.
+            # The worker needs the reference path before dispatch.
             video.reference_image.save(
                 reference_image.name, reference_image, save=False
             )
@@ -47,10 +44,6 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
         video.save(update_fields=["reference_image", "status"])
         raise GenerationQueueUnavailable() from exc
 
-    if reference_image:
-        transaction.on_commit(
-            partial(archive_video_visual, video, copy(video.reference_image))
-        )
     return video
 
 

@@ -1,19 +1,11 @@
-from copy import copy
-from functools import partial
-
-from django.db import transaction
-from django.db.models.signals import post_delete, post_save, pre_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
+from django_cleanup.signals import cleanup_pre_delete
 
 from apps.usermanagement.models import Notification
 
 from .events import publish_update
-from .models import Scene, SceneImage, Video
-from .services.media.archive import (
-    VIDEO_VISUAL_LABELS,
-    archive_scene_visual,
-    archive_video_visual,
-)
+from .models import MediaAsset, Scene, SceneImage, Video
 
 
 @receiver(post_save, sender=Video)
@@ -58,36 +50,8 @@ def notification_changed(sender, instance, using, **kwargs):
         )
 
 
-@receiver(pre_save, sender=SceneImage)
-@receiver(pre_save, sender=Video)
-def mark_changed_visual_files(
-    sender, instance, raw=False, update_fields=None, **kwargs
-):
-    if raw:
-        return
-    fields = {"file"} if sender is SceneImage else set(VIDEO_VISUAL_LABELS)
-    selected = fields if update_fields is None else fields.intersection(update_fields)
-    if not selected or instance._state.adding:
-        instance._library_fields = selected
-        return
-    previous = sender.objects.filter(pk=instance.pk).values(*selected).first() or {}
-    instance._library_fields = {
-        name
-        for name in selected
-        if not getattr(instance, name)._committed
-        or previous.get(name) != getattr(instance, name).name
-    }
-
-
-@receiver(post_save, sender=SceneImage)
-@receiver(post_save, sender=Video)
-def archive_saved_visuals(sender, instance, raw=False, **kwargs):
-    if raw:
-        return
-    archive = archive_scene_visual if sender is SceneImage else archive_video_visual
-    for name in getattr(instance, "_library_fields", ()):
-        # Freeze each file before another save can replace it on this instance.
-        source = copy(getattr(instance, name))
-        transaction.on_commit(
-            partial(archive, instance, source), using=kwargs.get("using")
-        )
+@receiver(cleanup_pre_delete, sender=MediaAsset)
+def preserve_shared_asset_file(sender, file, file_name, **kwargs):
+    # Older library entries can share a path; only its last owner deletes the file.
+    if MediaAsset.objects.filter(file=file_name).exists():
+        file.name = None

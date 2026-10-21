@@ -156,16 +156,16 @@ class VideoView(
             queryset = queryset.listable().annotate(
                 scene_preview=Subquery(
                     SceneImage.objects.filter(scene__video_id=OuterRef("pk"))
-                    .exclude(file="")
-                    .exclude(file__isnull=True)
+                    .exclude(asset__file="")
+                    .exclude(asset__file__isnull=True)
                     .order_by("scene__position", "created_at", "id")
-                    .values("file")[:1]
+                    .values("asset__file")[:1]
                 )
             )
 
         if self.action in ("retrieve", "preview"):
             queryset = queryset.select_related("intro", "outro").prefetch_related(
-                "scenes__scene_images"
+                "scenes__scene_images__asset"
             )
 
         return queryset
@@ -217,7 +217,7 @@ class VideoView(
         video = (
             self.get_queryset()
             .select_related("intro", "outro")
-            .prefetch_related("scenes__scene_images")
+            .prefetch_related("scenes__scene_images__asset")
             .get(pk=video.pk)
         )
         return VideoNestedSerializer(video).data

@@ -75,7 +75,7 @@ class MediaLibraryTests(ApiTestCase):
         self.assertEqual(change.status_code, 200, change.data)
         self.assertEqual(change.data["tags"], ["favorites"])
 
-    def test_reuse_copies_files_and_library_removal_does_not_break_scenes(self):
+    def test_reuse_links_the_asset_and_in_use_deletion_is_rejected(self):
         asset = self.upload()
         video = self.video_for(status="READY", video_type="MANUAL")
         response = self.client.post(
@@ -86,11 +86,12 @@ class MediaLibraryTests(ApiTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         item = video.scenes.get()
         visual = item.scene_images.get()
-        self.assertNotEqual(visual.file.name, asset.file.name)
+        self.assertEqual(visual.file.name, asset.file.name)
+        self.assertEqual(visual.asset_id, asset.pk)
         self.assertEqual(item.audio_settings["duration"], 3)
         with self.captureOnCommitCallbacks(execute=True):
             deleted = self.client.delete(reverse("mediaasset-detail", args=[asset.pk]))
-        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(deleted.status_code, 400)
         self.assertTrue(visual.file.storage.exists(visual.file.name))
 
     def test_replace_visual_rejects_foreign_projects_and_processing(self):

@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from apps.videomanagement.services.media.archive import save_visual_asset
 from apps.videomanagement.services.media.uploads import inspect_media_upload
 
 from ..models import MediaAsset
@@ -29,7 +28,7 @@ class MediaAssetSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         if validated_data["kind"] == MediaAsset.Kind.AUDIO:
             return super().create(validated_data)
-        return save_visual_asset(
+        return MediaAsset.from_visual(
             user=validated_data["created_by"],
             upload=validated_data["file"],
             title=validated_data["title"],
