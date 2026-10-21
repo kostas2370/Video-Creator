@@ -205,6 +205,15 @@ class GetReplyRoutingTests(SimpleTestCase):
             "gemini": gemini.called,
         }
 
+    def test_omitted_model_uses_configured_default_and_matching_provider(self):
+        for model, provider in (("gpt-5.4-mini", "official_gpt_call"),
+                                ("claude-test", "claude_call"),
+                                ("gemini-test", "gemini_call")):
+            with self.subTest(model=model), override_settings(DEFAULT_GPT_MODEL=model):
+                with patch.object(llm, provider, return_value=io.StringIO(A_SCRIPT)) as call:
+                    get_reply("a prompt")
+                call.assert_called_once_with("a prompt", model, user=None)
+
     def test_sends_gpt_and_the_o_series_to_openai(self):
         for model in ("gpt-4", "gpt-5.4", "o1", "o3-mini", "o4-mini"):
             with self.subTest(model=model):
