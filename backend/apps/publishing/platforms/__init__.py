@@ -12,6 +12,6 @@ PUBLISHERS = {
 }
 
 
-def get_publisher(account, token):
-    """Select the upload and status implementation for a connected account."""
+def get_publisher(account, token=None):
+    """Select a publisher; a token is only needed for remote operations."""
     return PUBLISHERS[account.platform](account, token)

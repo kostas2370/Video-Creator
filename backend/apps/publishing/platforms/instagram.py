@@ -1,15 +1,35 @@
 """Instagram Reel containers, processing and publishing."""
 
+from urllib.parse import urlencode
+
+from django.conf import settings
+from django.core import signing
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from ..models import PublishJob
 from ..providers import ProviderError, api, meta_base
-from ..services import media_url
 from .base import Publisher
-from .common import update
+from .common import update, validate_caption
+
+
+def media_url(job):
+    token = signing.dumps({"job": str(job.pk)}, salt="publishing-media")
+    return f"{settings.SOCIAL_PUBLIC_BASE_URL}/api/publishing/media/{job.pk}/?" + urlencode({"token": token})
 
 
 class InstagramPublisher(Publisher):
+    def validate_options(self, options, metadata, size, context):
+        super().validate_options(options, metadata, size, context)
+        validate_caption(options["caption"])
+        if (
+            not 3 <= metadata["duration"] <= 900
+            or size > 1024**3
+            or metadata["width"] > 1920
+            or not 23 <= metadata["fps"] <= 60
+        ):
+            raise ValidationError("Instagram Reels need a 3-second to 15-minute export, at most 1 GB and 1920 pixels wide, at 23–60 fps.")
+
     def upload(self, job):
         payload = {
             "media_type": "REELS",

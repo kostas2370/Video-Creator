@@ -19,7 +19,8 @@ from apps.videomanagement.tests.api.base import ApiTestCase
 from apps.publishing import oauth, providers, tasks
 from apps.publishing.models import OAuthAttempt, Platform, PublishJob, SocialAccount
 from apps.publishing.serializers import PublishSerializer
-from apps.publishing.services import media_url, validate_options
+from apps.publishing.platforms import get_publisher
+from apps.publishing.platforms.instagram import media_url
 
 CONFIG = {platform: {"client_id": "client-id", "client_secret": "app-secret", "api_version": "v25.0"} for platform in Platform.values}
 METADATA = {"duration": 10, "fps": 30, "width": 1080, "height": 1920, "audio": True}
@@ -276,19 +277,54 @@ class PublishingTests(ApiTestCase):
         serializer = PublishSerializer(data=self.payload(privacy="SELF_ONLY", music_consent=True))
         serializer.is_valid(raise_exception=True)
         values = dict(serializer.validated_data)
-        validate_options(self.account, values, METADATA, 100, CREATOR)
+        get_publisher(self.account).validate_options(values, METADATA, 100, CREATOR)
         for changes in ({"privacy": "unlisted"}, {"music_consent": False}, {"allow_duet": True}, {"branded_content": True}):
             with self.subTest(changes=changes), self.assertRaises(ValidationError):
-                validate_options(self.account, {**values, **changes}, METADATA, 100, CREATOR)
+                get_publisher(self.account).validate_options({**values, **changes}, METADATA, 100, CREATOR)
         with self.assertRaises(ValidationError):
-            validate_options(self.account, values, {**METADATA, "duration": 61}, 100, CREATOR)
+            get_publisher(self.account).validate_options(values, {**METADATA, "duration": 61}, 100, CREATOR)
 
     def test_tiktok_caption_counts_utf16_units(self):
         self.account.platform = "tiktok"
         serializer = PublishSerializer(data=self.payload(privacy="SELF_ONLY", music_consent=True, caption="😀" * 1101))
         serializer.is_valid(raise_exception=True)
         with self.assertRaises(ValidationError):
-            validate_options(self.account, serializer.validated_data, METADATA, 100, CREATOR)
+            get_publisher(self.account).validate_options(serializer.validated_data, METADATA, 100, CREATOR)
+
+    def test_all_publishers_reject_empty_and_oversized_exports(self):
+        for platform in Platform.values:
+            self.account.platform = platform
+            publisher = get_publisher(self.account)
+            for size in (0, 4 * 1024**3 + 1):
+                with self.subTest(platform=platform, size=size), self.assertRaises(ValidationError):
+                    publisher.validate_options({}, METADATA, size, {})
+
+    def test_instagram_validates_reel_format_and_caption(self):
+        publisher = instagram.InstagramPublisher(self.account)
+        options = {"caption": "A story"}
+        publisher.validate_options(options, METADATA, 100, {})
+        for metadata, size, caption in (
+            ({**METADATA, "duration": 2}, 100, "A story"),
+            ({**METADATA, "duration": 901}, 100, "A story"),
+            ({**METADATA, "width": 1921}, 100, "A story"),
+            ({**METADATA, "fps": 22}, 100, "A story"),
+            ({**METADATA, "fps": 61}, 100, "A story"),
+            (METADATA, 1024**3 + 1, "A story"),
+            (METADATA, 100, "😀" * 1101),
+        ):
+            with self.subTest(metadata=metadata, size=size, caption_length=len(caption)), self.assertRaises(ValidationError):
+                publisher.validate_options({"caption": caption}, metadata, size, {})
+
+    def test_tiktok_rechecks_creator_limits_before_upload(self):
+        job = self.new_job("tiktok")
+        job.options.update(privacy="SELF_ONLY", music_consent=True)
+        job.save(update_fields=["options"])
+        with patch("apps.publishing.services.creator_info", return_value={**CREATOR, "max_video_post_duration_sec": 5}), patch("apps.publishing.platforms.tiktok.TikTokPublisher.upload") as upload:
+            tasks.upload_job.run(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "FAILED")
+        self.assertIn("Nothing was uploaded", job.error)
+        upload.assert_not_called()
 
     def test_upload_urls_cannot_send_tokens_to_untrusted_hosts(self):
         for url in ("http://www.googleapis.com/upload", "https://evil.test/upload", "https://www.googleapis.com.evil.test/upload", "https://user@www.googleapis.com/upload"):

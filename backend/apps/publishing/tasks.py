@@ -9,7 +9,7 @@ from .models import Platform, PublishJob
 from .providers import ProviderError, access_token
 from .platforms import get_publisher
 from .platforms.common import update
-from .services import posting_context, validate_options
+from .services import posting_context
 
 
 @shared_task(soft_time_limit=3500, time_limit=3600, acks_late=False)
@@ -22,9 +22,9 @@ def upload_job(job_id):
         return
     try:
         token = access_token(job.account)
-        if job.platform == Platform.TIKTOK:
-            validate_options(job.account, job.options, job.metadata, job.media.size, posting_context(job.account))
         publisher = get_publisher(job.account, token)
+        if job.platform == Platform.TIKTOK:
+            publisher.validate_options(job.options, job.metadata, job.media.size, posting_context(job.account))
     except Exception:
         update(job, status=PublishJob.Status.FAILED, error="The account connection or posting permissions changed. Reconnect the account and review its settings. Nothing was uploaded.")
         return

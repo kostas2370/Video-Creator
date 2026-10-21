@@ -1,8 +1,14 @@
-"""Shared job persistence and binary transfers."""
+"""Shared publishing validation, job persistence and binary transfers."""
 
 import requests
+from rest_framework.exceptions import ValidationError
 
 from ..providers import ProviderError
+
+
+def validate_caption(caption):
+    if len(caption.encode("utf-16-le")) // 2 > 2200:
+        raise ValidationError({"caption": "Use at most 2200 characters, counting emoji as two characters."})
 
 
 def update(job, **values):

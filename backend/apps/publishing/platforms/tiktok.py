@@ -2,10 +2,12 @@
 
 from urllib.parse import quote
 
+from rest_framework.exceptions import ValidationError
+
 from ..models import Platform, PublishJob
 from ..providers import ProviderError, api, checked_upload_url
 from .base import Publisher
-from .common import put_binary, update
+from .common import put_binary, update, validate_caption
 
 API_URL = "https://open.tiktokapis.com/v2/post/publish"
 
@@ -16,6 +18,22 @@ def chunk_plan(size):
 
 
 class TikTokPublisher(Publisher):
+    def validate_options(self, options, metadata, size, context):
+        super().validate_options(options, metadata, size, context)
+        validate_caption(options["caption"])
+        if options["privacy"] not in (context.get("privacy_level_options") or []):
+            raise ValidationError({"privacy": "Choose a visibility currently available to this creator."})
+        maximum = context.get("max_video_post_duration_sec")
+        if not maximum or metadata["duration"] > maximum:
+            raise ValidationError("This export is longer than this TikTok account can post.")
+        for interaction in ("comment", "duet", "stitch"):
+            if context.get(interaction + "_disabled") and options["allow_" + interaction]:
+                raise ValidationError("An interaction you selected is disabled by this creator's TikTok settings.")
+        if not options["music_consent"]:
+            raise ValidationError("Accept TikTok's music and applicable branded-content terms before posting.")
+        if options["branded_content"] and options["privacy"] == "SELF_ONLY":
+            raise ValidationError("Branded content cannot be private on TikTok.")
+
     def upload(self, job):
         options = job.options
         size = job.media.size

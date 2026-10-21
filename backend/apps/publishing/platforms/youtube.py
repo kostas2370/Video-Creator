@@ -3,6 +3,7 @@
 from urllib.parse import quote
 
 import requests
+from rest_framework.exceptions import ValidationError
 
 from ..models import Platform, PublishJob
 from ..providers import ProviderError, api, checked_upload_url
@@ -14,6 +15,15 @@ UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 
 
 class YouTubePublisher(Publisher):
+    def validate_options(self, options, metadata, size, context):
+        super().validate_options(options, metadata, size, context)
+        if not options["title"]:
+            raise ValidationError({"title": "Add a video title."})
+        if options["privacy"] not in context["privacy_level_options"]:
+            raise ValidationError({"privacy": "Choose the video's visibility."})
+        if "made_for_kids" not in options:
+            raise ValidationError({"made_for_kids": "Choose whether this video is made for kids."})
+
     def upload(self, job):
         options = job.options
         size = job.media.size
