@@ -387,49 +387,8 @@ class SceneImage(UUIDModel):
         self._uploaded_file = None
         try:
             with transaction.atomic():
-                if not pending.file:
-                    self.asset = None
-                else:
-                    video = self.scene.video
-                    kind = (
-                        MediaAsset.Kind.VIDEO
-                        if check_if_video(pending.file.name)
-                        else MediaAsset.Kind.IMAGE
-                    )
-                    defaults = dict(
-                        title=f"{video.title} · Scene {self.scene.position}"[:100],
-                        tags=[
-                            "scene video"
-                            if kind == MediaAsset.Kind.VIDEO
-                            else "scene image"
-                        ],
-                        kind=kind,
-                        source_video=video,
-                    )
-                    if pending.file._committed:
-                        self.asset = MediaAsset.objects.filter(
-                            created_by=video.created_by, file=pending.file.name
-                        ).first() or MediaAsset.objects.create(
-                            created_by=video.created_by,
-                            file=pending.file.name,
-                            **defaults,
-                        )
-                    else:
-                        self.asset = MediaAsset.from_visual(
-                            user=video.created_by, upload=pending.file.file, **defaults
-                        )
-                        self._uploaded_file = getattr(
-                            self.asset, "_uploaded_file", None
-                        )
-                    if (
-                        self.asset.kind == MediaAsset.Kind.VIDEO
-                        and self.asset.duration is None
-                        and stored_file_exists(self.asset.file)
-                    ):
-                        self.asset.duration = file_timing(self.asset.file).get(
-                            "duration"
-                        )
-                        self.asset.save(update_fields=["duration"])
+                self.asset = MediaAsset.from_scene_file(self.scene, pending.file)
+                self._uploaded_file = getattr(self.asset, "_uploaded_file", None)
                 result = super().save(*args, **kwargs)
             del self._pending_asset
             return result
@@ -637,6 +596,36 @@ class MediaAsset(AbstractModel):
         ]
 
     @classmethod
+    def from_scene_file(cls, scene, file):
+        """Register an existing scene file or save its upload directly as an asset."""
+        if not file:
+            return None
+        kind = cls.Kind.VIDEO if check_if_video(file.name) else cls.Kind.IMAGE
+        defaults = {
+            "title": f"{scene.video.title} · Scene {scene.position}"[:100],
+            "tags": ["scene video" if kind == cls.Kind.VIDEO else "scene image"],
+            "kind": kind,
+            "source_video": scene.video,
+        }
+        if not file._committed:
+            return cls.from_visual(
+                user=scene.video.created_by, upload=file.file, **defaults
+            )
+        existing = cls.objects.filter(
+            created_by=scene.video.created_by, file=file.name
+        ).first()
+        if existing:
+            return existing
+        return cls.objects.create(
+            created_by=scene.video.created_by,
+            file=file.name,
+            duration=file_timing(file).get("duration")
+            if kind == cls.Kind.VIDEO
+            else None,
+            **defaults,
+        )
+
+    @classmethod
     def from_visual(
         cls, *, user, upload, title, tags, kind, duration=None, source_video=None
     ):
@@ -665,6 +654,8 @@ class MediaAsset(AbstractModel):
         saved_name = asset.file.name
         try:
             with transaction.atomic():
+                if kind == cls.Kind.VIDEO and duration is None:
+                    asset.duration = file_timing(asset.file).get("duration")
                 asset.save()
         except IntegrityError:
             asset.file.storage.delete(saved_name)
