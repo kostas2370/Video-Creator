@@ -8,7 +8,7 @@ from rest_framework.exceptions import APIException
 
 from apps.videomanagement.integrations import llm as llm
 from apps.videomanagement.integrations.llm import (
-    check_json,
+    script_errors,
     claude_call,
     gemini_call,
     get_reply,
@@ -56,33 +56,50 @@ def a_scene(*sentences):
 A_SENTENCE = {"sentence": "hello", "image_description": "a cat"}
 
 
-class CheckJsonTests(SimpleTestCase):
+class ScriptErrorsTests(SimpleTestCase):
     def test_accepts_a_reply_with_the_shape_the_pipeline_walks(self):
-        self.assertTrue(check_json(a_reply(a_scene(A_SENTENCE))))
+        self.assertFalse(script_errors(a_reply(a_scene(A_SENTENCE))))
 
     def test_rejects_a_reply_with_no_scenes_key(self):
-        self.assertFalse(check_json({"title": "t"}))
+        self.assertTrue(script_errors({"title": "t"}))
 
     def test_rejects_a_reply_with_no_title(self):
-        self.assertFalse(check_json({"scenes": [{"scene": "one"}]}))
+        self.assertTrue(script_errors({"scenes": [{"scene": "one"}]}))
 
     def test_rejects_an_empty_scene_list(self):
-        self.assertFalse(check_json({"title": "t", "scenes": []}))
+        self.assertTrue(script_errors({"title": "t", "scenes": []}))
 
     def test_rejects_scenes_that_are_not_labelled(self):
-        self.assertFalse(check_json({"title": "t", "scenes": [{"sentences": []}]}))
+        self.assertTrue(script_errors({"title": "t", "scenes": [{"sentences": []}]}))
 
     def test_rejects_a_scene_with_no_sentences(self):
-        self.assertFalse(check_json(a_reply({"scene": "one"})))
-        self.assertFalse(check_json(a_reply(a_scene())))
+        self.assertTrue(script_errors(a_reply({"scene": "one"})))
+        self.assertTrue(script_errors(a_reply(a_scene())))
 
     def test_rejects_a_sentence_with_nothing_to_illustrate(self):
-        self.assertFalse(check_json(a_reply(a_scene({"sentence": "hello"}))))
+        self.assertTrue(script_errors(a_reply(a_scene({"sentence": "hello"}))))
 
     def test_rejects_a_later_scene_that_is_malformed(self):
-        self.assertFalse(
-            check_json(a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []}))
+        self.assertTrue(
+            script_errors(a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []}))
         )
+
+    def test_rejects_invalid_types_and_empty_values(self):
+        for value in (None, [], {"title": "t", "scenes": "oops"},
+                      a_reply(None), a_reply(a_scene(None)),
+                      a_reply(a_scene({"image_description": " "})),
+                      a_reply(a_scene({"image_description": 1}))):
+            with self.subTest(value=value):
+                self.assertTrue(script_errors(value))
+
+    def test_validates_requested_narration_and_scene_count(self):
+        silent = a_reply(a_scene({"image_description": "cat"}))
+        spoken = a_reply(a_scene(A_SENTENCE))
+        self.assertFalse(script_errors(silent, narration=False, scene_count=1))
+        self.assertTrue(script_errors(silent, narration=True))
+        self.assertTrue(script_errors(spoken, narration=False))
+        self.assertTrue(script_errors(spoken, scene_count=2))
+        self.assertTrue(script_errors(a_reply(a_scene(A_SENTENCE, A_SENTENCE)), scene_count=1))
 
 
 class OfficialGptCallTests(SimpleTestCase):
@@ -188,6 +205,15 @@ class GetReplyRoutingTests(SimpleTestCase):
             "gemini": gemini.called,
         }
 
+    def test_omitted_model_uses_configured_default_and_matching_provider(self):
+        for model, provider in (("gpt-5.4-mini", "official_gpt_call"),
+                                ("claude-test", "claude_call"),
+                                ("gemini-test", "gemini_call")):
+            with self.subTest(model=model), override_settings(DEFAULT_GPT_MODEL=model):
+                with patch.object(llm, provider, return_value=io.StringIO(A_SCRIPT)) as call:
+                    get_reply("a prompt")
+                call.assert_called_once_with("a prompt", model, user=None)
+
     def test_sends_gpt_and_the_o_series_to_openai(self):
         for model in ("gpt-4", "gpt-5.4", "o1", "o3-mini", "o4-mini"):
             with self.subTest(model=model):
@@ -237,11 +263,20 @@ class GetReplyParsingTests(SimpleTestCase):
         with self.assertRaises(Exception) as caught:
             self.reply(*['{"title": "Cats"}'] * 5)
 
-        self.assertIn("Max gpt limit is 5", str(caught.exception))
+        self.assertIn("after 5 attempts", str(caught.exception))
 
-    def test_raises_rather_than_retrying_when_the_reply_is_not_json_at_all(self):
-        with self.assertRaises(APIException):
-            self.reply("I cannot help with that.")
+    def test_retries_non_json_with_correction_feedback(self):
+        parsed, call = self.reply("Not JSON", A_SCRIPT)
+        self.assertEqual(parsed["title"], "Cats")
+        self.assertIn("syntactically valid JSON", call.call_args.args[0])
+
+    def test_retry_explains_count_and_narration_errors(self):
+        import json
+        fixed = json.loads(A_SCRIPT)
+        fixed["scenes"] *= 2
+        parsed, call = self.reply(A_SCRIPT, json.dumps(fixed), scene_count=2, narration=True)
+        self.assertEqual(len(parsed["scenes"]), 2)
+        self.assertIn("exactly 2 scenes", call.call_args.args[0])
 
     def test_returns_the_raw_stream_when_no_json_was_asked_for(self):
         stream = io.StringIO("just words")
@@ -279,3 +314,22 @@ class SelectFromVisionTests(SimpleTestCase):
             "content"
         ]
         self.assertEqual([part["type"] for part in content[1:]], ["image_url"] * 3)
+
+    def test_rejects_ambiguous_or_out_of_range_selections(self):
+        for answer in ("", "12", "0", "4", "Image 2", "1 or 3"):
+            with self.subTest(answer=answer), self.assertRaises(APIException):
+                self.answer(answer)
+
+    def test_candidate_count_is_dynamic(self):
+        client = MagicMock()
+        client.chat.completions.create.return_value.choices[0].message.content = "2"
+        with patch.object(llm, "OpenAI", return_value=client):
+            self.assertEqual(select_from_vision("cat", ["a", "b"]), 1)
+        content = client.chat.completions.create.call_args.kwargs["messages"][0]["content"][0]["text"]
+        self.assertIn("these 2 images", content)
+        self.assertIn("1 to 2", content)
+
+    def test_rejects_empty_candidate_list_without_calling_provider(self):
+        with patch.object(llm, "OpenAI") as client, self.assertRaises(ValueError):
+            select_from_vision("cat", [])
+        client.assert_not_called()

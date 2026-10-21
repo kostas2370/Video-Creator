@@ -65,6 +65,7 @@ const Home = () => {
     voice_id: "",
     message: "",
     scene_count: 8,
+    ai_scene_editing: false,
     target_audience: "",
     image_mode: "WEB",
     gpt_model: "gpt-5.4-mini",
@@ -158,6 +159,7 @@ const Home = () => {
             (selectedTemplate.image_mode === "AI" ? "OPENAI" : "bing"),
           subtitles: selectedTemplate.subtitles ?? prevData.subtitles,
           narration: selectedTemplate.narration ?? prevData.narration,
+          ai_scene_editing: selectedTemplate.ai_scene_editing ?? false,
           avatar_position:
             selectedTemplate.avatar_position ?? prevData.avatar_position,
         }));
@@ -352,6 +354,10 @@ const Home = () => {
               <RiArrowDownSLine aria-hidden="true" className={`h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 ${settings ? "rotate-180" : ""}`} />
             </button>
             <div id="generation-settings" hidden={!settings} className={`${settings ? "grid" : "hidden"} gap-6 border-t border-gray-100 bg-gray-50/70 p-5 sm:grid-cols-2 sm:p-6 dark:border-gray-700 dark:bg-gray-900/20`}>
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:col-span-2 dark:border-gray-700 dark:bg-gray-800">
+                <input id="ai_scene_editing" name="ai_scene_editing" type="checkbox" checked={formData.ai_scene_editing} onChange={handleInputChange} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                <span><span className="block text-sm font-medium">AI scene editing</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">Choose subtle image motion, transitions, and pauses to suit your story. Video clips keep their own camera movement. Adjust everything in the scene editor afterward.</span></span>
+              </label>
               {field("target_audience", "Who is this for?", <input id="target_audience" name="target_audience" value={formData.target_audience} onChange={handleInputChange} className={inputClassName} placeholder="e.g. curious beginners" />, "Shapes the language and level of detail.")}
               {field("genre", "Tone or genre", <input id="genre" name="genre" value={formData.genre} onChange={handleInputChange} className={inputClassName} placeholder="e.g. documentary" />, "Give the script a style, such as documentary or playful.")}
               {field("gpt_model", "Script model", select("gpt_model", <><optgroup label="OpenAI">

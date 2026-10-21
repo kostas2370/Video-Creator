@@ -7,6 +7,8 @@ from django.db.models import Max
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.integrations.tts import ApiSyn, save
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.models import Scene, Video
 from apps.videomanagement.services.captions.alignment import align_scene_narration
 from apps.videomanagement.utils.file_utils import stored_file_exists
@@ -115,10 +117,23 @@ def ensure_scene_rows(video: Video):
 
     video.scenes.exclude(text__in=script_texts).delete()
 
+    choices = video.settings or {}
+    video_provider = (
+        choices.get("ai_scene_editing") and ImageProviderRegistry.is_video(
+            choices.get("provider"), user=video.created_by, mode=video.mode
+        )
+    )
     for line in lines:
         if line.text not in existing:
+            editing = {}
+            if choices.get("ai_scene_editing") and line.editing is not None:
+                plan = SceneEditingPlanSerializer(
+                    data=line.editing, context={"video_provider": video_provider}
+                )
+                plan.is_valid(raise_exception=True)
+                editing = dict(plan.validated_data)
             existing[line.text] = Scene.objects.create(
-                video=video, text=line.text, is_last=line.is_last
+                video=video, text=line.text, is_last=line.is_last, **editing
             )
 
     return lines, existing

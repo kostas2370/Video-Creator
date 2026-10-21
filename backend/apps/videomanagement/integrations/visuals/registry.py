@@ -14,8 +14,10 @@ class ImageProviderRegistry:
     video_providers = set()
 
     @classmethod
-    def is_video(cls, name, user=None):
-        """Resolve output metadata without sharing custom names across users."""
+    def is_video(cls, name, user=None, mode="AI"):
+        """Resolve output type for the active mode, scoped to the provider owner."""
+        if mode != "AI":
+            return False
         if name in cls._providers.get("AI", {}):
             return name in cls.video_providers
         if not name or not getattr(user, "is_authenticated", False):

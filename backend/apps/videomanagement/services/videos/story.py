@@ -13,16 +13,11 @@ from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
 from apps.videomanagement.services.scenes.jobs import QueueUnavailable, queue_scene_job
 from apps.videomanagement.services.scenes.narration import make_scene_speech
 from apps.videomanagement.services.videos.manual import create_manual_video
+from apps.videomanagement.utils.prompt_utils import build_story_draft_prompt
 
 
 def draft_story(user, prompt):
-    instructions = (
-        "Create a story draft following the user's prompt below. "
-        "Return ONLY a JSON object with title (at most 50 characters) and story "
-        "(plain narration only, no headings, scene directions, hashtags, or markdown). "
-        "The story must fit the editor's limit of 2000 characters.\nUser prompt: "
-        + json.dumps(prompt, ensure_ascii=False)
-    )
+    instructions = build_story_draft_prompt(prompt)
     reply = get_update_sentence(instructions, user=user)
     try:
         cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", reply.strip())

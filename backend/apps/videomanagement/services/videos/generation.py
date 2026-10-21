@@ -8,7 +8,6 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from slugify import slugify
 
-from apps.videomanagement.defaults import script_format
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import (
@@ -28,7 +27,7 @@ from apps.videomanagement.services.scenes.narration import (
 )
 from apps.videomanagement.services.scenes.visuals import create_image_scenes
 from apps.videomanagement.utils.file_utils import generate_directory
-from apps.videomanagement.utils.prompt_utils import format_prompt
+from apps.videomanagement.utils.prompt_utils import build_script_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
     clip's final frame as an input to the next scene.
     """
     if not image_mode or ImageProviderRegistry.is_video(
-        provider, user=video.created_by
+        provider, user=video.created_by, mode=image_mode
     ):
         make_scenes_speech(video)
         if image_mode:
@@ -123,6 +122,7 @@ def generate_video(
     platform: str = "GENERAL",
     scene_count: int = None,
     review_script: bool = False,
+    ai_scene_editing: bool = False,
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -186,18 +186,20 @@ def generate_video(
     )
 
     logger.info("Retrieved template")
-    template_format = script_format(
-        video=ImageProviderRegistry.is_video(provider, user=video.created_by),
-        narration=narration,
+    video_provider = ImageProviderRegistry.is_video(
+        provider, user=video.created_by, mode=image_mode
     )
-
-    prompt = format_prompt(
-        template_format=template_format,
+    prompt = build_script_prompt(
         genre=genre,
         userprompt=message,
         target_audience=target_audience,
         platform=platform,
         scene_count=scene_count,
+        image_mode=image_mode,
+        video=video_provider,
+        style=style,
+        narration=narration,
+        ai_scene_editing=ai_scene_editing,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -205,7 +207,12 @@ def generate_video(
         x = video.gpt_answer
         dir_name = video.dir_name
     else:
-        x = get_reply(prompt, gpt_model=gpt_model, user=video.created_by)
+        x = get_reply(
+            prompt, gpt_model=gpt_model, user=video.created_by,
+            narration=narration, scene_count=scene_count,
+            ai_scene_editing=ai_scene_editing,
+            video_provider=video_provider,
+        )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     user_prompt = video.prompt
@@ -228,6 +235,8 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if ai_scene_editing:
+        vid.settings["ai_scene_editing"] = True
     if scene_count is not None:
         vid.settings["scene_count"] = scene_count
     if review_script:

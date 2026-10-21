@@ -24,6 +24,7 @@ from ..video_formats import (
     VIDEO_FORMAT_CHOICES,
     VIDEO_PLATFORM_CHOICES,
 )
+from ..schemas.scene_editing import SceneEditingPlanSerializer
 from .audio import FiniteFloat
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
 
@@ -58,6 +59,7 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    ai_scene_editing = serializers.BooleanField(required=False, default=False)
     review_script = serializers.BooleanField(required=False, default=False)
     scene_count = serializers.IntegerField(
         required=False, allow_null=True, min_value=1, max_value=60
@@ -289,6 +291,7 @@ class AddScenesSerializer(ScenePositionSerializer):
 
 
 class StoryboardSentenceSerializer(serializers.Serializer):
+    editing = SceneEditingPlanSerializer(required=False)
     sentence = serializers.CharField(required=False, allow_blank=True, max_length=2000)
     image_description = serializers.CharField(max_length=2000)
 

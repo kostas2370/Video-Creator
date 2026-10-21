@@ -4,6 +4,7 @@ import logging
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, SceneImage, Video
 from apps.videomanagement.schemas.drafts import SceneDraftResultSerializer
 from apps.videomanagement.services.scenes.narration import make_scene_speech
@@ -13,7 +14,7 @@ from apps.videomanagement.services.scenes.visuals import (
     scene_reference,
 )
 from apps.videomanagement.utils.prompt_utils import (
-    format_scene_draft,
+    build_scene_draft_prompt,
     format_update_form,
 )
 
@@ -127,7 +128,14 @@ def draft_scene(
                 for scene in video.scenes.order_by("position").with_media()
             ],
         }
-    instructions = format_scene_draft(prompt, draft_type, sentence_count, scenario)
+    settings = video.settings or {}
+    instructions = build_scene_draft_prompt(
+        prompt, draft_type, sentence_count, scenario, image_mode=video.mode,
+        video=ImageProviderRegistry.is_video(
+            settings.get("provider"), user=video.created_by, mode=video.mode
+        ),
+        style=settings.get("style", ""),
+    )
     reply = get_update_sentence(instructions, user=video.created_by)
     try:
         # Accept the Markdown fences commonly returned by text-mode providers.

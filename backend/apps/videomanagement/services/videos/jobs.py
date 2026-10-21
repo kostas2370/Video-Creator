@@ -13,6 +13,8 @@ from apps.videomanagement.exceptions import (
     VideoEditConflict,
 )
 from apps.videomanagement.models import Video, VideoStatus, VideoType
+from apps.videomanagement.integrations.llm import script_errors
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.services.videos.generation import create_pending_video
 
 
@@ -117,6 +119,17 @@ def approve_script(video, storyboard):
         params = (video.settings or {}).get("generation_params")
         if not params:
             raise VideoEditConflict("Generation settings are missing.")
+        if params.get("ai_scene_editing"):
+            errors = script_errors(
+                storyboard, narration=params.get("narration", True),
+                scene_count=params.get("scene_count"), ai_scene_editing=True,
+                video_provider=ImageProviderRegistry.is_video(
+                    params.get("provider"), user=video.created_by,
+                    mode=params.get("image_mode", "WEB"),
+                ),
+            )
+            if errors:
+                raise ValidationError({"scenes": errors})
         video.gpt_answer = dict(storyboard)
         video.title = storyboard["title"]
         video.status = VideoStatus.GENERATION
