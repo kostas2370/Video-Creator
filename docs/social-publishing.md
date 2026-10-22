@@ -1,6 +1,6 @@
 # Creator publishing
 
-Creators can publish the last completed video export to YouTube, TikTok, or Instagram Reels from **Publish** in the editor toolbar. Open **Connections** from the main navigation to connect and manage accounts without creating a video. The editor’s **Publish** dialog links to Connections and offers a return to publishing. Each platform is connected by its official authorization screen. Viddie never asks for a creator's social password. This first release submits to one account at a time; scheduling and analytics are not included.
+Creators can publish the last completed video export to YouTube, TikTok, or Instagram Reels from **Publish** in the editor toolbar. Open **Connections** from the Account menu to connect and manage accounts without creating a video. The editor’s **Publish** dialog links to Connections and offers a return to publishing. Each platform is connected by its official authorization screen. Viddie never asks for a creator's social password. This first release submits to one account at a time; scheduling and analytics are not included.
 
 ## Account controls and code structure
 
