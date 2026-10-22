@@ -12,7 +12,7 @@ The publishing backend separates responsibilities:
 - `accounts.py` locks and updates encrypted account tokens. `oauth.py` owns browser binding, one-use state and saving connected identities.
 - `http.py` handles shared HTTP requests and upload URL checks.
 - `platforms/` contains publisher classes with validation, upload and processing-status methods. `services.py` prepares immutable exports; `tasks.py` runs uploads and polling.
-- `diagnostics.py` logs failed operations with platform, job/user reference and exception type. It omits exception messages, tracebacks, request URLs, credentials and provider response bodies. These logs use the existing application logging configuration.
+- `diagnostics.py` logs failed operations with platform, job/user reference, exception type, failed OAuth/upload-initialization step, HTTP status and an allowlisted provider error code. It omits exception messages, tracebacks, request URLs, credentials and provider response bodies. These logs use the existing application logging configuration.
 
 ## Developer app setup
 
@@ -54,6 +54,8 @@ Sources: [OAuth for server applications](https://developers.google.com/youtube/d
 ### TikTok
 
 Register an app with Login Kit and Content Posting API. Obtain approval for `user.info.basic` and `video.publish`. Configure the redirect and complete TikTok's review/audit before offering public Direct Post to external creators. Unreviewed clients face account and visibility restrictions; this integration does not override them. Direct Post is intended for creator-facing apps, not internal-only upload utilities.
+
+Before the app passes its audit, the posting TikTok account must be private and the creator must choose **Only me** (`SELF_ONLY`). Adding a sandbox Target user permits login but does not remove these posting restrictions. See [TikTok's content sharing guidelines](https://developers.tiktok.com/docs/en/content-sharing-guidelines). Known initialization rejections show the specific restriction and mark the job failed before any media transfer. Uncertain failures still require checking TikTok before retrying.
 
 The composer fetches current creator info, shows the creator's nickname and supported privacy options, leaves visibility unselected, and leaves comments/duet/stitch off by default. Account-disabled interactions cannot be enabled. Submission rechecks current creator constraints; the worker rechecks before starting the transfer. Commercial-content choices change the displayed label and required terms. The creator confirms the preview and music usage terms before submission. AI-generated disclosure is editable and passed to TikTok.
 

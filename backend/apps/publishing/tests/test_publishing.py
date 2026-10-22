@@ -467,6 +467,39 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(upload.call_args.kwargs["data"], b"snapshot")
         self.assertEqual(upload.call_args.kwargs["headers"]["Content-Range"], "bytes 0-7/8")
 
+    def test_tiktok_confirmed_init_rejection_explains_restriction_without_transferring(self):
+        job = self.new_job("tiktok")
+        job.options.update(privacy="SELF_ONLY", music_consent=True)
+        job.save(update_fields=["options"])
+        response = Mock(status_code=403)
+        response.json.return_value = {"error": {
+            "code": "unaudited_client_can_only_post_to_private_accounts", "message": "sensitive response",
+        }}
+        with patch("apps.publishing.services.creator_info", return_value=CREATOR), patch("apps.publishing.http.requests.request", return_value=response) as init, patch("apps.publishing.platforms.tiktok.put_binary") as transfer, patch("apps.publishing.tasks.schedule_status") as schedule:
+            tasks.upload_job.run(str(job.pk))
+            tasks.upload_job.run(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "FAILED")
+        self.assertIn("private TikTok account", job.error)
+        self.assertIn("Only me", job.error)
+        self.assertIn("Nothing was uploaded", job.error)
+        self.assertNotIn("sensitive", job.error)
+        self.assertFalse(job.remote_id)
+        init.assert_called_once()
+        transfer.assert_not_called()
+        schedule.assert_not_called()
+
+    def test_tiktok_unknown_init_failure_remains_uncertain(self):
+        job = self.new_job("tiktok")
+        job.options.update(privacy="SELF_ONLY", music_consent=True)
+        job.save(update_fields=["options"])
+        with patch("apps.publishing.services.creator_info", return_value=CREATOR), patch("apps.publishing.platforms.tiktok.request_json", side_effect=http.ProviderError("sensitive response", status=503)), patch("apps.publishing.platforms.tiktok.put_binary") as transfer:
+            tasks.upload_job.run(str(job.pk))
+        job.refresh_from_db()
+        self.assertEqual(job.status, "NEEDS_CHECK")
+        self.assertNotIn("sensitive", job.error)
+        transfer.assert_not_called()
+
     def test_youtube_status_marks_processed_upload_published(self):
         job = self.new_job(status="PROCESSING", remote_id="remote-video")
         result = {"items": [{"status": {"uploadStatus": "processed"}}]}

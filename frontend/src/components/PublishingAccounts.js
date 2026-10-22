@@ -14,7 +14,7 @@ export function PublishingAccounts({ connections, busy, onConnect, onDisconnect 
         </div>
         {platform.setup_message && <p className="mt-1 text-xs text-gray-500">{platform.setup_message}</p>}
         {platform.id === "instagram" && <p className="mt-1 text-xs text-gray-500">Use a Business or Creator account linked to a Facebook Page.</p>}
-        {platform.id === "tiktok" && <p className="mt-1 text-xs text-gray-500">Public posting requires TikTok to approve the app. During testing, the app owner must add your TikTok account to the sandbox's Target users before you can connect.</p>}
+        {platform.id === "tiktok" && <p className="mt-1 text-xs text-gray-500">Public posting requires TikTok to approve the app. During testing, connect a sandbox Target user, set your TikTok account to private, and choose “Only me” visibility when posting.</p>}
         {accounts.map(account => <div key={account.id} className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
           <div>
             <p>{account.display_name}</p>

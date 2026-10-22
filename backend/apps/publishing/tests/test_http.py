@@ -4,9 +4,30 @@ import requests
 from django.test import SimpleTestCase
 
 from apps.publishing.http import ProviderError, request_json
+from apps.publishing.diagnostics import log_failure
 
 
 class PlatformRequestTests(SimpleTestCase):
+    def test_oauth_error_status_and_allowlisted_code_are_available_without_raw_details(self):
+        response = Mock(status_code=400)
+        response.json.return_value = {"error": "invalid_grant", "error_description": "token=secret"}
+        with patch("apps.publishing.http.requests.request", return_value=response):
+            with self.assertRaises(ProviderError) as caught:
+                request_json("POST", "https://platform.test")
+        self.assertEqual(caught.exception.provider_code, "invalid_grant")
+        self.assertEqual(caught.exception.http_status, 400)
+        with self.assertLogs("apps.publishing", level="WARNING") as logs:
+            log_failure("oauth_callback", platform="tiktok", reference="callback", error=caught.exception)
+        self.assertIn("invalid_grant", logs.output[0])
+        self.assertNotIn("secret", logs.output[0])
+
+    def test_arbitrary_provider_error_codes_are_not_logged(self):
+        error = ProviderError("safe message", code="secret-in-code", status=400)
+        with self.assertLogs("apps.publishing", level="WARNING") as logs:
+            log_failure("oauth_callback", platform="tiktok", reference="callback", error=error)
+        self.assertIsNone(error.provider_code)
+        self.assertNotIn("secret", logs.output[0])
+
     def test_success_responses_include_tiktok_success_markers(self):
         for data in ({"id": "video"}, {"error": {"code": "ok"}}, {"error": {"code": 0}}):
             with self.subTest(data=data), patch("apps.publishing.http.requests.request", return_value=Mock(status_code=200, json=Mock(return_value=data))) as request:

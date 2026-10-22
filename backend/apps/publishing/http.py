@@ -8,7 +8,24 @@ from .models import Platform
 
 
 class ProviderError(Exception):
-    pass
+    SAFE_CODES = {
+        "access_denied", "invalid_client", "invalid_grant", "invalid_request",
+        "invalid_scope", "unauthorized_client", "access_token_invalid",
+        "scope_not_authorized", "invalid_token", "rate_limit_exceeded",
+        "server_error", "temporarily_unavailable",
+        "unaudited_client_can_only_post_to_private_accounts", "privacy_level_option_mismatch",
+        "spam_risk_too_many_posts", "spam_risk_user_banned_from_posting", "reached_active_user_cap",
+    }
+
+    def __init__(self, message, *, code=None, status=None):
+        super().__init__(message)
+        self.provider_code = code if isinstance(code, str) and code in self.SAFE_CODES else None
+        self.http_status = status
+        self.stage = None
+
+
+class UploadRejected(ProviderError):
+    """A confirmed rejection before media transfer, with a safe user message."""
 
 
 def request_json(method, url, token=None, **kwargs):
@@ -21,21 +38,26 @@ def request_json(method, url, token=None, **kwargs):
             method, url, headers=headers,
             timeout=(10, 90), allow_redirects=False, **kwargs,
         )
-        if not 200 <= response.status_code < 300:
-            raise ProviderError("The platform rejected the request. Check the account permissions and posting settings.")
-        data = response.json()
-    except (requests.RequestException, ValueError) as exc:
+    except requests.RequestException as exc:
         raise ProviderError("The platform request did not complete. Check its status before trying another upload.") from exc
 
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise ProviderError("The platform returned an unexpected response.", status=response.status_code) from exc
+
+    error = data.get("error") if isinstance(data, dict) else None
+    code = error.get("code") if isinstance(error, dict) else error
+    if not 200 <= response.status_code < 300:
+        raise ProviderError("The platform rejected the request. Check the account permissions and posting settings.", code=code, status=response.status_code)
     if not isinstance(data, dict):
         raise ProviderError("The platform returned an unexpected response.")
 
-    error = data.get("error")
     if error:
         # TikTok includes an error object with code "ok" on successful requests.
         is_success_status = isinstance(error, dict) and error.get("code") in (None, "ok", 0)
         if not is_success_status:
-            raise ProviderError("The platform could not complete the request. Check account permissions and posting limits.")
+            raise ProviderError("The platform could not complete the request. Check account permissions and posting limits.", code=code, status=response.status_code)
     return data
 
 

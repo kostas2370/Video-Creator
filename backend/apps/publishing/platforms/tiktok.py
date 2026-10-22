@@ -5,11 +5,18 @@ from urllib.parse import quote
 from rest_framework.exceptions import ValidationError
 
 from ..models import Platform, PublishJob
-from ..http import ProviderError, request_json, checked_upload_url
+from ..http import ProviderError, UploadRejected, request_json, checked_upload_url
 from .base import Publisher
 from .common import put_binary, update, validate_caption
 
 API_URL = "https://open.tiktokapis.com/v2/post/publish"
+INIT_ERRORS = {
+    "unaudited_client_can_only_post_to_private_accounts": "TikTok requires a private TikTok account and ‘Only me’ visibility while this app awaits its publishing audit. Nothing was uploaded.",
+    "privacy_level_option_mismatch": "TikTok rejected the selected visibility. Refresh the account settings and choose an available visibility. Nothing was uploaded.",
+    "spam_risk_too_many_posts": "This TikTok account has reached its daily posting limit. Try again later. Nothing was uploaded.",
+    "spam_risk_user_banned_from_posting": "TikTok has restricted posting for this account. Check the account in TikTok. Nothing was uploaded.",
+    "reached_active_user_cap": "This TikTok app has reached its daily creator limit. Try again later. Nothing was uploaded.",
+}
 
 
 def chunk_plan(size):
@@ -54,7 +61,16 @@ class TikTokPublisher(Publisher):
                 "chunk_size": chunk, "total_chunk_count": count,
             },
         }
-        result = request_json("POST", f"{API_URL}/video/init/", token=self.token, json=payload)["data"]
+        try:
+            result = request_json("POST", f"{API_URL}/video/init/", token=self.token, json=payload)["data"]
+        except ProviderError as exc:
+            exc.stage = "upload_initialization"
+            message = INIT_ERRORS.get(exc.provider_code)
+            if message and exc.http_status in (200, 400, 403, 429):
+                rejection = UploadRejected(message, code=exc.provider_code, status=exc.http_status)
+                rejection.stage = exc.stage
+                raise rejection from exc
+            raise
         update(job, remote_id=result["publish_id"])
         upload_url = checked_upload_url(result["upload_url"], Platform.TIKTOK)
         with job.media.open("rb") as source:

@@ -1,5 +1,6 @@
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from django.test import SimpleTestCase, override_settings
 
@@ -7,12 +8,21 @@ from apps.publishing.connections import get_connection, meta, tiktok, youtube
 from apps.publishing.diagnostics import log_failure
 from apps.publishing.http import ProviderError
 from apps.publishing.models import Platform
+from apps.publishing import oauth
 
 CONFIG = {platform: {"client_id": "client-id", "client_secret": "secret", "api_version": "v25.0"} for platform in Platform.values}
 
 
 @override_settings(SOCIAL_PUBLIC_BASE_URL="https://app.test", SOCIAL_PUBLISHING=CONFIG)
 class ConnectionTests(SimpleTestCase):
+    def test_oauth_failure_identifies_exchange_or_lookup_without_storing_raw_response(self):
+        for stage in ("token_exchange", "account_lookup"):
+            error = ProviderError("safe message", code="invalid_grant")
+            with self.subTest(stage=stage), patch.object(youtube, "exchange_code", side_effect=error if stage == "token_exchange" else None, return_value={"access_token": "private"}), patch.object(youtube, "identities", side_effect=error):
+                with self.assertRaises(ProviderError) as caught:
+                    oauth.finish(SimpleNamespace(platform="youtube"), "code")
+            self.assertEqual(caught.exception.stage, stage)
+
     def test_authorization_preserves_state_callback_and_platform_parameters(self):
         for platform, client_field, scope in (
             (Platform.YOUTUBE, "client_id", "https://www.googleapis.com/auth/youtube.upload"),
