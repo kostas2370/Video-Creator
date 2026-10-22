@@ -77,6 +77,11 @@ class SceneQuerySet(models.QuerySet):
         )
 
 
+class ActiveSceneManager(models.Manager.from_queryset(SceneQuerySet)):
+    def get_queryset(self):
+        return super().get_queryset().filter(archived_at__isnull=True)
+
+
 class VoiceModelQuerySet(models.QuerySet):
     def available_to(self, user):
         """Shared/account voices plus ready clones created with the active key."""

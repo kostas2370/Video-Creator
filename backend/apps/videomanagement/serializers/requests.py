@@ -17,6 +17,7 @@ from ..models import (
     Outro,
     TransitionStyle,
 )
+from ..schemas.scene_editing import SceneEditingPlanSerializer
 from ..utils.file_utils import check_if_video
 from ..video_formats import (
     DEFAULT_VIDEO_FORMAT,
@@ -24,7 +25,6 @@ from ..video_formats import (
     VIDEO_FORMAT_CHOICES,
     VIDEO_PLATFORM_CHOICES,
 )
-from ..schemas.scene_editing import SceneEditingPlanSerializer
 from .audio import FiniteFloat
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
 
@@ -322,12 +322,28 @@ class StoryboardSerializer(serializers.Serializer):
 
 
 class ReorderScenesSerializer(serializers.Serializer):
+    expected_scene_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, allow_empty=True
+    )
     scene_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=False)
 
     def validate_scene_ids(self, values):
         if len(set(values)) != len(values):
             raise serializers.ValidationError("Include each scene exactly once.")
         return values
+
+
+class RestoreSceneSerializer(ReorderScenesSerializer):
+    scene_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, allow_empty=False
+    )
+    expected_scene_ids = serializers.ListField(
+        child=serializers.UUIDField(), allow_empty=True
+    )
+
+
+class SceneOrderSerializer(serializers.Serializer):
+    scene_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=True)
 
 
 class SceneTransitionSerializer(serializers.Serializer):

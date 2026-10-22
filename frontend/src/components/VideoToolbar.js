@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  HiOutlineArrowPath, HiOutlineArrowUpTray, HiOutlineClock,
+  HiOutlineArrowPath, HiOutlineArrowUturnLeft, HiOutlineArrowUpTray, HiOutlineClock,
   HiOutlineAdjustmentsHorizontal, HiOutlineChevronDown, HiOutlineCog6Tooth, HiOutlinePhoto, HiOutlinePlay, HiOutlineSquares2X2,
 } from "react-icons/hi2";
 import { formatDuration } from "../utils/timing";
@@ -10,7 +10,7 @@ const actionFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visib
 
 export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, processing,
   canPreview, canExport, renderPending, saving, isResumable,
-  onPreview, onViewRendered, onSettings, onCover, onExport, onResume, tagsAction }) {
+  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onSettings, onCover, onExport, onResume, tagsAction }) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const exporting = renderPending || video?.status === "RENDERING";
   const exportHint = canExport ? "Export your current edit" : saving ? "Wait for your changes to save" : !sceneCount ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`;
@@ -33,6 +33,7 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
         {tagsAction}
       </div>
     <div aria-label="Project overview" className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 px-2 pb-1 pt-2 text-[11px] text-gray-500 dark:border-gray-700/70 dark:text-gray-400">
+      {onUndo && <button type="button" disabled={!canUndo} title={undoStale ? "Scene order changed. Undo is unavailable for this earlier action." : undoLabel} aria-label={undoLabel} onClick={onUndo} className="inline-flex items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-blue-600 disabled:text-gray-400 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300"><HiOutlineArrowUturnLeft aria-hidden="true" className="h-3.5 w-3.5" />Undo</button>}
       <span role="status" className="inline-flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-200"><span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${statusColor} ${processing ? "motion-safe:animate-pulse" : ""}`} />{statusLabel}</span>
       <span className="inline-flex items-center gap-1.5"><HiOutlineSquares2X2 aria-hidden="true" className="h-3.5 w-3.5" />{sceneCount} {sceneCount === 1 ? "scene" : "scenes"}</span>
       <span className="inline-flex items-center gap-1.5"><HiOutlineClock aria-hidden="true" className="h-3.5 w-3.5" />{formatDuration(runtime)}</span>

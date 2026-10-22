@@ -1,4 +1,5 @@
 """Keep editor response query counts independent of the number of scenes."""
+
 from unittest.mock import patch
 
 from django.db import connection
@@ -6,6 +7,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from ...baker_recipes import intro, outro, scene, scene_image
+from ...models import Scene
 from .base import ApiTestCase
 
 
@@ -21,16 +23,40 @@ class VideoQueryScalingTests(ApiTestCase):
         return video
 
     def query_count(self, video, action):
-        with patch("apps.videomanagement.services.scenes.editing.publish_update"), CaptureQueriesContext(connection) as queries:
-            if action == "update":
+        ids = list(video.scenes.values_list("pk", flat=True))
+        removed = (
+            Scene.all_objects.filter(video=video, archived_at__isnull=False).first()
+            if action == "restore"
+            else None
+        )
+        with (
+            patch("apps.videomanagement.services.scenes.editing.publish_update"),
+            CaptureQueriesContext(connection) as queries,
+        ):
+            if action == "archive":
+                response = self.client.post(
+                    reverse("scene-archive", args=[ids[-1]]),
+                    {"scene_ids": [str(pk) for pk in ids]},
+                    format="json",
+                )
+            elif action == "restore":
+                response = self.client.post(
+                    reverse("scene-restore", args=[removed.pk]),
+                    {"expected_scene_ids": [str(pk) for pk in ids]},
+                    format="json",
+                )
+            elif action == "update":
                 response = self.client.patch(
-                    reverse("video-detail", args=[video.pk]), {"title": "Updated"}, format="json"
+                    reverse("video-detail", args=[video.pk]),
+                    {"title": "Updated"},
+                    format="json",
                 )
             elif action == "reorder":
                 ids = list(video.scenes.values_list("pk", flat=True))
                 response = self.client.post(
                     reverse("video-reorder-scenes", args=[video.pk]),
-                    {"scene_ids": [str(pk) for pk in reversed(ids)]}, format="json",
+                    {"scene_ids": [str(pk) for pk in reversed(ids)]},
+                    format="json",
                 )
             else:
                 response = self.client.get(reverse("video-detail", args=[video.pk]))
@@ -42,9 +68,11 @@ class VideoQueryScalingTests(ApiTestCase):
     def test_editor_query_counts_do_not_grow_with_scene_count(self):
         small = self.make_video(2)
         large = self.make_video(20)
-        for action in ("detail", "update", "reorder"):
+        for action in ("detail", "update", "reorder", "archive", "restore"):
             with self.subTest(action=action):
                 small_count = self.query_count(small, action)
                 large_count = self.query_count(large, action)
-                print(f"QUERY SCALING {action}: 2 scenes={small_count}, 20 scenes={large_count}")
+                print(
+                    f"QUERY SCALING {action}: 2 scenes={small_count}, 20 scenes={large_count}"
+                )
                 self.assertEqual(large_count, small_count)

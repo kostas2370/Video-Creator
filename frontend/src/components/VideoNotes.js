@@ -1,3 +1,4 @@
+import { RememberedDetails } from "./ui/RememberedDetails";
 import { useEffect, useState } from "react";
 import { HiOutlinePencilSquare } from "react-icons/hi2";
 import { saveVideoNotes } from "../api/apiService";
@@ -46,7 +47,7 @@ export function VideoNotes({ videoId, notes = "", onSaved }) {
     finally { setSaving(false); }
   };
 
-  return <details className="editor-panel mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+  return <RememberedDetails videoId={videoId} panel="projectNotes" className="editor-panel mb-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
     <summary className="cursor-pointer text-sm font-semibold"><span className="ml-1 inline-flex items-center gap-2 align-middle"><HiOutlinePencilSquare aria-hidden="true" className="h-4 w-4 text-blue-500" />Project notes</span><span className="ml-3 text-xs font-normal text-gray-500 dark:text-gray-400">{dirty ? "Unsaved changes" : notes ? "View notes" : "Ideas, reminders & feedback"}</span></summary>
     <div className="mt-4">
       <label htmlFor="video-notes" className="block text-xs text-gray-500 dark:text-gray-400">Keep your project reminders here. Notes are saved with this video and are not included in exports.</label>
@@ -55,5 +56,5 @@ export function VideoNotes({ videoId, notes = "", onSaved }) {
       {conflict !== null && <div className="mt-3 rounded-xl border border-amber-200 p-3 text-sm dark:border-amber-700"><p>Another session saved different notes. Copy anything you need from your draft before loading the saved version.</p><button type="button" onClick={() => { if (window.confirm("Replace this draft with the latest saved notes?")) { setDraft(conflict); setBaseline(conflict); onSaved(conflict); setConflict(null); setError(""); } }} className="mt-2 font-semibold text-blue-600 dark:text-blue-300">Load saved notes</button></div>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p role="status" className="text-xs text-gray-500 dark:text-gray-400">{saving ? "Saving notes…" : dirty ? "Unsaved changes" : saved ? "Notes saved" : ""}<span className="ml-2">{draft.length.toLocaleString()}/10,000</span></p><button type="button" disabled={!dirty || saving || conflict !== null} onClick={save} className={editorButton}>{saving ? "Saving…" : "Save notes"}</button></div>
     </div>
-  </details>;
+  </RememberedDetails>;
 }

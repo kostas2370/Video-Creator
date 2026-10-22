@@ -21,7 +21,7 @@ def delete_media_asset(asset):
             asset.delete()
         except RestrictedError as exc:
             raise ValidationError(
-                "This asset is used by a video. Remove it from its scenes first."
+                "This asset is used by a video or a scene in Recently deleted. Recovery keeps its media available for 7 days."
             ) from exc
 
 

@@ -1154,3 +1154,11 @@ provider error messages may contain provider details, so restrict access to logs
 Server startup output and third-party print statements may remain plain text.
 Console output still needs retention/rotation configured by the deployment. This
 change does not add an external error-reporting service or alerting.
+
+### Scene recovery and editor preferences
+
+The editor remembers the selected scene and expanded editing panels in browser storage for each video. Undo keeps the last 20 scene moves/removals in memory for the current visit; reloading clears that history.
+
+Removing a scene archives it with its media and settings for seven days. **Project extras → Recently deleted** lists recoverable scenes and their deadlines, and supports restoration after reloading or returning on another device. Restoration checks ownership, processing status, and the expected current scene order. Expired scenes cannot be restored even if cleanup has not run yet.
+
+Celery Beat schedules `apps.videomanagement.tasks.purge_deleted_scenes` daily. Cleanup locks and rechecks each scene, skips videos being processed, and uses bounded batches with follow-up jobs for larger backlogs. Files referenced elsewhere and reusable Media Library assets are preserved. Apply database migrations and restart the API, Celery workers, and Celery Beat when deploying these changes.

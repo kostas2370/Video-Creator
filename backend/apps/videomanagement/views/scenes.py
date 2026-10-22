@@ -14,15 +14,20 @@ from apps.videomanagement.serializers.audio import (
     SceneAudioSerializer,
     VoiceoverUploadSerializer,
 )
-from apps.videomanagement.serializers.models import SceneSerializer
+from apps.videomanagement.serializers.models import (
+    SceneSerializer,
+    VideoNestedSerializer,
+)
 from apps.videomanagement.serializers.overlays import SceneOverlaysSerializer
 from apps.videomanagement.serializers.requests import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
     ManualTextSerializer,
+    RestoreSceneSerializer,
     SceneImageQuerySerializer,
     SceneJobQuerySerializer,
     SceneMotionSerializer,
+    SceneOrderSerializer,
     SceneTimingSerializer,
     SceneTransitionSerializer,
     SceneUpdateSerializer,
@@ -38,7 +43,9 @@ from apps.videomanagement.services.scenes.audio import (
     update_audio,
 )
 from apps.videomanagement.services.scenes.editing import (
+    archive_scene,
     delete_scene,
+    restore_scene,
     update_scene_image,
     update_scene_motion,
     update_scene_timing,
@@ -50,6 +57,7 @@ from apps.videomanagement.services.scenes.jobs import (
     scene_job_result,
 )
 from apps.videomanagement.services.scenes.overlays import update_overlays
+from apps.videomanagement.services.videos.details import load_video_detail
 from apps.videomanagement.tasks import generate_scene_image_task, rewrite_scene_task
 
 
@@ -61,6 +69,11 @@ class SceneView(viewsets.GenericViewSet):
         IsOwnerPermission,
     ]
 
+    def get_queryset(self):
+        if self.action == "restore":
+            return Scene.all_objects.all()
+        return super().get_queryset()
+
     def get_serializer_class(self):
         if self.action == "partial_update" and not getattr(
             self, "swagger_fake_view", False
@@ -71,6 +84,8 @@ class SceneView(viewsets.GenericViewSet):
             ):
                 return ManualTextSerializer
         return {
+            "archive": SceneOrderSerializer,
+            "restore": RestoreSceneSerializer,
             "captions": SceneCaptionsSerializer,
             "overlays": SceneOverlaysSerializer,
             "audio": SceneAudioSerializer,
@@ -280,6 +295,30 @@ class SceneView(viewsets.GenericViewSet):
         query.is_valid(raise_exception=True)
         operation = scene_job_result(scene, query.validated_data["job"])
         return Response(operation, headers={"Cache-Control": "private, no-store"})
+
+    @action(detail=True, methods=["POST"])
+    def archive(self, request, pk=None):
+        scene = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video = archive_scene(scene, **serializer.validated_data)
+        return Response(
+            VideoNestedSerializer(
+                load_video_detail(video.pk), context=self.get_serializer_context()
+            ).data
+        )
+
+    @action(detail=True, methods=["POST"])
+    def restore(self, request, pk=None):
+        scene = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video = restore_scene(scene, **serializer.validated_data)
+        return Response(
+            VideoNestedSerializer(
+                load_video_detail(video.pk), context=self.get_serializer_context()
+            ).data
+        )
 
     def destroy(self, request, pk):
         delete_scene(self.get_object())
