@@ -12,7 +12,7 @@ The publishing backend separates responsibilities:
 - `accounts.py` locks and updates encrypted account tokens. `oauth.py` owns browser binding, one-use state and saving connected identities.
 - `http.py` handles shared HTTP requests and upload URL checks.
 - `platforms/` contains publisher classes with validation, upload and processing-status methods. `services.py` prepares immutable exports; `tasks.py` runs uploads and polling.
-- `diagnostics.py` logs failed operations with platform, job/user reference and exception type. It omits exception messages, tracebacks, request URLs, credentials and provider response bodies. These logs use the existing application logging configuration.
+- `diagnostics.py` logs failed operations with platform, job/user reference, exception type, failed OAuth/upload-initialization step, HTTP status and an allowlisted provider error code. It omits exception messages, tracebacks, request URLs, credentials and provider response bodies. These logs use the existing application logging configuration.
 
 ## Developer app setup
 
@@ -47,11 +47,15 @@ Enable YouTube Data API v3 in a Google Cloud project and create a Web applicatio
 
 Creators explicitly choose public, unlisted, or private visibility and whether the content is made for kids. The upload sets the altered/synthetic media disclosure selected by the creator. A processed private or unlisted upload is still reported as successfully completed; this does not mean it is public.
 
+YouTube publishing also snapshots the saved project cover, or its existing library thumbnail when no cover is available. The form previews the image; the worker sends a JPEG copy through `thumbnails.set` after the video upload succeeds. The channel must have custom-thumbnail access. A thumbnail failure appears as a warning without failing or repeating the video upload; check or replace that image in YouTube Studio. If neither image exists, no custom thumbnail is sent. Existing published videos are not changed automatically.
+
 Sources: [OAuth for server applications](https://developers.google.com/youtube/data/guides/auth/server-side-web-apps), [video uploads](https://developers.google.com/youtube/data/reference/rest/v3/videos/insert), [resumable uploads](https://developers.google.com/youtube/data/guides/using_resumable_upload_protocol).
 
 ### TikTok
 
 Register an app with Login Kit and Content Posting API. Obtain approval for `user.info.basic` and `video.publish`. Configure the redirect and complete TikTok's review/audit before offering public Direct Post to external creators. Unreviewed clients face account and visibility restrictions; this integration does not override them. Direct Post is intended for creator-facing apps, not internal-only upload utilities.
+
+Before the app passes its audit, the posting TikTok account must be private and the creator must choose **Only me** (`SELF_ONLY`). Adding a sandbox Target user permits login but does not remove these posting restrictions. See [TikTok's content sharing guidelines](https://developers.tiktok.com/docs/en/content-sharing-guidelines). Known initialization rejections show the specific restriction and mark the job failed before any media transfer. Uncertain failures still require checking TikTok before retrying.
 
 The composer fetches current creator info, shows the creator's nickname and supported privacy options, leaves visibility unselected, and leaves comments/duet/stitch off by default. Account-disabled interactions cannot be enabled. Submission rechecks current creator constraints; the worker rechecks before starting the transfer. Commercial-content choices change the displayed label and required terms. The creator confirms the preview and music usage terms before submission. AI-generated disclosure is editable and passed to TikTok.
 
@@ -73,12 +77,14 @@ On macOS or Linux, install `cloudflared` and Docker, start the Docker app, then 
 
 ```bash
 # Enable public access; keep this terminal open.
-python3 scripts/local-tunnel.py start
+python3 scripts/local-tunnel.py
 
 # In another terminal, inspect or disable the managed tunnel.
 python3 scripts/local-tunnel.py status
 python3 scripts/local-tunnel.py stop
 ```
+
+The action defaults to `start`; the existing explicit `start` command still works.
 
 Start creates a temporary public HTTPS address for port 3000, updates only `SOCIAL_PUBLIC_BASE_URL` and `FRONTEND_URL` in your ignored `backend/.env`, and reloads the backend and workers. It prints the three callback URLs to register in the developer dashboards. Dashboard callbacks and policy/website URLs must still be updated manually when the hostname changes. Logs and local control files are ignored under `backend/.local-tunnel/`. Stop and Ctrl+C end public access without stopping the Docker app. These controls manage only tunnels launched by this script; stop any older manually launched tunnel from its own terminal first. Stopping the app with `docker compose down` makes the public link unavailable even if the tunnel is still running. Restarting the script creates a new address.
 
@@ -87,6 +93,8 @@ For the Docker development stack, point the tunnel at the frontend on port 3000.
 Set both `SOCIAL_PUBLIC_BASE_URL` and `FRONTEND_URL` to that HTTPS origin, register the exact callback URLs with the providers, and recreate the backend and worker containers to reload their environment. Open Viddie through that HTTPS address and sign in there before connecting an account. Tunnel hostnames are temporary: update configuration and provider redirect URLs whenever the hostname changes. Cloudflare Quick Tunnels do not support SSE, so live progress notifications may not work through this test tunnel.
 
 Google's testing consent screen must list the test account and declare `youtube.upload` and `youtube.readonly`; enable YouTube Data API v3. For TikTok, use a named sandbox and its own client credentials, configure Web/Login Kit and Direct Post, and authorize a target test account in the sandbox dashboard. The sandbox form also requires an app icon, category and published legal-page URLs before saving changes. Viddie's public `/terms/` and `/privacy/` pages were approved by the operator for the local testing deployment; review their content and deployment-specific disclosures before a production launch. Platform review and public-posting restrictions still apply.
+
+TikTok's `non_sandbox_target` login error means the TikTok account has not been added to the sandbox's target users. In the developer console, open the matching app and sandbox, then **Sandbox settings → Target users → Add account**. Sign in to the TikTok account you will publish to. TikTok says new target users can take up to an hour to appear; then connect again from Viddie. See [TikTok's sandbox guide](https://developers.tiktok.com/docs/en/add-a-sandbox). This is a login restriction before an upload job is created.
 
 ### Verification
 
@@ -104,5 +112,5 @@ Google's testing consent screen must list the test account and declare `youtube.
 - Repeated submissions use an idempotency key. Workers claim jobs once. An uncertain remote result is never automatically uploaded again. Instagram's final publishing step is claimed separately so competing polls cannot publish it twice.
 - `NEEDS_CHECK` means inspect the destination before starting another post. Refresh can query a known YouTube/TikTok upload without uploading again. An uncertain Instagram publish is not automatically repeated.
 - The first release supports exports up to 4 GB. Instagram enforces the Reel limits documented by Meta's collection (including a 1 GB maximum). It does not transcode incompatible exports automatically.
-- Snapshots use `PUBLISHING_SNAPSHOT_ROOT` (default `backend/private-publishing/`), outside public media routes. Mount durable private storage there for backend and workers. Upload snapshots and job history remain until their job/project is deleted; factor their storage into retention planning. Scheduling, public webhooks, custom YouTube thumbnails, and analytics are future work.
+- Snapshots use `PUBLISHING_SNAPSHOT_ROOT` (default `backend/private-publishing/`), outside public media routes. Mount durable private storage there for backend and workers. Upload snapshots, thumbnail snapshots and job history remain until their job/project is deleted; factor their storage into retention planning. Scheduling, public webhooks, and analytics are future work.
 - Automated tests mock provider calls. Credentials and platform approval are required for real end-to-end validation; passing tests does not imply an app has been reviewed by a platform.

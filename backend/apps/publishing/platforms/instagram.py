@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from ..models import PublishJob
-from ..http import ProviderError, api
+from ..http import ProviderError, request_json
 from ..connections.meta import meta_base
 from .base import Publisher
 from .common import update, validate_caption
@@ -38,14 +38,14 @@ class InstagramPublisher(Publisher):
             "caption": job.options["caption"],
             "share_to_feed": str(job.options["share_to_feed"]).lower(),
         }
-        result = api(
+        result = request_json(
             "POST", f"{meta_base()}/{self.account.external_id}/media",
             token=self.token, data=payload,
         )
         update(job, remote_id=result["id"], status=PublishJob.Status.PROCESSING)
 
     def check_status(self, job):
-        result = api(
+        result = request_json(
             "GET", f"{meta_base()}/{job.remote_id}", token=self.token,
             params={"fields": "status_code"},
         )
@@ -63,13 +63,13 @@ class InstagramPublisher(Publisher):
         if not claimed:
             return
         job.status = PublishJob.Status.PUBLISHING
-        published = api(
+        published = request_json(
             "POST", f"{meta_base()}/{self.account.external_id}/media_publish",
             token=self.token, data={"creation_id": job.remote_id},
         )
         update(job, remote_id=published["id"], status=PublishJob.Status.PUBLISHED)
         try:
-            permalink = api(
+            permalink = request_json(
                 "GET", f"{meta_base()}/{job.remote_id}", token=self.token,
                 params={"fields": "permalink"},
             )

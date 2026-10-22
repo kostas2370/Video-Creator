@@ -83,6 +83,10 @@ class CallbackView(APIView):
             if request.query_params.get("code") and not request.query_params.get("error"):
                 oauth.finish(attempt, request.query_params["code"])
                 result = "connected"
+            elif platform == Platform.TIKTOK and "non_sandbox_target" in (
+                request.query_params.get("error"), request.query_params.get("error_type"),
+            ):
+                result = "tiktok_sandbox_required"
         except (ValidationError, ProviderError, KeyError, ValueError, TypeError) as exc:
             log_failure("oauth_callback", platform=platform, reference="callback", error=exc)
         response = HttpResponseRedirect(settings.FRONTEND_URL + target + "?" + urlencode({"publishing": result}))

@@ -41,9 +41,9 @@ function Navbar({ theme, toggleTheme }) {
   return (
     <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        <NavLink to="/" aria-label="Video Creator home" className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm"><HiOutlineFilm aria-hidden="true" className="h-5 w-5" /></span>
-          <span className="hidden text-base font-bold tracking-tight text-gray-900 sm:block dark:text-white">Video Creator</span>
+        <NavLink to="/" aria-label="Viddie home" className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+          <img src="/viddie-icon.svg" alt="" className="h-9 w-9 rounded-xl shadow-sm" />
+          <span className="hidden text-base font-bold tracking-tight text-gray-900 sm:block dark:text-white">Viddie</span>
         </NavLink>
         <nav aria-label="Main navigation" className="hidden items-center gap-1 md:flex">
           {links(false)}

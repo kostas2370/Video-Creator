@@ -36,7 +36,11 @@ export function PublishVideo({ video, disabled = false }) {
 
   const load = async () => {
     const [linked, history] = await Promise.all([getSocialConnections(), getPublishJobs(video.id)]);
-    if (linked.ok) setConnections(linked.data);
+    if (linked.ok) {
+      setConnections(linked.data);
+      const available = linked.data.accounts.filter(account => !account.needs_reconnect);
+      if (available.length === 1) setAccountId(previous => previous || available[0].id);
+    }
     if (history.ok) setJobs(history.data);
     if (!linked.ok || !history.ok) setError(linked.message || history.message || "Publishing details could not be loaded.");
   };
@@ -47,6 +51,7 @@ export function PublishVideo({ video, disabled = false }) {
     load().finally(() => { if (current) setLoading(false); });
     const result = new URLSearchParams(window.location.search).get("publishing");
     if (result === "failed") setError("The account connection did not finish. Check the developer app setup and try connecting again.");
+    if (result === "tiktok_sandbox_required") setError("This TikTok account is not enabled for testing. The app owner must add it under Sandbox settings → Target users, then connect it again.");
     return () => { current = false; };
     // Reload once when this video's publishing dialog opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,6 +137,9 @@ export function PublishVideo({ video, disabled = false }) {
             {account && <>
               {platform === "tiktok" && <p className="text-sm">Posting as <strong>{context?.creator_nickname || account.display_name}</strong>{context?.max_video_post_duration_sec ? ` · Up to ${context.max_video_post_duration_sec} seconds` : ""}</p>}
               {platform === "youtube" && <label className="block text-sm">Title<input required name="title" value={options.title} maxLength={100} onChange={change} className={`${editorInput} mt-1`} /></label>}
+              {platform === "youtube" && <div className="text-sm text-gray-500">
+                {video.cover || video.thumbnail ? <><img src={video.cover || video.thumbnail} alt="Thumbnail to upload to YouTube" className="mb-2 max-h-36 rounded-lg" /><p>Your saved thumbnail will be uploaded with this video. Your channel needs access to custom thumbnails.</p></> : <p>No saved thumbnail. YouTube will choose a frame automatically. Create a cover first to use a custom thumbnail.</p>}
+              </div>}
               <label className="block text-sm">{platform === "youtube" ? "Description" : "Caption and hashtags"}<textarea name="caption" value={options.caption} rows={4} maxLength={platform === "youtube" ? 5000 : 2200} onChange={change} className={`${editorInput} mt-1`} /></label>
               {platform !== "instagram" && <label className="block text-sm">Visibility<select required name="privacy" value={options.privacy} onChange={change} className={`${editorInput} mt-1`}><option value="">Choose visibility</option>{(context?.privacy_level_options || []).map(value => <option key={value} value={value} disabled={platform === "tiktok" && options.branded_content && value === "SELF_ONLY"}>{privacyNames[value] || value}</option>)}</select></label>}
               {platform === "youtube" && <label className="block text-sm">Audience<select required name="made_for_kids" value={options.made_for_kids} onChange={change} className={`${editorInput} mt-1`}><option value="">Is this video made for kids?</option><option value="yes">Yes, made for kids</option><option value="no">No, not made for kids</option></select></label>}
@@ -151,7 +159,7 @@ export function PublishVideo({ video, disabled = false }) {
           {submitted && <p role="status" className="text-sm text-emerald-600">Request saved. Follow its status below. Use Start another post to publish to another account.</p>}
           {submitted && <button type="button" onClick={() => { requestId.current = null; setSubmitted(false); setAccountId(""); }} className="text-sm text-blue-600 underline">Start another post</button>}
         </form>}
-        {jobs.length > 0 && <section className="space-y-3" aria-label="Publishing history"><h3 className="font-semibold">Publishing history</h3>{jobs.map(job => <article key={job.id} className="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700"><p className="font-medium">{job.platform} · {job.account_name}</p><p role="status" className="mt-1">{statuses[job.status] || job.status}</p>{job.error && <p className="mt-1 text-amber-700 dark:text-amber-400">{job.error}</p>}{job.url && <a href={job.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-blue-600 underline">View on platform</a>}{(active.has(job.status) || job.status === "NEEDS_CHECK") && <button type="button" disabled={!!busy} onClick={() => refresh(job)} className="ml-3 text-blue-600 underline">Refresh status</button>}</article>)}</section>}
+        {jobs.length > 0 && <section className="space-y-3" aria-label="Publishing history"><h3 className="font-semibold">Publishing history</h3>{jobs.map(job => <article key={job.id} className="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700"><p className="font-medium">{job.platform} · {job.account_name}</p><p role="status" className="mt-1">{statuses[job.status] || job.status}</p>{job.error && <p className="mt-1 text-amber-700 dark:text-amber-400">{job.error}</p>}{job.warning && <p className="mt-1 text-amber-700 dark:text-amber-400">{job.warning}</p>}{job.url && <a href={job.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-blue-600 underline">View on platform</a>}{(active.has(job.status) || job.status === "NEEDS_CHECK") && <button type="button" disabled={!!busy} onClick={() => refresh(job)} className="ml-3 text-blue-600 underline">Refresh status</button>}</article>)}</section>}
         {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       </div>
     </EditorDialog>

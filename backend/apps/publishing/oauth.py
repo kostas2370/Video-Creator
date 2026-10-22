@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 
 from .models import OAuthAttempt, SocialAccount
 from .connections import get_connection
+from .http import ProviderError
 
 COOKIE_NAME = "publishing_oauth"
 COOKIE_PATH = "/api/publishing/oauth/"
@@ -44,8 +45,14 @@ def consume(platform, state, browser):
 
 def finish(attempt, code):
     connection = get_connection(attempt.platform)
-    tokens = connection.exchange_code(code)
-    profiles = connection.identities(tokens)
+    stage = "token_exchange"
+    try:
+        tokens = connection.exchange_code(code)
+        stage = "account_lookup"
+        profiles = connection.identities(tokens)
+    except ProviderError as exc:
+        exc.stage = stage
+        raise
     if not profiles:
         raise ValidationError("No eligible account was found. Instagram needs a professional account linked to a Facebook Page.")
     expiry = timezone.now() + timedelta(seconds=int(tokens.get("expires_in", 3600)))

@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from .models import Platform, PublishJob
 from .diagnostics import log_failure
-from .http import ProviderError
+from .http import ProviderError, UploadRejected
 from .accounts import access_token
 from .platforms import get_publisher
 from .platforms.common import update
@@ -34,6 +34,10 @@ def upload_job(job_id):
 
     try:
         publisher.upload(job)
+    except UploadRejected as exc:
+        log_failure("upload", platform=job.platform, reference=job.pk, error=exc)
+        update(job, status=PublishJob.Status.FAILED, error=str(exc))
+        return
     except Exception as exc:
         log_failure("upload", platform=job.platform, reference=job.pk, error=exc)
         # A remote side effect may have succeeded before the response was lost.
