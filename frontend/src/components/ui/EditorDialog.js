@@ -8,12 +8,12 @@ export function EditorDialog({ open, onClose, title, description, busy, children
     <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm" aria-hidden="true" />
     <div className="fixed inset-0 overflow-y-auto"><div className="flex min-h-full items-center justify-center p-4">
       <DialogPanel className={`w-full ${maxWidth} rounded-2xl bg-white shadow-xl dark:bg-gray-800 ${footer ? "flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden" : ""}`}>
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 p-6 dark:border-gray-700">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 p-4 sm:p-6 dark:border-gray-700">
           <div><DialogTitle className="text-xl font-semibold text-gray-900 dark:text-white">{title}</DialogTitle><Description className="mt-1 text-sm text-gray-500 dark:text-gray-400">{description}</Description></div>
           <button type="button" disabled={busy} aria-label="Close editor" onClick={onClose} className="rounded-lg px-3 py-1 text-xl text-gray-400 hover:bg-gray-100 disabled:opacity-40 dark:hover:bg-gray-700">×</button>
         </header>
-        <div className={`p-6 ${footer ? "min-h-0 overflow-y-auto" : ""}`}>{children}</div>
-        {footer && <div className="shrink-0 border-t border-gray-100 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">{footer}</div>}
+        <div className={`p-4 sm:p-6 ${footer ? "min-h-0 overflow-y-auto" : ""}`}>{children}</div>
+        {footer && <div className="shrink-0 border-t border-gray-100 bg-white px-4 sm:px-6 py-3 sm:py-4 dark:border-gray-700 dark:bg-gray-800">{footer}</div>}
       </DialogPanel>
     </div></div>
   </Dialog>;

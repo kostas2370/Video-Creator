@@ -40,10 +40,7 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   const shouldShowNavbar =
-    !/^\/(privacy|terms)\/?$/.test(location.pathname) &&
-    location.pathname !== "/login/" &&
-    location.pathname !== "/register" &&
-    location.pathname !== "/login" &&
+    !/^\/(privacy|terms|login|register)\/?$/.test(location.pathname) &&
     !location.pathname.startsWith("/forgot-password") &&
     !location.pathname.startsWith("/reset-password");
 

@@ -25,9 +25,9 @@ export function LegalFooter() {
 export default function LegalPage({ document }) {
   const content = legalDocuments[document];
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12 sm:py-16">
+    <main className="mx-auto max-w-4xl px-4 sm:px-6 py-8 sm:py-16">
       <Link to="/" className="text-sm font-semibold text-blue-600 underline underline-offset-4 dark:text-blue-400">Viddie home</Link>
-      <article className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 sm:p-10 dark:border-gray-700 dark:bg-gray-800">
+      <article className="mt-8 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6 sm:p-10 dark:border-gray-700 dark:bg-gray-800">
         <h1 className="text-3xl font-bold tracking-tight">{content.title}</h1>
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Last updated: {legalContact.updated}</p>
         <p className="mt-6 leading-7 text-gray-700 dark:text-gray-200"><LegalText text={content.introduction} /></p>

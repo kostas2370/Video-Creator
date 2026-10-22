@@ -83,3 +83,18 @@
   border-color: #60a5fa;
   color: #ffffff;
 }
+
+/* Keep native controls usable on phones without forcing the page wider. */
+@layer base {
+  fieldset { min-inline-size: 0; }
+  :where(main, [role="dialog"]) :where(h1, h2, h3, p) { overflow-wrap: anywhere; }
+  :where(input, select, textarea) { max-inline-size: 100%; }
+}
+@media (max-width: 639px) {
+  /* 16px prevents iOS from zooming the viewport when a field receives focus. */
+  :where(main, section, [role="dialog"]) :where(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]) {
+    font-size: 16px;
+  }
+  :where(main, nav, [role="dialog"]) :where(button, summary) { min-height: 44px; }
+  :where(main, [role="dialog"]) :where(audio, video) { max-inline-size: 100%; }
+}
