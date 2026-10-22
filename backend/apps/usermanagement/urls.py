@@ -3,8 +3,8 @@ from rest_framework import routers
 
 from apps.videomanagement.event_stream import event_updates
 
-from .contact import ContactView
 from .views import (
+    ContactView,
     CookieTokenRefreshView,
     LoginView,
     NotificationView,

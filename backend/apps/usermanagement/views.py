@@ -15,6 +15,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 
 from .models import Login, Notification
 from .serializers import (
+    ContactSerializer,
     CookieTokenRefreshSerializer,
     LoginSerializer,
     NotificationSerializer,
@@ -22,7 +23,14 @@ from .serializers import (
     UserSerializer,
     VerifySerializer,
 )
-from .services import mark_notifications_read, record_login, register_user, verify_email
+from .services import (
+    mark_notifications_read,
+    record_login,
+    register_user,
+    send_contact_message,
+    verify_email,
+)
+from .throttling import ContactThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -185,3 +193,16 @@ class NotificationView(
     @action(detail=False, methods=["PATCH"])
     def read_all(self, request):
         return Response({"read": mark_notifications_read(request.user)})
+
+
+class ContactView(generics.GenericAPIView):
+    serializer_class = ContactSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ContactThrottle]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        send_contact_message(**serializer.validated_data)
+        return Response({"detail": "Message received."})

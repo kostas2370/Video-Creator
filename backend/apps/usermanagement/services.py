@@ -1,10 +1,12 @@
 """Account workflows shared by the HTTP endpoints."""
 
+import logging
+
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage, send_mail
 from django.db.models import F
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError as APIValidationError
@@ -12,8 +14,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.videomanagement.events import publish_update
 
+from .exceptions import ContactDeliveryUnavailable
 from .models import Login, Notification
 from .tasks import send_email
+
+logger = logging.getLogger(__name__)
 
 
 def register_user(values, verification_url):
@@ -66,3 +71,22 @@ def mark_notifications_read(user):
     if marked:
         publish_update(f"notifications.{user.pk}", kind="notification")
     return marked
+
+
+def send_contact_message(*, name, email, message, website=""):
+    """Deliver validated contact details; silently discard honeypot submissions."""
+    if website:
+        return
+    try:
+        sent = EmailMessage(
+            subject="Viddie contact form",
+            body=f"Name: {name}\nEmail: {email}\n\n{message}",
+            from_email=settings.EMAIL_HOST_USER or settings.DEFAULT_FROM_EMAIL,
+            to=[settings.CONTACT_EMAIL],
+            reply_to=[email],
+        ).send(fail_silently=False)
+        if not sent:
+            raise RuntimeError("Contact email was not sent")
+    except Exception as exc:
+        logger.exception("Contact email delivery failed")
+        raise ContactDeliveryUnavailable() from exc

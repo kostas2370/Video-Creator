@@ -27,13 +27,17 @@ class ContactTests(SimpleTestCase):
         for changes in ({"email": "bad"}, {"name": " "}, {"message": "short"}, {"message": "x" * 5001}):
             self.assertEqual(self.submit(**changes).status_code, 400)
 
-    @patch("apps.usermanagement.contact.EmailMessage.send")
+    @patch("apps.usermanagement.services.EmailMessage.send")
     def test_honeypot_does_not_send_mail(self, send):
         self.assertEqual(self.submit(website="spam.example").status_code, 200)
         send.assert_not_called()
 
-    @patch("apps.usermanagement.contact.EmailMessage.send", side_effect=OSError("offline"))
+    @patch("apps.usermanagement.services.EmailMessage.send", side_effect=OSError("offline"))
     def test_delivery_failure_does_not_report_success(self, send):
+        self.assertEqual(self.submit().status_code, 503)
+
+    @patch("apps.usermanagement.services.EmailMessage.send", return_value=0)
+    def test_zero_delivery_does_not_report_success(self, send):
         self.assertEqual(self.submit().status_code, 503)
 
     def test_rate_limits_public_submissions(self):
