@@ -183,6 +183,8 @@ TEMPLATES = [
     },
 ]
 
+CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", "kostas2372@gmail.com")
+
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")

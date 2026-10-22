@@ -16,7 +16,7 @@ export function LegalFooter() {
       <nav aria-label="Legal" className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-6 gap-y-3">
         <Link className="underline underline-offset-4" to="/terms/">Terms of Service</Link>
         <Link className="underline underline-offset-4" to="/privacy/">Privacy Policy</Link>
-        <a className="underline underline-offset-4" href={`mailto:${legalContact.email}`}>Contact</a>
+        <Link className="underline underline-offset-4" to="/contact/">Contact us</Link>
       </nav>
     </footer>
   );
