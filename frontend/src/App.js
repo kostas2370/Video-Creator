@@ -1,6 +1,7 @@
 import React from "react";
 import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
+import ContactPage from "./pages/ContactPage";
 import Login from "./pages/LoginPage";
 import Home from "./pages/HomePage";
 import CreatePage from "./pages/CreatePage";
@@ -41,7 +42,7 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   const shouldShowNavbar =
-    !/^\/(privacy|terms|login|register)\/?$/.test(location.pathname) &&
+    !/^\/(privacy|terms|contact|login|register)\/?$/.test(location.pathname) &&
     !location.pathname.startsWith("/forgot-password") &&
     !location.pathname.startsWith("/reset-password");
 
@@ -52,6 +53,7 @@ function App() {
       ) : null}
 
       <Routes>
+        <Route path="/contact/" element={<ContactPage />} />
         <Route path="/privacy/" element={<LegalPage document="privacy" />} />
         <Route path="/terms/" element={<LegalPage document="terms" />} />
         <Route path="/" element={<PersistLogin />}>
