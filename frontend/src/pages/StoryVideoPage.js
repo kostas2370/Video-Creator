@@ -81,7 +81,7 @@ export function StoryVideo() {
       <p className="mt-3 leading-relaxed text-gray-500 dark:text-gray-400">Give viewers something to watch while your narrator tells the story. Add your gameplay, paste the words, and make a vertical video for TikTok, Reels, or Shorts.</p>
     </header>
     <form onSubmit={create} className="grid items-start gap-8 lg:grid-cols-[1fr_300px]">
-      <fieldset disabled={busy || generating} className="min-w-0 space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <fieldset disabled={busy || generating} className="min-w-0 space-y-6 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <label className="block text-sm font-semibold" htmlFor="story-title">Video title<input id="story-title" required maxLength={50} value={title} onChange={event => setTitle(event.target.value)} className={`${editorInput} mt-2`} placeholder="The message I should have ignored" /></label>
         <div>
           <details className="mb-5 rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-950/20">

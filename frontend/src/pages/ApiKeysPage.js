@@ -200,7 +200,7 @@ export const ApiKeys = () => {
           </p>
         </div>
 
-        <div role="tablist" aria-label="Provider settings" className="mb-6 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
+        <div role="tablist" aria-label="Provider settings" className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-900">
           {sections.map(([section, label], index) => (
             <button key={section} type="button" role="tab" id={`settings-tab-${section}`} aria-controls={`settings-panel-${section}`} aria-selected={activeSection === section} tabIndex={activeSection === section ? 0 : -1}
               className={`flex-1 rounded-md px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${activeSection === section ? "bg-white text-blue-700 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"}`}
@@ -372,7 +372,7 @@ const KeyField = ({
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <input
             id={field.name}
             name={field.name}

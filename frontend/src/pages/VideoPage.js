@@ -1,7 +1,9 @@
+import { EditorDialog } from "../components/ui/EditorDialog";
 import { ThumbnailCreator } from "../components/ThumbnailCreator";
 import { PublishVideo } from "../components/PublishVideo";
 import { VideoTags } from "../components/VideoTags";
 import { VideoNotes } from "../components/VideoNotes";
+import { API_HOST } from "../endpoints";
 import { videoFormats } from "../utils/videoFormats";
 import { Link, useParams } from "react-router-dom";
 import React, { useCallback, useState, useEffect, useRef } from "react";
@@ -36,6 +38,8 @@ export const Video = () => {
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [showCover, setShowCover] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showRenderedVideo, setShowRenderedVideo] = useState(false);
+  const [playbackError, setPlaybackError] = useState(false);
   const [downloadingSubtitles, setDownloadingSubtitles] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState(null);
 
@@ -48,6 +52,10 @@ export const Video = () => {
   const savingSceneChangeRef = useRef(false);
 
   const setUpdated = useCallback(() => setRefresh((count) => count + 1), []);
+
+  const renderedUrl = videoInfo?.output ? (/^https?:\/\//i.test(videoInfo.output) ? videoInfo.output : `${API_HOST}${videoInfo.output}`) : null;
+  useEffect(() => setPlaybackError(false), [renderedUrl, showRenderedVideo]);
+  useEffect(() => setShowRenderedVideo(false), [videoId]);
 
   const processing = ["GENERATION", "RENDERING"].includes(videoInfo?.status);
 
@@ -166,6 +174,13 @@ export const Video = () => {
 
   return (
     <>
+      <EditorDialog open={showRenderedVideo && !!renderedUrl} onClose={() => setShowRenderedVideo(false)} title="Watch export" description={videoInfo?.status === "RENDERING" ? "Your previous export is available while the new video renders." : "Watch your latest export. Export again to include any new edits."} maxWidth="max-w-4xl">
+        {showRenderedVideo && renderedUrl && <>
+          <video key={renderedUrl} src={renderedUrl} controls playsInline preload="metadata" aria-label="Latest rendered video" onError={() => setPlaybackError(true)} onCanPlay={() => setPlaybackError(false)} className="mx-auto max-h-[60vh] w-full rounded-xl bg-black" />
+          {playbackError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">Could not play this export. Try opening the video using the link below.</p>}
+          <a href={renderedUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:bg-gray-700">Open video in new tab ↗</a>
+        </>}
+      </EditorDialog>
       <ThumbnailCreator open={showCover} onClose={() => setShowCover(false)} video={videoInfo} onSaved={changes => setVideoInfo(current => ({ ...current, ...changes }))} />
       <VideoPreviewModal open={showPreview} onClose={() => setShowPreview(false)} video={videoInfo} disabled={sceneChangePending || renderPending} />
       <StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} />
@@ -225,6 +240,7 @@ export const Video = () => {
         <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
           statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
           renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}
+          onViewRendered={renderedUrl && String(videoInfo?.id) === String(videoId) ? () => setShowRenderedVideo(true) : undefined}
           onPreview={() => setShowPreview(true)} onSettings={() => setShowConfigModal(true)}
           onCover={() => setShowCover(true)} onExport={() => setShowRenderModal(true)} onResume={() => setShowResumeModal(true)}
           tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} disabled={processing || renderPending || sceneChangePending} /><VideoTags key={`tags-${videoInfo.id}`} videoId={videoInfo.id} tags={videoInfo.tags} onSaved={tags => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, tags } : current)} /></>}
@@ -246,19 +262,26 @@ export const Video = () => {
           <p className="mt-1">Your script and visuals are saved. Retry narration in the scenes below, or render with the available audio.</p>
           <div className="mt-3 flex flex-wrap gap-2">{videoInfo.scenes.map((scene, index) => scene.narration_status === "missing" && <a key={scene.id} href={`#scene-${scene.id}`} onClick={() => selectScene(scene.id)} className="rounded-lg border border-amber-300 px-3 py-1 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">Scene {index + 1}</a>)}</div>
         </div>}
-          {videoInfo && String(videoInfo.id) === String(videoId) && <VideoNotes key={`notes-${videoInfo.id}`} videoId={videoInfo.id} notes={videoInfo.notes} onSaved={notes => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, notes } : current)} />}
+
+
           <section aria-label="Scenes" className="min-w-0 space-y-5">
             <ReorderableScenes actions={<button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40"><FaPlus aria-hidden="true" />Add scene</button>} selectedSceneId={focusedScene?.id} onSelectScene={selectScene} manual={manual && !story} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : manual ? "Add your photos or video clips. Use Audio to record a voiceover and Music to add a soundtrack." : "Add a scene to start building your video."}</p></div>}
             {!scenes.length && <button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : manual ? "Add media or blank scene" : "Add scene"}</button>}
           </section>
-          <details className="editor-panel mt-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <summary className="cursor-pointer text-sm font-semibold">Project tools <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">Music, subtitles & motion</span></summary>
+          <details className="editor-panel mt-5 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+            <summary className="cursor-pointer text-sm font-semibold">Project extras <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Notes, music, subtitles &amp; motion</span></summary>
+            <div className="mt-4">
+          {videoInfo && String(videoInfo.id) === String(videoId) && <VideoNotes key={`notes-${videoInfo.id}`} videoId={videoInfo.id} notes={videoInfo.notes} onSaved={notes => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, notes } : current)} />}
+          </div>
+          <section aria-label="Audio and motion" className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700">
+            <h2 className="text-sm font-semibold">Audio &amp; motion</h2>
             <div className="mt-4 grid items-start gap-6 sm:grid-cols-3">
               <MusicAudio video={videoInfo} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} onSaved={setUpdated} />
               <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h2 className="text-sm font-semibold">Subtitle file</h2><p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Download captions and timing from your current edit.</p><button type="button" disabled={!canDownloadSubtitles || downloadingSubtitles} onClick={downloadSubtitles} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium disabled:opacity-40 dark:border-gray-600"><FaDownload aria-hidden="true" />{downloadingSubtitles ? "Downloading…" : "Download SRT"}</button></div>
               <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h2 className="mb-3 text-sm font-semibold">Image motion</h2><BulkAutoMotion scenes={scenes} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={pendingSceneChange?.type === "bulkMotion"} onApply={onAutoMotion} /></div>
             </div>
+          </section>
           </details>
       </main>
     </>

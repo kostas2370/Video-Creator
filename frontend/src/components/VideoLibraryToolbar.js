@@ -43,11 +43,11 @@ export function VideoLibraryToolbar({ search, onSearch, status, onStatus, type, 
           </div>
         </PopoverPanel>
       </Popover>
-      <div className="relative min-w-0 flex-1 sm:flex-none">
+      <div className="relative order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-none">
         <select aria-label="Sort videos" value={ordering} onChange={event => onOrdering(event.target.value)} className={`${select} h-10 py-0 sm:w-44`}>{librarySorts.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
         <HiOutlineChevronDown aria-hidden="true" className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-gray-400" />
       </div>
-      <div role="group" aria-label="Library layout" className="flex shrink-0 gap-0.5 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
+      <div role="group" aria-label="Library layout" className="ml-auto sm:ml-0 flex shrink-0 gap-0.5 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
         {[["grid", "Grid view", HiOutlineSquares2X2], ["list", "List view", HiOutlineBars3]].map(([value, label, Icon]) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={view === value} onClick={() => onView(value)} className={`rounded-lg p-1.5 transition ${focus} ${view === value ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"}`}><Icon aria-hidden="true" className="h-4 w-4" /></button>)}
       </div>
     </div>

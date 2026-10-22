@@ -41,7 +41,7 @@ export function Usage() {
           <h1 className="text-2xl font-bold">AI usage</h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Consumption from your generation requests in Video Creator.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label htmlFor="usage-period" className="sr-only">Usage period</label>
           <select id="usage-period" value={period} onChange={event => setPeriod(event.target.value)} className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800">
             <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="all">All time</option>
@@ -57,6 +57,7 @@ export function Usage() {
         </div>
         {data.breakdown.length === 0 ? <div className={card}><h2 className="font-semibold">No usage recorded in this period</h2><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Generate a script, image, voice-over, or video clip, then refresh to see your usage.</p></div> : <div className={`${card} overflow-x-auto`}>
           <h2 className="mb-4 text-lg font-semibold">By service and model</h2>
+          <p className="mb-3 text-xs text-gray-500 sm:hidden dark:text-gray-400">Swipe the table to see all usage details.</p>
           <table className="w-full whitespace-nowrap text-left text-sm">
             <caption className="sr-only">Provider consumption for the selected period</caption>
             <thead className="text-gray-500 dark:text-gray-400"><tr>{["Service", "Provider / model", "API keys", "Requests", "Input tokens", "Output tokens", "Total tokens", "Other units"].map(label => <th key={label} scope="col" className="px-3 pb-3 font-medium">{label}</th>)}</tr></thead>
