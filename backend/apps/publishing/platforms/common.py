@@ -25,4 +25,3 @@ def put_binary(url, *, data, headers):
     if response.status_code not in (200, 201, 204, 206):
         raise ProviderError("The platform did not confirm the transfer. Check its status before trying again.")
     return response
-
