@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { HiOutlineShare } from "react-icons/hi2";
 import {
-  connectSocialAccount, disconnectSocialAccount, getPostingContext, getPublishJobs,
+  getPostingContext, getPublishJobs,
   getSocialConnections, publishVideo, refreshPublishStatus,
 } from "../api/apiService";
 import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
-import { PublishingAccounts } from "./PublishingAccounts";
 import { toolbarAction } from "./VideoToolbar";
 
 const active = new Set(["QUEUED", "UPLOADING", "PROCESSING", "PUBLISHING"]);
@@ -88,19 +88,6 @@ export function PublishVideo({ video, disabled = false }) {
       ...(name === "branded_content" && checked && previous.privacy === "SELF_ONLY" ? { privacy: "" } : {}),
     }));
   };
-  const connect = async name => {
-    setBusy("connect"); setError("");
-    const result = await connectSocialAccount(name, video.id);
-    if (result.ok) window.location.assign(result.data.url);
-    else { setError(result.message); setBusy(""); }
-  };
-  const disconnect = async id => {
-    setBusy("disconnect"); setError("");
-    const result = await disconnectSocialAccount(id);
-    if (result.ok) { if (accountId === id) setAccountId(""); await load(); }
-    else setError(result.message);
-    setBusy("");
-  };
   const submit = async event => {
     event.preventDefault();
     if (!ready || busy || submitted || !context) return;
@@ -124,12 +111,15 @@ export function PublishVideo({ video, disabled = false }) {
 
   return <>
     <button type="button" disabled={disabled || !ready} title={ready ? "Upload the last exported video to a connected account" : "Export your video before publishing"} onClick={() => setOpen(true)} className={toolbarAction}><HiOutlineShare aria-hidden="true" className="h-4 w-4" />Publish</button>
-    <EditorDialog open={open} onClose={() => setOpen(false)} title="Publish your video" description="Connect a creator account, review the last exported video, and choose where to post it." busy={!!busy} maxWidth="max-w-4xl">
+    <EditorDialog open={open} onClose={() => setOpen(false)} title="Publish your video" description="Review your last exported video and choose where to post it." busy={!!busy} maxWidth="max-w-4xl">
       <div className="space-y-6">
         <p className="text-sm text-gray-500">Publishing uses your last export. Export again after making edits. Each platform has its own account permissions and approval requirements.</p>
         {video.output && <video src={video.output} controls preload="metadata" className="mx-auto max-h-72 w-full rounded-xl bg-black" />}
         {loading && <p role="status">Loading connected accounts…</p>}
-        <PublishingAccounts connections={connections} busy={!!busy} onConnect={connect} onDisconnect={disconnect} />
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-900">
+          <p className="text-sm text-gray-600 dark:text-gray-300">{connections.accounts.length ? "Manage your publishing accounts on Connections." : "Connect an account to start publishing."}</p>
+          <Link to={`/connections/?video=${video.id}`} className="text-sm font-semibold text-blue-600 underline dark:text-blue-400">{connections.accounts.length ? "Manage connections" : "Connect an account"}</Link>
+        </div>
         {connections.accounts.length > 0 && <form onSubmit={submit} className="space-y-4">
           <h3 className="font-semibold">Post details</h3>
           <fieldset disabled={!!busy || submitted} className="space-y-4">

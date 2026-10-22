@@ -26,6 +26,18 @@ describe("publishing account management", () => {
     }} />);
     expect(html).toContain("Setup needed");
     expect(html).toMatch(/<button[^>]*disabled=""/);
-    expect(html).toContain("Connect account");
+    expect(html).toContain("Connect YouTube");
   });
+  it("keeps every account action disabled while a connection is changing", () => {
+    const html = renderToStaticMarkup(<PublishingAccounts busy="youtube" connections={{
+      platforms: [{ id: "youtube", name: "YouTube", configured: true }],
+      accounts: [{ id: "one", platform: "youtube", display_name: "Channel one", needs_reconnect: true }],
+    }} />);
+    expect(html).toContain("Needs attention");
+    expect(html).toContain("Opening connection…");
+    const buttons = html.match(/<button[^>]*>/g);
+    expect(buttons).toHaveLength(3);
+    expect(buttons.every(button => button.includes('disabled=""'))).toBe(true);
+  });
+
 });

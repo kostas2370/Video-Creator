@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { RiMoonLine, RiSunLine } from "react-icons/ri";
-import { HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup } from "react-icons/hi2";
+import { HiOutlineLink, HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup } from "react-icons/hi2";
 import { NotificationBell } from "./NotificationBell";
 import useLogout from "../../hooks/useLogout";
 import { isCreationPath } from "../../utils/creationModes";
@@ -10,6 +10,7 @@ import { isCreationPath } from "../../utils/creationModes";
 const destinations = [
   { to: "/", label: "Create", icon: HiOutlinePlusCircle },
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
+  { to: "/connections", label: "Connections", icon: HiOutlineLink },
 ];
 const resources = [
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },

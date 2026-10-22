@@ -1,6 +1,6 @@
 # Creator publishing
 
-Creators can publish the last completed video export to YouTube, TikTok, or Instagram Reels from **Publish** in the editor toolbar. Each platform is connected by its official authorization screen. Viddie never asks for a creator's social password. This first release submits to one account at a time; scheduling and analytics are not included.
+Creators can publish the last completed video export to YouTube, TikTok, or Instagram Reels from **Publish** in the editor toolbar. Open **Connections** from the main navigation to connect and manage accounts without creating a video. The editor’s **Publish** dialog links to Connections and offers a return to publishing. Each platform is connected by its official authorization screen. Viddie never asks for a creator's social password. This first release submits to one account at a time; scheduling and analytics are not included.
 
 ## Account controls and code structure
 
@@ -100,7 +100,7 @@ TikTok's `non_sandbox_target` login error means the TikTok account has not been 
 
 1. Apply migrations with `python manage.py migrate`.
 2. Restart backend and Celery workers so the new app, configuration, and tasks are loaded. Ensure the queue is running.
-3. Export a video, open **Publish**, connect a developer test account, review the export and posting details, and submit.
+3. Open **Connections**, connect a developer test account, then export a video, open **Publish**, review the export and posting details, and submit.
 4. Verify both the job history and the destination platform. Repeat with a public account only when the developer application has the required approval.
 5. Disconnect removes local credentials and cancels queued uploads. Already-started uploads may complete. Creators can also revoke permissions in the destination platform's account settings.
 
