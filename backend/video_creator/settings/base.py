@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "apps.usermanagement",
     "apps.videomanagement",
+    "apps.publishing",
     "apps.apikeysmanagement",
     "encrypted_model_fields",
     "django_rest_passwordreset",
@@ -301,3 +302,21 @@ ACCEPTED_MODELS = [
 ]
 
 FFMPEG_RENDER_TIMEOUT = int(os.getenv("FFMPEG_RENDER_TIMEOUT") or "3600")
+
+# Creator account connections. Secrets stay on the server; register the callback URLs
+# documented in docs/social-publishing.md with each developer application.
+SOCIAL_PUBLIC_BASE_URL = (os.getenv("SOCIAL_PUBLIC_BASE_URL") or "").rstrip("/")
+SOCIAL_PUBLISHING = {
+    platform: {
+        "client_id": os.getenv(prefix + "_CLIENT_ID", ""),
+        "client_secret": os.getenv(prefix + "_CLIENT_SECRET", ""),
+        "api_version": os.getenv("SOCIAL_META_API_VERSION", ""),
+    }
+    for platform, prefix in (
+        ("youtube", "SOCIAL_YOUTUBE"), ("tiktok", "SOCIAL_TIKTOK"),
+        ("instagram", "SOCIAL_INSTAGRAM"),
+    )
+}
+
+# Keep publishing snapshots outside the public MEDIA_ROOT.
+PUBLISHING_SNAPSHOT_ROOT = os.getenv("PUBLISHING_SNAPSHOT_ROOT") or BASE_DIR / "private-publishing"

@@ -1112,6 +1112,26 @@ the old thumbnail so it can be regenerated. Apply migration `0036_video_thumbnai
 and restart the API and workers when deploying.
 
 
+## Creator publishing
+
+After exporting a video, use **Publish** in the editor to connect a YouTube, TikTok,
+or Instagram professional account, review the export, edit its post details, and
+submit an upload. Publishing history tracks platform processing and links to the
+result when available. Platforms remain unavailable until the app owner registers
+and configures the corresponding developer application.
+
+See [the creator publishing setup guide](docs/social-publishing.md) for server
+configuration, redirect URLs, platform requirements, private snapshot storage,
+and the distinction between automated checks and real platform testing.
+
+For local HTTPS testing on macOS/Linux, install `cloudflared`, start the Docker
+app, then run `python3 scripts/local-tunnel.py` from the repository root.
+Keep that terminal open; use Ctrl+C or `python3 scripts/local-tunnel.py stop` to
+disable public access, and `python3 scripts/local-tunnel.py status` to inspect it.
+Start updates the local app origins and reloads the backend/workers. Each restart
+creates a new URL, so update the callback and website URLs in the provider
+dashboards using the addresses printed by the script.
+
 ## Diagnosing failures
 
 API responses include an `X-Request-ID` reference. Unexpected API errors return a

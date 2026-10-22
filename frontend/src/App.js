@@ -21,6 +21,7 @@ import { Usage } from "./pages/UsagePage";
 import { Voices } from "./pages/VoicesPage";
 import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
+import LegalPage, { LegalFooter } from "./pages/LegalPage";
 
 function RequireAuth() {
   const { access_token } = useAuth();
@@ -39,6 +40,7 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   const shouldShowNavbar =
+    !/^\/(privacy|terms)\/?$/.test(location.pathname) &&
     location.pathname !== "/login/" &&
     location.pathname !== "/register" &&
     location.pathname !== "/login" &&
@@ -52,6 +54,8 @@ function App() {
       ) : null}
 
       <Routes>
+        <Route path="/privacy/" element={<LegalPage document="privacy" />} />
+        <Route path="/terms/" element={<LegalPage document="terms" />} />
         <Route path="/" element={<PersistLogin />}>
           <Route
             path="/login/"
@@ -79,6 +83,7 @@ function App() {
           </Route>
         </Route>
       </Routes>
+      <LegalFooter />
     </div>
   );
 }
