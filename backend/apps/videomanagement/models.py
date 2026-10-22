@@ -489,6 +489,7 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
     cover_settings = models.JSONField(default=dict, blank=True)
     is_favorite = models.BooleanField(default=False)
     tags = models.JSONField(default=dict, blank=True)
+    description = models.TextField(blank=True, default="")
     notes = models.TextField(blank=True, default="", max_length=10000)
     title = models.CharField(max_length=50, blank=False)
     url = models.URLField(blank=True)

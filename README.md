@@ -1076,25 +1076,29 @@ retry. `0040_sceneimage_asset_owns_file` removes the redundant scene file column
 No additional media storage is needed for the migration. Completed exports,
 generated audio, and temporary previews are not automatically saved as assets.
 
-### Video tags
+### Video details
 
-Choose **Tags** in the video editor toolbar, then **Generate tags** to create
-TikTok hashtags, YouTube keyword phrases, and platform search tags from the
-current title and script. Generated tags are always in English, with TikTok audience
-and niche hashtags and YouTube phrases aimed at relevant viewer searches. Switch
-between TikTok, YouTube, and Library tabs to edit or copy tags. Generation uses the
-configured text model and API key.
-Tags are saved with the video; edit each group and choose **Save changes**, or use
-**Copy** to copy hashtags or comma-separated keywords for posting. Regenerate
-after changing the video content. Library search matches titles and saved tags.
+Choose **Video details** in the editor toolbar to edit the title, description, and
+TikTok, YouTube, and Library tags together. **Generate description** uses the configured
+text model; **Use script template** builds a description from edited scene text without
+an AI call. **Add chapters** uses scene timing, including intro and outro clips, and
+merges short sections to satisfy YouTube's three-chapter, 10-second minimum. Review
+timestamps against the export. Description changes can be undone.
 
-The API exposes `POST /api/videos/{id}/generate_tags/` with `previous_tags`, and
-`PATCH /api/videos/{id}/tags/` with `tags` and `previous_tags`. The `tags` object
-contains `tiktok`, `youtube`, and `search` arrays. Pass the previously retrieved
-object (initially `{}`) as `previous_tags` to avoid overwriting another session.
-The editor accepts up to 20 tags per group and 80 characters per tag. Saving tags
-does not change render state or require rendering again. Apply migrations when
-updating an existing installation.
+**Generate tags** drafts all platform groups from the current saved title and script.
+Generated tags are in English. Switch platform tabs to edit or copy them. Generation
+uses the configured text model and API key. All generation results remain drafts until
+**Save details** saves the title, description, and tags together. Closing the modal
+keeps your unsaved draft while you remain on the project. Concurrent changes require
+loading the saved details before overwriting them.
+
+`PATCH /api/videos/{id}/details/` accepts `title`, `description`, `tags`, and
+`previous_details` containing the previously retrieved title, description, and tags.
+`POST /api/videos/{id}/draft_tags/` returns tags without saving them. Existing tag-only
+API endpoints remain available. Tags contain `tiktok`, `youtube`, and `search` arrays,
+with up to 20 tags per group and 80 characters per tag. Titles allow 50 characters;
+descriptions allow 5,000 UTF-8 bytes. Metadata changes preserve the export and render
+state. Apply migrations when updating an existing installation.
 
 ### Video library
 
@@ -1119,6 +1123,12 @@ or Instagram professional account, review the export, edit its post details, and
 submit an upload. Publishing history tracks platform processing and links to the
 result when available. Platforms remain unavailable until the app owner registers
 and configures the corresponding developer application.
+
+For YouTube, publishing reviews the title, description, and tags saved in **Video
+details**. Use **Edit details** to return to the unified modal, then save and reopen
+publishing. The upload dialog focuses on the destination account, visibility,
+audience, and final export review. YouTube limits are checked before submission,
+and the reviewed metadata is snapshotted with the export.
 
 See [the creator publishing setup guide](docs/social-publishing.md) for server
 configuration, redirect URLs, platform requirements, private snapshot storage,

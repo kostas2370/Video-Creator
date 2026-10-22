@@ -403,8 +403,26 @@ class PublishingTests(ApiTestCase):
             self.assertGreaterEqual(count, 1)
             self.assertLessEqual(count, 1000)
 
+    def test_youtube_submission_snapshots_saved_tags_and_accepts_upload_edits(self):
+        self.video.tags = {"youtube": ["ocean life", "whales"]}
+        self.video.save(update_fields=["tags"])
+        for supplied, expected in ((None, ["ocean life", "whales"]), (["edited keyword"], ["edited keyword"]), ([], [])):
+            with self.subTest(tags=supplied), patch("apps.publishing.services.posting_context", return_value={"privacy_level_options": ["private"]}):
+                response = self.post(**({} if supplied is None else {"tags": supplied}))
+            self.assertEqual(response.status_code, 202, response.data)
+            self.assertEqual(PublishJob.objects.get(pk=response.data["id"]).options["tags"], expected)
+
+    def test_youtube_rejects_excessive_keywords_and_multibyte_description(self):
+        publisher = youtube.YouTubePublisher(self.account, "token")
+        for changes in ({"tags": ["long keyword phrase " * 3] * 10}, {"caption": "🐳" * 1251}):
+            options = PublishSerializer(data=self.payload(**changes))
+            options.is_valid(raise_exception=True)
+            with self.assertRaises(ValidationError):
+                publisher.validate_options(options.validated_data, METADATA, 10, {"privacy_level_options": ["private"]})
+
     def test_youtube_upload_transfers_snapshot_with_explicit_privacy(self):
         job = self.new_job()
+        job.options["tags"] = ["ocean life", "whales"]
         session = Mock(status_code=200, headers={"Location": "https://www.googleapis.com/upload?upload_id=test"})
         uploaded = Mock(status_code=200)
         uploaded.json.return_value = {"id": "remote-video"}
@@ -414,6 +432,7 @@ class PublishingTests(ApiTestCase):
         with patch("apps.publishing.platforms.youtube.requests.post", return_value=session) as start, patch("apps.publishing.platforms.common.requests.put", side_effect=transfer):
             youtube.YouTubePublisher(job.account, "auth-token").upload(job)
         self.assertEqual(start.call_args.kwargs["json"]["status"]["privacyStatus"], "private")
+        self.assertEqual(start.call_args.kwargs["json"]["snippet"]["tags"], ["ocean life", "whales"])
         self.assertEqual(job.remote_id, "remote-video")
         self.assertEqual(job.status, "PROCESSING")
 

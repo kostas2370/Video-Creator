@@ -28,6 +28,10 @@ class PublishSerializer(serializers.Serializer):
     export_updated_at = serializers.DateTimeField()
     title = serializers.CharField(max_length=100, allow_blank=True, default="")
     caption = serializers.CharField(max_length=5000, allow_blank=True, default="")
+    tags = serializers.ListField(
+        child=serializers.CharField(max_length=80, allow_blank=False),
+        max_length=20, required=False,
+    )
     privacy = serializers.CharField(max_length=50, allow_blank=True, default="")
     made_for_kids = serializers.BooleanField(required=False)
     synthetic = serializers.BooleanField(default=False)

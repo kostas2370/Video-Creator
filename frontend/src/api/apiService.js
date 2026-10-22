@@ -144,3 +144,8 @@ export const getPostingContext = id => request({ url: `publishing/connections/${
 export const getPublishJobs = video => request({ url: "publishing/jobs/", params: { video }, ...callerHandlesErrors });
 export const publishVideo = data => post("publishing/jobs/", data, callerHandlesErrors);
 export const refreshPublishStatus = id => post(`publishing/jobs/${id}/refresh/`, {}, callerHandlesErrors);
+
+export const draftYouTubeDescription = (id, mode) => post(action("videos", id, "youtube_description"), { mode }, callerHandlesErrors);
+
+export const saveVideoDetails = (id, details, previousDetails) => patch(action("videos", id, "details"), { ...details, previous_details: previousDetails }, callerHandlesErrors);
+export const draftVideoTags = id => post(action("videos", id, "draft_tags"), {}, callerHandlesErrors);
