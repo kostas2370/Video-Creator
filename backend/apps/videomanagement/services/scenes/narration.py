@@ -3,16 +3,17 @@ import os
 import uuid
 
 from django.db import transaction
-from django.db.models import Max
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.integrations.tts import ApiSyn, save
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
-from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.models import Scene, Video
+from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.services.captions.alignment import align_scene_narration
 from apps.videomanagement.utils.file_utils import stored_file_exists
 from apps.videomanagement.utils.prompt_utils import script_lines
+
+from .ordering import assign_scene_positions
 
 logger = logging.getLogger(__name__)
 
@@ -53,26 +54,29 @@ def make_scene_speech(
     """
     with transaction.atomic():
         Video.objects.select_for_update().get(pk=video.pk)
+        active = None
         if position is not None:
-            last = video.scenes.aggregate(last=Max("position"))["last"] or 0
+            active = list(video.scenes.select_for_update())
+            last = active[-1].position if active else 0
             if position < 1 or position > last + 1:
                 raise ValidationError(
                     {"position": "Choose a position within the current video."}
                 )
-            # Move from the end so each destination is free under the unique constraint.
-            for existing in video.scenes.filter(position__gte=position).order_by(
-                "-position"
-            ):
-                Scene.objects.filter(pk=existing.pk).update(
-                    position=existing.position + 1
-                )
+            # The picker sends the existing scene's physical position. Archived
+            # rows may leave gaps, so translate it to an active-list index.
+            index = next(
+                (at for at, row in enumerate(active) if row.position >= position),
+                len(active),
+            )
         scene = Scene.objects.create(
             file=None,
             video=video,
             text=text.strip(),
             is_last=is_last,
-            position=position,
         )
+        if active is not None:
+            active.insert(index, scene)
+            assign_scene_positions(video, active)
 
     if narrate and video.voice_model:
         try:
@@ -118,10 +122,8 @@ def ensure_scene_rows(video: Video):
     video.scenes.exclude(text__in=script_texts).delete()
 
     choices = video.settings or {}
-    video_provider = (
-        choices.get("ai_scene_editing") and ImageProviderRegistry.is_video(
-            choices.get("provider"), user=video.created_by, mode=video.mode
-        )
+    video_provider = choices.get("ai_scene_editing") and ImageProviderRegistry.is_video(
+        choices.get("provider"), user=video.created_by, mode=video.mode
     )
     for line in lines:
         if line.text not in existing:

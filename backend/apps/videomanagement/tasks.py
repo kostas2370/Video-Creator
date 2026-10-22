@@ -148,10 +148,13 @@ def create_scene_task(video_id: str | UUID, data: dict, upload_path=None):
                 if upload_path
                 else {}
             )
-            for index, item in enumerate(data.get("scenes", [data])):
-                if "scenes" in data and data.get("position") is not None:
-                    item = {**item, "position": data["position"] + index}
-                scene_generation.create_scene(video, item, files)
+            next_position = data.get("position") if "scenes" in data else None
+            for item in data.get("scenes", [data]):
+                if next_position is not None:
+                    item = {**item, "position": next_position}
+                created = scene_generation.create_scene(video, item, files)
+                if next_position is not None:
+                    next_position = created.position + 1
     except Exception:
         logger.exception("Scene creation failed for video %s", video_id)
         _mark_failed(video_id)
@@ -279,10 +282,13 @@ def update_user_voices(user_id: str | UUID, provider: str):
 @shared_task(soft_time_limit=270, time_limit=300)
 def purge_deleted_scenes():
     """Daily, bounded cleanup; a later run resumes any remaining backlog."""
-    from apps.videomanagement.services.scenes.recovery import purge_expired_scenes
+    from apps.videomanagement.services.scenes.recovery import (
+        SCENE_CLEANUP_BATCH_SIZE,
+        purge_expired_scenes,
+    )
 
     result = purge_expired_scenes()
-    if result["examined"] == 500 and result["deleted"]:
+    if result["examined"] == SCENE_CLEANUP_BATCH_SIZE and result["deleted"]:
         # Drain large backlogs in short jobs rather than leaving them until tomorrow.
         purge_deleted_scenes.apply_async(countdown=30)
     return result

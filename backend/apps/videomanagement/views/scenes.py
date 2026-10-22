@@ -57,6 +57,7 @@ from apps.videomanagement.services.scenes.jobs import (
     scene_job_result,
 )
 from apps.videomanagement.services.scenes.overlays import update_overlays
+from apps.videomanagement.services.videos.details import load_video_detail
 from apps.videomanagement.tasks import generate_scene_image_task, rewrite_scene_task
 
 
@@ -301,7 +302,11 @@ class SceneView(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = archive_scene(scene, **serializer.validated_data)
-        return Response(VideoNestedSerializer(video, context=self.get_serializer_context()).data)
+        return Response(
+            VideoNestedSerializer(
+                load_video_detail(video.pk), context=self.get_serializer_context()
+            ).data
+        )
 
     @action(detail=True, methods=["POST"])
     def restore(self, request, pk=None):
@@ -309,7 +314,11 @@ class SceneView(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = restore_scene(scene, **serializer.validated_data)
-        return Response(VideoNestedSerializer(video, context=self.get_serializer_context()).data)
+        return Response(
+            VideoNestedSerializer(
+                load_video_detail(video.pk), context=self.get_serializer_context()
+            ).data
+        )
 
     def destroy(self, request, pk):
         delete_scene(self.get_object())

@@ -52,6 +52,7 @@ from apps.videomanagement.services.scenes.recovery import (
     SCENE_RETENTION,
     recoverable_scenes,
 )
+from apps.videomanagement.services.videos.details import load_video_detail
 from apps.videomanagement.services.videos.jobs import (
     approve_script,
     queue_render,
@@ -159,7 +160,9 @@ class VideoView(
         if self.action == "list":
             queryset = queryset.listable().annotate(
                 scene_preview=Subquery(
-                    SceneImage.objects.filter(scene__video_id=OuterRef("pk"), scene__archived_at__isnull=True)
+                    SceneImage.objects.filter(
+                        scene__video_id=OuterRef("pk"), scene__archived_at__isnull=True
+                    )
                     .exclude(asset__file="")
                     .exclude(asset__file__isnull=True)
                     .order_by("scene__position", "created_at", "id")
@@ -218,12 +221,7 @@ class VideoView(
     def serialize_video_detail(self, video):
         # Reload after editing: services may return a locked instance, and
         # relations fetched before an edit may no longer describe its output.
-        video = (
-            self.get_queryset()
-            .select_related("intro", "outro")
-            .prefetch_related("scenes__scene_images__asset")
-            .get(pk=video.pk)
-        )
+        video = load_video_detail(video.pk, queryset=self.get_queryset())
         return VideoNestedSerializer(video).data
 
     def perform_destroy(self, instance):
@@ -373,9 +371,16 @@ class VideoView(
         video = self.get_object()
         rows = recoverable_scenes(video)
         page = self.paginate_queryset(rows)
-        data = [{"id": row.pk, "text": row.text, "archived_at": row.archived_at,
-                 "expires_at": row.archived_at + SCENE_RETENTION,
-                 "position": row.archived_position} for row in page]
+        data = [
+            {
+                "id": row.pk,
+                "text": row.text,
+                "archived_at": row.archived_at,
+                "expires_at": row.archived_at + SCENE_RETENTION,
+                "position": row.archived_position,
+            }
+            for row in page
+        ]
         response = self.get_paginated_response(data)
         response["Cache-Control"] = "private, no-store"
         return response

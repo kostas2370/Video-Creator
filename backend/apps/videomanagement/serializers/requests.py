@@ -334,8 +334,12 @@ class ReorderScenesSerializer(serializers.Serializer):
 
 
 class RestoreSceneSerializer(ReorderScenesSerializer):
-    scene_ids = serializers.ListField(child=serializers.UUIDField(), required=False, allow_empty=False)
-    expected_scene_ids = serializers.ListField(child=serializers.UUIDField(), allow_empty=True)
+    scene_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, allow_empty=False
+    )
+    expected_scene_ids = serializers.ListField(
+        child=serializers.UUIDField(), allow_empty=True
+    )
 
 
 class SceneOrderSerializer(serializers.Serializer):

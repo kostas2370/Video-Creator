@@ -1,6 +1,8 @@
 import { RecentlyDeletedScenes } from "../components/RecentlyDeletedScenes";
 import { RememberedDetails } from "../components/ui/RememberedDetails";
-import { readWorkspace, saveWorkspace, rememberedScene, sameSceneOrder } from "../utils/editorWorkspace";
+import { useEditorSelection } from "../hooks/useEditorSelection";
+import { useUndoHistory } from "../hooks/useUndoHistory";
+import { rememberedScene, sameSceneOrder } from "../utils/editorWorkspace";
 import { EditorDialog } from "../components/ui/EditorDialog";
 import { ThumbnailCreator } from "../components/ThumbnailCreator";
 import { PublishVideo } from "../components/PublishVideo";
@@ -44,15 +46,7 @@ export const Video = () => {
   const [showRenderedVideo, setShowRenderedVideo] = useState(false);
   const [playbackError, setPlaybackError] = useState(false);
   const [downloadingSubtitles, setDownloadingSubtitles] = useState(false);
-  const [selection, setSelection] = useState(() => ({ videoId, id: readWorkspace(videoId).sceneId }));
-  const selectedSceneId = selection.videoId === videoId ? selection.id : readWorkspace(videoId).sceneId;
-  const setSelectedSceneId = id => {
-    setSelection({ videoId, id });
-    saveWorkspace(videoId, { sceneId: id });
-  };
-  const [history, setHistory] = useState({ videoId, entries: [] });
-  const undoEntries = history.videoId === videoId ? history.entries : [];
-  const rememberAction = entry => setHistory(current => ({ videoId, entries: [...(current.videoId === videoId ? current.entries : []), entry].slice(-20) }));
+  const [selectedSceneId, setSelectedSceneId] = useEditorSelection(videoId);
 
   const [pendingSceneChange, setPendingSceneChange] = useState(null);
   const savingOrder = pendingSceneChange?.type === "order";
@@ -88,6 +82,7 @@ export const Video = () => {
   const story = videoInfo?.settings?.creation_mode === "STORY";
   const CreationModal = manual ? ManualSceneModal : SceneCreationModal;
   const scenes = videoInfo?.scenes || [];
+  const { undoEntry, undoMatches, rememberAction, discardLast, clearHistory } = useUndoHistory(videoId, scenes);
   const focusedScene = rememberedScene(scenes, selectedSceneId);
   const selectScene = id => setSelectedSceneId(id);
   const format = videoFormats.find(item => item.value === videoInfo?.settings?.video_format);
@@ -144,8 +139,6 @@ export const Video = () => {
     }
     return { ok };
   };
-  const undoEntry = undoEntries.at(-1);
-  const undoMatches = undoEntry && sameSceneOrder(scenes, undoEntry.after);
   const canUndo = undoMatches && !sceneChangePending && !processing && !renderPending && ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status);
   const undo = async () => {
     if (!canUndo) return;
@@ -155,7 +148,7 @@ export const Video = () => {
       "Could not undo this change. Please refresh and try again.", true,
     );
     if (ok) {
-      setHistory(current => ({ ...current, entries: current.entries.slice(0, -1) }));
+      discardLast(undoEntry);
       if (undoEntry.type === "remove") setSelectedSceneId(undoEntry.sceneId);
       toast.success(`Undid ${undoEntry.label}.`);
     }
@@ -167,7 +160,7 @@ export const Video = () => {
       "Could not restore this scene. Refresh and try again.", true,
     );
     if (ok) {
-      setHistory({ videoId, entries: [] });
+      clearHistory();
       setSelectedSceneId(sceneId);
       toast.success("Scene restored.");
     }

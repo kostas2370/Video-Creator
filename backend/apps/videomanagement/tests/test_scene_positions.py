@@ -8,6 +8,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.services.scenes import visuals as scene_utils
+from apps.videomanagement.services.scenes.editing import archive_scene
 from apps.videomanagement.services.scenes.generation import draft_scene
 from apps.videomanagement.services.scenes.narration import (
     ensure_scene_rows,
@@ -26,7 +27,10 @@ class ScenePositionTests(TestCase):
         untouched = scene.make(video=other, text="Other")
         inserted = make_scene_speech(made, "Inserted", True, narrate=False, position=2)
         self.assertEqual(inserted.position, 2)
-        self.assertEqual(list(made.scenes.values_list("text", "position")), [("First", 1), ("Inserted", 2), ("Second", 3)])
+        self.assertEqual(
+            list(made.scenes.values_list("text", "position")),
+            [("First", 1), ("Inserted", 2), ("Second", 3)],
+        )
         untouched.refresh_from_db()
         self.assertEqual(untouched.position, 1)
         first.refresh_from_db()
@@ -37,17 +41,45 @@ class ScenePositionTests(TestCase):
         scene.make(video=made, text="First")
         for position in (0, 3):
             with self.assertRaises(ValidationError):
-                make_scene_speech(made, "Invalid", True, narrate=False, position=position)
-        self.assertEqual(list(made.scenes.values_list("text", "position")), [("First", 1)])
+                make_scene_speech(
+                    made, "Invalid", True, narrate=False, position=position
+                )
+        self.assertEqual(
+            list(made.scenes.values_list("text", "position")), [("First", 1)]
+        )
 
     def test_batch_insertion_preserves_the_reviewed_order(self):
         made = video.make(status="GENERATION", voice_model=None)
         scene.make(video=made, text="First")
         scene.make(video=made, text="Last")
-        create_scene_task(made.pk, {"position": 2, "scenes": [{"text": "Inserted A"}, {"text": "Inserted B"}]})
-        self.assertEqual(list(made.scenes.values_list("text", "position")), [("First", 1), ("Inserted A", 2), ("Inserted B", 3), ("Last", 4)])
+        create_scene_task(
+            made.pk,
+            {"position": 2, "scenes": [{"text": "Inserted A"}, {"text": "Inserted B"}]},
+        )
+        self.assertEqual(
+            list(made.scenes.values_list("text", "position")),
+            [("First", 1), ("Inserted A", 2), ("Inserted B", 3), ("Last", 4)],
+        )
         made.refresh_from_db()
         self.assertEqual(made.status, "READY")
+
+    def test_batch_insertion_after_archiving_keeps_new_scenes_together(self):
+        made = video.make(voice_model=None)
+        first, removed, last = scene.make(video=made, _quantity=3)
+        archive_scene(removed, [first.pk, removed.pk, last.pk])
+        made.status = "GENERATION"
+        made.save(update_fields=["status"])
+        create_scene_task(
+            made.pk,
+            {
+                "position": last.position,
+                "scenes": [{"text": "Inserted A"}, {"text": "Inserted B"}],
+            },
+        )
+        self.assertEqual(
+            list(made.scenes.values_list("text", flat=True)),
+            [first.text, "Inserted A", "Inserted B", last.text],
+        )
 
     def test_append_positions_are_scoped_to_each_video(self):
         first_video, second_video = video.make(_quantity=2)
@@ -63,7 +95,9 @@ class ScenePositionTests(TestCase):
         made = video.make()
         now = timezone.now()
         second = scene.make(video=made, text="Second", position=2, created_at=now)
-        first = scene.make(video=made, text="First", position=1, created_at=now + timedelta(days=1))
+        first = scene.make(
+            video=made, text="First", position=1, created_at=now + timedelta(days=1)
+        )
         self.assertEqual(list(made.scenes.all()), [first, second])
         first.text = "Edited"
         first.save()
@@ -77,10 +111,18 @@ class ScenePositionTests(TestCase):
             scene.make(video=made, position=1)
 
     def test_script_generation_assigns_positions_and_resume_keeps_them(self):
-        made = video.make(gpt_answer={"scenes": [{"sentences": [
-            {"sentence": "First", "image_description": "A beach"},
-            {"sentence": "Second", "image_description": "A mountain"},
-        ]}]})
+        made = video.make(
+            gpt_answer={
+                "scenes": [
+                    {
+                        "sentences": [
+                            {"sentence": "First", "image_description": "A beach"},
+                            {"sentence": "Second", "image_description": "A mountain"},
+                        ]
+                    }
+                ]
+            }
+        )
         ensure_scene_rows(made)
         rows = list(made.scenes.values_list("text", "position"))
         ensure_scene_rows(made)
@@ -91,19 +133,38 @@ class ScenePositionTests(TestCase):
         made = video.make(mode="AI")
         now = timezone.now()
         second = scene.make(video=made, text="Second", position=2, created_at=now)
-        first = scene.make(video=made, text="First", position=1, created_at=now + timedelta(days=1))
+        first = scene.make(
+            video=made, text="First", position=1, created_at=now + timedelta(days=1)
+        )
         image = scene_image.make(scene=first, file="media/first.mp4")
-        with patch.object(scene_utils, "stored_file_exists", return_value=True), patch.object(scene_utils, "continuation_frame", return_value="last.png") as frame:
-            self.assertEqual(scene_utils.scene_reference(second, made, "sora"), "last.png")
+        with (
+            patch.object(scene_utils, "stored_file_exists", return_value=True),
+            patch.object(
+                scene_utils, "continuation_frame", return_value="last.png"
+            ) as frame,
+        ):
+            self.assertEqual(
+                scene_utils.scene_reference(second, made, "sora"), "last.png"
+            )
         frame.assert_called_once_with(made, first.text, image.file.path)
-        with patch("apps.videomanagement.services.scenes.generation.get_update_sentence", return_value='{"text":"New", "image_description":"A forest"}') as generate:
+        with patch(
+            "apps.videomanagement.services.scenes.generation.get_update_sentence",
+            return_value='{"text":"New", "image_description":"A forest"}',
+        ) as generate:
             draft_scene(made, "Continue", use_context=True)
         prompt = generate.call_args.args[0]
-        self.assertLess(prompt.index('"text": "First"'), prompt.index('"text": "Second"'))
+        self.assertLess(
+            prompt.index('"text": "First"'), prompt.index('"text": "Second"')
+        )
 
 
 class ScenePositionMigrationTests(TransactionTestCase):
-    migrate_from = [("videomanagement", "0019_alter_scene_options_alter_sceneimage_options_and_more")]
+    migrate_from = [
+        (
+            "videomanagement",
+            "0019_alter_scene_options_alter_sceneimage_options_and_more",
+        )
+    ]
     migrate_to = [("videomanagement", "0020_scene_position")]
 
     def test_backfill_keeps_existing_order_separately_for_each_video(self):
@@ -117,13 +178,28 @@ class ScenePositionMigrationTests(TransactionTestCase):
         old_apps = executor.loader.project_state(self.migrate_from).apps
         OldScene = old_apps.get_model("videomanagement", "Scene")
         now = timezone.now()
-        second = OldScene.objects.create(video_id=first_video.pk, text="Second", created_at=now)
-        first = OldScene.objects.create(video_id=first_video.pk, text="First", created_at=now - timedelta(days=1))
-        other = OldScene.objects.create(video_id=other_video.pk, text="Other", created_at=now)
+        second = OldScene.objects.create(
+            video_id=first_video.pk, text="Second", created_at=now
+        )
+        first = OldScene.objects.create(
+            video_id=first_video.pk, text="First", created_at=now - timedelta(days=1)
+        )
+        other = OldScene.objects.create(
+            video_id=other_video.pk, text="Other", created_at=now
+        )
         executor = MigrationExecutor(connection)
         executor.migrate(self.migrate_to)
-        NewScene = executor.loader.project_state(self.migrate_to).apps.get_model("videomanagement", "Scene")
+        NewScene = executor.loader.project_state(self.migrate_to).apps.get_model(
+            "videomanagement", "Scene"
+        )
         self.assertEqual(NewScene.objects.get(pk=first.pk).position, 1)
         self.assertEqual(NewScene.objects.get(pk=second.pk).position, 2)
         self.assertEqual(NewScene.objects.get(pk=other.pk).position, 1)
-        self.assertEqual(list(NewScene.objects.filter(video_id=first_video.pk).values_list("text", flat=True)), ["First", "Second"])
+        self.assertEqual(
+            list(
+                NewScene.objects.filter(video_id=first_video.pk).values_list(
+                    "text", flat=True
+                )
+            ),
+            ["First", "Second"],
+        )

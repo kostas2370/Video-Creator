@@ -294,8 +294,12 @@ class UserPrompt(UUIDModel):
 
 
 class Scene(UUIDModel):
-    archived_at = models.DateTimeField(null=True, blank=True, editable=False, db_index=True)
-    archived_position = models.PositiveIntegerField(null=True, blank=True, editable=False)
+    archived_at = models.DateTimeField(
+        null=True, blank=True, editable=False, db_index=True
+    )
+    archived_position = models.PositiveIntegerField(
+        null=True, blank=True, editable=False
+    )
     caption_alignment = models.JSONField(default=dict, blank=True)
     overlays = models.JSONField(default=list, blank=True)
     overlay_logo = models.ImageField(upload_to="media/overlays/%Y/%m/%d", blank=True)

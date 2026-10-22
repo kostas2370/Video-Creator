@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.videomanagement.models import Scene, Video, VideoStatus
 
 SCENE_RETENTION = timedelta(days=7)
+SCENE_CLEANUP_BATCH_SIZE = 500
 
 
 def recoverable_scenes(video):
@@ -16,7 +17,7 @@ def recoverable_scenes(video):
     ).order_by("-archived_at", "id")
 
 
-def purge_expired_scenes(*, now=None, batch_size=500):
+def purge_expired_scenes(*, now=None, batch_size=SCENE_CLEANUP_BATCH_SIZE):
     cutoff = (now or timezone.now()) - SCENE_RETENTION
     candidates = list(
         Scene.all_objects.filter(
