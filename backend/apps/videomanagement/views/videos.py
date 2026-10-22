@@ -48,6 +48,10 @@ from apps.videomanagement.services.scenes.editing import (
     reorder_scenes,
 )
 from apps.videomanagement.services.scenes.generation import draft_scene
+from apps.videomanagement.services.scenes.recovery import (
+    SCENE_RETENTION,
+    recoverable_scenes,
+)
 from apps.videomanagement.services.videos.jobs import (
     approve_script,
     queue_render,
@@ -155,7 +159,7 @@ class VideoView(
         if self.action == "list":
             queryset = queryset.listable().annotate(
                 scene_preview=Subquery(
-                    SceneImage.objects.filter(scene__video_id=OuterRef("pk"))
+                    SceneImage.objects.filter(scene__video_id=OuterRef("pk"), scene__archived_at__isnull=True)
                     .exclude(asset__file="")
                     .exclude(asset__file__isnull=True)
                     .order_by("scene__position", "created_at", "id")
@@ -364,13 +368,25 @@ class VideoView(
         )
         return Response(self.serialize_video_detail(video))
 
+    @action(detail=True, methods=["GET"])
+    def deleted_scenes(self, request, pk=None):
+        video = self.get_object()
+        rows = recoverable_scenes(video)
+        page = self.paginate_queryset(rows)
+        data = [{"id": row.pk, "text": row.text, "archived_at": row.archived_at,
+                 "expires_at": row.archived_at + SCENE_RETENTION,
+                 "position": row.archived_position} for row in page]
+        response = self.get_paginated_response(data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
     @swagger_auto_schema(request_body=ReorderScenesSerializer)
     @action(detail=True, methods=["POST"])
     def reorder_scenes(self, request, pk=None):
         owned_video = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        video = reorder_scenes(owned_video, serializer.validated_data["scene_ids"])
+        video = reorder_scenes(owned_video, **serializer.validated_data)
         return Response(self.serialize_video_detail(video))
 
     @swagger_auto_schema(request_body=SceneDraftSerializer)

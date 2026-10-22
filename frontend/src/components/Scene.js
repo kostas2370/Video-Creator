@@ -1,3 +1,4 @@
+import { RememberedDetails } from "./ui/RememberedDetails";
 import { formatDuration } from "../utils/timing";
 import { isVideo } from "../utils/media";
 import React, { useState } from "react";
@@ -23,7 +24,7 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ manual, scene, setUpdated, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
+export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -62,7 +63,8 @@ export const Scene = ({ manual, scene, setUpdated, video_format = "LANDSCAPE", i
         setShowModal={setShowDeleteSceneModal}
         id={scene?.id}
         setItems={setUpdated}
-        deleteFunction={deleteScene}
+        deleteFunction={onRemoveScene ? () => onRemoveScene(scene) : deleteScene}
+        recoveryHint={onRemoveScene ? "You can undo this or restore the scene from Project extras → Recently deleted for 7 days." : undefined}
         name="Scene"
         mode="image"
       />
@@ -115,7 +117,7 @@ export const Scene = ({ manual, scene, setUpdated, video_format = "LANDSCAPE", i
           </div>
 
         </div>
-        <details className="border-t border-gray-100 px-4 py-4 sm:px-5 dark:border-gray-700">
+        <RememberedDetails videoId={scene.video} panel="adjustScene" className="border-t border-gray-100 px-4 py-4 sm:px-5 dark:border-gray-700">
           <summary className="cursor-pointer text-sm font-semibold">Adjust scene <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Overlays, captions, timing &amp; motion</span></summary>
           <div className="mt-4 space-y-5">
             <div aria-label="Scene editing tools" className="flex flex-wrap items-center gap-2"><SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} /><SceneCaptions scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />{onMotion && <SceneMotion scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}</div>
@@ -124,7 +126,7 @@ export const Scene = ({ manual, scene, setUpdated, video_format = "LANDSCAPE", i
               {transitionControl && <div><h3 className="mb-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Transition to next scene</h3>{transitionControl}</div>}
             </div>}
           </div>
-        </details>
+        </RememberedDetails>
       </article>
     </>
   );

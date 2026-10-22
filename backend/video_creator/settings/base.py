@@ -119,6 +119,10 @@ CELERY_TASK_TRACK_STARTED = True
 VIDEO_TASK_STALE_AFTER = int(os.getenv("VIDEO_TASK_STALE_AFTER") or 60 * 60 * 3)
 
 CELERY_BEAT_SCHEDULE = {
+    "purge-expired-deleted-scenes": {
+        "task": "apps.videomanagement.tasks.purge_deleted_scenes",
+        "schedule": 24 * 60 * 60.0,
+    },
     "reap-stalled-videos": {
         "task": "apps.videomanagement.tasks.reap_stalled_videos",
         "schedule": 15 * 60.0,

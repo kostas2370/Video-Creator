@@ -1,3 +1,5 @@
+from django.apps import apps
+from django.db import models
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django_cleanup.signals import cleanup_pre_delete
@@ -51,7 +53,17 @@ def notification_changed(sender, instance, using, **kwargs):
 
 
 @receiver(cleanup_pre_delete, sender=MediaAsset)
+@receiver(cleanup_pre_delete, sender=Scene)
 def preserve_shared_asset_file(sender, file, file_name, **kwargs):
-    # Older library entries can share a path; only its last owner deletes the file.
-    if MediaAsset.objects.filter(file=file_name).exists():
-        file.name = None
+    # Cleanup runs after commit. Include archived scenes and all media-bearing
+    # models so a shared narration, logo, or library file survives its first owner.
+    for model in apps.get_app_config("videomanagement").get_models():
+        fields = [field for field in model._meta.fields if isinstance(field, models.FileField)]
+        if not fields:
+            continue
+        references = models.Q()
+        for field in fields:
+            references |= models.Q(**{field.name: file_name})
+        if model._base_manager.filter(references).exists():
+            file.name = None
+            return

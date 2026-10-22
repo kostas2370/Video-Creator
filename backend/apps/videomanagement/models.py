@@ -19,7 +19,13 @@ from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
 
-from .querysets import AIUsageQuerySet, SceneQuerySet, VideoQuerySet, VoiceModelQuerySet
+from .querysets import (
+    ActiveSceneManager,
+    AIUsageQuerySet,
+    SceneQuerySet,
+    VideoQuerySet,
+    VoiceModelQuerySet,
+)
 from .utils.file_utils import check_if_video, stored_file_exists
 from .utils.timing import file_timing
 from .video_formats import (
@@ -288,6 +294,8 @@ class UserPrompt(UUIDModel):
 
 
 class Scene(UUIDModel):
+    archived_at = models.DateTimeField(null=True, blank=True, editable=False, db_index=True)
+    archived_position = models.PositiveIntegerField(null=True, blank=True, editable=False)
     caption_alignment = models.JSONField(default=dict, blank=True)
     overlays = models.JSONField(default=list, blank=True)
     overlay_logo = models.ImageField(upload_to="media/overlays/%Y/%m/%d", blank=True)
@@ -326,7 +334,8 @@ class Scene(UUIDModel):
     )
     text = models.TextField()
     is_last = models.BooleanField(default=True)
-    objects = SceneQuerySet.as_manager()
+    objects = ActiveSceneManager()
+    all_objects = SceneQuerySet.as_manager()
 
     def save(self, *args, **kwargs):
         if self.position is not None:
@@ -335,7 +344,7 @@ class Scene(UUIDModel):
         with transaction.atomic(using=using):
             Video.objects.using(using).select_for_update().get(pk=self.video_id)
             last = (
-                Scene.objects.using(using)
+                Scene.all_objects.using(using)
                 .filter(video_id=self.video_id)
                 .aggregate(last=models.Max("position"))["last"]
             )

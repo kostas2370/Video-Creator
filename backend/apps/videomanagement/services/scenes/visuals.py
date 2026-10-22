@@ -120,7 +120,7 @@ def create_image_scene(
 def existing_visual(video: Video, text: str):
     """Find a usable visual, including after a failed attempt left an empty row."""
     images = SceneImage.objects.filter(
-        scene__video=video, scene__text=text.strip()
+        scene__video=video, scene__archived_at__isnull=True, scene__text=text.strip()
     ).order_by("created_at")
     return next(
         (image.file.path for image in images if stored_file_exists(image.file)), None
@@ -247,7 +247,7 @@ def scene_reference(scene: Scene, video: Video, provider):
     if provider in (None, "", Provider.OPENAI) and uploaded:
         return uploaded
     if provider in (None, "", Provider.OPENAI):
-        for image in SceneImage.objects.filter(scene__video=video).order_by(
+        for image in SceneImage.objects.filter(scene__video=video, scene__archived_at__isnull=True).order_by(
             "scene__position", "created_at"
         ):
             if stored_file_exists(image.file) and not check_if_video(image.file.path):

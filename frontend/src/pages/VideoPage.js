@@ -1,3 +1,6 @@
+import { RecentlyDeletedScenes } from "../components/RecentlyDeletedScenes";
+import { RememberedDetails } from "../components/ui/RememberedDetails";
+import { readWorkspace, saveWorkspace, rememberedScene, sameSceneOrder } from "../utils/editorWorkspace";
 import { EditorDialog } from "../components/ui/EditorDialog";
 import { ThumbnailCreator } from "../components/ThumbnailCreator";
 import { PublishVideo } from "../components/PublishVideo";
@@ -7,7 +10,7 @@ import { API_HOST } from "../endpoints";
 import { videoFormats } from "../utils/videoFormats";
 import { Link, useParams } from "react-router-dom";
 import React, { useCallback, useState, useEffect, useRef } from "react";
-import { getVideo, reorderScenes, updateSceneTransition, updateSceneTiming, updateSceneMotion, applyAutoMotion, getVideoSubtitles } from "../api/apiService";
+import { getVideo, reorderScenes, archiveScene, restoreScene, updateSceneTransition, updateSceneTiming, updateSceneMotion, applyAutoMotion, getVideoSubtitles } from "../api/apiService";
 import { subscribeUpdates } from "../api/subscribeUpdates";
 import { FaPlus } from "react-icons/fa6";
 import { VideoConfigModal } from "../components/VideoConfigModal";
@@ -41,7 +44,15 @@ export const Video = () => {
   const [showRenderedVideo, setShowRenderedVideo] = useState(false);
   const [playbackError, setPlaybackError] = useState(false);
   const [downloadingSubtitles, setDownloadingSubtitles] = useState(false);
-  const [selectedSceneId, setSelectedSceneId] = useState(null);
+  const [selection, setSelection] = useState(() => ({ videoId, id: readWorkspace(videoId).sceneId }));
+  const selectedSceneId = selection.videoId === videoId ? selection.id : readWorkspace(videoId).sceneId;
+  const setSelectedSceneId = id => {
+    setSelection({ videoId, id });
+    saveWorkspace(videoId, { sceneId: id });
+  };
+  const [history, setHistory] = useState({ videoId, entries: [] });
+  const undoEntries = history.videoId === videoId ? history.entries : [];
+  const rememberAction = entry => setHistory(current => ({ videoId, entries: [...(current.videoId === videoId ? current.entries : []), entry].slice(-20) }));
 
   const [pendingSceneChange, setPendingSceneChange] = useState(null);
   const savingOrder = pendingSceneChange?.type === "order";
@@ -77,8 +88,7 @@ export const Video = () => {
   const story = videoInfo?.settings?.creation_mode === "STORY";
   const CreationModal = manual ? ManualSceneModal : SceneCreationModal;
   const scenes = videoInfo?.scenes || [];
-  const selectedIndex = Math.max(0, scenes.findIndex(scene => scene.id === selectedSceneId));
-  const focusedScene = scenes[selectedIndex];
+  const focusedScene = rememberedScene(scenes, selectedSceneId);
   const selectScene = id => setSelectedSceneId(id);
   const format = videoFormats.find(item => item.value === videoInfo?.settings?.video_format);
   const statusLabel = renderPending ? "Starting export" : sceneChangePending ? "Saving changes" : ({ REVIEW: "Review storyboard", GENERATION: "Preparing scenes", RENDERING: "Exporting video", READY: "Ready to edit", COMPLETED: "Export available", FAILED: "Needs attention" }[videoInfo?.status] || "Loading project");
@@ -106,15 +116,62 @@ export const Video = () => {
       setUpdated();
     }
   };
-  const onReorder = ordered => {
+  const onReorder = async ordered => {
+    const before = scenes.map(scene => scene.id);
+    const after = ordered.map(scene => scene.id);
+    if (sameSceneOrder(scenes, after)) return false;
     setSelectedSceneId(focusedScene?.id);
-    return saveSceneChange(
-    { type: "order" },
-    current => ({ ...current, scenes: ordered.map((scene, index) => ({ ...scene, position: index + 1 })) }),
-    () => reorderScenes(videoId, ordered.map(scene => scene.id)),
-    "Could not save scene order. Please try again.",
-    true,
+    const ok = await saveSceneChange(
+      { type: "order" },
+      current => ({ ...current, scenes: ordered.map((scene, index) => ({ ...scene, position: index + 1 })) }),
+      () => reorderScenes(videoId, after, before),
+      "Could not save scene order. Please try again.", true,
     );
+    if (ok) rememberAction({ type: "order", before, after, label: "scene move" });
+    return ok;
+  };
+  const onRemoveScene = async scene => {
+    const before = scenes.map(row => row.id);
+    const after = before.filter(id => id !== scene.id);
+    const index = before.indexOf(scene.id);
+    const ok = await saveSceneChange(
+      { type: "remove" }, current => current,
+      () => archiveScene(scene.id, before), "Could not remove this scene.", true,
+    );
+    if (ok) {
+      rememberAction({ type: "remove", sceneId: scene.id, before, after, label: "scene removal" });
+      if (focusedScene?.id === scene.id) setSelectedSceneId(after[Math.min(index, after.length - 1)] || null);
+    }
+    return { ok };
+  };
+  const undoEntry = undoEntries.at(-1);
+  const undoMatches = undoEntry && sameSceneOrder(scenes, undoEntry.after);
+  const canUndo = undoMatches && !sceneChangePending && !processing && !renderPending && ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status);
+  const undo = async () => {
+    if (!canUndo) return;
+    const ok = await saveSceneChange(
+      { type: "undo" }, current => current,
+      () => undoEntry.type === "remove" ? restoreScene(undoEntry.sceneId, undoEntry.before, undoEntry.after) : reorderScenes(videoId, undoEntry.before, undoEntry.after),
+      "Could not undo this change. Please refresh and try again.", true,
+    );
+    if (ok) {
+      setHistory(current => ({ ...current, entries: current.entries.slice(0, -1) }));
+      if (undoEntry.type === "remove") setSelectedSceneId(undoEntry.sceneId);
+      toast.success(`Undid ${undoEntry.label}.`);
+    }
+  };
+  const recoverScene = async sceneId => {
+    const ok = await saveSceneChange(
+      { type: "restore" }, current => current,
+      () => restoreScene(sceneId, undefined, scenes.map(scene => scene.id)),
+      "Could not restore this scene. Refresh and try again.", true,
+    );
+    if (ok) {
+      setHistory({ videoId, entries: [] });
+      setSelectedSceneId(sceneId);
+      toast.success("Scene restored.");
+    }
+    return ok;
   };
   const onTransition = (scene, changes) => saveSceneChange(
     { type: "transition", sceneId: scene.id },
@@ -240,6 +297,7 @@ export const Video = () => {
         <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
           statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
           renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}
+          onUndo={undo} canUndo={canUndo} undoLabel={undoEntry ? `Undo ${undoEntry.label}` : "Nothing to undo yet"} undoStale={!!undoEntry && !undoMatches}
           onViewRendered={renderedUrl && String(videoInfo?.id) === String(videoId) ? () => setShowRenderedVideo(true) : undefined}
           onPreview={() => setShowPreview(true)} onSettings={() => setShowConfigModal(true)}
           onCover={() => setShowCover(true)} onExport={() => setShowRenderModal(true)} onResume={() => setShowResumeModal(true)}
@@ -265,11 +323,11 @@ export const Video = () => {
 
 
           <section aria-label="Scenes" className="min-w-0 space-y-5">
-            <ReorderableScenes actions={<button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40"><FaPlus aria-hidden="true" />Add scene</button>} selectedSceneId={focusedScene?.id} onSelectScene={selectScene} manual={manual && !story} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
+            <ReorderableScenes onRemoveScene={onRemoveScene} actions={<button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40"><FaPlus aria-hidden="true" />Add scene</button>} selectedSceneId={focusedScene?.id} onSelectScene={selectScene} manual={manual && !story} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : manual ? "Add your photos or video clips. Use Audio to record a voiceover and Music to add a soundtrack." : "Add a scene to start building your video."}</p></div>}
             {!scenes.length && <button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : manual ? "Add media or blank scene" : "Add scene"}</button>}
           </section>
-          <details className="editor-panel mt-5 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <RememberedDetails videoId={videoId} panel="projectExtras" className="editor-panel mt-5 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
             <summary className="cursor-pointer text-sm font-semibold">Project extras <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Notes, music, subtitles &amp; motion</span></summary>
             <div className="mt-4">
           {videoInfo && String(videoInfo.id) === String(videoId) && <VideoNotes key={`notes-${videoInfo.id}`} videoId={videoInfo.id} notes={videoInfo.notes} onSaved={notes => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, notes } : current)} />}
@@ -282,7 +340,8 @@ export const Video = () => {
               <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h2 className="mb-3 text-sm font-semibold">Image motion</h2><BulkAutoMotion scenes={scenes} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={pendingSceneChange?.type === "bulkMotion"} onApply={onAutoMotion} /></div>
             </div>
           </section>
-          </details>
+          {videoInfo && <RecentlyDeletedScenes key={`deleted-${videoId}`} videoId={videoId} refresh={videoInfo.updated_at} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo.status)} onRestore={recoverScene} />}
+          </RememberedDetails>
       </main>
     </>
   );

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.exceptions import VideoEditConflict
@@ -41,9 +42,11 @@ def editable_video(video_id):
         yield video
 
 
-def reorder_scenes(video, scene_ids):
+def reorder_scenes(video, scene_ids, expected_scene_ids=None):
     with editable_video(video.pk) as locked_video:
         scenes = list(locked_video.scenes.select_for_update())
+        if expected_scene_ids is not None and expected_scene_ids != [row.pk for row in scenes]:
+            raise VideoEditConflict("The scene order changed in another session. Refresh before undoing.")
         if len(scene_ids) != len(scenes) or set(scene_ids) != {
             scene.pk for scene in scenes
         }:
@@ -51,16 +54,17 @@ def reorder_scenes(video, scene_ids):
         if scene_ids == [scene.pk for scene in scenes]:
             return locked_video
         by_id = {scene.pk: scene for scene in scenes}
-        ordered = [by_id[scene_id] for scene_id in scene_ids]
+        archived = list(Scene.all_objects.filter(video=locked_video, archived_at__isnull=False).select_for_update())
+        ordered = [by_id[scene_id] for scene_id in scene_ids] + archived
         # Temporary positions above the current range allow swaps without
         # violating the unique video/position constraint.
-        offset = max(scene.position for scene in scenes)
+        offset = max(scene.position for scene in ordered)
         for position, scene in enumerate(ordered, 1):
             scene.position = offset + position
-        Scene.objects.bulk_update(ordered, ["position"])
+        Scene.all_objects.bulk_update(ordered, ["position"])
         for position, scene in enumerate(ordered, 1):
             scene.position = position
-        Scene.objects.bulk_update(ordered, ["position"])
+        Scene.all_objects.bulk_update(ordered, ["position"])
         changed(locked_video, invalidate_avatar=False)
     return locked_video
 
@@ -141,8 +145,46 @@ def update_manual_text(scene, text):
 
 def delete_scene(scene):
     with editable_video(scene.video_id) as video:
-        scene.delete()
+        return archive_scene(scene, list(video.scenes.values_list("pk", flat=True)))
+
+
+def archive_scene(scene, scene_ids):
+    """Remove a scene from playback while retaining its media for Undo."""
+    with editable_video(scene.video_id) as video:
+        current = list(video.scenes.select_for_update().values_list("pk", flat=True))
+        if current != scene_ids:
+            raise VideoEditConflict("The scene list changed. Refresh before removing a scene.")
+        scene = get_object_or_404(Scene.objects.select_for_update(), pk=scene.pk)
+        scene.archived_at = timezone.now()
+        scene.archived_position = current.index(scene.pk) + 1
+        scene.save(update_fields=["archived_at", "archived_position"])
         changed(video)
+    return video
+
+
+def restore_scene(scene, expected_scene_ids, scene_ids=None):
+    with editable_video(scene.video_id) as video:
+        scene = get_object_or_404(Scene.all_objects.select_for_update(), pk=scene.pk)
+        current = list(video.scenes.select_for_update())
+        from .recovery import SCENE_RETENTION
+
+        if scene.archived_at is not None and scene.archived_at <= timezone.now() - SCENE_RETENTION:
+            raise VideoEditConflict("This scene’s 7-day recovery window has expired.")
+        if scene.archived_at is None or expected_scene_ids != [row.pk for row in current]:
+            raise VideoEditConflict("The scene list changed. Refresh before undoing.")
+        if scene_ids is None:
+            scene_ids = [row.pk for row in current]
+            scene_ids.insert(min(max((scene.archived_position or len(current) + 1) - 1, 0), len(current)), scene.pk)
+        if len(scene_ids) != len(current) + 1 or set(scene_ids) != {scene.pk, *(row.pk for row in current)}:
+            raise VideoEditConflict("The scene list changed. Refresh before undoing.")
+        # Restore outside the occupied range, then reuse the transactional reorder.
+        scene.position = max(Scene.all_objects.filter(video=video).values_list("position", flat=True), default=0) + 1
+        scene.archived_at = None
+        scene.archived_position = None
+        scene.save(update_fields=["position", "archived_at", "archived_position"])
+        reorder_scenes(video, scene_ids)
+        changed(video)
+    return video
 
 
 def clear_scene_image(image):

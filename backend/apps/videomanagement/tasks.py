@@ -274,3 +274,15 @@ def update_user_voices(user_id: str | UUID, provider: str):
     )
 
     return len(added)
+
+
+@shared_task(soft_time_limit=270, time_limit=300)
+def purge_deleted_scenes():
+    """Daily, bounded cleanup; a later run resumes any remaining backlog."""
+    from apps.videomanagement.services.scenes.recovery import purge_expired_scenes
+
+    result = purge_expired_scenes()
+    if result["examined"] == 500 and result["deleted"]:
+        # Drain large backlogs in short jobs rather than leaving them until tomorrow.
+        purge_deleted_scenes.apply_async(countdown=30)
+    return result

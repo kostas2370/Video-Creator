@@ -39,7 +39,7 @@ def _thumbnail_source(video):
         return video.output
     visual = (
         SceneImage.objects.select_related("asset")
-        .filter(scene__video=video)
+        .filter(scene__video=video, scene__archived_at__isnull=True)
         .exclude(asset__file="")
         .exclude(asset__file__isnull=True)
         .order_by("scene__position", "created_at", "id")

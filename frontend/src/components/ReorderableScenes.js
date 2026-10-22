@@ -14,7 +14,7 @@ export function reorderScene(scenes, from, to) {
   return ordered;
 }
 
-export function ReorderableScenes({ manual, scenes, actions, selectedSceneId, onSelectScene, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming, onMotion, pendingMotion }) {
+export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, selectedSceneId, onSelectScene, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming, onMotion, pendingMotion }) {
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
   const listRef = useRef(null);
@@ -123,7 +123,7 @@ export function ReorderableScenes({ manual, scenes, actions, selectedSceneId, on
         <p aria-live="polite" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Editing scene {selectedIndex + 1}<span className="ml-1 font-normal text-gray-500 dark:text-gray-400">of {scenes.length}</span></p>
         <div className="flex items-center gap-2">{[["Previous", -1, HiOutlineChevronLeft], ["Next", 1, HiOutlineChevronRight]].map(([label, offset, Icon]) => <button key={label} type="button" disabled={!scenes[selectedIndex + offset]} onClick={() => onSelectScene?.(scenes[selectedIndex + offset].id)} aria-label={`${label} scene`} className="inline-flex min-h-11 sm:min-h-9 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{offset < 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}{label}{offset > 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}</button>)}</div>
       </nav>
-      <Scene key={selected.id} manual={manual} scene={selected} index={selectedIndex} nextScene={scenes[selectedIndex + 1]} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === selected.id} onMotion={onMotion} motionDisabled={disabled} motionSaving={pendingMotion === selected.id} setUpdated={setUpdated} video_format={videoFormat} transitionControl={selectedIndex < scenes.length - 1 ? <SceneTransition scene={selected} nextNumber={selectedIndex + 2} disabled={disabled} saving={pendingTransition === selected.id} onChange={onTransition} settings={transitionSettings} /> : null} />
+      <Scene onRemoveScene={onRemoveScene} key={selected.id} manual={manual} scene={selected} index={selectedIndex} nextScene={scenes[selectedIndex + 1]} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === selected.id} onMotion={onMotion} motionDisabled={disabled} motionSaving={pendingMotion === selected.id} setUpdated={setUpdated} video_format={videoFormat} transitionControl={selectedIndex < scenes.length - 1 ? <SceneTransition scene={selected} nextNumber={selectedIndex + 2} disabled={disabled} saving={pendingTransition === selected.id} onChange={onTransition} settings={transitionSettings} /> : null} />
     </div>}
     {drag && <div aria-hidden="true" style={{ left: Math.min(drag.x + 12, window.innerWidth - 160), top: drag.y + 12 }} className="pointer-events-none fixed z-[80] max-w-[150px] rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-xl">Moving scene {drag.from + 1}</div>}
   </div>;
