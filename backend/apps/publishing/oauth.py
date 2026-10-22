@@ -20,7 +20,7 @@ def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-def begin(user, platform, video):
+def begin(user, platform, video=None):
     state, browser = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
     url = get_connection(platform).authorization_url(state)
     OAuthAttempt.objects.filter(expires_at__lt=timezone.now()).delete()

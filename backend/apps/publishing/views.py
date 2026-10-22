@@ -60,8 +60,8 @@ class ConnectView(CreatorView):
     throttle_classes = [ConnectionThrottle]
 
     def post(self, request, platform):
-        video_id = serializers.UUIDField().run_validation(request.data.get("video"))
-        video = get_object_or_404(Video, pk=video_id, created_by=request.user)
+        video_id = serializers.UUIDField(required=False, allow_null=True).run_validation(request.data.get("video"))
+        video = get_object_or_404(Video, pk=video_id, created_by=request.user) if video_id else None
         url, browser = oauth.begin(request.user, platform, video)
         response = Response({"url": url})
         response.set_cookie(oauth.COOKIE_NAME, browser, max_age=600, secure=True, httponly=True,
@@ -74,12 +74,12 @@ class CallbackView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, platform):
-        target = "/videos/"
+        target = "/connections/"
         result = "failed"
         try:
             attempt = oauth.consume(platform, request.query_params.get("state", ""), request.COOKIES.get(oauth.COOKIE_NAME, ""))
             if attempt.video_id:
-                target += str(attempt.video_id)
+                target = f"/videos/{attempt.video_id}/"
             if request.query_params.get("code") and not request.query_params.get("error"):
                 oauth.finish(attempt, request.query_params["code"])
                 result = "connected"

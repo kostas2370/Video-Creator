@@ -239,6 +239,37 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(cookie["samesite"], "Lax")
         self.assertNotIn("app-secret", response.data["url"])
 
+    def test_connect_without_video_returns_to_connections(self):
+        from urllib.parse import parse_qs, urlparse
+
+        response = self.client.post(reverse("publishing-connect", args=["youtube"]), {})
+        self.assertEqual(response.status_code, 200)
+        state = parse_qs(urlparse(response.data["url"]).query)["state"][0]
+        with patch("apps.publishing.oauth.finish") as finish:
+            callback = self.client.get(reverse("publishing-callback", args=["youtube"]), {"state": state, "code": "code"})
+        finish.assert_called_once()
+        self.assertIsNone(finish.call_args.args[0].video_id)
+        self.assertEqual(urlparse(callback.url).path, "/connections/")
+        self.assertIn("publishing=connected", callback.url)
+
+    def test_connect_rejects_another_creators_video_and_malformed_ids(self):
+        self.video.created_by = user.make()
+        self.video.save(update_fields=["created_by"])
+        response = self.client.post(reverse("publishing-connect", args=["youtube"]), {"video": str(self.video.pk)})
+        self.assertEqual(response.status_code, 404)
+        response = self.client.post(reverse("publishing-connect", args=["youtube"]), {"video": "invalid"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_denied_connection_without_video_returns_to_connections(self):
+        from urllib.parse import parse_qs, urlparse
+
+        url, browser = oauth.begin(self.user, "youtube")
+        self.client.cookies[oauth.COOKIE_NAME] = browser
+        state = parse_qs(urlparse(url).query)["state"][0]
+        response = self.client.get(reverse("publishing-callback", args=["youtube"]), {"state": state, "error": "access_denied"})
+        self.assertEqual(urlparse(response.url).path, "/connections/")
+        self.assertIn("publishing=failed", response.url)
+
     def test_tiktok_sandbox_rejection_returns_actionable_result(self):
         from urllib.parse import parse_qs, urlparse
         url, browser = oauth.begin(self.user, "tiktok", self.video)
