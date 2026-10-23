@@ -34,6 +34,7 @@ urlpatterns = [
     path("api/", include("apps.usermanagement.urls")),
     path("api/", include("apps.apikeysmanagement.urls")),
     path("api/", include("apps.videomanagement.urls")),
+    path("api/news/", include("apps.news.urls")),
     path("api/publishing/", include("apps.publishing.urls")),
 ]
 
