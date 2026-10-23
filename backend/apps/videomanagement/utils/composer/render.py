@@ -29,7 +29,7 @@ from .audio import voice_stream, write_music_envelope
 from .captions import write_captions
 from .effects import audio_fade_filters
 from .overlays import apply_overlays
-from .scene_cache import SceneClipCache, file_identity
+from .scene_cache import SceneClipCache, SourceFingerprints
 
 logger = logging.getLogger(__name__)
 FPS = 24
@@ -297,6 +297,7 @@ def render_scene_clip(segment, directory, size, output, previous_frame=None):
 
 
 def render_scene_clips(segments, directory, size, opening=None, cache=None):
+    sources = SourceFingerprints()
     quantized = quantized_scenes(segments)
     previous_frame = None
     if opening and quantized and quantized[0].dissolve_in:
@@ -307,7 +308,7 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None):
             max(0, opening.duration - 1 / FPS),
         )
     dependency = (
-        [file_identity(opening.content.file.path, contents=True), opening.duration]
+        [sources.identity(opening.content.file.path), opening.duration]
         if opening and quantized and quantized[0].dissolve_in
         else None
     )
@@ -315,7 +316,7 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None):
     for index, segment in enumerate(quantized):
         output = Path(directory, f"scene-{index}.mkv")
         key = (
-            cache.key(segment, size, FPS, dependency)
+            cache.key(segment, size, FPS, dependency, sources=sources)
             if cache and cache.enabled
             else None
         )

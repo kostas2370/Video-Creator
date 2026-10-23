@@ -1,3 +1,4 @@
+import hashlib
 import os
 import tempfile
 import time
@@ -11,7 +12,7 @@ from django.db import transaction
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from ...baker_recipes import video
-from ...utils.composer.render import can_render_directly
+from ...utils.composer.render import can_render_directly, render_scene_clips
 from ...utils.composer.scene_cache import SceneClipCache
 
 
@@ -98,6 +99,41 @@ class SceneClipCacheTests(SimpleTestCase):
         self.source.write_bytes(b"replaced pixels")
         os.utime(self.source, ns=(stat.st_atime_ns, stat.st_mtime_ns))
         self.assertNotEqual(original, self.key())
+
+    def test_shared_sources_are_hashed_once_per_export_and_refresh_between_exports(
+        self,
+    ):
+        def render_clip(segment, directory, size, output, previous_frame):
+            output.write_bytes(Path(segment.image.file.path).read_bytes())
+
+        for export, expected_renders in enumerate((1, 0, 1)):
+            if export == 2:
+                stat = self.source.stat()
+                self.source.write_bytes(b"replaced pixels")
+                os.utime(self.source, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            directory = self.root / f"export-{export}"
+            directory.mkdir()
+            with (
+                self.subTest(export=export),
+                patch(
+                    "apps.videomanagement.utils.composer.scene_cache.hashlib.file_digest",
+                    wraps=hashlib.file_digest,
+                ) as digest,
+                patch(
+                    "apps.videomanagement.utils.composer.render.render_scene_clip",
+                    side_effect=render_clip,
+                ) as renderer,
+            ):
+                render_scene_clips(
+                    [self.segment] * 20, directory, (160, 90), cache=self.cache
+                )
+                self.assertEqual(digest.call_count, 1)
+                self.assertEqual(renderer.call_count, expected_renders)
+                for index in range(20):
+                    self.assertEqual(
+                        (directory / f"scene-{index}.mkv").read_bytes(),
+                        self.source.read_bytes(),
+                    )
 
     def test_dissolves_depend_on_the_previous_clip_but_cuts_do_not(self):
         self.assertEqual(self.key(previous="before"), self.key(previous="after"))
