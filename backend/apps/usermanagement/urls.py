@@ -4,6 +4,7 @@ from rest_framework import routers
 from apps.videomanagement.event_stream import event_updates
 
 from .views import (
+    ContactView,
     CookieTokenRefreshView,
     LoginView,
     NotificationView,
@@ -17,6 +18,7 @@ router.register("notifications", NotificationView, basename="notification")
 
 
 urlpatterns = [
+    path("contact/", ContactView.as_view(), name="contact"),
     path("notifications/events/", event_updates, name="notification_events"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", logout_view, name="logout"),

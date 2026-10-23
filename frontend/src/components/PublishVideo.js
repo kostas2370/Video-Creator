@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { HiOutlineShare } from "react-icons/hi2";
 import {
-  connectSocialAccount, disconnectSocialAccount, getPostingContext, getPublishJobs,
+  getPostingContext, getPublishJobs,
   getSocialConnections, publishVideo, refreshPublishStatus,
 } from "../api/apiService";
 import { EditorDialog, editorButton, editorInput } from "./ui/EditorDialog";
-import { PublishingAccounts } from "./PublishingAccounts";
 import { youtubeTags, youtubeTagLength, descriptionBytes } from "../utils/youtubeMetadata";
 import { toolbarAction } from "./VideoToolbar";
 
@@ -94,19 +94,6 @@ export function PublishVideo({ video, disabled = false, onEditDetails }) {
       ...(name === "branded_content" && checked && previous.privacy === "SELF_ONLY" ? { privacy: "" } : {}),
     }));
   };
-  const connect = async name => {
-    setBusy("connect"); setError("");
-    const result = await connectSocialAccount(name, video.id);
-    if (result.ok) window.location.assign(result.data.url);
-    else { setError(result.message); setBusy(""); }
-  };
-  const disconnect = async id => {
-    setBusy("disconnect"); setError("");
-    const result = await disconnectSocialAccount(id);
-    if (result.ok) { if (accountId === id) setAccountId(""); await load(); }
-    else setError(result.message);
-    setBusy("");
-  };
   const submit = async event => {
     event.preventDefault();
     if (!ready || busy || submitted || !context || invalidYouTube) return;
@@ -142,9 +129,12 @@ export function PublishVideo({ video, disabled = false, onEditDetails }) {
           <div className="self-center"><p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Your latest export</p><h3 className="mt-2 break-words text-lg font-semibold">{video.title}</h3><p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">Preview the video before sharing. If you've edited the project, export again to include your changes.</p></div>
         </section>
         {loading && <p role="status">Loading connected accounts…</p>}
-        <details className="rounded-xl border border-gray-200 p-4 dark:border-gray-700" open={connections.accounts.length === 0}><summary className="cursor-pointer text-sm font-semibold">Connected accounts <span className="ml-2 font-normal text-gray-500">{connections.accounts.length} available</span></summary><div className="mt-4"><PublishingAccounts connections={connections} busy={!!busy} onConnect={connect} onDisconnect={disconnect} /></div></details>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-900">
+          <p className="text-sm text-gray-600 dark:text-gray-300">{connections.accounts.length ? "Manage your publishing accounts on Connections." : "Connect an account to start publishing."}</p>
+          <Link to={`/connections/?video=${video.id}`} className="text-sm font-semibold text-blue-600 underline dark:text-blue-400">{connections.accounts.length ? "Manage connections" : "Connect an account"}</Link>
+        </div>
         {connections.accounts.length > 0 && <form id="publish-video-form" onSubmit={submit} className="space-y-4">
-          <div><p className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Prepare your post</p><h3 className="mt-1 text-xl font-semibold">Make it yours</h3></div>
+          <h3 className="font-semibold">Post details</h3>
           <fieldset disabled={!!busy || submitted} className="space-y-4">
             <label className="block text-sm">Publish to<select required value={accountId} onChange={event => { setError(""); setAccountId(event.target.value); }} className={`${editorInput} mt-1`}><option value="">Choose an account</option>{connections.accounts.map(row => <option key={row.id} value={row.id} disabled={row.needs_reconnect}>{row.platform} · {row.display_name}{row.needs_reconnect ? " · Reconnect required" : ""}</option>)}</select></label>
             {account && <>

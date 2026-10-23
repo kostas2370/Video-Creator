@@ -1,6 +1,7 @@
 import React from "react";
 import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
+import ContactPage from "./pages/ContactPage";
 import Login from "./pages/LoginPage";
 import Home from "./pages/HomePage";
 import CreatePage from "./pages/CreatePage";
@@ -18,6 +19,7 @@ import useAuth from "./hooks/useAuth";
 import { AssetPage } from "./pages/AssetPage";
 import { ApiKeys } from "./pages/ApiKeysPage";
 import { Usage } from "./pages/UsagePage";
+import { Connections } from "./pages/ConnectionsPage";
 import { Voices } from "./pages/VoicesPage";
 import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
@@ -40,7 +42,7 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   const shouldShowNavbar =
-    !/^\/(privacy|terms|login|register)\/?$/.test(location.pathname) &&
+    !/^\/(privacy|terms|contact|login|register)\/?$/.test(location.pathname) &&
     !location.pathname.startsWith("/forgot-password") &&
     !location.pathname.startsWith("/reset-password");
 
@@ -51,6 +53,7 @@ function App() {
       ) : null}
 
       <Routes>
+        <Route path="/contact/" element={<ContactPage />} />
         <Route path="/privacy/" element={<LegalPage document="privacy" />} />
         <Route path="/terms/" element={<LegalPage document="terms" />} />
         <Route path="/" element={<PersistLogin />}>
@@ -74,6 +77,7 @@ function App() {
             <Route path="/videos/:videoId/" element={<Video />} />
             <Route path="/assets/" element={<AssetPage />} />
             <Route path="/api-keys/" element={<ApiKeys />} />
+            <Route path="/connections/" element={<Connections />} />
             <Route path="/usage/" element={<Usage />} />
             <Route path="/voices/" element={<Voices />} />
             <Route path="*" element={<>Page not found !</>} />
