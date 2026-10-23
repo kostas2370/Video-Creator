@@ -1,7 +1,8 @@
 from rest_framework import serializers
 
 from apps.videomanagement.utils.captions.styles import FONTS
-from .audio import FiniteFloat
+
+from .fields import FiniteFloat, validate_image_upload
 
 
 class CoverSerializer(serializers.Serializer):
@@ -20,15 +21,15 @@ class CoverSerializer(serializers.Serializer):
     background = serializers.BooleanField(default=True)
 
     def validate_image(self, image):
-        if image.image.format not in ("PNG", "JPEG", "WEBP"):
-            raise serializers.ValidationError("Choose a PNG, JPEG, or WebP image.")
-        if image.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError("Choose an image smaller than 10 MB.")
-        if image.image.width * image.image.height > 20_000_000:
-            raise serializers.ValidationError(
-                "Choose an image smaller than 20 megapixels."
-            )
-        return image
+        return validate_image_upload(
+            image,
+            max_pixels=20_000_000,
+            messages={
+                "format": "Choose a PNG, JPEG, or WebP image.",
+                "size": "Choose an image smaller than 10 MB.",
+                "pixels": "Choose an image smaller than 20 megapixels.",
+            },
+        )
 
     def validate(self, data):
         if data["source"] != "frame" and "image" not in data:

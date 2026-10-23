@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 from apps.videomanagement.services.media.uploads import inspect_media_upload
 
 from ..models import MediaAsset
-from .audio import FiniteFloat
+from .fields import FiniteFloat
 
 
 class MediaAssetSerializer(serializers.ModelSerializer):

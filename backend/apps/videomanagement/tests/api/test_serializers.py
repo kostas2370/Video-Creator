@@ -39,20 +39,26 @@ class SceneSerializerTests(TestCase):
         for filename in (None, "missing-narration.wav"):
             with self.subTest(filename=filename):
                 line = scene.make(file=filename)
-                self.assertEqual(SceneSerializer(line).data["narration_status"], "missing")
+                self.assertEqual(
+                    SceneSerializer(line).data["narration_status"], "missing"
+                )
 
     def test_reports_available_narration_when_the_file_exists(self):
         with tempfile.TemporaryDirectory() as directory:
             with override_settings(MEDIA_ROOT=directory):
                 Path(directory, "narration.wav").write_bytes(b"audio")
                 line = scene.make(file="narration.wav")
-                self.assertEqual(SceneSerializer(line).data["narration_status"], "available")
+                self.assertEqual(
+                    SceneSerializer(line).data["narration_status"], "available"
+                )
 
     def test_does_not_report_missing_narration_for_silent_videos(self):
         for options in ({"settings": {"narration": False}},):
             with self.subTest(options=options):
                 line = scene.make(video=video.make(**options), file=None)
-                self.assertEqual(SceneSerializer(line).data["narration_status"], "disabled")
+                self.assertEqual(
+                    SceneSerializer(line).data["narration_status"], "disabled"
+                )
 
     def test_video_detail_includes_each_scenes_narration_status(self):
         row = video.make()
@@ -72,6 +78,19 @@ class VideoSerializerTests(TestCase):
         silent = video.make(music=None)
 
         self.assertEqual(VideoSerializer(silent).data["music"], "")
+
+    def test_detail_keeps_the_music_id_and_list_keeps_the_name(self):
+        track = music.make()
+        row = video.make(music=track)
+        detail = VideoNestedSerializer(row).data
+        listing = VideoSerializer(row).data
+
+        self.assertEqual(str(detail["music"]), str(track.pk))
+        self.assertEqual(listing["music"], track.name)
+        self.assertNotIn("preview_media", detail)
+        self.assertNotIn("scenes", listing)
+        self.assertIn("notes", detail)
+        self.assertEqual(detail["prompt"], listing["prompt"])
 
     def test_the_detail_view_carries_every_scene(self):
         with_scenes = video.make()
@@ -152,7 +171,6 @@ class AddSceneSerializerTests(TestCase):
         self.assertTrue(
             AddSceneSerializer(data={"mode": "AI", "text": "a line"}).is_valid()
         )
-
 
     def test_a_scene_is_silent_and_not_the_last_unless_it_says_so(self):
         serializer = AddSceneSerializer(data={"mode": "AI", "text": "a line"})

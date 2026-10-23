@@ -1,5 +1,3 @@
-import math
-
 from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
@@ -25,21 +23,15 @@ from ..video_formats import (
     VIDEO_FORMAT_CHOICES,
     VIDEO_PLATFORM_CHOICES,
 )
-from .audio import FiniteFloat
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
+from .fields import FiniteFloat, validate_image_upload
 
 
-class TransitionDurationField(serializers.FloatField):
+class TransitionDurationField(FiniteFloat):
+    non_finite_message = "Choose a duration between 0.1 and 3 seconds."
+
     def __init__(self, **kwargs):
         super().__init__(min_value=0.1, max_value=3, **kwargs)
-
-    def to_internal_value(self, data):
-        value = super().to_internal_value(data)
-        if not math.isfinite(value):
-            raise serializers.ValidationError(
-                "Choose a duration between 0.1 and 3 seconds."
-            )
-        return value
 
 
 AVATAR_POSITIONS = {"left,top", "right,top", "left,bottom", "right,bottom"}
@@ -107,11 +99,14 @@ class GenerateSerializer(serializers.Serializer):
     genre = serializers.CharField(required=False, default="", allow_blank=True)
 
     def validate_reference_image(self, value):
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError("Choose an image smaller than 10 MB.")
-        if value.image.format not in {"JPEG", "PNG", "WEBP"}:
-            raise serializers.ValidationError("Choose a PNG, JPEG, or WebP image.")
-        return value
+        return validate_image_upload(
+            value,
+            check_order=("size", "format"),
+            messages={
+                "size": "Choose an image smaller than 10 MB.",
+                "format": "Choose a PNG, JPEG, or WebP image.",
+            },
+        )
 
     def validate(self, attrs):
         if attrs.get("reference_image") and (

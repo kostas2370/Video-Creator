@@ -1,14 +1,6 @@
-import math
-
 from rest_framework import serializers
 
-
-class FiniteFloat(serializers.FloatField):
-    def to_internal_value(self, data):
-        value = super().to_internal_value(data)
-        if not math.isfinite(value):
-            self.fail("invalid")
-        return value
+from .fields import FiniteFloat as FiniteFloat
 
 
 class SceneAudioSerializer(serializers.Serializer):

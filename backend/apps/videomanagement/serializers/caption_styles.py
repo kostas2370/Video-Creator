@@ -1,8 +1,8 @@
-import math
-
 from rest_framework import serializers
 
 from apps.videomanagement.utils.captions.styles import CAPTION_STYLES, FONTS
+
+from .fields import validate_finite_numbers
 
 
 class CaptionPresetField(serializers.ChoiceField):
@@ -38,13 +38,10 @@ class CaptionStyleSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
-        if any(
-            isinstance(value, float) and not math.isfinite(value)
-            for value in data.values()
-        ):
-            raise serializers.ValidationError(
-                "Style sizes and margins must be finite numbers."
-            )
+        validate_finite_numbers(
+            (value for value in data.values() if isinstance(value, float)),
+            "Style sizes and margins must be finite numbers.",
+        )
         # Custom sizes use a percentage of the shorter frame dimension.
         # Raw ASS/CSS and font-file paths are never accepted.
         return data
