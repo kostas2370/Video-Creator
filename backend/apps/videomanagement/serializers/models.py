@@ -140,7 +140,16 @@ VIDEO_RESPONSE_FIELDS = (
 )
 
 
-class VideoSerializer(serializers.ModelSerializer):
+class VideoResponseSerializer(serializers.ModelSerializer):
+    prompt = UserPromptSerializer(read_only=True)
+
+    class Meta:
+        model = Video
+        fields = VIDEO_RESPONSE_FIELDS
+        read_only_fields = fields
+
+
+class VideoSerializer(VideoResponseSerializer):
     preview_media = serializers.SerializerMethodField()
 
     def get_preview_media(self, obj):
@@ -154,11 +163,9 @@ class VideoSerializer(serializers.ModelSerializer):
         )
         return {"url": default_storage.url(source), "type": media_type}
 
-    prompt = UserPromptSerializer(read_only=True)
     music = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Video
+    class Meta(VideoResponseSerializer.Meta):
         fields = (*VIDEO_RESPONSE_FIELDS, "preview_media")
         read_only_fields = fields
 
@@ -169,8 +176,7 @@ class VideoSerializer(serializers.ModelSerializer):
         return ""
 
 
-class VideoNestedSerializer(serializers.ModelSerializer):
-    prompt = UserPromptSerializer(read_only=True)
+class VideoNestedSerializer(VideoResponseSerializer):
     scenes = serializers.SerializerMethodField()
     extra_duration = serializers.SerializerMethodField()
 
@@ -182,8 +188,7 @@ class VideoNestedSerializer(serializers.ModelSerializer):
         ]
         return sum(durations) if all(value is not None for value in durations) else None
 
-    class Meta:
-        model = Video
+    class Meta(VideoResponseSerializer.Meta):
         fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes")
         read_only_fields = fields
 

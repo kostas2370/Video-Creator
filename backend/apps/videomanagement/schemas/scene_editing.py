@@ -3,7 +3,7 @@
 from rest_framework import serializers
 
 from apps.videomanagement.models import MotionIntensity, MotionStyle, TransitionStyle
-from apps.videomanagement.serializers.audio import FiniteFloat
+from apps.videomanagement.serializers.fields import FiniteFloat
 
 
 class SceneEditingPlanSerializer(serializers.Serializer):

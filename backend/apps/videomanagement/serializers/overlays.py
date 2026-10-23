@@ -1,10 +1,10 @@
 """Bounded, provider-independent scene overlay settings."""
 
-import math
-
 from rest_framework import serializers
 
 from apps.videomanagement.utils.captions.styles import FONTS
+
+from .fields import validate_finite_numbers, validate_image_upload
 
 POSITIONS = (
     "top-left",
@@ -36,13 +36,11 @@ class OverlaySerializer(serializers.Serializer):
     opacity = serializers.FloatField(min_value=0.1, max_value=1, default=1)
 
     def validate(self, data):
-        if any(
-            not math.isfinite(data[key])
-            for key in ("start", "size", "width", "opacity")
-        ) or (data["end"] is not None and not math.isfinite(data["end"])):
-            raise serializers.ValidationError(
-                "Enter finite numbers for overlay settings."
-            )
+        validate_finite_numbers(
+            [data[key] for key in ("start", "size", "width", "opacity")]
+            + ([data["end"]] if data["end"] is not None else []),
+            "Enter finite numbers for overlay settings.",
+        )
         if data["end"] is not None and data["end"] <= data["start"]:
             raise serializers.ValidationError("The end must be after the start.")
         if not data["logo"] and not data["text"].strip():
@@ -67,14 +65,15 @@ class SceneOverlaysSerializer(serializers.Serializer):
         return serializer.validated_data
 
     def validate_overlay_logo(self, value):
-        if value.size > 10 * 1024 * 1024:
-            raise serializers.ValidationError("Use a logo smaller than 10 MB.")
-        if value.image.width * value.image.height > 16_000_000:
-            raise serializers.ValidationError(
-                "Use a logo with at most 16 million pixels."
-            )
-        if value.image.format not in ("PNG", "JPEG", "WEBP"):
-            raise serializers.ValidationError("Use a PNG, JPEG or WebP logo.")
-        if getattr(value.image, "is_animated", False):
-            raise serializers.ValidationError("Use a still image for your logo.")
-        return value
+        return validate_image_upload(
+            value,
+            max_pixels=16_000_000,
+            still_only=True,
+            check_order=("size", "pixels", "format", "animated"),
+            messages={
+                "size": "Use a logo smaller than 10 MB.",
+                "pixels": "Use a logo with at most 16 million pixels.",
+                "format": "Use a PNG, JPEG or WebP logo.",
+                "animated": "Use a still image for your logo.",
+            },
+        )
