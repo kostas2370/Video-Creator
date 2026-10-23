@@ -18,7 +18,7 @@ from apps.videomanagement.services.videos.preview import (
 )
 from apps.videomanagement.utils.frames import save_video_frame
 
-from ...models import RENDERABLE_STATUSES, MotionStyle, VideoStatus
+from ...models import RENDERABLE_STATUSES, MotionStyle, TransitionStyle, VideoStatus
 from ...video_formats import output_size
 from ..audio_editing import narration_file, voice_tracks
 from ..file_utils import check_if_image, stored_file_exists
@@ -300,18 +300,9 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None):
     sources = SourceFingerprints()
     quantized = quantized_scenes(segments)
     previous_frame = None
-    if opening and quantized and quantized[0].dissolve_in:
-        previous_frame = Path(directory, "intro-ending.png")
-        save_video_frame(
-            opening.content.file.path,
-            previous_frame,
-            max(0, opening.duration - 1 / FPS),
-        )
-    dependency = (
-        [sources.identity(opening.content.file.path), opening.duration]
-        if opening and quantized and quantized[0].dissolve_in
-        else None
-    )
+    # Intro dissolves are blended with the moving intro in final_graph. Scene
+    # dissolves still use a held outgoing frame from the previous scene clip.
+    dependency = None
     files = []
     for index, segment in enumerate(quantized):
         output = Path(directory, f"scene-{index}.mkv")
@@ -441,7 +432,28 @@ def final_graph(
     visuals, audios = [], []
     total = duration
     if opening:
-        visuals.append(visual_stream(graph, opening, size))
+        opening_visual = visual_stream(graph, opening, size)
+        if (
+            segments
+            and segments[0].dissolve_in
+            and opening.transition == TransitionStyle.DISSOLVE
+        ):
+            dissolve = segments[0].dissolve_in
+            opening_visual = graph.filter(
+                [opening_visual],
+                f"settb=AVTB,setpts=PTS-STARTPTS,fps={FPS},format=yuv420p",
+            )
+            scene_visual = graph.filter(
+                [visual],
+                f"tpad=stop_mode=clone:stop_duration={dissolve},settb=AVTB,setpts=PTS-STARTPTS,fps={FPS},format=yuv420p",
+            )
+            visual = graph.filter(
+                [opening_visual, scene_visual],
+                f"xfade=transition=fade:duration={dissolve}:offset={max(0, opening.duration - dissolve)}",
+            )
+            visuals.append(visual)
+        else:
+            visuals.extend([opening_visual, visual])
         audios.append(
             audio_stream(
                 graph,
@@ -450,7 +462,8 @@ def final_graph(
             )
         )
         total += opening.duration
-    visuals.append(visual)
+    else:
+        visuals.append(visual)
     audios.append(audio)
     if video.outro:
         closing = asset_segment(video.outro, "outro", 0)
