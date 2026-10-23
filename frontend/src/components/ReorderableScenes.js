@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { DeferredVideo } from "./ui/DeferredVideo";
+import { memo, useEffect, useRef, useState } from "react";
 import { RiDraggable } from "react-icons/ri";
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineFilm } from "react-icons/hi2";
 import { SceneTransition } from "./SceneTransition";
@@ -32,6 +33,7 @@ export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, sele
       return event.clientX < rect.left + rect.width / 2;
     });
     const next = { ...current, x: event.clientX, y: event.clientY, target: target < 0 ? scenes.length : target };
+    if (current.x === next.x && current.y === next.y && current.target === next.target && drag !== null) return;
     dragRef.current = next;
     setDrag(next);
   };
@@ -59,9 +61,10 @@ export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, sele
       const list = listRef.current;
       if (current && list) {
         const bounds = list.getBoundingClientRect();
+        const before = list.scrollLeft;
         if (current.x < bounds.left + 48) list.scrollLeft -= 10;
         else if (current.x > bounds.right - 48) list.scrollLeft += 10;
-        updateDrag({ clientX: current.x, clientY: current.y });
+        if (list.scrollLeft !== before) updateDrag({ clientX: current.x, clientY: current.y });
       }
       frame = requestAnimationFrame(scroll);
     };
@@ -94,7 +97,7 @@ export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, sele
             {insertion && <span aria-hidden="true" className="pointer-events-none absolute -left-2 bottom-0 top-0 w-1 rounded-full bg-blue-500" />}
             <button type="button" aria-label={`Edit scene ${index + 1}`} aria-pressed={activeId === scene.id} onClick={() => onSelectScene?.(scene.id)} className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
               <span className="relative mb-1.5 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-900">
-                {file ? isVideo(file) ? <video src={API_HOST + file} muted playsInline preload="metadata" aria-hidden="true" className="pointer-events-none h-full w-full object-cover" /> : <img src={API_HOST + file} alt="" loading="lazy" draggable={false} className="h-full w-full object-cover" /> : <HiOutlineFilm aria-hidden="true" className="h-7 w-7 text-gray-400" />}
+                {file ? isVideo(file) ? <DeferredVideo src={API_HOST + file} muted playsInline preload="metadata" aria-hidden="true" className="pointer-events-none h-full w-full object-cover" /> : <img src={API_HOST + file} alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" /> : <HiOutlineFilm aria-hidden="true" className="h-7 w-7 text-gray-400" />}
                 <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">{formatDuration(scene.timing?.duration)}</span>
               </span>
               <span className="block text-xs font-semibold">Scene {index + 1}</span><span className="sr-only text-gray-500 dark:text-gray-400">{scene.text || "Add text or media"}</span>
@@ -118,13 +121,18 @@ export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, sele
         {drag?.target === scenes.length && drag.from !== scenes.length - 1 && <span aria-hidden="true" className="w-1 shrink-0 rounded-full bg-blue-500" />}
       </div>
     </section>}
-    {selected && <div>
+    {selected && <SelectedSceneEditor selected={selected} selectedIndex={selectedIndex} scenes={scenes} onSelectScene={onSelectScene} manual={manual} onRemoveScene={onRemoveScene} onTiming={onTiming} disabled={disabled} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} setUpdated={setUpdated} videoFormat={videoFormat} onTransition={onTransition} pendingTransition={pendingTransition} transitionSettings={transitionSettings} />}
+    {drag && <div aria-hidden="true" style={{ left: Math.min(drag.x + 12, window.innerWidth - 160), top: drag.y + 12 }} className="pointer-events-none fixed z-[80] max-w-[150px] rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-xl">Moving scene {drag.from + 1}</div>}
+  </div>;
+}
+
+// Drag position changes only the strip; keep the active scene editor out of that work.
+const SelectedSceneEditor = memo(function SelectedSceneEditor({ selected, selectedIndex, scenes, onSelectScene, manual, onRemoveScene, onTiming, disabled, pendingTiming, onMotion, pendingMotion, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings }) {
+  return <div>
       <nav aria-label="Scene navigation" className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
         <p aria-live="polite" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Editing scene {selectedIndex + 1}<span className="ml-1 font-normal text-gray-500 dark:text-gray-400">of {scenes.length}</span></p>
         <div className="flex items-center gap-2">{[["Previous", -1, HiOutlineChevronLeft], ["Next", 1, HiOutlineChevronRight]].map(([label, offset, Icon]) => <button key={label} type="button" disabled={!scenes[selectedIndex + offset]} onClick={() => onSelectScene?.(scenes[selectedIndex + offset].id)} aria-label={`${label} scene`} className="inline-flex min-h-11 sm:min-h-9 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{offset < 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}{label}{offset > 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}</button>)}</div>
       </nav>
       <Scene onRemoveScene={onRemoveScene} key={selected.id} manual={manual} scene={selected} index={selectedIndex} nextScene={scenes[selectedIndex + 1]} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === selected.id} onMotion={onMotion} motionDisabled={disabled} motionSaving={pendingMotion === selected.id} setUpdated={setUpdated} video_format={videoFormat} transitionControl={selectedIndex < scenes.length - 1 ? <SceneTransition scene={selected} nextNumber={selectedIndex + 2} disabled={disabled} saving={pendingTransition === selected.id} onChange={onTransition} settings={transitionSettings} /> : null} />
-    </div>}
-    {drag && <div aria-hidden="true" style={{ left: Math.min(drag.x + 12, window.innerWidth - 160), top: drag.y + 12 }} className="pointer-events-none fixed z-[80] max-w-[150px] rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-xl">Moving scene {drag.from + 1}</div>}
-  </div>;
-}
+    </div>;
+});
