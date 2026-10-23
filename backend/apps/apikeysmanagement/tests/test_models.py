@@ -98,6 +98,51 @@ class KeyForTests(TestCase):
         self.assertEqual(len(ApiKeys.FIELDS), len(Provider.choices))
 
 
+@override_settings(OPEN_API_KEY="service-openai", XI_API_KEY="service-xi")
+class BatchKeyTests(TestCase):
+    providers = (Provider.OPENAI, Provider.ELEVENLABS, Provider.SIXTYDB)
+
+    def test_personal_keys_use_one_query_without_falling_back_to_service_keys(self):
+        owner = user.make(use_service_api_keys=False)
+        api_keys.make(user=owner, openai_key="personal-openai", elevenlabs_key="")
+        with self.assertNumQueries(1):
+            keys = ApiKeys.keys_for(owner, self.providers)
+        self.assertEqual(keys, {
+            Provider.OPENAI: "personal-openai",
+            Provider.ELEVENLABS: None,
+            Provider.SIXTYDB: None,
+        })
+
+    def test_service_and_anonymous_lookups_need_no_database_queries(self):
+        owner = user.make()
+        with self.assertNumQueries(0):
+            for caller in (None, owner):
+                keys = ApiKeys.keys_for(caller, self.providers)
+                self.assertEqual(keys[Provider.OPENAI], "service-openai")
+                self.assertEqual(keys[Provider.ELEVENLABS], "service-xi")
+            self.assertEqual(
+                ApiKeys.keys_for(AnonymousUser(), self.providers),
+                dict.fromkeys(self.providers),
+            )
+
+    def test_missing_personal_keys_stay_empty_and_are_never_cached_on_the_user(self):
+        owner = user.make(use_service_api_keys=False)
+        with self.assertNumQueries(1):
+            self.assertEqual(ApiKeys.keys_for(owner, self.providers), dict.fromkeys(self.providers))
+        saved = api_keys.make(user=owner, openai_key="first-key")
+        self.assertEqual(ApiKeys.keys_for(owner, self.providers)[Provider.OPENAI], "first-key")
+        saved.openai_key = "replacement-key"
+        saved.save(update_fields=["openai_key"])
+        self.assertEqual(ApiKeys.keys_for(owner, self.providers)[Provider.OPENAI], "replacement-key")
+        saved.delete()
+        self.assertEqual(ApiKeys.keys_for(owner, self.providers), dict.fromkeys(self.providers))
+
+    def test_empty_provider_selection_needs_no_database_query(self):
+        owner = user.make(use_service_api_keys=False)
+        with self.assertNumQueries(0):
+            self.assertEqual(ApiKeys.keys_for(owner, ()), {})
+
+
 class MaskTests(TestCase):
     def test_shows_only_the_ends_of_a_long_key(self):
         self.assertEqual(ApiKeys.mask("sk-abcdefghijkl"), "sk-••••••••ijkl")

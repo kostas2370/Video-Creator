@@ -93,19 +93,38 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
     @classmethod
     def key_for(cls, user, provider: str) -> str | None:
-        field, setting = cls.FIELDS[provider]
-        service_key = getattr(settings, setting, None) or None
+        return cls.keys_for(user, (provider,))[provider]
+
+    @classmethod
+    def keys_for(cls, user, providers) -> dict[str, str | None]:
+        """Resolve a set of providers from one fresh credential read, without caching secrets."""
+        fields = {provider: cls.FIELDS[provider] for provider in providers}
         if user is None:
-            return service_key
+            return {
+                provider: getattr(settings, setting, None) or None
+                for provider, (_, setting) in fields.items()
+            }
 
         if not getattr(user, "is_authenticated", False):
-            return
+            return dict.fromkeys(fields)
 
         if user.use_service_api_keys:
-            return service_key
+            return {
+                provider: getattr(settings, setting, None) or None
+                for provider, (_, setting) in fields.items()
+            }
 
-        keys = cls.objects.filter(user=user).first()
-        return (getattr(keys, field, "") or None) if keys else None
+        if not fields:
+            return {}
+        keys = (
+            cls.objects.filter(user=user)
+            .values(*(field for field, _ in fields.values()))
+            .first()
+        ) or {}
+        return {
+            provider: keys.get(field) or None
+            for provider, (field, _) in fields.items()
+        }
 
     @staticmethod
     def mask(value: str | None) -> str:
