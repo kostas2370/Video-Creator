@@ -1,29 +1,32 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
-import ContactPage from "./pages/ContactPage";
-import Login from "./pages/LoginPage";
-import Home from "./pages/HomePage";
-import CreatePage from "./pages/CreatePage";
-import { StoryVideo } from "./pages/StoryVideoPage";
-import { Captions } from "./pages/CaptionsPage";
-import { ManualVideo } from "./pages/ManualVideoPage";
-import Register from "./pages/RegisterPage";
-import ForgotPassword from "./pages/ForgotPasswordPage";
-import ResetPassword from "./pages/ResetPasswordPage";
 import Navbar from "./components/ui/myNavBar";
-import { Avatar } from "./pages/AvatarPage";
-import { Videos } from "./pages/VideosPage";
-import { Video } from "./pages/VideoPage";
 import useAuth from "./hooks/useAuth";
-import { AssetPage } from "./pages/AssetPage";
-import { ApiKeys } from "./pages/ApiKeysPage";
-import { Usage } from "./pages/UsagePage";
-import { Connections } from "./pages/ConnectionsPage";
-import { Voices } from "./pages/VoicesPage";
 import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
-import LegalPage, { LegalFooter } from "./pages/LegalPage";
+import { LegalFooter } from "./components/LegalFooter";
+import { PageLoadBoundary } from "./components/PageLoadBoundary";
+
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const Login = lazy(() => import("./pages/LoginPage"));
+const Home = lazy(() => import("./pages/HomePage"));
+const CreatePage = lazy(() => import("./pages/CreatePage"));
+const Register = lazy(() => import("./pages/RegisterPage"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPassword = lazy(() => import("./pages/ResetPasswordPage"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const StoryVideo = lazy(() => import("./pages/StoryVideoPage").then(module => ({ default: module.StoryVideo })));
+const Captions = lazy(() => import("./pages/CaptionsPage").then(module => ({ default: module.Captions })));
+const ManualVideo = lazy(() => import("./pages/ManualVideoPage").then(module => ({ default: module.ManualVideo })));
+const Avatar = lazy(() => import("./pages/AvatarPage").then(module => ({ default: module.Avatar })));
+const Videos = lazy(() => import("./pages/VideosPage").then(module => ({ default: module.Videos })));
+const Video = lazy(() => import("./pages/VideoPage").then(module => ({ default: module.Video })));
+const AssetPage = lazy(() => import("./pages/AssetPage").then(module => ({ default: module.AssetPage })));
+const ApiKeys = lazy(() => import("./pages/ApiKeysPage").then(module => ({ default: module.ApiKeys })));
+const Usage = lazy(() => import("./pages/UsagePage").then(module => ({ default: module.Usage })));
+const Connections = lazy(() => import("./pages/ConnectionsPage").then(module => ({ default: module.Connections })));
+const Voices = lazy(() => import("./pages/VoicesPage").then(module => ({ default: module.Voices })));
 
 function RequireAuth() {
   const { access_token } = useAuth();
@@ -52,38 +55,42 @@ function App() {
         <Navbar theme={theme} toggleTheme={toggleTheme} />
       ) : null}
 
-      <Routes>
-        <Route path="/contact/" element={<ContactPage />} />
-        <Route path="/privacy/" element={<LegalPage document="privacy" />} />
-        <Route path="/terms/" element={<LegalPage document="terms" />} />
-        <Route path="/" element={<PersistLogin />}>
-          <Route
-            path="/login/"
-            element={!access_token ? <Login /> : <Navigate to="/" replace />}
-          />
-          <Route path="/register/" element={<Register />} />
-          <Route path="/forgot-password/" element={<ForgotPassword />} />
-          <Route path="/reset-password/" element={<ResetPassword />} />
+      <PageLoadBoundary key={location.pathname}>
+        <Suspense fallback={<div role="status" className="flex min-h-[50vh] items-center justify-center px-6 text-sm text-gray-500 dark:text-gray-400">Loading page…</div>}>
+          <Routes>
+            <Route path="/contact/" element={<ContactPage />} />
+            <Route path="/privacy/" element={<LegalPage document="privacy" />} />
+            <Route path="/terms/" element={<LegalPage document="terms" />} />
+            <Route path="/" element={<PersistLogin />}>
+              <Route
+                path="/login/"
+                element={!access_token ? <Login /> : <Navigate to="/" replace />}
+              />
+              <Route path="/register/" element={<Register />} />
+              <Route path="/forgot-password/" element={<ForgotPassword />} />
+              <Route path="/reset-password/" element={<ResetPassword />} />
 
-          <Route element={<RequireAuth />}>
-            <Route index element={<CreatePage />} />
-            <Route path="/ai/" element={<Home />} />
-            <Route path="/story/" element={<StoryVideo />} />
-            <Route path="/captions/" element={<Captions />} />
-            <Route path="/captions/:captionId/" element={<Captions />} />
-            <Route path="/manual/" element={<ManualVideo />} />
-            <Route path="/avatars/" element={<Avatar />} />
-            <Route path="/videos/" element={<Videos />} />
-            <Route path="/videos/:videoId/" element={<Video />} />
-            <Route path="/assets/" element={<AssetPage />} />
-            <Route path="/api-keys/" element={<ApiKeys />} />
-            <Route path="/connections/" element={<Connections />} />
-            <Route path="/usage/" element={<Usage />} />
-            <Route path="/voices/" element={<Voices />} />
-            <Route path="*" element={<>Page not found !</>} />
-          </Route>
-        </Route>
-      </Routes>
+              <Route element={<RequireAuth />}>
+                <Route index element={<CreatePage />} />
+                <Route path="/ai/" element={<Home />} />
+                <Route path="/story/" element={<StoryVideo />} />
+                <Route path="/captions/" element={<Captions />} />
+                <Route path="/captions/:captionId/" element={<Captions />} />
+                <Route path="/manual/" element={<ManualVideo />} />
+                <Route path="/avatars/" element={<Avatar />} />
+                <Route path="/videos/" element={<Videos />} />
+                <Route path="/videos/:videoId/" element={<Video />} />
+                <Route path="/assets/" element={<AssetPage />} />
+                <Route path="/api-keys/" element={<ApiKeys />} />
+                <Route path="/connections/" element={<Connections />} />
+                <Route path="/usage/" element={<Usage />} />
+                <Route path="/voices/" element={<Voices />} />
+                <Route path="*" element={<>Page not found !</>} />
+              </Route>
+            </Route>
+          </Routes>
+        </Suspense>
+      </PageLoadBoundary>
       <LegalFooter />
     </div>
   );

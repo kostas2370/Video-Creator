@@ -1,34 +1,35 @@
+import { DeferredDialog } from "../components/ui/DeferredDialog";
 import { RecentlyDeletedScenes } from "../components/RecentlyDeletedScenes";
 import { RememberedDetails } from "../components/ui/RememberedDetails";
 import { useEditorSelection } from "../hooks/useEditorSelection";
 import { useUndoHistory } from "../hooks/useUndoHistory";
 import { rememberedScene, sameSceneOrder } from "../utils/editorWorkspace";
 import { EditorDialog } from "../components/ui/EditorDialog";
-import { ThumbnailCreator } from "../components/ThumbnailCreator";
 import { PublishVideo } from "../components/PublishVideo";
 import { VideoDetails } from "../components/VideoDetails";
 import { VideoNotes } from "../components/VideoNotes";
 import { API_HOST } from "../endpoints";
 import { videoFormats } from "../utils/videoFormats";
 import { Link, useParams } from "react-router-dom";
-import React, { useCallback, useState, useEffect, useRef } from "react";
+import React, { lazy, useCallback, useState, useEffect, useRef } from "react";
 import { getVideo, reorderScenes, archiveScene, restoreScene, updateSceneTransition, updateSceneTiming, updateSceneMotion, applyAutoMotion, getVideoSubtitles } from "../api/apiService";
 import { subscribeUpdates } from "../api/subscribeUpdates";
 import { FaPlus } from "react-icons/fa6";
-import { VideoConfigModal } from "../components/VideoConfigModal";
 import { ReorderableScenes } from "../components/ReorderableScenes";
 import { toast } from "react-toastify";
-import { RenderModal } from "../components/RenderModal";
-import { StoryboardModal } from "../components/StoryboardModal";
-import { ResumeModal } from "../components/ResumeModal";
 import { FaDownload } from "react-icons/fa";
 import { VideoToolbar } from "../components/VideoToolbar";
-import { ManualSceneModal } from "../components/ManualSceneModal";
-import { SceneCreationModal } from "../components/CreateSceneModal";
 import { MusicAudio } from "../components/MusicAudio";
-
 import { BulkAutoMotion, hasStillImage } from "../components/SceneMotion";
-import { VideoPreviewModal } from "../components/VideoPreview";
+
+const ManualSceneModal = lazy(() => import("../components/ManualSceneModal").then(module => ({ default: module.ManualSceneModal })));
+const SceneCreationModal = lazy(() => import("../components/CreateSceneModal").then(module => ({ default: module.SceneCreationModal })));
+const ThumbnailCreator = lazy(() => import("../components/ThumbnailCreator").then(module => ({ default: module.ThumbnailCreator })));
+const VideoPreviewModal = lazy(() => import("../components/VideoPreview").then(module => ({ default: module.VideoPreviewModal })));
+const StoryboardModal = lazy(() => import("../components/StoryboardModal").then(module => ({ default: module.StoryboardModal })));
+const VideoConfigModal = lazy(() => import("../components/VideoConfigModal").then(module => ({ default: module.VideoConfigModal })));
+const RenderModal = lazy(() => import("../components/RenderModal").then(module => ({ default: module.RenderModal })));
+const ResumeModal = lazy(() => import("../components/ResumeModal").then(module => ({ default: module.ResumeModal })));
 
 export const Video = () => {
   const { videoId } = useParams();
@@ -232,10 +233,10 @@ export const Video = () => {
           <a href={renderedUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:bg-gray-700">Open video in new tab ↗</a>
         </>}
       </EditorDialog>
-      <ThumbnailCreator open={showCover} onClose={() => setShowCover(false)} video={videoInfo} onSaved={changes => setVideoInfo(current => ({ ...current, ...changes }))} />
-      <VideoPreviewModal open={showPreview} onClose={() => setShowPreview(false)} video={videoInfo} disabled={sceneChangePending || renderPending} />
-      <StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} />
-      <VideoConfigModal
+      <DeferredDialog open={showCover} onClose={() => setShowCover(false)}><ThumbnailCreator open={showCover} onClose={() => setShowCover(false)} video={videoInfo} onSaved={changes => setVideoInfo(current => ({ ...current, ...changes }))} /></DeferredDialog>
+      <DeferredDialog open={showPreview} onClose={() => setShowPreview(false)}><VideoPreviewModal open={showPreview} onClose={() => setShowPreview(false)} video={videoInfo} disabled={sceneChangePending || renderPending} /></DeferredDialog>
+      <DeferredDialog open={showStoryboard} onClose={() => setShowStoryboard(false)}><StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} /></DeferredDialog>
+      <DeferredDialog open={showConfigModal} onClose={() => setShowConfigModal(false)}><VideoConfigModal
         showModal={showConfigModal}
         setShowModal={setShowConfigModal}
         onSaved={setUpdated}
@@ -249,17 +250,17 @@ export const Video = () => {
           id: videoInfo?.id,
           video_type: videoInfo?.video_type,
         }}
-      />
+      /></DeferredDialog>
 
-      <CreationModal
+      <DeferredDialog open={showAddSceneModal} onClose={() => setShowAddSceneModal(false)}><CreationModal
         showModal={showAddSceneModal}
         setShowModal={setShowAddSceneModal}
         id={videoInfo?.id}
         setItems={onSceneQueued}
         scenes={videoInfo?.scenes || []}
-      />
+      /></DeferredDialog>
 
-      <RenderModal
+      <DeferredDialog open={showRenderModal} onClose={() => setShowRenderModal(false)}><RenderModal
         showModal={showRenderModal}
         setShowModal={setShowRenderModal}
         id={videoId}
@@ -269,15 +270,15 @@ export const Video = () => {
           String(current?.id) === String(videoId) ? { ...current, ...changes } : current
         )}
         onFinished={() => setUpdated(true)}
-      />
+      /></DeferredDialog>
 
-      <ResumeModal
+      <DeferredDialog open={showResumeModal} onClose={() => setShowResumeModal(false)}><ResumeModal
         showModal={showResumeModal}
         setShowModal={setShowResumeModal}
         id={videoId}
         name={videoInfo?.title}
         onFinished={() => setUpdated(true)}
-      />
+      /></DeferredDialog>
 
       <main className="editor-workspace mx-auto max-w-6xl px-4 py-5 sm:px-6">
         <Link to="/videos/" className="text-sm font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400">← All videos</Link>
@@ -314,7 +315,6 @@ export const Video = () => {
           <p className="mt-1">Your script and visuals are saved. Retry narration in the scenes below, or render with the available audio.</p>
           <div className="mt-3 flex flex-wrap gap-2">{videoInfo.scenes.map((scene, index) => scene.narration_status === "missing" && <a key={scene.id} href={`#scene-${scene.id}`} onClick={() => selectScene(scene.id)} className="rounded-lg border border-amber-300 px-3 py-1 font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40">Scene {index + 1}</a>)}</div>
         </div>}
-
 
           <section aria-label="Scenes" className="min-w-0 space-y-5">
             <ReorderableScenes onRemoveScene={onRemoveScene} actions={<button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40"><FaPlus aria-hidden="true" />Add scene</button>} selectedSceneId={focusedScene?.id} onSelectScene={selectScene} manual={manual && !story} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />

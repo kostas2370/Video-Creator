@@ -1,6 +1,6 @@
 const withMT = require("@material-tailwind/react/utils/withMT");
  
-module.exports = withMT({
+const config = withMT({
   // "class" because hooks/useTheme puts `.dark` on <html>. It still starts from the
   // OS preference and keeps following it until the user uses the toggle, so the
   // dark: utilities behave as before for anyone who never touches it.
@@ -22,3 +22,6 @@ module.exports = withMT({
   },
   plugins: [],
 });
+
+// Keep the established theme, but scan only app sources now that dialogs use Headless UI.
+module.exports = { ...config, content: ["./src/**/*.{js,ts,jsx,tsx}", "./index.html"] };
