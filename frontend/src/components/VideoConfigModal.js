@@ -43,7 +43,6 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const intros = introsOptions.items;
   const outrosOptions = useAssetOptions(getOutro, showModal);
   const outros = outrosOptions.items;
-  const [title, setTitle] = useState("");
   const [intro, setIntro] = useState("");
   const [outro, setOutro] = useState("");
   const [subtitles, setSubtitles] = useState(false);
@@ -62,7 +61,6 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [saving, setSaving] = useState(false);
 
 
-  useEffect(() => setTitle(info?.title || ""), [info?.title]);
   useEffect(() => {
     setSelectedIntroFile(intros.find((item) => String(item.id) === String(intro))?.file || "");
   }, [intro, intros]);
@@ -105,7 +103,6 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
       const changes = {
         intro,
         outro,
-        title,
         avatar,
         subtitles,
         caption_style: captionStyle,
@@ -140,18 +137,13 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
           <div className="min-w-0 flex-1 pr-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">Video editor</p>
             <h2 id="video-settings-title" className="mt-1 text-xl font-bold tracking-tight text-gray-950 dark:text-white">Video settings</h2>
-            <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">Customize {title || "your video"} before rendering.</p>
+            <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">Customize {info?.title || "your video"} before rendering.</p>
           </div>
           <CloseModalButton setShowModal={setShowModal} />
         </header>
 
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-7">
-            <div>
-              <label htmlFor="video-title" className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-100">Video title</label>
-              <input id="video-title" type="text" value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={50} placeholder="Name your video" className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-white" />
-            </div>
-
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
               <h3 className={sectionTitle}>Output format</h3>
               <p className={sectionDescription}>Choose a platform preset and frame for your next render.</p>
@@ -251,7 +243,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
 
           <footer className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-7 dark:border-gray-800 dark:bg-gray-900">
             <button type="button" disabled={saving} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
-            <button type="submit" disabled={saving || !title.trim()} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Saving…" : "Save settings"}</button>
+            <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Saving…" : "Save settings"}</button>
           </footer>
         </form>
       </section>

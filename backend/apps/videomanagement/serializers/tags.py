@@ -60,3 +60,18 @@ class SaveVideoTagsSerializer(serializers.Serializer):
 
 class GenerateVideoTagsSerializer(serializers.Serializer):
     previous_tags = serializers.JSONField()
+
+
+class VideoDetailsSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=50)
+    description = serializers.CharField(allow_blank=True, max_length=5000)
+    tags = VideoTagsSerializer()
+
+    def validate_description(self, value):
+        if len(value.encode("utf-8")) > 5000:
+            raise serializers.ValidationError("Use at most 5,000 UTF-8 bytes.")
+        return value
+
+
+class SaveVideoDetailsSerializer(VideoDetailsSerializer):
+    previous_details = serializers.JSONField()

@@ -95,3 +95,25 @@ def generate_and_save_tags(video, *, user, previous_tags):
         )
     tags = generate_tags(video, user)
     return save_tags(video, tags=tags, previous_tags=previous_tags)
+
+
+def video_details(video):
+    return {"title": video.title, "description": video.description, "tags": video.tags}
+
+
+def save_details(video, *, title, description, tags, previous_details):
+    details = {"title": title, "description": description, "tags": tags}
+    with transaction.atomic():
+        video = Video.objects.select_for_update().get(pk=video.pk)
+        if video_details(video) not in (previous_details, details):
+            raise VideoEditConflict({
+                "detail": "Video details changed in another session. Load the saved details before saving.",
+                "details": video_details(video),
+            })
+        video.title = title
+        video.description = description
+        video.tags = tags
+        # Publishing metadata does not change the rendered media or export version.
+        video.save(update_fields=["title", "description", "tags"])
+        publish_update(f"video.{video.pk}", video_id=video.pk)
+    return video_details(video)

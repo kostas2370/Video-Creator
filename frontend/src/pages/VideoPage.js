@@ -6,7 +6,7 @@ import { rememberedScene, sameSceneOrder } from "../utils/editorWorkspace";
 import { EditorDialog } from "../components/ui/EditorDialog";
 import { ThumbnailCreator } from "../components/ThumbnailCreator";
 import { PublishVideo } from "../components/PublishVideo";
-import { VideoTags } from "../components/VideoTags";
+import { VideoDetails } from "../components/VideoDetails";
 import { VideoNotes } from "../components/VideoNotes";
 import { API_HOST } from "../endpoints";
 import { videoFormats } from "../utils/videoFormats";
@@ -35,6 +35,7 @@ export const Video = () => {
   const [videoInfo, setVideoInfo] = useState(null);
   const [updateError, setUpdateError] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
   const [renderPending, setRenderPending] = useState(false);
@@ -294,7 +295,7 @@ export const Video = () => {
           onViewRendered={renderedUrl && String(videoInfo?.id) === String(videoId) ? () => setShowRenderedVideo(true) : undefined}
           onPreview={() => setShowPreview(true)} onSettings={() => setShowConfigModal(true)}
           onCover={() => setShowCover(true)} onExport={() => setShowRenderModal(true)} onResume={() => setShowResumeModal(true)}
-          tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} disabled={processing || renderPending || sceneChangePending} /><VideoTags key={`tags-${videoInfo.id}`} videoId={videoInfo.id} tags={videoInfo.tags} onSaved={tags => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, tags } : current)} /></>}
+          tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} onEditDetails={() => setShowDetails(true)} disabled={processing || renderPending || sceneChangePending} /><VideoDetails key={`details-${videoInfo.id}`} video={videoInfo} open={showDetails} onOpenChange={setShowDetails} onSaved={details => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, ...details } : current)} /></>}
         />
         {updateError && !processing && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p>{videoInfo ? "Could not refresh your project. Reconnecting…" : "Could not load this project. Check your connection and try again."}</p><button type="button" onClick={setUpdated} className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-700">Try again</button></div>}
         {videoInfo?.status === "REVIEW" && <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-900/20">

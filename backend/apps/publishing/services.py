@@ -83,6 +83,8 @@ def create_job(user, data):
                 raise ValidationError("This project changed after you opened it. Reload the video and review its export before publishing.")
             if video.status != VideoStatus.COMPLETED or not stored_file_exists(video.output):
                 raise ValidationError("Export the video and wait for it to finish before publishing.")
+            if account.platform == Platform.YOUTUBE and "tags" not in options:
+                options["tags"] = (video.tags or {}).get("youtube", [])
             metadata = video_metadata(video.output.path)
             size = video.output.size
             get_publisher(account).validate_options(options, metadata, size, context)

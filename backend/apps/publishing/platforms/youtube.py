@@ -18,6 +18,14 @@ UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 class YouTubePublisher(Publisher):
     def validate_options(self, options, metadata, size, context):
         super().validate_options(options, metadata, size, context)
+        tags = options.get("tags", [])
+        tag_length = sum(len(tag) + (2 if " " in tag else 0) for tag in tags) + max(0, len(tags) - 1)
+        if tag_length > 500:
+            raise ValidationError({"tags": "YouTube tags must total 500 characters or fewer, including separators and quotes around phrases."})
+        if any(char in options["title"] + options["caption"] for char in "<>"):
+            raise ValidationError("YouTube titles and descriptions cannot contain angle brackets.")
+        if len(options["caption"].encode("utf-8")) > 5000:
+            raise ValidationError({"caption": "YouTube descriptions must be 5,000 UTF-8 bytes or fewer."})
         if not options["title"]:
             raise ValidationError({"title": "Add a video title."})
         if options["privacy"] not in context["privacy_level_options"]:
@@ -29,7 +37,7 @@ class YouTubePublisher(Publisher):
         options = job.options
         size = job.media.size
         metadata = {
-            "snippet": {"title": options["title"], "description": options["caption"]},
+            "snippet": {"title": options["title"], "description": options["caption"], "tags": options.get("tags", [])},
             "status": {
                 "privacyStatus": options["privacy"],
                 "selfDeclaredMadeForKids": options["made_for_kids"],
