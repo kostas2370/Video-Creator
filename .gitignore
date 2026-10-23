@@ -178,3 +178,6 @@ backend/private-render-cache/
 
 # Local tunnel lock, logs and current public address.
 backend/.local-tunnel/
+
+# macOS folder metadata (at any depth).
+.DS_Store
