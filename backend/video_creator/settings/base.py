@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "apps.usermanagement",
     "apps.videomanagement",
+    "apps.news",
     "apps.publishing",
     "apps.apikeysmanagement",
     "encrypted_model_fields",

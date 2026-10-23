@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.videomanagement.models import NewsUpdate
+from .models import NewsUpdate
 
 
 class NewsUpdateSerializer(serializers.ModelSerializer):

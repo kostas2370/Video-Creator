@@ -3,8 +3,8 @@ from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 
-from apps.videomanagement.models import NewsUpdate
-from apps.videomanagement.serializers.news import NewsUpdateSerializer
+from .models import NewsUpdate
+from .serializers import NewsUpdateSerializer
 
 
 class NewsUpdatePagination(PageNumberPagination):

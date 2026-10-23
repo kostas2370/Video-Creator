@@ -788,8 +788,9 @@ stays available until you render again.
 
 The Guide (`/guide/`) and What’s New (`/whats-new/`) pages are available before
 sign-in and linked from Resources and the footer. Manage What’s New entries in
-Django admin under **News updates**
-(`/admin/videomanagement/newsupdate/`). Each entry has a title, plain-text content,
+Django admin under **Product news → News updates**
+(`/admin/news/newsupdate/`), in the dedicated `apps.news` app. Each entry has a
+title, plain-text content,
 publication date, and draft/published status. Drafts are hidden; a published entry
 with a future date appears automatically when that date arrives. Use the admin’s
 **Publish selected updates now** or **Move selected updates to draft** actions for
@@ -797,6 +798,8 @@ bulk changes. The public, read-only `/api/news/` endpoint returns published upda
 newest first, ten per page. Apply migrations before using this feature. A data
 migration adds six initial announcements about the latest workspace improvements;
 these are editable in admin and existing seeded entries are never overwritten.
+Upgrade migrations move existing news into the new app while preserving entries
+and their admin permissions.
 
 **Render video** queues the render once the video is ready and pending playback edits
 have saved. While rendering, the button stays disabled.
