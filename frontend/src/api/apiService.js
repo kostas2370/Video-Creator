@@ -13,6 +13,10 @@ const remove = (url, options = {}) => request({ method: "delete", url, ...option
 const callerHandlesErrors = { notifyError: false };
 const publicRequest = (url, data) => post(url, data, { client: axiosInstance, ...callerHandlesErrors });
 
+export const getNewsUpdates = (page = 1) => request({
+  url: "news/", params: { page }, client: axiosInstance, ...callerHandlesErrors,
+});
+
 export const login = data => publicRequest(LOGIN_URL, data);
 export const register = data => publicRequest(REGISTER_URL, data);
 export const refreshToken = () => publicRequest(REFRESH_URL);

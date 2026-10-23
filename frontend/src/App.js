@@ -16,6 +16,8 @@ const Register = lazy(() => import("./pages/RegisterPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPassword = lazy(() => import("./pages/ResetPasswordPage"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
+const GuidePage = lazy(() => import("./pages/HelpPages").then(module => ({ default: module.GuidePage })));
+const WhatsNewPage = lazy(() => import("./pages/HelpPages").then(module => ({ default: module.WhatsNewPage })));
 const StoryVideo = lazy(() => import("./pages/StoryVideoPage").then(module => ({ default: module.StoryVideo })));
 const Captions = lazy(() => import("./pages/CaptionsPage").then(module => ({ default: module.Captions })));
 const ManualVideo = lazy(() => import("./pages/ManualVideoPage").then(module => ({ default: module.ManualVideo })));
@@ -45,6 +47,7 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   const shouldShowNavbar =
+    (!!access_token || !/^\/(guide|whats-new)\/?$/.test(location.pathname)) &&
     !/^\/(privacy|terms|contact|login|register)\/?$/.test(location.pathname) &&
     !location.pathname.startsWith("/forgot-password") &&
     !location.pathname.startsWith("/reset-password");
@@ -58,6 +61,8 @@ function App() {
       <PageLoadBoundary key={location.pathname}>
         <Suspense fallback={<div role="status" className="flex min-h-[50vh] items-center justify-center px-6 text-sm text-gray-500 dark:text-gray-400">Loading page…</div>}>
           <Routes>
+            <Route path="/guide/" element={<GuidePage />} />
+            <Route path="/whats-new/" element={<WhatsNewPage />} />
             <Route path="/contact/" element={<ContactPage />} />
             <Route path="/privacy/" element={<LegalPage document="privacy" />} />
             <Route path="/terms/" element={<LegalPage document="terms" />} />

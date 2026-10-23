@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { RiMoonLine, RiSunLine } from "react-icons/ri";
-import { HiOutlineLink, HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup } from "react-icons/hi2";
+import { HiOutlineLink, HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup, HiOutlineBookOpen, HiOutlineSparkles } from "react-icons/hi2";
 import { NotificationBell } from "./NotificationBell";
 import useLogout from "../../hooks/useLogout";
 import { isCreationPath } from "../../utils/creationModes";
@@ -15,6 +15,8 @@ const resources = [
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
   { to: "/voices", label: "My voices", icon: HiOutlineUserCircle },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },
+  { to: "/guide", label: "Guide", icon: HiOutlineBookOpen },
+  { to: "/whats-new", label: "What’s new", icon: HiOutlineSparkles },
 ];
 const iconButton = "rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white";
 
