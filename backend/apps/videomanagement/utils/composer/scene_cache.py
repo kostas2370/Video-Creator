@@ -42,6 +42,19 @@ def file_identity(path, *, contents=False):
         return [str(path), "missing"]
 
 
+class SourceFingerprints:
+    """Snapshot source identities for one export; never reuse across exports."""
+
+    def __init__(self):
+        self.identities = {}
+
+    def identity(self, path):
+        path = Path(path).resolve()
+        if path not in self.identities:
+            self.identities[path] = file_identity(path, contents=True)
+        return self.identities[path]
+
+
 def link_or_copy(source, destination):
     try:
         os.link(source, destination)
@@ -77,10 +90,18 @@ class SceneClipCache:
         if self.enabled:
             self.prune()
 
-    def key(self, segment, size, fps, previous=None):
+    def key(self, segment, size, fps, previous=None, *, sources=None):
         field = segment.image.file if segment.image else None
         try:
-            source = file_identity(field.path, contents=True) if field else None
+            source = (
+                (
+                    sources.identity(field.path)
+                    if sources is not None
+                    else file_identity(field.path, contents=True)
+                )
+                if field
+                else None
+            )
         except (ValueError, SuspiciousFileOperation):
             source = None
         value = {
