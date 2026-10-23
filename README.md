@@ -798,8 +798,8 @@ bulk changes. The public, read-only `/api/news/` endpoint returns published upda
 newest first, ten per page. Apply migrations before using this feature. A data
 migration adds six initial announcements about the latest workspace improvements;
 these are editable in admin and existing seeded entries are never overwritten.
-Upgrade migrations move existing news into the new app while preserving entries
-and their admin permissions.
+The news app owns both migrations: `0001_initial` creates the model and
+`0002_seed_news_updates` adds the initial announcements.
 
 **Render video** queues the render once the video is ready and pending playback edits
 have saved. While rendering, the button stays disabled.

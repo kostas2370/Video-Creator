@@ -68,7 +68,7 @@ UPDATES = [
 
 
 def seed_updates(apps, schema_editor):
-    NewsUpdate = apps.get_model("videomanagement", "NewsUpdate")
+    NewsUpdate = apps.get_model("news", "NewsUpdate")
     updates = NewsUpdate.objects.using(schema_editor.connection.alias)
     for slug, title, content, released_at in UPDATES:
         updates.get_or_create(
@@ -84,5 +84,5 @@ def seed_updates(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("videomanagement", "0045_news_update")]
+    dependencies = [("news", "0001_initial")]
     operations = [migrations.RunPython(seed_updates, migrations.RunPython.noop)]
