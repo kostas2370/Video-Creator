@@ -174,6 +174,7 @@ backend/staticfiles/
 
 # Private copies of exports being uploaded to social platforms.
 backend/private-publishing/
+backend/private-render-cache/
 
 # Local tunnel lock, logs and current public address.
 backend/.local-tunnel/

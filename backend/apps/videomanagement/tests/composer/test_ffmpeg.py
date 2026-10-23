@@ -10,6 +10,7 @@ from unittest import skipUnless
 from unittest.mock import patch
 
 import numpy as np
+from django.conf import settings
 from django.test import TestCase, override_settings
 from PIL import Image
 
@@ -26,7 +27,7 @@ from ...baker_recipes import (
     video,
 )
 from ...serializers.overlays import OverlaySerializer
-from ...utils.composer.render import Graph, make_video
+from ...utils.composer.render import Graph, make_video, render_scene_clip
 
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
@@ -163,10 +164,12 @@ class FFmpegRenderTests(TestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
         override = override_settings(
-            MEDIA_ROOT=str(self.root), FFMPEG_RENDER_TIMEOUT=60
+            MEDIA_ROOT=str(self.root), FFMPEG_RENDER_TIMEOUT=60,
+            FFMPEG_SCENE_CACHE_ROOT=self.root.parent / (self.root.name + "-cache"),
         )
         override.enable()
         self.addCleanup(override.disable)
+        self.addCleanup(shutil.rmtree, settings.FFMPEG_SCENE_CACHE_ROOT, True)
         patcher = patch(
             "apps.videomanagement.utils.composer.render.output_size",
             return_value=(160, 90),
@@ -268,6 +271,82 @@ class FFmpegRenderTests(TestCase):
             ]
         )
         return np.frombuffer(raw, dtype=np.uint8).reshape((90, 160, 3))
+
+    def decoded_hash(self, stream):
+        return subprocess.check_output(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                self.row.output.path,
+                "-map",
+                f"0:{stream}",
+                "-f",
+                "md5",
+                "-",
+            ]
+        )
+
+    def test_direct_export_matches_staged_video_and_audio_with_fractional_timing(self):
+        for pause in (0.13, 0.27, 0.09):
+            self.add_still(pause_after=pause)
+        with override_settings(FFMPEG_DIRECT_RENDER=False, FFMPEG_SCENE_CACHE_BYTES=0):
+            make_video(self.row)
+        original = (self.decoded_hash("v"), self.decoded_hash("a"))
+        with patch(
+            "apps.videomanagement.utils.composer.render.render_scene_clip"
+        ) as build:
+            make_video(self.row)
+        build.assert_not_called()
+        self.assertEqual((self.decoded_hash("v"), self.decoded_hash("a")), original)
+
+    @override_settings(FFMPEG_DIRECT_RENDER=False)
+    def test_repeat_export_reuses_clips_and_still_applies_changed_overlays(self):
+        first = self.add_still(motion_style="PAN_RIGHT")
+        self.add_still(motion_style="PAN_LEFT")
+        with patch(
+            "apps.videomanagement.utils.composer.render.render_scene_clip",
+            wraps=render_scene_clip,
+        ) as build:
+            make_video(self.row)
+            self.assertEqual(build.call_count, 2)
+            original = (self.decoded_hash("v"), self.decoded_hash("a"))
+            build.reset_mock()
+            make_video(self.row)
+            build.assert_not_called()
+            self.assertEqual((self.decoded_hash("v"), self.decoded_hash("a")), original)
+            overlay = OverlaySerializer(
+                data={"kind": "title", "text": "NEW TITLE", "size": 8}
+            )
+            overlay.is_valid(raise_exception=True)
+            first.overlays = [overlay.validated_data]
+            first.save(update_fields=["overlays"])
+            make_video(self.row)
+            build.assert_not_called()
+            self.assertNotEqual(self.decoded_hash("v"), original[0])
+            self.assertEqual(self.decoded_hash("a"), original[1])
+
+    @override_settings(FFMPEG_DIRECT_RENDER=False)
+    def test_source_replacement_invalidates_its_dependent_dissolve_only(self):
+        self.add_still(transition_after="DISSOLVE", transition_duration=0.2)
+        for color in ("blue", "red"):
+            Image.new("RGB", (160, 90), color).save(self.root / f"{color}.png")
+            row = self.add_still()
+            visual = row.scene_images.get()
+            visual.file = f"{color}.png"
+            visual.save()
+        make_video(self.row)
+        Image.new("RGB", (160, 90), "yellow").save(self.root / "still.png")
+        with patch(
+            "apps.videomanagement.utils.composer.render.render_scene_clip",
+            wraps=render_scene_clip,
+        ) as build:
+            make_video(self.row)
+        self.assertEqual(
+            [call.args[3].name for call in build.call_args_list],
+            ["scene-0.mkv", "scene-1.mkv"],
+        )
 
     def test_native_motion_and_pause_produce_seekable_h264_aac(self):
         self.row.thumbnail = "media/thumbnails/previous.jpg"

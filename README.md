@@ -787,6 +787,21 @@ stays available until you render again.
 **Render video** queues the render once the video is ready and pending playback edits
 have saved. While rendering, the button stays disabled.
 
+Small exports without dissolves can encode directly, avoiding temporary scene videos.
+Larger or motion-heavy projects keep the sequential scene pipeline to bound memory,
+and reuse unchanged lossless scene clips on later exports. Source files, dimensions,
+motion, timing, fades and incoming dissolves determine reuse; captions, overlays and
+the current audio mix are applied again in the final export.
+
+The scene cache lives outside `MEDIA_ROOT` in `backend/private-render-cache/` by
+default. It has a global 512 MiB budget and a 24-hour idle lifetime; expired and
+least-recently-used clips are removed during staged exports. Configure
+`FFMPEG_SCENE_CACHE_ROOT`, `FFMPEG_SCENE_CACHE_BYTES` and `FFMPEG_SCENE_CACHE_TTL`
+for the worker's storage. Set the byte budget to `0` to disable caching, or
+`FFMPEG_DIRECT_RENDER=false` to use staged rendering for all projects. Cache storage
+failures fall back to rendering the scene normally. Final exports retain the same
+H.264/AAC settings.
+
 If narration is missing, an amber notice lists the affected scenes. **Retry narration**
 on a scene regenerates its audio while keeping the dialogue and visual. The render
 dialog also checks for missing narration: cancel to retry it, or choose **Render anyway**
