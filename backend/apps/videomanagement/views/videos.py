@@ -171,9 +171,7 @@ class VideoView(
             )
 
         if self.action in ("retrieve", "preview"):
-            queryset = queryset.select_related("intro", "outro").prefetch_related(
-                "scenes__scene_images__asset"
-            )
+            queryset = queryset.with_editor_media()
 
         return queryset
 

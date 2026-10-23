@@ -71,8 +71,8 @@ class SceneView(viewsets.GenericViewSet):
 
     def get_queryset(self):
         if self.action == "restore":
-            return Scene.all_objects.all()
-        return super().get_queryset()
+            return Scene.all_objects.select_related("video")
+        return super().get_queryset().select_related("video")
 
     def get_serializer_class(self):
         if self.action == "partial_update" and not getattr(

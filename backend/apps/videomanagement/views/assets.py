@@ -40,7 +40,7 @@ from apps.videomanagement.throttling import CloneVoiceThrottle, VoicePreviewThro
 
 
 class SceneImageView(viewsets.GenericViewSet):
-    queryset = SceneImage.objects.all()
+    queryset = SceneImage.objects.select_related("scene__video")
     serializer_class = SceneImageSerializer
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
