@@ -308,6 +308,16 @@ ACCEPTED_MODELS = [
 ]
 
 FFMPEG_RENDER_TIMEOUT = int(os.getenv("FFMPEG_RENDER_TIMEOUT") or "3600")
+FFMPEG_DIRECT_RENDER = (os.getenv("FFMPEG_DIRECT_RENDER") or "true").lower() not in (
+    "false",
+    "0",
+    "no",
+)
+FFMPEG_SCENE_CACHE_ROOT = (
+    os.getenv("FFMPEG_SCENE_CACHE_ROOT") or BASE_DIR / "private-render-cache"
+)
+FFMPEG_SCENE_CACHE_BYTES = int(os.getenv("FFMPEG_SCENE_CACHE_BYTES") or 512 * 1024 * 1024)
+FFMPEG_SCENE_CACHE_TTL = int(os.getenv("FFMPEG_SCENE_CACHE_TTL") or 24 * 60 * 60)
 
 # Creator account connections. Secrets stay on the server; register the callback URLs
 # documented in docs/social-publishing.md with each developer application.

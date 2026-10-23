@@ -1,5 +1,5 @@
 from django.apps import apps
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django_cleanup.signals import cleanup_pre_delete
@@ -8,6 +8,13 @@ from apps.usermanagement.models import Notification
 
 from .events import publish_update
 from .models import MediaAsset, Scene, SceneImage, Video
+from .utils.composer.scene_cache import remove_project_cache
+
+
+@receiver(post_delete, sender=Video)
+def remove_render_cache(sender, instance, using, **kwargs):
+    video_id = instance.pk
+    transaction.on_commit(lambda: remove_project_cache(video_id), using=using)
 
 
 @receiver(post_save, sender=Video)
