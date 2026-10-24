@@ -51,6 +51,9 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    visual_continuity = serializers.CharField(
+        required=False, allow_blank=True, max_length=3000
+    )
     ai_scene_editing = serializers.BooleanField(required=False, default=False)
     review_script = serializers.BooleanField(required=False, default=False)
     scene_count = serializers.IntegerField(
@@ -211,6 +214,9 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    visual_continuity = serializers.CharField(
+        required=False, allow_blank=True, max_length=3000
+    )
     intro_transition = serializers.ChoiceField(
         choices=TransitionStyle.choices, required=False
     )

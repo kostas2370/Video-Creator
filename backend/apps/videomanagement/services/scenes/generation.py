@@ -16,6 +16,7 @@ from apps.videomanagement.services.scenes.visuals import (
 from apps.videomanagement.utils.prompt_utils import (
     build_scene_draft_prompt,
     format_update_form,
+    with_visual_continuity,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,10 @@ def draft_scene(
         ),
         style=settings.get("style", ""),
     )
+    if video.mode == "AI" or video.video_type == "MANUAL":
+        instructions = with_visual_continuity(
+            instructions, settings.get("visual_continuity", "")
+        )
     reply = get_update_sentence(instructions, user=video.created_by)
     try:
         # Accept the Markdown fences commonly returned by text-mode providers.
