@@ -154,8 +154,47 @@ class FFmpegRenderTests(TestCase):
                 elif style == "FADE":
                     self.assertLess(boundary.max(), 20)
                 else:
-                    self.assertGreater(boundary[2], 220)
-                    self.assertLess(boundary[0], 20)
+                    # The moving intro blends into the scene before it ends;
+                    # it must not reappear as a held frame after the boundary.
+                    blended = self.frame(0.18).mean(axis=(0, 1))
+                    for channel in (0, 2):
+                        self.assertGreater(blended[channel], 40)
+                        self.assertLess(blended[channel], 220)
+                    self.assertGreater(boundary[0], 220)
+                    self.assertLess(boundary[2], 20)
+
+    def test_faded_intro_with_audio_tail_does_not_reappear_during_dissolve(self):
+        Image.new("RGB", (160, 90), "red").save(self.root / "still.png")
+        self.add_still(transition_after="CUT")
+        # Smaller source media reproduces the former corner overlay. Its audio
+        # also outlasts its video, so seeking near the container end finds no frame.
+        subprocess.run(
+            [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-f", "lavfi", "-i",
+                "color=c=blue:s=80x44:r=24:d=0.5,fade=t=out:st=0.125:d=0.125",
+                "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=44100:duration=0.75",
+                "-t", "0.75", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", str(self.root / "intro-tail.mp4"),
+            ],
+            check=True, capture_output=True,
+        )
+        self.row.intro = intro.make(file="intro-tail.mp4")
+        self.row.settings.update(intro_transition="DISSOLVE", intro_transition_duration=0.25)
+        self.row.save()
+
+        make_video(self.row)
+
+        self.assertGreater(self.frame(0.08)[:, :, 2].mean(), 220)
+        self.assertLess(self.frame(0.375).max(), 20)
+        blended = self.frame(0.625).mean(axis=(0, 1))
+        self.assertGreater(blended[0], 40)
+        self.assertLess(blended[0], 220)
+        self.assertLess(blended[2], 20)
+        after_intro = self.frame(0.75)
+        self.assertGreater(after_intro[:, :, 0].min(), 220)
+        self.assertLess(after_intro[:, :, 2].max(), 20)
+        self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 1.25, delta=0.05)
 
     def setUp(self):
         # Rendering fixtures use synthetic tones; speech providers stay mocked.

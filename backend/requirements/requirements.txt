@@ -24,6 +24,7 @@ django-encrypted-model-fields
 django-rest-passwordreset
 
 # Media and rendering
+filelock==4.2.1
 ushlex
 bing_image_downloader
 pytubefix
