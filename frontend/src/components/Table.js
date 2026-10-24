@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { DeferredDialog } from "./ui/DeferredDialog";
+import { lazy, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import {
@@ -12,9 +13,10 @@ import { loadVideoThumbnail, thumbnailRequestKey } from "../utils/videoThumbnail
 import { videoFormats } from "../utils/videoFormats";
 import { deleteVideo, toggleVideoFavorite } from "../api/apiService";
 import { DeleteModal } from "./DeleteModal";
-import { VideoInfoModal } from "./VideoInfoModal";
-import { RenderModal } from "./RenderModal";
-import { ResumeModal } from "./ResumeModal";
+
+const RenderModal = lazy(() => import("./RenderModal").then(module => ({ default: module.RenderModal })));
+const ResumeModal = lazy(() => import("./ResumeModal").then(module => ({ default: module.ResumeModal })));
+const VideoInfoModal = lazy(() => import("./VideoInfoModal").then(module => ({ default: module.VideoInfoModal })));
 
 const menuItemClass = "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-gray-700 data-[focus]:bg-gray-100 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:text-gray-200 dark:data-[focus]:bg-gray-700";
 const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
@@ -54,7 +56,7 @@ function VideoThumbnail({ video, compact }) {
 
   return <Link ref={container} to={`/videos/${video.id}/`} aria-label={`Open ${video.title || "Untitled video"}`} className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 text-blue-300 ${focus} dark:from-gray-800 dark:via-slate-800 dark:to-slate-900 dark:text-slate-600 ${compact ? "h-20 w-28 rounded-xl sm:h-20 sm:w-36" : "aspect-video w-full rounded-t-2xl"}`}>
     <HiOutlineFilm aria-hidden="true" className={compact ? "h-8 w-8" : "h-12 w-12"} />
-    {image && <img src={image} loading="lazy" alt="" onError={() => setFailedImages(current => [...current, image])} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105" />}
+    {image && <img src={image} loading="lazy" decoding="async" alt="" onError={() => setFailedImages(current => [...current, image])} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105" />}
     {!compact && <span className="absolute bottom-3 right-3 rounded-md bg-gray-950/65 px-2 py-1 text-[10px] font-medium text-white">{videoFormats.find(format => format.value === video.settings?.video_format)?.ratio || "Video"}</span>}
   </Link>;
 }
@@ -93,9 +95,9 @@ export function DefaultTable({ data, setVideos, view = "grid", onUpdated, favori
   return <>
     {favoriteError && <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">{favoriteError}</p>}
     <DeleteModal showModal={showDeleteModal} setShowModal={setShowDeleteModal} id={id} setItems={setVideos} deleteFunction={deleteVideo} name="video" />
-    <RenderModal showModal={showRenderModal} setShowModal={setShowRenderModal} id={id} setItems={setVideos} name="video" onPendingChange={setRenderPending} onFinished={onUpdated} />
-    <ResumeModal showModal={showResumeModal} setShowModal={setShowResumeModal} id={id} setItems={setVideos} name="this video" onFinished={onUpdated} />
-    <VideoInfoModal showModal={showVideoModal} setShowModal={setShowVideoModal} videoInfo={videoInfo} />
+    <DeferredDialog open={showRenderModal} onClose={() => setShowRenderModal(false)}><RenderModal showModal={showRenderModal} setShowModal={setShowRenderModal} id={id} setItems={setVideos} name="video" onPendingChange={setRenderPending} onFinished={onUpdated} /></DeferredDialog>
+    <DeferredDialog open={showResumeModal} onClose={() => setShowResumeModal(false)}><ResumeModal showModal={showResumeModal} setShowModal={setShowResumeModal} id={id} setItems={setVideos} name="this video" onFinished={onUpdated} /></DeferredDialog>
+    <DeferredDialog open={showVideoModal} onClose={() => setShowVideoModal(false)}><VideoInfoModal showModal={showVideoModal} setShowModal={setShowVideoModal} videoInfo={videoInfo} /></DeferredDialog>
     <ul className={compact ? "divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-800" : "grid gap-5 sm:grid-cols-2 lg:grid-cols-3"}>
       {data?.map(video => {
         const title = video.title || "Untitled video";

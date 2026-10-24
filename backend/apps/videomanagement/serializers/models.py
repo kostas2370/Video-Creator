@@ -95,9 +95,10 @@ class AvatarSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
+        # Only input validation needs the caller's available voice choices.
         self.fields["voice"].queryset = (
             VoiceModel.objects.available_to(request.user)
-            if request
+            if request and hasattr(self, "initial_data")
             else VoiceModel.objects.none()
         )
 

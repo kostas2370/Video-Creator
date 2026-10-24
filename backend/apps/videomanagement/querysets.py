@@ -51,6 +51,12 @@ class AIUsageQuerySet(models.QuerySet):
 
 
 class VideoQuerySet(models.QuerySet):
+    def with_editor_media(self):
+        """Load scene visuals and their assets together instead of a query per relation."""
+        return self.select_related("music", "prompt", "intro", "outro").prefetch_related(
+            Prefetch("scenes", queryset=video_models.Scene.objects.with_media())
+        )
+
     def for_user(self, user):
         if user is None or not user.is_authenticated:
             return self.none()
@@ -88,10 +94,11 @@ class VoiceModelQuerySet(models.QuerySet):
         if user is not None and not user.is_authenticated:
             return self.none()
 
+        keys = ApiKeys.keys_for(user, video_models.VOICE_PROVIDERS)
         playable = [
             provider
             for provider in video_models.VOICE_PROVIDERS
-            if ApiKeys.key_for(user, provider)
+            if keys[provider]
         ]
         valid_providers = Q(provider__in=playable) | Q(
             type=video_models.VoiceModelType.CUSTOM_API,
@@ -112,8 +119,6 @@ class VoiceModelQuerySet(models.QuerySet):
             created_by=user,
             requires_verification=False,
             clone_key_source=key_source(user),
-            clone_key_fingerprint=key_fingerprint(
-                ApiKeys.key_for(user, Provider.ELEVENLABS)
-            ),
+            clone_key_fingerprint=key_fingerprint(keys[Provider.ELEVENLABS]),
         )
         return (voices | clones).filter(valid_providers)

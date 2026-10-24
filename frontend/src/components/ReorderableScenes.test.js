@@ -40,4 +40,10 @@ describe("scene editing views", () => {
   it("does not add an outgoing transition on the last scene", () => {
     expect(render({ selectedSceneId: "third" })).not.toContain("Transition style");
   });
+  it("defers clip sources in the scene strip until they approach the viewport", () => {
+    const html = render({ scenes: [{ id: "clip", scene_image: { file: "/media/large.mp4" } }] });
+    expect(html).toContain("<video");
+    expect(html).not.toContain("/media/large.mp4");
+    expect(html).toContain('preload="metadata"');
+  });
 });

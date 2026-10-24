@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Dialog, DialogHeader, DialogBody, DialogFooter } from "@material-tailwind/react";
+import { EditorDialog } from "./ui/EditorDialog";
 import { useNavigate } from "react-router-dom";
 import { approveScript } from "../api/apiService";
 
@@ -45,11 +45,11 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
   if (!open || !script) return null;
   const narration = video?.settings?.narration !== false;
   return (
-    <Dialog open={open} handler={() => !busy && onClose()} size="xl" className="bg-white dark:bg-gray-800" dismiss={{ escapeKey: !busy, outsidePress: !busy }}>
-      <form onSubmit={proceed}>
-        <DialogHeader className="text-gray-900 dark:text-white">Review your storyboard</DialogHeader>
-        <DialogBody className="max-h-[65vh] overflow-y-auto text-gray-700 dark:text-gray-200">
-          <p className="mb-5 text-sm">Review and edit the generated prompts below. Visuals and narration will be created after you press Proceed.</p>
+    <EditorDialog open={open} onClose={onClose} busy={busy} title="Review your storyboard" description="Review and edit the generated prompts below. Visuals and narration will be created after you press Proceed." maxWidth="max-w-5xl" footer={<div className="flex justify-end gap-3">
+      <button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 disabled:opacity-50 dark:text-gray-200">Close</button>
+      <button type="submit" form="storyboard-review" disabled={busy} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{busy ? "Starting generation…" : "Proceed"}</button>
+    </div>}>
+      <form id="storyboard-review" onSubmit={proceed} className="text-gray-700 dark:text-gray-200">
           <label className="block text-sm font-semibold">Video title
             <input autoFocus required maxLength={50} value={script.title} disabled={busy} onChange={event => setScript({ ...script, title: event.target.value })} className={inputClass} />
           </label>
@@ -73,12 +73,7 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
             </section>
           ))}
           {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-300">{error}</p>}
-        </DialogBody>
-        <DialogFooter className="gap-3 border-t border-gray-200 dark:border-gray-600">
-          <button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 disabled:opacity-50 dark:text-gray-200">Close</button>
-          <button type="submit" disabled={busy} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{busy ? "Starting generation…" : "Proceed"}</button>
-        </DialogFooter>
       </form>
-    </Dialog>
+    </EditorDialog>
   );
 }

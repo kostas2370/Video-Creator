@@ -21,6 +21,8 @@ export const Card = ({ imageSrc, title, audioSrc, id, setAvatars }) => {
       <div className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800">
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100 dark:bg-gray-900">
           <img
+            loading="lazy"
+            decoding="async"
             src={imageSrc}
             alt={title}
             className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"

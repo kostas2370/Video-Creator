@@ -1,23 +1,25 @@
+import { DeferredDialog } from "./ui/DeferredDialog";
 import { RememberedDetails } from "./ui/RememberedDetails";
 import { formatDuration } from "../utils/timing";
 import { isVideo } from "../utils/media";
-import React, { useState } from "react";
+import React, { lazy, useState } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import { FaPencilAlt } from "react-icons/fa";
 import { IoTrashBinSharp } from "react-icons/io5";
 import { DeleteModal } from "./DeleteModal";
 import { HiOutlinePencilSquare, HiOutlineEllipsisVertical } from "react-icons/hi2";
 import { deleteImageScene, deleteScene, updateScene } from "../api/apiService";
-import { EditSceneModal } from "./EditSceneModal";
-import { EditSceneImageModal } from "./EditSceneImageModal";
 import { API_HOST } from "../endpoints";
 import { SceneOverlays } from "./SceneOverlays";
 import { SceneCaptions } from "./SceneCaptions";
 import { SceneAudio } from "./SceneAudio";
-
 import { SceneMotion } from "./SceneMotion";
 import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
+
+const EditSceneModal = lazy(() => import("./EditSceneModal").then(module => ({ default: module.EditSceneModal })));
+const EditSceneImageModal = lazy(() => import("./EditSceneImageModal").then(module => ({ default: module.EditSceneImageModal })));
+
 const formatFrameClasses = {
   LANDSCAPE: "aspect-video w-full",
   PORTRAIT: "mx-auto h-[min(65vh,420px)] max-w-full aspect-[9/16]",
@@ -69,13 +71,13 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
         mode="image"
       />
 
-      <EditSceneModal
+      <DeferredDialog open={showEditModal} onClose={() => setShowEditModal(false)}><EditSceneModal
         showModal={showEditModal}
         setShowModal={setShowEditModal}
         scene_info={{ dialogue: scene.text, id: scene.id, manual }}
         setUpdate={setUpdated}
-      />
-      <EditSceneImageModal
+      /></DeferredDialog>
+      <DeferredDialog open={showEditImageModal} onClose={() => setShowEditImageModal(false)}><EditSceneImageModal
         showModal={showEditImageModal}
         setShowModal={setShowEditImageModal}
         scene_info={{
@@ -88,7 +90,7 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
           video_format,
         }}
         setUpdate={setUpdated}
-      />
+      /></DeferredDialog>
       <article id={`scene-${scene.id}`} className="editor-panel scroll-mt-44 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
           <div className="flex items-center gap-2">{reorderHandle}<h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2></div>
@@ -98,7 +100,7 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Source visual</h3><div className="flex flex-wrap items-center gap-1"><button type="button" disabled={timingDisabled} onClick={() => setShowEditImageModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-gray-700"><HiOutlinePencilSquare className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button></div></div>
             <div className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${formatFrameClasses[video_format] || formatFrameClasses.LANDSCAPE}`}>
-              {scene.scene_image?.file ? (isVideo(scene.scene_image.file) ? <video controls src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
+              {scene.scene_image?.file ? (isVideo(scene.scene_image.file) ? <video controls playsInline preload="metadata" src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
 
             </div>
 
@@ -111,7 +113,7 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Narration unavailable</p>
               <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-300">This scene has no narration audio. Your dialogue and visual are saved.</p>
               <button type="button" disabled={retryingNarration} onClick={retryNarration} className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/50 dark:text-amber-200">{retryingNarration ? "Retrying…" : "Retry narration"}</button>
-            </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">{manual ? "Use Audio to record or upload a voiceover." : "Narration is off for this video"}</p> : ((scene.voiceover || scene.file) ? <details className="mt-4"><summary className="mb-3 cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Listen to original narration</summary><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Before audio edits. Use Preview edit to hear the current mix.</p><audio aria-label={`Scene ${index + 1} narration`} controls key={scene.voiceover || scene.file} className="h-10 w-full"><source src={MEDIA_URL + (scene.voiceover || scene.file)} /></audio></details> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
+            </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">{manual ? "Use Audio to record or upload a voiceover." : "Narration is off for this video"}</p> : ((scene.voiceover || scene.file) ? <details className="mt-4"><summary className="mb-3 cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Listen to original narration</summary><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Before audio edits. Use Preview edit to hear the current mix.</p><audio aria-label={`Scene ${index + 1} narration`} controls preload="none" key={scene.voiceover || scene.file} className="h-10 w-full"><source src={MEDIA_URL + (scene.voiceover || scene.file)} /></audio></details> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
             <div className="mt-4"><SceneAudio scene={scene} index={index} nextScene={nextScene} disabled={timingDisabled} onSaved={setUpdated} /></div>
 
           </div>

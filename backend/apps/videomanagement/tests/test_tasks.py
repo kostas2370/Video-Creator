@@ -186,7 +186,8 @@ class UpdateUserVoicesTests(TestCase):
 
                 voice = VoiceModel.objects.get(provider=provider, path="abc")
                 with patch(
-                    "apps.apikeysmanagement.models.ApiKeys.key_for", return_value="key"
+                    "apps.apikeysmanagement.models.ApiKeys.keys_for",
+                    return_value={provider: "key" for provider in (Provider.OPENAI, Provider.ELEVENLABS, Provider.SIXTYDB)}
                 ):
                     self.assertIn(voice, VoiceModel.objects.available_to(self.user))
                 with patch.object(tts_utils, handler) as synthesize:

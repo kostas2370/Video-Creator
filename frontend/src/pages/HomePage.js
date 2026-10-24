@@ -1,20 +1,22 @@
+import { DeferredDialog } from "../components/ui/DeferredDialog";
 import { videoFormats as videoFormatOptions } from "../utils/videoFormats";
 import { VideoCreationMode } from "../components/VideoCreationMode";
 import { useObjectUrl } from "../hooks/useObjectUrl";
 import { useAssetOptions } from "../hooks/useAssetOptions";
 import { MoreAssetOptions } from "../components/ui/MoreAssetOptions";
-import React, { useState, useEffect, useRef } from "react";
+import React, { lazy, useState, useEffect, useRef } from "react";
 import { getAvatars, getTemplates, getVoices, getCustomVisualProviders } from "../api/apiService";
 import { toast } from "react-toastify";
 import { deleteTemplate, generateVideo } from "../api/apiService";
 import { waitForVideo } from "../api/waitForVideo";
 import { Link } from "react-router-dom";
 import { RiSparkling2Line, RiArrowRightLine, RiVolumeUpLine, RiImageLine, RiSettings3Line, RiArrowDownSLine } from "react-icons/ri";
-import { StoryboardModal } from "../components/StoryboardModal";
-import { ProceedModal } from "../components/ProceedModal";
 import { SaveTemplateModal } from "../components/SaveTemplateModal";
 import { DeleteModal } from "../components/DeleteModal";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
+
+const StoryboardModal = lazy(() => import("../components/StoryboardModal").then(module => ({ default: module.StoryboardModal })));
+const ProceedModal = lazy(() => import("../components/ProceedModal").then(module => ({ default: module.ProceedModal })));
 
 const ttsProviderNames = {
   OPENAI: "OpenAI",
@@ -186,7 +188,6 @@ const Home = () => {
     }
   };
 
-
   const settingsForTemplate = Object.fromEntries(
     Object.entries(formData).filter(([field]) => field !== "template").map(([field, value]) => [field, field === "scene_count" ? (value === "" ? null : Number(value)) : value])
   );
@@ -290,8 +291,8 @@ const Home = () => {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-      <StoryboardModal open={Boolean(draftVideo)} video={draftVideo} onClose={() => setDraftVideo(null)} />
-      <ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} />
+      <DeferredDialog open={Boolean(draftVideo)} onClose={() => setDraftVideo(null)}><StoryboardModal open={Boolean(draftVideo)} video={draftVideo} onClose={() => setDraftVideo(null)} /></DeferredDialog>
+      <DeferredDialog open={open} onClose={() => isOpenFunction(false)}><ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} /></DeferredDialog>
       <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
       <VideoCreationMode />

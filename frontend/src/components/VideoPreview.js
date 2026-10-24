@@ -1,6 +1,7 @@
+import { DeferredVideo } from "./ui/DeferredVideo";
 import { OverlayLayer } from "./OverlayLayer";
 import { CaptionLayer } from "./CaptionLayer";
-import React, { useCallback, useEffect, useId, useRef, useState, memo } from "react";
+import React, { useCallback, useEffect, useId, useRef, useState, useMemo, memo } from "react";
 import { FaPause, FaPlay, FaUndo, FaVolumeMute, FaVolumeUp } from "react-icons/fa";
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle, Description } from "@headlessui/react";
 import { HiOutlineXMark } from "react-icons/hi2";
@@ -120,9 +121,9 @@ function VideoPreview({ video, disabled = false }) {
   const timeline = useRef(null);
   const allowed = ["READY", "COMPLETED", "FAILED"].includes(video?.status);
   // Polling returns new objects even when nothing changed; only an edited timeline reloads.
-  const revision = JSON.stringify([video?.id, video?.status, video?.updated_at, video?.settings,
+  const revision = useMemo(() => JSON.stringify([video?.id, video?.status, video?.updated_at, video?.settings,
     video?.intro, video?.outro, video?.avatar, video?.music,
-    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.overlays, s.overlay_logo])]);
+    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.overlays, s.overlay_logo])]), [video]);
   useEffect(() => {
     setPlaying(false);
     setManifest(null);
@@ -172,6 +173,9 @@ function VideoPreview({ video, disabled = false }) {
   }, [manifest?.duration]);
   const failMedia = useCallback(() => setMediaError(true), []);
   const blocked = useCallback(() => { setPlaying(false); setError("Your browser paused the media. Press play to try again."); }, []);
+  const musicSpeech = useMemo(() => !manifest?.music ? [] : (manifest.audio_tracks || []).flatMap(track =>
+    (track.speech || []).map(([a, b]) => [a - (manifest.music?.start || 0), b - (manifest.music?.start || 0)]),
+  ), [manifest]);
   const segments = manifest?.segments || [];
   const index = Math.max(0, segments.findIndex(segment => time < segment.start + segment.duration));
   const active = time >= (manifest?.duration || Infinity) ? segments[segments.length - 1] : segments[index];
@@ -208,7 +212,7 @@ function VideoPreview({ video, disabled = false }) {
             {active && <Visual key={active.id} segment={active} time={local} playing={playing} muted={muted} opacity={time === 0 && !playing ? 1 : Math.max(0, opacity)} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {(manifest.audio_tracks || []).filter(track => time >= track.start - 0.5 && time <= track.start + track.duration + 0.1).map(track => <Track key={`voice-${track.id}`} source={track.source} time={time - track.start} trimStart={track.trim_start} duration={track.duration} volume={voiceGain(time - track.start, track)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />)}
-            {manifest.music && <Track key={`music-${manifest.music.source}`} source={manifest.music.source} loop time={time - manifest.music.start} duration={manifest.music.duration} volume={musicGain(time - manifest.music.start, manifest.music.duration, manifest.music.settings, (manifest.audio_tracks || []).flatMap(track => track.speech.map(([a, b]) => [a - manifest.music.start, b - manifest.music.start])))} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
+            {manifest.music && <Track key={`music-${manifest.music.source}`} source={manifest.music.source} loop time={time - manifest.music.start} duration={manifest.music.duration} volume={musicGain(time - manifest.music.start, manifest.music.duration, manifest.music.settings, musicSpeech)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {active && <OverlayLayer frameSize={manifest.size} overlays={active.overlays} logo={active.overlay_logo} time={local} duration={active.duration} />}
             <CaptionLayer cue={cue} style={manifest.caption_style} size={manifest.size} config={manifest.caption_config} />
           </div>
@@ -233,7 +237,7 @@ function VideoPreview({ video, disabled = false }) {
 
 const TimelineItem = memo(function TimelineItem({ segment, active, progress, activeButton, onSeek }) {
   return <button type="button" ref={active ? activeButton : null} aria-label={`Preview ${segment.label}`} aria-current={active ? "true" : undefined} onClick={() => onSeek(segment.start)} style={{ width: Math.max(100, Math.min(240, segment.duration * 18)) }} className={`relative shrink-0 overflow-hidden rounded-xl border-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-700"}`}>
-              <div className="relative h-14 overflow-hidden bg-gray-100 dark:bg-gray-900">{segment.visual && (segment.visual_type === "video" ? <video src={mediaUrl(segment.visual)} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={mediaUrl(segment.visual)} alt="" className="h-full w-full object-cover" />)}{!segment.visual && <span className="flex h-full items-center justify-center text-xs text-gray-400">No visual</span>}</div>
+              <div className="relative h-14 overflow-hidden bg-gray-100 dark:bg-gray-900">{segment.visual && (segment.visual_type === "video" ? <DeferredVideo src={mediaUrl(segment.visual)} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={mediaUrl(segment.visual)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />)}{!segment.visual && <span className="flex h-full items-center justify-center text-xs text-gray-400">No visual</span>}</div>
               <div className="px-2 py-1.5"><span className="block text-xs font-semibold text-gray-700 dark:text-gray-200">{segment.label}</span><span className="block text-[11px] text-gray-500 dark:text-gray-400">{segment.duration.toFixed(1)}s{segment.pause > 0 ? ` · +${segment.pause}s pause` : ""}</span></div>
               {active && <span aria-hidden="true" className="pointer-events-none absolute bottom-0 top-0 w-0.5 bg-blue-500" style={{ left: `${Math.min(100, Math.max(0, progress / segment.duration * 100))}%` }} />}
             </button>;
