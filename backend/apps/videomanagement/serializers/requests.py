@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
-from apps.apikeysmanagement.models import Provider
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.media.uploads import validate_visual
 
@@ -114,11 +114,13 @@ class GenerateSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != ImageMode.AI
-            or attrs.get("provider") not in (None, Provider.OPENAI, "sora")
+            or not ImageProviderRegistry.supports_reference(
+                attrs.get("provider"), mode=attrs.get("image_mode")
+            )
         ):
             raise serializers.ValidationError(
                 {
-                    "reference_image": "Reference images are supported with OpenAI images and Sora."
+                    "reference_image": "The selected visual provider does not support reference images."
                 }
             )
         attrs["avatar_position"] = normalize_avatar_position(

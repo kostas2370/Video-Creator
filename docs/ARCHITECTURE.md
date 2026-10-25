@@ -385,8 +385,10 @@ a response containing only a job ID is not supported.
 ### Visual and LLM providers
 
 [ImageProviderRegistry](../backend/apps/videomanagement/integrations/visuals/registry.py)
-uses the same registration pattern as `TTSRegistry`: module-level handlers register
-through decorators, and lookup resolves their current module attributes at call time.
+and `TTSRegistry` share
+[ProviderRegistry](../backend/apps/videomanagement/integrations/registry.py).
+Module-level handlers register through decorators, and lookup resolves their current
+module attributes at call time, including voice handlers defined in other modules.
 This keeps provider calls patchable in tests. Importing
 [visuals/__init__.py](../backend/apps/videomanagement/integrations/visuals/__init__.py)
 loads the adapters and registers them. Existing callers continue to use
@@ -400,9 +402,15 @@ def generate(prompt, directory, user=None, **kwargs):
 ```
 
 Registration defaults to `mode="AI"` and `output_type="IMAGE"`. Web search adapters
-use `mode="WEB"`; video adapters use `output_type="VIDEO"`, which populates
-`VIDEO_PROVIDERS`. `ImageProviderRegistry.is_video(name, user)` combines built-in
-metadata with an owner-scoped lookup of custom configurations for script formatting.
+use `mode="WEB"`; video adapters use `output_type="VIDEO"`.
+`VIDEO_PROVIDERS` is a live, read-only view derived from registration metadata.
+Register reference-image support with `supports_reference=True`; request validation
+uses this capability instead of maintaining a separate provider-name list.
+`ImageProviderRegistry.is_video(name, user)` combines built-in metadata with an
+owner-scoped lookup of custom configurations for script formatting.
+Each registry subclass owns its registrations and fallbacks, so test or plugin
+registries cannot mutate the voice or visual catalogs through inherited dictionaries.
+Custom-provider name validation also reads the catalogs to reserve built-in names.
 Omitted provider names retain the defaults
 `OPENAI` for AI and `bing` for web search.
 

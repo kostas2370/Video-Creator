@@ -16,7 +16,7 @@ from apps.videomanagement.utils.prompt_utils import format_image_prompt
 logger = logging.getLogger(__name__)
 
 
-@ImageProviderRegistry.register("OPENAI")
+@ImageProviderRegistry.register("OPENAI", supports_reference=True)
 def generate_openai_image(
     prompt: str,
     dir_name: str,

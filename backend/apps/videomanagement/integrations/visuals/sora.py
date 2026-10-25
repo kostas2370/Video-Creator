@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 SORA_ALLOWED_SECONDS = (4, 8, 12)
 
 
-@ImageProviderRegistry.register("sora", output_type="VIDEO")
+@ImageProviderRegistry.register("sora", output_type="VIDEO", supports_reference=True)
 def generate_from_sora(
     prompt: str,
     dir_name: str,

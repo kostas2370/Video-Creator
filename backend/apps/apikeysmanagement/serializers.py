@@ -12,6 +12,8 @@ KEY_FIELDS = (
     "openai_key",
     "anthropic_key",
     "gemini_key",
+    "fal_key",
+    "runway_key",
     "elevenlabs_key",
     "sixtydb_key",
     "diffusion_key",
@@ -60,7 +62,9 @@ class ApiKeysSerializer(serializers.ModelSerializer):
 
 class CustomProviderSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    reserved_provider_names = ()
+
+    def get_reserved_provider_names(self):
+        return ()
 
     def validate_extra_parameters(self, value):
         if not isinstance(value, dict):
@@ -69,7 +73,7 @@ class CustomProviderSerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         if value.casefold() in {
-            name.casefold() for name in self.reserved_provider_names
+            name.casefold() for name in self.get_reserved_provider_names()
         }:
             raise serializers.ValidationError(
                 "This name is reserved for a built-in provider."
@@ -107,7 +111,11 @@ class CustomProviderSerializer(serializers.ModelSerializer):
 
 
 class UserCustomTTSProviderSerializer(CustomProviderSerializer):
-    reserved_provider_names = (Provider.OPENAI, Provider.ELEVENLABS, Provider.SIXTYDB)
+    def get_reserved_provider_names(self):
+        from apps.videomanagement.integrations.tts import TTSRegistry
+
+        return TTSRegistry.names()
+
     voices_url = serializers.URLField(
         max_length=500,
         required=False,
@@ -140,16 +148,11 @@ class UserCustomTTSProviderSerializer(CustomProviderSerializer):
 
 
 class UserCustomVisualProviderSerializer(CustomProviderSerializer):
-    reserved_provider_names = (
-        Provider.OPENAI,
-        Provider.STABLE_DIFFUSION,
-        Provider.MIDJOURNEY,
-        "sora",
-        "stable-diffusion",
-        "midjourney",
-        "bing",
-        "google",
-    )
+    def get_reserved_provider_names(self):
+        from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+
+        # Keep the legacy underscore spelling reserved alongside registered IDs.
+        return ImageProviderRegistry.names() | {Provider.STABLE_DIFFUSION}
 
     class Meta(CustomProviderSerializer.Meta):
         model = UserCustomVisualProvider

@@ -16,9 +16,17 @@ const KEY_GROUPS = [
     fields: [
       { name: "openai_key", label: "OpenAI" },
       { name: "anthropic_key", label: "Anthropic" },
-      { name: "gemini_key", label: "Google Gemini" },
+      { name: "gemini_key", label: "Google Gemini", hint: "Used for scripts and Gemini Omni video generation." },
       { name: "elevenlabs_key", label: "ElevenLabs" },
       { name: "sixtydb_key", label: "60dB" },
+    ],
+  },
+  {
+    title: "AI video",
+    description: "Kling uses a fal.ai key. Gemini video uses your Google Gemini key above.",
+    fields: [
+      { name: "fal_key", label: "fal.ai · Kling" },
+      { name: "runway_key", label: "Runway" },
     ],
   },
   {

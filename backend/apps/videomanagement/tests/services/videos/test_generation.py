@@ -199,6 +199,12 @@ class GenerateVideoTests(TestCase):
 
         self.assertIn("camera move", self.get_reply.call_args.args[0])
 
+    def test_new_builtin_video_providers_use_video_storyboards(self):
+        for provider in ("kling", "runway", "gemini-video"):
+            with self.subTest(provider=provider):
+                self.generate(provider=provider, image_mode="AI")
+                self.assertIn("camera move", self.get_reply.call_args.args[0])
+
     def test_custom_video_provider_uses_a_shot_brief(self):
         UserCustomVisualProvider.objects.create(
             user=self.user,

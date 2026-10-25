@@ -1,7 +1,6 @@
 import base64
 import logging
 import os
-import sys
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
@@ -11,6 +10,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
+from apps.videomanagement.integrations.registry import ProviderRegistry
 from apps.videomanagement.models import VoiceModel
 from apps.videomanagement.services.usage import record_usage
 from apps.videomanagement.services.voices.credentials import voice_key
@@ -20,32 +20,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = 30
 
 
-class TTSRegistry:
-    _providers = {}
-    _fallback_provider = None
-
-    @classmethod
-    def register(cls, name: str):
-        def decorator(func):
-            cls._providers[name] = func.__name__
-            return func
-
-        return decorator
-
-    @classmethod
-    def register_fallback(cls):
-        def decorator(func):
-            cls._fallback_provider = func.__name__
-            return func
-
-        return decorator
-
-    @classmethod
-    def get(cls, name: str):
-        func_name = cls._providers.get(name) or cls._fallback_provider
-        if not func_name:
-            return None
-        return getattr(sys.modules[__name__], func_name, None)
+class TTSRegistry(ProviderRegistry):
+    """Voice handlers use the same registration and fallback rules as visuals."""
 
 
 @dataclass
