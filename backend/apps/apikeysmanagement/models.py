@@ -23,6 +23,8 @@ class Provider(models.TextChoices):
     OPENAI = "OPENAI", "OpenAI"
     ANTHROPIC = "ANTHROPIC", "Anthropic"
     GEMINI = "GEMINI", "Google Gemini"
+    FAL = "FAL", "fal.ai"
+    RUNWAY = "RUNWAY", "Runway"
     ELEVENLABS = "ELEVENLABS", "ElevenLabs"
     SIXTYDB = "SIXTYDB", "60dB"
     STABLE_DIFFUSION = "STABLE_DIFFUSION", "Stable Diffusion"
@@ -53,6 +55,8 @@ class ApiKeys(LifecycleModelMixin, models.Model):
     openai_key = EncryptedCharField(max_length=255, blank=True, default="")
     anthropic_key = EncryptedCharField(max_length=255, blank=True, default="")
     gemini_key = EncryptedCharField(max_length=255, blank=True, default="")
+    fal_key = EncryptedCharField(max_length=255, blank=True, default="")
+    runway_key = EncryptedCharField(max_length=255, blank=True, default="")
     elevenlabs_key = EncryptedCharField(max_length=255, blank=True, default="")
     sixtydb_key = EncryptedCharField(max_length=255, blank=True, default="")
     diffusion_key = EncryptedCharField(max_length=255, blank=True, default="")
@@ -76,6 +80,8 @@ class ApiKeys(LifecycleModelMixin, models.Model):
         Provider.OPENAI: ("openai_key", "OPEN_API_KEY"),
         Provider.ANTHROPIC: ("anthropic_key", "ANTHROPIC_API_KEY"),
         Provider.GEMINI: ("gemini_key", "GEMINI_API_KEY"),
+        Provider.FAL: ("fal_key", "FAL_KEY"),
+        Provider.RUNWAY: ("runway_key", "RUNWAY_API_KEY"),
         Provider.ELEVENLABS: ("elevenlabs_key", "XI_API_KEY"),
         Provider.SIXTYDB: ("sixtydb_key", "SIXTYDB_API_KEY"),
         Provider.STABLE_DIFFUSION: ("diffusion_key", "DIFFUSION_KEY"),

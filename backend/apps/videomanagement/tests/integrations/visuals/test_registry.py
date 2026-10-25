@@ -12,6 +12,9 @@ from apps.videomanagement.integrations.visuals import (
     midjourney,
     openai_images,
     sora,
+    kling,
+    runway,
+    gemini_video,
 )
 
 
@@ -33,6 +36,9 @@ class BuiltinImageRegistryTests(SimpleTestCase):
         for mode, name, handler in (
             ("AI", "OPENAI", openai_images.generate_openai_image),
             ("AI", "sora", sora.generate_from_sora),
+            ("AI", "kling", kling.generate_from_kling),
+            ("AI", "runway", runway.generate_from_runway),
+            ("AI", "gemini-video", gemini_video.generate_from_gemini_video),
             ("AI", "stable-diffusion", diffusion.generate_from_diffusion),
             ("AI", "midjourney", midjourney.generate_from_midjourney),
             ("WEB", "bing", bing.download_image),
@@ -47,7 +53,7 @@ class BuiltinImageRegistryTests(SimpleTestCase):
             self.assertIs(ImageProviderRegistry.resolve("WEB", name), bing.download_image)
 
     def test_marks_the_video_adapter_for_shot_prompt_generation(self):
-        self.assertEqual(VIDEO_PROVIDERS, {"sora"})
+        self.assertEqual(VIDEO_PROVIDERS, {"sora", "kling", "runway", "gemini-video"})
 
     def test_provider_modules_are_resolved_at_call_time(self):
         with patch.object(openai_images, "generate_openai_image") as generate:

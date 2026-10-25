@@ -114,11 +114,11 @@ class GenerateSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != ImageMode.AI
-            or attrs.get("provider") not in (None, Provider.OPENAI, "sora")
+            or attrs.get("provider") not in (None, Provider.OPENAI, "sora", "kling", "runway", "gemini-video")
         ):
             raise serializers.ValidationError(
                 {
-                    "reference_image": "Reference images are supported with OpenAI images and Sora."
+                    "reference_image": "Reference images are supported with OpenAI images, Sora, Kling, Runway, and Gemini video."
                 }
             )
         attrs["avatar_position"] = normalize_avatar_position(

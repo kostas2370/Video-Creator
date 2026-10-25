@@ -132,6 +132,9 @@ class CustomVisualProviderApiTests(TestCase):
         for name in (
             "OPENAI",
             "sora",
+            "kling",
+            "runway",
+            "gemini-video",
             "Stable-Diffusion",
             "midjourney",
             "bing",

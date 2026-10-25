@@ -337,3 +337,9 @@ SOCIAL_PUBLISHING = {
 
 # Keep publishing snapshots outside the public MEDIA_ROOT.
 PUBLISHING_SNAPSHOT_ROOT = os.getenv("PUBLISHING_SNAPSHOT_ROOT") or BASE_DIR / "private-publishing"
+
+# Built-in video providers use the existing service/personal key selection.
+FAL_KEY = os.getenv("FAL_KEY")
+RUNWAY_API_KEY = os.getenv("RUNWAY_API_KEY")
+VIDEO_GENERATION_TIMEOUT = 900
+VIDEO_POLL_INTERVAL = 5

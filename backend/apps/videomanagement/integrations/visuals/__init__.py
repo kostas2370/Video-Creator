@@ -12,6 +12,9 @@ from . import (  # noqa: F401
     midjourney,
     openai_images,
     sora,
+    kling,
+    runway,
+    gemini_video,
 )
 
 VIDEO_PROVIDERS = ImageProviderRegistry.video_providers

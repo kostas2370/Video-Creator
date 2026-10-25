@@ -104,6 +104,7 @@ def create_image_scene(
             style=style,
             title=title,
             duration=scene_narration_duration(scene),
+            video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
             reference=reference,
             user=user,
         )
@@ -300,6 +301,8 @@ def generate_new_image(
     generate = ImageProviderRegistry.resolve(mode, provider)
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
+    kwargs.setdefault("duration", scene_narration_duration(scene_image.scene))
+    kwargs.setdefault("video_format", (video.settings or {}).get("video_format", "LANDSCAPE"))
     img = generate(
         (
             with_visual_continuity(
