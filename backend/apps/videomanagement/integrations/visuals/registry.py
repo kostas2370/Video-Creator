@@ -1,77 +1,54 @@
-import sys
 from functools import partial
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutputType
+from apps.videomanagement.integrations.registry import ProviderNames, ProviderRegistry
 
 DEFAULT_PROVIDERS = {"WEB": "bing", "AI": "OPENAI"}
 
 
-class ImageProviderRegistry:
-    """Resolve module-level visual handlers at call time, like TTSRegistry."""
+class ImageProviderRegistry(ProviderRegistry):
+    mode_label = "visual"
+    default_mode = "AI"
+    defaults = DEFAULT_PROVIDERS
+    video_providers = ProviderNames(mode="AI", output_type="VIDEO")
 
-    _providers = {}
-    _fallback_providers = {}
-    video_providers = set()
+    @classmethod
+    def register(cls, name, mode="AI", output_type="IMAGE", supports_reference=False):
+        if output_type not in ("IMAGE", "VIDEO"):
+            raise ValueError(f"Unsupported visual output type: {output_type}")
+        return super().register(
+            name,
+            mode=mode,
+            output_type=output_type,
+            supports_reference=supports_reference,
+        )
 
     @classmethod
     def is_video(cls, name, user=None, mode="AI"):
-        """Resolve output type for the active mode, scoped to the provider owner."""
+        """Prefer built-in metadata; scope custom lookups to the requesting owner."""
         if mode != "AI":
             return False
-        if name in cls._providers.get("AI", {}):
-            return name in cls.video_providers
+        entry = cls.registration(name, mode)
+        if entry is not None:
+            return entry.capabilities["output_type"] == "VIDEO"
         if not name or not getattr(user, "is_authenticated", False):
             return False
         return UserCustomVisualProvider.objects.filter(
-            user=user, name=name, output_type=VisualOutputType.VIDEO
+            user=user,
+            name=name,
+            output_type=VisualOutputType.VIDEO,
         ).exists()
 
     @classmethod
-    def register(cls, name: str, mode: str = "AI", output_type: str = "IMAGE"):
-        if mode not in DEFAULT_PROVIDERS:
-            raise ValueError(f"Unsupported visual mode: {mode}")
-        if output_type not in ("IMAGE", "VIDEO"):
-            raise ValueError(f"Unsupported visual output type: {output_type}")
-
-        def decorator(func):
-            cls._providers.setdefault(mode, {})[name] = (func.__module__, func.__name__)
-            if output_type == "VIDEO":
-                cls.video_providers.add(name)
-            else:
-                cls.video_providers.discard(name)
-            return func
-
-        return decorator
+    def supports_reference(cls, name=None, mode="AI"):
+        entry = cls.registration(name, mode)
+        return bool(entry and entry.capabilities.get("supports_reference"))
 
     @classmethod
-    def register_fallback(cls, mode: str = "AI"):
-        if mode not in DEFAULT_PROVIDERS:
-            raise ValueError(f"Unsupported visual mode: {mode}")
-
-        def decorator(func):
-            cls._fallback_providers[mode] = (func.__module__, func.__name__)
-            return func
-
-        return decorator
-
-    @classmethod
-    def get(cls, name: str = None, mode: str = "AI"):
-        if mode not in DEFAULT_PROVIDERS:
-            raise ValueError(f"Unsupported visual mode: {mode}")
-        providers = cls._providers.get(mode, {})
-        name = name or DEFAULT_PROVIDERS[mode]
-        entry = (
-            providers.get(name)
-            or cls._fallback_providers.get(mode)
-            or providers[DEFAULT_PROVIDERS[mode]]
-        )
-        module_name, function_name = entry
-        return getattr(sys.modules[module_name], function_name)
-
-    @classmethod
-    def resolve(cls, mode: str, provider: str = None):
-        handler = cls.get(provider, mode=mode)
-        name = provider or DEFAULT_PROVIDERS[mode]
-        if name not in cls._providers.get(mode, {}) and mode in cls._fallback_providers:
-            return partial(handler, provider_name=name)
+    def resolve(cls, mode, provider=None):
+        handler = cls.get(provider, mode)
+        if handler is None:
+            raise ValueError(f"No visual provider configured for mode: {mode}")
+        if cls.registration(provider, mode) is None and mode in cls._fallback_providers:
+            return partial(handler, provider_name=provider or cls.defaults[mode])
         return handler

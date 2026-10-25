@@ -103,7 +103,7 @@ def video_provider(
     """Keep registry handlers uniform while adapters describe only their protocol."""
 
     def decorate(fn):
-        @ImageProviderRegistry.register(name, output_type="VIDEO")
+        @ImageProviderRegistry.register(name, output_type="VIDEO", supports_reference=True)
         @guarded(label)
         @functools.wraps(fn)
         def generate(

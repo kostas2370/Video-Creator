@@ -49,8 +49,13 @@ class BuiltinImageRegistryTests(SimpleTestCase):
 
     def test_preserves_defaults_for_blank_or_omitted_provider(self):
         for name in (None, ""):
-            self.assertIs(ImageProviderRegistry.resolve("AI", name), openai_images.generate_openai_image)
-            self.assertIs(ImageProviderRegistry.resolve("WEB", name), bing.download_image)
+            self.assertIs(
+                ImageProviderRegistry.resolve("AI", name),
+                openai_images.generate_openai_image,
+            )
+            self.assertIs(
+                ImageProviderRegistry.resolve("WEB", name), bing.download_image
+            )
 
     def test_marks_the_video_adapter_for_shot_prompt_generation(self):
         self.assertEqual(VIDEO_PROVIDERS, {"sora", "kling", "runway", "gemini-video"})
@@ -58,7 +63,10 @@ class BuiltinImageRegistryTests(SimpleTestCase):
     def test_provider_modules_are_resolved_at_call_time(self):
         with patch.object(openai_images, "generate_openai_image") as generate:
             self.assertIs(ImageProviderRegistry.resolve("AI", "OPENAI"), generate)
-        self.assertIs(ImageProviderRegistry.resolve("AI", "OPENAI"), openai_images.generate_openai_image)
+        self.assertIs(
+            ImageProviderRegistry.resolve("AI", "OPENAI"),
+            openai_images.generate_openai_image,
+        )
 
     def test_unregistered_providers_use_the_mode_default_without_a_custom_fallback(
         self,
@@ -76,7 +84,9 @@ class BuiltinImageRegistryTests(SimpleTestCase):
         handler = ImageProviderRegistry.resolve("AI", "Studio images")
         self.assertIs(handler.func, custom.generate_from_custom_provider)
         self.assertEqual(handler.keywords, {"provider_name": "Studio images"})
-        self.assertIs(ImageProviderRegistry.resolve("WEB", "unconfigured"), bing.download_image)
+        self.assertIs(
+            ImageProviderRegistry.resolve("WEB", "unconfigured"), bing.download_image
+        )
 
     def test_unsupported_modes_raise_a_configuration_error(self):
         with self.assertRaises(ValueError):
@@ -88,7 +98,7 @@ class CustomImageRegistryTests(SimpleTestCase):
         self.registry = type(
             "IsolatedImageProviderRegistry",
             (ImageProviderRegistry,),
-            {"_providers": {}, "_fallback_providers": {}, "video_providers": set()},
+            {},
         )
 
     def test_registration_returns_the_original_handler(self):
@@ -141,6 +151,36 @@ class CustomImageRegistryTests(SimpleTestCase):
         self.assertIn("studio", self.registry.video_providers)
         self.registry.register("studio", output_type="IMAGE")(registered_handler)
         self.assertNotIn("studio", self.registry.video_providers)
+
+    def test_subclasses_own_their_registrations_without_manual_resets(self):
+        sibling = type("Sibling", (ImageProviderRegistry,), {})
+        self.registry.register("studio", output_type="VIDEO")(registered_handler)
+        self.assertNotIn("studio", sibling.names())
+        self.assertNotIn("studio", ImageProviderRegistry.names())
+
+    def test_video_names_are_live_read_only_and_scoped_to_ai(self):
+        names = self.registry.video_providers
+        self.registry.register("studio", output_type="VIDEO")(registered_handler)
+        self.registry.register("studio", mode="WEB", output_type="IMAGE")(
+            registered_handler
+        )
+        self.assertIn("studio", names)
+        self.assertTrue(self.registry.is_video("studio"))
+        with self.assertRaises(AttributeError):
+            names.add("unregistered")
+        self.registry.register("studio", output_type="IMAGE")(registered_handler)
+        self.assertNotIn("studio", names)
+
+    def test_reference_capability_follows_current_registration_and_mode(self):
+        self.registry.register("studio", supports_reference=True)(registered_handler)
+        self.assertTrue(self.registry.supports_reference("studio"))
+        self.assertFalse(self.registry.supports_reference("studio", mode="WEB"))
+        self.registry.register("studio")(registered_handler)
+        self.assertFalse(self.registry.supports_reference("studio"))
+
+    def test_unconfigured_registry_reports_a_clear_configuration_error(self):
+        with self.assertRaisesRegex(ValueError, "No visual provider configured"):
+            self.registry.resolve("AI", "missing")
 
     def test_registration_rejects_invalid_modes_and_output_types(self):
         for kwargs in ({"mode": "invalid"}, {"output_type": "AUDIO"}):
