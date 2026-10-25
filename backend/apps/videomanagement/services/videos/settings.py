@@ -9,6 +9,7 @@ from apps.videomanagement.services.scenes.narration import update_scene
 def video_update(video: Video, **changes) -> Video:
     """Apply only supplied fields, resolving every asset before changing the video."""
     if {
+        "visual_continuity",
         "transition_default",
         "transition_duration",
         "intro_transition",
@@ -51,6 +52,7 @@ def _apply_video_changes(video, changes):
         "caption_style",
         "caption_config",
         "avatar_position",
+        "visual_continuity",
         "transition_default",
         "transition_duration",
         "intro_transition",

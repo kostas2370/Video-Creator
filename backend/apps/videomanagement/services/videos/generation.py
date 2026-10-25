@@ -123,6 +123,7 @@ def generate_video(
     scene_count: int = None,
     review_script: bool = False,
     ai_scene_editing: bool = False,
+    visual_continuity: str = "",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -200,6 +201,7 @@ def generate_video(
         style=style,
         narration=narration,
         ai_scene_editing=ai_scene_editing,
+        visual_continuity=visual_continuity,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -235,6 +237,8 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if visual_continuity:
+        vid.settings["visual_continuity"] = visual_continuity
     if ai_scene_editing:
         vid.settings["ai_scene_editing"] = True
     if scene_count is not None:

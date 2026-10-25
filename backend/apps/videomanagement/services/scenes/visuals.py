@@ -9,7 +9,7 @@ from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import ImageMode, Scene, SceneImage, Video, VideoType
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.frames import still_from_video
-from apps.videomanagement.utils.prompt_utils import script_lines
+from apps.videomanagement.utils.prompt_utils import script_lines, with_visual_continuity
 from apps.videomanagement.utils.timing import file_timing
 
 logger = logging.getLogger(__name__)
@@ -94,7 +94,12 @@ def create_image_scene(
     try:
         generate = ImageProviderRegistry.resolve(mode, provider)
         downloaded_image = generate(
-            image,
+            (
+                with_visual_continuity(
+                    image, (video.settings or {}).get("visual_continuity", "")
+                )
+                if mode == ImageMode.AI else image
+            ),
             f"{dir_name}/images/",
             style=style,
             title=title,
@@ -296,7 +301,13 @@ def generate_new_image(
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     img = generate(
-        scene_image.prompt,
+        (
+            with_visual_continuity(
+                scene_image.prompt or "",
+                (video.settings or {}).get("visual_continuity", ""),
+            )
+            if mode == ImageMode.AI else scene_image.prompt
+        ),
         f"{video.dir_name}/images/",
         *args,
         style=style,

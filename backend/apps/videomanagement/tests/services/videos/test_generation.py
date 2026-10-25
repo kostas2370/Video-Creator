@@ -108,6 +108,17 @@ class GenerateVideoTests(TestCase):
         self.make_scenes_speech.assert_called_once()
         self.create_image_scenes.assert_called_once()
 
+    def test_shared_continuity_survives_review_and_reaches_storyboard(self):
+        brief = "Milo wears a green scarf."
+        made = self.generate(image_mode="AI", visual_continuity=brief, review_script=True)
+        made.refresh_from_db()
+        self.assertEqual(made.settings["visual_continuity"], brief)
+        self.assertIn(brief, self.get_reply.call_args.args[0])
+        self.generate(image_mode="AI", visual_continuity=brief)
+        made.refresh_from_db()
+        self.assertEqual(made.settings["visual_continuity"], brief)
+        self.create_image_scenes.assert_called_once()
+
     def test_ai_scene_editing_is_requested_and_saved_with_review_settings(self):
         generated = self.generate(ai_scene_editing=True, review_script=True)
         self.assertTrue(generated.settings["ai_scene_editing"])
