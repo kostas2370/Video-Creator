@@ -1,3 +1,5 @@
+import { API_HOST } from "../endpoints";
+import { VisualContinuity } from "./VisualContinuity";
 import React, { useEffect, useRef, useState } from "react";
 import { EditorDialog } from "./ui/EditorDialog";
 import { useNavigate } from "react-router-dom";
@@ -14,7 +16,9 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
   useEffect(() => {
     if (!video?.gpt_answer || initializedVideo.current === video.id) return;
     initializedVideo.current = video.id;
-    setScript(JSON.parse(JSON.stringify(video.gpt_answer)));
+    const draft = JSON.parse(JSON.stringify(video.gpt_answer));
+    if (video.mode === "AI") draft.visual_continuity = video.settings?.visual_continuity ?? draft.visual_continuity ?? "";
+    setScript(draft);
     setError("");
   }, [video?.id, video?.gpt_answer]);
 
@@ -53,6 +57,8 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
           <label className="block text-sm font-semibold">Video title
             <input autoFocus required maxLength={50} value={script.title} disabled={busy} onChange={event => setScript({ ...script, title: event.target.value })} className={inputClass} />
           </label>
+          {video?.reference_image && <figure className="mt-5 flex items-center gap-4 rounded-xl bg-gray-50 p-3 dark:bg-gray-900"><img src={video.reference_image.startsWith("/") ? API_HOST + video.reference_image : video.reference_image} alt="Reference used to draft this storyboard" className="h-28 w-28 rounded-lg object-contain" /><figcaption className="text-sm"><span className="font-semibold">{({ character: "Character reference", style: "Style reference", both: "Character and style reference" })[video.settings?.reference_role || "both"]}</span><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Compare the visible details with the shared description below. Your written instructions take priority.</p></figcaption></figure>}
+          {video?.mode === "AI" && <div className="mt-5"><VisualContinuity value={script.visual_continuity || ""} disabled={busy} description="Review the shared character and setting details drafted for your story. Edit or clear them before creating the visuals." onChange={value => setScript(current => ({ ...current, visual_continuity: value }))} /></div>}
           {script.scenes.map((scene, sceneIndex) => (
             <section key={sceneIndex} className="mt-5 rounded-2xl border border-gray-200 p-4 dark:border-gray-600">
               <h3 className="font-semibold">Scene {sceneIndex + 1}: {scene.scene}</h3>

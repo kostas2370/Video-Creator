@@ -34,6 +34,24 @@ def continuation_frame(video: Video, text: str, path: str):
     return still_from_video(path, f"{video.dir_name}/images/", **options)
 
 
+def uploaded_reference(video, provider):
+    """Style-only video references guide text without imposing a source first frame."""
+    if not video.reference_image or not stored_file_exists(video.reference_image):
+        return None
+    if (video.settings or {}).get("reference_role") == "style" and ImageProviderRegistry.is_video(
+        provider, user=video.created_by,
+    ):
+        return None
+    return video.reference_image.path
+
+
+def reference_role_for(video, reference):
+    if reference and video.reference_image and reference == video.reference_image.path:
+        return (video.settings or {}).get("reference_role", "both")
+    # Generated identity anchors and preceding clip frames keep their whole look.
+    return "both"
+
+
 def create_image_scene(
     video: Video,
     image: str,
@@ -106,6 +124,7 @@ def create_image_scene(
             duration=scene_narration_duration(scene),
             video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
             reference=reference,
+            reference_role=reference_role_for(video, reference),
             user=user,
         )
     except Exception as ex:
@@ -203,11 +222,7 @@ def create_image_scenes(
                 future.result()
         return
 
-    reference = (
-        video.reference_image.path
-        if video.reference_image and stored_file_exists(video.reference_image)
-        else None
-    )
+    reference = uploaded_reference(video, provider)
     for line in lines:
         # Walk completed scenes too, so carry-on recovers the correct reference.
         produced = existing_visual(video, line.text)
@@ -245,11 +260,7 @@ def scene_reference(scene: Scene, video: Video, provider):
     """Select an identity anchor or the preceding scene's final frame."""
     if video.mode != ImageMode.AI:
         return None
-    uploaded = (
-        video.reference_image.path
-        if video.reference_image and stored_file_exists(video.reference_image)
-        else None
-    )
+    uploaded = uploaded_reference(video, provider)
     if provider in (None, "", Provider.OPENAI) and uploaded:
         return uploaded
     if provider in (None, "", Provider.OPENAI):
@@ -301,6 +312,7 @@ def generate_new_image(
     generate = ImageProviderRegistry.resolve(mode, provider)
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
+    kwargs.setdefault("reference_role", reference_role_for(video, kwargs["reference"]))
     kwargs.setdefault("duration", scene_narration_duration(scene_image.scene))
     kwargs.setdefault("video_format", (video.settings or {}).get("video_format", "LANDSCAPE"))
     img = generate(

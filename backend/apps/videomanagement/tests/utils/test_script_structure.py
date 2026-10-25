@@ -28,21 +28,24 @@ class ScriptFormatTests(SimpleTestCase):
         self.assertNotIn('"sentence"', brief)
         self.assertIn("there is no narration", brief)
 
-    def test_keeps_the_same_json_shape_for_every_combination(self):
-        # The pipeline walks one fixed scenes -> sentences structure, whatever the
-        # brief asked the model to fill it with.
-        for video in (False, True):
-            for narration in (False, True):
-                with self.subTest(video=video, narration=narration):
-                    brief = build_script_prompt(video=video, narration=narration)
-                    shape = brief[brief.index("{") : brief.rindex("}") + 1]
-
-                    parsed = json.loads(shape)
-
-                    self.assertEqual(
-                        list(parsed), ["title", "target_audience", "topic", "scenes"]
-                    )
-                    self.assertIn("sentences", parsed["scenes"][0])
-                    self.assertIn(
-                        "image_description", parsed["scenes"][0]["sentences"][0]
-                    )
+    def test_preserves_scene_shape_and_adds_continuity_only_for_ai(self):
+        for mode in ("AI", "WEB"):
+            for video in (False, True):
+                for narration in (False, True):
+                    with self.subTest(mode=mode, video=video, narration=narration):
+                        brief = build_script_prompt(
+                            image_mode=mode,
+                            video=video,
+                            narration=narration,
+                        )
+                        shape = brief[brief.index("{") : brief.rindex("}") + 1]
+                        parsed = json.loads(shape)
+                        keys = ["title", "target_audience", "topic"]
+                        if mode == "AI":
+                            keys.append("visual_continuity")
+                        self.assertEqual(list(parsed), [*keys, "scenes"])
+                        self.assertIn("sentences", parsed["scenes"][0])
+                        self.assertIn(
+                            "image_description",
+                            parsed["scenes"][0]["sentences"][0],
+                        )

@@ -43,6 +43,22 @@ class GenerateViewTests(ApiTestCase):
             self.assertNotIn("reference_image", delay.call_args.kwargs)
             self.assertFalse(delay.call_args.kwargs["narration"])
 
+    def test_reference_role_is_validated_saved_and_forwarded(self):
+        with tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):
+            response, delay = self.post(
+                image_mode="AI", provider="OPENAI", review_script=True,
+                reference_image=self.reference_upload(), reference_role="style",
+            )
+            self.assertEqual(response.status_code, 202, response.data)
+            self.assertEqual(delay.call_args.kwargs["reference_role"], "style")
+            saved = Video.objects.get(pk=response.data["video"]["id"])
+            self.assertEqual(saved.settings["generation_params"]["reference_role"], "style")
+            self.assertNotIn("reference_image", delay.call_args.kwargs)
+            self.assertTrue(response.data["video"]["reference_image"])
+        response, delay = self.post(reference_role="invalid")
+        self.assertEqual(response.status_code, 400)
+        delay.assert_not_called()
+
     def test_new_video_providers_accept_reference_images(self):
         for provider in ("kling", "runway", "gemini-video"):
             with self.subTest(provider=provider), tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):
@@ -267,6 +283,28 @@ class StoryboardApprovalTests(ApiTestCase):
         video.refresh_from_db()
         self.assertEqual(video.gpt_answer["scenes"][0]["sentences"][0]["editing"]["motion_style"], "NONE")
         self.assertTrue(delay.call_args.kwargs["ai_scene_editing"])
+
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
+    def test_reviewed_continuity_edits_and_clearing_reach_worker(self, delay):
+        for brief in ("Reviewed fox with a blue scarf.", ""):
+            with self.subTest(brief=brief):
+                video = self.draft()
+                video.mode = "AI"
+                video.settings["visual_continuity"] = "Original AI draft"
+                video.settings["generation_params"]["image_mode"] = "AI"
+                video.save()
+                response = self.approve(video, {**self.script, "visual_continuity": brief})
+                self.assertEqual(response.status_code, 202, response.data)
+                video.refresh_from_db()
+                self.assertEqual(video.settings["visual_continuity"], brief)
+                self.assertEqual(video.gpt_answer["visual_continuity"], brief)
+                self.assertEqual(delay.call_args.kwargs["visual_continuity"], brief)
+
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
+    def test_overlong_continuity_is_rejected_before_queueing(self, delay):
+        response = self.approve(self.draft(), {**self.script, "visual_continuity": "x" * 3001})
+        self.assertEqual(response.status_code, 400)
+        delay.assert_not_called()
 
     @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_approval_saves_edits_and_queues_once(self, delay):

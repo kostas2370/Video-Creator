@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import logging
@@ -13,6 +14,7 @@ from rest_framework.exceptions import APIException
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.services.usage import record_usage
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
+from apps.videomanagement.utils.image_inputs import image_data
 
 logger = logging.getLogger(__name__)
 thismodule = sys.modules[__name__]
@@ -34,7 +36,7 @@ def token_limit_kwarg(model: str) -> dict:
     }
 
 
-def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False):
+def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False, require_visual_continuity=False):
     """Validate the structure consumed by scene and media generation."""
     def nonempty(value):
         return isinstance(value, str) and bool(value.strip())
@@ -44,6 +46,10 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
     errors = []
     if not nonempty(data.get("title")):
         errors.append("title must be a nonempty string.")
+    if require_visual_continuity or "visual_continuity" in data:
+        continuity = data.get("visual_continuity")
+        if not isinstance(continuity, str) or len(continuity) > 3000:
+            errors.append("visual_continuity must be a string of at most 3000 characters; use an empty string when unnecessary.")
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or not scenes:
         return errors + ["scenes must be a nonempty array."]
@@ -83,16 +89,31 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
     return errors
 
 
-def official_gpt_call(prompt: str, gpt_model=None, user=None):
+def model_error(error, image):
+    if image is not None:
+        logger.warning("Reference-image storyboard request failed (%s)", type(error).__name__)
+        raise APIException(
+            "The script model could not analyze the reference image. Choose a script "
+            "model that accepts images and check your provider access, then retry."
+        ) from None
+    logger.error(error)
+    raise APIException(detail=error, code=status.HTTP_400_BAD_REQUEST)
+
+
+def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
     x = io.StringIO()
     logger.warning("API CALL IN OFFICIAL GPT")
     model = gpt_model or settings.DEFAULT_GPT_MODEL
     try:
         client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
+        content = prompt if image is None else [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image}"}},
+        ]
         stream = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": content},
             ],
             stream=True,
             stream_options={"include_usage": True},
@@ -108,66 +129,82 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None):
         record_usage(user, "text", Provider.OPENAI, model, usage)
 
     except Exception as err:
-        logger.error(err)
-        raise APIException(detail=err, code=status.HTTP_400_BAD_REQUEST)
+        model_error(err, image)
 
     return x
 
 
-def gemini_call(prompt: str, model="gemini-1.5-pro", user=None):
+def gemini_call(prompt: str, model="gemini-1.5-pro", user=None, image=None):
     x = io.StringIO()
     try:
         genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
         client = genai.GenerativeModel(model)
-        response = client.generate_content(prompt)
+        content = prompt if image is None else [
+            prompt, {"mime_type": "image/jpeg", "data": base64.b64decode(image)},
+        ]
+        response = client.generate_content(content)
         record_usage(user, "text", Provider.GEMINI, model, response.usage_metadata)
         x.write(response.text)
 
     except Exception as err:
-        logger.error(err)
-        raise APIException(detail=err, code=status.HTTP_400_BAD_REQUEST)
+        model_error(err, image)
 
     return x
 
 
-def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None):
+def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None, image=None):
     x = io.StringIO()
     try:
         client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))
+        content = [{"type": "text", "text": prompt}]
+        if image is not None:
+            content.insert(0, {
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/jpeg", "data": image},
+            })
         message = client.messages.create(
             model=model,
             max_tokens=settings.MAX_TOKENS,
             temperature=0,
-            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+            messages=[{"role": "user", "content": content}],
         )
 
         record_usage(user, "text", Provider.ANTHROPIC, model, message.usage)
         x.write(message.content[0].text)
         return x
     except Exception as err:
-        logger.error(err)
-        raise APIException(err, code=status.HTTP_400_BAD_REQUEST)
+        model_error(err, image)
 
 
 def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
-              narration=None, scene_count=None, ai_scene_editing=False, video_provider=False):
+              narration=None, scene_count=None, ai_scene_editing=False, video_provider=False,
+              require_visual_continuity=False, reference_image=None):
     """Route text requests and retry invalid scripts with specific correction feedback."""
     gpt_model = gpt_model or settings.DEFAULT_GPT_MODEL
     original_prompt = prompt
+    call_options = {"user": user}
+    if reference_image:
+        try:
+            call_options["image"] = image_data(reference_image)
+        except (OSError, ValueError) as exc:
+            raise APIException("The reference image could not be read. Upload it again before generating.") from exc
     for attempt in range(time, 5):
         for key, call in model_calls:
             if (gpt_model or "").startswith(key):
-                response = getattr(thismodule, call)(prompt, gpt_model, user=user)
+                response = getattr(thismodule, call)(prompt, gpt_model, **call_options)
                 break
         else:
-            response = official_gpt_call(prompt, gpt_model=settings.DEFAULT_GPT_MODEL, user=user)
+            response = official_gpt_call(prompt, gpt_model=settings.DEFAULT_GPT_MODEL, **call_options)
         if reply_format != "json":
             return response
         raw = response.getvalue()
         try:
             # Retain compatibility with providers wrapping JSON in prose or fences.
             data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-            errors = script_errors(data, narration, scene_count, ai_scene_editing, video_provider)
+            errors = script_errors(
+                data, narration, scene_count, ai_scene_editing, video_provider,
+                require_visual_continuity=require_visual_continuity,
+            )
             if not errors:
                 return data
         except (ValueError, TypeError):

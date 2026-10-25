@@ -24,6 +24,7 @@ def generate_openai_image(
     title: str = "",
     user=None,
     reference: str = None,
+    reference_role: str = "both",
     *args,
     **kwargs,
 ) -> str:
@@ -38,6 +39,7 @@ def generate_openai_image(
         image_description=prompt,
         style=style,
         preserve_reference=has_reference,
+        reference_role=reference_role,
     )
 
     request = dict(

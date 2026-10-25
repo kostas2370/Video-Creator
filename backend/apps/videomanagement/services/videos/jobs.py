@@ -130,6 +130,15 @@ def approve_script(video, storyboard):
             )
             if errors:
                 raise ValidationError({"scenes": errors})
+        if params.get("image_mode") == "AI":
+            continuity = storyboard.get(
+                "visual_continuity", (video.settings or {}).get("visual_continuity", "")
+            )
+            params = {**params, "visual_continuity": continuity}
+            video.settings = {
+                **(video.settings or {}), "visual_continuity": continuity,
+                "generation_params": params,
+            }
         video.gpt_answer = dict(storyboard)
         video.title = storyboard["title"]
         video.status = VideoStatus.GENERATION

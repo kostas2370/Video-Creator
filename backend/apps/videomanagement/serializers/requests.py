@@ -60,6 +60,9 @@ class GenerateSerializer(serializers.Serializer):
         required=False, allow_null=True, min_value=1, max_value=60
     )
     reference_image = serializers.ImageField(required=False)
+    reference_role = serializers.ChoiceField(
+        choices=("character", "style", "both"), required=False, default="both",
+    )
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
         required=False, choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT
@@ -305,6 +308,9 @@ class StoryboardSceneSerializer(serializers.Serializer):
 
 
 class StoryboardSerializer(serializers.Serializer):
+    visual_continuity = serializers.CharField(
+        required=False, allow_blank=True, max_length=3000,
+    )
     title = serializers.CharField(max_length=50)
     target_audience = serializers.CharField(
         required=False, allow_blank=True, max_length=2000
