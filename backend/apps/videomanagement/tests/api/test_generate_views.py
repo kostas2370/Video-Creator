@@ -43,6 +43,22 @@ class GenerateViewTests(ApiTestCase):
             self.assertNotIn("reference_image", delay.call_args.kwargs)
             self.assertFalse(delay.call_args.kwargs["narration"])
 
+    def test_reference_role_is_validated_saved_and_forwarded(self):
+        with tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):
+            response, delay = self.post(
+                image_mode="AI", provider="OPENAI", review_script=True,
+                reference_image=self.reference_upload(), reference_role="style",
+            )
+            self.assertEqual(response.status_code, 202, response.data)
+            self.assertEqual(delay.call_args.kwargs["reference_role"], "style")
+            saved = Video.objects.get(pk=response.data["video"]["id"])
+            self.assertEqual(saved.settings["generation_params"]["reference_role"], "style")
+            self.assertNotIn("reference_image", delay.call_args.kwargs)
+            self.assertTrue(response.data["video"]["reference_image"])
+        response, delay = self.post(reference_role="invalid")
+        self.assertEqual(response.status_code, 400)
+        delay.assert_not_called()
+
     def test_new_video_providers_accept_reference_images(self):
         for provider in ("kling", "runway", "gemini-video"):
             with self.subTest(provider=provider), tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):

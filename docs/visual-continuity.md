@@ -32,6 +32,38 @@ Regenerate the desired scenes to apply it. Clearing the field removes the guidan
 from future requests. Web-image searches do not use this guidance. This is
 prompt-level consistency, not a guarantee of identical characters or continuous motion.
 
+## Extracting details from a reference image
+
+Upload an optional reference and choose **Character**, **Style**, or **Both**.
+The chosen script model receives the normalized image in the storyboard request:
+OpenAI uses image content parts, Claude uses image blocks, and Gemini uses an image
+blob. It must be a model that accepts images. Unsupported models fail with guidance
+to select an image-capable model; the image is never silently ignored.
+
+- **Character:** visible appearance, distinguishing features, proportions, clothing,
+  and important props. The story still controls the setting and visual style.
+- **Style:** medium, rendering, texture, palette, and lighting. Pictured subjects
+  and locations are not adopted as characters or settings.
+- **Both:** the subject details and visual style.
+
+The model merges observations with the story and your continuity preferences.
+Explicit user instructions take priority over visible reference details; reference
+details take priority over invented details for the chosen role. The resulting
+description and reference preview appear in storyboard review. Editing or clearing
+the description takes effect on approval, and approval does not analyze the image again.
+
+OpenAI image generation receives role-specific guidance with the reference.
+Video providers use a character/both reference as the first frame. In style-only
+mode, video generation uses the extracted written style instead of copying the
+uploaded reference as the first frame. Later video shots can still use closing
+frames from generated clips for continuity.
+
+There is no separate analysis request; image input increases the normal storyboard
+request's input usage. Existing text-only requests keep their original format.
+Normalized image bytes stay out of queued task parameters and are prepared once
+per storyboard request, then reused if response validation requires a retry.
+Reference-role settings are stored with the project; no migration is needed.
+
 ## Sora continuation
 
 Sora-native extension has not been implemented. OpenAI's current API reference

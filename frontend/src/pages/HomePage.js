@@ -73,6 +73,7 @@ const Home = () => {
     gpt_model: "gpt-5.4-mini",
     style: "natural",
     visual_continuity: "",
+    reference_role: "both",
     music: "",
     provider: "bing",
     platform: "GENERAL",
@@ -343,9 +344,12 @@ const Home = () => {
 
           {supportsReference && <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
             <label htmlFor="reference-image" className="block text-sm font-semibold text-gray-900 dark:text-white">Reference image <span className="font-normal text-gray-400">(optional)</span></label>
-            <p id="reference-image-help" className="mt-2 text-sm text-gray-500 dark:text-gray-400">{isBuiltinVideoProvider(formData.provider) ? "Set the starting look for your first shot. Later shots use the previous clip’s last visible frame as a reference; exact continuity is not guaranteed." : "Guide the characters, objects, and visual style across your scenes."} Describe how to use it in your prompt.</p>
+            <p id="reference-image-help" className="mt-2 text-sm text-gray-500 dark:text-gray-400">AI reads the image while drafting your storyboard. Choose which details to use, then review the extracted description before generating scenes. Your instructions take priority.</p>
+            <label htmlFor="reference-role" className="mt-4 block text-sm font-medium">Use image for</label>
+            <select id="reference-role" name="reference_role" value={formData.reference_role} onChange={handleInputChange} disabled={isLoading} className={inputClassName}><option value="character">Character · appearance, clothing &amp; props</option><option value="style">Style · medium, palette &amp; lighting</option><option value="both">Both character and style</option></select>
+            {isBuiltinVideoProvider(formData.provider) && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{formData.reference_role === "style" ? "Style guides the video through the extracted description, without copying the reference scene." : "The image also guides your first shot. Later shots use the previous clip’s last visible frame; exact continuity is not guaranteed."}</p>}
             <input ref={referenceInput} id="reference-image" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="reference-image-help" disabled={isLoading} onChange={chooseReference} className={`${inputClassName} file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700`} />
-            <p className="mt-2 text-xs text-gray-400">PNG, JPEG, or WebP · Up to 10 MB</p>
+            <p className="mt-2 text-xs text-gray-400">PNG, JPEG, or WebP · Up to 10 MB. Requires a script model that accepts images.</p>
             {referencePreview && referenceImage && <div className="mt-4 flex items-center gap-4"><img src={referencePreview} alt="Reference preview" className="h-24 w-24 rounded-xl bg-gray-100 object-contain dark:bg-gray-900" /><div className="min-w-0"><p className="truncate text-sm text-gray-600 dark:text-gray-300">{referenceImage.name}</p><button type="button" disabled={isLoading} onClick={() => { setReferenceImage(null); if (referenceInput.current) referenceInput.current.value = ""; }} className="mt-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">Remove reference</button></div></div>}
           </section>}
 

@@ -2,6 +2,7 @@
 
 import io
 import json
+import base64
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
@@ -145,6 +146,21 @@ class OfficialGptCallTests(SimpleTestCase):
         )
 
     @override_settings(OPEN_API_KEY="key", MAX_TOKENS=100, DEFAULT_GPT_MODEL="gpt-4")
+    def test_sends_reference_image_as_a_chat_image_part(self):
+        client = MagicMock()
+        client.chat.completions.create.return_value = a_stream("hello")
+        with patch.object(llm, "OpenAI", return_value=client):
+            official_gpt_call("describe visible details", image="encoded-jpeg")
+        content = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
+        self.assertEqual(content[0], {"type": "text", "text": "describe visible details"})
+        self.assertEqual(content[1]["image_url"]["url"], "data:image/jpeg;base64,encoded-jpeg")
+
+    def test_image_failure_has_clear_guidance_without_exposing_payload(self):
+        with patch.object(llm, "OpenAI", side_effect=RuntimeError("private-image-data")):
+            with self.assertRaisesRegex(APIException, "model that accepts images") as caught:
+                official_gpt_call("prompt", image="encoded-jpeg")
+        self.assertNotIn("private-image-data", str(caught.exception))
+
     def test_turns_a_provider_failure_into_an_api_exception(self):
         client = MagicMock()
         client.chat.completions.create.side_effect = RuntimeError("upstream is down")
@@ -155,6 +171,17 @@ class OfficialGptCallTests(SimpleTestCase):
 
 
 class ClaudeCallTests(SimpleTestCase):
+    def test_sends_reference_image_using_claude_base64_blocks(self):
+        client = MagicMock()
+        client.messages.create.return_value.content = [MagicMock(text="hello")]
+        with patch.object(llm.anthropic, "Anthropic", return_value=client):
+            claude_call("prompt", image="encoded-jpeg")
+        content = client.messages.create.call_args.kwargs["messages"][0]["content"]
+        self.assertEqual(content[0]["source"], {
+            "type": "base64", "media_type": "image/jpeg", "data": "encoded-jpeg",
+        })
+        self.assertEqual(content[1], {"type": "text", "text": "prompt"})
+
     @override_settings(ANTHROPIC_API_KEY="key")
     def test_returns_the_message_text(self):
         client = MagicMock()
@@ -173,6 +200,17 @@ class ClaudeCallTests(SimpleTestCase):
 
 
 class GeminiCallTests(SimpleTestCase):
+    def test_sends_reference_as_a_gemini_image_blob(self):
+        model = MagicMock()
+        model.generate_content.return_value = MagicMock(text="hello")
+        with patch.object(llm.genai, "configure"), patch.object(llm.genai, "GenerativeModel", return_value=model):
+            gemini_call("prompt", image=base64.b64encode(b"jpeg-bytes").decode())
+        content = model.generate_content.call_args.args[0]
+        self.assertEqual(content, ["prompt", {"mime_type": "image/jpeg", "data": b"jpeg-bytes"}])
+        # Validate the shape against the installed legacy SDK's actual converter.
+        from google.generativeai.types.content_types import to_part
+        self.assertEqual(to_part(content[1]).inline_data.data, b"jpeg-bytes")
+
     @override_settings(GEMINI_API_KEY="key")
     def test_returns_the_reply_text(self):
         model = MagicMock()
@@ -250,6 +288,18 @@ class GetReplyParsingTests(SimpleTestCase):
             result = get_reply("a prompt", gpt_model="gpt-4", **kwargs)
 
         return result, call
+
+    def test_retries_keep_the_image_and_encode_it_only_once(self):
+        with patch.object(llm, "image_data", return_value="encoded-jpeg") as encode:
+            parsed, call = self.reply('{"title":"incomplete"}', A_SCRIPT, reference_image="local-reference.png")
+        self.assertEqual(parsed["title"], "Cats")
+        encode.assert_called_once_with("local-reference.png")
+        self.assertEqual([item.kwargs["image"] for item in call.call_args_list], ["encoded-jpeg", "encoded-jpeg"])
+
+    def test_missing_reference_fails_before_any_model_request(self):
+        with patch.object(llm, "official_gpt_call") as call, self.assertRaisesRegex(APIException, "could not be read"):
+            get_reply("prompt", reference_image="/missing/reference.png")
+        call.assert_not_called()
 
     def test_missing_ai_continuity_is_retried_in_the_same_storyboard_flow(self):
         corrected = json.dumps({**json.loads(A_SCRIPT), "visual_continuity": "Orange cat, green scarf."})

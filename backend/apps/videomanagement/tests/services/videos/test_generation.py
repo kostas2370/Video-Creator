@@ -108,6 +108,37 @@ class GenerateVideoTests(TestCase):
         self.make_scenes_speech.assert_called_once()
         self.create_image_scenes.assert_called_once()
 
+    def test_uploaded_image_is_analyzed_with_preferences_and_reference_role(self):
+        brief = "Orange fox with the requested blue scarf; watercolor style."
+        self.get_reply.return_value = {**A_SCRIPT, "visual_continuity": brief}
+        self.video.reference_image = "media/reference.png"
+        self.video.save()
+        made = self.generate(
+            image_mode="AI", visual_continuity="Use a blue scarf", reference_role="character", review_script=True,
+        )
+        self.assertEqual(self.get_reply.call_args.kwargs["reference_image"], self.video.reference_image.path)
+        self.assertIn("Extract only visible subject identity", self.get_reply.call_args.args[0])
+        self.assertIn("Use a blue scarf", self.get_reply.call_args.args[0])
+        self.assertEqual(made.settings["visual_continuity"], brief)
+        self.assertEqual(made.settings["reference_role"], "character")
+
+    def test_empty_image_analysis_draft_keeps_explicit_user_preferences(self):
+        self.get_reply.return_value = {**A_SCRIPT, "visual_continuity": ""}
+        self.video.reference_image = "media/reference.png"
+        self.video.save()
+        made = self.generate(image_mode="AI", visual_continuity="Keep the blue scarf", review_script=True)
+        self.assertEqual(made.settings["visual_continuity"], "Keep the blue scarf")
+
+    def test_approved_reference_storyboard_does_not_request_image_analysis_again(self):
+        self.video.reference_image = "media/reference.png"
+        self.video.gpt_answer = {**A_SCRIPT, "visual_continuity": "Reviewed description"}
+        self.video.dir_name = "media/videos/cats"
+        self.video.save()
+        made = self.generate(image_mode="AI", visual_continuity="Reviewed description", reference_role="style")
+        self.get_reply.assert_not_called()
+        self.assertEqual(made.settings["visual_continuity"], "Reviewed description")
+        self.assertEqual(made.settings["reference_role"], "style")
+
     def test_ai_drafts_and_saves_continuity_in_the_storyboard_request(self):
         brief = "Orange fox Milo, green scarf; watercolor forest."
         self.get_reply.return_value = {**A_SCRIPT, "visual_continuity": brief}

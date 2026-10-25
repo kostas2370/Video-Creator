@@ -1,6 +1,5 @@
 """Small HTTP helpers for built-in video providers; no process-global credentials."""
 
-import base64
 import functools
 import logging
 import math
@@ -9,16 +8,15 @@ import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
-from io import BytesIO
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
 from django.conf import settings
-from PIL import Image, ImageOps
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys
+from apps.videomanagement.utils.image_inputs import image_data
 from .custom import save_video
 from .registry import ImageProviderRegistry
 
@@ -205,18 +203,6 @@ def api_url(value, host):
     ):
         raise APIException("Video provider returned an invalid API URL.")
     return value
-
-
-def image_data(reference):
-    if not reference:
-        return None
-    # Normalize file formats and bound encoded payload size for all three APIs.
-    with Image.open(reference) as source:
-        image = ImageOps.exif_transpose(source).convert("RGB")
-        image.thumbnail((1536, 1536))
-        with BytesIO() as buffer:
-            image.save(buffer, format="JPEG", quality=90)
-            return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 def seconds_for(duration, minimum, maximum):

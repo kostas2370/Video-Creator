@@ -484,3 +484,48 @@ class GenerateNewImageTests(TestCase):
             reference = scenes_utils.scene_reference(target.scene, self.video, "sora")
         self.assertEqual(reference, "anchor.png")
         self.assertEqual(still.call_args.args[0], saved.file.path)
+
+
+class ReferenceRoleTests(TestCase):
+    def setUp(self):
+        self.video = video.make(
+            mode="AI", reference_image="media/reference.png",
+            settings={"reference_role": "style", "provider": "kling"},
+        )
+
+    def test_style_only_video_does_not_use_uploaded_subject_as_first_frame(self):
+        with patch.object(scenes_utils, "stored_file_exists", return_value=True):
+            self.assertIsNone(scenes_utils.uploaded_reference(self.video, "kling"))
+            self.assertEqual(
+                scenes_utils.uploaded_reference(self.video, "OPENAI"),
+                self.video.reference_image.path,
+            )
+
+    def test_style_only_video_keeps_continuity_from_generated_previous_clip(self):
+        previous = scene.make(video=self.video, text="First shot")
+        scene_image.make(scene=previous, file="media/first.mp4")
+        target = scene.make(video=self.video, text="Second shot")
+        with patch.object(scenes_utils, "stored_file_exists", return_value=True), patch.object(
+            scenes_utils, "continuation_frame", return_value="closing-frame.png",
+        ):
+            reference = scenes_utils.scene_reference(target, self.video, "kling")
+        self.assertEqual(reference, "closing-frame.png")
+        self.assertEqual(scenes_utils.reference_role_for(self.video, reference), "both")
+
+    def test_image_regeneration_passes_style_role_for_uploaded_reference(self):
+        visual = scene_image.make(scene=scene.make(video=self.video), prompt="A castle")
+        self.video.settings["provider"] = "OPENAI"
+        with patch.object(scenes_utils, "stored_file_exists", return_value=True), patch.object(
+            openai_images, "generate_openai_image", return_value="media/new.png",
+        ) as generate:
+            generate_new_image(visual, self.video)
+        self.assertEqual(generate.call_args.kwargs["reference"], self.video.reference_image.path)
+        self.assertEqual(generate.call_args.kwargs["reference_role"], "style")
+
+    def test_character_reference_still_guides_the_first_video_frame(self):
+        self.video.settings["reference_role"] = "character"
+        first = scene.make(video=self.video)
+        with patch.object(scenes_utils, "stored_file_exists", return_value=True):
+            reference = scenes_utils.scene_reference(first, self.video, "kling")
+        self.assertEqual(reference, self.video.reference_image.path)
+        self.assertEqual(scenes_utils.reference_role_for(self.video, reference), "character")

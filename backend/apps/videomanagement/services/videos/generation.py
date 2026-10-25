@@ -124,6 +124,7 @@ def generate_video(
     review_script: bool = False,
     ai_scene_editing: bool = False,
     visual_continuity: str = "",
+    reference_role: str = "both",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -190,6 +191,8 @@ def generate_video(
     video_provider = ImageProviderRegistry.is_video(
         provider, user=video.created_by, mode=image_mode
     )
+    has_reference = bool(image_mode == "AI" and video.reference_image)
+    new_script = not (video.gpt_answer and video.dir_name)
     prompt = build_script_prompt(
         genre=genre,
         userprompt=message,
@@ -202,6 +205,7 @@ def generate_video(
         narration=narration,
         ai_scene_editing=ai_scene_editing,
         visual_continuity=visual_continuity,
+        reference_role=reference_role if has_reference else None,
     )
 
     if video.gpt_answer and video.dir_name:
@@ -215,13 +219,18 @@ def generate_video(
             ai_scene_editing=ai_scene_editing,
             video_provider=video_provider,
             require_visual_continuity=image_mode == "AI",
+            **({"reference_image": video.reference_image.path} if has_reference else {}),
         )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     if image_mode == "AI":
         # User preferences win on the initial draft; approval passes the reviewed
         # value (including an explicit blank) back into this same worker.
-        visual_continuity = visual_continuity or x.get("visual_continuity", "")
+        if has_reference and new_script:
+            # The model merges observed details with explicit user preferences.
+            visual_continuity = x.get("visual_continuity") or visual_continuity
+        else:
+            visual_continuity = visual_continuity or x.get("visual_continuity", "")
         x = {**x, "visual_continuity": visual_continuity}
 
     user_prompt = video.prompt
@@ -244,6 +253,8 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if has_reference:
+        vid.settings["reference_role"] = reference_role
     if visual_continuity:
         vid.settings["visual_continuity"] = visual_continuity
     if ai_scene_editing:
