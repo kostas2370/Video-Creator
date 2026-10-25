@@ -305,6 +305,9 @@ class StoryboardSceneSerializer(serializers.Serializer):
 
 
 class StoryboardSerializer(serializers.Serializer):
+    visual_continuity = serializers.CharField(
+        required=False, allow_blank=True, max_length=3000,
+    )
     title = serializers.CharField(max_length=50)
     target_audience = serializers.CharField(
         required=False, allow_blank=True, max_length=2000

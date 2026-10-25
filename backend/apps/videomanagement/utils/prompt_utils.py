@@ -71,7 +71,7 @@ Answer with JSON only — no prose, no markdown, no code fences — in exactly t
   "title": "<short title for the video>",
   "target_audience": "<who the video is for>",
   "topic": "<the topic in one line>",
-  "scenes": [
+{continuity_field}  "scenes": [
     {{
       "scene": "<short label for the scene>",
       "sentences": [
@@ -142,7 +142,13 @@ def _script_structure(brief, narration, ai_scene_editing=False):
     if ai_scene_editing:
         fields += (',\n          "editing": {"motion_style":"NONE", "motion_intensity":"SUBTLE", '
                    '"transition_after":"CUT", "transition_duration":0.2, "pause_after":0}')
-    return _STILL_BRIEF.format(parts=parts) + _SHAPE.format(fields=fields)
+    continuity_field = (
+        '  "visual_continuity": "<shared character and setting description>",\n'
+        if brief.generated else ""
+    )
+    return _STILL_BRIEF.format(parts=parts) + _SHAPE.format(
+        fields=fields, continuity_field=continuity_field,
+    )
 
 
 def _scene_editing_instructions(visual_type):
@@ -219,6 +225,18 @@ def build_script_prompt(
         brief.guidance(style) + "\n" + _LANGUAGE_INSTRUCTIONS
         + "\nSTORY PROGRESSION:\n" + _STORY_PROGRESSION_INSTRUCTIONS
     )
+    if brief.generated:
+        output += (
+            "\nCHARACTER AND SETTING BRIEF:\n"
+            "Before drafting the shots, establish recurring subjects and shared visual details. "
+            "Return these as the top-level visual_continuity string: names, distinguishing "
+            "features, clothing, important props, setting, and style. Aim for at most 350 "
+            "characters. Use the same details in every relevant image_description. "
+            "If the user supplies shared continuity details, preserve them rather than "
+            "reinventing the characters. Do not invent biographical details or unsupported "
+            "appearances for factual subjects. If no recurring subject or shared setting is "
+            "needed, return an empty string. Do not force characters into unrelated shots."
+        )
     if ai_scene_editing:
         output += "\nAI SCENE EDITING:\n" + _scene_editing_instructions(visual_type)
     if narration:

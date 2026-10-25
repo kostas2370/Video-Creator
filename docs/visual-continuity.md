@@ -1,7 +1,19 @@
 # Shared character and setting continuity
 
-For a new AI project, open **Generation settings → Character & setting continuity**.
-For an existing AI project (or manual project with AI visuals), open **Video settings**.
+For a new AI project, the script model drafts a shared character and setting
+description as part of the storyboard request. There is no separate AI request.
+The model establishes recurring subjects and their identifying details before
+drafting individual shots. It may return an empty brief when no shared subject
+or setting is useful; web-image projects do not request an AI continuity brief.
+
+Review, edit, or clear the draft in **Review your storyboard** before proceeding.
+Your reviewed description is saved with the project and passed to visual generation.
+Clearing it during review stays cleared when the worker creates the media.
+
+To supply your own description, open **Generation settings → Character & setting
+continuity** before generation. Your description takes priority over the AI draft.
+For an existing AI project (or manual project with AI visuals), open **Video settings**
+to edit the stored description. Existing projects do not receive a retroactive AI draft.
 
 Describe the recurring subjects, distinctive features, clothing, important props,
 locations, and visual style. Example:

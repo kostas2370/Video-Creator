@@ -34,7 +34,7 @@ def token_limit_kwarg(model: str) -> dict:
     }
 
 
-def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False):
+def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False, require_visual_continuity=False):
     """Validate the structure consumed by scene and media generation."""
     def nonempty(value):
         return isinstance(value, str) and bool(value.strip())
@@ -44,6 +44,10 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
     errors = []
     if not nonempty(data.get("title")):
         errors.append("title must be a nonempty string.")
+    if require_visual_continuity or "visual_continuity" in data:
+        continuity = data.get("visual_continuity")
+        if not isinstance(continuity, str) or len(continuity) > 3000:
+            errors.append("visual_continuity must be a string of at most 3000 characters; use an empty string when unnecessary.")
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or not scenes:
         return errors + ["scenes must be a nonempty array."]
@@ -150,7 +154,8 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None):
 
 
 def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
-              narration=None, scene_count=None, ai_scene_editing=False, video_provider=False):
+              narration=None, scene_count=None, ai_scene_editing=False, video_provider=False,
+              require_visual_continuity=False):
     """Route text requests and retry invalid scripts with specific correction feedback."""
     gpt_model = gpt_model or settings.DEFAULT_GPT_MODEL
     original_prompt = prompt
@@ -167,7 +172,10 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
         try:
             # Retain compatibility with providers wrapping JSON in prose or fences.
             data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
-            errors = script_errors(data, narration, scene_count, ai_scene_editing, video_provider)
+            errors = script_errors(
+                data, narration, scene_count, ai_scene_editing, video_provider,
+                require_visual_continuity=require_visual_continuity,
+            )
             if not errors:
                 return data
         except (ValueError, TypeError):

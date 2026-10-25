@@ -108,6 +108,42 @@ class GenerateVideoTests(TestCase):
         self.make_scenes_speech.assert_called_once()
         self.create_image_scenes.assert_called_once()
 
+    def test_ai_drafts_and_saves_continuity_in_the_storyboard_request(self):
+        brief = "Orange fox Milo, green scarf; watercolor forest."
+        self.get_reply.return_value = {**A_SCRIPT, "visual_continuity": brief}
+        self.video.settings = {"generation_params": {"image_mode": "AI", "review_script": False}}
+        self.video.save()
+        made = self.generate(image_mode="AI", review_script=True)
+        self.assertEqual(made.settings["visual_continuity"], brief)
+        self.assertEqual(made.gpt_answer["visual_continuity"], brief)
+        self.assertEqual(made.settings["generation_params"]["visual_continuity"], brief)
+        self.assertTrue(self.get_reply.call_args.kwargs["require_visual_continuity"])
+        self.get_reply.assert_called_once()
+        self.create_image_scenes.assert_not_called()
+
+    def test_user_description_wins_over_ai_draft_and_reaches_visuals(self):
+        self.get_reply.return_value = {**A_SCRIPT, "visual_continuity": "AI draft"}
+        made = self.generate(image_mode="AI", visual_continuity="My exact character")
+        self.assertEqual(made.settings["visual_continuity"], "My exact character")
+        self.assertEqual(made.gpt_answer["visual_continuity"], "My exact character")
+        self.assertEqual(self.create_image_scenes.call_args.args[0].settings["visual_continuity"], "My exact character")
+
+    def test_reviewed_blank_continuity_stays_cleared_when_media_generation_starts(self):
+        self.video.gpt_answer = {**A_SCRIPT, "visual_continuity": ""}
+        self.video.dir_name = "media/videos/cats"
+        self.video.settings = {"visual_continuity": "Old AI draft"}
+        self.video.save()
+        made = self.generate(image_mode="AI", visual_continuity="")
+        self.assertFalse(made.settings.get("visual_continuity"))
+        self.assertEqual(made.gpt_answer["visual_continuity"], "")
+        self.get_reply.assert_not_called()
+
+    def test_web_generation_does_not_request_or_apply_ai_character_draft(self):
+        self.get_reply.return_value = {**A_SCRIPT, "visual_continuity": "Unexpected AI draft"}
+        made = self.generate(image_mode="WEB")
+        self.assertNotIn("visual_continuity", made.settings)
+        self.assertFalse(self.get_reply.call_args.kwargs["require_visual_continuity"])
+
     def test_shared_continuity_survives_review_and_reaches_storyboard(self):
         brief = "Milo wears a green scarf."
         made = self.generate(image_mode="AI", visual_continuity=brief, review_script=True)

@@ -15,6 +15,12 @@ from ...utils.prompt_utils import (
 
 
 class FormatPromptTests(SimpleTestCase):
+    def test_ai_storyboards_draft_a_shared_brief_but_web_search_does_not(self):
+        for mode in ("AI", "WEB"):
+            prompt = build_script_prompt(image_mode=mode)
+            self.assertEqual('"visual_continuity"' in prompt, mode == "AI")
+            self.assertEqual("CHARACTER AND SETTING BRIEF" in prompt, mode == "AI")
+
     def test_carries_every_part_of_the_brief_into_the_prompt(self):
         prompt = build_script_prompt(
             genre="EDUCATIONAL",

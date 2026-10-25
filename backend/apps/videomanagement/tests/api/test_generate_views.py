@@ -269,6 +269,28 @@ class StoryboardApprovalTests(ApiTestCase):
         self.assertTrue(delay.call_args.kwargs["ai_scene_editing"])
 
     @patch("apps.videomanagement.tasks.generate_video_task.delay")
+    def test_reviewed_continuity_edits_and_clearing_reach_worker(self, delay):
+        for brief in ("Reviewed fox with a blue scarf.", ""):
+            with self.subTest(brief=brief):
+                video = self.draft()
+                video.mode = "AI"
+                video.settings["visual_continuity"] = "Original AI draft"
+                video.settings["generation_params"]["image_mode"] = "AI"
+                video.save()
+                response = self.approve(video, {**self.script, "visual_continuity": brief})
+                self.assertEqual(response.status_code, 202, response.data)
+                video.refresh_from_db()
+                self.assertEqual(video.settings["visual_continuity"], brief)
+                self.assertEqual(video.gpt_answer["visual_continuity"], brief)
+                self.assertEqual(delay.call_args.kwargs["visual_continuity"], brief)
+
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
+    def test_overlong_continuity_is_rejected_before_queueing(self, delay):
+        response = self.approve(self.draft(), {**self.script, "visual_continuity": "x" * 3001})
+        self.assertEqual(response.status_code, 400)
+        delay.assert_not_called()
+
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_approval_saves_edits_and_queues_once(self, delay):
         video = self.draft()
         response = self.approve(video)

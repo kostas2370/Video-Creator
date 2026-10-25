@@ -1,3 +1,4 @@
+import { VisualContinuity } from "./VisualContinuity";
 import React, { useEffect, useRef, useState } from "react";
 import { EditorDialog } from "./ui/EditorDialog";
 import { useNavigate } from "react-router-dom";
@@ -14,7 +15,9 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
   useEffect(() => {
     if (!video?.gpt_answer || initializedVideo.current === video.id) return;
     initializedVideo.current = video.id;
-    setScript(JSON.parse(JSON.stringify(video.gpt_answer)));
+    const draft = JSON.parse(JSON.stringify(video.gpt_answer));
+    if (video.mode === "AI") draft.visual_continuity = video.settings?.visual_continuity ?? draft.visual_continuity ?? "";
+    setScript(draft);
     setError("");
   }, [video?.id, video?.gpt_answer]);
 
@@ -53,6 +56,7 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
           <label className="block text-sm font-semibold">Video title
             <input autoFocus required maxLength={50} value={script.title} disabled={busy} onChange={event => setScript({ ...script, title: event.target.value })} className={inputClass} />
           </label>
+          {video?.mode === "AI" && <div className="mt-5"><VisualContinuity value={script.visual_continuity || ""} disabled={busy} description="Review the shared character and setting details drafted for your story. Edit or clear them before creating the visuals." onChange={value => setScript(current => ({ ...current, visual_continuity: value }))} /></div>}
           {script.scenes.map((scene, sceneIndex) => (
             <section key={sceneIndex} className="mt-5 rounded-2xl border border-gray-200 p-4 dark:border-gray-600">
               <h3 className="font-semibold">Scene {sceneIndex + 1}: {scene.scene}</h3>

@@ -214,8 +214,15 @@ def generate_video(
             narration=narration, scene_count=scene_count,
             ai_scene_editing=ai_scene_editing,
             video_provider=video_provider,
+            require_visual_continuity=image_mode == "AI",
         )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
+
+    if image_mode == "AI":
+        # User preferences win on the initial draft; approval passes the reviewed
+        # value (including an explicit blank) back into this same worker.
+        visual_continuity = visual_continuity or x.get("visual_continuity", "")
+        x = {**x, "visual_continuity": visual_continuity}
 
     user_prompt = video.prompt
     user_prompt.save()
@@ -244,6 +251,8 @@ def generate_video(
     if scene_count is not None:
         vid.settings["scene_count"] = scene_count
     if review_script:
+        if generation_params is not None and image_mode == "AI":
+            generation_params = {**generation_params, "visual_continuity": visual_continuity}
         vid.settings["generation_params"] = generation_params
     vid.save()
 

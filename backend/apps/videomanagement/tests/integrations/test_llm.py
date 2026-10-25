@@ -1,6 +1,7 @@
 """Every call out to a model provider is stubbed — no test here reaches the network."""
 
 import io
+import json
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
@@ -59,6 +60,14 @@ A_SENTENCE = {"sentence": "hello", "image_description": "a cat"}
 class ScriptErrorsTests(SimpleTestCase):
     def test_accepts_a_reply_with_the_shape_the_pipeline_walks(self):
         self.assertFalse(script_errors(a_reply(a_scene(A_SENTENCE))))
+
+    def test_continuity_is_optional_for_old_scripts_but_validated_when_present(self):
+        data = a_reply(a_scene(A_SENTENCE))
+        self.assertFalse(script_errors(data))
+        self.assertTrue(script_errors(data, require_visual_continuity=True))
+        for invalid in (None, [], "x" * 3001):
+            self.assertTrue(script_errors({**data, "visual_continuity": invalid}))
+        self.assertFalse(script_errors({**data, "visual_continuity": ""}, require_visual_continuity=True))
 
     def test_rejects_a_reply_with_no_scenes_key(self):
         self.assertTrue(script_errors({"title": "t"}))
@@ -241,6 +250,19 @@ class GetReplyParsingTests(SimpleTestCase):
             result = get_reply("a prompt", gpt_model="gpt-4", **kwargs)
 
         return result, call
+
+    def test_missing_ai_continuity_is_retried_in_the_same_storyboard_flow(self):
+        corrected = json.dumps({**json.loads(A_SCRIPT), "visual_continuity": "Orange cat, green scarf."})
+        parsed, call = self.reply(A_SCRIPT, corrected, require_visual_continuity=True)
+        self.assertEqual(parsed["visual_continuity"], "Orange cat, green scarf.")
+        self.assertEqual(call.call_count, 2)
+        self.assertIn("visual_continuity", call.call_args.args[0])
+
+    def test_empty_continuity_is_valid_when_no_shared_subject_is_needed(self):
+        payload = json.dumps({**json.loads(A_SCRIPT), "visual_continuity": ""})
+        parsed, call = self.reply(payload, require_visual_continuity=True)
+        self.assertEqual(parsed["visual_continuity"], "")
+        self.assertEqual(call.call_count, 1)
 
     def test_parses_the_script_out_of_the_reply(self):
         parsed, _ = self.reply(A_SCRIPT)
