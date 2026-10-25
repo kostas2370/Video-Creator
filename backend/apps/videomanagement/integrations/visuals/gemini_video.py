@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.services.usage import record_usage
 from apps.videomanagement.utils.timing import video_metadata
-from .registry import ImageProviderRegistry
 from . import video_http as http
 
 MODEL = "gemini-omni-1.1-flash"
@@ -26,32 +25,27 @@ def video_output(payload):
     raise http.APIException("Gemini returned no video. Try a different prompt.")
 
 
-@ImageProviderRegistry.register("gemini-video", output_type="VIDEO")
-@http.guarded("Gemini")
-def generate_from_gemini_video(
-    prompt,
-    dir_name,
-    style="",
-    duration=0,
-    reference=None,
-    video_format="LANDSCAPE",
-    user=None,
-    **kwargs,
-):
-    headers = {"x-goog-api-key": http.key_for(user, Provider.GEMINI)}
-    text = http.shot_prompt(prompt, style, reference)
-    text += f" Aim for {http.seconds_for(duration, 3, 10)} seconds."
+@http.video_provider(
+    "gemini-video",
+    label="Gemini",
+    provider=Provider.GEMINI,
+    minimum=3,
+    maximum=10,
+    auth_scheme="",
+    auth_header="x-goog-api-key",
+)
+def generate_from_gemini_video(request):
     content = []
-    anchor = http.image_data(reference)
-    if anchor:
-        content.append({"type": "image", "mime_type": "image/jpeg", "data": anchor})
-    content.append({"type": "text", "text": text})
-    result = http.json_request(
-        "POST",
+    if request.image:
+        content.append(
+            {"type": "image", "mime_type": "image/jpeg", "data": request.image}
+        )
+    content.append(
+        {"type": "text", "text": f"{request.prompt} Aim for {request.seconds} seconds."}
+    )
+    result = request.post(
         f"{BASE}/interactions",
-        headers=headers,
-        timeout=600,
-        body={
+        {
             "model": MODEL,
             "input": content,
             "background": False,
@@ -60,10 +54,11 @@ def generate_from_gemini_video(
             "response_format": {
                 "type": "video",
                 "delivery": "uri",
-                "aspect_ratio": "9:16" if video_format == "PORTRAIT" else "16:9",
+                "aspect_ratio": request.aspect_ratio(square=False),
                 "resolution": "720p",
             },
         },
+        timeout=600,
     )
     if result.get("status") != "completed":
         raise http.APIException("Gemini did not complete video generation.")
@@ -80,19 +75,16 @@ def generate_from_gemini_video(
             if not match:
                 raise http.APIException("Gemini returned an invalid video file.")
             file_id = match.group(1)
-        http.poll(
-            lambda: http.json_request(
-                "GET", f"{BASE}/files/{file_id}", headers=headers
-            ),
+        request.wait(
+            f"{BASE}/files/{file_id}",
             field="state",
             completed={"ACTIVE"},
             pending={"PROCESSING"},
-            label="Gemini",
         )
         path = http.save_download(
             f"{BASE}/files/{file_id}:download?alt=media",
-            dir_name,
-            headers=headers,
+            request.directory,
+            headers=request.headers,
             auth_host=HOST,
         )
     elif output.get("data"):
@@ -102,14 +94,14 @@ def generate_from_gemini_video(
                 "Generated video exceeds the 200 MB download limit."
             )
         path = http.save_stream(
-            BytesIO(base64.b64decode(encoded, validate=True)), dir_name
+            BytesIO(base64.b64decode(encoded, validate=True)), request.directory
         )
     else:
         raise http.APIException("Gemini returned no downloadable video.")
     # Omni controls clip duration; record observed seconds rather than the prompt's target.
     seconds = math.ceil(video_metadata(path)["duration"])
     record_usage(
-        user,
+        request.user,
         "video",
         Provider.GEMINI,
         MODEL,

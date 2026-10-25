@@ -8,6 +8,7 @@ import re
 import tempfile
 import time
 import uuid
+from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -19,6 +20,7 @@ from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys
 from .custom import save_video
+from .registry import ImageProviderRegistry
 
 logger = logging.getLogger(__name__)
 MAX_VIDEO_BYTES = 200 * 1024 * 1024
@@ -43,6 +45,95 @@ def guarded(label):
                 ) from None
 
         return call
+
+    return decorate
+
+
+@dataclass(frozen=True)
+class VideoRequest:
+    """Prepared scene input and authenticated calls shared by video adapters."""
+
+    prompt: str
+    directory: str
+    seconds: int
+    image: str | None = field(repr=False)
+    video_format: str
+    user: object
+    headers: dict = field(repr=False)
+    label: str
+
+    @property
+    def image_uri(self):
+        return f"data:image/jpeg;base64,{self.image}" if self.image else None
+
+    def aspect_ratio(self, *, square=True):
+        if self.video_format == "PORTRAIT":
+            return "9:16"
+        return "1:1" if square and self.video_format == "SQUARE" else "16:9"
+
+    def get(self, url):
+        return json_request("GET", url, headers=self.headers)
+
+    def post(self, url, body, *, timeout=60):
+        return json_request(
+            "POST", url, headers=self.headers, body=body, timeout=timeout
+        )
+
+    def wait(self, url, *, completed, pending, field="status"):
+        return poll(
+            lambda: self.get(url),
+            field=field,
+            completed=completed,
+            pending=pending,
+            label=self.label,
+        )
+
+
+def video_provider(
+    name,
+    *,
+    label,
+    provider,
+    minimum,
+    maximum,
+    auth_scheme="Bearer",
+    auth_header="Authorization",
+    extra_headers=None,
+):
+    """Keep registry handlers uniform while adapters describe only their protocol."""
+
+    def decorate(fn):
+        @ImageProviderRegistry.register(name, output_type="VIDEO")
+        @guarded(label)
+        @functools.wraps(fn)
+        def generate(
+            prompt,
+            dir_name,
+            style="",
+            duration=0,
+            reference=None,
+            video_format="LANDSCAPE",
+            user=None,
+            **kwargs,
+        ):
+            key = key_for(user, provider)
+            return fn(
+                VideoRequest(
+                    prompt=shot_prompt(prompt, style, reference),
+                    directory=dir_name,
+                    seconds=seconds_for(duration, minimum, maximum),
+                    image=image_data(reference),
+                    video_format=video_format,
+                    user=user,
+                    headers={
+                        **(extra_headers or {}),
+                        auth_header: f"{auth_scheme} {key}".strip(),
+                    },
+                    label=label,
+                )
+            )
+
+        return generate
 
     return decorate
 

@@ -271,6 +271,38 @@ class VideoProviderTests(SimpleTestCase):
 
 
 class VideoHTTPTests(SimpleTestCase):
+    def test_shared_provider_wrapper_isolates_credentials_between_requests(self):
+        captured = []
+        with patch.object(
+            http.ImageProviderRegistry, "register", return_value=lambda fn: fn
+        ):
+
+            @http.video_provider(
+                "test",
+                label="Test",
+                provider=Provider.RUNWAY,
+                minimum=2,
+                maximum=10,
+                extra_headers={"X-Version": "1"},
+            )
+            def generate(request):
+                captured.append(request)
+                return request.directory
+
+        with patch.object(
+            http, "key_for", side_effect=["first-secret", "second-secret"]
+        ):
+            self.assertEqual(generate("cat", "one/", user="first"), "one/")
+            captured[0].headers["X-Version"] = "changed"
+            self.assertEqual(generate("cat", "two/", user="second"), "two/")
+        self.assertEqual(captured[0].headers["Authorization"], "Bearer first-secret")
+        self.assertEqual(
+            captured[1].headers,
+            {"X-Version": "1", "Authorization": "Bearer second-secret"},
+        )
+        self.assertNotIn("first-secret", repr(captured[0]))
+        self.assertNotIn("second-secret", repr(captured[1]))
+
     def test_reference_normalizes_image_and_preserves_orientation(self):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "ref.png")

@@ -2,48 +2,38 @@
 
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.services.usage import record_usage
-from .registry import ImageProviderRegistry
 from . import video_http as http
 
 MODEL = "fal-ai/kling-video/o3/pro/reference-to-video"
 
 
-@ImageProviderRegistry.register("kling", output_type="VIDEO")
-@http.guarded("Kling")
-def generate_from_kling(
-    prompt,
-    dir_name,
-    style="",
-    duration=0,
-    reference=None,
-    video_format="LANDSCAPE",
-    user=None,
-    **kwargs,
-):
-    headers = {"Authorization": f"Key {http.key_for(user, Provider.FAL)}"}
-    seconds = http.seconds_for(duration, 3, 15)
+@http.video_provider(
+    "kling",
+    label="Kling",
+    provider=Provider.FAL,
+    minimum=3,
+    maximum=15,
+    auth_scheme="Key",
+)
+def generate_from_kling(request):
     body = {
-        "prompt": http.shot_prompt(prompt, style, reference),
-        "duration": str(seconds),
-        "aspect_ratio": {"PORTRAIT": "9:16", "SQUARE": "1:1"}.get(video_format, "16:9"),
+        "prompt": request.prompt,
+        "duration": str(request.seconds),
+        "aspect_ratio": request.aspect_ratio(),
         "generate_audio": True,
     }
-    anchor = http.image_data(reference)
-    if anchor:
-        body["start_image_url"] = f"data:image/jpeg;base64,{anchor}"
-    job = http.json_request(
-        "POST", f"https://queue.fal.run/{MODEL}", headers=headers, body=body
-    )
+    if request.image_uri:
+        body["start_image_url"] = request.image_uri
+    job = request.post(f"https://queue.fal.run/{MODEL}", body)
     status_url = http.api_url(job.get("status_url"), "queue.fal.run")
     result_url = http.api_url(job.get("response_url"), "queue.fal.run")
-    http.poll(
-        lambda: http.json_request("GET", status_url, headers=headers),
+    request.wait(
+        status_url,
         completed={"COMPLETED"},
         pending={"IN_QUEUE", "IN_PROGRESS"},
-        label="Kling",
     )
-    result = http.json_request("GET", result_url, headers=headers)
+    result = request.get(result_url)
     if result.get("error"):
         raise http.APIException("Kling generation failed. Try a different prompt.")
-    record_usage(user, "video", Provider.FAL, MODEL, seconds=seconds)
-    return http.save_download(result["video"]["url"], dir_name)
+    record_usage(request.user, "video", Provider.FAL, MODEL, seconds=request.seconds)
+    return http.save_download(result["video"]["url"], request.directory)

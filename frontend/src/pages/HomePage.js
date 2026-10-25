@@ -1,3 +1,4 @@
+import { visualProviderNames, isBuiltinVisualProvider, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
 import { VisualContinuity } from "../components/VisualContinuity";
 import { DeferredDialog } from "../components/ui/DeferredDialog";
 import { videoFormats as videoFormatOptions } from "../utils/videoFormats";
@@ -24,13 +25,11 @@ const ttsProviderNames = {
   ELEVENLABS: "ElevenLabs",
   SIXTYDB: "60dB",
 };
-const visualProviderNames = { "OPENAI": "OpenAI images", sora: "OpenAI Sora (legacy)", kling: "Kling O3 · fal.ai (video)", runway: "Runway Gen-4.5 (video)", "gemini-video": "Gemini Omni Flash (video)", midjourney: "Midjourney", "stable-diffusion": "Stable Diffusion" };
 const platformOptions = [
   { value: "GENERAL", label: "General" },
   { value: "TIKTOK", label: "TikTok" },
 ];
 
-const isBuiltinVisualProvider = name => Object.prototype.hasOwnProperty.call(visualProviderNames, name);
 
 const inputClassName =
   "w-full p-3 mt-2 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60 dark:bg-gray-900/50 dark:border-gray-600 dark:text-white dark:placeholder-gray-400";
@@ -83,7 +82,7 @@ const Home = () => {
     avatar_position: "left,top",
   });
 
-  const supportsReference = formData.image_mode === "AI" && ["OPENAI", "sora", "kling", "runway", "gemini-video"].includes(formData.provider);
+  const supportsReference = supportsVisualReference(formData.provider, formData.image_mode);
   useEffect(() => {
     if (!supportsReference) setReferenceImage(null);
   }, [supportsReference]);
@@ -344,7 +343,7 @@ const Home = () => {
 
           {supportsReference && <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
             <label htmlFor="reference-image" className="block text-sm font-semibold text-gray-900 dark:text-white">Reference image <span className="font-normal text-gray-400">(optional)</span></label>
-            <p id="reference-image-help" className="mt-2 text-sm text-gray-500 dark:text-gray-400">{["sora", "kling", "runway", "gemini-video"].includes(formData.provider) ? "Set the starting look for your first shot. Later shots use the previous clip’s last visible frame as a reference; exact continuity is not guaranteed." : "Guide the characters, objects, and visual style across your scenes."} Describe how to use it in your prompt.</p>
+            <p id="reference-image-help" className="mt-2 text-sm text-gray-500 dark:text-gray-400">{isBuiltinVideoProvider(formData.provider) ? "Set the starting look for your first shot. Later shots use the previous clip’s last visible frame as a reference; exact continuity is not guaranteed." : "Guide the characters, objects, and visual style across your scenes."} Describe how to use it in your prompt.</p>
             <input ref={referenceInput} id="reference-image" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="reference-image-help" disabled={isLoading} onChange={chooseReference} className={`${inputClassName} file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700`} />
             <p className="mt-2 text-xs text-gray-400">PNG, JPEG, or WebP · Up to 10 MB</p>
             {referencePreview && referenceImage && <div className="mt-4 flex items-center gap-4"><img src={referencePreview} alt="Reference preview" className="h-24 w-24 rounded-xl bg-gray-100 object-contain dark:bg-gray-900" /><div className="min-w-0"><p className="truncate text-sm text-gray-600 dark:text-gray-300">{referenceImage.name}</p><button type="button" disabled={isLoading} onClick={() => { setReferenceImage(null); if (referenceInput.current) referenceInput.current.value = ""; }} className="mt-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">Remove reference</button></div></div>}
