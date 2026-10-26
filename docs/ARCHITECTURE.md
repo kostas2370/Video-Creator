@@ -451,7 +451,34 @@ to the same user. Custom-provider querysets are always scoped to their user.
 These are API boundaries. nginx's direct `/media/` delivery does not perform the
 video API's ownership checks; private media delivery requires a separate design.
 
+## Reviewed shot plans
+
+AI storyboards can include a `shot_plan` on each sentences entry: shot size, camera
+movement, subject action, and a target duration from 0.5 to 30 seconds. Storyboard
+review exposes these fields before media generation. Both model-response validation
+and approval validate supplied plans; older scripts without plans remain supported.
+
+`ensure_scene_rows()` copies the validated plan to `Scene.shot_plan` only when creating
+an AI scene. Still-image camera direction becomes the existing editor motion setting;
+video camera direction stays in the provider prompt. For silent projects, target
+duration initializes the scene's explicit duration. Narrated projects use actual
+speech duration instead. Resuming generation preserves later manual motion and timing
+edits rather than reapplying the original plan.
+
+Visual creation and regeneration combine the original saved visual prompt with the
+scene's shot plan and shared continuity. Generated image requests receive shot size
+and subject action; generated video requests also receive camera direction. The
+saved `SceneImage.prompt` stays separate so regeneration does not duplicate guidance.
+Web-image requests do not apply cinematic shot plans.
+
+See [how prompting works](prompting.md) for the complete request flow and an exact
+example produced by the storyboard prompt builder. Apply migration
+`0045_scene_shot_plan` and restart the API/worker when deploying this feature.
+
 ## Rendering and file storage
+
+See [how rendering works](rendering.md) for the full export flow, timing rules,
+quality settings, cache behavior, and recovery details.
 
 [composer/render.py](../backend/apps/videomanagement/utils/composer/render.py)
 builds and executes native FFmpeg filter graphs:

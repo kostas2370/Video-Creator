@@ -294,6 +294,7 @@ class UserPrompt(UUIDModel):
 
 
 class Scene(UUIDModel):
+    shot_plan = models.JSONField(default=dict, blank=True)
     archived_at = models.DateTimeField(
         null=True, blank=True, editable=False, db_index=True
     )

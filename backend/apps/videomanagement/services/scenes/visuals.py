@@ -7,9 +7,12 @@ from django.db import close_old_connections
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import ImageMode, Scene, SceneImage, Video, VideoType
+from apps.videomanagement.utils.audio_editing import duration_override
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.frames import still_from_video
-from apps.videomanagement.utils.prompt_utils import script_lines, with_visual_continuity
+from apps.videomanagement.utils.prompt_utils import (
+    script_lines, with_shot_plan, with_visual_continuity,
+)
 from apps.videomanagement.utils.timing import file_timing
 
 logger = logging.getLogger(__name__)
@@ -20,6 +23,28 @@ def scene_narration_duration(scene: Scene) -> float:
     return file_timing(scene.file).get("audio_duration") or 0
 
 
+def visual_generation_duration(scene):
+    if (scene.video.settings or {}).get("narration", True):
+        return scene_narration_duration(scene)
+    return (
+        duration_override(scene)
+        or (scene.shot_plan or {}).get("target_duration")
+        or scene_narration_duration(scene)
+    )
+
+
+def planned_visual_prompt(scene, prompt, mode, provider):
+    if mode != ImageMode.AI:
+        return prompt
+    return with_visual_continuity(
+        with_shot_plan(
+            prompt, scene.shot_plan or {},
+            video=ImageProviderRegistry.is_video(provider, user=scene.video.created_by, mode=mode),
+        ),
+        (scene.video.settings or {}).get("visual_continuity", ""),
+    )
+
+
 def continuation_frame(video: Video, text: str, path: str):
     """Use the last visible frame when narration trims the generated clip."""
     if not path:
@@ -28,7 +53,7 @@ def continuation_frame(video: Video, text: str, path: str):
     duration = (
         scene_narration_duration(previous)
         if previous and (video.settings or {}).get("narration", True)
-        else 0
+        else duration_override(previous) if previous else 0
     )
     options = {"end_time": duration} if duration else {}
     return still_from_video(path, f"{video.dir_name}/images/", **options)
@@ -112,16 +137,11 @@ def create_image_scene(
     try:
         generate = ImageProviderRegistry.resolve(mode, provider)
         downloaded_image = generate(
-            (
-                with_visual_continuity(
-                    image, (video.settings or {}).get("visual_continuity", "")
-                )
-                if mode == ImageMode.AI else image
-            ),
+            planned_visual_prompt(scene, image, mode, provider),
             f"{dir_name}/images/",
             style=style,
             title=title,
-            duration=scene_narration_duration(scene),
+            duration=visual_generation_duration(scene),
             video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
             reference=reference,
             reference_role=reference_role_for(video, reference),
@@ -313,16 +333,10 @@ def generate_new_image(
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     kwargs.setdefault("reference_role", reference_role_for(video, kwargs["reference"]))
-    kwargs.setdefault("duration", scene_narration_duration(scene_image.scene))
+    kwargs.setdefault("duration", visual_generation_duration(scene_image.scene))
     kwargs.setdefault("video_format", (video.settings or {}).get("video_format", "LANDSCAPE"))
     img = generate(
-        (
-            with_visual_continuity(
-                scene_image.prompt or "",
-                (video.settings or {}).get("visual_continuity", ""),
-            )
-            if mode == ImageMode.AI else scene_image.prompt
-        ),
+        planned_visual_prompt(scene_image.scene, scene_image.prompt or "", mode, provider),
         f"{video.dir_name}/images/",
         *args,
         style=style,
