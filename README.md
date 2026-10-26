@@ -284,6 +284,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | --- | --- |
 | [Contributing](CONTRIBUTING.md) | Development conventions, checks, tests, and pull requests |
 | [Architecture](docs/ARCHITECTURE.md) | API and worker responsibilities, generation, and rendering |
+| [Rendering](docs/rendering.md) | Timing, composition, export quality, scene caching, and failure recovery |
 | [Frontend](frontend/README.md) | Development server, builds, and frontend checks |
 | [AI video providers](docs/ai-video-providers.md) | Provider setup, references, timing, and limitations |
 | [Prompting](docs/prompting.md) | Storyboard and visual prompt assembly, with complete GPT request examples |
