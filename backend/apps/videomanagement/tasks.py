@@ -22,7 +22,7 @@ from apps.videomanagement.services.scenes.jobs import scene_job
 from apps.videomanagement.services.videos import generation as video_generation
 
 from .events import publish_update
-from .models import SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
+from .models import Video, VideoStatus, VoiceModel, VoiceModelType
 from .serializers.models import SceneSerializer
 from .utils.composer import render
 
@@ -68,19 +68,16 @@ def rewrite_scene_task(scene_id, instructions, previous_status):
 def generate_scene_image_task(scene_id, image_description, previous_status):
     """Generate and save a replacement scene visual."""
     with scene_job(scene_id, previous_status) as scene:
-        from apps.videomanagement.services.scenes.shots import next_shot_position
+        from apps.videomanagement.services.scenes.shots import select_scene_shot
 
         options = (
             image_description
             if isinstance(image_description, dict)
             else {"image_description": image_description}
         )
-        if options.get("scene_image"):
-            image = scene.scene_images.get(pk=options["scene_image"])
-        elif options.get("new_shot"):
-            image = SceneImage(scene=scene, position=next_shot_position(scene))
-        else:
-            image = scene.scene_images.first() or SceneImage(scene=scene)
+        image = select_scene_shot(
+            scene, options.get("scene_image"), new_shot=options.get("new_shot", False)
+        )
         image.prompt = options["image_description"]
         scenes.generate_new_image(image, scene.video)
         return {"Message": "Image Scene was added successfully"}

@@ -11,7 +11,6 @@ from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import (
     MotionStyle,
     Scene,
-    SceneImage,
     Video,
     VideoStatus,
 )
@@ -221,18 +220,13 @@ def clear_scene_image(image):
 def update_scene_image(scene, scene_image=None, *, image=None, with_audio=False):
     try:
         with editable_video(scene.video_id) as video:
-            if scene_image is not None:
-                scene_image = get_object_or_404(
-                    SceneImage.objects.select_for_update(),
-                    pk=scene_image.pk,
-                    scene_id=scene.pk,
-                )
-            else:
-                from .shots import next_shot_position
+            from .shots import select_scene_shot
 
-                scene_image = SceneImage(
-                    scene=scene, position=next_shot_position(scene)
-                )
+            scene_image = select_scene_shot(
+                scene,
+                scene_image.pk if scene_image is not None else None,
+                new_shot=scene_image is None,
+            )
             if image:
                 scene_image.trim_start = 0
                 scene_image.file = image

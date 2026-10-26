@@ -1,3 +1,5 @@
+export const MOTION_OPTIONS = [["NONE", "No motion", "—"], ["AUTO", "Auto", "✦"], ["ZOOM_IN", "Zoom in", "+"], ["ZOOM_OUT", "Zoom out", "−"], ["PAN_LEFT", "Pan left", "←"], ["PAN_RIGHT", "Pan right", "→"], ["PAN_UP", "Pan up", "↑"], ["PAN_DOWN", "Pan down", "↓"]];
+
 export function imageMotion(segment, time) {
   const end = Math.max(0, segment.base_duration - 1 / 24);
   const progress = end ? Math.min(1, Math.max(0, time / end)) : 1;

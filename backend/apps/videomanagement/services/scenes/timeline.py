@@ -37,38 +37,49 @@ class SegmentTiming:
     dissolve_in: float = 0
 
 
+def visual_playback(image, choices):
+    is_video = bool(image and image.file and check_if_video(image.file.name))
+    metadata = file_timing(image.file) if is_video else {}
+    duration = metadata.get("duration")
+    trim_start = image.trim_start if image else 0
+    return {
+        "image": image,
+        "visual_type": "video" if is_video else "image",
+        "visual_duration": max(0, duration - trim_start)
+        if duration is not None
+        else None,
+        "trim_start": trim_start,
+        "loop_visual": is_video and choices.get("loop_visual", False),
+        "clip_audio": bool(
+            is_video and image.with_audio and metadata.get("audio_duration")
+        ),
+    }
+
+
 def scene_segment(scene, index, start, choices):
     """Resolve the scene's playback duration, media timing and transition override."""
-    image = next(iter(scene.scene_images.all()), None)
+    images = list(scene.scene_images.all())
+    image = images[0] if images else None
     timing = scene_timing(scene, image)
     speech = (
         file_timing(narration_file(scene)).get("audio_duration")
         if narration_enabled(scene)
         else None
     )
-    is_video = bool(image and image.file and check_if_video(image.file.name))
-    visual_timing = file_timing(image.file) if is_video else {}
     style, transition_duration = scene_transition(scene, choices)
     segment = SegmentTiming(
         content=scene,
-        image=image,
         kind="scene",
         index=index,
         start=start,
         duration=timing["duration"],
         base_duration=timing["base_duration"],
-        visual_type="video" if is_video else "image",
-        visual_duration=visual_timing.get("duration"),
-        loop_visual=is_video and choices.get("loop_visual", False),
-        clip_audio=bool(
-            is_video and image.with_audio and visual_timing.get("audio_duration")
-        ),
+        **visual_playback(image, choices),
         narration_duration=speech,
         transition=style,
         transition_duration=transition_duration,
     )
 
-    images = list(scene.scene_images.all())
     if len(images) > 1 or (
         image and (image.trim_start or image.motion_style or image.motion_intensity)
     ):
@@ -83,25 +94,13 @@ def scene_segment(scene, index, start, choices):
                 row.motion_intensity or scene.motion_intensity
             )
             shot.shots = []
-            shot.image = row
             shot.start = offset
             shot.base_duration = duration
             shot.duration = duration + (
                 scene.pause_after if index == len(images) - 1 else 0
             )
-            shot.trim_start = row.trim_start
-            is_clip = bool(row.file and check_if_video(row.file.name))
-            metadata = file_timing(row.file) if is_clip else {}
-            shot.visual_type = "video" if is_clip else "image"
-            shot.visual_duration = (
-                max(0, metadata.get("duration", 0) - row.trim_start)
-                if is_clip
-                else None
-            )
-            shot.loop_visual = is_clip and choices.get("loop_visual", False)
-            shot.clip_audio = bool(
-                is_clip and row.with_audio and metadata.get("audio_duration")
-            )
+            for name, value in visual_playback(row, choices).items():
+                setattr(shot, name, value)
             segment.shots.append(shot)
             offset += duration
     return segment

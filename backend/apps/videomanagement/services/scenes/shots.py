@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.models import Scene
+from apps.videomanagement.models import Scene, SceneImage
 from apps.videomanagement.utils.file_utils import check_if_video
 from apps.videomanagement.utils.timing import file_timing, scene_timing
 from .editing import changed, editable_video
@@ -20,6 +20,14 @@ def next_shot_position(scene):
         scene.audio_settings = settings
         scene.save(update_fields=["audio_settings"])
     return max((image.position for image in images), default=-1) + 1
+
+
+def select_scene_shot(scene, image_id=None, *, new_shot=False):
+    if image_id:
+        return get_object_or_404(scene.scene_images, pk=image_id)
+    if new_shot:
+        return SceneImage(scene=scene, position=next_shot_position(scene))
+    return scene.scene_images.first() or SceneImage(scene=scene)
 
 
 def update_shots(scene, shots, expected_ids):

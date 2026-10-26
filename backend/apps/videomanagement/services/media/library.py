@@ -6,7 +6,7 @@ from django.db.models.deletion import RestrictedError
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 
-from apps.videomanagement.models import MediaAsset, SceneImage
+from apps.videomanagement.models import MediaAsset
 from apps.videomanagement.serializers.covers import CoverSerializer
 from apps.videomanagement.services.media.covers import save_cover
 from apps.videomanagement.services.media.music import set_music
@@ -68,14 +68,9 @@ def replace_scene_visual(
 ):
     with editable_video(video.pk) as locked:
         scene = get_object_or_404(locked.scenes.select_for_update(), pk=scene_id)
-        from apps.videomanagement.services.scenes.shots import next_shot_position
+        from apps.videomanagement.services.scenes.shots import select_scene_shot
 
-        if scene_image:
-            image = get_object_or_404(scene.scene_images, pk=scene_image)
-        elif new_shot:
-            image = SceneImage(scene=scene, position=next_shot_position(scene))
-        else:
-            image = scene.scene_images.first() or SceneImage(scene=scene)
+        image = select_scene_shot(scene, scene_image, new_shot=new_shot)
         image.trim_start = 0
         image.asset = asset
         image.with_audio = with_audio
