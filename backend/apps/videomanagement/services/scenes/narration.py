@@ -9,6 +9,7 @@ from apps.videomanagement.integrations.tts import ApiSyn, save
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, Video
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
+from apps.videomanagement.schemas.shot_planning import STILL_MOTION, ShotPlanSerializer
 from apps.videomanagement.services.captions.alignment import align_scene_narration
 from apps.videomanagement.utils.file_utils import stored_file_exists
 from apps.videomanagement.utils.prompt_utils import script_lines
@@ -122,7 +123,7 @@ def ensure_scene_rows(video: Video):
     video.scenes.exclude(text__in=script_texts).delete()
 
     choices = video.settings or {}
-    video_provider = choices.get("ai_scene_editing") and ImageProviderRegistry.is_video(
+    video_provider = ImageProviderRegistry.is_video(
         choices.get("provider"), user=video.created_by, mode=video.mode
     )
     for line in lines:
@@ -134,8 +135,19 @@ def ensure_scene_rows(video: Video):
                 )
                 plan.is_valid(raise_exception=True)
                 editing = dict(plan.validated_data)
+            shot_plan = {}
+            if video.mode == "AI" and line.shot_plan is not None:
+                plan = ShotPlanSerializer(data=line.shot_plan)
+                plan.is_valid(raise_exception=True)
+                shot_plan = dict(plan.validated_data)
+                if not video_provider and shot_plan.get("camera_movement"):
+                    editing["motion_style"] = STILL_MOTION[shot_plan["camera_movement"]]
+            audio_settings = {}
+            if not choices.get("narration", True) and shot_plan.get("target_duration"):
+                audio_settings["duration"] = shot_plan["target_duration"]
             existing[line.text] = Scene.objects.create(
-                video=video, text=line.text, is_last=line.is_last, **editing
+                video=video, text=line.text, is_last=line.is_last,
+                shot_plan=shot_plan, audio_settings=audio_settings, **editing
             )
 
     return lines, existing

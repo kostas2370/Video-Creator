@@ -139,6 +139,9 @@ def _script_structure(brief, narration, ai_scene_editing=False):
     if not narration:
         parts = f"only {brief.description} — there is no narration, so write no spoken lines"
     fields = (_NARRATION_FIELD if narration else "") + _STILL_FIELD.format(brief.placeholder)
+    if brief.generated:
+        fields += (',\n          "shot_plan": {"shot_size":"MEDIUM", "camera_movement":"STATIC", '
+                   '"subject_action":"<visible subject action>", "target_duration":5}')
     if ai_scene_editing:
         fields += (',\n          "editing": {"motion_style":"NONE", "motion_intensity":"SUBTLE", '
                    '"transition_after":"CUT", "transition_duration":0.2, "pause_after":0}')
@@ -168,6 +171,19 @@ def _scene_editing_instructions(visual_type):
     if visual_type == VisualType.VIDEO:
         return instructions + "Use motion_style NONE for every shot; camera movement comes from the generated video."
     return instructions + "For still images, use subtle zooms or pans selectively and keep some shots still."
+
+
+def with_shot_plan(prompt: str, plan: dict, *, video=False) -> str:
+    directions = []
+    if plan.get("shot_size"):
+        directions.append("Shot size: " + plan["shot_size"].lower().replace("_", " "))
+    if plan.get("subject_action"):
+        directions.append("Subject action: " + plan["subject_action"])
+    if video and plan.get("camera_movement"):
+        directions.append("Camera movement: " + plan["camera_movement"].lower().replace("_", " "))
+    if not directions:
+        return prompt
+    return prompt + "\n\nREVIEWED SHOT PLAN (takes priority over conflicting directions above):\n" + "\n".join(directions)
 
 
 def with_visual_continuity(prompt: str, continuity: str = "") -> str:
@@ -228,6 +244,18 @@ def build_script_prompt(
     )
     if brief.generated:
         output += (
+            "\nSHOT PLANNING:\n"
+            "Include a shot_plan on each sentences entry. shot_size: WIDE, MEDIUM, CLOSE_UP, or DETAIL. "
+            "camera_movement: STATIC, PAN_LEFT, PAN_RIGHT, TILT_UP, TILT_DOWN, PUSH_IN, or PULL_OUT. "
+            "subject_action: a concise description of the visible action, at most 500 characters. "
+            "target_duration: 0.5–30 seconds, estimated to suit the narration or visual beat. "
+            "Vary framing to support the story, choose one clear action per shot, and prefer STATIC "
+            "unless movement serves the scene. Keep narration free of shot directions. "
+            "The reviewed shot_plan takes priority over conflicting image_description directions. "
+            "For stills, camera_movement is applied as editor pan/zoom; describe one frozen moment. "
+            "For video clips, the visual provider receives camera directions. If editing settings "
+            "are also requested, keep still-image motion consistent with shot_plan and use NONE for video. "
+            "Actual narration controls narrated scene timing; target_duration is a target, not a speech limit."
             "\nCHARACTER AND SETTING BRIEF:\n"
             "Before drafting the shots, establish recurring subjects and shared visual details. "
             "Return these as the top-level visual_continuity string: names, distinguishing "
@@ -296,6 +324,7 @@ class ScriptLine:
     image_description: str
     is_last: bool
     editing: dict = None
+    shot_plan: dict = None
 
 
 def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
@@ -307,6 +336,7 @@ def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
                 image_description=sentence["image_description"],
                 is_last=index == len(sentences) - 1,
                 editing=sentence.get("editing"),
+                shot_plan=sentence.get("shot_plan"),
             )
 
 

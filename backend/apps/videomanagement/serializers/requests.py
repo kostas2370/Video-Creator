@@ -16,6 +16,7 @@ from ..models import (
     TransitionStyle,
 )
 from ..schemas.scene_editing import SceneEditingPlanSerializer
+from ..schemas.shot_planning import ShotPlanSerializer
 from ..utils.file_utils import check_if_video
 from ..video_formats import (
     DEFAULT_VIDEO_FORMAT,
@@ -297,6 +298,7 @@ class AddScenesSerializer(ScenePositionSerializer):
 
 
 class StoryboardSentenceSerializer(serializers.Serializer):
+    shot_plan = ShotPlanSerializer(required=False)
     editing = SceneEditingPlanSerializer(required=False)
     sentence = serializers.CharField(required=False, allow_blank=True, max_length=2000)
     image_description = serializers.CharField(max_length=2000)

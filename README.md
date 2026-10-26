@@ -93,7 +93,8 @@ cookies stay on the same site.
 1. **Choose a starting point.** Describe your idea for an AI project, or start a
    manual project with your own media. Select the format and generation options.
 2. **Review the storyboard.** Edit the dialogue and visual prompts before generating
-   media. You can save a draft and return to it from **My videos**.
+   media. For AI visuals, refine each shot's framing, camera direction, subject action,
+   and target duration. You can save a draft and return to it from **My videos**.
 3. **Generate or add media.** Create visuals and narration, upload replacements, or
    select existing assets. Optional references and continuity guidance help keep
    generated scenes visually consistent.
@@ -278,6 +279,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Architecture](docs/ARCHITECTURE.md) | API and worker responsibilities, generation, and rendering |
 | [Frontend](frontend/README.md) | Development server, builds, and frontend checks |
 | [AI video providers](docs/ai-video-providers.md) | Provider setup, references, timing, and limitations |
+| [Prompting](docs/prompting.md) | Storyboard and visual prompt assembly, with complete GPT request examples |
 | [Visual continuity](docs/visual-continuity.md) | References and consistency across generated scenes |
 | [AI usage](docs/ai-usage.md) | Usage records and cost estimates |
 | [Creator publishing](docs/social-publishing.md) | Social platform integrations and deployment setup |
