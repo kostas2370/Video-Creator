@@ -495,7 +495,13 @@ their duration unless their own selected audio supplies timing; stills use
 The renderer encodes scenes sequentially into temporary lossless clips and
 assembles them through a concat manifest, applies music/avatar/subtitle layers,
 and prepends or appends selected intro/outro clips. Output uses `libx264` video and
-`aac` audio at 24 fps. Temporary filter graphs and intermediate files are cleaned up after each render.
+`aac` audio. Per-project `export_preset` selects Draft (CRF 28 / veryfast),
+Standard (CRF 23 / fast), or High (CRF 18 / slow); `export_fps` selects 24 or
+30 fps throughout motion, scene quantization, transitions and final composition.
+Older projects default to Standard at 24 fps. The render endpoint validates and
+saves these options while claiming the job; empty requests retain saved choices.
+Lossless scene cache keys include frame rate, so changing only quality can reuse
+scene visuals while changing frame rate rebuilds them. Temporary filter graphs and intermediate files are cleaned up after each render.
 Successful encoding saves `Video.output` and marks the video `COMPLETED`.
 
 Generated files normally live under:

@@ -32,6 +32,47 @@ from ...utils.composer.render import Graph, make_video, render_scene_clip
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    def test_export_presets_and_frame_rates_reach_the_encoder(self):
+        self.add_still(motion_style="PAN_RIGHT", pause_after=0.13)
+        run = Graph.run
+        encodings = []
+
+        def capture(graph, directory, output, maps, encoding, duration):
+            if Path(output).name == "output.mp4":
+                encodings.append(encoding)
+            return run(graph, directory, output, maps, encoding, duration)
+
+        for preset, crf, speed, fps in (("DRAFT", "28", "veryfast", 30), ("HIGH", "18", "slow", 30), ("STANDARD", "23", "fast", 24)):
+            with self.subTest(preset=preset):
+                self.row.settings.update(export_preset=preset, export_fps=fps)
+                self.row.save()
+                with patch.object(Graph, "run", capture):
+                    make_video(self.row)
+                encoding = encodings[-1]
+                self.assertEqual(encoding[encoding.index("-crf") + 1], crf)
+                self.assertEqual(encoding[encoding.index("-preset") + 1], speed)
+                metadata = self.metadata()
+                self.assertEqual(metadata["streams"][0]["r_frame_rate"], f"{fps}/1")
+                self.assertAlmostEqual(float(metadata["format"]["duration"]), 0.63, delta=0.05)
+
+    def test_frame_rate_changes_rebuild_cached_motion_and_dissolve_clips(self):
+        self.add_still(motion_style="PAN_RIGHT", transition_after="DISSOLVE", transition_duration=0.2)
+        self.add_still(motion_style="PAN_LEFT")
+        self.row.intro = intro.make(file="intro.mp4")
+        self.row.outro = outro.make(file="outro.mp4")
+        self.row.settings.update(intro_transition="DISSOLVE", intro_transition_duration=0.125)
+        make_video(self.row)
+        self.row.settings["export_fps"] = 30
+        self.row.save()
+        with patch("apps.videomanagement.utils.composer.render.render_scene_clip", wraps=render_scene_clip) as build:
+            make_video(self.row)
+        self.assertEqual(build.call_count, 2)
+        self.assertEqual(self.metadata()["streams"][0]["r_frame_rate"], "30/1")
+        self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 1.5, delta=0.05)
+        with patch("apps.videomanagement.utils.composer.render.render_scene_clip") as build:
+            make_video(self.row)
+        build.assert_not_called()
+
     def test_tiktok_caption_highlight_moves_to_the_next_word_in_export(self):
         Image.new("RGB", (160, 90), "black").save(self.root / "still.png")
         self.row.settings.update(subtitles=True, platform="TIKTOK")
