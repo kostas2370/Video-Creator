@@ -216,7 +216,7 @@ Style: natural
 This is the complete `prompt` value for that example OpenAI image request. The
 request also has separate `IMAGE_MODEL`, `IMAGE_SIZE`, and `IMAGE_QUALITY` settings.
 They are not secretly inserted into the storyboard text. Output framing during
-final rendering is a separate step; see the [architecture guide](ARCHITECTURE.md).
+final rendering is a separate step; see [how rendering works](rendering.md).
 
 When a usable image reference is present, OpenAI uses `images.edit()` and adds
 role-specific reference guidance; otherwise it uses `images.generate()`. The

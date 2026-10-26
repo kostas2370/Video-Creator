@@ -56,6 +56,11 @@ length. A still uses `SILENT_SCENE_SECONDS`; manual projects default to five sec
 An explicit scene duration overrides the computed base length in either mode.
 `pause_after` is then added to that base length.
 
+For reviewed AI shot plans, target duration initializes the explicit duration only
+when narration is off. Narrated shots use recorded speech timing. Still-image camera
+direction becomes an editor motion setting. See [how prompting works](prompting.md)
+for how these choices reach generation before the renderer uses the saved scenes.
+
 Short video visuals hold their final frame to fill the scene. If the project enables
 visual looping, video inputs loop instead. Longer visuals are trimmed to the scene.
 Missing visual files produce black frames; missing narration contributes silence.
