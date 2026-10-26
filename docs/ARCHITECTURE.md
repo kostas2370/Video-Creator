@@ -453,6 +453,9 @@ video API's ownership checks; private media delivery requires a separate design.
 
 ## Rendering and file storage
 
+See [how rendering works](rendering.md) for the full export flow, timing rules,
+quality settings, cache behavior, and recovery details.
+
 [composer/render.py](../backend/apps/videomanagement/utils/composer/render.py)
 builds and executes native FFmpeg filter graphs:
 
