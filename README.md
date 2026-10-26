@@ -7,7 +7,9 @@ build a project from your own media, edit each scene, and export a finished vide
 The workflow brings scripts, visuals, narration, captions, music, and publishing
 into one place.
 
-![Viddie video editor](docs/screenshots/video-edit.png)
+![Viddie video editor in dark theme](docs/screenshots/video-edit.png)
+
+Explore the [dark-theme screenshot gallery](docs/screenshots.md) for more of the app.
 
 ## What you can make
 
@@ -100,7 +102,7 @@ cookies stay on the same site.
 5. **Export and share.** Render the video, create a cover, and edit its metadata.
    Download the result or use **Publish** with a configured destination account.
 
-![Storyboard review](docs/screenshots/storyboard-review.png)
+![Video preview and scene timeline in dark theme](docs/screenshots/preview-timeline.png)
 
 Removed scenes can be restored from **Project extras → Recently deleted** for seven
 days. Reusable scene assets remain in the media library after their project is
