@@ -93,6 +93,7 @@ class SceneClipCacheTests(SimpleTestCase):
             setattr(changed.content, field, value)
             self.assertNotEqual(original, self.key(changed))
         self.assertNotEqual(original, self.key(size=(90, 160)))
+        self.assertNotEqual(original, self.cache.key(self.segment, (160, 90), 30))
 
     def test_replacement_is_detected_even_with_the_same_file_size_and_mtime(self):
         original, stat = self.key(), self.source.stat()
@@ -103,7 +104,7 @@ class SceneClipCacheTests(SimpleTestCase):
     def test_shared_sources_are_hashed_once_per_export_and_refresh_between_exports(
         self,
     ):
-        def render_clip(segment, directory, size, output, previous_frame):
+        def render_clip(segment, directory, size, output, previous_frame, fps=24):
             output.write_bytes(Path(segment.image.file.path).read_bytes())
 
         for export, expected_renders in enumerate((1, 0, 1)):

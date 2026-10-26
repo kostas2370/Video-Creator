@@ -69,7 +69,7 @@ def _dispatch_video_job(video, previous_status, task, **params):
     return video
 
 
-def queue_render(video):
+def queue_render(video, export_options=None):
     with transaction.atomic():
         video = Video.objects.select_for_update().get(pk=video.pk)
         if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED):
@@ -81,8 +81,9 @@ def queue_render(video):
         if video.video_type == VideoType.MANUAL and not video.scenes.exists():
             raise ValidationError("Add a scene before rendering your video.")
         previous_status = video.status
+        video.settings = {**(video.settings or {}), **(export_options or {})}
         video.status = VideoStatus.RENDERING
-        video.save(update_fields=["status", "updated_at"])
+        video.save(update_fields=["settings", "status", "updated_at"])
     return _dispatch_video_job(video, previous_status, tasks.render_video_task)
 
 

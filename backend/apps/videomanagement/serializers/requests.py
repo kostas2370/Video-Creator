@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db.models import Max
 from rest_framework import serializers
 
+from apps.videomanagement.export_settings import EXPORT_FRAME_RATES, EXPORT_PRESETS
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.media.uploads import validate_visual
@@ -216,6 +217,11 @@ class SceneImageQuerySerializer(serializers.Serializer):
 
 class GenerateSceneImageSerializer(serializers.Serializer):
     image_description = serializers.CharField(max_length=2000)
+
+
+class RenderVideoSerializer(serializers.Serializer):
+    export_preset = serializers.ChoiceField(choices=tuple(EXPORT_PRESETS), required=False)
+    export_fps = serializers.ChoiceField(choices=EXPORT_FRAME_RATES, required=False)
 
 
 class VideoUpdateSerializer(serializers.Serializer):

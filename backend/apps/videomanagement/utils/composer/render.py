@@ -9,6 +9,7 @@ from pathlib import Path
 from django.conf import settings
 
 from apps.videomanagement.exceptions import RenderFailedException
+from apps.videomanagement.export_settings import DEFAULT_EXPORT_FPS, export_settings
 from apps.videomanagement.services.captions.alignment import align_scene_narration
 from apps.videomanagement.services.videos.preview import (
     apply_transitions,
@@ -32,7 +33,7 @@ from .overlays import apply_overlays
 from .scene_cache import SceneClipCache, SourceFingerprints
 
 logger = logging.getLogger(__name__)
-FPS = 24
+FPS = DEFAULT_EXPORT_FPS
 
 
 class Graph:
@@ -176,10 +177,10 @@ def fit_filter(size):
     return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1"
 
 
-def motion_filter(scene, duration, size):
+def motion_filter(scene, duration, size, fps=FPS):
     style = resolved_motion(scene)
     amount = AMOUNTS[scene.motion_intensity]
-    last = max(1, math.ceil(duration * FPS) - 1)
+    last = max(1, math.ceil(duration * fps) - 1)
     progress = f"min(on/{last},1)"
     zoom = "1"
     x = "iw/2-iw/zoom/2"
@@ -197,25 +198,25 @@ def motion_filter(scene, duration, size):
         direction = "-" if style == MotionStyle.PAN_DOWN else "+"
         y += f"{direction}ih*{amount}*({progress}-0.5)/zoom"
     width, height = size
-    return f"zoompan=z='{zoom}':x='{x}':y='{y}':d={math.ceil(duration * FPS)}:s={width}x{height}:fps={FPS}"
+    return f"zoompan=z='{zoom}':x='{x}':y='{y}':d={math.ceil(duration * fps)}:s={width}x{height}:fps={fps}"
 
 
-def visual_stream(graph, segment, size):
+def visual_stream(graph, segment, size, fps=FPS):
     field = segment.image.file if segment.image else None
     if segment.kind != "scene":
         field = segment.content.file
     if not stored_file_exists(field):
         stream = graph.filter(
-            [], f"color=c=black:s={size[0]}x{size[1]}:r={FPS}:d={segment.duration}"
+            [], f"color=c=black:s={size[0]}x{size[1]}:r={fps}:d={segment.duration}"
         )
     elif segment.visual_type == "image":
         if not check_if_image(field.name):
             stream = graph.filter(
-                [], f"color=c=black:s={size[0]}x{size[1]}:r={FPS}:d={segment.duration}"
+                [], f"color=c=black:s={size[0]}x{size[1]}:r={fps}:d={segment.duration}"
             )
         else:
             if resolved_motion(segment.content) == MotionStyle.NONE:
-                index = graph.input(field.path, ("-loop", "1", "-framerate", str(FPS)))
+                index = graph.input(field.path, ("-loop", "1", "-framerate", str(fps)))
                 stream = graph.filter([f"{index}:v"], fit_filter(size))
             else:
                 index = graph.input(field.path)
@@ -224,14 +225,14 @@ def visual_stream(graph, segment, size):
                 )
                 stream = graph.filter(
                     [stream],
-                    motion_filter(segment.content, segment.base_duration, size),
+                    motion_filter(segment.content, segment.base_duration, size, fps),
                 )
     else:
         index = graph.input(
             field.path, ("-stream_loop", "-1") if segment.loop_visual else ()
         )
         stream = graph.filter(
-            [f"{index}:v"], f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={FPS}"
+            [f"{index}:v"], f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={fps}"
         )
     stream = graph.filter(
         [stream],
@@ -247,15 +248,15 @@ def visual_stream(graph, segment, size):
     return graph.filter([stream], ",".join(fades)) if fades else stream
 
 
-def quantized_scenes(segments):
+def quantized_scenes(segments, fps=FPS):
     quantized = []
     offset = 0
     for segment in segments:
         end = offset + segment.duration
-        frames = math.ceil(end * FPS) - math.ceil(offset * FPS)
+        frames = math.ceil(end * fps) - math.ceil(offset * fps)
         if frames:
             visual_segment = copy(segment)
-            visual_segment.duration = frames / FPS
+            visual_segment.duration = frames / fps
             visual_segment.base_duration = min(
                 segment.base_duration, visual_segment.duration
             )
@@ -264,11 +265,11 @@ def quantized_scenes(segments):
     return quantized
 
 
-def render_scene_clip(segment, directory, size, output, previous_frame=None):
+def render_scene_clip(segment, directory, size, output, previous_frame=None, fps=FPS):
     graph = Graph()
-    visual = visual_stream(graph, segment, size)
+    visual = visual_stream(graph, segment, size, fps)
     if segment.dissolve_in and previous_frame:
-        frame = graph.input(previous_frame, ("-loop", "1", "-framerate", str(FPS)))
+        frame = graph.input(previous_frame, ("-loop", "1", "-framerate", str(fps)))
         frozen = graph.filter(
             [f"{frame}:v"],
             f"trim=duration={segment.dissolve_in},setpts=PTS-STARTPTS,format=rgba,fade=t=out:st=0:d={segment.dissolve_in}:alpha=1",
@@ -296,9 +297,9 @@ def render_scene_clip(segment, directory, size, output, previous_frame=None):
     )
 
 
-def render_scene_clips(segments, directory, size, opening=None, cache=None):
+def render_scene_clips(segments, directory, size, opening=None, cache=None, fps=FPS):
     sources = SourceFingerprints()
-    quantized = quantized_scenes(segments)
+    quantized = quantized_scenes(segments, fps)
     previous_frame = None
     # Intro dissolves are blended with the moving intro in final_graph. Scene
     # dissolves still use a held outgoing frame from the previous scene clip.
@@ -307,12 +308,12 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None):
     for index, segment in enumerate(quantized):
         output = Path(directory, f"scene-{index}.mkv")
         key = (
-            cache.key(segment, size, FPS, dependency, sources=sources)
+            cache.key(segment, size, fps, dependency, sources=sources)
             if cache and cache.enabled
             else None
         )
         if not key or not cache.stage(key, output):
-            render_scene_clip(segment, directory, size, output, previous_frame)
+            render_scene_clip(segment, directory, size, output, previous_frame, fps=fps)
             if key:
                 cache.store(key, output)
         dependency = key
@@ -321,7 +322,7 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None):
         if index + 1 < len(quantized) and quantized[index + 1].dissolve_in:
             previous_frame = Path(directory, "outgoing.png")
             save_video_frame(
-                output, previous_frame, max(0, segment.duration - 1 / FPS - 0.000001)
+                output, previous_frame, max(0, segment.duration - 1 / fps - 0.000001)
             )
     manifest = Path(directory, "scenes.ffconcat")
     manifest.write_text(
@@ -375,12 +376,13 @@ def final_graph(
     size,
     scene_manifest,
     opening=None,
+    fps=FPS,
 ):
     graph = Graph()
     if scene_manifest is None:
         visuals = [
-            visual_stream(graph, segment, size)
-            for segment in quantized_scenes(segments)
+            visual_stream(graph, segment, size, fps)
+            for segment in quantized_scenes(segments, fps)
         ]
         visual = graph.filter(visuals, f"concat=n={len(visuals)}:v=1:a=0")
     else:
@@ -432,7 +434,7 @@ def final_graph(
     visuals, audios = [], []
     total = duration
     if opening:
-        opening_visual = visual_stream(graph, opening, size)
+        opening_visual = visual_stream(graph, opening, size, fps)
         if (
             segments
             and segments[0].dissolve_in
@@ -441,11 +443,11 @@ def final_graph(
             dissolve = segments[0].dissolve_in
             opening_visual = graph.filter(
                 [opening_visual],
-                f"settb=AVTB,setpts=PTS-STARTPTS,fps={FPS},format=yuv420p",
+                f"settb=AVTB,setpts=PTS-STARTPTS,fps={fps},format=yuv420p",
             )
             scene_visual = graph.filter(
                 [visual],
-                f"tpad=stop_mode=clone:stop_duration={dissolve},settb=AVTB,setpts=PTS-STARTPTS,fps={FPS},format=yuv420p",
+                f"tpad=stop_mode=clone:stop_duration={dissolve},settb=AVTB,setpts=PTS-STARTPTS,fps={fps},format=yuv420p",
             )
             visual = graph.filter(
                 [opening_visual, scene_visual],
@@ -467,7 +469,7 @@ def final_graph(
     audios.append(audio)
     if video.outro:
         closing = asset_segment(video.outro, "outro", 0)
-        visuals.append(visual_stream(graph, closing, size))
+        visuals.append(visual_stream(graph, closing, size, fps))
         audios.append(
             audio_stream(
                 graph,
@@ -478,7 +480,7 @@ def final_graph(
         total += closing.duration
     visual = graph.filter(visuals, f"concat=n={len(visuals)}:v=1:a=0")
     audio = graph.filter(audios, f"concat=n={len(audios)}:v=0:a=1")
-    visual = graph.filter([visual], f"fps={FPS},format=yuv420p")
+    visual = graph.filter([visual], f"fps={fps},format=yuv420p")
     return graph, visual, audio, total
 
 
@@ -503,6 +505,8 @@ def make_video(video):
     if video.status not in RENDERABLE_STATUSES:
         raise RenderFailedException("Video is not in a renderable state.")
     choices = video.settings or {}
+    export = export_settings(choices)
+    fps = export["fps"]
     segments, elapsed = [], 0
     for index, scene in enumerate(video.scenes.with_media(), 1):
         if choices.get("subtitles"):
@@ -536,7 +540,7 @@ def make_video(video):
         if not can_render_directly(segments):
             cache = SceneClipCache(video.pk)
             manifest = render_scene_clips(
-                segments, directory, size, opening, cache=cache
+                segments, directory, size, opening, cache=cache, fps=fps
             )
         graph, visual, audio, total = final_graph(
             video,
@@ -547,6 +551,7 @@ def make_video(video):
             size,
             manifest,
             opening,
+            fps=fps,
         )
         output = Path(directory, "output.mp4")
         graph.run(
@@ -557,9 +562,9 @@ def make_video(video):
                 "-c:v",
                 "libx264",
                 "-preset",
-                "fast",
+                export["preset"],
                 "-crf",
-                "23",
+                str(export["crf"]),
                 "-threads",
                 "8",
                 "-c:a",

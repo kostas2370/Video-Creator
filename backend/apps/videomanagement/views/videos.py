@@ -33,6 +33,7 @@ from apps.videomanagement.serializers.requests import (
     BulkAutoMotionSerializer,
     ManualSceneSerializer,
     ManualVideoSerializer,
+    RenderVideoSerializer,
     ReorderScenesSerializer,
     SceneDraftSerializer,
     StoryboardSerializer,
@@ -196,6 +197,7 @@ class VideoView(
             "partial_update": VideoUpdateSerializer,
             "add_scene": AddSceneSerializer,
             "preview": PreviewTimelineSerializer,
+            "render_video": RenderVideoSerializer,
         }
 
         return serializer_class.get(self.action, VideoSerializer)
@@ -317,10 +319,14 @@ class VideoView(
         operation_description="Queues the render of the video. Returns 202; poll GET /video/{id}/ "
         "until its status becomes COMPLETED or FAILED, then read `output`.",
         method="PATCH",
+        request_body=RenderVideoSerializer,
     )
     @action(detail=True, methods=["PATCH"])
-    def render_video(self, _, pk):
-        video = queue_render(self.get_object())
+    def render_video(self, request, pk):
+        video = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video = queue_render(video, serializer.validated_data)
         return Response(
             {
                 "message": "The render has been queued",

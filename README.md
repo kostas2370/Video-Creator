@@ -99,10 +99,17 @@ cookies stay on the same site.
    generated scenes visually consistent.
 4. **Refine the edit.** Reorder scenes, adjust audio and pauses, choose transitions
    and image motion, and add captions or overlays. Preview the timeline as you work.
-5. **Export and share.** Render the video, create a cover, and edit its metadata.
+5. **Export and share.** Choose Draft, Standard, or High export quality and 24 or
+   30 fps in the render dialog. Render the video, create a cover, and edit its metadata.
    Download the result or use **Publish** with a configured destination account.
 
 ![Video preview and scene timeline in dark theme](docs/screenshots/preview-timeline.png)
+
+Export choices are remembered per project. Standard at 24 fps matches previous
+exports. Draft favors faster encoding and more compression; High preserves more
+source detail with longer encoding and usually larger files. Frame rate applies
+to the full export, including motion and transitions. These settings keep your
+project dimensions and do not regenerate or improve the source media.
 
 Removed scenes can be restored from **Project extras → Recently deleted** for seven
 days. Reusable scene assets remain in the media library after their project is
