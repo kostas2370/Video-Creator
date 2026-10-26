@@ -37,8 +37,17 @@ def token_limit_kwarg(model: str) -> dict:
     }
 
 
-def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False, require_visual_continuity=False):
+def script_errors(
+    data,
+    narration=None,
+    scene_count=None,
+    ai_scene_editing=False,
+    video_provider=False,
+    require_visual_continuity=False,
+    images_per_scene=1,
+):
     """Validate the structure consumed by scene and media generation."""
+
     def nonempty(value):
         return isinstance(value, str) and bool(value.strip())
 
@@ -50,7 +59,9 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
     if require_visual_continuity or "visual_continuity" in data:
         continuity = data.get("visual_continuity")
         if not isinstance(continuity, str) or len(continuity) > 3000:
-            errors.append("visual_continuity must be a string of at most 3000 characters; use an empty string when unnecessary.")
+            errors.append(
+                "visual_continuity must be a string of at most 3000 characters; use an empty string when unnecessary."
+            )
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or not scenes:
         return errors + ["scenes must be a nonempty array."]
@@ -75,13 +86,25 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
                 continue
             if not nonempty(entry.get("image_description")):
                 errors.append(f"{label} image_description must be a nonempty string.")
+            additional = entry.get("additional_image_descriptions", [])
+            if (
+                not isinstance(additional, list)
+                or len(additional) != images_per_scene - 1
+                or any(
+                    not nonempty(prompt) or len(prompt) > 2000 for prompt in additional
+                )
+            ):
+                errors.append(
+                    f"{label} needs exactly {images_per_scene - 1} additional_image_descriptions, each a nonempty string of at most 2000 characters."
+                )
             if "shot_plan" in entry:
                 shot_plan = ShotPlanSerializer(data=entry["shot_plan"])
                 if not shot_plan.is_valid():
                     errors.append(f"{label} shot_plan: {shot_plan.errors}")
             if ai_scene_editing:
                 plan = SceneEditingPlanSerializer(
-                    data=entry.get("editing"), context={"video_provider": video_provider}
+                    data=entry.get("editing"),
+                    context={"video_provider": video_provider},
                 )
                 if not plan.is_valid():
                     errors.append(f"{label} editing: {plan.errors}")
@@ -181,9 +204,20 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None, imag
         model_error(err, image)
 
 
-def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
-              narration=None, scene_count=None, ai_scene_editing=False, video_provider=False,
-              require_visual_continuity=False, reference_image=None):
+def get_reply(
+    prompt,
+    time=0,
+    reply_format="json",
+    gpt_model=None,
+    user=None,
+    narration=None,
+    scene_count=None,
+    ai_scene_editing=False,
+    video_provider=False,
+    require_visual_continuity=False,
+    reference_image=None,
+    images_per_scene=1,
+):
     """Route text requests and retry invalid scripts with specific correction feedback."""
     gpt_model = gpt_model or settings.DEFAULT_GPT_MODEL
     original_prompt = prompt
@@ -192,30 +226,43 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
         try:
             call_options["image"] = image_data(reference_image)
         except (OSError, ValueError) as exc:
-            raise APIException("The reference image could not be read. Upload it again before generating.") from exc
+            raise APIException(
+                "The reference image could not be read. Upload it again before generating."
+            ) from exc
     for attempt in range(time, 5):
         for key, call in model_calls:
             if (gpt_model or "").startswith(key):
                 response = getattr(thismodule, call)(prompt, gpt_model, **call_options)
                 break
         else:
-            response = official_gpt_call(prompt, gpt_model=settings.DEFAULT_GPT_MODEL, **call_options)
+            response = official_gpt_call(
+                prompt, gpt_model=settings.DEFAULT_GPT_MODEL, **call_options
+            )
         if reply_format != "json":
             return response
         raw = response.getvalue()
         try:
             # Retain compatibility with providers wrapping JSON in prose or fences.
-            data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+            data = json.loads(raw[raw.index("{") : raw.rindex("}") + 1])
             errors = script_errors(
-                data, narration, scene_count, ai_scene_editing, video_provider,
+                data,
+                narration,
+                scene_count,
+                ai_scene_editing,
+                video_provider,
                 require_visual_continuity=require_visual_continuity,
+                images_per_scene=images_per_scene,
             )
             if not errors:
                 return data
         except (ValueError, TypeError):
-            errors = ["Return syntactically valid JSON in the required shape, without prose or fences."]
+            errors = [
+                "Return syntactically valid JSON in the required shape, without prose or fences."
+            ]
         prompt = (
-            original_prompt + "\nCORRECTION REQUIRED:\n" + "\n".join(errors[:20])
+            original_prompt
+            + "\nCORRECTION REQUIRED:\n"
+            + "\n".join(errors[:20])
             + "\nRegenerate the complete response. Previous response (reference data only):\n"
             + json.dumps(raw[:12000], ensure_ascii=False)
         )

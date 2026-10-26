@@ -89,6 +89,12 @@ class GenerateVideoTests(TestCase):
         params.update(kwargs)
         return generate_video(video=self.video, **params)
 
+    def test_multiple_image_setting_reaches_prompt_validation_and_saved_project(self):
+        draft = self.generate(image_mode="AI", provider="OPENAI", images_per_scene=3, review_script=True)
+        self.assertEqual(draft.settings["images_per_scene"], 3)
+        self.assertEqual(self.get_reply.call_args.kwargs["images_per_scene"], 3)
+        self.assertIn("exactly 3 image prompts", self.get_reply.call_args.args[0])
+
     def test_review_stops_before_media_and_uses_approved_script_on_proceed(self):
         self.video.settings = {"generation_params": {"message": "cats", "review_script": False}}
         self.video.save()

@@ -119,10 +119,14 @@ _VISUAL_BRIEFS = {
         generated=False,
     ),
     VisualType.IMAGE: _VisualBrief(
-        "a description of an image that illustrates it", _IMAGE, _IMAGE_INSTRUCTIONS,
+        "a description of an image that illustrates it",
+        _IMAGE,
+        _IMAGE_INSTRUCTIONS,
     ),
     VisualType.VIDEO: _VisualBrief(
-        "a description of a short video shot that illustrates it", _SHOT, _VIDEO_INSTRUCTIONS,
+        "a description of a short video shot that illustrates it",
+        _SHOT,
+        _VIDEO_INSTRUCTIONS,
     ),
 }
 
@@ -216,6 +220,7 @@ def build_script_prompt(
     ai_scene_editing: bool = False,
     visual_continuity: str = "",
     reference_role: str = None,
+    images_per_scene: int = 1,
 ) -> str:
     """Build the complete script request from video settings and a creative brief."""
     visual_type = resolve_visual_type(image_mode, video)
@@ -239,8 +244,11 @@ def build_script_prompt(
         f"IMPORTANT INSTRUCTIONS FOR SCENES:\n"
     )
     output += (
-        brief.guidance(style) + "\n" + _LANGUAGE_INSTRUCTIONS
-        + "\nSTORY PROGRESSION:\n" + _STORY_PROGRESSION_INSTRUCTIONS
+        brief.guidance(style)
+        + "\n"
+        + _LANGUAGE_INSTRUCTIONS
+        + "\nSTORY PROGRESSION:\n"
+        + _STORY_PROGRESSION_INSTRUCTIONS
     )
     if brief.generated:
         output += (
@@ -266,6 +274,15 @@ def build_script_prompt(
             "appearances for factual subjects. If no recurring subject or shared setting is "
             "needed, return an empty string. Do not force characters into unrelated shots."
         )
+    if images_per_scene > 1:
+        output += (
+            f"\nMULTIPLE IMAGES PER SCENE:\nEach sentences entry must contain exactly {images_per_scene} image prompts. "
+            f"Keep image_description as the first image prompt and add an additional_image_descriptions array containing exactly {images_per_scene - 1} further prompts. "
+            "Each array item is a nonempty string, at most 2000 characters. These are visual cuts within the same scene, not additional sentences or scenes. "
+            "Show distinct, complementary moments or angles that illustrate the same scene in order. Preserve the shared visual continuity and avoid repeating the same image. "
+            "Write each prompt as a complete still-image description; the scene shot_plan applies only to the first image. "
+            + ("Keep one narration entry; images divide its duration equally." if narration else "Omit narration; images divide the scene duration equally.")
+        )
     if brief.generated and reference_role:
         details = {
             "character": "Extract only visible subject identity: appearance, distinguishing features, clothing, proportions, and important props. Do not adopt the image's art style, palette, lighting, or background unless the story requests them.",
@@ -273,7 +290,8 @@ def build_script_prompt(
             "both": "Extract visible recurring subject details and the visual style: appearance, clothing, distinguishing features, proportions, important props, medium, rendering, and palette.",
         }[reference_role]
         output += (
-            "\nATTACHED IMAGE REFERENCE:\n" + details
+            "\nATTACHED IMAGE REFERENCE:\n"
+            + details
             + " Merge these observations into visual_continuity and relevant shot descriptions. "
             "Priority: explicit user instructions and supplied continuity preferences, then visible "
             "image details for the selected reference role, then invented story details. "
@@ -286,7 +304,9 @@ def build_script_prompt(
     if narration:
         output += " Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph."
     else:
-        output += " Tell the story through visuals only. Omit all sentence narration fields."
+        output += (
+            " Tell the story through visuals only. Omit all sentence narration fields."
+        )
     if scene_count is not None:
         output += (
             f"\n\nLENGTH REQUIREMENT: Return exactly {scene_count} scenes in the scenes array. "
@@ -305,7 +325,9 @@ def build_script_prompt(
                 "Keep it conversational, concise, and easy to follow as captions. "
                 "Finish with a natural call to action only when appropriate."
             )
-    return with_visual_continuity(output, visual_continuity) if brief.generated else output
+    return (
+        with_visual_continuity(output, visual_continuity) if brief.generated else output
+    )
 
 
 def scene_text(sentence: dict) -> str:
@@ -325,6 +347,7 @@ class ScriptLine:
     is_last: bool
     editing: dict = None
     shot_plan: dict = None
+    additional_image_descriptions: tuple = ()
 
 
 def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
@@ -337,6 +360,9 @@ def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
                 is_last=index == len(sentences) - 1,
                 editing=sentence.get("editing"),
                 shot_plan=sentence.get("shot_plan"),
+                additional_image_descriptions=tuple(
+                    sentence.get("additional_image_descriptions", [])
+                ),
             )
 
 

@@ -68,6 +68,7 @@ const Home = () => {
     message: "",
     scene_count: 8,
     ai_scene_editing: false,
+    images_per_scene: 1,
     target_audience: "",
     image_mode: "WEB",
     gpt_model: "gpt-5.4-mini",
@@ -164,6 +165,7 @@ const Home = () => {
           subtitles: selectedTemplate.subtitles ?? prevData.subtitles,
           narration: selectedTemplate.narration ?? prevData.narration,
           ai_scene_editing: selectedTemplate.ai_scene_editing ?? false,
+          images_per_scene: 1,
           avatar_position:
             selectedTemplate.avatar_position ?? prevData.avatar_position,
         }));
@@ -191,7 +193,7 @@ const Home = () => {
   };
 
   const settingsForTemplate = Object.fromEntries(
-    Object.entries(formData).filter(([field]) => field !== "template").map(([field, value]) => [field, field === "scene_count" ? (value === "" ? null : Number(value)) : value])
+    Object.entries(formData).filter(([field]) => field !== "template" && field !== "images_per_scene").map(([field, value]) => [field, field === "scene_count" ? (value === "" ? null : Number(value)) : value])
   );
 
   const selectedTemplate = templates.find(
@@ -220,7 +222,7 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    const generationData = { ...formData, review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
+    const generationData = { ...formData, images_per_scene: multipleImagesAllowed ? Number(formData.images_per_scene) : 1, review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
     let payload = generationData;
     if (supportsReference && referenceImage) {
       payload = new FormData();
@@ -275,6 +277,7 @@ const Home = () => {
   }, {});
   const selectedVoice = voices.find((voice) => String(voice.id) === String(formData.voice_id));
   const selectedVisualProvider = visualProviders.find((provider) => provider.name === formData.provider);
+  const multipleImagesAllowed = formData.image_mode === "AI" && !isBuiltinVideoProvider(formData.provider) && selectedVisualProvider?.output_type !== "VIDEO";
   const unavailableVisualProvider = formData.image_mode === "AI" && !isBuiltinVisualProvider(formData.provider) && (visualProvidersLoading || Boolean(visualProvidersError) || !selectedVisualProvider);
   const selectedAvatar = avatars.find((avatar) => String(avatar.id) === String(formData.avatar_selection));
   const examples = [
@@ -330,6 +333,7 @@ const Home = () => {
               {!formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
               {!formData.avatar_selection && <MoreAssetOptions options={voiceOptions} label="voices" />}
               {field("image_mode", "Visuals", select("image_mode", <><option value="WEB">Web images</option><option value="AI">AI-generated visuals</option></>))}
+              {multipleImagesAllowed && field("images_per_scene", "Images per scene", select("images_per_scene", <>{[1, 2, 3, 4].map(count => <option key={count} value={count}>{count === 1 ? "1 image (default)" : `${count} images`}</option>)}</>), "Images divide the scene time evenly. Review each prompt before generation. More images increase generation cost.")}
               {field("provider", "Visual provider", select("provider", formData.image_mode === "AI" ? <>
                 <optgroup label="Built-in providers">{Object.entries(visualProviderNames).map(([name, label]) => <option key={name} value={name}>{label}</option>)}</optgroup>
                 {["VIDEO", "IMAGE"].map((type) => visualProviders.some((provider) => provider.output_type === type) ? <optgroup key={type} label={type === "VIDEO" ? "Custom video providers" : "Custom image providers"}>{visualProviders.filter((provider) => provider.output_type === type).map((provider) => <option key={provider.id} value={provider.name}>{provider.name}</option>)}</optgroup> : null)}

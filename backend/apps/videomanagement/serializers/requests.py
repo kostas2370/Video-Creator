@@ -56,6 +56,9 @@ class GenerateSerializer(serializers.Serializer):
     visual_continuity = serializers.CharField(
         required=False, allow_blank=True, max_length=3000
     )
+    images_per_scene = serializers.IntegerField(
+        required=False, min_value=1, max_value=4, default=1
+    )
     ai_scene_editing = serializers.BooleanField(required=False, default=False)
     review_script = serializers.BooleanField(required=False, default=False)
     scene_count = serializers.IntegerField(
@@ -119,6 +122,19 @@ class GenerateSerializer(serializers.Serializer):
         )
 
     def validate(self, attrs):
+        if attrs["images_per_scene"] > 1 and (
+            attrs.get("image_mode") != ImageMode.AI
+            or ImageProviderRegistry.is_video(
+                attrs.get("provider"),
+                user=attrs["created_by"],
+                mode=attrs.get("image_mode"),
+            )
+        ):
+            raise serializers.ValidationError(
+                {
+                    "images_per_scene": "Choose an AI image provider for multiple images per scene."
+                }
+            )
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != ImageMode.AI
             or not ImageProviderRegistry.supports_reference(
@@ -317,6 +333,9 @@ class AddScenesSerializer(ScenePositionSerializer):
 
 
 class StoryboardSentenceSerializer(serializers.Serializer):
+    additional_image_descriptions = serializers.ListField(
+        child=serializers.CharField(max_length=2000), max_length=3, required=False
+    )
     shot_plan = ShotPlanSerializer(required=False)
     editing = SceneEditingPlanSerializer(required=False)
     sentence = serializers.CharField(required=False, allow_blank=True, max_length=2000)

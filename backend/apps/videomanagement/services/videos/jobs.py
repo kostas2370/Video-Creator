@@ -120,12 +120,16 @@ def approve_script(video, storyboard):
         params = (video.settings or {}).get("generation_params")
         if not params:
             raise VideoEditConflict("Generation settings are missing.")
-        if params.get("ai_scene_editing"):
+        if params.get("ai_scene_editing") or params.get("images_per_scene", 1) > 1:
             errors = script_errors(
-                storyboard, narration=params.get("narration", True),
-                scene_count=params.get("scene_count"), ai_scene_editing=True,
+                storyboard,
+                narration=params.get("narration", True),
+                scene_count=params.get("scene_count"),
+                ai_scene_editing=params.get("ai_scene_editing", False),
+                images_per_scene=params.get("images_per_scene", 1),
                 video_provider=ImageProviderRegistry.is_video(
-                    params.get("provider"), user=video.created_by,
+                    params.get("provider"),
+                    user=video.created_by,
                     mode=params.get("image_mode", "WEB"),
                 ),
             )
@@ -137,7 +141,8 @@ def approve_script(video, storyboard):
             )
             params = {**params, "visual_continuity": continuity}
             video.settings = {
-                **(video.settings or {}), "visual_continuity": continuity,
+                **(video.settings or {}),
+                "visual_continuity": continuity,
                 "generation_params": params,
             }
         video.gpt_answer = dict(storyboard)

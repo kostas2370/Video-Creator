@@ -69,10 +69,13 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
                   {narration && <label className="block text-sm font-medium">Narration
                     <textarea required maxLength={2000} rows={2} disabled={busy} value={shot.sentence || ""} onChange={event => changeShot(sceneIndex, shotIndex, "sentence", event.target.value)} className={inputClass} />
                   </label>}
-                  <label className="block text-sm font-medium">Visual prompt
+                  <label className="block text-sm font-medium">{shot.additional_image_descriptions?.length ? "Image 1 prompt" : "Visual prompt"}
                     <textarea required maxLength={2000} rows={3} disabled={busy} value={shot.image_description || ""} onChange={event => changeShot(sceneIndex, shotIndex, "image_description", event.target.value)} className={inputClass} />
                   </label>
                   {video?.mode === "AI" && <ShotPlanFields plan={shot.shot_plan} disabled={busy} narration={narration} onChange={plan => changeShot(sceneIndex, shotIndex, "shot_plan", plan)} />}
+                  {(shot.additional_image_descriptions || []).map((description, imageIndex) => <label key={imageIndex} className="block text-sm font-medium">Image {imageIndex + 2} prompt
+                    <textarea required maxLength={2000} rows={3} disabled={busy} value={description} onChange={event => changeShot(sceneIndex, shotIndex, "additional_image_descriptions", shot.additional_image_descriptions.map((prompt, index) => index === imageIndex ? event.target.value : prompt))} className={inputClass} />
+                  </label>)}
                   {video?.settings?.ai_scene_editing && shot.editing && <p className="text-xs text-gray-500 dark:text-gray-400">
                     AI editing: {shot.shot_plan?.camera_movement ? "motion from shot plan" : shot.editing.motion_style.toLowerCase().replaceAll("_", " ")} · {shot.editing.transition_after.toLowerCase()} · {shot.editing.pause_after}s pause. You can adjust these in the scene editor.
                   </p>}

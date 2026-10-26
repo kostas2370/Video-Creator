@@ -100,6 +100,7 @@ def create_image_scene(
     reference: str = None,
     with_audio: bool = False,
     user=None,
+    shot_position=None,
     *args,
     **kwargs,
 ) -> str:
@@ -145,10 +146,14 @@ def create_image_scene(
         logger.error("No scene for %r; skipping its visual", text[:60])
         return None
 
+    prompt_scene = scene
+    if shot_position is not None and shot_position > 0:
+        prompt_scene = copy(scene)
+        prompt_scene.shot_plan = {}
     try:
         generate = ImageProviderRegistry.resolve(mode, provider)
         downloaded_image = generate(
-            planned_visual_prompt(scene, image, mode, provider),
+            planned_visual_prompt(prompt_scene, image, mode, provider),
             f"{dir_name}/images/",
             style=style,
             title=title,
@@ -162,22 +167,32 @@ def create_image_scene(
         logger.error(ex)
         downloaded_image = None
 
-    SceneImage.objects.create(
-        scene=scene,
+    values = dict(
         file=downloaded_image,
         prompt=image,
         with_audio=bool(
             with_audio and downloaded_image and check_if_video(downloaded_image)
         ),
     )
+    if shot_position is None:
+        SceneImage.objects.create(scene=scene, **values)
+    else:
+        visual = scene.scene_images.filter(
+            position=shot_position
+        ).first() or SceneImage(scene=scene, position=shot_position)
+        for name, value in values.items():
+            setattr(visual, name, value)
+        visual.save()
     return downloaded_image
 
 
-def existing_visual(video: Video, text: str):
+def existing_visual(video: Video, text: str, position=None):
     """Find a usable visual, including after a failed attempt left an empty row."""
     images = SceneImage.objects.filter(
         scene__video=video, scene__archived_at__isnull=True, scene__text=text.strip()
     ).order_by("created_at")
+    if position is not None:
+        images = images.filter(position=position)
     return next(
         (image.file.path for image in images if stored_file_exists(image.file)), None
     )
@@ -217,6 +232,11 @@ def create_image_scenes(
     dir_name = video.dir_name
     with_audio = not (video.settings or {}).get("narration", True)
     lines = list(script_lines(video.gpt_answer))
+    if (video.settings or {}).get("images_per_scene", 1) > 1:
+        create_multiple_scene_images(
+            video, lines, mode=mode, style=style, provider=provider
+        )
+        return
     pending = [line for line in lines if existing_visual(video, line.text) is None]
 
     if not pending:
@@ -279,6 +299,32 @@ def create_image_scenes(
         elif reference is None and produced:
             # Keep the original identity anchor instead of accumulating image drift.
             reference = produced
+
+
+def create_multiple_scene_images(video, lines, *, mode, style, provider):
+    shared_reference = mode == ImageMode.AI and provider in (None, "", Provider.OPENAI)
+    reference = uploaded_reference(video, provider) if shared_reference else None
+    for line in lines:
+        prompts = (line.image_description, *line.additional_image_descriptions)
+        for position, prompt in enumerate(prompts):
+            produced = existing_visual(video, line.text, position)
+            if produced is None:
+                produced = create_image_scene(
+                    video=video,
+                    image=prompt,
+                    text=line.text,
+                    dir_name=video.dir_name,
+                    mode=mode,
+                    style=style,
+                    title=video.title,
+                    provider=provider,
+                    reference=reference,
+                    with_audio=False,
+                    user=video.created_by,
+                    shot_position=position,
+                )
+            if shared_reference and reference is None and produced:
+                reference = produced
 
 
 def _create_image_scene_in_thread(**kwargs):

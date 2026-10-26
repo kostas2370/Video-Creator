@@ -266,3 +266,21 @@ To reproduce the storyboard example without contacting a provider, import
 `build_script_prompt`, load the JSON inputs above, and call
 `build_script_prompt(**inputs)`. The returned string is the fenced storyboard text.
 Changing the inputs or prompt-building code can change that text.
+
+## Multiple images within a narrated scene
+
+Set **Images per scene** to 2–4 with an AI image provider to request several
+visuals for the same narration entry. The default is 1 and keeps the original
+storyboard shape. Web image search and video clip providers keep one visual.
+
+With this option enabled, each sentence entry retains `image_description` for
+its first visual and adds `additional_image_descriptions`, an array containing
+exactly one fewer prompt than the selected image count. The script response and
+reviewed storyboard are validated against that count before media generation.
+Review and edit every image prompt before proceeding. The first image uses the
+reviewed scene shot plan; subsequent images use their own descriptions and the
+shared continuity brief.
+
+Generation saves these images as ordered shots within the existing scene. They
+share one narration and caption timeline, with equal timing weights by default.
+Resume checks each shot position and only requests missing visuals again.

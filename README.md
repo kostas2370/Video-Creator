@@ -106,6 +106,11 @@ cookies stay on the same site.
 
 ![Video preview and scene timeline in dark theme](docs/screenshots/preview-timeline.png)
 
+**Images per scene** in generation settings can request 1–4 AI images for each
+narrated scene. Review each image prompt in the storyboard before generation.
+Images share the narration and divide the scene time equally; extra images use
+additional provider requests. Video clip providers keep one visual per scene.
+
 Use **Add shot** beneath a scene’s visual to upload, reuse, or generate another
 image or clip under the same narration. **Manage shots** lets you drag or reorder
 shots with arrow buttons, adjust cut points, trim clips, choose image motion, and
