@@ -33,6 +33,8 @@ from apps.videomanagement.serializers.requests import (
     SceneUpdateSerializer,
 )
 from apps.videomanagement.serializers.scene_captions import SceneCaptionsSerializer
+from apps.videomanagement.serializers.shots import SceneShotsSerializer
+from apps.videomanagement.services.scenes.shots import update_shots
 from apps.videomanagement.services.captions.scenes import (
     scene_caption_data,
     update_scene_captions,
@@ -84,6 +86,7 @@ class SceneView(viewsets.GenericViewSet):
             ):
                 return ManualTextSerializer
         return {
+            "shots": SceneShotsSerializer,
             "archive": SceneOrderSerializer,
             "restore": RestoreSceneSerializer,
             "captions": SceneCaptionsSerializer,
@@ -98,6 +101,15 @@ class SceneView(viewsets.GenericViewSet):
             "change_image_scene": ChangeSceneImageSerializer,
             "generate_image_scene": GenerateSceneImageSerializer,
         }.get(self.action, super().get_serializer_class())
+
+    @action(detail=True, methods=["PATCH"])
+    def shots(self, request, pk=None):
+        scene = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            SceneSerializer(update_shots(scene, **serializer.validated_data)).data
+        )
 
     @action(detail=True, methods=["GET", "PATCH"])
     def captions(self, request, pk=None):
@@ -277,10 +289,20 @@ class SceneView(viewsets.GenericViewSet):
         scene = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        if data.get("scene_image"):
+            get_object_or_404(SceneImage, pk=data["scene_image"], scene=scene)
         operation = queue_scene_job(
             scene,
             generate_scene_image_task,
-            serializer.validated_data["image_description"],
+            {
+                **data,
+                **(
+                    {"scene_image": str(data["scene_image"])}
+                    if data.get("scene_image")
+                    else {}
+                ),
+            },
         )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 

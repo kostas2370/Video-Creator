@@ -63,7 +63,9 @@ class GenerateSerializer(serializers.Serializer):
     )
     reference_image = serializers.ImageField(required=False)
     reference_role = serializers.ChoiceField(
-        choices=("character", "style", "both"), required=False, default="both",
+        choices=("character", "style", "both"),
+        required=False,
+        default="both",
     )
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
@@ -218,10 +220,21 @@ class SceneImageQuerySerializer(serializers.Serializer):
 
 class GenerateSceneImageSerializer(serializers.Serializer):
     image_description = serializers.CharField(max_length=2000)
+    scene_image = serializers.UUIDField(required=False)
+    new_shot = serializers.BooleanField(default=False)
+
+    def validate(self, attrs):
+        if attrs.get("scene_image") and attrs["new_shot"]:
+            raise serializers.ValidationError(
+                "Choose an existing shot or add a new one."
+            )
+        return attrs
 
 
 class RenderVideoSerializer(serializers.Serializer):
-    export_preset = serializers.ChoiceField(choices=tuple(EXPORT_PRESETS), required=False)
+    export_preset = serializers.ChoiceField(
+        choices=tuple(EXPORT_PRESETS), required=False
+    )
     export_fps = serializers.ChoiceField(choices=EXPORT_FRAME_RATES, required=False)
 
 
@@ -317,7 +330,9 @@ class StoryboardSceneSerializer(serializers.Serializer):
 
 class StoryboardSerializer(serializers.Serializer):
     visual_continuity = serializers.CharField(
-        required=False, allow_blank=True, max_length=3000,
+        required=False,
+        allow_blank=True,
+        max_length=3000,
     )
     title = serializers.CharField(max_length=50)
     target_audience = serializers.CharField(

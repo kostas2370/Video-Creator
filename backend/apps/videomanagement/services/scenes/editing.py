@@ -228,8 +228,13 @@ def update_scene_image(scene, scene_image=None, *, image=None, with_audio=False)
                     scene_id=scene.pk,
                 )
             else:
-                scene_image = SceneImage(scene=scene)
+                from .shots import next_shot_position
+
+                scene_image = SceneImage(
+                    scene=scene, position=next_shot_position(scene)
+                )
             if image:
+                scene_image.trim_start = 0
                 scene_image.file = image
             scene_image.with_audio = with_audio
             scene_image.save()

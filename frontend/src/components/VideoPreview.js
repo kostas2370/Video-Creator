@@ -1,3 +1,4 @@
+import { shotAtTime } from "../utils/shots";
 import { DeferredVideo } from "./ui/DeferredVideo";
 import { OverlayLayer } from "./OverlayLayer";
 import { CaptionLayer } from "./CaptionLayer";
@@ -34,7 +35,7 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
       const time = position.current;
       const length = Number.isFinite(element.duration) ? element.duration : duration;
       const end = Math.max(0, (length || 0) - (video ? 1 / 24 : 0.01));
-      const target = loop && length > 0 ? Math.max(0, time) % length : Math.min(Math.max(0, time) + trimStart, end);
+      const target = loop && length > 0 ? (Math.max(0, time) + trimStart) % length : Math.min(Math.max(0, time) + trimStart, end);
       element.volume = Math.max(0, Math.min(1, gain.current));
       // Let native playback advance; seeking repeatedly can restart decoding and buffering.
       const tolerance = pendingSeek.current || !playing ? 0.01 : video ? 0.5 : 0.2;
@@ -75,9 +76,13 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
 }
 
 function Visual({ segment, time, playing, muted, onFailure, onBlocked, opacity = 1, onBuffering, stalled, seekVersion }) {
+  if (segment?.shots?.length) {
+    const shot = shotAtTime(segment.shots, time);
+    return <Visual key={shot.id} segment={shot} time={Math.max(0, time - shot.start)} playing={playing} muted={muted} onFailure={onFailure} onBlocked={onBlocked} opacity={opacity} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />;
+  }
   if (!segment?.visual) return <div className="absolute inset-0 flex items-center justify-center bg-black px-5 text-center text-sm text-gray-400">No visual available</div>;
   return <div className="absolute inset-0" style={{ opacity }}>
-    {segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={segment.loop_visual ? segment.base_duration : Math.min(segment.visual_duration ?? segment.base_duration, segment.base_duration)} loop={!!segment.loop_visual} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
+    {segment.visual_type === "video" ? <Track source={segment.visual} video trimStart={segment.trim_start || 0} time={time} duration={segment.loop_visual ? segment.base_duration : Math.min(segment.visual_duration ?? segment.base_duration, segment.base_duration)} loop={!!segment.loop_visual} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
       : <img style={imageMotion(segment, time)} src={mediaUrl(segment.visual)} alt={segment.label} onError={onFailure} className="absolute inset-0 h-full w-full object-cover" />}
   </div>;
 }
@@ -123,7 +128,7 @@ function VideoPreview({ video, disabled = false }) {
   // Polling returns new objects even when nothing changed; only an edited timeline reloads.
   const revision = useMemo(() => JSON.stringify([video?.id, video?.status, video?.updated_at, video?.settings,
     video?.intro, video?.outro, video?.avatar, video?.music,
-    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.overlays, s.overlay_logo])]), [video]);
+    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.shots, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.overlays, s.overlay_logo])]), [video]);
   useEffect(() => {
     setPlaying(false);
     setManifest(null);

@@ -106,6 +106,13 @@ cookies stay on the same site.
 
 ![Video preview and scene timeline in dark theme](docs/screenshots/preview-timeline.png)
 
+Use **Add shot** beneath a scene’s visual to upload, reuse, or generate another
+image or clip under the same narration. **Manage shots** lets you drag or reorder
+shots with arrow buttons, adjust cut points, trim clips, choose image motion, and
+remove individual shots. Narration and captions continue across visual cuts.
+Shot lengths scale with the scene duration; any ending pause holds the final shot.
+Each scene supports up to 20 shots. Existing single-visual scenes work as before.
+
 Export choices are remembered per project. Standard at 24 fps matches previous
 exports. Draft favors faster encoding and more compression; High preserves more
 source detail with longer encoding and usually larger files. Frame rate applies

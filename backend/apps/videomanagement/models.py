@@ -361,6 +361,15 @@ class Scene(UUIDModel):
 
 
 class SceneImage(UUIDModel):
+    position = models.PositiveIntegerField(default=0)
+    timing_weight = models.FloatField(default=1)
+    trim_start = models.FloatField(default=0)
+    motion_style = models.CharField(
+        max_length=10, choices=MotionStyle.choices, null=True, blank=True
+    )
+    motion_intensity = models.CharField(
+        max_length=6, choices=MotionIntensity.choices, null=True, blank=True
+    )
     asset = models.ForeignKey(
         "MediaAsset",
         null=True,
@@ -375,7 +384,7 @@ class SceneImage(UUIDModel):
     )
 
     class Meta:
-        ordering = ["created_at"]
+        ordering = ["position", "created_at", "id"]
 
     scene = models.ForeignKey(
         Scene, on_delete=models.CASCADE, related_name="scene_images"

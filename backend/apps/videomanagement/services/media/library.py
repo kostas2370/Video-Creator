@@ -37,10 +37,17 @@ def use_media_asset(asset, video, *, purpose, scene_id=None, **options):
     if purpose == "visual" and scene_id is None:
         raise ValidationError({"scene_id": "Choose a scene to replace its visual."})
     if purpose == "new_scene":
+        options.pop("new_shot", None)
+        options.pop("scene_image", None)
         return add_manual_scene(video, asset=asset, **options)
     if purpose == "visual":
         return replace_scene_visual(
-            video, scene_id, asset, options.get("with_audio", False)
+            video,
+            scene_id,
+            asset,
+            options.get("with_audio", False),
+            scene_image=options.get("scene_image"),
+            new_shot=options.get("new_shot", False),
         )
     with asset.file.open("rb") as source:
         upload = File(source, name=Path(asset.file.name).name)
@@ -56,10 +63,20 @@ def use_media_asset(asset, video, *, purpose, scene_id=None, **options):
             return None
 
 
-def replace_scene_visual(video, scene_id, asset, with_audio):
+def replace_scene_visual(
+    video, scene_id, asset, with_audio, *, scene_image=None, new_shot=False
+):
     with editable_video(video.pk) as locked:
         scene = get_object_or_404(locked.scenes.select_for_update(), pk=scene_id)
-        image = scene.scene_images.first() or SceneImage(scene=scene)
+        from apps.videomanagement.services.scenes.shots import next_shot_position
+
+        if scene_image:
+            image = get_object_or_404(scene.scene_images, pk=scene_image)
+        elif new_shot:
+            image = SceneImage(scene=scene, position=next_shot_position(scene))
+        else:
+            image = scene.scene_images.first() or SceneImage(scene=scene)
+        image.trim_start = 0
         image.asset = asset
         image.with_audio = with_audio
         image.prompt = ""

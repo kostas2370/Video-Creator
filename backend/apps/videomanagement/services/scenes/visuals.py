@@ -1,5 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from copy import copy
 from pathlib import Path
 
 from django.db import close_old_connections
@@ -11,9 +12,11 @@ from apps.videomanagement.utils.audio_editing import duration_override
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.frames import still_from_video
 from apps.videomanagement.utils.prompt_utils import (
-    script_lines, with_shot_plan, with_visual_continuity,
+    script_lines,
+    with_shot_plan,
+    with_visual_continuity,
 )
-from apps.videomanagement.utils.timing import file_timing
+from apps.videomanagement.utils.timing import file_timing, scene_timing
 
 logger = logging.getLogger(__name__)
 MAX_PARALLEL_STILL_IMAGES = 3
@@ -38,8 +41,11 @@ def planned_visual_prompt(scene, prompt, mode, provider):
         return prompt
     return with_visual_continuity(
         with_shot_plan(
-            prompt, scene.shot_plan or {},
-            video=ImageProviderRegistry.is_video(provider, user=scene.video.created_by, mode=mode),
+            prompt,
+            scene.shot_plan or {},
+            video=ImageProviderRegistry.is_video(
+                provider, user=scene.video.created_by, mode=mode
+            ),
         ),
         (scene.video.settings or {}).get("visual_continuity", ""),
     )
@@ -53,7 +59,9 @@ def continuation_frame(video: Video, text: str, path: str):
     duration = (
         scene_narration_duration(previous)
         if previous and (video.settings or {}).get("narration", True)
-        else duration_override(previous) if previous else 0
+        else duration_override(previous)
+        if previous
+        else 0
     )
     options = {"end_time": duration} if duration else {}
     return still_from_video(path, f"{video.dir_name}/images/", **options)
@@ -63,8 +71,11 @@ def uploaded_reference(video, provider):
     """Style-only video references guide text without imposing a source first frame."""
     if not video.reference_image or not stored_file_exists(video.reference_image):
         return None
-    if (video.settings or {}).get("reference_role") == "style" and ImageProviderRegistry.is_video(
-        provider, user=video.created_by,
+    if (video.settings or {}).get(
+        "reference_role"
+    ) == "style" and ImageProviderRegistry.is_video(
+        provider,
+        user=video.created_by,
     ):
         return None
     return video.reference_image.path
@@ -211,7 +222,9 @@ def create_image_scenes(
     if not pending:
         return
 
-    is_video = ImageProviderRegistry.is_video(provider, user=video.created_by, mode=mode)
+    is_video = ImageProviderRegistry.is_video(
+        provider, user=video.created_by, mode=mode
+    )
     shared_image_reference = mode == ImageMode.AI and provider in (
         None,
         "",
@@ -284,9 +297,9 @@ def scene_reference(scene: Scene, video: Video, provider):
     if provider in (None, "", Provider.OPENAI) and uploaded:
         return uploaded
     if provider in (None, "", Provider.OPENAI):
-        for image in SceneImage.objects.filter(scene__video=video, scene__archived_at__isnull=True).order_by(
-            "scene__position", "created_at"
-        ):
+        for image in SceneImage.objects.filter(
+            scene__video=video, scene__archived_at__isnull=True
+        ).order_by("scene__position", "created_at"):
             if stored_file_exists(image.file) and not check_if_video(image.file.path):
                 return image.file.path
     elif ImageProviderRegistry.is_video(provider, user=video.created_by):
@@ -333,10 +346,26 @@ def generate_new_image(
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     kwargs.setdefault("reference_role", reference_role_for(video, kwargs["reference"]))
+    generation_scene = scene_image.scene
+    images = list(generation_scene.scene_images.all())
+    if len(images) > 1 or (scene_image._state.adding and images):
+        generation_scene = copy(generation_scene)
+        generation_scene.shot_plan = {}
+        total_weight = sum(row.timing_weight for row in images)
+        if scene_image._state.adding:
+            total_weight += scene_image.timing_weight
+        duration = scene_timing(scene_image.scene, images[0])["base_duration"]
+        kwargs.setdefault(
+            "duration", duration * scene_image.timing_weight / total_weight
+        )
     kwargs.setdefault("duration", visual_generation_duration(scene_image.scene))
-    kwargs.setdefault("video_format", (video.settings or {}).get("video_format", "LANDSCAPE"))
+    kwargs.setdefault(
+        "video_format", (video.settings or {}).get("video_format", "LANDSCAPE")
+    )
     img = generate(
-        planned_visual_prompt(scene_image.scene, scene_image.prompt or "", mode, provider),
+        planned_visual_prompt(
+            generation_scene, scene_image.prompt or "", mode, provider
+        ),
         f"{video.dir_name}/images/",
         *args,
         style=style,
@@ -347,6 +376,7 @@ def generate_new_image(
 
     if not img:
         raise RuntimeError("The visual provider returned no image")
+    scene_image.trim_start = 0
     scene_image.file = img
     scene_image.save()
 

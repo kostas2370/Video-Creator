@@ -130,6 +130,29 @@ def audio_stream(graph, sources, duration):
     )
 
 
+def scene_clip_audio(graph, segment):
+    if not segment.shots:
+        return audio_stream(
+            graph,
+            [segment.image.file.path]
+            if segment.clip_audio and stored_file_exists(segment.image.file)
+            else [],
+            segment.duration,
+        )
+    streams = []
+    for shot in segment.shots:
+        if shot.clip_audio and stored_file_exists(shot.image.file):
+            index = graph.input(shot.image.file.path, ("-ss", str(shot.trim_start)))
+            stream = graph.filter(
+                [f"{index}:a"],
+                f"aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo,asetpts=PTS-STARTPTS,apad,atrim=duration={shot.duration}",
+            )
+        else:
+            stream = audio_stream(graph, [], shot.duration)
+        streams.append(stream)
+    return graph.filter(streams, f"concat=n={len(streams)}:v=0:a=1")
+
+
 def narration_graph(segments, choices):
     graph = Graph()
     if any(
@@ -142,14 +165,7 @@ def narration_graph(segments, choices):
             voice_stream(graph, narration_file(by_id[track["id"]]).path, track)
             for track in tracks
         ]
-        originals = [
-            audio_stream(
-                graph,
-                [segment.image.file.path] if segment.clip_audio else [],
-                segment.duration,
-            )
-            for segment in segments
-        ]
+        originals = [scene_clip_audio(graph, segment) for segment in segments]
         original = graph.filter(originals, f"concat=n={len(originals)}:v=0:a=1")
         if voices:
             original = graph.filter(
@@ -166,9 +182,11 @@ def narration_graph(segments, choices):
             and stored_file_exists(segment.content.file)
         ):
             sources.append(segment.content.file.path)
-        if segment.clip_audio and stored_file_exists(segment.image.file):
-            sources.append(segment.image.file.path)
-        streams.append(audio_stream(graph, sources, segment.duration))
+        voice = audio_stream(graph, sources, segment.duration)
+        original = scene_clip_audio(graph, segment)
+        streams.append(
+            graph.filter([voice, original], "amix=inputs=2:duration=first:normalize=0")
+        )
     return graph, graph.filter(streams, f"concat=n={len(streams)}:v=0:a=1")
 
 
@@ -201,7 +219,7 @@ def motion_filter(scene, duration, size, fps=FPS):
     return f"zoompan=z='{zoom}':x='{x}':y='{y}':d={math.ceil(duration * fps)}:s={width}x{height}:fps={fps}"
 
 
-def visual_stream(graph, segment, size, fps=FPS):
+def single_visual_stream(graph, segment, size, fps=FPS):
     field = segment.image.file if segment.image else None
     if segment.kind != "scene":
         field = segment.content.file
@@ -229,7 +247,12 @@ def visual_stream(graph, segment, size, fps=FPS):
                 )
     else:
         index = graph.input(
-            field.path, ("-stream_loop", "-1") if segment.loop_visual else ()
+            field.path,
+            (
+                *(("-stream_loop", "-1") if segment.loop_visual else ()),
+                "-ss",
+                str(segment.trim_start),
+            ),
         )
         stream = graph.filter(
             [f"{index}:v"], f"setpts=PTS-STARTPTS,{fit_filter(size)},fps={fps}"
@@ -238,6 +261,20 @@ def visual_stream(graph, segment, size, fps=FPS):
         [stream],
         f"trim=duration={segment.base_duration},tpad=stop_mode=clone:stop_duration={segment.duration},trim=duration={segment.duration},setpts=PTS-STARTPTS,format=yuv420p",
     )
+    return stream
+
+
+def visual_stream(graph, segment, size, fps=FPS):
+    if segment.shots:
+        shots = quantized_scenes(segment.shots, fps)
+        streams = [single_visual_stream(graph, shot, size, fps) for shot in shots]
+        stream = graph.filter(streams, f"concat=n={len(streams)}:v=1:a=0")
+        stream = graph.filter(
+            [stream],
+            f"tpad=stop_mode=clone:stop_duration={segment.duration},trim=duration={segment.duration},setpts=PTS-STARTPTS",
+        )
+    else:
+        stream = single_visual_stream(graph, segment, size, fps)
     fades = []
     if segment.fade_in:
         fades.append(f"fade=t=in:st=0:d={segment.fade_in}")
@@ -489,7 +526,7 @@ def can_render_directly(segments):
     if (
         not settings.FFMPEG_DIRECT_RENDER
         or not segments
-        or any(s.dissolve_in for s in segments)
+        or any(s.dissolve_in or s.shots for s in segments)
     ):
         return False
     return len(segments) == 1 or (

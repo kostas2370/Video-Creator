@@ -114,6 +114,10 @@ class SceneClipCache:
             "duration": segment.duration,
             "base_duration": segment.base_duration,
             "loop": segment.loop_visual,
+            "trim_start": segment.trim_start,
+            "shots": [
+                self.key(shot, size, fps, sources=sources) for shot in segment.shots
+            ],
             "motion": resolved_motion(segment.content),
             "intensity": segment.content.motion_intensity,
             "fade_in": segment.fade_in,

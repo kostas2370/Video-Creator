@@ -41,6 +41,8 @@ class SceneClipCacheTests(SimpleTestCase):
             duration=2,
             base_duration=2,
             loop_visual=False,
+            shots=[],
+            trim_start=0,
             fade_in=0,
             fade_out=0,
             dissolve_in=0,

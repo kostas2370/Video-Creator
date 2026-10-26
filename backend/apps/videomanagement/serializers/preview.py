@@ -34,7 +34,34 @@ class PreviewCaptionSerializer(serializers.Serializer):
     active_word = serializers.IntegerField(allow_null=True, default=None)
 
 
+class PreviewShotSerializer(serializers.Serializer):
+    id = serializers.CharField(source="image.id")
+    start = serializers.FloatField()
+    duration = serializers.FloatField()
+    base_duration = serializers.FloatField()
+    visual = serializers.SerializerMethodField()
+    visual_type = serializers.CharField()
+    visual_duration = serializers.FloatField(allow_null=True)
+    loop_visual = serializers.BooleanField()
+    clip_audio = serializers.BooleanField()
+    trim_start = serializers.FloatField()
+    motion_style = serializers.SerializerMethodField()
+    motion_intensity = serializers.CharField(source="content.motion_intensity")
+
+    def get_visual(self, shot):
+        return shot.image.file.url if stored_file_exists(shot.image.file) else None
+
+    def get_motion_style(self, shot):
+        return (
+            resolved_motion(shot.content)
+            if shot.visual_type == "image"
+            else MotionStyle.NONE
+        )
+
+
 class PreviewSegmentSerializer(serializers.Serializer):
+    shots = PreviewShotSerializer(many=True)
+
     id = serializers.SerializerMethodField()
     kind = serializers.ChoiceField(choices=("scene", "intro", "outro"))
     label = serializers.SerializerMethodField()

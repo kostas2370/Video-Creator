@@ -28,7 +28,7 @@ class MediaTimingTests(SimpleTestCase):
     @override_settings(SILENT_SCENE_SECONDS=7)
     def test_narration_and_silent_clip_timing_match_the_render_rules(self):
         image = SimpleNamespace(file=SimpleNamespace(name='clip.mp4'), with_audio=True)
-        scene = SimpleNamespace(video=SimpleNamespace(settings={'narration': True}), file=object(), is_last=True, pause_after=0.75)
+        scene = SimpleNamespace(scene_images=SimpleNamespace(all=lambda: []), video=SimpleNamespace(settings={'narration': True}), file=object(), is_last=True, pause_after=0.75)
         with patch('apps.videomanagement.utils.timing.file_timing', side_effect=[{'duration': 4, 'audio_duration': 4}, {'duration': 8, 'audio_duration': 6}]):
             self.assertEqual(scene_timing(scene, image), {'base_duration': 6, 'duration': 6.75})
         scene.video.settings = {'narration': False}
@@ -39,6 +39,6 @@ class MediaTimingTests(SimpleTestCase):
 
     def test_existing_ending_hold_is_included(self):
         image = SimpleNamespace(file=None, with_audio=False)
-        scene = SimpleNamespace(video=SimpleNamespace(settings={}), file=object(), is_last=True, pause_after=1)
+        scene = SimpleNamespace(scene_images=SimpleNamespace(all=lambda: []), video=SimpleNamespace(settings={}), file=object(), is_last=True, pause_after=1)
         with patch('apps.videomanagement.utils.timing.file_timing', return_value={'duration': 4, 'audio_duration': 4}), patch('apps.videomanagement.utils.timing.media_timing', return_value={'duration': 1}):
             self.assertEqual(scene_timing(scene, image), {'base_duration': 6, 'duration': 7})

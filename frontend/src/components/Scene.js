@@ -15,6 +15,7 @@ import { SceneCaptions } from "./SceneCaptions";
 import { SceneAudio } from "./SceneAudio";
 import { SceneMotion } from "./SceneMotion";
 import { SceneTiming } from "./SceneTiming";
+import { SceneShots } from "./SceneShots";
 import { toast } from "react-toastify";
 
 const EditSceneModal = lazy(() => import("./EditSceneModal").then(module => ({ default: module.EditSceneModal })));
@@ -104,6 +105,7 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
 
             </div>
 
+            <SceneShots scene={scene} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />
             {scene.scene_image?.prompt && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
           </div>
           <div className="min-w-0">

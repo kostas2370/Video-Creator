@@ -71,6 +71,8 @@ class UseMediaSerializer(serializers.Serializer):
     video_id = serializers.UUIDField()
     purpose = serializers.ChoiceField(choices=("new_scene", "visual", "music", "cover"))
     scene_id = serializers.UUIDField(required=False)
+    scene_image = serializers.UUIDField(required=False)
+    new_shot = serializers.BooleanField(default=False)
     text = serializers.CharField(
         required=False, allow_blank=True, max_length=2000, default=""
     )

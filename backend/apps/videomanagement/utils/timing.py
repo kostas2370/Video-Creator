@@ -104,6 +104,16 @@ def scene_timing(scene, image=None):
             if clip_audio is not None
             else visual.get("duration", silent_duration)
         )
+    images = list(scene.scene_images.all())
+    if len(images) > 1 or "visual_track_duration" in (
+        getattr(scene, "audio_settings", None) or {}
+    ):
+        if speech is not None:
+            base = speech
+            if scene.is_last and not any(row.with_audio for row in images):
+                base += 2 * media_timing("assets/blank.wav").get("duration", 1)
+        else:
+            base = (scene.audio_settings or {}).get("visual_track_duration", base)
     override = duration_override(scene)
     if override is not None:
         base = override

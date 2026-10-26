@@ -42,8 +42,15 @@ flowchart TD
 
 ## How long each scene lasts
 
-Active scenes are read in their saved position order. The renderer currently uses
-**the first visual attached to each scene**.
+Active scenes and their visual shots are read in saved position order. Each scene
+keeps one continuous narration and caption timeline. Shot timing weights divide the
+scene’s base duration proportionally; the final shot also includes `pause_after`.
+A shot can override image motion and trim its video source start. Visual changes
+inside a scene use cuts, while scene-boundary transitions apply to the assembled
+scene. Preview and export resolve these shots through the same timeline service.
+Adding shots to a non-narrated scene preserves its base length; explicit scene
+duration settings take priority. Narrated multi-shot scenes follow edited speech
+timing and the existing ending hold, rather than the length of the first clip.
 
 With narration enabled, the timing calculation uses edited narration duration and
 any enabled clip audio. If both are available, the longer one sets the base length.
@@ -150,7 +157,8 @@ This keeps the number of simultaneous decoders and filters bounded.
 A private scene cache can reuse those lossless clips on later exports. Its keys
 include source-file fingerprints, canvas size, frame rate, timing, motion, fades,
 and dissolve dependencies. Changing captions, overlays, audio, or final quality
-does not invalidate otherwise identical scene visuals. Changing frame rate does.
+does not invalidate otherwise identical scene visuals. Changing frame rate does. Shot order, timing, source trims, motion overrides,
+and every shot’s source fingerprint are included in the scene’s cache identity.
 
 Cache hits are pinned into the temporary render directory before use so eviction
 cannot remove a clip during rendering. The cache is an optimization: unavailable

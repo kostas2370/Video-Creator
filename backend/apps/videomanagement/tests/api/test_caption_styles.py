@@ -51,7 +51,7 @@ class CustomCaptionStyleTests(ApiTestCase):
         with patch("apps.videomanagement.services.videos.preview.scene_segment") as segment, patch(
             "apps.videomanagement.serializers.preview.voice_tracks", return_value=[]
         ):
-            segment.return_value = SimpleNamespace(kind="scene", content=item, narration_duration=4,
+            segment.return_value = SimpleNamespace(shots=[], kind="scene", content=item, narration_duration=4,
                 duration=4, start=0, base_duration=4, image=None, index=1, visual_duration=None,
                 visual_type="image", loop_visual=False, clip_audio=False, transition="CUT", transition_duration=None,
                 fade_in=0, fade_out=0, dissolve_in=0)

@@ -45,6 +45,7 @@ class SceneImageSerializer(serializers.ModelSerializer):
 
 class SceneSerializer(serializers.ModelSerializer):
     scene_image = serializers.SerializerMethodField()
+    shots = SceneImageSerializer(source="scene_images", many=True, read_only=True)
     narration_status = serializers.SerializerMethodField()
     timing = serializers.SerializerMethodField()
 

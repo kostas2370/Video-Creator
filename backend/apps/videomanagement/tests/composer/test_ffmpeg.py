@@ -32,6 +32,50 @@ from ...utils.composer.render import Graph, make_video, render_scene_clip
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    def test_multiple_shots_change_visuals_without_restarting_narration_and_invalidate_cache(self):
+        item = self.add_still()
+        make_video(self.row)
+        baseline_audio = self.decoded_hash("a")
+        Image.new("RGB", (160, 90), "red").save(self.root / "red.png")
+        second = scene_image.make(scene=item, file="red.png", position=1, timing_weight=1, with_audio=False)
+        make_video(self.row)
+        self.assertEqual(self.decoded_hash("a"), baseline_audio)
+        self.assertLess(self.frame(0.1)[:, :, 0].mean(), 200)
+        self.assertGreater(self.frame(0.4)[:, :, 0].mean(), 240)
+        with patch("apps.videomanagement.utils.composer.render.render_scene_clip") as build:
+            make_video(self.row)
+            build.assert_not_called()
+        second.timing_weight = 9
+        second.save()
+        with patch("apps.videomanagement.utils.composer.render.render_scene_clip", wraps=render_scene_clip) as build:
+            make_video(self.row)
+            self.assertEqual(build.call_count, 1)
+        self.assertGreater(self.frame(0.1)[:, :, 0].mean(), 240)
+        self.assertEqual(self.decoded_hash("a"), baseline_audio)
+
+    def test_shot_video_trim_plays_the_selected_part_and_clip_audio_starts_at_its_shot(self):
+        item = self.add_still()
+        subprocess.run([
+            "ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=160x90:r=24:d=0.5",
+            "-f", "lavfi", "-i", "color=c=blue:s=160x90:r=24:d=0.5",
+            "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=44100",
+            "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0[v]", "-map", "[v]", "-map", "2:a",
+            "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", str(self.root / "long.mp4")
+        ], check=True, capture_output=True)
+        scene_image.make(scene=item, file="long.mp4", position=1, timing_weight=1, trim_start=0.5, with_audio=True)
+        item.audio_settings = {"duration": 0.5}
+        item.save()
+        make_video(self.row)
+        self.assertGreater(self.frame(0.4)[:, :, 2].mean(), 240)
+        with wave.open(str(self.root / "output" / "output_audio.wav")) as audio:
+            samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype="<i2").reshape(-1, 2)[:, 0]
+        def clip_tone(start):
+            data = samples[int(start * 44100):int((start + 0.1) * 44100)]
+            return abs(np.sum(data * np.exp(-2j * np.pi * 880 * np.arange(len(data)) / 44100)))
+        self.assertGreater(clip_tone(0.3), clip_tone(0.05) * 10)
+        self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 0.5, delta=0.05)
+
+
     def test_export_presets_and_frame_rates_reach_the_encoder(self):
         self.add_still(motion_style="PAN_RIGHT", pause_after=0.13)
         run = Graph.run

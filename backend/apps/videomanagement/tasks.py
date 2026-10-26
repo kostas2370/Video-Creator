@@ -68,8 +68,20 @@ def rewrite_scene_task(scene_id, instructions, previous_status):
 def generate_scene_image_task(scene_id, image_description, previous_status):
     """Generate and save a replacement scene visual."""
     with scene_job(scene_id, previous_status) as scene:
-        image = scene.scene_images.first() or SceneImage.objects.create(scene=scene)
-        image.prompt = image_description
+        from apps.videomanagement.services.scenes.shots import next_shot_position
+
+        options = (
+            image_description
+            if isinstance(image_description, dict)
+            else {"image_description": image_description}
+        )
+        if options.get("scene_image"):
+            image = scene.scene_images.get(pk=options["scene_image"])
+        elif options.get("new_shot"):
+            image = SceneImage(scene=scene, position=next_shot_position(scene))
+        else:
+            image = scene.scene_images.first() or SceneImage(scene=scene)
+        image.prompt = options["image_description"]
         scenes.generate_new_image(image, scene.video)
         return {"Message": "Image Scene was added successfully"}
 
