@@ -98,7 +98,7 @@ export const generateScene = (id, data) => sceneOperation(id, () => patch(action
 export const generateSceneImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "generate_image_scene"), data));
 export const updateSceneImage = (id, imageId, data) => request({ method: "post", url: action("scenes", id, "change_image_scene"), data, params: { scene_image: imageId || undefined } });
 export const resumeVideo = id => patch(action("videos", id, "resume"), {}, callerHandlesErrors);
-export const renderVideo = id => patch(action("videos", id, "render_video"), {}, callerHandlesErrors);
+export const renderVideo = (id, options = {}) => patch(action("videos", id, "render_video"), options, callerHandlesErrors);
 
 export const deleteIntro = id => remove(detail("intros", id));
 export const deleteOutro = id => remove(detail("outros", id));
