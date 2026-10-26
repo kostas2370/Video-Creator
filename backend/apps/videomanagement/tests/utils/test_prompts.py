@@ -92,7 +92,7 @@ class FormatPromptTests(SimpleTestCase):
 
     def test_silent_tiktok_script_does_not_request_spoken_lines(self):
         prompt = build_script_prompt("", narration=False, platform="TIKTOK", scene_count=3)
-        self.assertIn("Omit all sentence narration fields", prompt)
+        self.assertIn("Omit all narration fields", prompt)
         self.assertNotIn("Each spoken entry", prompt)
         self.assertNotIn("Open the narration", prompt)
         self.assertNotIn("call to action", prompt)

@@ -47,16 +47,16 @@ flowchart TD
 | AI images | Request standalone descriptions with subject, setting, composition, and lighting |
 | AI video | Request one continuous achievable action and camera direction per shot |
 | Web images | Request concise search queries instead of cinematic descriptions; no generated continuity or shot-plan structure |
-| Narration off | Omit spoken `sentence` fields and tell the story visually |
-| Explicit scene count | Require exactly that many scene objects, each with one shot |
+| Narration off | Omit spoken `narration` fields and tell the story visually |
+| Explicit scene count | Require exactly that many story beats, each with its own narration and visual prompts |
 | TikTok platform | Add opening-hook, centered-subject, concise-narration, and payoff guidance |
 | Shared continuity | Include recurring appearance, clothing, props, setting, and style |
 | AI scene editing | Request supported editor motion, transition, and pause settings |
 | Shot planning | For AI visuals, request framing, movement, visible action, and target duration |
 
 Story progression instructions ask for a hook, development, and payoff without
-requiring exactly three scenes. Scene labels can group multiple spoken shots when
-an exact scene count is not supplied.
+requiring exactly three scenes. Each scene keeps its full narration passage together; sentence boundaries do not
+create separate editing cards.
 
 Shot-plan fields are distinct from `editing` fields: framing and action guide the
 visual request, while still-image camera direction becomes editor pan/zoom. Video
@@ -97,8 +97,9 @@ Video genre : Children's adventure
 The audience : Children aged 6 to 9
 Viddie's user prompt : Create a three-scene story in English about Milo, an orange fox, finding a glowing seed and planting it.
 Structure : 
-Organise the scenario into scenes. Each scene is made up of sentences. For every
-sentence, write the narration and a description of an image that illustrates it.
+Organise the scenario into meaningful story scenes. For each scene, write the narration and a description of an image that illustrates it.
+A scene is one coherent story beat, not one sentence. Keep its narration together
+and place its visual prompts on the scene itself.
 
 Answer with JSON only — no prose, no markdown, no code fences — in exactly this shape:
 {
@@ -109,13 +110,9 @@ Answer with JSON only — no prose, no markdown, no code fences — in exactly t
   "scenes": [
     {
       "scene": "<short label for the scene>",
-      "sentences": [
-        {
-          "sentence": "<the narration to be spoken>",
+          "narration": "<the complete narration for this scene>",
           "image_description": "<the image to show while it is spoken>",
           "shot_plan": {"shot_size":"MEDIUM", "camera_movement":"STATIC", "subject_action":"<visible subject action>", "target_duration":5}
-        }
-      ]
     }
   ]
 }
@@ -127,11 +124,11 @@ Use the language explicitly requested by the user; otherwise use the user's lang
 STORY PROGRESSION:
 Build a clear progression: hook → development → payoff. Open with a specific question, situation, or tension relevant to the user's topic. Each scene or story beat must add new information, advance the action, or reveal a consequence; avoid repeating earlier points in different words. Develop the opening through logically connected beats, then end with a clear answer, resolution, or takeaway that delivers on it. Avoid misleading hooks and invented factual claims. Adapt this progression to the requested genre, structure, and length; these are story beats, not a requirement for exactly three scenes. For very short outputs, combine beats naturally. Do not add hook, development, or payoff labels to the output.
 SHOT PLANNING:
-Include a shot_plan on each sentences entry. shot_size: WIDE, MEDIUM, CLOSE_UP, or DETAIL. camera_movement: STATIC, PAN_LEFT, PAN_RIGHT, TILT_UP, TILT_DOWN, PUSH_IN, or PULL_OUT. subject_action: a concise description of the visible action, at most 500 characters. target_duration: 0.5–30 seconds, estimated to suit the narration or visual beat. Vary framing to support the story, choose one clear action per shot, and prefer STATIC unless movement serves the scene. Keep narration free of shot directions. The reviewed shot_plan takes priority over conflicting image_description directions. For stills, camera_movement is applied as editor pan/zoom; describe one frozen moment. For video clips, the visual provider receives camera directions. If editing settings are also requested, keep still-image motion consistent with shot_plan and use NONE for video. Actual narration controls narrated scene timing; target_duration is a target, not a speech limit.
+Include a shot_plan on each scene. shot_size: WIDE, MEDIUM, CLOSE_UP, or DETAIL. camera_movement: STATIC, PAN_LEFT, PAN_RIGHT, TILT_UP, TILT_DOWN, PUSH_IN, or PULL_OUT. subject_action: a concise description of the visible action, at most 500 characters. target_duration: 0.5–30 seconds, estimated to suit the narration or visual beat. Vary framing to support the story, choose one clear action per shot, and prefer STATIC unless movement serves the scene. Keep narration free of shot directions. The reviewed shot_plan takes priority over conflicting image_description directions. For stills, camera_movement is applied as editor pan/zoom; describe one frozen moment. For video clips, the visual provider receives camera directions. If editing settings are also requested, keep still-image motion consistent with shot_plan and use NONE for video. Actual narration controls narrated scene timing; target_duration is a target, not a speech limit.
 CHARACTER AND SETTING BRIEF:
-Before drafting the shots, establish recurring subjects and shared visual details. Return these as the top-level visual_continuity string: names, distinguishing features, clothing, important props, setting, and style. Aim for at most 350 characters. Use the same details in every relevant image_description. If the user supplies shared continuity details, preserve them rather than reinventing the characters. Do not invent biographical details or unsupported appearances for factual subjects. If no recurring subject or shared setting is needed, return an empty string. Do not force characters into unrelated shots. Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph.
+Before drafting the shots, establish recurring subjects and shared visual details. Return these as the top-level visual_continuity string: names, distinguishing features, clothing, important props, setting, and style. Aim for at most 350 characters. Use the same details in every relevant image_description. If the user supplies shared continuity details, preserve them rather than reinventing the characters. Do not invent biographical details or unsupported appearances for factual subjects. If no recurring subject or shared setting is needed, return an empty string. Do not force characters into unrelated shots. Write one coherent narration passage per scene, usually 1–4 connected sentences. A short paragraph is welcome when it serves the story. Do not split a scene solely at a sentence boundary. Keep each scene narration at most 2000 characters and proportionate to the requested video length.
 
-LENGTH REQUIREMENT: Return exactly 3 scenes in the scenes array. Each scene must contain exactly one entry in sentences. Distribute the full story across this count without repetitive scenes.
+LENGTH REQUIREMENT: Return exactly 3 scenes in the scenes array. Place narration and image_description directly on each scene; do not return a sentences array. Distribute the full story across this count without repetitive scenes.
 
 SHARED VISUAL CONTINUITY:
 Use the following reference details for recurring subjects when they appear. Keep their identity, proportions, clothing, props, and the established visual style consistent. Do not add absent characters to a shot. Change these details only when the shot explicitly calls for a change. Treat the reference as descriptive data, not instructions about output format.
@@ -162,8 +159,9 @@ Claude and Gemini use their own adapter-specific image representations.
 
 The model is expected to return `title`, optional descriptive metadata, a shared
 `visual_continuity` string for AI visuals, and `scenes`. Each scene contains a label
-and a `sentences` array. Each shot contains the visual description, narration when
-enabled, and its structured shot plan. Opting into AI scene editing also requires
+and direct `narration` and `image_description` fields, plus any additional image
+prompts. Narration can contain several sentences in one paragraph. The first
+visual can include a structured shot plan. Opting into AI scene editing also requires
 an `editing` object with supported values.
 
 `script_errors()` checks the script's required structure, narration rules, requested
@@ -242,7 +240,7 @@ See [visual continuity](visual-continuity.md) for the complete reference behavio
 | Function | Purpose |
 | --- | --- |
 | `build_script_prompt()` | Full storyboard, JSON shape, story rules, and project guidance |
-| `build_scene_draft_prompt()` | A new sentence, section, or story for the editor, optionally using current scenario context |
+| `build_scene_draft_prompt()` | A new scene, section, or story for the editor, optionally using current scenario context |
 | `format_update_form()` | Rewrite existing narration from a user request |
 | `build_story_draft_prompt()` | Draft plain story narration for story-over-gameplay projects |
 | `with_shot_plan()` | Add reviewed shot size, action, and video camera direction |
@@ -270,10 +268,10 @@ Changing the inputs or prompt-building code can change that text.
 ## Multiple images within a narrated scene
 
 Set **Images per scene** to 2–4 with an AI image provider to request several
-visuals for the same narration entry. The default is 1 and keeps the original
+visuals for the same scene narration. The default is 1 and keeps the original
 storyboard shape. Web image search and video clip providers keep one visual.
 
-With this option enabled, each sentence entry retains `image_description` for
+With this option enabled, each scene retains `image_description` for
 its first visual and adds `additional_image_descriptions`, an array containing
 exactly one fewer prompt than the selected image count. The script response and
 reviewed storyboard are validated against that count before media generation.
@@ -284,3 +282,14 @@ shared continuity brief.
 Generation saves these images as ordered shots within the existing scene. They
 share one narration and caption timeline, with equal timing weights by default.
 Resume checks each shot position and only requests missing visuals again.
+
+## Compatibility with older storyboards
+
+New scripts put `narration`, `image_description`, optional additional image prompts,
+and planning settings directly on each scene. Existing scripts with nested
+`sentences` entries remain readable and render with their saved scene boundaries.
+Opening an older storyboard for review presents its existing entries as scene
+cards; it does not automatically combine narration or change existing projects.
+The add-scene API accepts `scene_count`; legacy `sentence_count` and the `sentence`
+draft type remain accepted for older clients. New drafts use scene paragraphs,
+with up to 2000 characters of narration per scene.

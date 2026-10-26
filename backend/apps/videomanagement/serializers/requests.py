@@ -19,6 +19,7 @@ from ..models import (
 from ..schemas.scene_editing import SceneEditingPlanSerializer
 from ..schemas.shot_planning import ShotPlanSerializer
 from ..utils.file_utils import check_if_video
+from ..utils.prompt_utils import scene_entries
 from ..video_formats import (
     DEFAULT_VIDEO_FORMAT,
     DEFAULT_VIDEO_PLATFORM,
@@ -197,14 +198,18 @@ class SceneDraftSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)
     use_context = serializers.BooleanField(default=False)
     draft_type = serializers.ChoiceField(
-        choices=["sentence", "section", "story"], default="sentence"
+        choices=["scene", "sentence", "section", "story"], default="scene"
     )
-    sentence_count = serializers.IntegerField(default=1, min_value=1, max_value=12)
+    sentence_count = serializers.IntegerField(required=False, min_value=1, max_value=12)
+    scene_count = serializers.IntegerField(required=False, min_value=1, max_value=12)
 
     def validate(self, attrs):
-        if attrs["draft_type"] == "sentence" and attrs["sentence_count"] != 1:
+        attrs.setdefault("scene_count", attrs.pop("sentence_count", 1))
+        if attrs["draft_type"] == "sentence":
+            attrs["draft_type"] = "scene"
+        if attrs["draft_type"] == "scene" and attrs["scene_count"] != 1:
             raise serializers.ValidationError(
-                "A sentence draft contains exactly one sentence."
+                "A single-scene draft contains exactly one scene."
             )
         return attrs
 
@@ -332,19 +337,32 @@ class AddScenesSerializer(ScenePositionSerializer):
     scenes = AddSceneSerializer(many=True, min_length=1, max_length=12)
 
 
-class StoryboardSentenceSerializer(serializers.Serializer):
+class StoryboardVisualSerializer(serializers.Serializer):
     additional_image_descriptions = serializers.ListField(
         child=serializers.CharField(max_length=2000), max_length=3, required=False
     )
     shot_plan = ShotPlanSerializer(required=False)
     editing = SceneEditingPlanSerializer(required=False)
-    sentence = serializers.CharField(required=False, allow_blank=True, max_length=2000)
     image_description = serializers.CharField(max_length=2000)
 
 
-class StoryboardSceneSerializer(serializers.Serializer):
+class StoryboardSentenceSerializer(StoryboardVisualSerializer):
+    sentence = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+
+class StoryboardSceneSerializer(StoryboardVisualSerializer):
     scene = serializers.CharField(max_length=200)
-    sentences = StoryboardSentenceSerializer(many=True, min_length=1, max_length=60)
+    narration = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    image_description = serializers.CharField(required=False, max_length=2000)
+    sentences = StoryboardSentenceSerializer(many=True, min_length=1, max_length=60, required=False)
+
+    def validate(self, attrs):
+        if "sentences" in attrs:
+            if any(key in attrs for key in ("narration", "image_description", "additional_image_descriptions", "shot_plan", "editing")):
+                raise serializers.ValidationError("Use one scene structure, not both scene fields and legacy sentences.")
+        elif not attrs.get("image_description"):
+            raise serializers.ValidationError("Add a visual prompt for this scene.")
+        return attrs
 
 
 class StoryboardSerializer(serializers.Serializer):
@@ -361,14 +379,14 @@ class StoryboardSerializer(serializers.Serializer):
     scenes = StoryboardSceneSerializer(many=True, min_length=1, max_length=60)
 
     def validate_scenes(self, scenes):
-        if sum(len(scene["sentences"]) for scene in scenes) > 120:
-            raise serializers.ValidationError("Use at most 120 shots.")
+        if sum(len(scene_entries(scene)) for scene in scenes) > 120:
+            raise serializers.ValidationError("Use at most 120 scenes.")
         if self.context.get("narration", True) and any(
-            not sentence.get("sentence", "").strip()
+            not sentence.get("sentence" if "sentences" in scene else "narration", "").strip()
             for scene in scenes
-            for sentence in scene["sentences"]
+            for sentence in scene_entries(scene)
         ):
-            raise serializers.ValidationError("Add narration for each shot.")
+            raise serializers.ValidationError("Add narration for each scene.")
         return scenes
 
 

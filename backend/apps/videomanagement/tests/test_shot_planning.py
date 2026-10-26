@@ -91,7 +91,7 @@ class ShotPlanValidationTests(SimpleTestCase):
         for is_video in (False, True):
             prompt = build_script_prompt(image_mode="AI", video=is_video)
             shape = json.loads(prompt[prompt.index("{") : prompt.rindex("}") + 1])
-            self.assertIn("shot_plan", shape["scenes"][0]["sentences"][0])
+            self.assertIn("shot_plan", shape["scenes"][0])
             self.assertIn("Actual narration controls", prompt)
         self.assertNotIn("shot_plan", build_script_prompt(image_mode="WEB"))
 

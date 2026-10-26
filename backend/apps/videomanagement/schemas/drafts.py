@@ -7,8 +7,8 @@ class StoryDraftResultSerializer(serializers.Serializer):
 
 
 class SceneDraftResultSerializer(serializers.Serializer):
-    text = serializers.CharField(max_length=320)
-    image_description = serializers.CharField(max_length=600)
+    text = serializers.CharField(max_length=2000)
+    image_description = serializers.CharField(max_length=2000)
 
     def to_internal_value(self, data):
         if isinstance(data, dict):

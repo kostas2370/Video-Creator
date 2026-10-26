@@ -92,7 +92,8 @@ cookies stay on the same site.
 
 1. **Choose a starting point.** Describe your idea for an AI project, or start a
    manual project with your own media. Select the format and generation options.
-2. **Review the storyboard.** Edit the dialogue and visual prompts before generating
+2. **Review the storyboard.** Each scene is a story beat with a narration passage
+   that can contain several sentences. Edit the narration and visual prompts before generating
    media. For AI visuals, refine each shot's framing, camera direction, subject action,
    and target duration. You can save a draft and return to it from **My videos**.
 3. **Generate or add media.** Create visuals and narration, upload replacements, or

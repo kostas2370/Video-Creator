@@ -20,12 +20,12 @@ class ScriptFormatTests(SimpleTestCase):
         self.assertIn("camera move", brief)
 
     def test_asks_for_a_spoken_line_when_there_is_narration(self):
-        self.assertIn('"sentence"', build_script_prompt(narration=True))
+        self.assertIn('"narration"', build_script_prompt(narration=True))
 
     def test_drops_the_spoken_line_when_there_is_no_narration(self):
         brief = build_script_prompt(narration=False)
 
-        self.assertNotIn('"sentence"', brief)
+        self.assertNotIn('"narration"', brief)
         self.assertIn("there is no narration", brief)
 
     def test_preserves_scene_shape_and_adds_continuity_only_for_ai(self):
@@ -44,8 +44,9 @@ class ScriptFormatTests(SimpleTestCase):
                         if mode == "AI":
                             keys.append("visual_continuity")
                         self.assertEqual(list(parsed), [*keys, "scenes"])
-                        self.assertIn("sentences", parsed["scenes"][0])
+                        self.assertNotIn("sentences", parsed["scenes"][0])
+                        self.assertEqual("narration" in parsed["scenes"][0], narration)
                         self.assertIn(
                             "image_description",
-                            parsed["scenes"][0]["sentences"][0],
+                            parsed["scenes"][0],
                         )

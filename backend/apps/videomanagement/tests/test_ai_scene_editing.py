@@ -33,7 +33,7 @@ class SceneEditingPlanTests(SimpleTestCase):
             with self.subTest(mode=mode, video=provider_video):
                 prompt = build_script_prompt(image_mode=mode, video=provider_video, ai_scene_editing=True)
                 shape = json.loads(prompt[prompt.index("{"):prompt.rindex("}") + 1])
-                self.assertIn("editing", shape["scenes"][0]["sentences"][0])
+                self.assertIn("editing", shape["scenes"][0])
                 self.assertEqual("Use motion_style NONE" in prompt, mode == "AI" and provider_video)
         self.assertNotIn('"editing"', build_script_prompt())
 

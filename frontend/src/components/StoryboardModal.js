@@ -1,3 +1,4 @@
+import { editableStoryboard } from "../utils/storyboard";
 import { API_HOST } from "../endpoints";
 import { VisualContinuity } from "./VisualContinuity";
 import { ShotPlanFields } from "./ShotPlanFields";
@@ -17,16 +18,14 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
   useEffect(() => {
     if (!video?.gpt_answer || initializedVideo.current === video.id) return;
     initializedVideo.current = video.id;
-    const draft = JSON.parse(JSON.stringify(video.gpt_answer));
+    const draft = editableStoryboard(video.gpt_answer);
     if (video.mode === "AI") draft.visual_continuity = video.settings?.visual_continuity ?? draft.visual_continuity ?? "";
     setScript(draft);
     setError("");
   }, [video?.id, video?.gpt_answer]);
 
-  const changeShot = (sceneIndex, shotIndex, field, value) => {
-    setScript(current => ({ ...current, scenes: current.scenes.map((scene, i) => i !== sceneIndex ? scene : {
-      ...scene, sentences: scene.sentences.map((shot, j) => j !== shotIndex ? shot : { ...shot, [field]: value }),
-    }) }));
+  const changeScene = (sceneIndex, field, value) => {
+    setScript(current => ({ ...current, scenes: current.scenes.map((scene, index) => index === sceneIndex ? { ...scene, [field]: value } : scene) }));
   };
   const proceed = async event => {
     event.preventDefault();
@@ -63,24 +62,22 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
           {script.scenes.map((scene, sceneIndex) => (
             <section key={sceneIndex} className="mt-5 rounded-2xl border border-gray-200 p-4 dark:border-gray-600">
               <h3 className="font-semibold">Scene {sceneIndex + 1}: {scene.scene}</h3>
-              {scene.sentences.map((shot, shotIndex) => (
-                <div key={shotIndex} className="mt-4 space-y-3">
-                  {scene.sentences.length > 1 && <p className="text-xs font-semibold">Shot {shotIndex + 1}</p>}
-                  {narration && <label className="block text-sm font-medium">Narration
-                    <textarea required maxLength={2000} rows={2} disabled={busy} value={shot.sentence || ""} onChange={event => changeShot(sceneIndex, shotIndex, "sentence", event.target.value)} className={inputClass} />
-                  </label>}
-                  <label className="block text-sm font-medium">{shot.additional_image_descriptions?.length ? "Image 1 prompt" : "Visual prompt"}
-                    <textarea required maxLength={2000} rows={3} disabled={busy} value={shot.image_description || ""} onChange={event => changeShot(sceneIndex, shotIndex, "image_description", event.target.value)} className={inputClass} />
-                  </label>
-                  {video?.mode === "AI" && <ShotPlanFields plan={shot.shot_plan} disabled={busy} narration={narration} onChange={plan => changeShot(sceneIndex, shotIndex, "shot_plan", plan)} />}
-                  {(shot.additional_image_descriptions || []).map((description, imageIndex) => <label key={imageIndex} className="block text-sm font-medium">Image {imageIndex + 2} prompt
-                    <textarea required maxLength={2000} rows={3} disabled={busy} value={description} onChange={event => changeShot(sceneIndex, shotIndex, "additional_image_descriptions", shot.additional_image_descriptions.map((prompt, index) => index === imageIndex ? event.target.value : prompt))} className={inputClass} />
-                  </label>)}
-                  {video?.settings?.ai_scene_editing && shot.editing && <p className="text-xs text-gray-500 dark:text-gray-400">
-                    AI editing: {shot.shot_plan?.camera_movement ? "motion from shot plan" : shot.editing.motion_style.toLowerCase().replaceAll("_", " ")} · {shot.editing.transition_after.toLowerCase()} · {shot.editing.pause_after}s pause. You can adjust these in the scene editor.
-                  </p>}
-                </div>
-              ))}
+              <div className="mt-4 space-y-3">
+                {narration && <label className="block text-sm font-medium">Scene narration
+                  <textarea required maxLength={2000} rows={4} disabled={busy} value={scene.narration || ""} onChange={event => changeScene(sceneIndex, "narration", event.target.value)} className={inputClass} />
+                  <span className="mt-1 block text-xs font-normal text-gray-500">Keep the full story beat together. A scene can contain several sentences.</span>
+                </label>}
+                <label className="block text-sm font-medium">{scene.additional_image_descriptions?.length ? "Shot 1 visual prompt" : "Visual prompt"}
+                  <textarea required maxLength={2000} rows={3} disabled={busy} value={scene.image_description || ""} onChange={event => changeScene(sceneIndex, "image_description", event.target.value)} className={inputClass} />
+                </label>
+                {video?.mode === "AI" && <details><summary className="cursor-pointer text-xs font-medium text-gray-500">Shot direction &amp; duration</summary><div className="mt-3"><ShotPlanFields plan={scene.shot_plan} disabled={busy} narration={narration} onChange={plan => changeScene(sceneIndex, "shot_plan", plan)} /></div></details>}
+                {(scene.additional_image_descriptions || []).map((description, imageIndex) => <label key={imageIndex} className="block text-sm font-medium">Shot {imageIndex + 2} visual prompt
+                  <textarea required maxLength={2000} rows={3} disabled={busy} value={description} onChange={event => changeScene(sceneIndex, "additional_image_descriptions", scene.additional_image_descriptions.map((prompt, index) => index === imageIndex ? event.target.value : prompt))} className={inputClass} />
+                </label>)}
+                {video?.settings?.ai_scene_editing && scene.editing && <p className="text-xs text-gray-500 dark:text-gray-400">
+                  AI editing: {scene.shot_plan?.camera_movement ? "motion from shot plan" : scene.editing.motion_style.toLowerCase().replaceAll("_", " ")} · {scene.editing.transition_after.toLowerCase()} · {scene.editing.pause_after}s pause. You can adjust these in the scene editor.
+                </p>}
+              </div>
             </section>
           ))}
           {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-300">{error}</p>}

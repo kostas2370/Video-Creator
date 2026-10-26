@@ -21,15 +21,11 @@ class MultipleImageGenerationTests(ApiTestCase):
             "scenes": [
                 {
                     "scene": "Production",
-                    "sentences": [
-                        {
-                            "sentence": "Coffee beans are harvested, roasted, and brewed.",
-                            "image_description": "Harvesting coffee beans",
-                            "additional_image_descriptions": additional
-                            if additional is not None
-                            else ["Roasting coffee beans", "Brewing coffee"],
-                        }
-                    ],
+                    "narration": "Coffee cherries are harvested. The beans are roasted to develop their flavor. Finally, they are brewed into coffee.",
+                    "image_description": "Harvesting coffee beans",
+                    "additional_image_descriptions": additional
+                    if additional is not None
+                    else ["Roasting coffee beans", "Brewing coffee"],
                 }
             ],
         }
@@ -37,8 +33,12 @@ class MultipleImageGenerationTests(ApiTestCase):
     def test_prompt_requests_extra_images_under_one_narration_only_when_selected(self):
         default = build_script_prompt(image_mode="AI")
         prompt = build_script_prompt(image_mode="AI", images_per_scene=3)
-        silent = build_script_prompt(image_mode="AI", images_per_scene=3, narration=False)
-        self.assertIn("Omit narration; images divide the scene duration equally.", silent)
+        silent = build_script_prompt(
+            image_mode="AI", images_per_scene=3, narration=False
+        )
+        self.assertIn(
+            "Omit narration; images divide the scene duration equally.", silent
+        )
         self.assertNotIn("Keep one narration entry", silent)
         self.assertNotIn("additional_image_descriptions", default)
         self.assertIn("exactly 3 image prompts", prompt)
@@ -107,9 +107,7 @@ class MultipleImageGenerationTests(ApiTestCase):
         self.assertEqual(response.status_code, 202, response.data)
         video.refresh_from_db()
         self.assertEqual(
-            video.gpt_answer["scenes"][0]["sentences"][0][
-                "additional_image_descriptions"
-            ],
+            video.gpt_answer["scenes"][0]["additional_image_descriptions"],
             ["Roasting coffee beans", "Brewing coffee"],
         )
         self.assertEqual(delay.call_args.kwargs["images_per_scene"], 3)
@@ -131,10 +129,10 @@ class MultipleImageGenerationTests(ApiTestCase):
                     "visual_continuity": "Warm documentary style",
                 },
             )
-            sentence = self.script()["scenes"][0]["sentences"][0]
+            sentence = self.script()["scenes"][0]
             row = scene.make(
                 video=video,
-                text=sentence["sentence"],
+                text=sentence["narration"],
                 is_last=False,
                 shot_plan={"subject_action": "Harvesting coffee"},
             )

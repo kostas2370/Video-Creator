@@ -74,10 +74,12 @@ def script_errors(
             continue
         if not nonempty(scene.get("scene")):
             errors.append(f"{label} needs a nonempty scene label.")
-        sentences = scene.get("sentences")
+        sentences = scene.get("sentences") if "sentences" in scene else [scene]
         if not isinstance(sentences, list) or not sentences:
             errors.append(f"{label} needs a nonempty sentences array.")
             continue
+        if "sentences" in scene and any(key in scene for key in ("narration", "image_description")):
+            errors.append(f"{label} must use one scene structure, not both legacy sentences and scene fields.")
         if scene_count is not None and len(sentences) != 1:
             errors.append(f"{label} must have exactly one sentences entry.")
         for entry in sentences:
@@ -108,12 +110,13 @@ def script_errors(
                 )
                 if not plan.is_valid():
                     errors.append(f"{label} editing: {plan.errors}")
-            if narration is True and not nonempty(entry.get("sentence")):
-                errors.append(f"{label} sentence must contain nonempty narration.")
-            if narration is False and "sentence" in entry:
-                errors.append(f"{label} must omit sentence when narration is disabled.")
-            if "sentence" in entry and not isinstance(entry["sentence"], str):
-                errors.append(f"{label} sentence must be a string.")
+            narration_field = "sentence" if "sentences" in scene else "narration"
+            if narration is True and not nonempty(entry.get(narration_field)):
+                errors.append(f"{label} must contain nonempty narration.")
+            if narration is False and narration_field in entry:
+                errors.append(f"{label} must omit narration when narration is disabled.")
+            if narration_field in entry and (not isinstance(entry[narration_field], str) or len(entry[narration_field]) > 2000):
+                errors.append(f"{label} narration must be a string of at most 2000 characters.")
     return errors
 
 

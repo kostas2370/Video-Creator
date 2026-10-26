@@ -112,10 +112,12 @@ def draft_scene(
     video: Video,
     prompt: str,
     use_context: bool = False,
-    draft_type: str = "sentence",
+    draft_type: str = "scene",
     sentence_count: int = 1,
+    scene_count: int = None,
 ) -> dict:
-    """Draft short sentences for review before creating their scenes."""
+    """Draft scene narration and visuals for review before creating scenes."""
+    scene_count = scene_count if scene_count is not None else sentence_count
     scenario = None
     if use_context:
         scenario = {
@@ -131,7 +133,7 @@ def draft_scene(
         }
     settings = video.settings or {}
     instructions = build_scene_draft_prompt(
-        prompt, draft_type, sentence_count, scenario, image_mode=video.mode,
+        prompt, draft_type, scene_count, scenario, image_mode=video.mode,
         video=ImageProviderRegistry.is_video(
             settings.get("provider"), user=video.created_by, mode=video.mode
         ),
@@ -149,10 +151,10 @@ def draft_scene(
             cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         result = json.loads(cleaned)
         serializer = SceneDraftResultSerializer(
-            data=[result] if sentence_count == 1 else result["scenes"],
+            data=[result] if scene_count == 1 else result["scenes"],
             many=True,
-            min_length=sentence_count,
-            max_length=sentence_count,
+            min_length=scene_count,
+            max_length=scene_count,
         )
         serializer.is_valid(raise_exception=True)
     except (ValueError, KeyError, TypeError, IndexError, ValidationError) as exc:
@@ -160,4 +162,4 @@ def draft_scene(
             "AI returned an invalid scene draft. Please try again."
         ) from exc
     drafts = serializer.validated_data
-    return drafts[0] if sentence_count == 1 else {"scenes": drafts}
+    return drafts[0] if scene_count == 1 else {"scenes": drafts}

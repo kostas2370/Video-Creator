@@ -121,7 +121,7 @@ clip's own audio through `with_audio`.
 | `VoiceModel.path` | Voice identifier passed to the TTS service |
 | `VoiceModel.type` | `API` for built-in providers; `CUSTOM_API` for user-configured providers |
 
-Generation currently matches scenes by text. Repeated identical sentences can
+Generation currently matches scenes by text. Repeated identical narration passages can
 therefore resolve to the same scene; text is not a unique scene identifier.
 
 ## HTTP and background work
@@ -197,7 +197,7 @@ The script format is shared by [defaults.py](../backend/apps/videomanagement/def
 `check_json()` in [llm.py](../backend/apps/videomanagement/integrations/llm.py), and
 `script_lines()` in [prompt_utils.py](../backend/apps/videomanagement/utils/prompt_utils.py).
 Change these together when changing the LLM output shape. Without narration, visual
-descriptions supply scene text instead of spoken sentences. Video providers receive
+descriptions supply scene text instead of spoken narration. Video providers receive
 shot-oriented descriptions.
 
 ### Narration failures and retry
@@ -453,7 +453,7 @@ video API's ownership checks; private media delivery requires a separate design.
 
 ## Reviewed shot plans
 
-AI storyboards can include a `shot_plan` on each sentences entry: shot size, camera
+AI storyboards can include a `shot_plan` on each scene: shot size, camera
 movement, subject action, and a target duration from 0.5 to 30 seconds. Storyboard
 review exposes these fields before media generation. Both model-response validation
 and approval validate supplied plans; older scripts without plans remain supported.

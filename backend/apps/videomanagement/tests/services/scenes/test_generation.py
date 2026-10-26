@@ -158,12 +158,12 @@ class DraftSceneTests(TestCase):
         self.assertIn("exactly 3", generate.call_args.args[0])
         self.assertFalse(vid.scenes.exists())
 
-    def test_rejects_an_oversized_sentence_or_incorrect_scene_count(self):
+    def test_rejects_oversized_scene_narration_or_incorrect_scene_count(self):
 
         vid = video.make()
         for result in (
             {"scenes": [{"text": "Too few.", "image_description": "A path"}]},
-            {"scenes": [{"text": "x" * 321, "image_description": "A path"}] * 3},
+            {"scenes": [{"text": "x" * 2001, "image_description": "A path"}] * 3},
             {"scenes": "Not a list"},
             {"scenes": [None, {}, 42]},
             [],

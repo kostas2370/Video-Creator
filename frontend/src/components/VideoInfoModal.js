@@ -1,3 +1,4 @@
+import { editableStoryboard } from "../utils/storyboard";
 import { useRef, useState } from "react";
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
 import { HiOutlineFilm, HiOutlineXMark, HiOutlineArrowTopRightOnSquare, HiOutlineArrowPath } from "react-icons/hi2";
@@ -28,12 +29,10 @@ function Script({ answer }) {
     try { script = JSON.parse(script); } catch { /* Plain-text scripts are also supported. */ }
   }
   if (Array.isArray(script?.scenes)) {
-    return <ol className="space-y-4">{script.scenes.map((scene, index) => <li key={index} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+    return <ol className="space-y-4">{editableStoryboard(script).scenes.map((scene, index) => <li key={index} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
       <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">Scene {index + 1}</p>
-      {(Array.isArray(scene.sentences) ? scene.sentences : []).map((line, lineIndex) => <div key={lineIndex} className={lineIndex ? "mt-4 border-t border-gray-100 pt-4 dark:border-gray-700" : ""}>
-        {line.sentence ? <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">{line.sentence}</p> : null}
-        {line.image_description ? <p className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-gray-500 dark:text-gray-400"><span className="font-medium">Visual: </span>{line.image_description}</p> : null}
-      </div>)}
+      {scene.narration ? <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200">{scene.narration}</p> : null}
+      {[scene.image_description, ...(scene.additional_image_descriptions || [])].filter(Boolean).map((description, shotIndex) => <p key={shotIndex} className="mt-2 whitespace-pre-wrap text-xs leading-relaxed text-gray-500 dark:text-gray-400"><span className="font-medium">Shot {shotIndex + 1}: </span>{description}</p>)}
     </li>)}</ol>;
   }
   return <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-600 dark:text-gray-300">{typeof script === "string" ? script : JSON.stringify(script, null, 2)}</p>;

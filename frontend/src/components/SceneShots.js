@@ -18,7 +18,7 @@ export function SceneShots({ scene, disabled, onSaved, videoFormat }) {
   return <div className="mt-4">
     <div className="flex flex-wrap items-center gap-2">
       <button type="button" disabled={disabled || shots.length >= 20} onClick={() => setEditing({ new_shot: true })} className={button}>+ Add shot</button>
-      {shots.length > 0 && <button type="button" disabled={disabled} onClick={() => setOpen(true)} className={button}>Manage {shots.length} shots</button>}
+      {shots.length > 1 && <button type="button" disabled={disabled} onClick={() => setOpen(true)} className={button}>Manage {shots.length} shots</button>}
     </div>
     {shots.length > 1 ? <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{shots.map((shot, index) => <button key={shot.id} type="button" disabled={disabled} onClick={() => setEditing(shot)} aria-label={`Edit shot ${index + 1}`} className="w-24 shrink-0 overflow-hidden rounded-lg border border-gray-200 text-left dark:border-gray-600"><ShotThumbnail shot={shot} /><span className="block px-2 py-1 text-xs">Shot {index + 1}</span></button>)}</div> : <p className="mt-2 text-xs text-gray-500">Add another visual while keeping the same narration.</p>}
     {open && <ShotEditor scene={scene} disabled={disabled} onClose={() => setOpen(false)} onSaved={onSaved} />}
