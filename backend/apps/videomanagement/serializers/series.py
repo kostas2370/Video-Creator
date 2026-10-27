@@ -5,18 +5,16 @@ from apps.videomanagement.models import Intro, Outro, SeriesEpisode, VideoSeries
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 
 from .fields import validate_image_upload
-
-
-class AssetUUIDField(serializers.UUIDField):
-    def to_representation(self, value):
-        return str(getattr(value, "pk", value))
+from .requests import GenerateSerializer
 
 
 class VideoSeriesSerializer(serializers.ModelSerializer):
     episode_count = serializers.IntegerField(read_only=True)
-    voice_model = AssetUUIDField(required=False, allow_null=True)
-    intro = AssetUUIDField(required=False, allow_null=True)
-    outro = AssetUUIDField(required=False, allow_null=True)
+    voice_model = serializers.UUIDField(
+        source="voice_model_id", required=False, allow_null=True
+    )
+    intro = serializers.UUIDField(source="intro_id", required=False, allow_null=True)
+    outro = serializers.UUIDField(source="outro_id", required=False, allow_null=True)
     remove_reference = serializers.BooleanField(
         write_only=True, required=False, default=False
     )
@@ -59,15 +57,18 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         owner = self.context["request"].user
         for field, model in (("intro", Intro), ("outro", Outro)):
-            if field in attrs:
-                attrs[field] = owned_asset(model, attrs[field], owner)
-        if "voice_model" in attrs:
-            attrs["voice_model"] = available_voice(attrs["voice_model"], owner)
+            key = f"{field}_id"
+            if key in attrs:
+                selected = owned_asset(model, attrs[key], owner)
+                attrs[key] = selected.pk if selected else None
+        if "voice_model_id" in attrs:
+            selected = available_voice(attrs["voice_model_id"], owner)
+            attrs["voice_model_id"] = selected.pk if selected else None
 
         def current(field, default=None):
             return attrs.get(field, getattr(self.instance, field, default))
 
-        if current("narration", True) and not current("voice_model"):
+        if current("narration", True) and not current("voice_model_id"):
             raise serializers.ValidationError(
                 {
                     "voice_model": "Choose a narrator to keep the same voice across episodes, or turn narration off."
@@ -102,8 +103,50 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
         return attrs
 
 
+def validate_episode_generation(choices, context):
+    # Snapshot defaults in one place, using the same validation as standalone AI videos.
+    serializer = GenerateSerializer(
+        data={key: value for key, value in choices.items() if value is not None},
+        context=context,
+    )
+    serializer.is_valid(raise_exception=True)
+    params = dict(serializer.validated_data)
+    params.pop("created_by")
+    return params
+
+
 class EpisodeDraftSerializer(serializers.Serializer):
     idea = serializers.CharField(max_length=2000)
+
+    def validate(self, attrs):
+        series = self.context["series"]
+        if series.narration and not series.voice_model_id:
+            raise serializers.ValidationError(
+                {
+                    "voice_model": "Choose a narrator in the series setup before drafting."
+                }
+            )
+        choices = {
+            "message": attrs["idea"],
+            "image_mode": "AI",
+            "provider": series.provider,
+            "voice_id": series.voice_model_id,
+            "intro": series.intro_id,
+            "outro": series.outro_id,
+            "narration": series.narration,
+            "subtitles": series.subtitles,
+            "video_format": series.video_format,
+            "platform": series.platform,
+            "scene_count": series.scene_count,
+            "review_script": True,
+            "visual_continuity": f"Cast: {series.characters}\nStyle: {series.visual_style}",
+        }
+        # CharField expects string IDs, whereas model FK IDs are UUID objects.
+        for field in ("voice_id", "intro", "outro"):
+            if choices[field] is not None:
+                choices[field] = str(choices[field])
+        attrs["generation_params"] = validate_episode_generation(choices, self.context)
+        return attrs
 
 
 class EpisodeMemorySerializer(serializers.Serializer):
@@ -119,14 +162,7 @@ class SeriesEpisodeSerializer(serializers.ModelSerializer):
         source="video.title", read_only=True, default=None
     )
     status = serializers.CharField(source="video.status", read_only=True, default=None)
-    can_retry = serializers.SerializerMethodField()
-
-    def get_can_retry(self, episode):
-        return bool(
-            episode.video
-            and episode.video.status == "FAILED"
-            and not episode.video.gpt_answer
-        )
+    can_retry = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = SeriesEpisode

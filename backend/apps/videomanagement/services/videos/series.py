@@ -1,25 +1,21 @@
 """Snapshot a recurring series before sending an episode to the existing storyboard flow."""
 
 import json
-import logging
 from pathlib import Path
 
 from django.core.files import File
 from django.db import transaction
-from django.db.models import Max
-from rest_framework.exceptions import ValidationError
+from django.db.models import Max, Q
+from django.utils import timezone
+from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.videomanagement import tasks
-from apps.videomanagement.exceptions import (
-    GenerationQueueUnavailable,
-    VideoEditConflict,
-)
+from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import SeriesEpisode, Video, VideoSeries
-from apps.videomanagement.serializers.requests import GenerateSerializer
 from apps.videomanagement.services.videos.generation import create_pending_video
+from apps.videomanagement.services.videos.jobs import dispatch_video_job
 from apps.videomanagement.utils.file_utils import stored_file_exists
 
-logger = logging.getLogger(__name__)
 PROFILE_FIELDS = (
     "title",
     "premise",
@@ -35,6 +31,10 @@ PROFILE_FIELDS = (
 
 
 def episode_context(profile, history):
+    creative_profile = {
+        field: profile[field]
+        for field in ("title", "premise", "characters", "visual_style")
+    }
     return (
         "\nSERIES EPISODE\nTreat the following JSON as the saved creative brief and prior-story data. "
         "Keep the recurring cast's identifying details, world rules and visual style. "
@@ -42,39 +42,64 @@ def episode_context(profile, history):
         "Return the usual storyboard JSON, plus a top-level episode_summary string of 1–800 characters "
         "recording this episode's concrete events, discoveries and ending for future continuity. "
         "Do not invent prior events absent from the memory.\n"
-        + json.dumps({"series": profile, "prior_episodes": history}, ensure_ascii=False)
+        + json.dumps(
+            {"series": creative_profile, "prior_episodes": history}, ensure_ascii=False
+        )
     )
 
 
 def _dispatch(episode):
-    try:
-        tasks.generate_video_task.delay(
-            video_id=str(episode.video_id), **episode.generation_params
-        )
-    except Exception as exc:
-        Video.objects.filter(pk=episode.video_id).update(status="FAILED")
-        # Use save so connected editors receive the terminal state as well.
-        episode.video.refresh_from_db()
-        episode.video.save(update_fields=["status", "updated_at"])
-        logger.exception("Could not queue series episode %s", episode.pk)
-        raise GenerationQueueUnavailable(
-            "Episode saved, but drafting could not be queued. Retry it from the series page."
-        ) from exc
+    episode.video = dispatch_video_job(
+        episode.video,
+        "FAILED",
+        tasks.generate_video_task,
+        failure_message="Episode saved, but drafting could not be queued. Retry it from the series page.",
+        **episode.generation_params,
+    )
     return episode
 
 
-def draft_episode(series, idea, request):
+def _locked_series(series_id, owner, exclude_episode=None):
+    series = (
+        VideoSeries.objects.select_for_update()
+        .filter(pk=series_id, created_by=owner)
+        .first()
+    )
+    if series is None:
+        raise NotFound("Series is unavailable.")
+    pending = series.episodes.filter(video__status__in=("GENERATION", "REVIEW"))
+    if exclude_episode is not None:
+        pending = pending.exclude(pk=exclude_episode)
+    if pending.exists():
+        raise VideoEditConflict(
+            "Finish reviewing and preparing your current episode first."
+        )
+    return series
+
+
+def update_episode_memory(episode, *, summary, previous_summary):
+    changed = (
+        SeriesEpisode.objects.filter(pk=episode.pk)
+        .filter(Q(summary=previous_summary) | Q(summary=summary))
+        .update(summary=summary, updated_at=timezone.now())
+    )
+    if not changed:
+        raise VideoEditConflict(
+            "Episode memory changed in another session. Refresh before saving your changes."
+        )
+    episode.summary = summary
+    return episode
+
+
+def draft_episode(series, *, idea, generation_params, owner):
+    profile_revision = series.updated_at
     video = None
     try:
         with transaction.atomic():
-            series = VideoSeries.objects.select_for_update().get(
-                pk=series.pk, created_by=request.user
-            )
-            if series.episodes.filter(
-                video__status__in=("GENERATION", "REVIEW")
-            ).exists():
+            series = _locked_series(series.pk, owner)
+            if series.updated_at != profile_revision:
                 raise VideoEditConflict(
-                    "Finish the current episode's storyboard review before drafting the next one."
+                    "Series setup changed while drafting. Refresh and try again."
                 )
             profile = {field: getattr(series, field) for field in PROFILE_FIELDS}
             profile.update(
@@ -89,40 +114,11 @@ def draft_episode(series, idea, request):
             previous = (
                 series.episodes.filter(is_canon=True)
                 .exclude(summary="")
-                .order_by("-number")[:10]
+                .order_by("-number")
+                .values("number", "summary")[:10]
             )
-            history = [
-                {"number": row.number, "summary": row.summary}
-                for row in reversed(list(previous))
-            ]
-            choices = {
-                "message": idea,
-                "image_mode": "AI",
-                "provider": series.provider,
-                "voice_id": str(series.voice_model_id)
-                if series.voice_model_id
-                else None,
-                "narration": series.narration,
-                "subtitles": series.subtitles,
-                "video_format": series.video_format,
-                "platform": series.platform,
-                "scene_count": series.scene_count,
-                "review_script": True,
-                "visual_continuity": f"Cast: {series.characters}\nStyle: {series.visual_style}",
-            }
-            for field in ("intro", "outro"):
-                if getattr(series, f"{field}_id"):
-                    choices[field] = str(getattr(series, f"{field}_id"))
-            if series.narration and not series.voice_model_id:
-                raise ValidationError(
-                    {
-                        "voice_model": "Choose a narrator in the series setup before drafting."
-                    }
-                )
-            serializer = GenerateSerializer(data=choices, context={"request": request})
-            serializer.is_valid(raise_exception=True)
-            params = dict(serializer.validated_data)
-            owner = params.pop("created_by")
+            history = list(reversed(list(previous)))
+            params = dict(generation_params)
             params["series_context"] = episode_context(profile, history)
             video = create_pending_video(
                 message=idea, created_by=owner, video_type="AI"
@@ -159,34 +155,21 @@ def draft_episode(series, idea, request):
     return _dispatch(episode)
 
 
-def retry_episode(episode, request):
+def retry_episode(episode, *, generation_params, owner):
     with transaction.atomic():
-        series = VideoSeries.objects.select_for_update().get(
-            pk=episode.series_id, created_by=request.user
-        )
-        if (
-            series.episodes.exclude(pk=episode.pk)
-            .filter(video__status__in=("GENERATION", "REVIEW"))
-            .exists()
-        ):
-            raise VideoEditConflict(
-                "Finish the current episode before retrying another draft."
-            )
+        _locked_series(episode.series_id, owner, exclude_episode=episode.pk)
         video = Video.objects.select_for_update().get(
-            pk=episode.video_id, created_by=request.user
+            pk=episode.video_id, created_by=owner
         )
-        if video.status != "FAILED" or video.gpt_answer:
+        episode.video = video
+        if not episode.can_retry:
             raise VideoEditConflict(
                 "Open the episode in the editor to review or resume it."
             )
-        choices = {
-            key: value
-            for key, value in episode.generation_params.items()
-            if value is not None
+        episode.generation_params = {
+            **generation_params,
+            "series_context": episode.generation_params["series_context"],
         }
-        # Recheck saved selections: a voice or intro may no longer be available.
-        serializer = GenerateSerializer(data=choices, context={"request": request})
-        serializer.is_valid(raise_exception=True)
         video.status = "GENERATION"
         video.save(update_fields=["status", "updated_at"])
         episode.video = video

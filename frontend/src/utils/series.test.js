@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSeries, seriesPayload } from "./series";
+import { defaultSeries, seriesPayload, episodeMemoryReducer } from "./series";
 import { isCreationPath } from "./creationModes";
 import { videoLibraryInfo } from "./videoLibrary";
 
@@ -25,5 +25,19 @@ describe("series creation", () => {
     expect(data.get("narration")).toBe("true");
     expect(data.get("voice_model")).toBe("");
     expect(data.get("reference_image").size).toBe(file.size);
+  });
+});
+
+
+describe("episode memory draft synchronization", () => {
+  it("refreshes clean memory from the server", () => {
+    expect(episodeMemoryReducer({ draft: "Old", baseline: "Old" }, { type: "remote", value: "New" })).toEqual({ draft: "New", baseline: "New" });
+  });
+  it("preserves unsaved work and its original conflict baseline across refresh", () => {
+    const edited = episodeMemoryReducer({ draft: "Old", baseline: "Old" }, { type: "edit", value: "My unsaved facts" });
+    expect(episodeMemoryReducer(edited, { type: "remote", value: "Another editor’s facts" })).toEqual({ draft: "My unsaved facts", baseline: "Old" });
+  });
+  it("accepts a successful save or an explicit load of the saved memory", () => {
+    for (const type of ["saved", "load"]) expect(episodeMemoryReducer({ draft: "Draft", baseline: "Old" }, { type, value: "Saved" })).toEqual({ draft: "Saved", baseline: "Saved" });
   });
 });

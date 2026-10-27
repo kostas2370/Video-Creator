@@ -12,9 +12,9 @@ from apps.videomanagement.exceptions import (
     GenerationQueueUnavailable,
     VideoEditConflict,
 )
-from apps.videomanagement.models import Video, VideoStatus, VideoType
 from apps.videomanagement.integrations.llm import script_errors
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.videomanagement.models import Video, VideoStatus, VideoType
 from apps.videomanagement.services.videos.generation import create_pending_video
 
 
@@ -49,7 +49,11 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
     return video
 
 
-def _dispatch_video_job(video, previous_status, task, **params):
+def dispatch_video_job(
+    video, previous_status, task, *,
+    failure_message="Could not queue processing. Your project is saved. Please try again.",
+    **params,
+):
     claimed_at, claimed_status = video.updated_at, video.status
     try:
         task.delay(video_id=video.pk, **params)
@@ -61,9 +65,7 @@ def _dispatch_video_job(video, previous_status, task, **params):
             updated_at=timezone.now(),
         )
         publish_update(f"video.{video.pk}", video_id=video.pk)
-        raise GenerationQueueUnavailable(
-            "Could not queue processing. Your project is saved. Please try again."
-        ) from exc
+        raise GenerationQueueUnavailable(failure_message) from exc
     publish_update(f"video.{video.pk}", video_id=video.pk)
     video.refresh_from_db()
     return video
@@ -86,7 +88,7 @@ def queue_render(video, export_options=None):
         video.settings = {**(video.settings or {}), **(export_options or {})}
         video.status = VideoStatus.RENDERING
         video.save(update_fields=["settings", "status", "updated_at"])
-    return _dispatch_video_job(video, previous_status, tasks.render_video_task)
+    return dispatch_video_job(video, previous_status, tasks.render_video_task)
 
 
 def queue_resume(video):
@@ -111,7 +113,7 @@ def queue_resume(video):
         previous_status = video.status
         video.status = VideoStatus.GENERATION
         video.save(update_fields=["status", "updated_at"])
-    return _dispatch_video_job(video, previous_status, tasks.resume_video_task)
+    return dispatch_video_job(video, previous_status, tasks.resume_video_task)
 
 
 def approve_script(video, storyboard):
@@ -146,7 +148,7 @@ def approve_script(video, storyboard):
         video.title = storyboard["title"]
         video.status = VideoStatus.GENERATION
         video.save()
-    return _dispatch_video_job(
+    return dispatch_video_job(
         video, VideoStatus.REVIEW, tasks.generate_video_task, **params
     )
 

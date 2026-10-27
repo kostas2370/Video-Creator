@@ -672,9 +672,14 @@ memory and an `is_canon` flag. API routes live in `views/series.py`; drafting an
 recovery are coordinated by `services/videos/series.py`.
 
 `POST /api/series/{id}/episodes/` locks the series while allocating an episode number,
-validates selections with `GenerateSerializer`, copies the reference to the video,
+copies the reference to the video,
 persists both records, then queues the existing generation task after the transaction
-commits. A queue failure leaves a failed episode that can be retried through
+commits. Request serializers reuse `GenerateSerializer` for selections and defaults;
+services accept the resulting values and owner model, without HTTP request objects.
+The service checks the profile revision under the lock so validated choices cannot
+be paired with a different setup after a concurrent edit. Queue dispatch reuses the
+same conditional failure recovery as other video jobs, protecting worker progress.
+A queue failure leaves a failed episode that can be retried through
 `POST /api/series/{id}/episodes/{episode_id}/retry/`. Retry claims the same video under
 a lock and revalidates its saved selections. Another in-flight episode blocks drafting
 and retry. Completed setup saves do not call providers.
@@ -690,7 +695,9 @@ existing nonempty memory. Story edits do not automatically rewrite summaries.
 
 `GET /api/series/` and `/episodes/` are paginated. Profiles and nested episodes are
 strictly owner-scoped, including for superusers. `PATCH /api/series/{id}/episodes/{id}/`
-saves memory. Deleting a video nulls the episode's video link and retains its memory;
+saves memory with a compare-and-update guard; replaying an already successful save
+is safe. The editor preserves unsaved memory across refreshes and offers explicitly
+loading the saved version when another edit arrives. Deleting a video nulls the episode's video link and retains its memory;
 deleting a series cascades its episode records without deleting the videos. Pending
 videos can still finish from their snapshotted parameters if the series is removed.
 The video library has a `SERIES` creation-mode filter, and editor metadata links an

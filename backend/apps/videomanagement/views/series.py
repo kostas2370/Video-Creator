@@ -1,5 +1,4 @@
 from django.db.models import Count
-from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -16,8 +15,13 @@ from apps.videomanagement.serializers.series import (
     EpisodeMemorySerializer,
     SeriesEpisodeSerializer,
     VideoSeriesSerializer,
+    validate_episode_generation,
 )
-from apps.videomanagement.services.videos.series import draft_episode, retry_episode
+from apps.videomanagement.services.videos.series import (
+    draft_episode,
+    retry_episode,
+    update_episode_memory,
+)
 from apps.videomanagement.throttling import GenerateRateThrottle
 
 
@@ -51,9 +55,14 @@ class VideoSeriesView(viewsets.ModelViewSet):
     def episodes(self, request, pk=None):
         series = self.get_object()
         if request.method == "POST":
-            serializer = EpisodeDraftSerializer(data=request.data)
+            serializer = EpisodeDraftSerializer(
+                data=request.data,
+                context={**self.get_serializer_context(), "series": series},
+            )
             serializer.is_valid(raise_exception=True)
-            episode = draft_episode(series, serializer.validated_data["idea"], request)
+            episode = draft_episode(
+                series, owner=request.user, **serializer.validated_data
+            )
             return Response(SeriesEpisodeSerializer(episode).data, status=202)
         rows = series.episodes.select_related("video").all()
         page = self.paginate_queryset(rows)
@@ -70,19 +79,13 @@ class VideoSeriesView(viewsets.ModelViewSet):
         )
         serializer = EpisodeMemorySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        previous = serializer.validated_data.get("previous_summary", episode.summary)
-        changed = (
-            type(episode)
-            .objects.filter(pk=episode.pk, summary=previous)
-            .update(
-                summary=serializer.validated_data["summary"], updated_at=timezone.now()
-            )
+        episode = update_episode_memory(
+            episode,
+            summary=serializer.validated_data["summary"],
+            previous_summary=serializer.validated_data.get(
+                "previous_summary", episode.summary
+            ),
         )
-        if not changed:
-            raise VideoEditConflict(
-                "Episode memory changed in another session. Refresh before saving your changes."
-            )
-        episode.summary = serializer.validated_data["summary"]
         return Response(SeriesEpisodeSerializer(episode).data)
 
     @action(
@@ -98,6 +101,12 @@ class VideoSeriesView(viewsets.ModelViewSet):
             raise ValidationError(
                 "This episode's video was deleted. Draft a new episode instead."
             )
-        return Response(
-            SeriesEpisodeSerializer(retry_episode(episode, request)).data, status=202
+        if not episode.can_retry:
+            raise VideoEditConflict(
+                "Open the episode in the editor to review or resume it."
+            )
+        params = validate_episode_generation(
+            episode.generation_params, self.get_serializer_context()
         )
+        episode = retry_episode(episode, generation_params=params, owner=request.user)
+        return Response(SeriesEpisodeSerializer(episode).data, status=202)

@@ -16,3 +16,16 @@ export function seriesPayload(profile, file, removeReference = false) {
   data.append("reference_image", file);
   return data;
 }
+
+
+export function episodeMemoryReducer(state, action) {
+  switch (action.type) {
+    case "edit": return { ...state, draft: action.value };
+    case "remote":
+      if (state.draft !== state.baseline) return state;
+      return { draft: action.value, baseline: action.value };
+    case "saved":
+    case "load": return { draft: action.value, baseline: action.value };
+    default: return state;
+  }
+}

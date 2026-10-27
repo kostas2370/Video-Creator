@@ -1,17 +1,25 @@
 import io
 import json
 import tempfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.baker_recipes import intro, video, voice_model
+from apps.videomanagement.baker_recipes import intro, outro, video, voice_model
+from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import SeriesEpisode, Video, VideoSeries
+from apps.videomanagement.serializers.series import (
+    EpisodeDraftSerializer,
+    VideoSeriesSerializer,
+)
 from apps.videomanagement.services.videos.generation import generate_video
+from apps.videomanagement.services.videos.series import draft_episode
 
 from .base import ApiTestCase
 
@@ -397,3 +405,58 @@ class SeriesTests(ApiTestCase):
             url.replace(str(episode.pk), "123"), {"summary": "Invalid"}, format="json"
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_serializing_profile_asset_ids_does_not_fetch_each_related_asset(self):
+        voice = voice_model.make()
+        opening = intro.make(created_by=self.user)
+        ending = outro.make(created_by=self.user)
+        for number in range(3):
+            VideoSeries.objects.create(
+                created_by=self.user,
+                title=f"Profile {number}",
+                premise="A world",
+                visual_style="Ink",
+                voice_model_id=voice.pk,
+                intro_id=opening.pk,
+                outro_id=ending.pk,
+            )
+        profiles = list(VideoSeries.objects.filter(voice_model_id=voice.pk))
+        with self.assertNumQueries(0):
+            data = VideoSeriesSerializer(profiles, many=True).data
+        self.assertEqual(len(data), 3)
+        self.assertTrue(all(row["voice_model"] == str(voice.pk) for row in data))
+
+    def test_queue_failure_does_not_overwrite_worker_progress(self):
+        def worker_progress_then_dispatch_error(**params):
+            Video.objects.filter(pk=params["video_id"]).update(status="REVIEW")
+            raise RuntimeError("Acknowledgement lost after worker received the task")
+
+        self.queue.side_effect = worker_progress_then_dispatch_error
+        self.assertEqual(self.draft().status_code, 503)
+        episode = self.series.episodes.get()
+        self.assertEqual(episode.video.status, "REVIEW")
+
+    def test_changed_profile_is_rejected_between_validation_and_snapshot(self):
+        serializer = EpisodeDraftSerializer(
+            data={"idea": "A discovery"},
+            context={"request": SimpleNamespace(user=self.user), "series": self.series},
+        )
+        serializer.is_valid(raise_exception=True)
+        VideoSeries.objects.filter(pk=self.series.pk).update(
+            characters="Different cast", updated_at=timezone.now()
+        )
+        with self.assertRaises(VideoEditConflict):
+            draft_episode(self.series, owner=self.user, **serializer.validated_data)
+        self.assertFalse(self.series.episodes.exists())
+        self.queue.assert_not_called()
+
+    def test_memory_save_can_be_replayed_after_a_lost_response(self):
+        episode = self.episode(summary="Original")
+        data = {"summary": "New memory", "previous_summary": "Original"}
+        for _ in range(2):
+            response = self.client.patch(
+                self.url("memory", episode=episode), data, format="json"
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+        episode.refresh_from_db()
+        self.assertEqual(episode.summary, "New memory")

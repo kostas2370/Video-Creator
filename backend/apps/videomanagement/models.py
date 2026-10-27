@@ -737,6 +737,10 @@ class SeriesEpisode(UUIDModel, TimestampedModel):
     profile_snapshot = models.JSONField(default=dict)
     generation_params = models.JSONField(default=dict)
 
+    @property
+    def can_retry(self):
+        return bool(self.video and self.video.status == VideoStatus.FAILED and not self.video.gpt_answer)
+
     class Meta:
         ordering = ["-number"]
         constraints = [

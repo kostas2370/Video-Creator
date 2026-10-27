@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { HiOutlineArrowRight, HiOutlinePlus, HiOutlineSparkles, HiOutlineBookOpen } from "react-icons/hi2";
+import { episodeMemoryReducer } from "../utils/series";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 import { VideoCreationMode } from "../components/VideoCreationMode";
 import { SeriesProfileForm } from "../components/SeriesProfileForm";
@@ -57,25 +58,32 @@ function SeriesLibrary() {
 }
 
 export function EpisodeCard({ episode, onMemorySave, onRetry, disabled }) {
-  const [memory, setMemory] = useState(episode.summary || "");
+  const [{ draft: memory, baseline }, updateMemory] = useReducer(episodeMemoryReducer, {
+    draft: episode.summary || "", baseline: episode.summary || "",
+  });
+  const dirty = memory !== baseline;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  useEffect(() => { setMemory(episode.summary || ""); }, [episode.summary]);
+  useEffect(() => { updateMemory({ type: "remote", value: episode.summary || "" }); }, [episode.summary]);
   const save = async () => {
-    if (saving || disabled) return;
+    if (saving || disabled || !dirty) return;
     setSaving(true); setError(""); setSaved(false);
-    const response = await onMemorySave(episode.id, memory, episode.summary);
-    if (!response.ok) setError(response.message); else setSaved(true);
-    setSaving(false);
+    try {
+      const response = await onMemorySave(episode.id, memory, baseline);
+      if (!response.ok) throw new Error(response.message || "Could not save episode memory.");
+      updateMemory({ type: "saved", value: response.data.summary });
+      setSaved(true);
+    } catch (reason) { setError(reason.message); }
+    finally { setSaving(false); }
   };
   return <article className={panel}>
     <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">Episode {episode.number}</p><h3 className="mt-1 break-words font-semibold">{episode.video_title || episode.idea}</h3></div><span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-200">{episode.video_id ? statusNames[episode.status] || "Project saved" : "Video removed · memory kept"}</span></div>
     <p className="mt-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{episode.idea}</p>
     <div className="mt-3 flex flex-wrap gap-3">{episode.video_id && <Link to={`/videos/${episode.video_id}/`} className={textButton}>{episode.status === "REVIEW" ? "Review storyboard" : "Open episode"} →</Link>}{episode.can_retry && <button type="button" disabled={disabled} onClick={() => onRetry(episode.id)} className={textButton}>Retry draft</button>}</div>
     <details className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"><summary className="cursor-pointer text-sm font-semibold">Episode memory <span className="ml-1 font-normal text-gray-500">{episode.is_canon ? "Used by future episodes" : "Draft"}</span></summary><label className="mt-3 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">Keep the concrete events, discoveries and ending. Review this AI-written memory after changing the story. Future stories use the latest ten memories from episodes whose media is ready.
-      <textarea maxLength={800} rows={4} value={memory} disabled={saving || disabled} onChange={event => { setMemory(event.target.value); setSaved(false); }} className={`${editorInput} mt-2`} aria-label={`Memory for episode ${episode.number}`} />
-    </label><div className="mt-2 flex items-center justify-between text-xs text-gray-500"><span>{memory.length}/800</span><button type="button" disabled={saving || disabled || memory === episode.summary} onClick={save} className={textButton}>{saving ? "Saving…" : "Save memory"}</button></div>{saved && <p role="status" className="text-xs text-green-700 dark:text-green-300">Episode memory saved.</p>}{error && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-300">{error}</p>}</details>
+      <textarea maxLength={800} rows={4} value={memory} disabled={saving || disabled} onChange={event => { updateMemory({ type: "edit", value: event.target.value }); setSaved(false); }} className={`${editorInput} mt-2`} aria-label={`Memory for episode ${episode.number}`} />
+    </label>{dirty && baseline !== episode.summary && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Saved memory changed. Your draft is kept. <button type="button" disabled={saving || disabled} onClick={() => { updateMemory({ type: "load", value: episode.summary || "" }); setError(""); setSaved(false); }} className={textButton}>Load saved memory</button></p>}<div className="mt-2 flex items-center justify-between text-xs text-gray-500"><span>{memory.length}/800</span><button type="button" disabled={saving || disabled || !dirty} onClick={save} className={textButton}>{saving ? "Saving…" : "Save memory"}</button></div>{saved && <p role="status" className="text-xs text-green-700 dark:text-green-300">Episode memory saved.</p>}{error && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-300">{error}</p>}</details>
   </article>;
 }
 
@@ -109,21 +117,23 @@ function SeriesWorkspace({ id }) {
     if (response.ok) { setProfile(response.data); setEditing(false); } else setFormError(response.message);
     setBusy(false);
   };
-  const draft = async event => {
-    event.preventDefault(); if (busy || editing || !idea.trim()) return;
-    setBusy(true); setDraftError("");
-    const response = await draftSeriesEpisode(id, idea.trim());
-    if (response.ok) navigate(`/videos/${response.data.video_id}/`);
-    else { setDraftError(response.message); setReload(value => value + 1); }
-    setBusy(false);
-  };
-  const retry = async episodeId => {
+  const startEpisode = async send => {
     if (busy) return;
     setBusy(true); setDraftError("");
-    const response = await retrySeriesEpisode(id, episodeId);
-    if (response.ok) navigate(`/videos/${response.data.video_id}/`); else { setDraftError(response.message); setReload(value => value + 1); }
-    setBusy(false);
+    try {
+      const response = await send();
+      if (!response.ok) throw new Error(response.message || "Could not prepare the episode.");
+      navigate(`/videos/${response.data.video_id}/`);
+    } catch (reason) {
+      setDraftError(reason.message);
+      setReload(value => value + 1);
+    } finally { setBusy(false); }
   };
+  const draft = event => {
+    event.preventDefault();
+    if (!editing && idea.trim()) startEpisode(() => draftSeriesEpisode(id, idea.trim()));
+  };
+  const retry = episodeId => startEpisode(() => retrySeriesEpisode(id, episodeId));
   const saveMemory = useCallback(async (episodeId, summary, previousSummary) => {
     const response = await saveEpisodeMemory(id, episodeId, summary, previousSummary);
     if (response.ok) setEpisodes(current => ({ ...current, results: current.results.map(row => row.id === episodeId ? response.data : row) }));
