@@ -22,3 +22,8 @@ describe("video library presentation", () => {
     expect(videoLibraryInfo({ ...failed, dir_name: "" }).canResume).toBe(false);
   });
 });
+
+
+it("sends failed exports to the editor rather than offering AI generation resume", () => {
+  expect(videoLibraryInfo({ status: "FAILED", video_type: "AI", gpt_answer: {}, dir_name: "media", render_error: { message: "Export failed" } }).canResume).toBe(false);
+});

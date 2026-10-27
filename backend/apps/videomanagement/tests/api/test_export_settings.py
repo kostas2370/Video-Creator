@@ -107,3 +107,29 @@ class ExportSettingsTests(ApiTestCase):
         self.assertEqual(video.status, "READY")
         self.assertEqual(video.settings["export_preset"], "HIGH")
         self.assertEqual(video.settings["export_fps"], 30)
+
+    def test_failed_export_can_be_retried_but_failed_generation_cannot(self):
+        for error, expected in (
+            ({"message": "Export failed", "reference": "ref"}, 202),
+            ({}, 409),
+        ):
+            with self.subTest(error=error):
+                video = self.video_for(status="FAILED", render_error=error)
+                with patch(
+                    "apps.videomanagement.tasks.render_video_task.delay"
+                ) as dispatch:
+                    response = self.client.patch(
+                        reverse("video-render-video", args=[video.pk])
+                    )
+                self.assertEqual(response.status_code, expected, response.data)
+                self.assertEqual(dispatch.called, expected == 202)
+
+    def test_only_exports_use_the_render_queue(self):
+        from video_creator.celery import app
+
+        render = app.amqp.router.route(
+            {}, "apps.videomanagement.tasks.render_video_task"
+        )
+        edit = app.amqp.router.route({}, "apps.videomanagement.tasks.update_scene_task")
+        self.assertEqual(render["queue"].name, "renders")
+        self.assertEqual(edit["queue"].name, "celery")

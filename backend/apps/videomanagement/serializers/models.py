@@ -126,6 +126,7 @@ VIDEO_RESPONSE_FIELDS = (
     "voice_model",
     "avatar",
     "status",
+    "render_error",
     "updated_at",
     "music",
     "intro",

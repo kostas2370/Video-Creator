@@ -67,7 +67,7 @@ export function RenderModal({
 
     patchItem({ status: "RENDERING", settings: response.data?.video?.settings });
     onPendingChange?.(false);
-    toast.info("Video now is on rendering status");
+    toast.info("Your video is queued for export.");
 
     watcherRef.current = waitForVideo(id, {
       onUpdate: (video) => patchItem({ status: video.status }),
@@ -85,12 +85,12 @@ export function RenderModal({
       return;
     }
 
-    patchItem({ status: video.status, output: video.output });
+    patchItem({ status: video.status, output: video.output, render_error: video.render_error });
 
     if (video.status === "COMPLETED") {
-      toast.success("Video now is completed");
+      toast.success("Your video export is ready.");
     } else {
-      toast.error("The render failed, probably you have to generate a new one");
+      toast.error(`${video.render_error?.message || "The export failed. Your project is saved. Retry the export from the editor."}${video.render_error?.reference ? ` Reference: ${video.render_error.reference}` : ""}`);
     }
 
     if (onFinished) onFinished(video);

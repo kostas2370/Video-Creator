@@ -2,7 +2,7 @@ import logging
 from contextlib import nullcontext
 from datetime import timedelta
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from celery import shared_task
 from django.conf import settings
@@ -10,6 +10,8 @@ from django.contrib.auth import get_user_model
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.utils import timezone
+
+from video_creator.observability import current_request_id
 
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations import tts as tts_utils
@@ -80,11 +82,19 @@ VOICE_IMPORTS = {
 }
 
 
-def _mark_failed(video_id: str | UUID) -> None:
+def _mark_failed(video_id: str | UUID, render_error=None) -> None:
     video = Video.objects.filter(pk=video_id).first()
     if video is None:
         return
 
+    if render_error is None and video.status == VideoStatus.RENDERING:
+        render_error = {
+            "message": "The export stopped before it finished. Retry the export; your scenes are saved.",
+            "reference": current_request_id() or uuid4().hex,
+        }
+    if render_error:
+        logger.error("Export failed for video %s. Reference: %s", video_id, render_error["reference"])
+    video.render_error = render_error or {}
     video.status = VideoStatus.FAILED
     video.save()
 
@@ -122,12 +132,18 @@ def resume_video_task(self, video_id: str | UUID):
 @shared_task(bind=True)
 def render_video_task(self, video_id: str | UUID):
     video = Video.objects.get(pk=video_id)
+    video.render_error = {}
+    video.save(update_fields=["render_error"])
 
     try:
         render.make_video(video)
     except Exception:
-        logger.exception("Render failed for video %s", video_id)
-        _mark_failed(video_id)
+        reference = current_request_id() or uuid4().hex
+        logger.exception("Render failed for video %s. Reference: %s", video_id, reference)
+        _mark_failed(video_id, render_error={
+            "message": "The export could not finish. Retry the export; your scenes and media are saved. If it fails again, share the reference with support.",
+            "reference": reference,
+        })
         raise
 
     logger.info("Render finished for video %s", video_id)

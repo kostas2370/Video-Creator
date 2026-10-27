@@ -93,6 +93,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
         provider = settings.get("provider")
         create_image_scene(
             video=video,
+            scene=scene,
             image=data["image_description"],
             text=scene.text,
             dir_name=video.dir_name,

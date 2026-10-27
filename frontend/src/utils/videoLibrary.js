@@ -18,7 +18,7 @@ export function videoLibraryInfo(video) {
       : video.status === "FAILED" ? "bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
       : "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
     processing,
-    canResume: video.status === "FAILED" && !manual && !!video.gpt_answer && !!video.dir_name,
+    canResume: video.status === "FAILED" && !video.render_error?.message && !manual && !!video.gpt_answer && !!video.dir_name,
     canDelete: !processing,
   };
 }
