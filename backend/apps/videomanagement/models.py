@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import IntegrityError, models, router, transaction
 from django.utils import timezone
+from django.utils.functional import cached_property
 from django_lifecycle import AFTER_UPDATE, LifecycleModelMixin, hook
 from django_lifecycle.conditions import WhenFieldValueChangesTo
 from django_resized import ResizedImageField
@@ -27,6 +28,7 @@ from .querysets import (
     VoiceModelQuerySet,
 )
 from .utils.file_utils import check_if_video, stored_file_exists
+from .utils.series_memory import video_script_snapshot
 from .utils.timing import file_timing
 from .video_formats import (
     DEFAULT_VIDEO_FORMAT,
@@ -720,6 +722,7 @@ class VideoSeries(AbstractModel, TimestampedModel):
 
 
 class SeriesEpisode(UUIDModel, TimestampedModel):
+    memory_source_hash = models.CharField(max_length=64, blank=True, default="")
     is_canon = models.BooleanField(default=False)
     series = models.ForeignKey(
         VideoSeries, on_delete=models.CASCADE, related_name="episodes"
@@ -736,6 +739,22 @@ class SeriesEpisode(UUIDModel, TimestampedModel):
     summary = models.TextField(max_length=800, blank=True)
     profile_snapshot = models.JSONField(default=dict)
     generation_params = models.JSONField(default=dict)
+
+    @cached_property
+    def script_snapshot(self):
+        return video_script_snapshot(self.video) if self.video_id else None
+
+    @property
+    def script_hash(self):
+        return self.script_snapshot["hash"] if self.script_snapshot else self.memory_source_hash
+
+    @property
+    def memory_needs_review(self):
+        return bool(self.video_id and self.summary and self.script_hash != self.memory_source_hash)
+
+    @property
+    def can_update_memory(self):
+        return bool(self.script_snapshot and self.script_snapshot["entries"] and self.video.status != VideoStatus.GENERATION)
 
     @property
     def can_retry(self):

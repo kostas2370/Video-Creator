@@ -1,4 +1,4 @@
-from django.db.models import Count
+from django.db.models import Count, OuterRef, Subquery
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -8,10 +8,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.models import VideoSeries
+from apps.videomanagement.models import SeriesEpisode, VideoSeries
 from apps.videomanagement.paginator import AssetResultsPagination
 from apps.videomanagement.serializers.series import (
     EpisodeDraftSerializer,
+    EpisodeMemoryDraftSerializer,
     EpisodeMemorySerializer,
     SeriesEpisodeSerializer,
     VideoSeriesSerializer,
@@ -19,10 +20,14 @@ from apps.videomanagement.serializers.series import (
 )
 from apps.videomanagement.services.videos.series import (
     draft_episode,
+    draft_episode_memory,
     retry_episode,
     update_episode_memory,
 )
-from apps.videomanagement.throttling import GenerateRateThrottle
+from apps.videomanagement.throttling import (
+    GenerateRateThrottle,
+    SeriesMemoryRateThrottle,
+)
 
 
 class VideoSeriesView(viewsets.ModelViewSet):
@@ -37,9 +42,17 @@ class VideoSeriesView(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return VideoSeries.objects.none()
+        active = SeriesEpisode.objects.filter(
+            series_id=OuterRef("pk"), video__status__in=("GENERATION", "REVIEW")
+        ).order_by("-number")
         return (
             VideoSeries.objects.filter(created_by=self.request.user)
-            .annotate(episode_count=Count("episodes"))
+            .annotate(
+                episode_count=Count("episodes"),
+                active_episode_id=Subquery(active.values("id")[:1]),
+                active_video_id=Subquery(active.values("video_id")[:1]),
+                active_episode_number=Subquery(active.values("number")[:1]),
+            )
             .order_by("-updated_at", "id")
         )
 
@@ -47,6 +60,8 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
     def get_throttles(self):
+        if self.action == "draft_memory":
+            return [SeriesMemoryRateThrottle()]
         if self.request.method == "POST" and self.action in ("episodes", "retry"):
             return [GenerateRateThrottle()]
         return super().get_throttles()
@@ -64,7 +79,11 @@ class VideoSeriesView(viewsets.ModelViewSet):
                 series, owner=request.user, **serializer.validated_data
             )
             return Response(SeriesEpisodeSerializer(episode).data, status=202)
-        rows = series.episodes.select_related("video").all()
+        rows = (
+            series.episodes.select_related("video")
+            .prefetch_related("video__scenes__scene_images")
+            .all()
+        )
         page = self.paginate_queryset(rows)
         return self.get_paginated_response(
             SeriesEpisodeSerializer(page, many=True).data
@@ -75,13 +94,17 @@ class VideoSeriesView(viewsets.ModelViewSet):
     )
     def memory(self, request, pk=None, episode_id=None):
         episode = get_object_or_404(
-            self.get_object().episodes.select_related("video"), pk=episode_id
+            self.get_object()
+            .episodes.select_related("video")
+            .prefetch_related("video__scenes__scene_images"),
+            pk=episode_id,
         )
         serializer = EpisodeMemorySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         episode = update_episode_memory(
             episode,
             summary=serializer.validated_data["summary"],
+            script_hash=serializer.validated_data.get("script_hash"),
             previous_summary=serializer.validated_data.get(
                 "previous_summary", episode.summary
             ),
@@ -95,7 +118,10 @@ class VideoSeriesView(viewsets.ModelViewSet):
     )
     def retry(self, request, pk=None, episode_id=None):
         episode = get_object_or_404(
-            self.get_object().episodes.select_related("video"), pk=episode_id
+            self.get_object()
+            .episodes.select_related("video")
+            .prefetch_related("video__scenes__scene_images"),
+            pk=episode_id,
         )
         if episode.video_id is None:
             raise ValidationError(
@@ -110,3 +136,23 @@ class VideoSeriesView(viewsets.ModelViewSet):
         )
         episode = retry_episode(episode, generation_params=params, owner=request.user)
         return Response(SeriesEpisodeSerializer(episode).data, status=202)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"episodes/(?P<episode_id>[0-9a-f-]+)/draft_memory",
+    )
+    def draft_memory(self, request, pk=None, episode_id=None):
+        episode = get_object_or_404(
+            self.get_object()
+            .episodes.select_related("video")
+            .prefetch_related("video__scenes__scene_images"),
+            pk=episode_id,
+        )
+        serializer = EpisodeMemoryDraftSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            draft_episode_memory(
+                episode, owner=request.user, **serializer.validated_data
+            )
+        )

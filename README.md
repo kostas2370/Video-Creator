@@ -355,12 +355,16 @@ and opens a normal video project. Review and edit its storyboard before approvin
 narration and visual generation. Each episode snapshots the saved series setup and
 copies its reference image, so profile edits apply to future episodes. Finish the
 current episode's review and media preparation before starting another episode.
+The workspace links to that active episode even when browsing older episode pages.
 
 The AI also drafts an episode memory of up to 800 characters. Open **Episode memory**
 in the series workspace to correct the events, discoveries and ending after editing
-the story. Once its media is prepared, that memory can guide later episodes. The
-latest ten nonempty memories from prepared episodes are included in new drafts;
-unapproved drafts are excluded. This is bounded story context, not guaranteed
+the story. Once its media is prepared, that memory can guide later episodes. A changed storyboard, dialogue or visual prompt marks its memory **Needs review**.
+Use **Update memory from current script** to draft an update with your existing
+corrections, then review and save it. You can undo the draft; generating it does not
+change saved memory. Manual review and save also clears the warning. Stale and
+unapproved memories are excluded from new drafts. Context considers the latest ten
+prepared episodes with nonempty memories. This is bounded story context, not guaranteed
 long-term recall or a check against every earlier episode. Memories remain in the
 series when an individual video is deleted. Deleting the series removes its setup
 and memories while preserving the videos in **My videos**.
@@ -371,5 +375,6 @@ storyboard exists, open the episode to review or resume it in the editor. Series
 drafting and retry share the existing generation allowance (two per hour, with the
 existing superuser exemption). Normal generation, export and provider costs apply.
 
-Apply migration `0047_video_series` and restart the API and general worker before
-using Series mode. This feature builds on `0046_scene_identity_and_render_error`.
+Apply migrations through `0048_episode_memory_source` and restart the API and general
+worker before using Series mode. Existing memories without a recorded script version
+need one review and save. This feature builds on `0046_scene_identity_and_render_error`.

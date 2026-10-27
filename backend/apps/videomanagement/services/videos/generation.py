@@ -29,6 +29,7 @@ from apps.videomanagement.services.scenes.narration import (
 from apps.videomanagement.services.scenes.visuals import create_image_scenes
 from apps.videomanagement.utils.file_utils import generate_directory
 from apps.videomanagement.utils.prompt_utils import build_script_prompt
+from apps.videomanagement.utils.series_memory import storyboard_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +271,8 @@ def generate_video(
             )
             if new_script and isinstance(x.get("episode_summary"), str):
                 SeriesEpisode.objects.filter(pk=episode.pk, summary="").update(
-                    summary=x["episode_summary"].strip()[:800]
+                    summary=x["episode_summary"].strip()[:800],
+                    memory_source_hash=storyboard_snapshot(x)["hash"],
                 )
     if has_reference:
         vid.settings["reference_role"] = reference_role

@@ -11,7 +11,14 @@ from django.utils import timezone
 from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.baker_recipes import intro, outro, video, voice_model
+from apps.videomanagement.baker_recipes import (
+    intro,
+    outro,
+    scene,
+    scene_image,
+    video,
+    voice_model,
+)
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import SeriesEpisode, Video, VideoSeries
 from apps.videomanagement.serializers.series import (
@@ -49,7 +56,7 @@ class SeriesTests(ApiTestCase):
         sid = (series or self.series).pk
         if action == "list":
             return reverse("series-list")
-        if action in ("memory", "retry"):
+        if action in ("memory", "retry", "draft-memory"):
             return reverse(
                 f"series-{action}", kwargs={"pk": sid, "episode_id": episode.pk}
             )
@@ -66,7 +73,7 @@ class SeriesTests(ApiTestCase):
         project = video.make(
             created_by=self.user, status=status, settings={"creation_mode": "SERIES"}
         )
-        return SeriesEpisode.objects.create(
+        episode = SeriesEpisode.objects.create(
             series=self.series,
             video=project,
             number=number,
@@ -74,6 +81,9 @@ class SeriesTests(ApiTestCase):
             summary=summary,
             is_canon=is_canon,
         )
+        episode.memory_source_hash = episode.script_hash
+        episode.save(update_fields=["memory_source_hash"])
+        return episode
 
     def test_profile_creation_validation_and_owner_scope(self):
         other = VideoSeries.objects.create(
@@ -460,3 +470,169 @@ class SeriesTests(ApiTestCase):
             self.assertEqual(response.status_code, 200, response.data)
         episode.refresh_from_db()
         self.assertEqual(episode.summary, "New memory")
+
+    def test_active_episode_is_available_outside_visible_page(self):
+        active = self.episode(number=1, status="REVIEW")
+        for number in range(2, 27):
+            self.episode(number=number)
+        profile = self.client.get(self.url()).data
+        self.assertEqual(str(profile["active_episode"]["id"]), str(active.pk))
+        self.assertEqual(
+            str(profile["active_episode"]["video_id"]), str(active.video_id)
+        )
+        rows = self.client.get(self.url("episodes")).data["results"]
+        self.assertNotIn(str(active.pk), [row["id"] for row in rows])
+        active.video.status = "READY"
+        active.video.save(update_fields=["status"])
+        self.assertIsNone(self.client.get(self.url()).data["active_episode"])
+
+    def test_memory_requires_review_after_story_edit_and_rejects_stale_save(self):
+        episode = self.episode()
+        line = scene.make(video=episode.video, text="Milo found a lantern")
+        visual = scene_image.make(scene=line, prompt="Milo holding a lantern")
+        episode.__dict__.pop("script_snapshot", None)
+        episode.memory_source_hash = episode.script_hash
+        episode.save(update_fields=["memory_source_hash"])
+        old_hash = episode.script_hash
+        line.text = "Milo lost his lantern"
+        line.save(update_fields=["text"])
+        response = self.client.get(self.url("episodes"))
+        row = response.data["results"][0]
+        self.assertTrue(row["memory_needs_review"])
+        self.assertTrue(row["can_update_memory"])
+        url = self.url("memory", episode=episode)
+        stale = self.client.patch(
+            url,
+            {"summary": "Milo lost a lantern", "script_hash": old_hash},
+            format="json",
+        )
+        self.assertEqual(stale.status_code, 409)
+        saved = self.client.patch(
+            url,
+            {"summary": "Milo lost a lantern", "script_hash": row["script_hash"]},
+            format="json",
+        )
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertFalse(saved.data["memory_needs_review"])
+        visual.prompt = "Milo looking for his lantern"
+        visual.save(update_fields=["prompt"])
+        self.assertTrue(
+            self.client.get(self.url("episodes")).data["results"][0][
+                "memory_needs_review"
+            ]
+        )
+
+    @patch(
+        "apps.videomanagement.services.videos.series.get_update_sentence",
+        return_value="Milo found a blue lantern.",
+    )
+    def test_memory_update_is_an_unsaved_draft_and_includes_manual_corrections(
+        self, ai
+    ):
+        episode = self.episode(summary="Manual facts")
+        scene.make(video=episode.video, text="Milo found a lantern")
+        response = self.client.post(
+            self.url("draft-memory", episode=episode),
+            {"summary": "The lantern was blue"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["summary"], "Milo found a blue lantern.")
+        self.assertIn("The lantern was blue", ai.call_args.args[0])
+        self.assertIn("Milo found a lantern", ai.call_args.args[0])
+        episode.refresh_from_db()
+        self.assertEqual(episode.summary, "Manual facts")
+        episode.__dict__.pop("script_snapshot", None)
+        self.assertEqual(response.data["script_hash"], episode.script_hash)
+
+    @patch(
+        "apps.videomanagement.services.videos.series.get_update_sentence",
+        return_value="",
+    )
+    def test_invalid_memory_draft_preserves_saved_memory(self, ai):
+        episode = self.episode()
+        scene.make(video=episode.video)
+        response = self.client.post(
+            self.url("draft-memory", episode=episode), {}, format="json"
+        )
+        self.assertEqual(response.status_code, 500)
+        episode.refresh_from_db()
+        self.assertEqual(episode.summary, "Milo built a lantern")
+
+    @patch("apps.videomanagement.services.videos.series.get_update_sentence")
+    def test_memory_update_rejects_changes_during_generation(self, ai):
+        episode = self.episode()
+        line = scene.make(video=episode.video, text="Before")
+
+        def change_script(*args, **kwargs):
+            line.text = "After"
+            line.save(update_fields=["text"])
+            return "Before summary"
+
+        ai.side_effect = change_script
+        response = self.client.post(
+            self.url("draft-memory", episode=episode), {}, format="json"
+        )
+        self.assertEqual(response.status_code, 409)
+        episode.refresh_from_db()
+        self.assertEqual(episode.summary, "Milo built a lantern")
+
+    def test_unreviewed_memory_is_excluded_from_new_episode_context(self):
+        episode = self.episode()
+        scene.make(video=episode.video, text="A changed story")
+        response = self.draft()
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertNotIn(
+            "Milo built a lantern", self.queue.call_args.kwargs["series_context"]
+        )
+
+    def test_storyboard_and_generated_rows_share_memory_fingerprint(self):
+        episode = self.episode(status="REVIEW")
+        episode.video.gpt_answer = {
+            "scenes": [
+                {
+                    "sentences": [
+                        {
+                            "sentence": "Milo found a lantern",
+                            "image_description": "A blue lantern",
+                        }
+                    ]
+                }
+            ]
+        }
+        episode.video.save(update_fields=["gpt_answer"])
+        episode.__dict__.pop("script_snapshot", None)
+        original = episode.script_hash
+        episode.memory_source_hash = original
+        episode.save(update_fields=["memory_source_hash"])
+        line = scene.make(video=episode.video, text="Milo found a lantern")
+        scene_image.make(scene=line, prompt="A blue lantern")
+        episode.video.status = "READY"
+        episode.video.save(update_fields=["status"])
+        episode = SeriesEpisode.objects.select_related("video").get(pk=episode.pk)
+        self.assertEqual(episode.script_hash, original)
+        self.assertFalse(episode.memory_needs_review)
+        line.motion_style = "NONE"
+        line.pause_after = 2
+        line.save(update_fields=["motion_style", "pause_after"])
+        self.assertFalse(SeriesEpisode.objects.get(pk=episode.pk).memory_needs_review)
+        line.archived_at = timezone.now()
+        line.save(update_fields=["archived_at"])
+        self.assertTrue(SeriesEpisode.objects.get(pk=episode.pk).memory_needs_review)
+
+    @patch("apps.videomanagement.services.videos.series.get_update_sentence")
+    def test_memory_update_is_owner_scoped_and_requires_current_script(self, ai):
+        episode = self.episode()
+        other = VideoSeries.objects.create(
+            created_by=user.make(), title="Other", premise="Private", visual_style="Ink"
+        )
+        response = self.client.post(
+            self.url("draft-memory", series=other, episode=episode), {}, format="json"
+        )
+        self.assertEqual(response.status_code, 404)
+        episode.video.delete()
+        response = self.client.post(
+            self.url("draft-memory", episode=episode), {}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        ai.assert_not_called()

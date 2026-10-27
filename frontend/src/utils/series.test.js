@@ -41,3 +41,11 @@ describe("episode memory draft synchronization", () => {
     for (const type of ["saved", "load"]) expect(episodeMemoryReducer({ draft: "Draft", baseline: "Old" }, { type, value: "Saved" })).toEqual({ draft: "Saved", baseline: "Saved" });
   });
 });
+
+it("keeps the reviewed script and saved conflict baseline when generating a memory draft", () => {
+  const state = { draft: "Manual correction", baseline: "Saved", sourceHash: "old" };
+  const generated = episodeMemoryReducer(state, { type: "generated", value: "Updated", sourceHash: "new" });
+  expect(generated).toEqual({ draft: "Updated", baseline: "Saved", sourceHash: "new" });
+  expect(episodeMemoryReducer(generated, { type: "remote", value: "Other", sourceHash: "later" })).toEqual(generated);
+  expect(episodeMemoryReducer(generated, { type: "generated", value: state.draft, sourceHash: state.sourceHash })).toEqual(state);
+});

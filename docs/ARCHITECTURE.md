@@ -691,7 +691,14 @@ LLM correction/retry path. The initial worker saves that memory and leaves the v
 in `REVIEW`. Approval preserves the same parameters and reference, then uses normal
 scene generation. A series video's transition to `READY`/`COMPLETED` marks its episode
 as eligible history. Users can correct summaries; subsequent worker runs preserve
-existing nonempty memory. Story edits do not automatically rewrite summaries.
+existing nonempty memory. Story edits do not automatically rewrite summaries. `memory_source_hash` records a
+stable fingerprint of ordered dialogue and visual prompts. A mismatch marks memory
+as needing review and excludes it from new draft context. Older memories without a
+fingerprint require review once. Deleted videos retain their saved memory.
+`draft_memory` proposes a replacement using current script and existing user text,
+without persisting it; the client offers undo and explicit save. It has a separate
+15/hour allowance. Save compares the script fingerprint as well as the prior summary;
+script changes during an AI update or before saving return a conflict.
 
 `GET /api/series/` and `/episodes/` are paginated. Profiles and nested episodes are
 strictly owner-scoped, including for superusers. `PATCH /api/series/{id}/episodes/{id}/`
@@ -703,6 +710,9 @@ videos can still finish from their snapshotted parameters if the series is remov
 The video library has a `SERIES` creation-mode filter, and editor metadata links an
 episode back to its workspace. No additional queue, provider or subscription is added.
 
-Apply migration `0047_video_series` before restarting the API and workers. Provider
+Apply migrations through `0048_episode_memory_source` before restarting the API and workers. Provider
 calls were exercised through mocks in automated tests; appearance consistency and
 story quality still require representative real-provider trials.
+
+The series profile exposes its active episode using subqueries independent of episode
+pagination, so every workspace page can link to the pending review/preparation.

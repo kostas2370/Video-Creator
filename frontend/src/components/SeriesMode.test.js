@@ -30,3 +30,10 @@ describe("series workspace", () => {
     expect(review).not.toContain("Retry draft");
   });
 });
+
+it("marks changed stories for review and offers an explicit memory draft", () => {
+  const html = renderToStaticMarkup(<MemoryRouter><EpisodeCard episode={{ id: "ep", number: 2, summary: "Previous events", video_id: "vid", status: "READY", is_canon: true, memory_needs_review: true, can_update_memory: true }} /></MemoryRouter>);
+  expect(html).toContain("Needs review");
+  expect(html).toContain("Update memory from current script");
+  expect(html).toContain("Review the draft before saving");
+});

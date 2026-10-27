@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from rest_framework import serializers
 
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
@@ -10,6 +12,17 @@ from .requests import GenerateSerializer
 
 class VideoSeriesSerializer(serializers.ModelSerializer):
     episode_count = serializers.IntegerField(read_only=True)
+    active_episode = serializers.SerializerMethodField()
+
+    def get_active_episode(self, series):
+        if not getattr(series, "active_episode_id", None):
+            return None
+        return {
+            "id": str(UUID(str(series.active_episode_id))),
+            "video_id": str(UUID(str(series.active_video_id))),
+            "number": series.active_episode_number,
+        }
+
     voice_model = serializers.UUIDField(
         source="voice_model_id", required=False, allow_null=True
     )
@@ -39,6 +52,7 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
             "platform",
             "scene_count",
             "episode_count",
+            "active_episode",
             "created_at",
             "updated_at",
         )
@@ -149,7 +163,14 @@ class EpisodeDraftSerializer(serializers.Serializer):
         return attrs
 
 
+class EpisodeMemoryDraftSerializer(serializers.Serializer):
+    summary = serializers.CharField(max_length=800, allow_blank=True, required=False)
+
+
 class EpisodeMemorySerializer(serializers.Serializer):
+    script_hash = serializers.RegexField(
+        r"^[0-9a-f]{64}$", required=False, allow_blank=True
+    )
     previous_summary = serializers.CharField(
         max_length=800, allow_blank=True, required=False, trim_whitespace=False
     )
@@ -163,6 +184,9 @@ class SeriesEpisodeSerializer(serializers.ModelSerializer):
     )
     status = serializers.CharField(source="video.status", read_only=True, default=None)
     can_retry = serializers.BooleanField(read_only=True)
+    script_hash = serializers.CharField(read_only=True)
+    memory_needs_review = serializers.BooleanField(read_only=True)
+    can_update_memory = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = SeriesEpisode
@@ -175,6 +199,9 @@ class SeriesEpisodeSerializer(serializers.ModelSerializer):
             "video_title",
             "status",
             "can_retry",
+            "script_hash",
+            "memory_needs_review",
+            "can_update_memory",
             "is_canon",
             "created_at",
         )

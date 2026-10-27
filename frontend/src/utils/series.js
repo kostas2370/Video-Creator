@@ -20,12 +20,13 @@ export function seriesPayload(profile, file, removeReference = false) {
 
 export function episodeMemoryReducer(state, action) {
   switch (action.type) {
+    case "generated": return { ...state, draft: action.value, sourceHash: action.sourceHash };
     case "edit": return { ...state, draft: action.value };
     case "remote":
       if (state.draft !== state.baseline) return state;
-      return { draft: action.value, baseline: action.value };
+      return { ...state, draft: action.value, baseline: action.value, ...(action.sourceHash !== undefined ? { sourceHash: action.sourceHash } : {}) };
     case "saved":
-    case "load": return { draft: action.value, baseline: action.value };
+    case "load": return { ...state, draft: action.value, baseline: action.value, ...(action.sourceHash !== undefined ? { sourceHash: action.sourceHash } : {}) };
     default: return state;
   }
 }
