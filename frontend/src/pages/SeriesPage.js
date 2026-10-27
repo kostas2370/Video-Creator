@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { HiOutlineArrowRight, HiOutlinePlus, HiOutlineSparkles, HiOutlineBookOpen } from "react-icons/hi2";
-import { episodeMemoryReducer } from "../utils/series";
+import { HiOutlinePlus, HiOutlineBookOpen } from "react-icons/hi2";
+import { EpisodeCard } from "../components/SeriesEpisodeCard";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
+import { EpisodeComposer, SeriesLibraryCard, SeriesOverview } from "../components/SeriesWorkspacePanels";
 import { SeriesProfileForm } from "../components/SeriesProfileForm";
 import { AssetPagination } from "../components/ui/AssetPagination";
-import { editorButton, editorInput } from "../components/ui/EditorDialog";
+import { editorButton } from "../components/ui/EditorDialog";
 import { createSeries, getSeries, getSeriesProfile, updateSeries, deleteSeries, getSeriesEpisodes, draftSeriesEpisode, saveEpisodeMemory, draftEpisodeMemory, retrySeriesEpisode } from "../api/apiService";
+
+export { EpisodeCard } from "../components/SeriesEpisodeCard";
 
 const panel = "rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 dark:border-gray-700 dark:bg-gray-800";
 const textButton = "rounded-lg px-2 py-2 text-sm font-semibold text-blue-600 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300";
-const statusNames = { GENERATION: "Preparing episode", REVIEW: "Review storyboard", READY: "Ready to edit", COMPLETED: "Export available", RENDERING: "Exporting", FAILED: "Needs attention" };
 
 export function SeriesHeader() {
-  return <header className="mb-8 max-w-2xl"><span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-300"><HiOutlineBookOpen aria-hidden="true" />Series mode</span><h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">A familiar world. A new story.</h1><p className="mt-3 leading-relaxed text-gray-500 dark:text-gray-400">Keep your cast, visual style and narrator together. Give each episode a new idea, with memory of the stories that came before.</p></header>;
+  return <header className="mb-8 rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6 sm:p-9 dark:border-indigo-900 dark:from-indigo-900/40 dark:via-gray-800 dark:to-purple-900/30"><span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-300"><HiOutlineBookOpen aria-hidden="true" />Series mode</span><h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">A familiar world. A new story.</h1><p className="mt-3 max-w-2xl leading-relaxed text-gray-500 dark:text-gray-400">Keep your cast, visual style and narrator together. Give each episode a new idea, with memory of the stories that came before.</p></header>;
 }
 
 function SeriesLibrary() {
@@ -47,58 +49,15 @@ function SeriesLibrary() {
     <SeriesHeader />
     {creating ? <SeriesProfileForm busy={busy} error={formError} onSave={save} onCancel={() => setCreating(false)} /> : <>
       <div className="mb-5 flex items-center justify-between gap-4"><h2 className="text-xl font-bold">Your series</h2><button type="button" onClick={() => { setFormError(""); setCreating(true); }} className={`${editorButton} inline-flex items-center gap-2`}><HiOutlinePlus aria-hidden="true" />New series</button></div>
-      {loading && <p role="status" className="py-8 text-sm text-gray-500">Loading series…</p>}
+      {loading && <div role="status" aria-label="Loading series" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{[1, 2, 3].map(item => <div key={item} className="h-72 animate-pulse rounded-2xl bg-gray-100 motion-reduce:animate-none dark:bg-gray-800" />)}</div>}
       {error && <div role="alert" className={panel}><p className="text-red-600 dark:text-red-300">{error}</p><button type="button" onClick={() => setReload(value => value + 1)} className={textButton}>Try again</button></div>}
       {!loading && !error && data?.results?.length === 0 && <div className={`${panel} border-dashed py-12 text-center`}><HiOutlineBookOpen aria-hidden="true" className="mx-auto h-10 w-10 text-indigo-400" /><h3 className="mt-4 text-lg font-semibold">Build a series they recognize</h3><p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-gray-500 dark:text-gray-400">Create a recurring cast, a branded explainer series or a world with a new story every episode. Save your setup, then start episode one.</p><button type="button" onClick={() => setCreating(true)} className={`${textButton} mt-3`}>Create your first series →</button></div>}
-      {!loading && !error && <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{data?.results?.map(series => <Link key={series.id} to={`/series/${series.id}/`} className={`${panel} group transition hover:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-500`}><span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">{series.episode_count || 0} episodes</span><h3 className="mt-4 text-lg font-bold">{series.title}</h3><p className="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{series.premise}</p><span className="mt-5 flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300">Open series<HiOutlineArrowRight aria-hidden="true" /></span></Link>)}</div>}
-      <AssetPagination pagination={data} loading={loading} onPage={setPage} />
+      {!loading && !error && <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{data?.results?.map(series => <SeriesLibraryCard key={series.id} series={series} />)}</div>}
+      {!loading && <AssetPagination pagination={data} loading={loading} onPage={setPage} />}
     </>}
   </>;
 }
 
-export function EpisodeCard({ episode, onMemorySave, onMemoryDraft, onRetry, disabled }) {
-  const [{ draft: memory, baseline, sourceHash }, updateMemory] = useReducer(episodeMemoryReducer, {
-    draft: episode.summary || "", baseline: episode.summary || "", sourceHash: episode.script_hash || "",
-  });
-  const dirty = memory !== baseline;
-  const [generating, setGenerating] = useState(false);
-  const [previousDraft, setPreviousDraft] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
-  useEffect(() => { updateMemory({ type: "remote", value: episode.summary || "", sourceHash: episode.script_hash || "" }); }, [episode.summary, episode.script_hash]);
-  const save = async () => {
-    if (saving || generating || disabled || (!dirty && !episode.memory_needs_review)) return;
-    setSaving(true); setError(""); setSaved(false);
-    try {
-      const response = await onMemorySave(episode.id, memory, baseline, sourceHash);
-      if (!response.ok) throw new Error(response.message || "Could not save episode memory.");
-      updateMemory({ type: "saved", value: response.data.summary, sourceHash: response.data.script_hash });
-      setPreviousDraft(null);
-      setSaved(true);
-    } catch (reason) { setError(reason.message); }
-    finally { setSaving(false); }
-  };
-  const generateMemory = async () => {
-    if (saving || generating || disabled) return;
-    setGenerating(true); setError(""); setSaved(false);
-    try {
-      const response = await onMemoryDraft(episode.id, memory);
-      if (!response.ok) throw new Error(response.message || "Could not update episode memory.");
-      setPreviousDraft({ value: memory, sourceHash });
-      updateMemory({ type: "generated", value: response.data.summary, sourceHash: response.data.script_hash });
-    } catch (reason) { setError(reason.message); }
-    finally { setGenerating(false); }
-  };
-  return <article className={panel}>
-    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">Episode {episode.number}</p><h3 className="mt-1 break-words font-semibold">{episode.video_title || episode.idea}</h3></div><span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-200">{episode.video_id ? statusNames[episode.status] || "Project saved" : "Video removed · memory kept"}</span></div>
-    <p className="mt-3 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{episode.idea}</p>
-    <div className="mt-3 flex flex-wrap gap-3">{episode.video_id && <Link to={`/videos/${episode.video_id}/`} className={textButton}>{episode.status === "REVIEW" ? "Review storyboard" : "Open episode"} →</Link>}{episode.can_retry && <button type="button" disabled={disabled} onClick={() => onRetry(episode.id)} className={textButton}>Retry draft</button>}</div>
-    <details className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"><summary className="cursor-pointer text-sm font-semibold">Episode memory <span className="ml-1 font-normal text-gray-500">{episode.memory_needs_review ? "Needs review" : episode.is_canon ? "Used by future episodes" : "Draft"}</span></summary>{episode.memory_needs_review && <p role="status" className="mt-3 text-xs text-amber-700 dark:text-amber-300">The story changed. Review and save its memory before future episodes use it.</p>}<label className="mt-3 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">Keep the concrete events, discoveries and ending. Future stories use reviewed memories from the latest ten prepared episodes.
-      <textarea maxLength={800} rows={4} value={memory} disabled={saving || generating || disabled} onChange={event => { updateMemory({ type: "edit", value: event.target.value }); setSaved(false); }} className={`${editorInput} mt-2`} aria-label={`Memory for episode ${episode.number}`} />
-    </label>{dirty && (baseline !== episode.summary || sourceHash !== episode.script_hash) && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Saved memory or script changed. Your draft is kept. <button type="button" disabled={saving || generating || disabled} onClick={() => { updateMemory({ type: "load", value: episode.summary || "", sourceHash: episode.script_hash || "" }); setError(""); setSaved(false); }} className={textButton}>Load saved memory</button></p>}<div className="mt-3 flex flex-wrap gap-2">{episode.can_update_memory && <button type="button" disabled={saving || generating || disabled} onClick={generateMemory} className={textButton}>{generating ? "Updating memory…" : "Update memory from current script"}</button>}{previousDraft && <button type="button" disabled={saving || generating || disabled} onClick={() => { updateMemory({ type: "generated", ...previousDraft }); setPreviousDraft(null); }} className={textButton}>Undo memory update</button>}</div>{episode.can_update_memory && <p className="text-xs text-gray-500">Uses your AI text provider. Review the draft before saving; your current corrections are included.</p>}<div className="mt-2 flex items-center justify-between text-xs text-gray-500"><span>{memory.length}/800</span><button type="button" disabled={saving || generating || disabled || (!dirty && !episode.memory_needs_review)} onClick={save} className={textButton}>{saving ? "Saving…" : "Save memory"}</button></div>{saved && <p role="status" className="text-xs text-green-700 dark:text-green-300">Episode memory saved.</p>}{error && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-300">{error}</p>}</details>
-  </article>;
-}
 
 function SeriesWorkspace({ id }) {
   const navigate = useNavigate();
@@ -144,7 +103,7 @@ function SeriesWorkspace({ id }) {
   };
   const draft = event => {
     event.preventDefault();
-    if (!editing && idea.trim()) startEpisode(() => draftSeriesEpisode(id, idea.trim()));
+    if (!editing && !loading && !profile?.active_episode && idea.trim()) startEpisode(() => draftSeriesEpisode(id, idea.trim()));
   };
   const retry = episodeId => startEpisode(() => retrySeriesEpisode(id, episodeId));
   const saveMemory = useCallback(async (episodeId, summary, previousSummary, scriptHash) => {
@@ -160,21 +119,20 @@ function SeriesWorkspace({ id }) {
     setBusy(false);
   };
   if (loading && !profile) return <p role="status" className="py-12 text-sm text-gray-500">Loading your series…</p>;
-  if (error) return <div className={panel}><p role="alert" className="text-red-600 dark:text-red-300">{error}</p><button type="button" onClick={() => setReload(value => value + 1)} className={textButton}>Try again</button><Link to="/series/" className={textButton}>All series</Link></div>;
+  if (error && !profile) return <div className={panel}><p role="alert" className="text-red-600 dark:text-red-300">{error}</p><button type="button" onClick={() => setReload(value => value + 1)} className={textButton}>Try again</button><Link to="/series/" className={textButton}>All series</Link></div>;
   if (!profile) return null;
-  const activeEpisode = profile.active_episode;
-  const pending = !!activeEpisode;
   return <>
     <Link to="/series/" className={textButton}>← All series</Link>
     <header className="mb-7 mt-4 flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-300">Series workspace</p><h1 className="mt-2 break-words text-3xl font-bold">{profile.title}</h1><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{profile.episode_count || 0} episodes · One cast, one style, new stories</p></div><button type="button" disabled={busy} onClick={() => { setEditing(value => !value); setFormError(""); }} className={textButton}>{editing ? "Close setup" : "Edit series setup"}</button></header>
+    {error && <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200"><p>{error} Your current work is kept.</p><button type="button" disabled={loading} onClick={() => setReload(value => value + 1)} className={textButton}>Try again</button></div>}
     {editing && <div className="mb-7"><SeriesProfileForm initial={profile} busy={busy} error={formError} onSave={saveProfile} onCancel={() => setEditing(false)} /><div className="mt-3 text-right"><button type="button" disabled={busy} onClick={remove} className="rounded-lg px-3 py-2 text-sm text-red-600 disabled:opacity-40 dark:text-red-300">Delete series</button></div></div>}
-    <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <section className="min-w-0"><form onSubmit={draft} className={`${panel} mb-7 border-indigo-200 dark:border-indigo-800`}><h2 className="flex items-center gap-2 text-xl font-bold"><HiOutlineSparkles aria-hidden="true" className="text-indigo-500" />Your next episode</h2><label className="mt-4 block text-sm font-semibold">What happens this time?<textarea required maxLength={2000} rows={4} disabled={busy || editing} value={idea} onChange={event => setIdea(event.target.value)} placeholder="Milo wonders why his shadow gets longer in the evening. He tries an experiment with a lantern…" className={`${editorInput} mt-2`} /></label><p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Uses your saved setup and reviewed memories from the latest ten prepared episodes. You’ll review the storyboard before generating any narration or visuals.</p>{editing && <p role="status" className="mt-3 text-sm text-amber-700 dark:text-amber-300">Save or close series setup before drafting.</p>}{pending && <p role="status" className="mt-3 text-sm text-amber-700 dark:text-amber-300">Finish reviewing and preparing your current episode first. <Link to={`/videos/${activeEpisode.video_id}/`} className={textButton}>Open episode {activeEpisode.number} →</Link></p>}{draftError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">{draftError}</p>}<button type="submit" disabled={busy || editing || pending || !idea.trim()} className={`${editorButton} mt-5`}>{busy ? "Preparing episode…" : "Draft next episode"}</button><p className="mt-2 text-xs text-gray-500">Drafting uses your AI text provider.</p></form>
+    <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <section className="min-w-0"><EpisodeComposer profile={profile} idea={idea} onIdeaChange={setIdea} onSubmit={draft} busy={busy} editing={editing} loading={loading} error={draftError} />
         <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">Episodes &amp; memory</h2><button type="button" disabled={loading || busy} onClick={() => setReload(value => value + 1)} className={textButton}>{loading ? "Refreshing…" : "Refresh"}</button></div>
         {episodes?.results?.length === 0 && <div className={`${panel} border-dashed text-sm leading-relaxed text-gray-500 dark:text-gray-400`}>Your series is ready for episode one. Each finished episode adds memory for the next story.</div>}
         <div className="space-y-4">{episodes?.results?.map(episode => <EpisodeCard key={episode.id} episode={episode} onMemorySave={saveMemory} onMemoryDraft={(episodeId, summary) => draftEpisodeMemory(id, episodeId, summary)} onRetry={retry} disabled={busy || loading} />)}</div><AssetPagination pagination={episodes} loading={loading || busy} onPage={setPage} />
       </section>
-      <aside className={`${panel} space-y-5 lg:sticky lg:top-6`}><div><h2 className="font-bold">The series bible</h2><p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-500 dark:text-gray-400">{profile.premise}</p></div>{profile.characters && <div><h3 className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Cast &amp; world</h3><p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-500 dark:text-gray-400">{profile.characters}</p></div>}<div><h3 className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Signature style</h3><p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-500 dark:text-gray-400">{profile.visual_style}</p></div><p className="border-t border-gray-100 pt-4 text-xs leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">Every episode keeps the setup it started with. Changing the series won’t rewrite earlier videos. Reference images help preserve appearances, but results can vary.</p></aside>
+      <SeriesOverview profile={profile} />
     </div>
   </>;
 }
