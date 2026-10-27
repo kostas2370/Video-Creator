@@ -7,7 +7,7 @@ from django_cleanup.signals import cleanup_pre_delete
 from apps.usermanagement.models import Notification
 
 from .events import publish_update
-from .models import MediaAsset, Scene, SceneImage, Video
+from .models import MediaAsset, Scene, SceneImage, SeriesEpisode, Video
 from .utils.composer.scene_cache import remove_project_cache
 
 
@@ -21,6 +21,8 @@ def remove_render_cache(sender, instance, using, **kwargs):
 @receiver(post_delete, sender=Video)
 def video_changed(sender, instance, using, **kwargs):
     if not kwargs.get("raw"):
+        if instance.status in ("READY", "COMPLETED") and (instance.settings or {}).get("creation_mode") == "SERIES":
+            SeriesEpisode.objects.filter(video=instance).update(is_canon=True)
         publish_update(f"video.{instance.pk}", video_id=instance.pk, using=using)
 
 

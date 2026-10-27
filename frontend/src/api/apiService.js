@@ -153,3 +153,13 @@ export const draftYouTubeDescription = (id, mode) => post(action("videos", id, "
 
 export const saveVideoDetails = (id, details, previousDetails) => patch(action("videos", id, "details"), { ...details, previous_details: previousDetails }, callerHandlesErrors);
 export const draftVideoTags = id => post(action("videos", id, "draft_tags"), {}, callerHandlesErrors);
+
+export const getSeries = (search, page = 1) => request({ url: "series/", params: { search: search || undefined, page }, ...callerHandlesErrors });
+export const getSeriesProfile = id => request({ url: detail("series", id), ...callerHandlesErrors });
+export const createSeries = data => post("series/", data, callerHandlesErrors);
+export const updateSeries = (id, data) => patch(detail("series", id), data, callerHandlesErrors);
+export const deleteSeries = id => remove(detail("series", id), callerHandlesErrors);
+export const getSeriesEpisodes = (id, page = 1) => request({ url: action("series", id, "episodes"), params: { page }, ...callerHandlesErrors });
+export const draftSeriesEpisode = (id, idea) => post(action("series", id, "episodes"), { idea }, callerHandlesErrors);
+export const saveEpisodeMemory = (seriesId, episodeId, summary, previousSummary) => patch(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/`, { summary, ...(previousSummary !== undefined ? { previous_summary: previousSummary } : {}) }, callerHandlesErrors);
+export const retrySeriesEpisode = (seriesId, episodeId) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/retry/`, {}, callerHandlesErrors);

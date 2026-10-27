@@ -64,6 +64,7 @@ class VideoFilter(filters.FilterSet):
             ("AI", "AI video"),
             ("MANUAL", "Manual edit"),
             ("STORY", "Story video"),
+            ("SERIES", "Series episode"),
         ],
         method="filter_creation_mode",
     )
@@ -77,12 +78,12 @@ class VideoFilter(filters.FilterSet):
         fields = ("status", "video_type", "creation_mode", "is_favorite")
 
     def filter_creation_mode(self, queryset, name, value):
-        if value == "STORY":
-            return queryset.filter(settings__creation_mode="STORY")
+        if value in ("STORY", "SERIES"):
+            return queryset.filter(settings__creation_mode=value)
         # Older projects may have null settings or no creation_mode key.
         return queryset.filter(video_type=VideoType(value)).filter(
             Q(settings__creation_mode__isnull=True)
-            | ~Q(settings__creation_mode="STORY")
+            | ~Q(settings__creation_mode__in=("STORY", "SERIES"))
         )
 
     def filter_ordering(self, queryset, name, value):

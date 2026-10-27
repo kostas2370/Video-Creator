@@ -14,6 +14,7 @@ from apps.videomanagement.models import (
     Avatar,
     Intro,
     Outro,
+    SeriesEpisode,
     UserPrompt,
     Video,
     VideoStatus,
@@ -125,6 +126,7 @@ def generate_video(
     ai_scene_editing: bool = False,
     visual_continuity: str = "",
     reference_role: str = "both",
+    series_context: str = "",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -208,6 +210,9 @@ def generate_video(
         reference_role=reference_role if has_reference else None,
     )
 
+    if series_context:
+        prompt += series_context
+
     if video.gpt_answer and video.dir_name:
         logger.info("Resuming video %s from the script it already has", video.id)
         x = video.gpt_answer
@@ -219,6 +224,7 @@ def generate_video(
             ai_scene_editing=ai_scene_editing,
             video_provider=video_provider,
             require_visual_continuity=image_mode == "AI",
+            **({"require_episode_summary": True} if series_context else {}),
             **({"reference_image": video.reference_image.path} if has_reference else {}),
         )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
@@ -253,6 +259,19 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if series_context:
+        vid.settings["creation_mode"] = "SERIES"
+        episode = SeriesEpisode.objects.filter(video=vid).first()
+        if episode:
+            vid.settings.update(
+                series_id=str(episode.series_id),
+                series_title=episode.profile_snapshot.get("title", "Series"),
+                episode_number=episode.number,
+            )
+            if new_script and isinstance(x.get("episode_summary"), str):
+                SeriesEpisode.objects.filter(pk=episode.pk, summary="").update(
+                    summary=x["episode_summary"].strip()[:800]
+                )
     if has_reference:
         vid.settings["reference_role"] = reference_role
     if visual_continuity:

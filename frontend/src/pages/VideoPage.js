@@ -282,6 +282,7 @@ export const Video = () => {
       /></DeferredDialog>
 
       <main className="editor-workspace mx-auto max-w-6xl px-4 py-5 sm:px-6">
+        {videoInfo?.settings?.series_id && <Link to={`/series/${videoInfo.settings.series_id}/`} className="mb-3 block text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-300">← {videoInfo.settings.series_title} · Episode {videoInfo.settings.episode_number}</Link>}
         <Link to="/videos/" className="text-sm font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400">← All videos</Link>
         <header className="mb-4 mt-3">
           <div className="min-w-0">

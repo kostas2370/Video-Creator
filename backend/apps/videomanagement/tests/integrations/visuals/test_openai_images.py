@@ -111,3 +111,102 @@ class GenerateOpenAIImageTests(SimpleTestCase):
                 "cat", f"{self.tmp.name}/", style="", reference=anchor.name
             )
         self.client.images.generate.assert_not_called()
+
+    @override_settings(
+        OPEN_API_KEY="key", IMAGE_MODEL="gpt-image-2", IMAGE_SIZE="1792x1024"
+    )
+    def test_scene_generation_uses_exact_project_aspect_ratios(self):
+        for frame, expected in (
+            ("PORTRAIT", "864x1536"),
+            ("LANDSCAPE", "1536x864"),
+            ("SQUARE", "1024x1024"),
+        ):
+            with self.subTest(frame=frame):
+                generate_openai_image(
+                    "a cat", f"{self.tmp.name}/", style="", video_format=frame
+                )
+                self.assertEqual(
+                    self.client.images.generate.call_args.kwargs["size"], expected
+                )
+
+    @override_settings(
+        OPEN_API_KEY="key", IMAGE_MODEL="gpt-image-2", IMAGE_SIZE="1792x1024"
+    )
+    def test_reference_edits_also_follow_the_project_frame(self):
+        self.client.images.edit.return_value.data = (
+            self.client.images.generate.return_value.data
+        )
+        with tempfile.NamedTemporaryFile(suffix=".png") as anchor:
+            for frame, expected in (
+                ("PORTRAIT", "864x1536"),
+                ("LANDSCAPE", "1536x864"),
+                ("SQUARE", "1024x1024"),
+            ):
+                with self.subTest(frame=frame):
+                    generate_openai_image(
+                        "a cat",
+                        f"{self.tmp.name}/",
+                        style="",
+                        reference=anchor.name,
+                        video_format=frame,
+                    )
+                    self.assertEqual(
+                        self.client.images.edit.call_args.kwargs["size"], expected
+                    )
+        self.client.images.generate.assert_not_called()
+
+    @override_settings(OPEN_API_KEY="key", IMAGE_SIZE="1792x1024")
+    def test_older_models_use_supported_sizes_in_both_request_paths(self):
+        self.client.images.edit.return_value.data = (
+            self.client.images.generate.return_value.data
+        )
+        for model in ("gpt-image-1", "gpt-image-1.5", "gpt-image-1-mini"):
+            with (
+                override_settings(IMAGE_MODEL=model),
+                tempfile.NamedTemporaryFile(suffix=".png") as anchor,
+            ):
+                for frame, expected in (
+                    ("PORTRAIT", "1024x1536"),
+                    ("LANDSCAPE", "1536x1024"),
+                    ("SQUARE", "1024x1024"),
+                ):
+                    with self.subTest(model=model, frame=frame):
+                        generate_openai_image(
+                            "a cat", f"{self.tmp.name}/", style="", video_format=frame
+                        )
+                        self.assertEqual(
+                            self.client.images.generate.call_args.kwargs["size"],
+                            expected,
+                        )
+                        generate_openai_image(
+                            "a cat",
+                            f"{self.tmp.name}/",
+                            style="",
+                            reference=anchor.name,
+                            video_format=frame,
+                        )
+                        self.assertEqual(
+                            self.client.images.edit.call_args.kwargs["size"], expected
+                        )
+
+    @override_settings(OPEN_API_KEY="key", IMAGE_MODEL="gpt-image-2-2026-04-21")
+    def test_pinned_model_snapshots_keep_exact_portrait_sizing(self):
+        generate_openai_image(
+            "a cat", f"{self.tmp.name}/", style="", video_format="PORTRAIT"
+        )
+        self.assertEqual(
+            self.client.images.generate.call_args.kwargs["size"], "864x1536"
+        )
+
+    @override_settings(
+        OPEN_API_KEY="key", IMAGE_MODEL="gpt-image-2", IMAGE_SIZE="1024x1024"
+    )
+    def test_standalone_and_unknown_format_requests_keep_configured_size(self):
+        for frame in (None, "UNKNOWN"):
+            with self.subTest(frame=frame):
+                generate_openai_image(
+                    "a cover", f"{self.tmp.name}/", style="", video_format=frame
+                )
+                self.assertEqual(
+                    self.client.images.generate.call_args.kwargs["size"], "1024x1024"
+                )

@@ -7,6 +7,8 @@ from .models import (
     Outro,
     Scene,
     SceneImage,
+    SeriesEpisode,
+    VideoSeries,
     TemplatePrompt,
     UserPrompt,
     Video,
@@ -40,3 +42,6 @@ admin.site.register(VoiceModel)
 admin.site.register(Intro)
 admin.site.register(Outro)
 admin.site.register(Avatar)
+
+admin.site.register(VideoSeries)
+admin.site.register(SeriesEpisode)

@@ -11,6 +11,7 @@ import { PageLoadBoundary } from "./components/PageLoadBoundary";
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const Login = lazy(() => import("./pages/LoginPage"));
 const Home = lazy(() => import("./pages/HomePage"));
+const SeriesPage = lazy(() => import("./pages/SeriesPage"));
 const CreatePage = lazy(() => import("./pages/CreatePage"));
 const Register = lazy(() => import("./pages/RegisterPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPasswordPage"));
@@ -77,6 +78,8 @@ function App() {
 
               <Route element={<RequireAuth />}>
                 <Route index element={<CreatePage />} />
+                <Route path="/series/" element={<SeriesPage />} />
+                <Route path="/series/:seriesId/" element={<SeriesPage />} />
                 <Route path="/ai/" element={<Home />} />
                 <Route path="/story/" element={<StoryVideo />} />
                 <Route path="/captions/" element={<Captions />} />

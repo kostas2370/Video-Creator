@@ -689,3 +689,58 @@ class MediaAsset(AbstractModel):
             upload.seek(0)
         asset._uploaded_file = asset.file
         return asset
+
+
+class VideoSeries(AbstractModel, TimestampedModel):
+    title = models.CharField(max_length=100)
+    premise = models.TextField(max_length=2000)
+    characters = models.TextField(max_length=2000, blank=True)
+    visual_style = models.TextField(max_length=800)
+    reference_image = models.ImageField(upload_to="media/series/%Y/%m/%d", blank=True)
+    voice_model = models.ForeignKey(
+        VoiceModel, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    intro = models.ForeignKey(Intro, null=True, blank=True, on_delete=models.SET_NULL)
+    outro = models.ForeignKey(Outro, null=True, blank=True, on_delete=models.SET_NULL)
+    provider = models.CharField(max_length=100, default="OPENAI")
+    narration = models.BooleanField(default=True)
+    subtitles = models.BooleanField(default=True)
+    video_format = models.CharField(
+        max_length=12, choices=VIDEO_FORMAT_CHOICES, default="PORTRAIT"
+    )
+    platform = models.CharField(
+        max_length=12, choices=VIDEO_PLATFORM_CHOICES, default="GENERAL"
+    )
+    scene_count = models.PositiveSmallIntegerField(
+        default=6, validators=[MinValueValidator(1), MaxValueValidator(60)]
+    )
+
+    class Meta:
+        ordering = ["-updated_at", "id"]
+
+
+class SeriesEpisode(UUIDModel, TimestampedModel):
+    is_canon = models.BooleanField(default=False)
+    series = models.ForeignKey(
+        VideoSeries, on_delete=models.CASCADE, related_name="episodes"
+    )
+    video = models.OneToOneField(
+        Video,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="series_episode",
+    )
+    number = models.PositiveIntegerField()
+    idea = models.TextField(max_length=2000)
+    summary = models.TextField(max_length=800, blank=True)
+    profile_snapshot = models.JSONField(default=dict)
+    generation_params = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["series", "number"], name="unique_series_episode_number"
+            )
+        ]
