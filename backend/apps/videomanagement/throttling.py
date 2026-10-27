@@ -52,3 +52,8 @@ class TagGenerationRateThrottle(BaseThrottle):
 class CoverGenerationRateThrottle(BaseThrottle):
     scope = "cover_generation"
     rate = "10/hour"
+
+
+class RenderRetryRateThrottle(BaseThrottle):
+    scope = "render_retry"
+    rate = "3/hour"

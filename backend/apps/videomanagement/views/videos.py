@@ -73,6 +73,7 @@ from apps.videomanagement.services.videos.settings import (
 from apps.videomanagement.services.videos.story import create_story_project, draft_story
 from apps.videomanagement.throttling import (
     RenderRateThrottle,
+    RenderRetryRateThrottle,
     ResumeRateThrottle,
     StoryDraftRateThrottle,
 )
@@ -206,6 +207,9 @@ class VideoView(
         if self.action in ("approve_script", "resume", "story"):
             return [ResumeRateThrottle()]
         if self.action == "render_video":
+            video = self.get_object()
+            if video.status == "FAILED" and video.render_error:
+                return [RenderRetryRateThrottle()]
             return [RenderRateThrottle()]
         return super().get_throttles()
 

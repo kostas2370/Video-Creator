@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from collections import defaultdict, deque
 
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
@@ -99,8 +100,8 @@ def make_scenes_speech(video: Video) -> None:
 
     lines, existing = ensure_scene_rows(video)
 
-    for line in lines:
-        scene = existing[line.text]
+    for index, line in enumerate(lines):
+        scene = existing[index]
 
         if not narrate:
             continue
@@ -114,20 +115,38 @@ def make_scenes_speech(video: Video) -> None:
             logger.exception("Could not narrate scene %s", scene.pk)
 
 
+@transaction.atomic
 def ensure_scene_rows(video: Video):
     """Create script scene rows before audio and visual work can run concurrently."""
+    Video.objects.select_for_update().get(pk=video.pk)
     lines = list(script_lines(video.gpt_answer))
     script_texts = {line.text for line in lines}
-    existing = {scene.text: scene for scene in video.scenes.all()}
+    rows = list(video.scenes.all())
+    existing = {row.script_index: row for row in rows if row.script_index is not None}
+    legacy = defaultdict(deque)
+    for row in rows:
+        if row.script_index is None:
+            legacy[row.text].append(row)
 
-    video.scenes.exclude(text__in=script_texts).delete()
+    obsolete = [
+        row.pk
+        for row in rows
+        if row.script_index is None and row.text not in script_texts
+    ]
+    if obsolete:
+        video.scenes.filter(pk__in=obsolete).delete()
 
     choices = video.settings or {}
     video_provider = ImageProviderRegistry.is_video(
         choices.get("provider"), user=video.created_by, mode=video.mode
     )
-    for line in lines:
-        if line.text not in existing:
+    for index, line in enumerate(lines):
+        if index not in existing and legacy[line.text]:
+            row = legacy[line.text].popleft()
+            row.script_index = index
+            row.save(update_fields=["script_index"])
+            existing[index] = row
+        if index not in existing:
             editing = {}
             if choices.get("ai_scene_editing") and line.editing is not None:
                 plan = SceneEditingPlanSerializer(
@@ -145,9 +164,14 @@ def ensure_scene_rows(video: Video):
             audio_settings = {}
             if not choices.get("narration", True) and shot_plan.get("target_duration"):
                 audio_settings["duration"] = shot_plan["target_duration"]
-            existing[line.text] = Scene.objects.create(
-                video=video, text=line.text, is_last=line.is_last,
-                shot_plan=shot_plan, audio_settings=audio_settings, **editing
+            existing[index] = Scene.objects.create(
+                video=video,
+                text=line.text,
+                is_last=line.is_last,
+                script_index=index,
+                shot_plan=shot_plan,
+                audio_settings=audio_settings,
+                **editing,
             )
 
     return lines, existing

@@ -18,6 +18,7 @@ import { FaPlus } from "react-icons/fa6";
 import { ReorderableScenes } from "../components/ReorderableScenes";
 import { toast } from "react-toastify";
 import { FaDownload } from "react-icons/fa";
+import { ExportFailure } from "../components/ExportFailure";
 import { VideoToolbar } from "../components/VideoToolbar";
 import { MusicAudio } from "../components/MusicAudio";
 import { BulkAutoMotion, hasStillImage } from "../components/SceneMotion";
@@ -90,7 +91,7 @@ export const Video = () => {
   const format = videoFormats.find(item => item.value === videoInfo?.settings?.video_format);
   const statusLabel = renderPending ? "Starting export" : sceneChangePending ? "Saving changes" : ({ REVIEW: "Review storyboard", GENERATION: "Preparing scenes", RENDERING: "Exporting video", READY: "Ready to edit", COMPLETED: "Export available", FAILED: "Needs attention" }[videoInfo?.status] || "Loading project");
   const isRenderable =
-    !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0 && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED");
+    !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0 && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED" || (videoInfo?.status === "FAILED" && !!videoInfo?.render_error?.message));
   const saveSceneChange = async (pending, apply, save, fallbackMessage, replaceVideo = false) => {
     if (savingSceneChangeRef.current || processing || renderPending) return false;
     const previous = videoInfo;
@@ -219,7 +220,7 @@ export const Video = () => {
   };
   const canDownloadSubtitles = ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)
     && !sceneChangePending && !renderPending && videoInfo?.scenes?.some(scene => scene.narration_status === "available" || (manual && scene.text));
-  const isResumable = !manual && videoInfo?.status === "FAILED";
+  const isResumable = !manual && videoInfo?.status === "FAILED" && !videoInfo?.render_error?.message;
   const canPreview = ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)
     && !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0;
   const missingNarration = videoInfo?.scenes?.filter(scene => scene.narration_status === "missing") || [];
@@ -289,6 +290,7 @@ export const Video = () => {
 
           </div>
         </header>
+        <ExportFailure video={videoInfo} disabled={!isRenderable} onRetry={() => setShowRenderModal(true)} />
         <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
           statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
           renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}

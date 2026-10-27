@@ -146,7 +146,7 @@ class ScenePositionTests(TestCase):
             self.assertEqual(
                 scene_utils.scene_reference(second, made, "sora"), "last.png"
             )
-        frame.assert_called_once_with(made, first.text, image.file.path)
+        frame.assert_called_once_with(made, first.text, image.file.path, scene=first)
         with patch(
             "apps.videomanagement.services.scenes.generation.get_update_sentence",
             return_value='{"text":"New", "image_description":"A forest"}',

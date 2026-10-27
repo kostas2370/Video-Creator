@@ -117,6 +117,11 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TRACK_STARTED = True
 
+# Keep CPU-heavy exports away from scene edits, generation and maintenance jobs.
+CELERY_TASK_ROUTES = {
+    "apps.videomanagement.tasks.render_video_task": {"queue": "renders"},
+}
+
 VIDEO_TASK_STALE_AFTER = int(os.getenv("VIDEO_TASK_STALE_AFTER") or 60 * 60 * 3)
 
 CELERY_BEAT_SCHEDULE = {

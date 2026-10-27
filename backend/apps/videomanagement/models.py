@@ -294,6 +294,7 @@ class UserPrompt(UUIDModel):
 
 
 class Scene(UUIDModel):
+    script_index = models.PositiveIntegerField(null=True, blank=True, editable=False)
     shot_plan = models.JSONField(default=dict, blank=True)
     archived_at = models.DateTimeField(
         null=True, blank=True, editable=False, db_index=True
@@ -475,6 +476,7 @@ class Outro(AbstractModel):
 
 
 class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
+    render_error = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(
         default=timezone.now, editable=False, db_index=True
     )

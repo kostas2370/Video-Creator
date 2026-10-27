@@ -72,7 +72,9 @@ def _dispatch_video_job(video, previous_status, task, **params):
 def queue_render(video, export_options=None):
     with transaction.atomic():
         video = Video.objects.select_for_update().get(pk=video.pk)
-        if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED):
+        if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED) and not (
+            video.status == VideoStatus.FAILED and video.render_error
+        ):
             raise VideoEditConflict(
                 {
                     "message": f"Video with id {video.pk} is {video.status} and cannot be rendered yet"

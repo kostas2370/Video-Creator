@@ -63,10 +63,11 @@ WORKDIR /app
 
 COPY scripts/startdjango.sh /startdjango
 COPY scripts/setupdjango.sh /setupdjango
+COPY scripts/startceleryrender.sh /startceleryrender
 COPY scripts/startceleryworker.sh /startceleryworker
 COPY scripts/startcelerybeat.sh /startcelerybeat
 
-RUN sed -i 's/\r$//g' /startdjango /setupdjango /startceleryworker /startcelerybeat \
-  && chmod +x /startdjango /setupdjango /startceleryworker /startcelerybeat
+RUN sed -i 's/\r$//g' /startdjango /setupdjango /startceleryworker /startcelerybeat /startceleryrender \
+  && chmod +x /startdjango /setupdjango /startceleryworker /startcelerybeat /startceleryrender
 
 EXPOSE 8000

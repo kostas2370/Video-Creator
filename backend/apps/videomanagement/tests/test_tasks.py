@@ -52,6 +52,9 @@ class TaskFailureTests(TestCase):
 
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "FAILED")
+        self.assertIn("Retry the export", self.video.render_error["message"])
+        self.assertEqual(len(self.video.render_error["reference"]), 32)
+        self.assertNotIn("encoder died", str(self.video.render_error))
 
     def test_resuming_leaves_the_video_failed_and_re_raises(self):
         with patch(

@@ -32,9 +32,10 @@ The backend and worker share the backend checkout through a bind mount; nginx mo
 its media directory read-only. Redis carries Celery messages and task results.
 
 The database's `Video.status` is the status exposed to the UI. The frontend receives SSE updates and
-reloads the video endpoint when changes arrive, rather than querying Celery's result backend. The supplied worker
-startup uses Celery's `solo` pool, so one worker process executes one task at a time;
-ffmpeg's encoding threads do not make the task queue concurrent.
+reloads the video endpoint when changes arrive, rather than querying Celery's result backend. The supplied stack runs two Celery `solo` workers: the general worker consumes
+`celery`, while the export worker consumes `renders`. Each runs one task at a time;
+long video exports no longer block the general queue. Encoding threads still require
+resource budgeting alongside the general worker.
 
 ## Code map
 
@@ -121,8 +122,11 @@ clip's own audio through `with_audio`.
 | `VoiceModel.path` | Voice identifier passed to the TTS service |
 | `VoiceModel.type` | `API` for built-in providers; `CUSTOM_API` for user-configured providers |
 
-Generation currently matches scenes by text. Repeated identical sentences can
-therefore resolve to the same scene; text is not a unique scene identifier.
+Generation identifies each flattened script entry by `Scene.script_index`, independently
+of dialogue and editor position. Repeated sentences keep separate narration, shot plans
+and visuals. Legacy rows are assigned once by text occurrence in playback order when
+generation resumes; missing occurrences receive new rows. Visual calls pass the exact
+scene, including when adding a scene manually.
 
 ## HTTP and background work
 
@@ -165,7 +169,7 @@ A `202` means work was queued, not that generation or encoding has completed.
 | `POST /api/scenes/{id}/generate_image_scene/` | Generate a visual synchronously for an authorized scene |
 
 Generate and resume are throttled at two requests per hour, and render at one per day,
-with an explicit superuser exemption; see [throttling.py](../backend/apps/videomanagement/throttling.py).
+with a separate three-per-hour limit for failed export retries and an explicit superuser exemption; see [throttling.py](../backend/apps/videomanagement/throttling.py).
 
 Scene edits and uploads do **not** follow the background-task contract. Provider
 calls in these routes still run inside the request.
@@ -253,6 +257,11 @@ video; the current UI offers **Carry on** for `FAILED` videos.
 Tasks in [tasks.py](../backend/apps/videomanagement/tasks.py) catch exceptions escaping
 the service, mark the video `FAILED`, and re-raise. Narration, music, and visual errors
 handled inside the service do not necessarily trigger that path.
+
+Export failures save a safe `render_error` message and a log reference. The editor
+shows these after reload and allows retrying that failed export without AI generation.
+`queue_render()` accepts `FAILED` only when export failure metadata is present; failed
+generation still uses resume. The render worker clears the prior error when starting.
 
 `resume_video()` reuses the saved script, directory, voice, mode, and provider settings.
 It attempts missing narration and visuals, skips files already present, and returns

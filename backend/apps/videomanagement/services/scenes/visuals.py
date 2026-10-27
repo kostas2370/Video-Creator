@@ -7,11 +7,12 @@ from django.db import close_old_connections
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import ImageMode, Scene, SceneImage, Video, VideoType
+from apps.videomanagement.services.scenes.narration import ensure_scene_rows
 from apps.videomanagement.utils.audio_editing import duration_override
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.frames import still_from_video
 from apps.videomanagement.utils.prompt_utils import (
-    script_lines, with_shot_plan, with_visual_continuity,
+    with_shot_plan, with_visual_continuity,
 )
 from apps.videomanagement.utils.timing import file_timing
 
@@ -45,11 +46,11 @@ def planned_visual_prompt(scene, prompt, mode, provider):
     )
 
 
-def continuation_frame(video: Video, text: str, path: str):
+def continuation_frame(video: Video, text: str, path: str, scene=None):
     """Use the last visible frame when narration trims the generated clip."""
     if not path:
         return None
-    previous = Scene.objects.filter(video=video, text=text.strip()).first()
+    previous = scene if scene is not None else video.scenes.filter(text=text.strip()).first()
     duration = (
         scene_narration_duration(previous)
         if previous and (video.settings or {}).get("narration", True)
@@ -89,6 +90,7 @@ def create_image_scene(
     reference: str = None,
     with_audio: bool = False,
     user=None,
+    scene=None,
     *args,
     **kwargs,
 ) -> str:
@@ -129,7 +131,7 @@ def create_image_scene(
     - If an exception occurs during image downloading or creation, it is logged,
       and the scene is created with a None image.
     """
-    scene = Scene.objects.filter(video=video, text=text.strip()).first()
+    scene = scene if scene is not None else video.scenes.filter(text=text.strip()).first()
     if scene is None:
         logger.error("No scene for %r; skipping its visual", text[:60])
         return None
@@ -162,11 +164,16 @@ def create_image_scene(
     return downloaded_image
 
 
-def existing_visual(video: Video, text: str):
+def existing_visual(video: Video, text: str, scene=None):
     """Find a usable visual, including after a failed attempt left an empty row."""
     images = SceneImage.objects.filter(
-        scene__video=video, scene__archived_at__isnull=True, scene__text=text.strip()
-    ).order_by("created_at")
+        scene__video=video, scene__archived_at__isnull=True
+    )
+    if scene is not None:
+        images = images.filter(scene=scene)
+    else:
+        images = images.filter(scene__text=text.strip())
+    images = images.order_by("created_at")
     return next(
         (image.file.path for image in images if stored_file_exists(image.file)), None
     )
@@ -205,8 +212,9 @@ def create_image_scenes(
 
     dir_name = video.dir_name
     with_audio = not (video.settings or {}).get("narration", True)
-    lines = list(script_lines(video.gpt_answer))
-    pending = [line for line in lines if existing_visual(video, line.text) is None]
+    lines, indexed = ensure_scene_rows(video)
+    pairs = [(line, indexed[index]) for index, line in enumerate(lines)]
+    pending = [(line, scene) for line, scene in pairs if existing_visual(video, line.text, scene) is None]
 
     if not pending:
         return
@@ -226,6 +234,7 @@ def create_image_scenes(
                 pool.submit(
                     _create_image_scene_in_thread,
                     video=video,
+                    scene=scene,
                     image=line.image_description,
                     text=line.text,
                     dir_name=dir_name,
@@ -236,19 +245,20 @@ def create_image_scenes(
                     with_audio=with_audio,
                     user=video.created_by,
                 )
-                for line in pending
+                for line, scene in pending
             ]
             for future in futures:
                 future.result()
         return
 
     reference = uploaded_reference(video, provider)
-    for line in lines:
+    for line, scene in pairs:
         # Walk completed scenes too, so carry-on recovers the correct reference.
-        produced = existing_visual(video, line.text)
+        produced = existing_visual(video, line.text, scene)
         if produced is None:
             produced = create_image_scene(
                 video=video,
+                scene=scene,
                 image=line.image_description,
                 text=line.text,
                 dir_name=dir_name,
@@ -262,7 +272,7 @@ def create_image_scenes(
             )
         if is_video:
             # A failed shot breaks the chain; never continue from a stale frame.
-            reference = continuation_frame(video, line.text, produced)
+            reference = continuation_frame(video, line.text, produced, scene=scene)
         elif reference is None and produced:
             # Keep the original identity anchor instead of accumulating image drift.
             reference = produced
@@ -298,7 +308,7 @@ def scene_reference(scene: Scene, video: Video, provider):
         if previous is None:
             return uploaded
         return continuation_frame(
-            video, previous.text, existing_visual(video, previous.text)
+            video, previous.text, existing_visual(video, previous.text, previous), scene=previous
         )
     return None
 

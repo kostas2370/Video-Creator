@@ -11,6 +11,7 @@ from ...models import Video
 from ...throttling import (
     GenerateRateThrottle,
     RenderRateThrottle,
+    RenderRetryRateThrottle,
     ResumeRateThrottle,
 )
 
@@ -95,3 +96,21 @@ class RenderThrottleTests(TestCase):
         self.generate()
 
         self.assertEqual(self.render(mine).status_code, 202)
+
+    def test_failed_export_retries_have_a_separate_bounded_allowance(self):
+        self.addCleanup(RenderRetryRateThrottle().cache.clear)
+        mine = video.make(created_by=self.caller, status="COMPLETED")
+        self.assertEqual(self.render(mine).status_code, 202)
+        statuses = []
+        for _ in range(4):
+            Video.objects.filter(pk=mine.pk).update(
+                status="FAILED",
+                render_error={"message": "Export failed", "reference": "ref"},
+            )
+            with patch("apps.videomanagement.tasks.render_video_task.delay"):
+                statuses.append(
+                    self.client.patch(
+                        reverse("video-render-video", args=[mine.pk])
+                    ).status_code
+                )
+        self.assertEqual(statuses, [202, 202, 202, 429])

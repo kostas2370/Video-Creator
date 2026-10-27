@@ -219,7 +219,11 @@ With Redis running, start each of the following in a separate terminal, using th
 same virtual environment and `backend/` working directory:
 
 ```sh
-celery -A video_creator worker --loglevel=info --pool=solo
+celery -A video_creator worker --loglevel=info --pool=solo -Q celery -n general@%h
+```
+
+```sh
+celery -A video_creator worker --loglevel=info --pool=solo -Q renders -n renders@%h
 ```
 
 ```sh
@@ -243,7 +247,8 @@ makes existing provider keys unreadable. Preserve the database, media storage, a
 private publishing snapshots across deployments.
 
 Set the database port explicitly for your installation. The supplied MySQL container
-listens on port 3306, while production settings default to 3307. For an API container
+listens on port 3306, which is also the production default. Host connections use
+port 3307 through the `3307:3306` mapping. For an API container
 connecting to the Compose database, use `MYSQL_HOST=db` and `MYSQL_PORT=3306`.
 Review database persistence and exposed ports before deploying the Compose stack.
 
@@ -306,3 +311,23 @@ Contributors follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Viddie is licensed under [AGPL-3.0](COPYING.txt). Vendored components retain their
 respective licenses.
+
+
+### Updating scene generation and export recovery
+
+Apply migration `0046_scene_identity_and_render_error` before starting updated services.
+Script entries now keep separate scene identities even when dialogue repeats. Existing
+scene rows acquire identities on the next generation/resume; completed media is reused.
+
+Docker runs two workers: `celery` handles generation, scene edits and other background
+jobs on the `celery` queue; `celery-render` handles video exports on `renders`.
+The render worker downloads missing presenter weights. Rebuild the backend images and
+restart the API, both workers and Beat together so routing and consumers change together.
+For manual installations, run both worker commands above. Older workers that consume
+only the default queue cannot process the new export queue.
+
+Failed exports show a saved message and reference in the editor, with **Retry export**.
+The reference can be searched in worker logs. Errors do not expose provider responses,
+file paths or tracebacks. Ordinary exports retain the one-per-day limit; failed export
+retries have a separate limit of three per hour. Generation failures retain the existing
+resume flow. The existing timeout cleanup also marks stalled exports as retryable.
