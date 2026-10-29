@@ -50,7 +50,7 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
 
 
 def dispatch_video_job(
-    video, previous_status, task, *,
+    video, failure_status, task, *,
     failure_message="Could not queue processing. Your project is saved. Please try again.",
     **params,
 ):
@@ -61,7 +61,7 @@ def dispatch_video_job(
         Video.objects.filter(
             pk=video.pk, status=claimed_status, updated_at=claimed_at
         ).update(
-            status=previous_status,
+            status=failure_status,
             updated_at=timezone.now(),
         )
         publish_update(f"video.{video.pk}", video_id=video.pk)
@@ -88,7 +88,9 @@ def queue_render(video, export_options=None):
         video.settings = {**(video.settings or {}), **(export_options or {})}
         video.status = VideoStatus.RENDERING
         video.save(update_fields=["settings", "status", "updated_at"])
-    return dispatch_video_job(video, previous_status, tasks.render_video_task)
+    return dispatch_video_job(
+        video, failure_status=previous_status, task=tasks.render_video_task
+    )
 
 
 def queue_resume(video):
@@ -113,7 +115,9 @@ def queue_resume(video):
         previous_status = video.status
         video.status = VideoStatus.GENERATION
         video.save(update_fields=["status", "updated_at"])
-    return dispatch_video_job(video, previous_status, tasks.resume_video_task)
+    return dispatch_video_job(
+        video, failure_status=previous_status, task=tasks.resume_video_task
+    )
 
 
 def approve_script(video, storyboard):
@@ -149,7 +153,7 @@ def approve_script(video, storyboard):
         video.status = VideoStatus.GENERATION
         video.save()
     return dispatch_video_job(
-        video, VideoStatus.REVIEW, tasks.generate_video_task, **params
+        video, failure_status=VideoStatus.REVIEW, task=tasks.generate_video_task, **params
     )
 
 

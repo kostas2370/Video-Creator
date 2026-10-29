@@ -1,6 +1,7 @@
 """Snapshot a recurring series before sending an episode to the existing storyboard flow."""
 
 import json
+import logging
 from pathlib import Path
 
 from django.core.files import File
@@ -13,10 +14,12 @@ from apps.series.models import SeriesEpisode, VideoSeries
 from apps.videomanagement import tasks
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.integrations.llm import get_update_sentence
-from apps.videomanagement.models import Video
+from apps.videomanagement.models import Video, VideoStatus
 from apps.videomanagement.services.videos.generation import create_pending_video
 from apps.videomanagement.services.videos.jobs import dispatch_video_job
 from apps.videomanagement.utils.file_utils import stored_file_exists
+
+logger = logging.getLogger(__name__)
 
 PROFILE_FIELDS = (
     "title",
@@ -50,11 +53,11 @@ def episode_context(profile, history):
     )
 
 
-def _dispatch(episode):
+def _queue_episode_generation(episode):
     episode.video = dispatch_video_job(
         episode.video,
-        "FAILED",
-        tasks.generate_video_task,
+        failure_status=VideoStatus.FAILED,
+        task=tasks.generate_video_task,
         failure_message="Episode saved, but drafting could not be queued. Retry it from the series page.",
         **episode.generation_params,
     )
@@ -159,6 +162,34 @@ def draft_episode_memory(episode, *, owner, summary=None):
     return {"summary": draft.strip(), "script_hash": snapshot["hash"]}
 
 
+def _snapshot_series_profile(series):
+    profile = {field: getattr(series, field) for field in PROFILE_FIELDS}
+    profile.update(
+        {
+            field: str(getattr(series, f"{field}_id"))
+            if getattr(series, f"{field}_id")
+            else None
+            for field in ("voice_model", "intro", "outro")
+        }
+    )
+    profile["reference_image"] = series.reference_image.name or ""
+    return profile
+
+
+def _copy_series_reference(series, video):
+    if series.reference_image:
+        if not stored_file_exists(series.reference_image):
+            raise ValidationError(
+                {
+                    "reference_image": "The series reference is missing. Upload it again before drafting."
+                }
+            )
+        with series.reference_image.open("rb") as source:
+            video.reference_image.save(
+                Path(series.reference_image.name).name, File(source), save=False
+            )
+
+
 def draft_episode(series, *, idea, generation_params, owner):
     profile_revision = series.updated_at
     video = None
@@ -169,16 +200,7 @@ def draft_episode(series, *, idea, generation_params, owner):
                 raise VideoEditConflict(
                     "Series setup changed while drafting. Refresh and try again."
                 )
-            profile = {field: getattr(series, field) for field in PROFILE_FIELDS}
-            profile.update(
-                {
-                    field: str(getattr(series, f"{field}_id"))
-                    if getattr(series, f"{field}_id")
-                    else None
-                    for field in ("voice_model", "intro", "outro")
-                }
-            )
-            profile["reference_image"] = series.reference_image.name or ""
+            profile = _snapshot_series_profile(series)
             previous = (
                 series.episodes.filter(is_canon=True)
                 .exclude(summary="")
@@ -195,17 +217,7 @@ def draft_episode(series, *, idea, generation_params, owner):
             video = create_pending_video(
                 message=idea, created_by=owner, video_type="AI"
             )
-            if series.reference_image:
-                if not stored_file_exists(series.reference_image):
-                    raise ValidationError(
-                        {
-                            "reference_image": "The series reference is missing. Upload it again before drafting."
-                        }
-                    )
-                with series.reference_image.open("rb") as source:
-                    video.reference_image.save(
-                        Path(series.reference_image.name).name, File(source), save=False
-                    )
+            _copy_series_reference(series, video)
             video.settings = {
                 "creation_mode": "SERIES",
                 "generation_params": {**params, "review_script": False},
@@ -222,17 +234,29 @@ def draft_episode(series, *, idea, generation_params, owner):
             )
     except Exception:
         if video and video.reference_image:
-            video.reference_image.delete(save=False)
+            try:
+                video.reference_image.delete(save=False)
+            except Exception:
+                logger.exception(
+                    "Could not clean up reference image %s after episode drafting failed",
+                    video.reference_image.name,
+                )
         raise
-    return _dispatch(episode)
+    return _queue_episode_generation(episode)
 
 
 def retry_episode(episode, *, generation_params, owner):
     with transaction.atomic():
         _locked_series(episode.series_id, owner, exclude_episode=episode.pk)
-        video = Video.objects.select_for_update().get(
-            pk=episode.video_id, created_by=owner
+        video = (
+            Video.objects.select_for_update()
+            .filter(pk=episode.video_id, created_by=owner)
+            .first()
         )
+        if video is None:
+            raise VideoEditConflict(
+                "This episode's video is no longer available. Draft a new episode instead."
+            )
         episode.video = video
         if not episode.can_retry:
             raise VideoEditConflict(
@@ -249,4 +273,4 @@ def retry_episode(episode, *, generation_params, owner):
         }
         video.status = "GENERATION"
         video.save(update_fields=["status", "settings", "updated_at"])
-    return _dispatch(episode)
+    return _queue_episode_generation(episode)

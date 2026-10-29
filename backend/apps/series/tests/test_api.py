@@ -4,6 +4,7 @@ import tempfile
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
@@ -226,6 +227,67 @@ class SeriesTests(ApiTestCase):
             self.queue.call_args.kwargs["series_context"], params["series_context"]
         )
         self.assertEqual(self.series.episodes.count(), 1)
+
+    def test_retry_returns_conflict_if_video_is_deleted_after_validation(self):
+        self.queue.side_effect = RuntimeError("queue unavailable")
+        self.assertEqual(self.draft().status_code, 503)
+        episode = self.series.episodes.get()
+        self.queue.side_effect = None
+        self.queue.reset_mock()
+
+        def delete_video_before_retry(*args):
+            episode.video.delete()
+            return dict(episode.generation_params)
+
+        with patch(
+            "apps.series.views.validate_episode_generation",
+            side_effect=delete_video_before_retry,
+        ):
+            response = self.client.post(self.url("retry", episode=episode))
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertIn("no longer available", str(response.data))
+        self.queue.assert_not_called()
+        episode.refresh_from_db()
+        self.assertIsNone(episode.video_id)
+
+    def test_draft_failure_cleans_only_the_copied_reference_and_preserves_error(self):
+        for cleanup_fails in (False, True):
+            with self.subTest(cleanup_fails=cleanup_fails):
+                self.series.reference_image.save(
+                    "reference.png", ContentFile(b"reference")
+                )
+                original_name = self.series.reference_image.name
+                storage = self.series.reference_image.storage
+                failure = RuntimeError("episode insert failed")
+                with (
+                    patch.object(SeriesEpisode.objects, "create", side_effect=failure),
+                    patch.object(
+                        storage,
+                        "delete",
+                        wraps=storage.delete,
+                        side_effect=OSError("storage unavailable")
+                        if cleanup_fails
+                        else None,
+                    ) as delete,
+                    patch("apps.series.services.logger") as logger,
+                    self.assertRaises(RuntimeError) as raised,
+                ):
+                    draft_episode(
+                        self.series,
+                        idea="Shadows",
+                        generation_params={"review_script": True},
+                        owner=self.user,
+                    )
+                self.assertIs(raised.exception, failure)
+                delete.assert_called_once()
+                copied_name = delete.call_args.args[0]
+                self.assertNotEqual(copied_name, original_name)
+                self.assertEqual(storage.exists(copied_name), cleanup_fails)
+                self.assertTrue(storage.exists(original_name))
+                self.assertEqual(logger.exception.call_count, int(cleanup_fails))
+                self.assertFalse(self.series.episodes.exists())
+                self.assertFalse(Video.objects.filter(created_by=self.user).exists())
+                self.queue.assert_not_called()
 
     def test_episode_memory_is_owner_scoped_and_survives_video_deletion(self):
         episode = self.episode()
