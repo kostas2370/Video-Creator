@@ -13,14 +13,13 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.utils.timing import video_metadata
-
 from apps.clips.highlights import suggest_clips
 from apps.clips.models import Clip, ClipProject
 from apps.clips.processing import process_project, transcribe_source
 from apps.clips.rendering import export_clip
 from apps.clips.services import clip_words, queue_exports, queue_project
+from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.utils.timing import video_metadata
 
 
 class ClipsTests(TestCase):
@@ -487,7 +486,7 @@ class ClipsTests(TestCase):
         queue_exports(project, [clip.pk])
         clip.refresh_from_db()
         with patch(
-            "apps.clips.rendering.subprocess.run",
+            "apps.clips.media.subprocess.run",
             side_effect=RuntimeError("private path"),
         ):
             export_clip(clip.pk, clip.job_id)
@@ -568,7 +567,7 @@ class ClipsTests(TestCase):
         Clip.objects.filter(pk__in=[a.pk, b.pk]).update(
             status="COMPLETED", output="media/saved.mp4"
         )
-        self.assertEqual(self.edit(a, title="Edited").status_code, 200)
+        self.assertEqual(self.edit(a, crop_position=25).status_code, 200)
         a.refresh_from_db()
         b.refresh_from_db()
         self.assertEqual(a.output.name, "")
@@ -586,7 +585,7 @@ class ClipsTests(TestCase):
             status="COMPLETED",
             job_id=uuid4(),
         )
-        with patch("apps.clips.rendering.subprocess.run") as run:
+        with patch("apps.clips.media.subprocess.run") as run:
             export_clip(clip.pk, clip.job_id)
             export_clip(clip.pk, uuid4())
         run.assert_not_called()
@@ -781,3 +780,63 @@ class ClipsTests(TestCase):
         self.assertIn("Do not invent identities", prompt)
         self.assertIn("ALL hashtags in English", prompt)
         self.assertIn(clip.title, prompt)
+
+    def test_title_only_and_unchanged_edits_preserve_a_completed_export(self):
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        Clip.objects.filter(pk=clip.pk).update(
+            status="COMPLETED", output="media/saved.mp4"
+        )
+        self.assertEqual(self.edit(clip, title="A better title").status_code, 200)
+        self.assertEqual(self.edit(clip, crop_position=50).status_code, 200)
+        clip.refresh_from_db()
+        self.assertEqual(clip.output.name, "media/saved.mp4")
+        self.assertEqual(clip.status, "COMPLETED")
+
+    def test_caption_bounds_are_checked_before_invalidating_a_saved_export(self):
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        Clip.objects.filter(pk=clip.pk).update(
+            status="COMPLETED", output="media/saved.mp4"
+        )
+        for words in (
+            [{"text": "Outside", "start": 0, "end": 15}],
+            [
+                {"text": "First", "start": 0, "end": 2},
+                {"text": "Overlap", "start": 1, "end": 3},
+            ],
+        ):
+            self.assertEqual(self.edit(clip, words=words).status_code, 400)
+        clip.refresh_from_db()
+        self.assertEqual(clip.output.name, "media/saved.mp4")
+        self.assertEqual(clip.status, "COMPLETED")
+
+    def test_project_deletion_waits_for_fresh_jobs_and_allows_stalled_job_cleanup(self):
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        queue_exports(project, [clip.pk])
+        self.assertEqual(self.client.delete(self.detail(project)).status_code, 409)
+        Clip.objects.filter(pk=clip.pk).update(
+            updated_at=timezone.now() - timedelta(hours=4)
+        )
+        self.assertEqual(self.client.delete(self.detail(project)).status_code, 204)
+        self.assertFalse(ClipProject.objects.filter(pk=project.pk).exists())
+
+    def test_deleted_objects_return_not_found_when_service_lock_is_acquired(self):
+        from django.http import Http404
+
+        from apps.clips.hashtags import save_hashtags
+        from apps.clips.services import delete_clip, delete_project, save_clip
+
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        Clip.objects.filter(pk=clip.pk).delete()
+        with self.assertRaises(Http404):
+            delete_clip(project, clip.pk)
+        with self.assertRaises(Http404):
+            save_hashtags(clip, hashtags=[], previous_hashtags=[])
+        ClipProject.objects.filter(pk=project.pk).delete()
+        with self.assertRaises(Http404):
+            delete_project(project)
+        with self.assertRaises(Http404):
+            save_clip(project, {"start": 0, "end": 10})

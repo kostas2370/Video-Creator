@@ -4,19 +4,14 @@ from uuid import uuid4
 from django.conf import settings
 from django.db import models
 
+from .choices import ClipLayout, ClipProjectStatus, ClipStatus
+
 
 def source_path(instance, filename):
     return f"media/clips/{instance.pk}/source{Path(filename).suffix.lower()}"
 
 
 class ClipProject(models.Model):
-    class Status(models.TextChoices):
-        QUEUED = "QUEUED", "Queued"
-        TRANSCRIBING = "TRANSCRIBING", "Transcribing"
-        ANALYZING = "ANALYZING", "Finding highlights"
-        READY = "READY", "Ready"
-        FAILED = "FAILED", "Needs attention"
-
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     title = models.CharField(max_length=100)
@@ -32,7 +27,9 @@ class ClipProject(models.Model):
     min_duration = models.PositiveSmallIntegerField(default=30)
     max_duration = models.PositiveSmallIntegerField(default=60)
     status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.QUEUED
+        max_length=20,
+        choices=ClipProjectStatus.choices,
+        default=ClipProjectStatus.QUEUED,
     )
     error = models.CharField(max_length=300, blank=True)
     job_id = models.UUIDField(null=True, editable=False)
@@ -44,13 +41,6 @@ class ClipProject(models.Model):
 
 
 class Clip(models.Model):
-    class Status(models.TextChoices):
-        READY = "READY", "Ready"
-        QUEUED = "QUEUED", "Queued"
-        RENDERING = "RENDERING", "Exporting"
-        COMPLETED = "COMPLETED", "Export ready"
-        FAILED = "FAILED", "Needs attention"
-
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     project = models.ForeignKey(
         ClipProject, related_name="clips", on_delete=models.CASCADE
@@ -62,8 +52,8 @@ class Clip(models.Model):
     end = models.FloatField()
     layout = models.CharField(
         max_length=10,
-        choices=[("CROP", "Crop to portrait"), ("FIT", "Blurred background")],
-        default="FIT",
+        choices=ClipLayout.choices,
+        default=ClipLayout.FIT,
     )
     crop_position = models.FloatField(default=50)
     captions = models.BooleanField(default=True)
@@ -71,7 +61,7 @@ class Clip(models.Model):
     style = models.JSONField(default=dict)
     output = models.FileField(blank=True, max_length=255)
     status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.READY
+        max_length=20, choices=ClipStatus.choices, default=ClipStatus.READY
     )
     error = models.CharField(max_length=300, blank=True)
     job_id = models.UUIDField(null=True, editable=False)

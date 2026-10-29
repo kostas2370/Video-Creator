@@ -2,13 +2,14 @@ import json
 
 from django.db import transaction
 from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.generics import get_object_or_404
 
 from apps.videomanagement.integrations.llm import get_update_sentence
 
+from .exceptions import ClipConflict
 from .highlights import read_json
 from .models import Clip
 from .serializers import HashtagsSerializer
-from .services import ClipConflict
 
 
 def draft_hashtags(clip, owner):
@@ -74,7 +75,7 @@ def draft_hashtags(clip, owner):
 
 def save_hashtags(clip, *, hashtags, previous_hashtags):
     with transaction.atomic():
-        clip = Clip.objects.select_for_update().get(pk=clip.pk)
+        clip = get_object_or_404(Clip.objects.select_for_update(), pk=clip.pk)
         if clip.hashtags not in (previous_hashtags, hashtags):
             raise ClipConflict(
                 "Hashtags changed in another session. Reload before saving your changes."

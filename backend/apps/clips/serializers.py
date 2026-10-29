@@ -5,8 +5,9 @@ from rest_framework import serializers
 from apps.videomanagement.serializers.caption_words import CaptionWordSerializer
 from apps.videomanagement.serializers.captions import CaptionProjectStyleSerializer
 from apps.videomanagement.serializers.tags import TagTextField, VideoTagsSerializer
-from apps.videomanagement.utils.captions.timing import validate_word_bounds
 
+from .choices import ClipLayout
+from .constants import MAX_CAPTION_WORDS, MAX_CLIP_DURATION, MAX_CLIPS_PER_PROJECT
 from .models import Clip, ClipProject
 from .uploads import validate_upload
 
@@ -18,11 +19,15 @@ class ProjectUploadSerializer(serializers.Serializer):
         max_length=2000, required=False, allow_blank=True, allow_null=True
     )
     clip_count = serializers.IntegerField(min_value=1, max_value=10, default=5)
-    min_duration = serializers.IntegerField(min_value=10, max_value=180, default=30)
-    max_duration = serializers.IntegerField(min_value=10, max_value=180, default=60)
+    min_duration = serializers.IntegerField(
+        min_value=10, max_value=MAX_CLIP_DURATION, default=30
+    )
+    max_duration = serializers.IntegerField(
+        min_value=10, max_value=MAX_CLIP_DURATION, default=60
+    )
 
     def validate_extraction_prompt(self, value):
-        return value.strip() or None if value is not None else None
+        return (value or "").strip() or None
 
     def validate_source(self, upload):
         self.metadata = validate_upload(upload)
@@ -45,10 +50,12 @@ class ClipEditSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=100, required=False)
     start = serializers.FloatField(min_value=0, required=False)
     end = serializers.FloatField(min_value=0, required=False)
-    layout = serializers.ChoiceField(choices=["CROP", "FIT"], required=False)
+    layout = serializers.ChoiceField(choices=ClipLayout.choices, required=False)
     crop_position = serializers.FloatField(min_value=0, max_value=100, required=False)
     captions = serializers.BooleanField(required=False)
-    words = CaptionWordSerializer(many=True, max_length=10000, required=False)
+    words = CaptionWordSerializer(
+        many=True, max_length=MAX_CAPTION_WORDS, required=False
+    )
     style = CaptionProjectStyleSerializer(required=False)
 
     def validate(self, data):
@@ -60,12 +67,10 @@ class ClipEditSerializer(serializers.Serializer):
             for value in (start, end, data.get("crop_position", 50))
         ):
             raise serializers.ValidationError("Enter finite times and crop position.")
-        if not 0 <= start < end <= project.duration or end - start > 180:
+        if not 0 <= start < end <= project.duration or end - start > MAX_CLIP_DURATION:
             raise serializers.ValidationError(
                 "Choose a clip within the source, up to 180 seconds long."
             )
-        if "words" in data:
-            validate_word_bounds(data["words"], end - start)
         if clip is None:
             data.setdefault("start", start)
             data.setdefault("end", end)
@@ -152,5 +157,5 @@ class SaveHashtagsSerializer(HashtagsSerializer):
 
 class ExportClipsSerializer(serializers.Serializer):
     clip_ids = serializers.ListField(
-        child=serializers.UUIDField(), min_length=1, max_length=20
+        child=serializers.UUIDField(), min_length=1, max_length=MAX_CLIPS_PER_PROJECT
     )

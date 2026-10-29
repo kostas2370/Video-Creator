@@ -1,41 +1,35 @@
-from django.db import transaction
 from django.http import FileResponse
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.generics import get_object_or_404
 from rest_framework.exceptions import ValidationError
+from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.videomanagement.paginator import StandardResultsSetPagination
-from apps.videomanagement.throttling import BaseThrottle, TagGenerationRateThrottle
+from apps.videomanagement.throttling import TagGenerationRateThrottle
 
+from .choices import ClipStatus
 from .hashtags import draft_hashtags, save_hashtags
 from .models import ClipProject
 from .serializers import (
     ClipEditSerializer,
-    ExportClipsSerializer,
-    SaveHashtagsSerializer,
     ClipSerializer,
+    ExportClipsSerializer,
     ProjectSerializer,
     ProjectSummarySerializer,
     ProjectUploadSerializer,
+    SaveHashtagsSerializer,
 )
 from .services import (
-    CLIP_BUSY,
-    PROJECT_BUSY,
-    STALE_AFTER,
-    ClipConflict,
     create_project,
+    delete_clip,
+    delete_project,
     queue_exports,
     queue_project,
     save_clip,
 )
-
-
-class ClipProcessingThrottle(BaseThrottle):
-    scope = "clip_processing"
-    rate = "10/hour"
+from .throttling import ClipProcessingThrottle
 
 
 class ClipProjectView(
@@ -48,12 +42,14 @@ class ClipProjectView(
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return ClipProject.objects.none()
-        rows = ClipProject.objects.filter(created_by=self.request.user)
-        return (
-            rows.defer("words", "transcript_parts")
-            if self.action == "list"
-            else rows.prefetch_related("clips")
+        rows = ClipProject.objects.filter(created_by=self.request.user).defer(
+            "transcript_parts"
         )
+        if self.action == "list":
+            return rows.defer("words")
+        if self.action == "retrieve":
+            return rows.prefetch_related("clips")
+        return rows
 
     def get_serializer_class(self):
         return ProjectSummarySerializer if self.action == "list" else ProjectSerializer
@@ -76,22 +72,7 @@ class ClipProjectView(
         return Response(self.get_serializer(project).data, status=201)
 
     def destroy(self, request, pk=None):
-        from django.utils import timezone
-
-        with transaction.atomic():
-            project = ClipProject.objects.select_for_update().get(
-                pk=self.get_object().pk
-            )
-            fresh = timezone.now() - STALE_AFTER
-            if (
-                project.status in PROJECT_BUSY and project.updated_at > fresh
-            ) or project.clips.filter(
-                status__in=CLIP_BUSY, updated_at__gt=fresh
-            ).exists():
-                raise ClipConflict(
-                    "Wait for processing to finish before deleting this project."
-                )
-            project.delete()
+        delete_project(self.get_object())
         return Response(status=204)
 
     @action(detail=True, methods=["post"])
@@ -115,20 +96,10 @@ class ClipProjectView(
     )
     def clip(self, request, pk=None, clip_id=None):
         project = self.get_object()
-        clip = get_object_or_404(project.clips, pk=clip_id)
         if request.method == "DELETE":
-            from .services import project_editable
-
-            with transaction.atomic():
-                locked = ClipProject.objects.select_for_update().get(pk=project.pk)
-                project_editable(locked)
-                clip.refresh_from_db()
-                if clip.status in CLIP_BUSY:
-                    raise ClipConflict(
-                        "Wait for this clip's export to finish before removing it."
-                    )
-                clip.delete()
+            delete_clip(project, clip_id)
             return Response(status=204)
+        clip = get_object_or_404(project.clips, pk=clip_id)
         serializer = ClipEditSerializer(
             clip, data=request.data, partial=True, context={"project": project}
         )
@@ -155,7 +126,7 @@ class ClipProjectView(
     )
     def download(self, request, pk=None, clip_id=None):
         clip = get_object_or_404(self.get_object().clips, pk=clip_id)
-        if clip.status != "COMPLETED" or not clip.output:
+        if clip.status != ClipStatus.COMPLETED or not clip.output:
             raise ValidationError("Export this clip before downloading it.")
         return FileResponse(
             clip.output.open("rb"), as_attachment=True, filename=f"clip-{clip.pk}.mp4"

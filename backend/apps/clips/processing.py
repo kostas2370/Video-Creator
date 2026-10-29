@@ -1,5 +1,5 @@
 import logging
-import subprocess
+import math
 import tempfile
 from pathlib import Path
 
@@ -11,36 +11,15 @@ from apps.videomanagement.services.captions.transcription import transcribe_audi
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
 from apps.videomanagement.utils.timing import video_metadata
 
+from .choices import ClipProjectStatus
+from .constants import MAX_CLIPS_PER_PROJECT
 from .highlights import overlapping, suggest_clips
+from .media import run_ffmpeg
 from .models import Clip, ClipProject
 from .services import clip_words
 
 logger = logging.getLogger(__name__)
 CHUNK_SECONDS = 600
-
-
-def run_ffmpeg(arguments, *, cwd=None):
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-hide_banner",
-            "-nostdin",
-            "-v",
-            "error",
-            "-y",
-            "-threads",
-            "2",
-            "-filter_complex_threads",
-            "2",
-            "-filter_threads",
-            "2",
-            *arguments,
-        ],
-        cwd=cwd,
-        capture_output=True,
-        check=True,
-        timeout=3600,
-    )
 
 
 def make_preview(project, directory):
@@ -77,12 +56,9 @@ def make_preview(project, directory):
 
 def transcribe_source(project, rows, directory):
     parts = list(project.transcript_parts)
-    for index, offset in enumerate(range(0, int(project.duration) + 1, CHUNK_SECONDS)):
-        if offset >= project.duration:
-            break
-        if index < len(parts):
-            continue
-        if not rows.filter(status="TRANSCRIBING").exists():
+    for index in range(len(parts), math.ceil(project.duration / CHUNK_SECONDS)):
+        offset = index * CHUNK_SECONDS
+        if not rows.filter(status=ClipProjectStatus.TRANSCRIBING).exists():
             return None
         start = max(0, offset - 2)
         end = min(project.duration, offset + CHUNK_SECONDS + 2)
@@ -127,7 +103,7 @@ def transcribe_source(project, rows, directory):
                     }
                 )
         parts.append(adjusted)
-        if not rows.filter(status="TRANSCRIBING").update(
+        if not rows.filter(status=ClipProjectStatus.TRANSCRIBING).update(
             transcript_parts=parts, updated_at=timezone.now()
         ):
             return None
@@ -143,8 +119,8 @@ def transcribe_source(project, rows, directory):
 
 def process_project(project_id, token):
     rows = ClipProject.objects.filter(pk=project_id, job_id=token)
-    if not rows.filter(status="QUEUED").update(
-        status="TRANSCRIBING", updated_at=timezone.now()
+    if not rows.filter(status=ClipProjectStatus.QUEUED).update(
+        status=ClipProjectStatus.TRANSCRIBING, updated_at=timezone.now()
     ):
         return
     project = rows.select_related("created_by").get()
@@ -159,7 +135,7 @@ def process_project(project_id, token):
                     name = project.preview.storage.save(
                         f"media/clips/{project.pk}/{token}-preview.mp4", File(file)
                     )
-                if not rows.filter(status="TRANSCRIBING").update(
+                if not rows.filter(status=ClipProjectStatus.TRANSCRIBING).update(
                     preview=name,
                     width=metadata["width"],
                     height=metadata["height"],
@@ -174,25 +150,32 @@ def process_project(project_id, token):
                     return
                 if not words:
                     raise ValueError("No speech")
-                if not rows.filter(status="TRANSCRIBING").update(
+                if not rows.filter(status=ClipProjectStatus.TRANSCRIBING).update(
                     words=words, updated_at=timezone.now()
                 ):
                     return
                 project.words = words
-            if not rows.filter(status="TRANSCRIBING").update(
-                status="ANALYZING", updated_at=timezone.now()
+            if not rows.filter(status=ClipProjectStatus.TRANSCRIBING).update(
+                status=ClipProjectStatus.ANALYZING, updated_at=timezone.now()
             ):
                 return
             candidates = suggest_clips(
-                project, is_current=lambda: rows.filter(status="ANALYZING").exists()
+                project,
+                is_current=lambda: rows.filter(
+                    status=ClipProjectStatus.ANALYZING
+                ).exists(),
             )
             with transaction.atomic():
-                current = rows.select_for_update().filter(status="ANALYZING").first()
+                current = (
+                    rows.select_for_update()
+                    .filter(status=ClipProjectStatus.ANALYZING)
+                    .first()
+                )
                 if current is None:
                     return
                 existing = list(current.clips.values("start", "end"))
                 for candidate in candidates:
-                    if len(existing) >= 20:
+                    if len(existing) >= MAX_CLIPS_PER_PROJECT:
                         break
                     if any(overlapping(candidate, other) for other in existing):
                         continue
@@ -205,11 +188,15 @@ def process_project(project_id, token):
                         style=dict(PROJECT_STYLE_DEFAULTS),
                     )
                     existing.append(candidate)
-                rows.update(status="READY", error="", updated_at=timezone.now())
+                rows.update(
+                    status=ClipProjectStatus.READY, error="", updated_at=timezone.now()
+                )
     except Exception:
         logger.exception("Clip project processing failed for %s", project_id)
-        rows.filter(status__in=["TRANSCRIBING", "ANALYZING"]).update(
-            status="FAILED",
+        rows.filter(
+            status__in=[ClipProjectStatus.TRANSCRIBING, ClipProjectStatus.ANALYZING]
+        ).update(
+            status=ClipProjectStatus.FAILED,
             error="Could not finish finding clips. Check your provider keys and retry. Saved transcription will be reused; you can also add clips manually.",
             updated_at=timezone.now(),
         )

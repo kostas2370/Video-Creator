@@ -1,26 +1,21 @@
 import logging
-from datetime import timedelta
 from pathlib import Path
 from uuid import uuid4
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import get_object_or_404
 
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
 from apps.videomanagement.utils.captions.timing import validate_word_bounds
 
+from .choices import CLIP_BUSY, PROJECT_BUSY, ClipProjectStatus, ClipStatus
+from .constants import CLIP_RENDER_FIELDS, MAX_CLIPS_PER_PROJECT, STALE_AFTER
+from .exceptions import ClipConflict, ClipQueueUnavailable
 from .models import Clip, ClipProject
 
 logger = logging.getLogger(__name__)
-PROJECT_BUSY = {"QUEUED", "TRANSCRIBING", "ANALYZING"}
-CLIP_BUSY = {"QUEUED", "RENDERING"}
-STALE_AFTER = timedelta(hours=3)
-
-
-class ClipConflict(APIException):
-    status_code = 409
-    default_detail = "This project changed. Reload it before continuing."
 
 
 def clip_words(words, start, end):
@@ -54,9 +49,7 @@ def create_project(user, source, metadata, **options):
     )
     try:
         queue_project(project)
-    except APIException as exc:
-        if exc.status_code != 503:
-            raise
+    except ClipQueueUnavailable:
         project.refresh_from_db()
     return project
 
@@ -65,8 +58,10 @@ def queue_project(project):
     from .tasks import process_project_task
 
     with transaction.atomic():
-        project = ClipProject.objects.select_for_update().get(pk=project.pk)
-        if project.status == "READY":
+        project = get_object_or_404(
+            ClipProject.objects.select_for_update(), pk=project.pk
+        )
+        if project.status == ClipProjectStatus.READY:
             raise ClipConflict(
                 "Highlights are already prepared. Add or edit clips in the workspace."
             )
@@ -76,33 +71,35 @@ def queue_project(project):
             and project.updated_at > timezone.now() - STALE_AFTER
         ):
             raise ClipConflict("Highlight processing is already running.")
-        project.job_id, project.status, project.error = uuid4(), "QUEUED", ""
+        project.job_id, project.status, project.error = (
+            uuid4(),
+            ClipProjectStatus.QUEUED,
+            "",
+        )
         project.save(update_fields=["job_id", "status", "error", "updated_at"])
     try:
         process_project_task.apply_async(args=(str(project.pk), str(project.job_id)))
     except Exception as exc:
         ClipProject.objects.filter(
-            pk=project.pk, job_id=project.job_id, status="QUEUED"
+            pk=project.pk, job_id=project.job_id, status=ClipProjectStatus.QUEUED
         ).update(
-            status="FAILED",
+            status=ClipProjectStatus.FAILED,
             error="Could not queue processing. Retry without uploading again.",
             updated_at=timezone.now(),
         )
-        error = APIException(
-            "Upload saved, but processing could not be queued. Please retry."
-        )
-        error.status_code = 503
-        raise error from exc
+        raise ClipQueueUnavailable() from exc
     project.refresh_from_db()
     return project
 
 
 def save_clip(project, changes, clip_id=None):
     with transaction.atomic():
-        project = ClipProject.objects.select_for_update().get(pk=project.pk)
+        project = get_object_or_404(
+            ClipProject.objects.select_for_update(), pk=project.pk
+        )
         project_editable(project)
         if clip_id:
-            clip = project.clips.select_for_update().get(pk=clip_id)
+            clip = get_object_or_404(project.clips.select_for_update(), pk=clip_id)
             if clip.status in CLIP_BUSY:
                 raise ClipConflict(
                     "Wait for this clip's export to finish before editing."
@@ -110,7 +107,7 @@ def save_clip(project, changes, clip_id=None):
             if changes.pop("revision", None) != clip.updated_at:
                 raise ClipConflict()
         else:
-            if project.clips.count() >= 20:
+            if project.clips.count() >= MAX_CLIPS_PER_PROJECT:
                 raise ValidationError("Keep up to 20 clips per project.")
             changes.pop("revision", None)
             clip = Clip(
@@ -119,6 +116,7 @@ def save_clip(project, changes, clip_id=None):
                 end=changes["end"],
                 style=dict(PROJECT_STYLE_DEFAULTS),
             )
+        original = {field: getattr(clip, field) for field in CLIP_RENDER_FIELDS}
         bounds_changed = clip_id is None or any(
             key in changes and changes[key] != getattr(clip, key)
             for key in ("start", "end")
@@ -128,8 +126,12 @@ def save_clip(project, changes, clip_id=None):
         if bounds_changed and "words" not in changes:
             clip.words = clip_words(project.words, clip.start, clip.end)
         validate_word_bounds(clip.words, clip.end - clip.start)
-        previous_output = clip.output.name
-        clip.output, clip.error, clip.status = "", "", "READY"
+        render_changed = clip_id is None or any(
+            getattr(clip, field) != original[field] for field in CLIP_RENDER_FIELDS
+        )
+        previous_output = clip.output.name if render_changed else ""
+        if render_changed:
+            clip.output, clip.error, clip.status = "", "", ClipStatus.READY
         clip.save()
         if previous_output:
             transaction.on_commit(
@@ -144,7 +146,9 @@ def queue_exports(project, clip_ids):
     if not clip_ids or len(clip_ids) != len(set(clip_ids)):
         raise ValidationError("Select distinct clips to export.")
     with transaction.atomic():
-        project = ClipProject.objects.select_for_update().get(pk=project.pk)
+        project = get_object_or_404(
+            ClipProject.objects.select_for_update(), pk=project.pk
+        )
         project_editable(project)
         clips = list(project.clips.select_for_update().filter(pk__in=clip_ids))
         if len(clips) != len(clip_ids):
@@ -156,17 +160,48 @@ def queue_exports(project, clip_ids):
             ):
                 raise ClipConflict("One of these clips is already exporting.")
         for clip in clips:
-            clip.job_id, clip.status, clip.error = uuid4(), "QUEUED", ""
+            clip.job_id, clip.status, clip.error = uuid4(), ClipStatus.QUEUED, ""
             clip.save(update_fields=["job_id", "status", "error", "updated_at"])
     for clip in clips:
         try:
             export_clip_task.apply_async(args=(str(clip.pk), str(clip.job_id)))
         except Exception:
             logger.exception("Could not queue clip export %s", clip.pk)
-            Clip.objects.filter(pk=clip.pk, job_id=clip.job_id, status="QUEUED").update(
-                status="FAILED",
+            Clip.objects.filter(
+                pk=clip.pk, job_id=clip.job_id, status=ClipStatus.QUEUED
+            ).update(
+                status=ClipStatus.FAILED,
                 error="Could not queue export. Please retry.",
                 updated_at=timezone.now(),
             )
         clip.refresh_from_db()
     return clips
+
+
+def delete_project(project):
+    with transaction.atomic():
+        project = get_object_or_404(
+            ClipProject.objects.select_for_update(), pk=project.pk
+        )
+        fresh = timezone.now() - STALE_AFTER
+        if (
+            project.status in PROJECT_BUSY and project.updated_at > fresh
+        ) or project.clips.filter(status__in=CLIP_BUSY, updated_at__gt=fresh).exists():
+            raise ClipConflict(
+                "Wait for processing to finish before deleting this project."
+            )
+        project.delete()
+
+
+def delete_clip(project, clip_id):
+    with transaction.atomic():
+        project = get_object_or_404(
+            ClipProject.objects.select_for_update(), pk=project.pk
+        )
+        project_editable(project)
+        clip = get_object_or_404(project.clips.select_for_update(), pk=clip_id)
+        if clip.status in CLIP_BUSY:
+            raise ClipConflict(
+                "Wait for this clip's export to finish before removing it."
+            )
+        clip.delete()

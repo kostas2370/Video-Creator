@@ -30,7 +30,8 @@ Exports are 720 × 1280 H.264/AAC MP4 at 30 fps. Every clip is one continuous ex
 of the original video with its original audio. Captions can be disabled. A project
 can contain up to 20 clips, each at most 180 seconds. Changing clip boundaries
 rebuilds its captions from the source transcript; review corrections after trimming.
-Saving edits invalidates that clip's previous export. Other clips remain unchanged.
+Saving changes to picture, timing, or captions invalidates that clip's previous export;
+title-only and unchanged saves preserve it. Other clips remain unchanged.
 
 Audio is sent to OpenAI (`whisper-1`) for transcription using the existing service
 or personal key selection. Transcript windows are sent to the configured text model
