@@ -1,8 +1,9 @@
 from pathlib import Path
-from uuid import uuid4
 
 from django.conf import settings
 from django.db import models
+
+from apps.videomanagement.models import TimestampedModel, UUIDModel
 
 from .choices import ClipLayout, ClipProjectStatus, ClipStatus
 
@@ -11,8 +12,7 @@ def source_path(instance, filename):
     return f"media/clips/{instance.pk}/source{Path(filename).suffix.lower()}"
 
 
-class ClipProject(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+class ClipProject(UUIDModel, TimestampedModel):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     title = models.CharField(max_length=100)
     source = models.FileField(upload_to=source_path, max_length=255)
@@ -33,15 +33,12 @@ class ClipProject(models.Model):
     )
     error = models.CharField(max_length=300, blank=True)
     job_id = models.UUIDField(null=True, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
 
 
-class Clip(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+class Clip(UUIDModel, TimestampedModel):
     project = models.ForeignKey(
         ClipProject, related_name="clips", on_delete=models.CASCADE
     )
@@ -65,8 +62,6 @@ class Clip(models.Model):
     )
     error = models.CharField(max_length=300, blank=True)
     job_id = models.UUIDField(null=True, editable=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["created_at", "id"]
