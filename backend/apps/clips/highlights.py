@@ -1,15 +1,8 @@
 import json
 
-from rest_framework import serializers
-
 from apps.videomanagement.integrations.llm import get_update_sentence
 
-
-class CandidateSerializer(serializers.Serializer):
-    first_word = serializers.IntegerField(min_value=0)
-    last_word = serializers.IntegerField(min_value=0)
-    title = serializers.CharField(max_length=100)
-    reason = serializers.CharField(max_length=400)
+from .serializers import CandidateSerializer
 
 
 def read_json(raw):

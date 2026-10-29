@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.http import FileResponse
-from rest_framework import mixins, serializers, viewsets
+from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.exceptions import ValidationError
@@ -10,10 +10,12 @@ from rest_framework.response import Response
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.throttling import BaseThrottle, TagGenerationRateThrottle
 
-from .hashtags import SaveHashtagsSerializer, draft_hashtags, save_hashtags
+from .hashtags import draft_hashtags, save_hashtags
 from .models import ClipProject
 from .serializers import (
     ClipEditSerializer,
+    ExportClipsSerializer,
+    SaveHashtagsSerializer,
     ClipSerializer,
     ProjectSerializer,
     ProjectSummarySerializer,
@@ -138,11 +140,9 @@ class ClipProjectView(
 
     @action(detail=True, methods=["post"])
     def export(self, request, pk=None):
-        field = serializers.ListField(
-            child=serializers.UUIDField(), min_length=1, max_length=20
-        )
-        ids = field.run_validation(request.data.get("clip_ids"))
-        clips = queue_exports(self.get_object(), ids)
+        serializer = ExportClipsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        clips = queue_exports(self.get_object(), serializer.validated_data["clip_ids"])
         return Response(
             ClipSerializer(
                 clips, many=True, context=self.get_serializer_context()

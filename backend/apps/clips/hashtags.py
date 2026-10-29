@@ -1,38 +1,19 @@
 import json
 
 from django.db import transaction
-from rest_framework import serializers
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 
 from apps.videomanagement.integrations.llm import get_update_sentence
-from apps.videomanagement.serializers.tags import TagTextField, VideoTagsSerializer
 
 from .highlights import read_json
 from .models import Clip
+from .serializers import HashtagsSerializer
 from .services import ClipConflict
-
-
-class HashtagsSerializer(serializers.Serializer):
-    hashtags = serializers.ListField(child=TagTextField(max_length=80), max_length=20)
-
-    def validate_hashtags(self, values):
-        tags = VideoTagsSerializer(data={"tiktok": values, "youtube": [], "search": []})
-        tags.is_valid(raise_exception=True)
-        values = tags.validated_data["tiktok"]
-        if any(not value.isascii() for value in values):
-            raise serializers.ValidationError(
-                "Use English hashtags with ASCII spelling, including conventional English spellings of names."
-            )
-        return values
-
-
-class SaveHashtagsSerializer(HashtagsSerializer):
-    previous_hashtags = serializers.JSONField()
 
 
 def draft_hashtags(clip, owner):
     if not clip.words:
-        raise serializers.ValidationError(
+        raise ValidationError(
             "This clip needs transcript words before generating hashtags. You can still enter them manually."
         )
     prompt = (
@@ -69,7 +50,7 @@ def draft_hashtags(clip, owner):
             ValueError,
             TypeError,
             AttributeError,
-            serializers.ValidationError,
+            ValidationError,
         ) as exc:
             if (
                 attempt == 0

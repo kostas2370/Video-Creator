@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.videomanagement.serializers.caption_words import CaptionWordSerializer
 from apps.videomanagement.serializers.captions import CaptionProjectStyleSerializer
+from apps.videomanagement.serializers.tags import TagTextField, VideoTagsSerializer
 from apps.videomanagement.utils.captions.timing import validate_word_bounds
 
 from .models import Clip, ClipProject
@@ -122,3 +123,34 @@ class ProjectSerializer(ProjectSummarySerializer):
             "clips",
         )
         read_only_fields = fields
+
+
+class CandidateSerializer(serializers.Serializer):
+    first_word = serializers.IntegerField(min_value=0)
+    last_word = serializers.IntegerField(min_value=0)
+    title = serializers.CharField(max_length=100)
+    reason = serializers.CharField(max_length=400)
+
+
+class HashtagsSerializer(serializers.Serializer):
+    hashtags = serializers.ListField(child=TagTextField(max_length=80), max_length=20)
+
+    def validate_hashtags(self, values):
+        tags = VideoTagsSerializer(data={"tiktok": values, "youtube": [], "search": []})
+        tags.is_valid(raise_exception=True)
+        values = tags.validated_data["tiktok"]
+        if any(not value.isascii() for value in values):
+            raise serializers.ValidationError(
+                "Use English hashtags with ASCII spelling, including conventional English spellings of names."
+            )
+        return values
+
+
+class SaveHashtagsSerializer(HashtagsSerializer):
+    previous_hashtags = serializers.JSONField()
+
+
+class ExportClipsSerializer(serializers.Serializer):
+    clip_ids = serializers.ListField(
+        child=serializers.UUIDField(), min_length=1, max_length=20
+    )
