@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.usermanagement",
     "apps.videomanagement",
     "apps.series",
+    "apps.clips",
     "apps.news",
     "apps.publishing",
     "apps.apikeysmanagement",
@@ -126,6 +127,7 @@ CELERY_TASK_TRACK_STARTED = True
 
 # Keep CPU-heavy exports away from scene edits, generation and maintenance jobs.
 CELERY_TASK_ROUTES = {
+    "apps.clips.tasks.export_clip_task": {"queue": "renders"},
     "apps.videomanagement.tasks.render_video_task": {"queue": "renders"},
 }
 

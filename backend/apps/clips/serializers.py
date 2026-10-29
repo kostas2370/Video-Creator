@@ -1,0 +1,124 @@
+import math
+
+from rest_framework import serializers
+
+from apps.videomanagement.serializers.caption_words import CaptionWordSerializer
+from apps.videomanagement.serializers.captions import CaptionProjectStyleSerializer
+from apps.videomanagement.utils.captions.timing import validate_word_bounds
+
+from .models import Clip, ClipProject
+from .uploads import validate_upload
+
+
+class ProjectUploadSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    source = serializers.FileField()
+    extraction_prompt = serializers.CharField(
+        max_length=2000, required=False, allow_blank=True, allow_null=True
+    )
+    clip_count = serializers.IntegerField(min_value=1, max_value=10, default=5)
+    min_duration = serializers.IntegerField(min_value=10, max_value=180, default=30)
+    max_duration = serializers.IntegerField(min_value=10, max_value=180, default=60)
+
+    def validate_extraction_prompt(self, value):
+        return value.strip() or None if value is not None else None
+
+    def validate_source(self, upload):
+        self.metadata = validate_upload(upload)
+        return upload
+
+    def validate(self, data):
+        if data["max_duration"] < data["min_duration"]:
+            raise serializers.ValidationError(
+                "Maximum length must be at least the minimum length."
+            )
+        if self.metadata["duration"] < data["min_duration"]:
+            raise serializers.ValidationError(
+                "The source video is shorter than the minimum clip length."
+            )
+        return data
+
+
+class ClipEditSerializer(serializers.Serializer):
+    revision = serializers.DateTimeField(required=False)
+    title = serializers.CharField(max_length=100, required=False)
+    start = serializers.FloatField(min_value=0, required=False)
+    end = serializers.FloatField(min_value=0, required=False)
+    layout = serializers.ChoiceField(choices=["CROP", "FIT"], required=False)
+    crop_position = serializers.FloatField(min_value=0, max_value=100, required=False)
+    captions = serializers.BooleanField(required=False)
+    words = CaptionWordSerializer(many=True, max_length=10000, required=False)
+    style = CaptionProjectStyleSerializer(required=False)
+
+    def validate(self, data):
+        clip, project = self.instance, self.context["project"]
+        start = data.get("start", clip.start if clip else 0)
+        end = data.get("end", clip.end if clip else min(project.duration, 60))
+        if not all(
+            math.isfinite(value)
+            for value in (start, end, data.get("crop_position", 50))
+        ):
+            raise serializers.ValidationError("Enter finite times and crop position.")
+        if not 0 <= start < end <= project.duration or end - start > 180:
+            raise serializers.ValidationError(
+                "Choose a clip within the source, up to 180 seconds long."
+            )
+        if "words" in data:
+            validate_word_bounds(data["words"], end - start)
+        if clip is None:
+            data.setdefault("start", start)
+            data.setdefault("end", end)
+            data.setdefault("title", "New clip")
+        return data
+
+
+class ClipSerializer(serializers.ModelSerializer):
+    revision = serializers.DateTimeField(source="updated_at", read_only=True)
+
+    class Meta:
+        model = Clip
+        fields = (
+            "id",
+            "title",
+            "reason",
+            "hashtags",
+            "start",
+            "end",
+            "layout",
+            "crop_position",
+            "captions",
+            "words",
+            "style",
+            "output",
+            "status",
+            "error",
+            "revision",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class ProjectSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ClipProject
+        fields = ("id", "title", "duration", "status", "error", "updated_at")
+        read_only_fields = fields
+
+
+class ProjectSerializer(ProjectSummarySerializer):
+    clips = ClipSerializer(many=True, read_only=True)
+
+    class Meta(ProjectSummarySerializer.Meta):
+        fields = ProjectSummarySerializer.Meta.fields + (
+            "source",
+            "preview",
+            "width",
+            "height",
+            "words",
+            "clip_count",
+            "extraction_prompt",
+            "min_duration",
+            "max_duration",
+            "clips",
+        )
+        read_only_fields = fields

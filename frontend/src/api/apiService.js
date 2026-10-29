@@ -165,3 +165,17 @@ export const saveEpisodeMemory = (seriesId, episodeId, summary, previousSummary,
 export const retrySeriesEpisode = (seriesId, episodeId) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/retry/`, {}, callerHandlesErrors);
 
 export const draftEpisodeMemory = (seriesId, episodeId, summary) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/draft_memory/`, { summary }, callerHandlesErrors);
+
+export const getClipProjects = (page = 1) => request({ url: "clips/", params: { page }, ...callerHandlesErrors });
+export const getClipProject = id => request({ url: detail("clips", id), ...callerHandlesErrors });
+export const createClipProject = data => post("clips/", data, callerHandlesErrors);
+export const retryClipProject = id => post(action("clips", id, "retry"), {}, callerHandlesErrors);
+export const deleteClipProject = id => remove(detail("clips", id), callerHandlesErrors);
+export const createClip = (id, data) => post(action("clips", id, "clips"), data, callerHandlesErrors);
+export const saveClip = (id, clipId, data) => patch(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, data, callerHandlesErrors);
+export const deleteClip = (id, clipId) => remove(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, callerHandlesErrors);
+export const exportClips = (id, clipIds) => post(action("clips", id, "export"), { clip_ids: clipIds }, callerHandlesErrors);
+export const downloadClip = (id, clipId) => request({ url: `${action("clips", id, "clips")}${encodeURIComponent(clipId)}/download/`, responseType: "blob", ...callerHandlesErrors });
+
+export const draftClipHashtags = (id, clipId) => post(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, {}, callerHandlesErrors);
+export const saveClipHashtags = (id, clipId, hashtags, previousHashtags) => patch(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, { hashtags, previous_hashtags: previousHashtags }, callerHandlesErrors);
