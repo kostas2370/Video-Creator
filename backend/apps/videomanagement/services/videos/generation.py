@@ -14,7 +14,6 @@ from apps.videomanagement.models import (
     Avatar,
     Intro,
     Outro,
-    SeriesEpisode,
     UserPrompt,
     Video,
     VideoStatus,
@@ -29,7 +28,7 @@ from apps.videomanagement.services.scenes.narration import (
 from apps.videomanagement.services.scenes.visuals import create_image_scenes
 from apps.videomanagement.utils.file_utils import generate_directory
 from apps.videomanagement.utils.prompt_utils import build_script_prompt
-from apps.videomanagement.utils.series_memory import storyboard_snapshot
+from apps.videomanagement.domain_signals import storyboard_generated
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +249,7 @@ def generate_video(
     vid.gpt_answer = x
     vid.intro = intro
     vid.outro = outro
+    creation_mode = (vid.settings or {}).get("creation_mode")
     generation_params = (vid.settings or {}).get("generation_params")
     vid.settings = dict(
         subtitles=subtitles,
@@ -260,20 +260,11 @@ def generate_video(
         style=style,
         provider=provider,
     )
-    if series_context:
-        vid.settings["creation_mode"] = "SERIES"
-        episode = SeriesEpisode.objects.filter(video=vid).first()
-        if episode:
-            vid.settings.update(
-                series_id=str(episode.series_id),
-                series_title=episode.profile_snapshot.get("title", "Series"),
-                episode_number=episode.number,
-            )
-            if new_script and isinstance(x.get("episode_summary"), str):
-                SeriesEpisode.objects.filter(pk=episode.pk, summary="").update(
-                    summary=x["episode_summary"].strip()[:800],
-                    memory_source_hash=storyboard_snapshot(x)["hash"],
-                )
+    if creation_mode:
+        vid.settings["creation_mode"] = creation_mode
+    storyboard_generated.send(
+        sender=Video, video=vid, storyboard=x, new_script=new_script
+    )
     if has_reference:
         vid.settings["reference_role"] = reference_role
     if visual_continuity:

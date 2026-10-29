@@ -9,10 +9,11 @@ from django.db.models import Max, Q
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
+from apps.series.models import SeriesEpisode, VideoSeries
 from apps.videomanagement import tasks
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.integrations.llm import get_update_sentence
-from apps.videomanagement.models import SeriesEpisode, Video, VideoSeries
+from apps.videomanagement.models import Video
 from apps.videomanagement.services.videos.generation import create_pending_video
 from apps.videomanagement.services.videos.jobs import dispatch_video_job
 from apps.videomanagement.utils.file_utils import stored_file_exists
@@ -146,12 +147,7 @@ def draft_episode_memory(episode, *, owner, summary=None):
         raise APIException(
             "AI returned an invalid episode memory. Your saved memory is unchanged."
         )
-    latest = (
-        SeriesEpisode.objects.select_related("video")
-        .prefetch_related("video__scenes__scene_images")
-        .filter(pk=episode.pk)
-        .first()
-    )
+    latest = SeriesEpisode.objects.with_script().filter(pk=episode.pk).first()
     if (
         latest is None
         or not latest.can_update_memory
@@ -186,8 +182,7 @@ def draft_episode(series, *, idea, generation_params, owner):
             previous = (
                 series.episodes.filter(is_canon=True)
                 .exclude(summary="")
-                .select_related("video")
-                .prefetch_related("video__scenes__scene_images")
+                .with_script()
                 .order_by("-number")[:10]
             )
             history = [
@@ -247,7 +242,11 @@ def retry_episode(episode, *, generation_params, owner):
             **generation_params,
             "series_context": episode.generation_params["series_context"],
         }
+        episode.save(update_fields=["generation_params", "updated_at"])
+        video.settings = {
+            **(video.settings or {}),
+            "generation_params": {**episode.generation_params, "review_script": False},
+        }
         video.status = "GENERATION"
-        video.save(update_fields=["status", "updated_at"])
-        episode.video = video
+        video.save(update_fields=["status", "settings", "updated_at"])
     return _dispatch(episode)

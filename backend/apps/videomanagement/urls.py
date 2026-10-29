@@ -17,14 +17,12 @@ from apps.videomanagement.views.videos import VideoView
 from .event_stream import event_updates
 from .views.captions import CaptionProjectView
 from .views.library import MediaAssetView
-from .views.series import VideoSeriesView
 
 router = routers.DefaultRouter()
 
 
 router.register("media-assets", MediaAssetView)
 router.register("videos", VideoView)
-router.register("series", VideoSeriesView, basename="series")
 router.register("captions", CaptionProjectView)
 router.register("avatars", AvatarView)
 router.register("voices", VoiceView)
@@ -40,6 +38,3 @@ urlpatterns = [
     path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]
-
-
-urlpatterns += router.urls

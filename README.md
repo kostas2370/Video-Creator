@@ -375,6 +375,8 @@ storyboard exists, open the episode to review or resume it in the editor. Series
 drafting and retry share the existing generation allowance (two per hour, with the
 existing superuser exemption). Normal generation, export and provider costs apply.
 
-Apply migrations through `0048_episode_memory_source` and restart the API and general
-worker before using Series mode. Existing memories without a recorded script version
-need one review and save. This feature builds on `0046_scene_identity_and_render_error`.
+Series lives in the `apps.series` Django app and reuses video management for
+storyboards, editing and rendering. Run `python manage.py migrate` and restart the
+API and general worker when deploying. The app split preserves the existing series
+tables, episode links and permission grants; the `/api/series/` routes stay the same.
+Existing memories without a recorded script version need one review and save.

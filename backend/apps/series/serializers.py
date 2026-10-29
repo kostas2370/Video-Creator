@@ -2,12 +2,12 @@ from uuid import UUID
 
 from rest_framework import serializers
 
+from apps.series.models import SeriesEpisode, VideoSeries
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
-from apps.videomanagement.models import Intro, Outro, SeriesEpisode, VideoSeries
+from apps.videomanagement.models import Intro, Outro
+from apps.videomanagement.serializers.fields import validate_image_upload
+from apps.videomanagement.serializers.requests import GenerateSerializer
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
-
-from .fields import validate_image_upload
-from .requests import GenerateSerializer
 
 
 class VideoSeriesSerializer(serializers.ModelSerializer):

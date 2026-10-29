@@ -57,8 +57,3 @@ class CoverGenerationRateThrottle(BaseThrottle):
 class RenderRetryRateThrottle(BaseThrottle):
     scope = "render_retry"
     rate = "3/hour"
-
-
-class SeriesMemoryRateThrottle(BaseThrottle):
-    scope = "series_memory"
-    rate = "15/hour"

@@ -3,7 +3,7 @@
 import hashlib
 import json
 
-from .prompt_utils import script_lines
+from apps.videomanagement.utils.prompt_utils import script_lines
 
 
 def script_snapshot(entries):

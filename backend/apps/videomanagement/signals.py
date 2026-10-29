@@ -7,7 +7,7 @@ from django_cleanup.signals import cleanup_pre_delete
 from apps.usermanagement.models import Notification
 
 from .events import publish_update
-from .models import MediaAsset, Scene, SceneImage, SeriesEpisode, Video
+from .models import MediaAsset, Scene, SceneImage, Video
 from .utils.composer.scene_cache import remove_project_cache
 
 
@@ -21,8 +21,6 @@ def remove_render_cache(sender, instance, using, **kwargs):
 @receiver(post_delete, sender=Video)
 def video_changed(sender, instance, using, **kwargs):
     if not kwargs.get("raw"):
-        if instance.status in ("READY", "COMPLETED") and (instance.settings or {}).get("creation_mode") == "SERIES":
-            SeriesEpisode.objects.filter(video=instance).update(is_canon=True)
         publish_update(f"video.{instance.pk}", video_id=instance.pk, using=using)
 
 
@@ -66,7 +64,7 @@ def notification_changed(sender, instance, using, **kwargs):
 def preserve_shared_asset_file(sender, file, file_name, **kwargs):
     # Cleanup runs after commit. Include archived scenes and all media-bearing
     # models so a shared narration, logo, or library file survives its first owner.
-    for model in apps.get_app_config("videomanagement").get_models():
+    for model in apps.get_models():
         fields = [field for field in model._meta.fields if isinstance(field, models.FileField)]
         if not fields:
             continue

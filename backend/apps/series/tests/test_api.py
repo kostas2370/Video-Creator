@@ -10,6 +10,12 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
+from apps.series.models import SeriesEpisode, VideoSeries
+from apps.series.serializers import (
+    EpisodeDraftSerializer,
+    VideoSeriesSerializer,
+)
+from apps.series.services import draft_episode, retry_episode
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import (
     intro,
@@ -19,16 +25,13 @@ from apps.videomanagement.baker_recipes import (
     video,
     voice_model,
 )
-from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.models import SeriesEpisode, Video, VideoSeries
-from apps.videomanagement.serializers.series import (
-    EpisodeDraftSerializer,
-    VideoSeriesSerializer,
+from apps.videomanagement.exceptions import (
+    GenerationQueueUnavailable,
+    VideoEditConflict,
 )
+from apps.videomanagement.models import Video
 from apps.videomanagement.services.videos.generation import generate_video
-from apps.videomanagement.services.videos.series import draft_episode
-
-from .base import ApiTestCase
+from apps.videomanagement.tests.api.base import ApiTestCase
 
 
 class SeriesTests(ApiTestCase):
@@ -131,7 +134,7 @@ class SeriesTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 404)
         with patch(
-            "apps.videomanagement.serializers.series.available_voice",
+            "apps.series.serializers.available_voice",
             return_value=voice_model.make(),
         ) as available:
             response = self.client.patch(
@@ -198,6 +201,31 @@ class SeriesTests(ApiTestCase):
         self.assertEqual(self.series.episodes.count(), 1)
         episode.video.refresh_from_db()
         self.assertEqual(episode.video.status, "GENERATION")
+
+    def test_retry_keeps_validated_settings_after_another_queue_failure(self):
+        self.queue.side_effect = RuntimeError("queue unavailable")
+        self.assertEqual(self.draft().status_code, 503)
+        episode = self.series.episodes.get()
+        params = {**episode.generation_params, "scene_count": 3}
+        with self.assertRaises(GenerationQueueUnavailable):
+            retry_episode(episode, generation_params=params, owner=self.user)
+        episode.refresh_from_db()
+        episode.video.refresh_from_db()
+        self.assertEqual(episode.generation_params, params)
+        self.assertEqual(
+            episode.video.settings["generation_params"],
+            {**params, "review_script": False},
+        )
+        self.assertEqual(episode.video.status, "FAILED")
+
+        self.queue.side_effect = None
+        response = self.client.post(self.url("retry", episode=episode))
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertEqual(self.queue.call_args.kwargs["scene_count"], 3)
+        self.assertEqual(
+            self.queue.call_args.kwargs["series_context"], params["series_context"]
+        )
+        self.assertEqual(self.series.episodes.count(), 1)
 
     def test_episode_memory_is_owner_scoped_and_survives_video_deletion(self):
         episode = self.episode()
@@ -523,7 +551,7 @@ class SeriesTests(ApiTestCase):
         )
 
     @patch(
-        "apps.videomanagement.services.videos.series.get_update_sentence",
+        "apps.series.services.get_update_sentence",
         return_value="Milo found a blue lantern.",
     )
     def test_memory_update_is_an_unsaved_draft_and_includes_manual_corrections(
@@ -546,7 +574,7 @@ class SeriesTests(ApiTestCase):
         self.assertEqual(response.data["script_hash"], episode.script_hash)
 
     @patch(
-        "apps.videomanagement.services.videos.series.get_update_sentence",
+        "apps.series.services.get_update_sentence",
         return_value="",
     )
     def test_invalid_memory_draft_preserves_saved_memory(self, ai):
@@ -559,7 +587,7 @@ class SeriesTests(ApiTestCase):
         episode.refresh_from_db()
         self.assertEqual(episode.summary, "Milo built a lantern")
 
-    @patch("apps.videomanagement.services.videos.series.get_update_sentence")
+    @patch("apps.series.services.get_update_sentence")
     def test_memory_update_rejects_changes_during_generation(self, ai):
         episode = self.episode()
         line = scene.make(video=episode.video, text="Before")
@@ -620,7 +648,7 @@ class SeriesTests(ApiTestCase):
         line.save(update_fields=["archived_at"])
         self.assertTrue(SeriesEpisode.objects.get(pk=episode.pk).memory_needs_review)
 
-    @patch("apps.videomanagement.services.videos.series.get_update_sentence")
+    @patch("apps.series.services.get_update_sentence")
     def test_memory_update_is_owner_scoped_and_requires_current_script(self, ai):
         episode = self.episode()
         other = VideoSeries.objects.create(

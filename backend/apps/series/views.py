@@ -7,10 +7,8 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.models import SeriesEpisode, VideoSeries
-from apps.videomanagement.paginator import AssetResultsPagination
-from apps.videomanagement.serializers.series import (
+from apps.series.models import SeriesEpisode, VideoSeries
+from apps.series.serializers import (
     EpisodeDraftSerializer,
     EpisodeMemoryDraftSerializer,
     EpisodeMemorySerializer,
@@ -18,16 +16,17 @@ from apps.videomanagement.serializers.series import (
     VideoSeriesSerializer,
     validate_episode_generation,
 )
-from apps.videomanagement.services.videos.series import (
+from apps.series.services import (
     draft_episode,
     draft_episode_memory,
     retry_episode,
     update_episode_memory,
 )
-from apps.videomanagement.throttling import (
-    GenerateRateThrottle,
-    SeriesMemoryRateThrottle,
-)
+from apps.videomanagement.exceptions import VideoEditConflict
+from apps.videomanagement.paginator import AssetResultsPagination
+from apps.videomanagement.throttling import GenerateRateThrottle
+
+from .throttling import SeriesMemoryRateThrottle
 
 
 class VideoSeriesView(viewsets.ModelViewSet):
@@ -56,6 +55,11 @@ class VideoSeriesView(viewsets.ModelViewSet):
             .order_by("-updated_at", "id")
         )
 
+    def get_episode(self, episode_id):
+        return get_object_or_404(
+            self.get_object().episodes.with_script(), pk=episode_id
+        )
+
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
@@ -79,11 +83,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
                 series, owner=request.user, **serializer.validated_data
             )
             return Response(SeriesEpisodeSerializer(episode).data, status=202)
-        rows = (
-            series.episodes.select_related("video")
-            .prefetch_related("video__scenes__scene_images")
-            .all()
-        )
+        rows = series.episodes.with_script()
         page = self.paginate_queryset(rows)
         return self.get_paginated_response(
             SeriesEpisodeSerializer(page, many=True).data
@@ -93,12 +93,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
         detail=True, methods=["patch"], url_path=r"episodes/(?P<episode_id>[0-9a-f-]+)"
     )
     def memory(self, request, pk=None, episode_id=None):
-        episode = get_object_or_404(
-            self.get_object()
-            .episodes.select_related("video")
-            .prefetch_related("video__scenes__scene_images"),
-            pk=episode_id,
-        )
+        episode = self.get_episode(episode_id)
         serializer = EpisodeMemorySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         episode = update_episode_memory(
@@ -117,12 +112,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
         url_path=r"episodes/(?P<episode_id>[0-9a-f-]+)/retry",
     )
     def retry(self, request, pk=None, episode_id=None):
-        episode = get_object_or_404(
-            self.get_object()
-            .episodes.select_related("video")
-            .prefetch_related("video__scenes__scene_images"),
-            pk=episode_id,
-        )
+        episode = self.get_episode(episode_id)
         if episode.video_id is None:
             raise ValidationError(
                 "This episode's video was deleted. Draft a new episode instead."
@@ -143,12 +133,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
         url_path=r"episodes/(?P<episode_id>[0-9a-f-]+)/draft_memory",
     )
     def draft_memory(self, request, pk=None, episode_id=None):
-        episode = get_object_or_404(
-            self.get_object()
-            .episodes.select_related("video")
-            .prefetch_related("video__scenes__scene_images"),
-            pk=episode_id,
-        )
+        episode = self.get_episode(episode_id)
         serializer = EpisodeMemoryDraftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
