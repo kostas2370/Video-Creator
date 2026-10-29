@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from slugify import slugify
 
+from apps.videomanagement.hooks import run_video_hooks
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import (
@@ -125,6 +126,7 @@ def generate_video(
     ai_scene_editing: bool = False,
     visual_continuity: str = "",
     reference_role: str = "both",
+    series_context: str = "",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -208,6 +210,9 @@ def generate_video(
         reference_role=reference_role if has_reference else None,
     )
 
+    if series_context:
+        prompt += series_context
+
     if video.gpt_answer and video.dir_name:
         logger.info("Resuming video %s from the script it already has", video.id)
         x = video.gpt_answer
@@ -219,6 +224,7 @@ def generate_video(
             ai_scene_editing=ai_scene_editing,
             video_provider=video_provider,
             require_visual_continuity=image_mode == "AI",
+            **({"require_episode_summary": True} if series_context else {}),
             **({"reference_image": video.reference_image.path} if has_reference else {}),
         )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
@@ -243,6 +249,7 @@ def generate_video(
     vid.gpt_answer = x
     vid.intro = intro
     vid.outro = outro
+    creation_mode = (vid.settings or {}).get("creation_mode")
     generation_params = (vid.settings or {}).get("generation_params")
     vid.settings = dict(
         subtitles=subtitles,
@@ -253,6 +260,9 @@ def generate_video(
         style=style,
         provider=provider,
     )
+    if creation_mode:
+        vid.settings["creation_mode"] = creation_mode
+    run_video_hooks("storyboard_generated", video=vid, storyboard=x, new_script=new_script)
     if has_reference:
         vid.settings["reference_role"] = reference_role
     if visual_continuity:

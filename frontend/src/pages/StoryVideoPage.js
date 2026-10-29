@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { HiOutlineMicrophone, HiOutlineArrowUpTray, HiOutlineSparkles } from "react-icons/hi2";
 import { toast } from "react-toastify";
-import { VideoCreationMode } from "../components/VideoCreationMode";
 import { MoreAssetOptions } from "../components/ui/MoreAssetOptions";
 import { editorInput, editorButton } from "../components/ui/EditorDialog";
 import { createStoryVideo, draftStory, getVoices } from "../api/apiService";
@@ -74,7 +73,6 @@ export function StoryVideo() {
   };
 
   return <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-    <VideoCreationMode />
     <header className="mb-8 max-w-2xl">
       <span className="mb-4 inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><HiOutlineMicrophone aria-hidden="true" />Made for short stories</span>
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">One story. Nonstop gameplay.</h1>

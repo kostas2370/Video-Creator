@@ -4,8 +4,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-from rest_framework import permissions
+from rest_framework import permissions, routers
 
+from apps.series.urls import router as series_router
+from apps.videomanagement.urls import router as video_router
+
+
+api_router = routers.DefaultRouter()
+api_router.registry = video_router.registry + series_router.registry
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -34,6 +40,7 @@ urlpatterns = [
     path("api/", include("apps.usermanagement.urls")),
     path("api/", include("apps.apikeysmanagement.urls")),
     path("api/", include("apps.videomanagement.urls")),
+    path("api/", include(api_router.urls)),
     path("api/news/", include("apps.news.urls")),
     path("api/publishing/", include("apps.publishing.urls")),
 ]

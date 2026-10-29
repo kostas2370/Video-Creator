@@ -661,3 +661,58 @@ They preserve caller filters and work on related managers:
   usage serializers format them without issuing database queries.
 
 The default managers remain unfiltered so background tasks can access their records.
+
+
+## Recurring series and episode memory
+
+`VideoSeries` stores an owner-scoped cast/world brief, visual style, optional shared
+reference and production defaults. `SeriesEpisode` associates a numbered episode
+with a normal `Video`, an immutable profile/parameter snapshot, a short editable
+memory and an `is_canon` flag. API routes live in `views/series.py`; drafting and
+recovery are coordinated by `services/videos/series.py`.
+
+`POST /api/series/{id}/episodes/` locks the series while allocating an episode number,
+copies the reference to the video,
+persists both records, then queues the existing generation task after the transaction
+commits. Request serializers reuse `GenerateSerializer` for selections and defaults;
+services accept the resulting values and owner model, without HTTP request objects.
+The service checks the profile revision under the lock so validated choices cannot
+be paired with a different setup after a concurrent edit. Queue dispatch reuses the
+same conditional failure recovery as other video jobs, protecting worker progress.
+A queue failure leaves a failed episode that can be retried through
+`POST /api/series/{id}/episodes/{episode_id}/retry/`. Retry claims the same video under
+a lock and revalidates its saved selections. Another in-flight episode blocks drafting
+and retry. Completed setup saves do not call providers.
+
+A `series_context` task parameter adds the profile and up to ten prior prepared,
+nonempty episode memories to the existing script prompt. Series responses require an
+`episode_summary` of 1–800 characters; malformed or missing summaries use the existing
+LLM correction/retry path. The initial worker saves that memory and leaves the video
+in `REVIEW`. Approval preserves the same parameters and reference, then uses normal
+scene generation. A series video's transition to `READY`/`COMPLETED` marks its episode
+as eligible history. Users can correct summaries; subsequent worker runs preserve
+existing nonempty memory. Story edits do not automatically rewrite summaries. `memory_source_hash` records a
+stable fingerprint of ordered dialogue and visual prompts. A mismatch marks memory
+as needing review and excludes it from new draft context. Older memories without a
+fingerprint require review once. Deleted videos retain their saved memory.
+`draft_memory` proposes a replacement using current script and existing user text,
+without persisting it; the client offers undo and explicit save. It has a separate
+15/hour allowance. Save compares the script fingerprint as well as the prior summary;
+script changes during an AI update or before saving return a conflict.
+
+`GET /api/series/` and `/episodes/` are paginated. Profiles and nested episodes are
+strictly owner-scoped, including for superusers. `PATCH /api/series/{id}/episodes/{id}/`
+saves memory with a compare-and-update guard; replaying an already successful save
+is safe. The editor preserves unsaved memory across refreshes and offers explicitly
+loading the saved version when another edit arrives. Deleting a video nulls the episode's video link and retains its memory;
+deleting a series cascades its episode records without deleting the videos. Pending
+videos can still finish from their snapshotted parameters if the series is removed.
+The video library has a `SERIES` creation-mode filter, and editor metadata links an
+episode back to its workspace. No additional queue, provider or subscription is added.
+
+Apply migrations through `0048_episode_memory_source` before restarting the API and workers. Provider
+calls were exercised through mocks in automated tests; appearance consistency and
+story quality still require representative real-provider trials.
+
+The series profile exposes its active episode using subqueries independent of episode
+pagination, so every workspace page can link to the pending review/preparation.

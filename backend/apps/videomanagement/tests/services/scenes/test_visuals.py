@@ -529,3 +529,30 @@ class ReferenceRoleTests(TestCase):
             reference = scenes_utils.scene_reference(first, self.video, "kling")
         self.assertEqual(reference, self.video.reference_image.path)
         self.assertEqual(scenes_utils.reference_role_for(self.video, reference), "character")
+
+class OpenAIFramePropagationTests(TestCase):
+    def test_creation_and_regeneration_forward_each_project_frame(self):
+        for frame in ("PORTRAIT", "LANDSCAPE", "SQUARE"):
+            with self.subTest(frame=frame):
+                project = video.make(
+                    mode="AI", settings={"provider": "OPENAI", "video_format": frame}
+                )
+                row = scene.make(video=project, text="A cat explores")
+                with patch.object(
+                    scenes_utils.ImageProviderRegistry, "resolve"
+                ) as resolve:
+                    generate = resolve.return_value
+                    generate.return_value = "images/frame-check.png"
+                    create_image_scene(
+                        project,
+                        "A cat",
+                        row.text,
+                        project.dir_name,
+                        mode="AI",
+                        provider="OPENAI",
+                        scene=row,
+                    )
+                    self.assertEqual(generate.call_args.kwargs["video_format"], frame)
+                    visual = row.scene_images.get()
+                    generate_new_image(visual, project)
+                    self.assertEqual(generate.call_args.kwargs["video_format"], frame)

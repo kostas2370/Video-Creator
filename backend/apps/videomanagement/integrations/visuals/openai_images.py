@@ -15,6 +15,29 @@ from apps.videomanagement.utils.prompt_utils import format_image_prompt
 
 logger = logging.getLogger(__name__)
 
+# GPT Image 2 accepts custom dimensions in multiples of 16.
+# Older GPT Image models use their supported portrait/landscape presets.
+FRAME_IMAGE_SIZES = {
+    "LANDSCAPE": "1536x864",
+    "PORTRAIT": "864x1536",
+    "SQUARE": "1024x1024",
+}
+LEGACY_FRAME_IMAGE_SIZES = {
+    "LANDSCAPE": "1536x1024",
+    "PORTRAIT": "1024x1536",
+    "SQUARE": "1024x1024",
+}
+
+
+def image_size_for_frame(video_format):
+    sizes = (
+        FRAME_IMAGE_SIZES
+        if settings.IMAGE_MODEL.startswith("gpt-image-2")
+        else LEGACY_FRAME_IMAGE_SIZES
+    )
+    # Standalone requests (such as covers) retain their configured size.
+    return sizes.get(video_format, settings.IMAGE_SIZE)
+
 
 @ImageProviderRegistry.register("OPENAI", supports_reference=True)
 def generate_openai_image(
@@ -26,6 +49,7 @@ def generate_openai_image(
     reference: str = None,
     reference_role: str = "both",
     *args,
+    video_format: str = None,
     **kwargs,
 ) -> str:
     """Generate or edit an image using the configured GPT image model."""
@@ -45,7 +69,7 @@ def generate_openai_image(
     request = dict(
         model=settings.IMAGE_MODEL,
         prompt=image_prompt,
-        size=settings.IMAGE_SIZE,
+        size=image_size_for_frame(video_format),
         quality=settings.IMAGE_QUALITY,
         n=1,
         output_format="png",

@@ -149,7 +149,15 @@ docker compose exec video_creator python manage.py setup_60db
 
 Text and image model settings include `DEFAULT_GPT_MODEL`, `MAX_TOKENS`,
 `REASONING_TOKEN_ALLOWANCE`, `IMAGE_MODEL`, `IMAGE_QUALITY`, and `IMAGE_SIZE`.
-Choose image quality and size values supported by the configured model.
+Scene images automatically follow the project frame: GPT Image 2 generates
+864 × 1536 for portrait (9:16), 1536 × 864 for landscape (16:9), and 1024 × 1024
+for square projects. Reference-image edits and scene regeneration use the same
+sizing. Older GPT Image models use their supported 1024 × 1536 portrait and
+1536 × 1024 landscape presets, so the renderer may still crop those images.
+`IMAGE_SIZE` remains the fallback for standalone image requests, including covers.
+Choose image quality and fallback size values supported by the configured model.
+Existing scene images are retained until you regenerate them; restart the general
+worker to apply the new sizing to newly generated scenes.
 
 See the guides for [AI video providers](docs/ai-video-providers.md),
 [visual continuity](docs/visual-continuity.md), and [AI usage tracking](docs/ai-usage.md).
@@ -331,3 +339,46 @@ The reference can be searched in worker logs. Errors do not expose provider resp
 file paths or tracebacks. Ordinary exports retain the one-per-day limit; failed export
 retries have a separate limit of three per hour. Generation failures retain the existing
 resume flow. The existing timeout cleanup also marks stalled exports as retryable.
+
+
+### Series mode
+
+Choose **Create a series** from the creation tools. Save a series name, premise,
+recurring cast/world, visual style, narrator, frame, captions and optional intro/outro.
+You can also upload one PNG, JPEG or WebP reference image (up to 10 MB), such as a
+cast sheet. Choose a supported built-in AI visual provider; a reference requires a
+provider with reference-image support. References guide appearance, but do not
+promise identical characters across generations.
+
+Use **Draft next episode** with a new idea. Drafting uses the configured text model
+and opens a normal video project. Review and edit its storyboard before approving
+narration and visual generation. Each episode snapshots the saved series setup and
+copies its reference image, so profile edits apply to future episodes. Finish the
+current episode's review and media preparation before starting another episode.
+The workspace links to that active episode even when browsing older episode pages.
+
+The AI also drafts an episode memory of up to 800 characters. Open **Episode memory**
+in the series workspace to correct the events, discoveries and ending after editing
+the story. Once its media is prepared, that memory can guide later episodes. A changed storyboard, dialogue or visual prompt marks its memory **Needs review**.
+Use **Update memory from current script** to draft an update with your existing
+corrections, then review and save it. You can undo the draft; generating it does not
+change saved memory. Manual review and save also clears the warning. Stale and
+unapproved memories are excluded from new drafts. Context considers the latest ten
+prepared episodes with nonempty memories. This is bounded story context, not guaranteed
+long-term recall or a check against every earlier episode. Memories remain in the
+series when an individual video is deleted. Deleting the series removes its setup
+and memories while preserving the videos in **My videos**.
+
+If a draft cannot be queued or fails before saving a storyboard, use **Retry draft**
+in the series workspace. It reuses the same episode number and saved setup. Once a
+storyboard exists, open the episode to review or resume it in the editor. Series
+drafting and retry share the existing generation allowance (two per hour, with the
+existing superuser exemption). Normal generation, export and provider costs apply.
+
+Series lives in the `apps.series` Django app and reuses video management for
+storyboards, editing and rendering. Run `python manage.py migrate` and restart the
+API and general worker when deploying. The app split preserves the existing series
+tables, episode links and permission grants; the `/api/series/` routes stay the same.
+Existing memories without a recorded script version need one review and save.
+Memory-save API requests must include `previous_summary` and `script_hash` from the
+episode response, alongside `summary`, so stale edits are rejected.

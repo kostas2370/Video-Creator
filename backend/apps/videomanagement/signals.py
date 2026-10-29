@@ -64,7 +64,7 @@ def notification_changed(sender, instance, using, **kwargs):
 def preserve_shared_asset_file(sender, file, file_name, **kwargs):
     # Cleanup runs after commit. Include archived scenes and all media-bearing
     # models so a shared narration, logo, or library file survives its first owner.
-    for model in apps.get_app_config("videomanagement").get_models():
+    for model in apps.get_models():
         fields = [field for field in model._meta.fields if isinstance(field, models.FileField)]
         if not fields:
             continue

@@ -183,7 +183,7 @@ def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None, imag
 
 def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
               narration=None, scene_count=None, ai_scene_editing=False, video_provider=False,
-              require_visual_continuity=False, reference_image=None):
+              require_visual_continuity=False, reference_image=None, require_episode_summary=False):
     """Route text requests and retry invalid scripts with specific correction feedback."""
     gpt_model = gpt_model or settings.DEFAULT_GPT_MODEL
     original_prompt = prompt
@@ -210,6 +210,8 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
                 data, narration, scene_count, ai_scene_editing, video_provider,
                 require_visual_continuity=require_visual_continuity,
             )
+            if require_episode_summary and (not isinstance(data, dict) or not isinstance(data.get("episode_summary"), str) or not data["episode_summary"].strip() or len(data["episode_summary"]) > 800):
+                errors.append("Include episode_summary: a nonempty string of at most 800 characters recording the episode's events and ending.")
             if not errors:
                 return data
         except (ValueError, TypeError):

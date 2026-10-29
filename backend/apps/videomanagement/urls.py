@@ -38,6 +38,3 @@ urlpatterns = [
     path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]
-
-
-urlpatterns += router.urls
