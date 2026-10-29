@@ -11,7 +11,7 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import IntegrityError, models, router, transaction
 from django.utils import timezone
-from django_lifecycle import AFTER_UPDATE, LifecycleModelMixin, hook
+from django_lifecycle import AFTER_SAVE, AFTER_UPDATE, LifecycleModelMixin, hook
 from django_lifecycle.conditions import WhenFieldValueChangesTo
 from django_resized import ResizedImageField
 
@@ -19,6 +19,7 @@ from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
 
+from .hooks import run_video_hooks
 from .querysets import (
     ActiveSceneManager,
     AIUsageQuerySet,
@@ -539,6 +540,10 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
     )
 
     objects = VideoQuerySet.as_manager()
+
+    @hook(AFTER_SAVE)
+    def run_workflow_save_hooks(self):
+        run_video_hooks("video_saved", video=self)
 
     def toggle_favorite(self):
         self.is_favorite = not self.is_favorite

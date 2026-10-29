@@ -161,7 +161,7 @@ export const updateSeries = (id, data) => patch(detail("series", id), data, call
 export const deleteSeries = id => remove(detail("series", id), callerHandlesErrors);
 export const getSeriesEpisodes = (id, page = 1) => request({ url: action("series", id, "episodes"), params: { page }, ...callerHandlesErrors });
 export const draftSeriesEpisode = (id, idea) => post(action("series", id, "episodes"), { idea }, callerHandlesErrors);
-export const saveEpisodeMemory = (seriesId, episodeId, summary, previousSummary, scriptHash) => patch(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/`, { summary, ...(scriptHash !== undefined ? { script_hash: scriptHash } : {}), ...(previousSummary !== undefined ? { previous_summary: previousSummary } : {}) }, callerHandlesErrors);
+export const saveEpisodeMemory = (seriesId, episodeId, summary, previousSummary, scriptHash) => patch(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/`, { summary, script_hash: scriptHash, previous_summary: previousSummary }, callerHandlesErrors);
 export const retrySeriesEpisode = (seriesId, episodeId) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/retry/`, {}, callerHandlesErrors);
 
 export const draftEpisodeMemory = (seriesId, episodeId, summary) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/draft_memory/`, { summary }, callerHandlesErrors);

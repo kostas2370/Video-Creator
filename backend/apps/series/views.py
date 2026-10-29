@@ -99,10 +99,8 @@ class VideoSeriesView(viewsets.ModelViewSet):
         episode = update_episode_memory(
             episode,
             summary=serializer.validated_data["summary"],
-            script_hash=serializer.validated_data.get("script_hash"),
-            previous_summary=serializer.validated_data.get(
-                "previous_summary", episode.summary
-            ),
+            script_hash=serializer.validated_data["script_hash"],
+            previous_summary=serializer.validated_data["previous_summary"],
         )
         return Response(SeriesEpisodeSerializer(episode).data)
 

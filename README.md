@@ -380,3 +380,5 @@ storyboards, editing and rendering. Run `python manage.py migrate` and restart t
 API and general worker when deploying. The app split preserves the existing series
 tables, episode links and permission grants; the `/api/series/` routes stay the same.
 Existing memories without a recorded script version need one review and save.
+Memory-save API requests must include `previous_summary` and `script_hash` from the
+episode response, alongside `summary`, so stale edits are rejected.

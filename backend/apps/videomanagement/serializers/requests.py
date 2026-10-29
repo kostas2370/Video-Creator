@@ -26,7 +26,7 @@ from ..video_formats import (
     VIDEO_PLATFORM_CHOICES,
 )
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
-from .fields import FiniteFloat, validate_image_upload
+from .fields import FiniteFloat, validate_reference_image
 
 
 class TransitionDurationField(FiniteFloat):
@@ -107,14 +107,7 @@ class GenerateSerializer(serializers.Serializer):
     genre = serializers.CharField(required=False, default="", allow_blank=True)
 
     def validate_reference_image(self, value):
-        return validate_image_upload(
-            value,
-            check_order=("size", "format"),
-            messages={
-                "size": "Choose an image smaller than 10 MB.",
-                "format": "Choose a PNG, JPEG, or WebP image.",
-            },
-        )
+        return validate_reference_image(value)
 
     def validate(self, attrs):
         if attrs.get("reference_image") and (

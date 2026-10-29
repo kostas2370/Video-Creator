@@ -15,6 +15,7 @@ from apps.series.models import SeriesEpisode, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     VideoSeriesSerializer,
+    validate_episode_generation,
 )
 from apps.series.services import draft_episode, retry_episode
 from apps.usermanagement.baker_recipes import user
@@ -293,7 +294,11 @@ class SeriesTests(ApiTestCase):
         episode = self.episode()
         response = self.client.patch(
             self.url("memory", episode=episode),
-            {"summary": "Milo learned that shadows change."},
+            {
+                "summary": "Milo learned that shadows change.",
+                "previous_summary": episode.summary,
+                "script_hash": episode.script_hash,
+            },
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
@@ -484,18 +489,99 @@ class SeriesTests(ApiTestCase):
             self.client.post(self.url("retry", episode=episode)).status_code, 400
         )
 
+    def test_memory_save_requires_both_conflict_checks(self):
+        episode = self.episode(summary="Original")
+        data = {
+            "summary": "New events",
+            "previous_summary": "Original",
+            "script_hash": episode.script_hash,
+        }
+        for missing in ("previous_summary", "script_hash"):
+            with self.subTest(missing=missing):
+                response = self.client.patch(
+                    self.url("memory", episode=episode),
+                    {key: value for key, value in data.items() if key != missing},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn(missing, response.data)
+        for invalid in (
+            None,
+            "invalid",
+            " " + episode.script_hash,
+            episode.script_hash + "\n",
+        ):
+            with self.subTest(script_hash=invalid):
+                response = self.client.patch(
+                    self.url("memory", episode=episode),
+                    {**data, "script_hash": invalid},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, 400, response.data)
+        response = self.client.patch(
+            self.url("memory", episode=episode),
+            {**data, "script_hash": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 409, response.data)
+        episode.refresh_from_db()
+        self.assertEqual(episode.summary, "Original")
+
+    def test_deleted_episode_memory_can_be_saved_with_its_last_fingerprint(self):
+        episode = self.episode(summary="Original")
+        episode.video.delete()
+        episode.refresh_from_db()
+        data = {
+            "summary": "Corrected",
+            "previous_summary": "Original",
+            "script_hash": episode.script_hash,
+        }
+        response = self.client.patch(
+            self.url("memory", episode=episode), data, format="json"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["summary"], "Corrected")
+        self.assertIsNone(response.data["video_id"])
+
+    def test_generation_validation_normalizes_asset_uuids_without_mutating_choices(
+        self,
+    ):
+        opening = intro.make(created_by=self.user)
+        ending = outro.make(created_by=self.user)
+        choices = {
+            "message": "Shadows",
+            "narration": False,
+            "intro": opening.pk,
+            "outro": ending.pk,
+        }
+        params = validate_episode_generation(
+            choices, {"request": SimpleNamespace(user=self.user)}
+        )
+        self.assertEqual(params["intro"], str(opening.pk))
+        self.assertEqual(params["outro"], str(ending.pk))
+        self.assertEqual(choices["intro"], opening.pk)
+        self.assertEqual(choices["outro"], ending.pk)
+
     def test_memory_updates_reject_stale_edits_and_invalid_episode_ids(self):
         episode = self.episode(summary="Original")
         url = self.url("memory", episode=episode)
         first = self.client.patch(
             url,
-            {"summary": "New events", "previous_summary": "Original"},
+            {
+                "summary": "New events",
+                "previous_summary": "Original",
+                "script_hash": episode.script_hash,
+            },
             format="json",
         )
         self.assertEqual(first.status_code, 200)
         stale = self.client.patch(
             url,
-            {"summary": "Stale events", "previous_summary": "Original"},
+            {
+                "summary": "Stale events",
+                "previous_summary": "Original",
+                "script_hash": episode.script_hash,
+            },
             format="json",
         )
         self.assertEqual(stale.status_code, 409)
@@ -552,7 +638,11 @@ class SeriesTests(ApiTestCase):
 
     def test_memory_save_can_be_replayed_after_a_lost_response(self):
         episode = self.episode(summary="Original")
-        data = {"summary": "New memory", "previous_summary": "Original"}
+        data = {
+            "summary": "New memory",
+            "previous_summary": "Original",
+            "script_hash": episode.script_hash,
+        }
         for _ in range(2):
             response = self.client.patch(
                 self.url("memory", episode=episode), data, format="json"
@@ -593,13 +683,21 @@ class SeriesTests(ApiTestCase):
         url = self.url("memory", episode=episode)
         stale = self.client.patch(
             url,
-            {"summary": "Milo lost a lantern", "script_hash": old_hash},
+            {
+                "summary": "Milo lost a lantern",
+                "script_hash": old_hash,
+                "previous_summary": episode.summary,
+            },
             format="json",
         )
         self.assertEqual(stale.status_code, 409)
         saved = self.client.patch(
             url,
-            {"summary": "Milo lost a lantern", "script_hash": row["script_hash"]},
+            {
+                "summary": "Milo lost a lantern",
+                "script_hash": row["script_hash"],
+                "previous_summary": episode.summary,
+            },
             format="json",
         )
         self.assertEqual(saved.status_code, 200, saved.data)

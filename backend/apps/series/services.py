@@ -82,7 +82,7 @@ def _locked_series(series_id, owner, exclude_episode=None):
     return series
 
 
-def update_episode_memory(episode, *, summary, previous_summary, script_hash=None):
+def update_episode_memory(episode, *, summary, previous_summary, script_hash):
     with transaction.atomic():
         if episode.video_id:
             current_video = (
@@ -99,7 +99,7 @@ def update_episode_memory(episode, *, summary, previous_summary, script_hash=Non
                     "Wait for the episode to finish preparing before reviewing its memory."
                 )
         current_hash = episode.script_hash
-        if script_hash is not None and script_hash != current_hash:
+        if script_hash != current_hash:
             raise VideoEditConflict(
                 "The episode script changed. Refresh and review the memory before saving."
             )

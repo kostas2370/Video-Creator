@@ -5,7 +5,7 @@ from rest_framework import serializers
 from apps.series.models import SeriesEpisode, VideoSeries
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import Intro, Outro
-from apps.videomanagement.serializers.fields import validate_image_upload
+from apps.videomanagement.serializers.fields import validate_reference_image
 from apps.videomanagement.serializers.requests import GenerateSerializer
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 
@@ -59,26 +59,21 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
     def validate_reference_image(self, value):
-        return validate_image_upload(
-            value,
-            check_order=("size", "format"),
-            messages={
-                "size": "Choose an image smaller than 10 MB.",
-                "format": "Choose a PNG, JPEG, or WebP image.",
-            },
-        )
+        return validate_reference_image(value)
+
+    def validate_intro(self, value):
+        selected = owned_asset(Intro, value, self.context["request"].user)
+        return selected.pk if selected else None
+
+    def validate_outro(self, value):
+        selected = owned_asset(Outro, value, self.context["request"].user)
+        return selected.pk if selected else None
+
+    def validate_voice_model(self, value):
+        selected = available_voice(value, self.context["request"].user)
+        return selected.pk if selected else None
 
     def validate(self, attrs):
-        owner = self.context["request"].user
-        for field, model in (("intro", Intro), ("outro", Outro)):
-            key = f"{field}_id"
-            if key in attrs:
-                selected = owned_asset(model, attrs[key], owner)
-                attrs[key] = selected.pk if selected else None
-        if "voice_model_id" in attrs:
-            selected = available_voice(attrs["voice_model_id"], owner)
-            attrs["voice_model_id"] = selected.pk if selected else None
-
         def current(field, default=None):
             return attrs.get(field, getattr(self.instance, field, default))
 
@@ -119,8 +114,13 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
 
 def validate_episode_generation(choices, context):
     # Snapshot defaults in one place, using the same validation as standalone AI videos.
+    data = {key: value for key, value in choices.items() if value is not None}
+    # Generation fields expect strings; saved profiles may contain UUID objects.
+    for field in ("voice_id", "intro", "outro"):
+        if field in data:
+            data[field] = str(data[field])
     serializer = GenerateSerializer(
-        data={key: value for key, value in choices.items() if value is not None},
+        data=data,
         context=context,
     )
     serializer.is_valid(raise_exception=True)
@@ -155,10 +155,6 @@ class EpisodeDraftSerializer(serializers.Serializer):
             "review_script": True,
             "visual_continuity": f"Cast: {series.characters}\nStyle: {series.visual_style}",
         }
-        # CharField expects string IDs, whereas model FK IDs are UUID objects.
-        for field in ("voice_id", "intro", "outro"):
-            if choices[field] is not None:
-                choices[field] = str(choices[field])
         attrs["generation_params"] = validate_episode_generation(choices, self.context)
         return attrs
 
@@ -169,10 +165,10 @@ class EpisodeMemoryDraftSerializer(serializers.Serializer):
 
 class EpisodeMemorySerializer(serializers.Serializer):
     script_hash = serializers.RegexField(
-        r"^[0-9a-f]{64}$", required=False, allow_blank=True
+        r"\A[0-9a-f]{64}\Z", allow_blank=True, trim_whitespace=False
     )
     previous_summary = serializers.CharField(
-        max_length=800, allow_blank=True, required=False, trim_whitespace=False
+        max_length=800, allow_blank=True, trim_whitespace=False
     )
     summary = serializers.CharField(max_length=800, allow_blank=True)
 

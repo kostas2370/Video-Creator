@@ -1,17 +1,10 @@
 """Keep series metadata in sync with the shared video pipeline."""
 
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
-from apps.videomanagement.domain_signals import storyboard_generated
-from apps.videomanagement.models import Video
-
 from .memory import storyboard_snapshot
 from .models import SeriesEpisode
 
 
-@receiver(storyboard_generated, sender=Video)
-def episode_storyboard_generated(sender, video, storyboard, new_script, **kwargs):
+def prepare_episode_storyboard(*, video, storyboard, new_script):
     if (video.settings or {}).get("creation_mode") != "SERIES":
         return
     episodes = SeriesEpisode.objects.using(video._state.db)
@@ -31,11 +24,11 @@ def episode_storyboard_generated(sender, video, storyboard, new_script, **kwargs
         )
 
 
-@receiver(post_save, sender=Video)
-def episode_video_saved(sender, instance, using, raw=False, **kwargs):
+def mark_episode_canon(*, video):
     if (
-        not raw
-        and instance.status in ("READY", "COMPLETED")
-        and (instance.settings or {}).get("creation_mode") == "SERIES"
+        video.status in ("READY", "COMPLETED")
+        and (video.settings or {}).get("creation_mode") == "SERIES"
     ):
-        SeriesEpisode.objects.using(using).filter(video=instance).update(is_canon=True)
+        SeriesEpisode.objects.using(video._state.db).filter(video=video).update(
+            is_canon=True
+        )

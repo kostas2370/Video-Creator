@@ -52,6 +52,12 @@ INSTALLED_APPS = [
     "django_lifecycle_checks",
 ]
 
+# Domain extensions run explicitly without importing feature apps into video models.
+VIDEO_WORKFLOW_HOOKS = {
+    "storyboard_generated": ["apps.series.hooks.prepare_episode_storyboard"],
+    "video_saved": ["apps.series.hooks.mark_episode_canon"],
+}
+
 # Middleware
 MIDDLEWARE = [
     "video_creator.observability.request_logging",

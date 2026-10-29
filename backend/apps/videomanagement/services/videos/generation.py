@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from slugify import slugify
 
+from apps.videomanagement.hooks import run_video_hooks
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import (
@@ -28,7 +29,6 @@ from apps.videomanagement.services.scenes.narration import (
 from apps.videomanagement.services.scenes.visuals import create_image_scenes
 from apps.videomanagement.utils.file_utils import generate_directory
 from apps.videomanagement.utils.prompt_utils import build_script_prompt
-from apps.videomanagement.domain_signals import storyboard_generated
 
 logger = logging.getLogger(__name__)
 
@@ -262,9 +262,7 @@ def generate_video(
     )
     if creation_mode:
         vid.settings["creation_mode"] = creation_mode
-    storyboard_generated.send(
-        sender=Video, video=vid, storyboard=x, new_script=new_script
-    )
+    run_video_hooks("storyboard_generated", video=vid, storyboard=x, new_script=new_script)
     if has_reference:
         vid.settings["reference_role"] = reference_role
     if visual_continuity:

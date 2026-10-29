@@ -47,3 +47,15 @@ def validate_image_upload(
         if invalid:
             raise serializers.ValidationError(messages[check])
     return upload
+
+
+def validate_reference_image(upload):
+    """Use the same upload limits for series and standalone video references."""
+    return validate_image_upload(
+        upload,
+        check_order=("size", "format"),
+        messages={
+            "size": "Choose an image smaller than 10 MB.",
+            "format": "Choose a PNG, JPEG, or WebP image.",
+        },
+    )
