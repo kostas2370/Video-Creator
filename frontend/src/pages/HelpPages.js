@@ -38,6 +38,7 @@ const guideSections = [
   { id: "edit", title: "Build and edit your scenes" },
   { id: "preview-export", title: "Preview and export" },
   { id: "publish", title: "Publish your video" },
+  { id: "clips", title: "Turn a long video into Shorts" },
   { id: "troubleshooting", title: "When something goes wrong" },
 ];
 
@@ -90,6 +91,17 @@ export function GuidePage() {
           <p>After exporting, use the publishing action in the editor to choose an account and review the post details. Reconnect an account if the app says its connection has expired.</p>
         </GuideSection>
         <GuideSection {...guideSections[5]}>
+          <p>Open <Link to="/clips/" className={linkStyle}>Long video → Shorts</Link> to find highlights in an interview, podcast, talk, or other video with spoken audio. Transcription needs an OpenAI API key, and AI suggestions use your configured text provider.</p>
+          <ol className="list-decimal space-y-3 pl-5">
+            <li>Choose <strong>New project</strong>. Upload a video or paste a public YouTube video link, then choose your preferred clip lengths. Optionally describe the moments you want or select a processing range.</li>
+            <li>Wait for the preview, transcript, and suggestions. You can leave the page and return to the saved project later.</li>
+            <li>Open <strong>Transcript &amp; AI search</strong> to read the transcript or describe another moment to find. Choose <strong>Add and edit clip</strong> on a result to open it in the editor, or use <strong>Add clip manually</strong> from the Clips view.</li>
+            <li>Review the context, adjust the trim and portrait framing, and correct the captions. Suggested times can include decimal seconds; keep that precision when editing. Changing the trim rebuilds captions from the source transcript.</li>
+            <li>Choose <strong>Save clip</strong>, then export individual clips or use <strong>Export selected</strong>. Download each finished clip. Generate, review, and save hashtags separately if you want them.</li>
+          </ol>
+          <p>Each project supports up to 20 clips, each at most 180 seconds long. Exports are portrait MP4 files with the original audio. If processing fails, use the available retry action; saved transcription can be reused. Changing a saved clip’s timing, framing, or captions requires a new export.</p>
+        </GuideSection>
+        <GuideSection {...guideSections[6]}>
           <div className="space-y-3">
             {[
               ["Export is disabled", "Check that the project has scenes and that processing and saving have finished. If processing failed, review the available scenes and the recovery actions shown in the editor."],
