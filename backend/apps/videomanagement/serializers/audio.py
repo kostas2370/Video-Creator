@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.common.youtube import youtube_url
+
 from .fields import FiniteFloat as FiniteFloat
 
 
@@ -30,3 +32,16 @@ class VoiceoverUploadSerializer(serializers.Serializer):
         if value.size > 50 * 1024 * 1024:
             raise serializers.ValidationError("Audio must be smaller than 50 MB.")
         return value
+
+
+class MusicUploadSerializer(VoiceoverUploadSerializer):
+    file = serializers.FileField(required=False)
+    youtube_url = serializers.CharField(required=False, max_length=2048)
+
+    def validate_youtube_url(self, value):
+        return youtube_url(value)
+
+    def validate(self, attrs):
+        if ("file" in attrs) == ("youtube_url" in attrs):
+            raise serializers.ValidationError("Choose an audio file or a YouTube link.")
+        return attrs

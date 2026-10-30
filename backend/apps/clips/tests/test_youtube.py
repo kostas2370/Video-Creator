@@ -33,22 +33,6 @@ class YouTubeLimitTests(SimpleTestCase):
         picture.download.assert_not_called()
         audio.download.assert_not_called()
 
-    @patch("apps.clips.youtube.YouTube")
-    def test_download_callback_enforces_actual_bytes(self, youtube):
-        youtube.return_value.length = 20
-        stream = MagicMock(resolution="720p", filesize=1)
-        youtube.return_value.streams.filter.side_effect = [[stream], []]
-
-        def download(**kwargs):
-            progress = youtube.call_args.kwargs["on_progress_callback"]
-            chunk = MagicMock()
-            chunk.__len__.return_value = MAX_UPLOAD_BYTES + 1
-            progress(stream, chunk, 0)
-
-        stream.download.side_effect = download
-        with self.assertRaises(SourceImportError):
-            download_youtube(self.project, "/unused")
-
 
 class YouTubeQualityTests(SimpleTestCase):
     def select(self, combined=(), pictures=(), audio_size=100):

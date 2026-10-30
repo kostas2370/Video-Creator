@@ -3,36 +3,14 @@ import uuid
 
 from pytubefix import YouTube
 
+from apps.common.youtube import download_youtube_video
 from apps.videomanagement.models import Music
 
 
 def download_video(url: str, dir_name: str, *args, **kwargs) -> str:
-    """
-    Download a video from YouTube.
-
-    Parameters:
-    -----------
-    url : str
-        The URL of the video.
-    dir_name : str
-        The directory path where the downloaded video will be saved.
-
-    Returns:
-    --------
-    str
-        The path to the downloaded video file.
-
-    Notes:
-    ------
-    - This function uses the pytube library to download the video from the provided YouTube URL.
-    - The downloaded video is saved in the specified directory path.
-    - The file name of the downloaded video is based on the video's title.
-    """
-
-    yt = YouTube(url)
-    video = yt.streams.get_highest_resolution()
-
-    return video.download(dir_name)
+    """Download a YouTube video with audio through the shared downloader."""
+    path, _title = download_youtube_video(url, dir_name)
+    return str(path)
 
 
 def download_music(url: str) -> str:

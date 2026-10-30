@@ -140,6 +140,77 @@ class ManualVideoTests(ApiTestCase):
         self.assertIsNone(video.music_id)
         self.assertFalse(Music.objects.filter(pk=old_music).exists())
 
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_music_can_be_imported_from_a_youtube_link(self, download):
+        video = self.create_project()
+        audio = self.audio()
+        source = Path(self.directory.name, "youtube.wav")
+        source.write_bytes(audio.read())
+        download.return_value = (source, "My YouTube song")
+        response = self.client.post(reverse("video-music", args=[video.pk]),
+                                    {"youtube_url": "https://youtu.be/abcdefghijk"}, format="multipart")
+        self.assertEqual(response.status_code, 200, response.data)
+        video.refresh_from_db()
+        self.assertEqual(video.music.created_by, self.user)
+        self.assertEqual(video.music.name, "my-youtube-song")
+        self.assertTrue(Path(video.music.file.path).exists())
+        self.assertEqual(download.call_args.args[0], "https://www.youtube.com/watch?v=abcdefghijk")
+        self.assertEqual(download.call_args.kwargs, {"audio_only": True})
+        self.assertFalse(Path(download.call_args.args[1]).exists())
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_invalid_music_sources_are_rejected_before_downloading(self, download):
+        video = self.create_project()
+        for data in ({}, {"youtube_url": "https://example.com/song"},
+                     {"youtube_url": "https://youtu.be/abcdefghijk", "file": self.audio()}):
+            response = self.client.post(reverse("video-music", args=[video.pk]), data, format="multipart")
+            self.assertEqual(response.status_code, 400, response.data)
+        download.assert_not_called()
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_downloaded_youtube_music_is_checked_against_the_upload_size_limit(self, download):
+        from unittest.mock import MagicMock
+
+        video = self.create_project()
+        source = MagicMock()
+        source.stat.return_value.st_size = 50 * 1024 * 1024 + 1
+        download.return_value = (source, "Oversized music")
+        response = self.client.post(reverse("video-music", args=[video.pk]),
+                                    {"youtube_url": "https://youtu.be/abcdefghijk"}, format="multipart")
+        self.assertEqual(response.status_code, 400, response.data)
+        source.open.assert_not_called()
+        video.refresh_from_db()
+        self.assertIsNone(video.music_id)
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_failed_youtube_music_import_preserves_existing_music(self, download):
+        from apps.common.youtube import SourceImportError
+
+        video = self.create_project()
+        self.client.post(reverse("video-music", args=[video.pk]), {"file": self.audio()}, format="multipart")
+        video.refresh_from_db()
+        old_music = video.music_id
+        download.side_effect = SourceImportError("Audio exceeds the import limit.")
+        response = self.client.post(reverse("video-music", args=[video.pk]),
+                                    {"youtube_url": "https://youtu.be/abcdefghijk"}, format="multipart")
+        self.assertEqual(response.status_code, 400, response.data)
+        video.refresh_from_db()
+        self.assertEqual(video.music_id, old_music)
+        self.assertTrue(Path(video.music.file.path).exists())
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_youtube_music_import_checks_ownership_and_render_lock(self, download):
+        video = self.create_project()
+        url = reverse("video-music", args=[video.pk])
+        data = {"youtube_url": "https://youtu.be/abcdefghijk"}
+        self.client.force_authenticate(user.make())
+        self.assertIn(self.client.post(url, data, format="multipart").status_code, (403, 404))
+        self.client.force_authenticate(self.user)
+        video.status = VideoStatus.RENDERING
+        video.save()
+        self.assertEqual(self.client.post(url, data, format="multipart").status_code, 409)
+        download.assert_not_called()
+
     def test_manual_actions_check_ownership_and_editing_locks(self):
         video = self.create_project()
         self.add_scene(video, text="A scene")

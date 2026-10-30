@@ -1,7 +1,13 @@
+import logging
+import tempfile
 from pathlib import Path
 
+from django.core.files import File
 from django.db import transaction
+from django.utils.text import slugify
+from rest_framework.exceptions import ValidationError
 
+from apps.common.youtube import SourceImportError, download_youtube_video
 from apps.videomanagement.models import Music
 from apps.videomanagement.services.scenes.audio import playable_voiceover
 from apps.videomanagement.services.scenes.editing import changed, editable_video
@@ -39,3 +45,30 @@ def set_music(video, upload=None):
             saved.storage.delete(saved.name)
         raise
     return locked
+
+
+def set_music_from_youtube(video, url):
+    # Check before downloading; set_music checks again when storing the result.
+    with editable_video(video.pk):
+        pass
+    with tempfile.TemporaryDirectory() as directory:
+        try:
+            path, title = download_youtube_video(
+                url,
+                directory,
+                audio_only=True,
+            )
+        except SourceImportError as exc:
+            raise ValidationError({"youtube_url": str(exc)}) from exc
+        except Exception as exc:
+            logging.getLogger(__name__).exception("YouTube music import failed")
+            raise ValidationError(
+                {
+                    "youtube_url": "Could not download this YouTube audio. Try another link or upload a file."
+                }
+            ) from exc
+        if path.stat().st_size > 50 * 1024 * 1024:
+            raise ValidationError({"youtube_url": "Audio must be smaller than 50 MB."})
+        with path.open("rb") as audio:
+            name = slugify(title)[:100] or "youtube-music"
+            return set_music(video, File(audio, name=f"{name}{path.suffix}"))
