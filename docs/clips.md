@@ -157,3 +157,6 @@ with the existing superuser exemption. No providers are called during tests.
 
 Automatic speaker tracking, split-screen layouts, silence removal, ZIP downloads,
 and direct publishing are future work.
+
+Extraction quality improvements are tracked in
+[the clip extraction TODOs](clip-extraction-todo.md).
