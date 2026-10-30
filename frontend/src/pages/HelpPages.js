@@ -73,7 +73,8 @@ export function GuidePage() {
           <ol className="list-decimal space-y-3 pl-5">
             <li>For an AI project, review the storyboard’s narration and visual prompts before generating media.</li>
             <li>Open your project from <Link to="/videos/" className={linkStyle}>My videos</Link>. Add scenes, choose their visuals, and arrange them in the order you want.</li>
-            <li>Adjust scene timing, transitions, and image motion. Add narration or record a voiceover where needed.</li>
+            <li>Edit text directly in the selected scene and choose Save text, or press Ctrl/⌘ + Enter. Text drafts stay in this browser tab when you switch scenes.</li>
+            <li>Adjust timing and transitions below the scene. Open Adjust scene for overlays, captions, and image motion. Add narration or record a voiceover where needed.</li>
             <li>Use Settings for the output format and appearance, and Project extras for music and other finishing touches.</li>
           </ol>
           <p>Wait for changes to finish saving before previewing or exporting. You can find reusable media in <Link to="/assets/" className={linkStyle}>My assets</Link>.</p>
