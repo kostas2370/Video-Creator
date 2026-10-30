@@ -98,6 +98,7 @@ export function GuidePage() {
             <li>Open <strong>Transcript &amp; AI search</strong> to read the transcript or describe another moment to find. Choose <strong>Add and edit clip</strong> on a result to open it in the editor, or use <strong>Add clip manually</strong> from the Clips view.</li>
             <li>Review the context, adjust the trim and portrait framing, and correct the captions. Suggested times can include decimal seconds; keep that precision when editing. Changing the trim rebuilds captions from the source transcript.</li>
             <li>Choose <strong>Save clip</strong>, then export individual clips or use <strong>Export selected</strong>. Download each finished clip. Generate, review, and save hashtags separately if you want them.</li>
+            <li>After uploading a clip elsewhere, check <strong>Uploaded</strong> on its card to keep track. You can clear it later; exporting and downloading do not change this manual marker.</li>
           </ol>
           <p>Each project supports up to 20 clips, each at most 180 seconds long. Exports are portrait MP4 files with the original audio. If processing fails, use the available retry action; saved transcription can be reused. Changing a saved clip’s timing, framing, or captions requires a new export.</p>
         </GuideSection>

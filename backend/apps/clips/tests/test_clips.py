@@ -654,6 +654,33 @@ class ClipsTests(TestCase):
         self.assertEqual(clip.status, "COMPLETED")
         self.assertEqual(clip.output.name, "media/export.mp4")
 
+    def test_uploaded_marker_can_be_set_and_cleared_without_invalidating_export(self):
+        project = self.project()
+        response = self.add(project)
+        self.assertFalse(response.data["uploaded"])
+        clip = Clip.objects.get(pk=response.data["id"])
+        clip.output, clip.status = "media/export.mp4", "COMPLETED"
+        clip.save()
+        for uploaded in (True, False):
+            response = self.edit(clip, uploaded=uploaded)
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data["uploaded"], uploaded)
+            clip.refresh_from_db()
+            self.assertEqual(clip.uploaded, uploaded)
+            self.assertEqual(clip.status, "COMPLETED")
+            self.assertEqual(clip.output.name, "media/export.mp4")
+            progress = self.client.get(
+                reverse("clipproject-progress", args=[project.pk])
+            )
+            self.assertEqual(progress.data["clips"][0]["uploaded"], uploaded)
+        self.client.force_authenticate(user.make())
+        response = self.client.patch(
+            self.clip_url(clip),
+            {"uploaded": True, "revision": clip.updated_at.isoformat()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+
     def test_hashtags_reject_invalid_values_and_concurrent_overwrites(self):
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])

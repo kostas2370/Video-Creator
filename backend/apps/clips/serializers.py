@@ -82,6 +82,7 @@ class ProjectUploadSerializer(serializers.Serializer):
 
 class ClipEditSerializer(serializers.Serializer):
     revision = serializers.DateTimeField(required=False)
+    uploaded = serializers.BooleanField(required=False)
     title = serializers.CharField(max_length=100, required=False)
     start = serializers.FloatField(min_value=0, required=False)
     end = serializers.FloatField(min_value=0, required=False)
@@ -141,6 +142,7 @@ class ClipSerializer(serializers.ModelSerializer):
             "title",
             "reason",
             "hashtags",
+            "uploaded",
             "start",
             "end",
             "layout",
@@ -252,7 +254,15 @@ class ExportClipsSerializer(serializers.Serializer):
 
 class ClipProgressSerializer(ClipSerializer):
     class Meta(ClipSerializer.Meta):
-        fields = ("id", "status", "error", "revision", "hashtags", "can_retry")
+        fields = (
+            "id",
+            "status",
+            "error",
+            "revision",
+            "hashtags",
+            "uploaded",
+            "can_retry",
+        )
         read_only_fields = fields
 
 

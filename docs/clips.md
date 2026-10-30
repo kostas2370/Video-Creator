@@ -56,6 +56,11 @@ rebuilds its captions from the source transcript; review corrections after trimm
 Saving changes to picture, timing, or captions invalidates that clip's previous export;
 title-only and unchanged saves preserve it. Other clips remain unchanged.
 
+Use the **Uploaded** checkbox on a clip card to track clips you have uploaded
+elsewhere. This marker is saved per clip and can be cleared manually. Downloading
+or exporting a clip does not mark it as uploaded, and changing the marker keeps
+the saved export.
+
 Audio is sent to OpenAI (`whisper-1`) for transcription using the existing service
 or personal key selection. Transcript windows are sent to the configured text model
 (`DEFAULT_GPT_MODEL`) for suggestions. Both use existing AI usage tracking. Model

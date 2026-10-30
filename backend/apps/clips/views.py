@@ -191,7 +191,13 @@ class ClipProjectView(
             Prefetch(
                 "clips",
                 queryset=Clip.objects.only(
-                    "id", "project_id", "status", "error", "updated_at", "hashtags"
+                    "id",
+                    "project_id",
+                    "status",
+                    "error",
+                    "updated_at",
+                    "hashtags",
+                    "uploaded",
                 ),
             ),
         )
