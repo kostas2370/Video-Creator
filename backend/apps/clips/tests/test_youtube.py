@@ -13,14 +13,14 @@ class YouTubeLimitTests(SimpleTestCase):
             youtube_url="https://www.youtube.com/watch?v=abcdefghijk", min_duration=10
         )
 
-    @patch("apps.clips.youtube.YouTube")
+    @patch("apps.common.youtube.YouTube")
     def test_duration_limit_is_checked_before_downloading(self, youtube):
         youtube.return_value.length = 7201
         with self.assertRaises(SourceImportError):
             download_youtube(self.project, "/unused")
         youtube.return_value.streams.filter.assert_not_called()
 
-    @patch("apps.clips.youtube.YouTube")
+    @patch("apps.common.youtube.YouTube")
     def test_combined_stream_sizes_are_checked_before_downloading(self, youtube):
         youtube.return_value.length = 20
         picture = MagicMock(resolution="1080p", filesize=MAX_UPLOAD_BYTES)
@@ -33,7 +33,7 @@ class YouTubeLimitTests(SimpleTestCase):
         picture.download.assert_not_called()
         audio.download.assert_not_called()
 
-    @patch("apps.clips.youtube.YouTube")
+    @patch("apps.common.youtube.YouTube")
     def test_download_callback_enforces_actual_bytes(self, youtube):
         youtube.return_value.length = 20
         stream = MagicMock(resolution="720p", filesize=1)

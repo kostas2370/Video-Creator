@@ -20,7 +20,7 @@ from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
 from apps.videomanagement.serializers.audio import (
     MusicAudioSerializer,
-    VoiceoverUploadSerializer,
+    MusicUploadSerializer,
 )
 from apps.videomanagement.serializers.models import (
     VideoNestedSerializer,
@@ -43,7 +43,7 @@ from apps.videomanagement.serializers.requests import (
     VideoUpdateSerializer,
 )
 from apps.videomanagement.services.captions.subtitles import export_subtitles
-from apps.videomanagement.services.media.music import set_music
+from apps.videomanagement.services.media.music import set_music, set_music_from_youtube
 from apps.videomanagement.services.scenes.editing import (
     apply_auto_motion,
     reorder_scenes,
@@ -147,6 +147,11 @@ class VideoView(
         if request.method == "POST":
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
+            if "youtube_url" in serializer.validated_data:
+                video = set_music_from_youtube(
+                    video, serializer.validated_data["youtube_url"]
+                )
+                return Response(self.serialize_video_detail(video))
             upload = serializer.validated_data["file"]
         video = set_music(video, upload)
         return Response(self.serialize_video_detail(video))
@@ -188,7 +193,7 @@ class VideoView(
             "notes": VideoNotesSerializer,
             "story": StoryVideoSerializer,
             "draft_story": StoryDraftSerializer,
-            "music": VoiceoverUploadSerializer,
+            "music": MusicUploadSerializer,
             "audio": MusicAudioSerializer,
             "approve_script": StoryboardSerializer,
             "auto_motion": BulkAutoMotionSerializer,

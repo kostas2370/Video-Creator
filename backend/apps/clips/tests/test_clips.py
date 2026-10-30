@@ -1128,7 +1128,7 @@ class ClipsTests(TestCase):
             audio.download.return_value = str(audio_path)
             combined, pictures, sounds = [], [picture], MagicMock()
             sounds.order_by.return_value.desc.return_value.first.return_value = audio
-            with patch("apps.clips.youtube.YouTube") as youtube:
+            with patch("apps.common.youtube.YouTube") as youtube:
                 youtube.return_value.length = 20
                 youtube.return_value.title = "Separate streams"
                 youtube.return_value.streams.filter.side_effect = [
