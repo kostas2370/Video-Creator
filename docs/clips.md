@@ -16,6 +16,13 @@ a downloaded source rather than downloading it again.
 Choose 1–10 suggestions and a preferred duration range between 10 and 180 seconds.
 The source must be at least as long as the requested minimum.
 
+Expand **Process only part of the video** to set optional start/end times in seconds.
+The default is the whole video. Leaving the end blank uses the end of the source.
+Only the chosen range is sent for transcription and highlight selection; timestamps
+stay on the original source timeline. The range must fit the video and be at least
+as long as the minimum clip length. YouTube ranges are checked after downloading
+metadata. Downloads and previews still cover the full source and retain existing limits.
+
 Optionally describe the clips you want in **What kind of clips do you want?**,
 for example, “Funny moments” or “Practical advice for first-time founders”.
 The saved brief guides both candidate extraction and final ranking. Omitting it,
@@ -57,6 +64,20 @@ source transcript without opening a clip. Search filters the displayed passages;
 **Copy full transcript** and **Download TXT** always include all passages and their
 source timestamps. This view does not change when individual clip captions are edited.
 
+## Find clips by description
+
+Expand the transcript and use **Find clips with AI**. Describe a topic or moment,
+for example, “Find a clip where they explain how to start a business”. Search uses
+the saved transcript and the project's preferred clip lengths. It returns up to
+three candidate excerpts without changing the original extraction brief or adding
+clips automatically. Choose **Add and edit clip** to create a result and open it
+in the editor. No match and provider errors leave the query available for retry.
+Text-provider usage is charged; no transcription request is made for search.
+
+You can switch between clip editors while keeping each unsaved draft. A successful
+save closes that editor; closing without saving discards that clip's draft.
+Timestamp inputs accept the full precision of generated word boundaries.
+
 ## Hashtags
 
 Each clip has a **Hashtags** panel. Generate suggestions from that clip's saved
@@ -76,6 +97,14 @@ Existing clips start with an empty list. Suggestions do not claim current trend 
 
 Transcription is processed in ten-minute chunks with a small overlap and saved
 checkpoints. A retry reuses the saved preview, completed chunks, and full transcript.
+New imports also reuse completed source transcripts from existing projects owned
+by the same user when the source identity matches and the saved range covers the
+new range. Uploads match by SHA-256 content, independent of filename; YouTube links
+match by canonical video identity across downloaded qualities. Legacy sources are
+indexed lazily. Words are copied with original timestamps and clipped to the chosen
+range, so deleting the older project does not remove the new transcript. Partial
+checkpoints are reused only within their original project. Concurrent first imports
+may still transcribe independently; deleting every matching project removes reuse.
 A failure while finding highlights does not remove manual clips or the upload.
 Retry suggestions add non-overlapping clips while preserving existing edits.
 Exports have independent statuses, job tokens, and retries. Batch dispatch reports

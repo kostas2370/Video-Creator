@@ -17,6 +17,7 @@ from .constants import (
     PROJECT_STALE_AFTER,
 )
 from .models import Clip, ClipProject
+from .transcripts import validate_range
 from .uploads import validate_upload
 from .youtube import youtube_url
 
@@ -30,6 +31,8 @@ class ProjectUploadSerializer(serializers.Serializer):
     extraction_prompt = serializers.CharField(
         max_length=2000, required=False, allow_blank=True, allow_null=True
     )
+    range_start = serializers.FloatField(min_value=0, default=0)
+    range_end = serializers.FloatField(min_value=0, required=False, allow_null=True)
     clip_count = serializers.IntegerField(min_value=1, max_value=10, default=5)
     min_duration = serializers.IntegerField(
         min_value=10, max_value=MAX_CLIP_DURATION, default=30
@@ -61,6 +64,12 @@ class ProjectUploadSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "The source video is shorter than the minimum clip length."
             )
+        validate_range(
+            data["range_start"],
+            data.get("range_end"),
+            data["min_duration"],
+            self.metadata["duration"] if data.get("source") else None,
+        )
         return data
 
 
@@ -79,16 +88,22 @@ class ClipEditSerializer(serializers.Serializer):
 
     def validate(self, data):
         clip, project = self.instance, self.context["project"]
-        start = data.get("start", clip.start if clip else 0)
-        end = data.get("end", clip.end if clip else min(project.duration, 60))
+        start = data.get("start", clip.start if clip else project.range_start)
+        end = data.get(
+            "end",
+            clip.end if clip else min(project.range_stop, project.range_start + 60),
+        )
         if not all(
             math.isfinite(value)
             for value in (start, end, data.get("crop_position", 50))
         ):
             raise serializers.ValidationError("Enter finite times and crop position.")
-        if not 0 <= start < end <= project.duration or end - start > MAX_CLIP_DURATION:
+        if (
+            not project.range_start <= start < end <= project.range_stop
+            or end - start > MAX_CLIP_DURATION
+        ):
             raise serializers.ValidationError(
-                "Choose a clip within the source, up to 180 seconds long."
+                "Choose a clip within the processing range, up to 180 seconds long."
             )
         if clip is None:
             data.setdefault("start", start)
@@ -199,6 +214,8 @@ class ProjectSerializer(ProjectSummarySerializer):
         fields = ProjectSummarySerializer.Meta.fields + (
             "source",
             "youtube_url",
+            "range_start",
+            "range_end",
             "preview",
             "width",
             "height",
@@ -263,3 +280,7 @@ class ProjectProgressSerializer(ProjectSerializer):
             "height",
         )
         read_only_fields = fields
+
+
+class TranscriptSearchSerializer(serializers.Serializer):
+    prompt = serializers.CharField(max_length=2000)

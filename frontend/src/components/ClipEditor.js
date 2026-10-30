@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CaptionWordEditor } from "./CaptionWordEditor";
 import { CaptionLayer } from "./CaptionLayer";
 import { FontPicker } from "./FontPicker";
@@ -10,14 +10,17 @@ import { saveClip } from "../api/apiService";
 
 const mediaUrl = path => /^https?:\/\//i.test(path || "") ? path : `${API_HOST}${path}`;
 
-export function ClipEditor({ project, clip, onSaved, onClose }) {
-  const [draft, setDraft] = useState({ ...clip, style: { ...defaultCaptionStyle, ...clip.style } });
+export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDraftChange, onWorkingChange }) {
+  const [draft, setDraft] = useState(() => initialDraft || ({ ...clip, style: { ...defaultCaptionStyle, ...clip.style } }));
+  useEffect(() => { onDraftChange?.(draft); }, [draft, onDraftChange]);
   const [time, setTime] = useState(0);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [playing, setPlaying] = useState(false);
   const [transcriptPage, setTranscriptPage] = useState(0);
   const [boundary, setBoundary] = useState("start");
+  const editor = useRef(null);
+  useEffect(() => { editor.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [clip.id]);
   const player = useRef(null);
   const backdrop = useRef(null);
   const duration = draft.end - draft.start;
@@ -41,7 +44,7 @@ export function ClipEditor({ project, clip, onSaved, onClose }) {
   };
   const sync = event => {
     const video = event.currentTarget;
-    if (validateClip(draft.start, draft.end, project.duration)) { video.pause(); return; }
+    if (validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0)) { video.pause(); return; }
     if (video.currentTime >= draft.end) { video.pause(); video.currentTime = draft.start; }
     if (video.currentTime < draft.start) video.currentTime = draft.start;
     setTime(Math.max(0, video.currentTime - draft.start));
@@ -49,20 +52,22 @@ export function ClipEditor({ project, clip, onSaved, onClose }) {
   };
   const submit = async event => {
     event.preventDefault();
-    const message = validateClip(draft.start, draft.end, project.duration) || validateCaptionWords(draft.words, duration);
+    const message = validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0) || validateCaptionWords(draft.words, duration);
     if (message) { setError(message); return; }
-    setWorking(true); setError(""); player.current?.pause();
+    setWorking(true); onWorkingChange?.(true); setError(""); player.current?.pause();
     const { id, reason, hashtags, output, status, error: previousError, updated_at, ...changes } = draft;
-    const result = await saveClip(project.id, clip.id, changes);
-    setWorking(false);
-    if (result.ok) onSaved(); else setError(result.message);
+    try {
+      const result = await saveClip(project.id, clip.id, changes);
+      if (result.ok) onSaved(result.data); else setError(result.message);
+    } catch { setError("Could not save this clip. Your edits are still here; please retry."); }
+    finally { setWorking(false); onWorkingChange?.(false); }
   };
   const source = mediaUrl(project.preview || project.source);
   const transcriptPages = Math.ceil(project.words.length / 150);
-  return <section aria-label="Clip editor" className="mt-6 rounded-2xl border border-blue-200 bg-white p-4 sm:p-6 dark:border-blue-900 dark:bg-gray-800">
+  return <section ref={editor} aria-label="Clip editor" className="mt-6 rounded-2xl border border-blue-200 bg-white p-4 sm:p-6 dark:border-blue-900 dark:bg-gray-800">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-bold">Edit clip</h2><button type="button" disabled={working} onClick={() => { player.current?.pause(); onClose(); }} className="min-h-11 text-sm text-gray-500">Close without saving</button></div>
     {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
-    <form onSubmit={submit}>
+    <form onSubmit={submit} onInvalidCapture={() => setError("Check the highlighted fields before saving this clip.")}>
       <fieldset disabled={working} className="min-w-0">
         <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(220px,340px)_1fr]">
           <div>
@@ -71,12 +76,12 @@ export function ClipEditor({ project, clip, onSaved, onClose }) {
               <video key={`${clip.id}-${draft.start}`} ref={player} src={source} playsInline preload="metadata" onLoadedMetadata={() => seek(0)} onTimeUpdate={sync} onSeeked={sync} onPlay={() => { setPlaying(true); if (backdrop.current) { backdrop.current.currentTime = player.current.currentTime; backdrop.current.play().catch(() => {}); } }} onPause={() => { setPlaying(false); backdrop.current?.pause(); }} onError={() => setError("Could not play this preview. Try reloading the project.")} className={`absolute inset-0 h-full w-full ${draft.layout === "CROP" ? "object-cover" : "object-contain"}`} style={{ objectPosition: `${draft.crop_position}% 50%` }} />
               {draft.captions && <CaptionLayer cue={cue} style={config} size={[720, 1280]} />}
             </div>
-            <div className="mt-3 flex items-center gap-3"><button type="button" disabled={!!validateClip(draft.start, draft.end, project.duration)} onClick={() => playing ? player.current?.pause() : player.current?.play().catch(() => {})} className="rounded-lg bg-gray-100 px-3 py-2 text-sm dark:bg-gray-700">{playing ? "Pause" : "Play"}</button><input aria-label="Clip preview position" type="range" min={0} max={Number.isFinite(duration) && duration > 0 ? duration : 1} step="0.05" value={Number.isFinite(duration) ? Math.min(time, Math.max(0, duration)) : 0} onChange={event => seek(Number(event.target.value))} className="min-w-0 flex-1" /><span className="text-xs tabular-nums">{formatTime(time)}</span></div>
+            <div className="mt-3 flex items-center gap-3"><button type="button" disabled={!!validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0)} onClick={() => playing ? player.current?.pause() : player.current?.play().catch(() => {})} className="rounded-lg bg-gray-100 px-3 py-2 text-sm dark:bg-gray-700">{playing ? "Pause" : "Play"}</button><input aria-label="Clip preview position" type="range" min={0} max={Number.isFinite(duration) && duration > 0 ? duration : 1} step="0.05" value={Number.isFinite(duration) ? Math.min(time, Math.max(0, duration)) : 0} onChange={event => seek(Number(event.target.value))} className="min-w-0 flex-1" /><span className="text-xs tabular-nums">{formatTime(time)}</span></div>
             <p className="mt-2 text-xs text-gray-500">Preview · exports use the original footage</p>
           </div>
           <div className="min-w-0 space-y-4">
             <label className="block text-sm font-medium">Clip title<input required maxLength={100} value={draft.title} onChange={event => edit("title", event.target.value)} className={`${editorInput} mt-2`} /></label>
-            <div className="grid grid-cols-2 gap-3">{["start", "end"].map(key => <label key={key} className="text-sm">{key === "start" ? "Start" : "End"} (seconds)<input type="number" required min={0} max={project.duration} step="0.001" value={Number.isFinite(draft[key]) ? draft[key] : ""} onChange={event => trim(key, event.target.value === "" ? NaN : Number(event.target.value))} className={`${editorInput} mt-2`} /></label>)}</div>
+            <div className="grid grid-cols-2 gap-3">{["start", "end"].map(key => <label key={key} className="text-sm">{key === "start" ? "Start" : "End"} (seconds)<input type="number" required min={project.range_start ?? 0} max={project.range_end ?? project.duration} step="any" value={Number.isFinite(draft[key]) ? draft[key] : ""} onChange={event => trim(key, event.target.value === "" ? NaN : Number(event.target.value))} className={`${editorInput} mt-2`} /></label>)}</div>
             <p className="text-xs text-gray-500">{Number.isFinite(duration) ? `${duration.toFixed(1)} seconds` : "Enter clip times"} · Changing the trim rebuilds captions from the original transcript.</p>
             <label className="block text-sm">Portrait layout<select value={draft.layout} onChange={event => edit("layout", event.target.value)} className={`${editorInput} mt-2`}><option value="FIT">Full picture with blurred background</option><option value="CROP">Crop to portrait</option></select></label>
             {draft.layout === "CROP" && <label className="block text-sm">Horizontal framing<input aria-label="Horizontal framing" type="range" min={0} max={100} value={draft.crop_position} onChange={event => edit("crop_position", Number(event.target.value))} className="mt-2 w-full" /><span className="flex justify-between text-xs text-gray-500"><span>Left</span><span>Right</span></span></label>}

@@ -6,6 +6,7 @@ from pathlib import Path
 from django.core.files import File
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.services.captions.transcription import transcribe_audio
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
@@ -18,6 +19,7 @@ from .highlights import overlapping, suggest_clips
 from .media import run_ffmpeg
 from .models import Clip, ClipProject
 from .services import clip_words
+from .transcripts import reuse_transcript, source_key, validate_range
 from .youtube import SourceImportError, download_youtube
 
 logger = logging.getLogger(__name__)
@@ -58,12 +60,15 @@ def make_preview(project, directory):
 
 def transcribe_source(project, rows, directory):
     parts = list(project.transcript_parts)
-    for index in range(len(parts), math.ceil(project.duration / CHUNK_SECONDS)):
-        offset = index * CHUNK_SECONDS
+    for index in range(
+        len(parts),
+        math.ceil((project.range_stop - project.range_start) / CHUNK_SECONDS),
+    ):
+        offset = project.range_start + index * CHUNK_SECONDS
         if not rows.filter(status=ClipProjectStatus.TRANSCRIBING).exists():
             return None
-        start = max(0, offset - 2)
-        end = min(project.duration, offset + CHUNK_SECONDS + 2)
+        start = max(project.range_start, offset - 2)
+        end = min(project.range_stop, offset + CHUNK_SECONDS + 2)
         path = Path(directory, f"part-{index}.mp3")
         run_ffmpeg(
             [
@@ -93,10 +98,10 @@ def transcribe_source(project, rows, directory):
         for word in local_words:
             word_start, word_end = (
                 word["start"] + start,
-                min(project.duration, word["end"] + start),
+                min(project.range_stop, word["end"] + start),
             )
             midpoint = (word_start + word_end) / 2
-            if offset <= midpoint < min(project.duration, offset + CHUNK_SECONDS):
+            if offset <= midpoint < min(project.range_stop, offset + CHUNK_SECONDS):
                 adjusted.append(
                     {
                         "text": word["text"],
@@ -164,6 +169,24 @@ def process_project(project_id, token):
                     project.source.storage.delete(name)
                     return
                 project.refresh_from_db()
+            try:
+                validate_range(
+                    project.range_start,
+                    project.range_end,
+                    project.min_duration,
+                    project.duration,
+                )
+            except ValidationError as exc:
+                raise SourceImportError(
+                    " ".join(str(detail) for detail in exc.detail)
+                ) from exc
+            if not project.source_key:
+                key = source_key(project)
+                if not update_jobs(
+                    rows.filter(status=ClipProjectStatus.TRANSCRIBING), source_key=key
+                ):
+                    return
+                project.source_key = key
             if not project.preview:
                 preview = make_preview(project, directory)
                 metadata = video_metadata(preview)
@@ -182,7 +205,9 @@ def process_project(project_id, token):
                     return
                 project.refresh_from_db()
             if not project.words:
-                words = transcribe_source(project, rows, directory)
+                words = reuse_transcript(project)
+                if words is None:
+                    words = transcribe_source(project, rows, directory)
                 if words is None:
                     return
                 if not words:

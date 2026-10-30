@@ -1081,3 +1081,183 @@ class ClipsTests(TestCase):
             self.assertEqual(title, "Separate streams")
             picture.download.assert_called_once()
             audio.download.assert_called_once()
+
+    def test_upload_range_is_saved_and_invalid_ranges_are_rejected(self):
+        url = reverse("clipproject-list")
+        for start, end in ((-1, 15), (15, 10), (0, 21), (0, 5)):
+            response = self.client.post(
+                url,
+                {
+                    "source": SimpleUploadedFile("talk.mp4", self.source.read_bytes()),
+                    "min_duration": 10,
+                    "range_start": start,
+                    "range_end": end,
+                },
+                format="multipart",
+            )
+            self.assertEqual(response.status_code, 400, response.data)
+        response = self.client.post(
+            url,
+            {
+                "source": SimpleUploadedFile("talk.mp4", self.source.read_bytes()),
+                "min_duration": 10,
+                "range_start": 5,
+                "range_end": 18,
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["range_start"], 5)
+        self.assertEqual(response.data["range_end"], 18)
+
+    def test_ranged_transcription_only_sends_selected_audio_with_original_timestamps(
+        self,
+    ):
+        project = self.project(range_start=600, range_end=1220)
+        project.duration, project.status, project.words = 2000, "TRANSCRIBING", []
+        project.save()
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("apps.clips.processing.run_ffmpeg") as ffmpeg,
+            patch(
+                "apps.clips.processing.transcribe_audio",
+                side_effect=[
+                    [{"text": "First", "start": 0, "end": 1}],
+                    [{"text": "Next", "start": 2, "end": 3}],
+                ],
+            ) as transcribe,
+        ):
+            words = transcribe_source(
+                project, ClipProject.objects.filter(pk=project.pk), directory
+            )
+        self.assertEqual([word["start"] for word in words], [600, 1200])
+        self.assertEqual(
+            [call.args[2] for call in transcribe.call_args_list], [602, 22]
+        )
+        self.assertEqual(
+            [call.args[0][1] for call in ffmpeg.call_args_list], ["600", "1198"]
+        )
+
+    def test_matching_upload_reuses_saved_words_without_transcription(self):
+        cached = self.project()
+        project = self.project(range_start=5, range_end=18)
+        project.words, project.status, project.job_id = [], "QUEUED", uuid4()
+        project.save()
+        with (
+            patch("apps.clips.processing.transcribe_audio") as transcribe,
+            patch("apps.clips.processing.suggest_clips", return_value=[]),
+        ):
+            process_project(project.pk, project.job_id)
+        transcribe.assert_not_called()
+        project.refresh_from_db()
+        cached.refresh_from_db()
+        self.assertEqual(project.status, "READY")
+        self.assertEqual(project.source_key, cached.source_key)
+        self.assertTrue(
+            all(5 <= word["start"] < word["end"] <= 18 for word in project.words)
+        )
+        self.assertEqual(project.words[0]["start"], 5)
+
+    def test_transcript_reuse_never_reads_another_users_words_or_incomplete_ranges(
+        self,
+    ):
+        from apps.clips.transcripts import reuse_transcript, source_key
+
+        cached = self.project(range_start=5, range_end=18)
+        cached.source_key = source_key(cached)
+        cached.save()
+        project = self.project()
+        project.words, project.source_key = [], cached.source_key
+        project.save()
+        self.assertIsNone(reuse_transcript(project))
+        project.range_start, project.range_end = 5, 18
+        cached.created_by = user.make()
+        cached.save()
+        self.assertIsNone(reuse_transcript(project))
+
+    def test_different_uploaded_bytes_do_not_reuse_the_transcript(self):
+        from apps.clips.transcripts import reuse_transcript, source_key
+
+        cached = self.project()
+        project = self.project()
+        project.source.save(
+            "different.mp4", SimpleUploadedFile("different.mp4", b"different content")
+        )
+        project.source_key = source_key(project)
+        self.assertIsNone(reuse_transcript(project))
+        cached.refresh_from_db()
+        self.assertEqual(cached.source_key, "")
+
+    def test_youtube_transcript_identity_is_shared_across_download_qualities(self):
+        from apps.clips.transcripts import reuse_transcript, source_key
+
+        url = "https://www.youtube.com/watch?v=abcdefghijk"
+        cached = self.project(youtube_url=url)
+        project = self.project(youtube_url=url, range_start=5, range_end=18)
+        project.source_key = source_key(project)
+        words = reuse_transcript(project)
+        self.assertEqual(words[0]["start"], 5)
+        self.assertEqual(words[-1]["end"], 17.8)
+        cached.refresh_from_db()
+        self.assertEqual(cached.source_key, project.source_key)
+
+    def test_manual_clips_must_stay_within_processing_range(self):
+        project = self.project(range_start=5, range_end=18)
+        self.assertEqual(self.add(project, start=0, end=12).status_code, 400)
+        self.assertEqual(self.add(project, start=6, end=19).status_code, 400)
+        self.assertEqual(self.add(project, start=5, end=17).status_code, 201)
+
+    def test_ai_transcript_search_returns_matches_without_saving_clips_or_changing_brief(
+        self,
+    ):
+        project = self.project(extraction_prompt="Original brief")
+        url = reverse("clipproject-search-transcript", args=[project.pk])
+        with patch(
+            "apps.clips.highlights.get_update_sentence",
+            return_value=json.dumps(
+                {
+                    "clips": [
+                        {
+                            "first_word": 2,
+                            "last_word": 14,
+                            "title": "Starting a business",
+                            "reason": "Explains the first step",
+                        }
+                    ]
+                }
+            ),
+        ) as provider:
+            response = self.client.post(
+                url, {"prompt": "Find advice for starting a business"}, format="json"
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["clips"][0]["start"], 2)
+        self.assertEqual(response.data["clips"][0]["end"], 14.8)
+        self.assertIn("Find advice for starting a business", provider.call_args.args[0])
+        project.refresh_from_db()
+        self.assertEqual(project.extraction_prompt, "Original brief")
+        self.assertEqual(project.words, self.words)
+        self.assertFalse(project.clips.exists())
+        self.client.force_authenticate(user.make())
+        self.assertEqual(
+            self.client.post(url, {"prompt": "advice"}, format="json").status_code, 404
+        )
+
+    def test_ai_transcript_search_validates_query_and_requires_saved_words(self):
+        project = self.project()
+        url = reverse("clipproject-search-transcript", args=[project.pk])
+        with patch("apps.clips.highlights.get_update_sentence") as provider:
+            for prompt in ("", " ", "x" * 2001):
+                self.assertEqual(
+                    self.client.post(
+                        url, {"prompt": prompt}, format="json"
+                    ).status_code,
+                    400,
+                )
+            project.words = []
+            project.save()
+            self.assertEqual(
+                self.client.post(url, {"prompt": "advice"}, format="json").status_code,
+                400,
+            )
+        provider.assert_not_called()

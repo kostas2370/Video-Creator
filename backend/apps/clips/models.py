@@ -21,6 +21,11 @@ class ClipProject(UUIDModel, TimestampedModel):
     )
     preview = models.FileField(blank=True, max_length=255, storage=clip_storage)
     youtube_url = models.URLField(max_length=500, blank=True)
+    source_key = models.CharField(
+        max_length=64, blank=True, db_index=True, editable=False
+    )
+    range_start = models.FloatField(default=0)
+    range_end = models.FloatField(blank=True, null=True)
     duration = models.FloatField(default=0)
     width = models.PositiveIntegerField(default=0)
     height = models.PositiveIntegerField(default=0)
@@ -37,6 +42,10 @@ class ClipProject(UUIDModel, TimestampedModel):
     )
     error = models.CharField(max_length=300, blank=True)
     job_id = models.UUIDField(null=True, editable=False)
+
+    @property
+    def range_stop(self):
+        return self.duration if self.range_end is None else self.range_end
 
     class Meta:
         ordering = ["-created_at"]

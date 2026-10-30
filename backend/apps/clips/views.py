@@ -1,3 +1,5 @@
+from copy import copy
+
 from django.db.models import (
     BooleanField,
     Case,
@@ -17,6 +19,7 @@ from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
 from .choices import ClipStatus
+from .highlights import suggest_clips
 from .hashtags import draft_hashtags, save_hashtags
 from .models import Clip, ClipProject
 from .protected_media import media_response
@@ -29,6 +32,7 @@ from .serializers import (
     ProjectSummarySerializer,
     ProjectUploadSerializer,
     SaveHashtagsSerializer,
+    TranscriptSearchSerializer,
 )
 from .services import (
     create_project,
@@ -68,7 +72,7 @@ class ClipProjectView(
             return [TagGenerationRateThrottle()]
         return (
             [ClipProcessingThrottle()]
-            if self.action in {"create", "retry", "export"}
+            if self.action in {"create", "retry", "export", "search_transcript"}
             else super().get_throttles()
         )
 
@@ -189,6 +193,17 @@ class ClipProjectView(
                 project, context=self.get_serializer_context()
             ).data
         )
+
+    @action(detail=True, methods=["post"], url_path="search-transcript")
+    def search_transcript(self, request, pk=None):
+        project = copy(self.get_object())
+        serializer = TranscriptSearchSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if not project.words:
+            raise ValidationError("Wait for the transcript before searching for clips.")
+        project.extraction_prompt = serializer.validated_data["prompt"]
+        project.clip_count = 3
+        return Response({"clips": suggest_clips(project)})
 
     @action(detail=True, methods=["get"])
     def source(self, request, pk=None):

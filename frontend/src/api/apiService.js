@@ -181,3 +181,5 @@ export const draftClipHashtags = (id, clipId) => post(`${action("clips", id, "cl
 export const saveClipHashtags = (id, clipId, hashtags, previousHashtags) => patch(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, { hashtags, previous_hashtags: previousHashtags }, callerHandlesErrors);
 export const getClipProjectProgress = id => request({ url: action("clips", id, "progress"), ...callerHandlesErrors });
 export const getClip = (id, clipId) => request({ url: `${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, ...callerHandlesErrors });
+
+export const searchClipTranscript = (id, prompt) => post(action("clips", id, "search-transcript"), { prompt }, callerHandlesErrors);
