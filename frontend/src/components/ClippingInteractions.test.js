@@ -191,3 +191,32 @@ it("searches and filters projects through the server", async () => {
   fireEvent.change(screen.getByLabelText("Status"), { target: { value: "READY" } });
   await waitFor(() => expect(api.getClipProjects).toHaveBeenLastCalledWith(1, { search: "Podcast", status: "READY" }));
 });
+
+it("saves and clears the manual uploaded marker without changing export details", async () => {
+  const original = clipFixture({ status: "COMPLETED", output: "/api/clips/output/" });
+  api.getClipProject.mockResolvedValue({ ok: true, data: projectFixture({ clips: [original] }) });
+  api.saveClip.mockImplementation(async (projectId, clipId, changes) => {
+    const updated = { ...original, uploaded: changes.uploaded, revision: changes.uploaded ? "marked" : "cleared" };
+    api.getClipProject.mockResolvedValue({ ok: true, data: projectFixture({ clips: [updated] }) });
+    return { ok: true, data: updated };
+  });
+  render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  const marker = await screen.findByRole("checkbox", { name: `Uploaded ${original.title}` });
+  expect(marker.checked).toBe(false);
+  await userEvent.click(marker);
+  await waitFor(() => expect(marker.checked).toBe(true));
+  expect(api.saveClip).toHaveBeenLastCalledWith("project-1", original.id, { uploaded: true, revision: original.revision });
+  expect(screen.getByRole("button", { name: "Download" })).toBeTruthy();
+  await userEvent.click(marker);
+  await waitFor(() => expect(marker.checked).toBe(false));
+  expect(api.saveClip).toHaveBeenLastCalledWith("project-1", original.id, { uploaded: false, revision: "marked" });
+});
+
+it("keeps the saved uploaded marker unchanged when saving fails", async () => {
+  api.saveClip.mockResolvedValue({ ok: false, message: "Could not save uploaded marker." });
+  render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  const marker = await screen.findByRole("checkbox", { name: "Uploaded A useful interview moment" });
+  await userEvent.click(marker);
+  expect((await screen.findByRole("alert")).textContent).toBe("Could not save uploaded marker.");
+  expect(marker.checked).toBe(false);
+});

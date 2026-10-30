@@ -53,6 +53,7 @@ class Clip(TranscribedMediaModel):
     )
     reason = models.CharField(max_length=400, blank=True)
     hashtags = models.JSONField(default=list)
+    uploaded = models.BooleanField(default=False)
     start = models.FloatField()
     end = models.FloatField()
     layout = models.CharField(

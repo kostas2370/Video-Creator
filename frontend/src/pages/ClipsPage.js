@@ -9,7 +9,7 @@ import { FullVideoTranscript } from "../components/FullVideoTranscript";
 import { ClipCard } from "../components/ClipCard";
 import { ClipEditor } from "../components/ClipEditor";
 import { editorButton, editorInput } from "../components/ui/EditorDialog";
-import { createClip, createClipProject, deleteClip, deleteClipProject, downloadClip, exportClips, getClipProject, getClipProjectProgress, getClip, getClipProjects, retryClipProject } from "../api/apiService";
+import { createClip, createClipProject, deleteClip, deleteClipProject, downloadClip, exportClips, getClipProject, getClipProjectProgress, getClip, getClipProjects, retryClipProject, saveClip } from "../api/apiService";
 import { clipBusy, reconcileClipProgress, formatTime, projectBusy, projectStatus } from "../utils/clips";
 
 export default function ClipsPage() {
@@ -174,7 +174,7 @@ export default function ClipsPage() {
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="flex min-w-0 gap-3 overflow-x-auto pb-3 lg:sticky lg:top-6 lg:block lg:max-h-[78vh] lg:space-y-3 lg:overflow-y-auto lg:pr-2" aria-label="Clip list">
             {!busy && !project.clips.length && <p className="rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-500 dark:border-gray-700">No suitable highlights yet. Find a moment in the transcript or add a clip manually.</p>}
-            {project.clips.map((clip, index) => <ClipCard key={clip.id} projectId={project.id} clip={clip} index={index} active={editing?.id === clip.id} selected={selected.includes(clip.id)} working={working} busy={busy} editorSaving={editorSaving} hasEditor={!!editing} onSelect={checked => setSelected(current => checked ? [...current, clip.id] : current.filter(id => id !== clip.id))} onEdit={() => { setNotice(""); setEditing(clip); }} onDownload={() => download(clip)} onExport={() => render([clip.id])} onRemove={async () => { if (await perform(() => deleteClip(project.id, clip.id))) setSelected(current => current.filter(id => id !== clip.id)); }} onHashtagsSaved={load} />)}
+            {project.clips.map((clip, index) => <ClipCard key={clip.id} projectId={project.id} clip={clip} index={index} active={editing?.id === clip.id} selected={selected.includes(clip.id)} working={working} busy={busy} editorSaving={editorSaving} hasEditor={!!editing} onSelect={checked => setSelected(current => checked ? [...current, clip.id] : current.filter(id => id !== clip.id))} onEdit={() => { setNotice(""); setEditing(clip); }} onDownload={() => download(clip)} onExport={() => render([clip.id])} onRemove={async () => { if (await perform(() => deleteClip(project.id, clip.id))) setSelected(current => current.filter(id => id !== clip.id)); }} onHashtagsSaved={load} onUploadedChange={uploaded => perform(() => saveClip(project.id, clip.id, { uploaded, revision: clip.revision }))} />)}
           </div>
           <div className="min-w-0">
             {editing && <ClipEditor key={editing.id} project={project} clip={editing} initialDraft={drafts.current.get(editing.id)} onDraftChange={draft => drafts.current.set(editing.id, draft)} onWorkingChange={setEditorSaving} onClose={() => { drafts.current.delete(editing.id); setEditing(null); }} onSaved={() => { drafts.current.delete(editing.id); setEditing(null); setNotice("Clip saved. Choose another clip to keep editing, or export when you’re ready."); load(); }} />}
