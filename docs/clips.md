@@ -82,6 +82,9 @@ Text-provider usage is charged; no transcription request is made for search.
 You can switch between clip editors while keeping each unsaved draft. A successful
 save closes that editor; closing without saving discards that clip's draft.
 Timestamp inputs accept the full precision of generated word boundaries.
+Keep decimal timestamps from AI search results when adding or editing a clip;
+there is no need to round them to whole seconds. Caption boundaries handle tiny
+decimal rounding differences, including in previously saved clips.
 
 ## Hashtags
 

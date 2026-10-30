@@ -29,7 +29,7 @@ def clip_words(words, start, end):
         {
             "text": word["text"],
             "start": round(max(start, word["start"]) - start, 4),
-            "end": round(min(end, word["end"]) - start, 4),
+            "end": min(end - start, round(min(end, word["end"]) - start, 4)),
         }
         for word in words
         if word["end"] > start and word["start"] < end
