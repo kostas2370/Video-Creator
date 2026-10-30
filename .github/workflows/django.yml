@@ -70,7 +70,7 @@ jobs:
     # third-party test_options.py files that match the default pattern and cannot be
     # imported on their own.
     - name: Run tests
-      run: python backend/manage.py test apps.videomanagement apps.series apps.clips apps.apikeysmanagement apps.usermanagement apps.publishing apps.news
+      run: python backend/manage.py test apps.common apps.videomanagement apps.series apps.clips apps.apikeysmanagement apps.usermanagement apps.publishing apps.news
 
     - name: Audit Python dependencies
       run: |

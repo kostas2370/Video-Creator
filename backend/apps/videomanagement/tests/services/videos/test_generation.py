@@ -89,6 +89,11 @@ class GenerateVideoTests(TestCase):
         params.update(kwargs)
         return generate_video(video=self.video, **params)
 
+    def test_music_download_uses_the_video_owner(self):
+        url = "https://youtu.be/abcdefghijk"
+        self.generate(music=url)
+        self.download_music.assert_called_once_with(url, user=self.user)
+
     def test_review_stops_before_media_and_uses_approved_script_on_proceed(self):
         self.video.settings = {"generation_params": {"message": "cats", "review_script": False}}
         self.video.save()
