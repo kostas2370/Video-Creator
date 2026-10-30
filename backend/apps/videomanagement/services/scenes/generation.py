@@ -1,8 +1,8 @@
-import json
 import logging
 
 from rest_framework.exceptions import APIException, ValidationError
 
+from apps.common.ai_json import parse_ai_json
 from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, SceneImage, Video
@@ -144,11 +144,7 @@ def draft_scene(
         )
     reply = get_update_sentence(instructions, user=video.created_by)
     try:
-        # Accept the Markdown fences commonly returned by text-mode providers.
-        cleaned = reply.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        result = json.loads(cleaned)
+        result = parse_ai_json(reply)
         serializer = SceneDraftResultSerializer(
             data=[result] if sentence_count == 1 else result["scenes"],
             many=True,

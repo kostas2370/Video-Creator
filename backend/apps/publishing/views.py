@@ -1,4 +1,3 @@
-import re
 from datetime import timedelta
 from urllib.parse import urlencode
 
@@ -13,6 +12,7 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.common.ranges import parse_byte_range
 from apps.videomanagement.models import Video
 
 from . import oauth
@@ -160,21 +160,12 @@ class MediaView(APIView):
         if not job.user.is_active or not job.media or not job.media.storage.exists(job.media.name):
             return Response(status=404)
         size = job.media.size
-        requested = request.headers.get("Range")
-        if requested:
-            match = re.fullmatch(r"bytes=(\d{0,20})-(\d{0,20})", requested)
-            if not match or not any(match.groups()):
-                return Response(status=416, headers={"Content-Range": f"bytes */{size}"})
-            first, last = match.groups()
-            if first:
-                start, end = int(first), min(int(last), size - 1) if last else size - 1
-            else:
-                length = int(last)
-                start, end = max(0, size - length), size - 1
-                if not length:
-                    return Response(status=416, headers={"Content-Range": f"bytes */{size}"})
-            if start > end or start >= size:
-                return Response(status=416, headers={"Content-Range": f"bytes */{size}"})
+        try:
+            requested = parse_byte_range(request.headers.get("Range"), size)
+        except ValueError:
+            return Response(status=416, headers={"Content-Range": f"bytes */{size}"})
+        if requested is not None:
+            start, end = requested
             def chunks():
                 with job.media.open("rb") as source:
                     source.seek(start)

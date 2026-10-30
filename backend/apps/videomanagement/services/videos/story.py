@@ -1,11 +1,9 @@
 """Draft stories and create editable narrated gameplay projects."""
 
-import json
-import re
-
 from django.db import transaction
 from rest_framework.exceptions import APIException, ValidationError
 
+from apps.common.ai_json import parse_ai_json
 from apps.videomanagement import tasks
 from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.models import SceneImage
@@ -20,8 +18,7 @@ def draft_story(user, prompt):
     instructions = build_story_draft_prompt(prompt)
     reply = get_update_sentence(instructions, user=user)
     try:
-        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", reply.strip())
-        result = json.loads(cleaned)
+        result = parse_ai_json(reply)
         serializer = StoryDraftResultSerializer(data=result)
         serializer.is_valid(raise_exception=True)
     except (ValueError, TypeError, AttributeError, ValidationError) as exc:

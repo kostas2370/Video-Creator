@@ -629,3 +629,24 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(b"".join(response.streaming_content), b"nap")
         response = self.client.get(reverse("publishing-media", args=[job.pk]), {"token": token}, HTTP_RANGE="bytes=20-30")
         self.assertEqual(response.status_code, 416)
+
+    def test_signed_media_supports_open_and_suffix_ranges(self):
+        from urllib.parse import parse_qs, urlparse
+
+        job = self.new_job("instagram")
+        token = parse_qs(urlparse(media_url(job)).query)["token"][0]
+        self.client.force_authenticate(None)
+        url = reverse("publishing-media", args=[job.pk])
+        with job.media.open("rb") as media:
+            source = media.read()
+        for header, start, end in (("bytes=5-", 5, 7), ("bytes=-3", 5, 7), ("bytes=6-999", 6, 7), ("bytes=-999", 0, 7)):
+            with self.subTest(header=header):
+                response = self.client.get(url, {"token": token}, HTTP_RANGE=header)
+                self.assertEqual(response.status_code, 206)
+                self.assertEqual(response["Content-Range"], f"bytes {start}-{end}/8")
+                self.assertEqual(b"".join(response.streaming_content), source[start:end + 1])
+        for header in ("bytes=-0", "bytes=0-1,3-4", "bytes=5-2"):
+            with self.subTest(header=header):
+                response = self.client.get(url, {"token": token}, HTTP_RANGE=header)
+                self.assertEqual(response.status_code, 416)
+                self.assertEqual(response["Content-Range"], "bytes */8")
