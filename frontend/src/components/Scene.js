@@ -4,7 +4,6 @@ import { formatDuration } from "../utils/timing";
 import { isVideo } from "../utils/media";
 import React, { lazy, useState } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
-import { FaPencilAlt } from "react-icons/fa";
 import { IoTrashBinSharp } from "react-icons/io5";
 import { DeleteModal } from "./DeleteModal";
 import { HiOutlinePencilSquare, HiOutlineEllipsisVertical } from "react-icons/hi2";
@@ -16,8 +15,8 @@ import { SceneAudio } from "./SceneAudio";
 import { SceneMotion } from "./SceneMotion";
 import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
+import { SceneTextEditor } from "./SceneTextEditor";
 
-const EditSceneModal = lazy(() => import("./EditSceneModal").then(module => ({ default: module.EditSceneModal })));
 const EditSceneImageModal = lazy(() => import("./EditSceneImageModal").then(module => ({ default: module.EditSceneImageModal })));
 
 const formatFrameClasses = {
@@ -26,11 +25,10 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
+export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite, manual, scene, setUpdated, onRemoveScene, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showEditImageModal, setShowEditImageModal] = useState(false);
 
   const MEDIA_URL = API_HOST;
@@ -71,12 +69,6 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
         mode="image"
       />
 
-      <DeferredDialog open={showEditModal} onClose={() => setShowEditModal(false)}><EditSceneModal
-        showModal={showEditModal}
-        setShowModal={setShowEditModal}
-        scene_info={{ dialogue: scene.text, id: scene.id, manual }}
-        setUpdate={setUpdated}
-      /></DeferredDialog>
       <DeferredDialog open={showEditImageModal} onClose={() => setShowEditImageModal(false)}><EditSceneImageModal
         showModal={showEditImageModal}
         setShowModal={setShowEditImageModal}
@@ -107,8 +99,7 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
             {scene.scene_image?.prompt && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
           </div>
           <div className="min-w-0">
-            <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{manual ? "Scene text" : "Script & narration"}</h3><button type="button" disabled={timingDisabled} aria-label={manual ? "Edit scene text" : "Edit script"} onClick={() => setShowEditModal(true)} className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-gray-700"><FaPencilAlt className="h-3 w-3" />{manual ? "Edit text" : "Edit script"}</button></div>
-            <p className="editor-inset max-h-64 overflow-y-auto whitespace-pre-wrap break-words rounded-xl bg-gray-50 p-4 text-sm leading-7 dark:bg-gray-900/40 text-gray-700 dark:text-gray-200">{scene.text || (manual ? "No caption text yet." : "No dialogue yet.")}</p>
+            <SceneTextEditor scene={scene} index={index} manual={manual} draft={textDraft} onDraftChange={onTextDraftChange} onSave={onTextSave} onRewrite={onTextRewrite} disabled={timingDisabled} />
             {scene.narration_status === "missing" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Narration unavailable</p>
               <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-300">This scene has no narration audio. Your dialogue and visual are saved.</p>
@@ -119,14 +110,16 @@ export const Scene = ({ manual, scene, setUpdated, onRemoveScene, video_format =
           </div>
 
         </div>
+        {(onTiming || transitionControl) && <section aria-label="Quick scene timing" className="border-t border-gray-100 px-4 py-4 sm:px-5 dark:border-gray-700">
+          <div className="grid items-start gap-5 md:grid-cols-2">
+            {onTiming && <div><h3 className="text-sm font-semibold">Scene timing</h3><SceneTiming manual={manual} scene={scene} index={index} disabled={timingDisabled} saving={timingSaving} onChange={onTiming} /></div>}
+            {transitionControl && <div><h3 className="mb-3 text-sm font-semibold">Transition to next scene</h3>{transitionControl}</div>}
+          </div>
+        </section>}
         <RememberedDetails videoId={scene.video} panel="adjustScene" className="border-t border-gray-100 px-4 py-4 sm:px-5 dark:border-gray-700">
-          <summary className="cursor-pointer text-sm font-semibold">Adjust scene <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Overlays, captions, timing &amp; motion</span></summary>
+          <summary className="cursor-pointer text-sm font-semibold">Adjust scene <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Overlays, captions &amp; motion</span></summary>
           <div className="mt-4 space-y-5">
             <div aria-label="Scene editing tools" className="flex flex-wrap items-center gap-2"><SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} /><SceneCaptions scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />{onMotion && <SceneMotion scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}</div>
-            {(onTiming || transitionControl) && <div className="grid items-start gap-5 md:grid-cols-2">
-              {onTiming && <div><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">Scene timing</h3><SceneTiming manual={manual} scene={scene} index={index} disabled={timingDisabled} saving={timingSaving} onChange={onTiming} /></div>}
-              {transitionControl && <div><h3 className="mb-3 text-xs font-semibold text-gray-500 dark:text-gray-400">Transition to next scene</h3>{transitionControl}</div>}
-            </div>}
           </div>
         </RememberedDetails>
       </article>

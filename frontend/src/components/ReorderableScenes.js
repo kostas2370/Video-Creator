@@ -1,5 +1,5 @@
 import { DeferredVideo } from "./ui/DeferredVideo";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { RiDraggable } from "react-icons/ri";
 import { HiOutlineChevronLeft, HiOutlineChevronRight, HiOutlineFilm } from "react-icons/hi2";
 import { SceneTransition } from "./SceneTransition";
@@ -15,7 +15,35 @@ export function reorderScene(scenes, from, to) {
   return ordered;
 }
 
-export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, selectedSceneId, onSelectScene, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming, onMotion, pendingMotion }) {
+export function ReorderableScenes({ videoId, onTextSave, onTextRewrite, textBusy, manual, scenes, actions, onRemoveScene, selectedSceneId, onSelectScene, disabled, saving, onReorder, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings, onTiming, pendingTiming, onMotion, pendingMotion }) {
+  const [textDrafts, setTextDrafts] = useState(() => {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(`scene-text-drafts:${videoId}`) || "{}");
+      return Object.fromEntries(Object.entries(stored || {}).filter(([, draft]) =>
+        draft && typeof draft.text === "string" && typeof draft.before === "string"
+        && draft.text.length <= 2000));
+    } catch { return {}; }
+  });
+  const changeTextDraft = useCallback((id, draft) => setTextDrafts(current => {
+    const next = { ...current };
+    if (draft) next[id] = draft;
+    else delete next[id];
+    return next;
+  }), []);
+  useEffect(() => {
+    if (!videoId) return;
+    try { sessionStorage.setItem(`scene-text-drafts:${videoId}`, JSON.stringify(textDrafts)); }
+    catch { /* Drafts still survive scene switches when browser storage is unavailable. */ }
+  }, [videoId, textDrafts]);
+  useEffect(() => {
+    setTextDrafts(current => {
+      const savedIds = scenes.filter(scene => current[scene.id]?.text === (scene.text || "")).map(scene => scene.id);
+      if (!savedIds.length) return current;
+      const next = { ...current };
+      savedIds.forEach(id => delete next[id]);
+      return next;
+    });
+  }, [scenes]);
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
   const listRef = useRef(null);
@@ -95,12 +123,12 @@ export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, sele
           const insertion = drag?.target === index && drag.target !== drag.from && drag.target !== drag.from + 1;
           return <div key={scene.id} data-scene-order={index} className={`editor-card ${activeId === scene.id ? "editor-card-selected" : ""} relative w-28 sm:w-32 shrink-0 rounded-xl border p-2 ${activeId === scene.id ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-600"} ${drag?.from === index ? "opacity-40" : ""}`}>
             {insertion && <span aria-hidden="true" className="pointer-events-none absolute -left-2 bottom-0 top-0 w-1 rounded-full bg-blue-500" />}
-            <button type="button" aria-label={`Edit scene ${index + 1}`} aria-pressed={activeId === scene.id} onClick={() => onSelectScene?.(scene.id)} className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+            <button type="button" disabled={textBusy} aria-label={`Edit scene ${index + 1}`} aria-pressed={activeId === scene.id} onClick={() => onSelectScene?.(scene.id)} className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
               <span className="relative mb-1.5 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-900">
                 {file ? isVideo(file) ? <DeferredVideo src={API_HOST + file} muted playsInline preload="metadata" aria-hidden="true" className="pointer-events-none h-full w-full object-cover" /> : <img src={API_HOST + file} alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" /> : <HiOutlineFilm aria-hidden="true" className="h-7 w-7 text-gray-400" />}
                 <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">{formatDuration(scene.timing?.duration)}</span>
               </span>
-              <span className="block text-xs font-semibold">Scene {index + 1}</span><span className="sr-only text-gray-500 dark:text-gray-400">{scene.text || "Add text or media"}</span>
+              <span className="block text-xs font-semibold">Scene {index + 1}{textDrafts[scene.id] && textDrafts[scene.id].text !== (scene.text || "") && <span aria-label="Unsaved text" className="ml-1 text-amber-600 dark:text-amber-300">•</span>}</span><span className="sr-only text-gray-500 dark:text-gray-400">{scene.text || "Add text or media"}</span>
             </button>
             {scenes.length > 1 && <button type="button" disabled={disabled} aria-label={`Move scene ${index + 1}`} aria-describedby="scene-reorder-help" className="mt-1 flex min-h-11 sm:min-h-7 w-full touch-none items-center justify-center rounded-lg bg-gray-100 py-1.5 text-gray-500 cursor-grab hover:bg-blue-100 hover:text-blue-600 active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-default disabled:opacity-30 dark:bg-gray-700 dark:text-gray-300" onPointerDown={event => {
               if (disabled || event.button !== 0) return;
@@ -121,18 +149,18 @@ export function ReorderableScenes({ manual, scenes, actions, onRemoveScene, sele
         {drag?.target === scenes.length && drag.from !== scenes.length - 1 && <span aria-hidden="true" className="w-1 shrink-0 rounded-full bg-blue-500" />}
       </div>
     </section>}
-    {selected && <SelectedSceneEditor selected={selected} selectedIndex={selectedIndex} scenes={scenes} onSelectScene={onSelectScene} manual={manual} onRemoveScene={onRemoveScene} onTiming={onTiming} disabled={disabled} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} setUpdated={setUpdated} videoFormat={videoFormat} onTransition={onTransition} pendingTransition={pendingTransition} transitionSettings={transitionSettings} />}
+    {selected && <SelectedSceneEditor textDraft={textDrafts[selected.id]} onTextDraftChange={changeTextDraft} onTextSave={onTextSave} onTextRewrite={onTextRewrite} textBusy={textBusy} selected={selected} selectedIndex={selectedIndex} scenes={scenes} onSelectScene={onSelectScene} manual={manual} onRemoveScene={onRemoveScene} onTiming={onTiming} disabled={disabled} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} setUpdated={setUpdated} videoFormat={videoFormat} onTransition={onTransition} pendingTransition={pendingTransition} transitionSettings={transitionSettings} />}
     {drag && <div aria-hidden="true" style={{ left: Math.min(drag.x + 12, window.innerWidth - 160), top: drag.y + 12 }} className="pointer-events-none fixed z-[80] max-w-[150px] rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-xl">Moving scene {drag.from + 1}</div>}
   </div>;
 }
 
 // Drag position changes only the strip; keep the active scene editor out of that work.
-const SelectedSceneEditor = memo(function SelectedSceneEditor({ selected, selectedIndex, scenes, onSelectScene, manual, onRemoveScene, onTiming, disabled, pendingTiming, onMotion, pendingMotion, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings }) {
+const SelectedSceneEditor = memo(function SelectedSceneEditor({ textDraft, onTextDraftChange, onTextSave, onTextRewrite, textBusy, selected, selectedIndex, scenes, onSelectScene, manual, onRemoveScene, onTiming, disabled, pendingTiming, onMotion, pendingMotion, setUpdated, videoFormat, onTransition, pendingTransition, transitionSettings }) {
   return <div>
       <nav aria-label="Scene navigation" className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
         <p aria-live="polite" className="text-sm font-semibold text-gray-900 dark:text-gray-100">Editing scene {selectedIndex + 1}<span className="ml-1 font-normal text-gray-500 dark:text-gray-400">of {scenes.length}</span></p>
-        <div className="flex items-center gap-2">{[["Previous", -1, HiOutlineChevronLeft], ["Next", 1, HiOutlineChevronRight]].map(([label, offset, Icon]) => <button key={label} type="button" disabled={!scenes[selectedIndex + offset]} onClick={() => onSelectScene?.(scenes[selectedIndex + offset].id)} aria-label={`${label} scene`} className="inline-flex min-h-11 sm:min-h-9 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{offset < 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}{label}{offset > 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}</button>)}</div>
+        <div className="flex items-center gap-2">{[["Previous", -1, HiOutlineChevronLeft], ["Next", 1, HiOutlineChevronRight]].map(([label, offset, Icon]) => <button key={label} type="button" disabled={textBusy || !scenes[selectedIndex + offset]} onClick={() => onSelectScene?.(scenes[selectedIndex + offset].id)} aria-label={`${label} scene`} className="inline-flex min-h-11 sm:min-h-9 items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">{offset < 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}{label}{offset > 0 && <Icon aria-hidden="true" className="h-3.5 w-3.5" />}</button>)}</div>
       </nav>
-      <Scene onRemoveScene={onRemoveScene} key={selected.id} manual={manual} scene={selected} index={selectedIndex} nextScene={scenes[selectedIndex + 1]} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === selected.id} onMotion={onMotion} motionDisabled={disabled} motionSaving={pendingMotion === selected.id} setUpdated={setUpdated} video_format={videoFormat} transitionControl={selectedIndex < scenes.length - 1 ? <SceneTransition scene={selected} nextNumber={selectedIndex + 2} disabled={disabled} saving={pendingTransition === selected.id} onChange={onTransition} settings={transitionSettings} /> : null} />
+      <Scene textDraft={textDraft} onTextDraftChange={onTextDraftChange} onTextSave={onTextSave} onTextRewrite={onTextRewrite} onRemoveScene={onRemoveScene} key={selected.id} manual={manual} scene={selected} index={selectedIndex} nextScene={scenes[selectedIndex + 1]} onTiming={onTiming} timingDisabled={disabled} timingSaving={pendingTiming === selected.id} onMotion={onMotion} motionDisabled={disabled} motionSaving={pendingMotion === selected.id} setUpdated={setUpdated} video_format={videoFormat} transitionControl={selectedIndex < scenes.length - 1 ? <SceneTransition scene={selected} nextNumber={selectedIndex + 2} disabled={disabled} saving={pendingTransition === selected.id} onChange={onTransition} settings={transitionSettings} /> : null} />
     </div>;
 });
