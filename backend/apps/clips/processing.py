@@ -10,7 +10,7 @@ from django.db import close_old_connections, connections, transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.common.media import run_ffmpeg
-from apps.videomanagement.services.captions.transcription import transcribe_audio
+from apps.videomanagement.services.captions.transcription import transcribe_prepared_audio
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
 from apps.videomanagement.utils.timing import video_metadata
 
@@ -87,8 +87,7 @@ def transcribe_part(project, index, directory, user):
                 str(path),
             ]
         )
-        with tempfile.TemporaryDirectory(dir=directory) as chunk_directory:
-            local_words = transcribe_audio(path, user, end - start, chunk_directory)
+        local_words = transcribe_prepared_audio(path, user, end - start)
         adjusted = []
         for word in local_words:
             word_start, word_end = (
