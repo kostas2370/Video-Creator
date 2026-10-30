@@ -2,12 +2,11 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
+from apps.common.models import TimestampedModel, UUIDModel
 from apps.videomanagement.models import (
     AbstractModel,
     Intro,
     Outro,
-    TimestampedModel,
-    UUIDModel,
     Video,
     VideoStatus,
     VoiceModel,

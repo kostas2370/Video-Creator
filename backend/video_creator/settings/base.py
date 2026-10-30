@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.usermanagement",
     "apps.videomanagement",
     "apps.series",
+    "apps.clips",
     "apps.news",
     "apps.publishing",
     "apps.apikeysmanagement",
@@ -126,6 +127,7 @@ CELERY_TASK_TRACK_STARTED = True
 
 # Keep CPU-heavy exports away from scene edits, generation and maintenance jobs.
 CELERY_TASK_ROUTES = {
+    "apps.clips.tasks.export_clip_task": {"queue": "renders"},
     "apps.videomanagement.tasks.render_video_task": {"queue": "renders"},
 }
 
@@ -135,6 +137,10 @@ CELERY_BEAT_SCHEDULE = {
     "purge-expired-deleted-scenes": {
         "task": "apps.videomanagement.tasks.purge_deleted_scenes",
         "schedule": 24 * 60 * 60.0,
+    },
+    "reap-stalled-clip-exports": {
+        "task": "apps.clips.tasks.reap_stalled_clip_exports",
+        "schedule": 60.0,
     },
     "reap-stalled-videos": {
         "task": "apps.videomanagement.tasks.reap_stalled_videos",
@@ -355,3 +361,5 @@ FAL_KEY = os.getenv("FAL_KEY")
 RUNWAY_API_KEY = os.getenv("RUNWAY_API_KEY")
 VIDEO_GENERATION_TIMEOUT = 900
 VIDEO_POLL_INTERVAL = 5
+
+CLIP_STORAGE_ROOT = os.getenv("CLIP_STORAGE_ROOT") or None

@@ -2,14 +2,18 @@ import React, { useEffect, useState } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { RiMoonLine, RiSunLine } from "react-icons/ri";
-import { HiOutlineLink, HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup, HiOutlineBookOpen, HiOutlineSparkles } from "react-icons/hi2";
+import { HiOutlineLink, HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup, HiOutlineBookOpen, HiOutlineSparkles, HiOutlineScissors } from "react-icons/hi2";
 import { NotificationBell } from "./NotificationBell";
 import useLogout from "../../hooks/useLogout";
 import { isCreationPath } from "../../utils/creationModes";
 
 const destinations = [
   { to: "/", label: "Create", icon: HiOutlinePlusCircle },
+];
+const projects = [
   { to: "/videos", label: "My videos", icon: HiOutlineFilm },
+  { to: "/series", label: "My series", icon: HiOutlineBookOpen },
+  { to: "/clips", label: "My clips", icon: HiOutlineScissors },
 ];
 const resources = [
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
@@ -25,6 +29,9 @@ function Navbar({ theme, toggleTheme }) {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useLogout();
+  const activeProject = projects.find(({ to }) => location.pathname === to || location.pathname.startsWith(`${to}/`));
+  const creating = isCreationPath(location.pathname) && !activeProject;
+  const ProjectIcon = activeProject?.icon || HiOutlineSquares2X2;
   const inResources = resources.some(({ to }) => location.pathname === to || location.pathname.startsWith(`${to}/`));
   useEffect(() => setIsMenuOpen(false), [location.pathname]);
   useEffect(() => {
@@ -35,7 +42,7 @@ function Navbar({ theme, toggleTheme }) {
   }, [isMenuOpen]);
 
   const links = mobile => destinations.map(({ to, label, icon: Icon }) => (
-    <NavLink key={to} to={to} end={to === "/"} aria-current={to === "/" && isCreationPath(location.pathname) ? "page" : undefined} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${mobile ? "" : "whitespace-nowrap"} ${(to === "/" ? isCreationPath(location.pathname) : isActive) ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}>
+    <NavLink key={to} to={to} end={to === "/"} aria-current={to === "/" && creating ? "page" : undefined} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${mobile ? "" : "whitespace-nowrap"} ${(to === "/" ? creating : isActive) ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}>
       <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />{label}
     </NavLink>
   ));
@@ -49,6 +56,12 @@ function Navbar({ theme, toggleTheme }) {
         </NavLink>
         <nav aria-label="Main navigation" className="hidden items-center gap-1 md:flex">
           {links(false)}
+          <Menu as="div" className="relative">
+            <MenuButton className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${activeProject ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}><ProjectIcon aria-hidden="true" className="h-4 w-4" />{activeProject?.label || "My projects"}<HiOutlineChevronDown aria-hidden="true" className="h-3 w-3" /></MenuButton>
+            <MenuItems anchor="bottom start" className="z-50 mt-2 w-52 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800">
+              {projects.map(({ to, label, icon: Icon }) => <MenuItem key={to}><NavLink to={to} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-3 text-sm data-[focus]:bg-gray-50 dark:data-[focus]:bg-gray-700 ${isActive ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-600 dark:text-gray-300"}`}><Icon aria-hidden="true" className="h-4 w-4" />{label}</NavLink></MenuItem>)}
+            </MenuItems>
+          </Menu>
           <Menu as="div" className="relative">
             <MenuButton className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${inResources ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"}`}><HiOutlineSquares2X2 aria-hidden="true" className="h-4 w-4" />Resources<HiOutlineChevronDown aria-hidden="true" className="h-3 w-3" /></MenuButton>
             <MenuItems anchor="bottom start" className="z-50 mt-2 w-52 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800">
@@ -73,7 +86,7 @@ function Navbar({ theme, toggleTheme }) {
           <button type="button" aria-label={isMenuOpen ? "Close main menu" : "Open main menu"} aria-controls="mobile-menu" aria-expanded={isMenuOpen} onClick={() => setIsMenuOpen(open => !open)} className={`${iconButton} md:hidden`}>{isMenuOpen ? <HiOutlineXMark className="h-6 w-6" /> : <HiOutlineBars3 className="h-6 w-6" />}</button>
         </div>
       </div>
-      {isMenuOpen && <nav id="mobile-menu" aria-label="Mobile navigation" className="border-t border-gray-100 px-4 py-3 md:hidden dark:border-gray-800"><div className="mx-auto grid max-w-7xl gap-1 sm:grid-cols-2">{links(true)}<div className="col-span-full mt-2 border-t border-gray-100 pt-3 dark:border-gray-700"><p className="px-3 pb-2 text-xs font-medium text-gray-400">Resources</p><div className="grid gap-1 sm:grid-cols-2">{resources.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"}`}><Icon aria-hidden="true" className="h-4 w-4" />{label}</NavLink>)}</div></div></div></nav>}
+      {isMenuOpen && <nav id="mobile-menu" aria-label="Mobile navigation" className="border-t border-gray-100 px-4 py-3 md:hidden dark:border-gray-800"><div className="mx-auto grid max-w-7xl gap-1 sm:grid-cols-2">{links(true)}{projects.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex min-h-11 items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"}`}><Icon aria-hidden="true" className="h-4 w-4" />{label}</NavLink>)}<div className="col-span-full mt-2 border-t border-gray-100 pt-3 dark:border-gray-700"><p className="px-3 pb-2 text-xs font-medium text-gray-400">Resources</p><div className="grid gap-1 sm:grid-cols-2">{resources.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} onClick={() => setIsMenuOpen(false)} className={({ isActive }) => `flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${isActive ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"}`}><Icon aria-hidden="true" className="h-4 w-4" />{label}</NavLink>)}</div></div></div></nav>}
     </header>
   );
 }

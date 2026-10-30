@@ -25,9 +25,7 @@ async def authenticated_events(stream, expires):
             pass
 
 
-@api_view(["GET"])
-@renderer_classes([JSONRenderer, SSEEventRenderer])
-def event_updates(request, video_id=None):
+def event_response(request, channel):
     origin = request.headers.get("Origin")
     allowed_origins = [
         f"{request.scheme}://{request.get_host()}",
@@ -36,10 +34,6 @@ def event_updates(request, video_id=None):
     ]
     if origin and origin not in allowed_origins:
         return Response(status=403)
-    channel = f"notifications.{request.user.pk}"
-    if video_id is not None:
-        get_object_or_404(Video.objects.for_user(request.user), pk=video_id)
-        channel = f"video.{video_id}"
     if not isinstance(request._request, ASGIRequest):
         return Response({"detail": "Event streams require an ASGI server."}, status=503)
     try:
@@ -58,3 +52,13 @@ def event_updates(request, video_id=None):
             response.streaming_content, request.auth["exp"]
         )
     return response
+
+
+@api_view(["GET"])
+@renderer_classes([JSONRenderer, SSEEventRenderer])
+def event_updates(request, video_id=None):
+    channel = f"notifications.{request.user.pk}"
+    if video_id is not None:
+        get_object_or_404(Video.objects.for_user(request.user), pk=video_id)
+        channel = f"video.{video_id}"
+    return event_response(request, channel)

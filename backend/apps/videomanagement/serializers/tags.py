@@ -20,15 +20,18 @@ class TagListField(serializers.ListField):
         "keyword": "Use nonempty keyword phrases without commas or #.",
     }
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, hashtags=False, **kwargs):
+        self.hashtags = hashtags
         super().__init__(max_length=20, **kwargs)
 
     def to_internal_value(self, data):
         tags = super().to_internal_value(data)
+        if len(tags) > self.max_length:
+            self.fail("max_length", max_length=self.max_length)
         result, seen = [], set()
         for tag in tags:
             tag = unicodedata.normalize("NFC", tag).lstrip("#").strip()
-            if self.field_name == "tiktok":
+            if self.hashtags:
                 tag = re.sub(r"\s+", "", tag)
                 if not tag or not all(
                     char.isalnum()
@@ -48,7 +51,7 @@ class TagListField(serializers.ListField):
 
 
 class VideoTagsSerializer(serializers.Serializer):
-    tiktok = TagListField()
+    tiktok = TagListField(hashtags=True)
     youtube = TagListField()
     search = TagListField()
 

@@ -15,6 +15,8 @@ Explore the [dark-theme screenshot gallery](docs/screenshots.md) for more of the
 
 - **AI-assisted videos:** draft a storyboard, review dialogue and visual prompts,
   then generate images, clips, and narration with your chosen providers.
+- **Long video → Shorts:** find transcript-based highlights in uploaded videos or
+  YouTube interviews, podcasts, and talks, then trim, frame, caption, and export portrait clips.
 - **Projects from your own media:** upload images, video, and audio, or reuse items
   from your media library.
 - **Scene-by-scene edits:** rewrite dialogue, replace visuals, insert and reorder
@@ -302,6 +304,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [AI video providers](docs/ai-video-providers.md) | Provider setup, references, timing, and limitations |
 | [Prompting](docs/prompting.md) | Storyboard and visual prompt assembly, with complete GPT request examples |
 | [Visual continuity](docs/visual-continuity.md) | References and consistency across generated scenes |
+| [Long video → Shorts](docs/clips.md) | Uploads, highlight suggestions, clip editing, exports, and recovery |
 | [AI usage](docs/ai-usage.md) | Usage records and cost estimates |
 | [Creator publishing](docs/social-publishing.md) | Social platform integrations and deployment setup |
 | [Performance checks](docs/performance-check.md) | Measuring application performance |

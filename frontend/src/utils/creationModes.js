@@ -1,6 +1,12 @@
-import { HiOutlineBookOpen, HiOutlineSparkles, HiOutlineFilm, HiOutlineMicrophone, HiOutlineChatBubbleBottomCenterText } from "react-icons/hi2";
+import { HiOutlineScissors, HiOutlineBookOpen, HiOutlineSparkles, HiOutlineFilm, HiOutlineMicrophone, HiOutlineChatBubbleBottomCenterText } from "react-icons/hi2";
 
 export const creationModes = [
+  {
+    to: "/clips/", label: "Long video → Shorts", eyebrow: "Find your best moments", icon: HiOutlineScissors,
+    description: "Find highlights in interviews, podcasts, and talks. Trim your clips, frame them for portrait, and add captions.",
+    requirement: "A video with speech + connected AI providers", action: "Find short clips",
+    color: "text-rose-600 dark:text-rose-300", background: "bg-rose-50 dark:bg-rose-950/40", preview: "clips",
+  },
   {
     to: "/series/", label: "Create a series", eyebrow: "Keep the story going", icon: HiOutlineBookOpen,
     description: "Build a recurring cast and signature style. Draft each new episode with memory of the stories before it.",
@@ -35,5 +41,5 @@ export const creationModes = [
 
 export const isCreationPath = pathname => {
   const path = pathname.replace(/\/+$/, "") || "/";
-  return path === "/" || creationModes.some(mode => mode.to.replace(/\/$/, "") === path) || path.startsWith("/captions/") || path.startsWith("/series/");
+  return path === "/" || creationModes.some(mode => mode.to.replace(/\/$/, "") === path) || path.startsWith("/clips/") || path.startsWith("/captions/") || path.startsWith("/series/");
 };

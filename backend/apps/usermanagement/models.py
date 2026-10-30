@@ -1,17 +1,17 @@
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AbstractUser, PermissionsMixin
+from django.contrib.auth.models import AbstractUser
 from django.core.mail import send_mail
 from django.db import models
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.common.models import UUIDModel
 
-class User(AbstractUser, PermissionsMixin):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+
+class User(AbstractUser, UUIDModel):
     first_name = models.CharField(max_length=20, blank=False)
     last_name = models.CharField(max_length=20, blank=False)
     email = models.EmailField(unique=True)
@@ -50,8 +50,7 @@ class User(AbstractUser, PermissionsMixin):
         return {"access": access, "refresh": str(tokens)}
 
 
-class Login(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+class Login(UUIDModel):
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     ip = models.GenericIPAddressField()
     date = models.DateTimeField(auto_now_add=True)
@@ -78,8 +77,7 @@ class Login(models.Model):
         return self.user.username + " (" + self.ip + ") at " + str(self.date)
 
 
-class Notification(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+class Notification(UUIDModel):
     user = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE, related_name="notifications"
     )
@@ -88,8 +86,6 @@ class Notification(models.Model):
     link = models.CharField(max_length=255, blank=True, default="")
     read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-
-    objects = models.Manager()
 
     class Meta:
         ordering = ["-created_at"]
