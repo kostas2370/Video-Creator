@@ -1,10 +1,12 @@
 import logging
 import math
 import tempfile
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextvars import copy_context
 from pathlib import Path
 
 from django.core.files import File
-from django.db import transaction
+from django.db import close_old_connections, connections, transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -24,6 +26,7 @@ from .youtube import SourceImportError, download_youtube
 
 logger = logging.getLogger(__name__)
 CHUNK_SECONDS = 600
+TRANSCRIPTION_WORKERS = 2
 
 
 def make_preview(project, directory):
@@ -58,15 +61,10 @@ def make_preview(project, directory):
     return path
 
 
-def transcribe_source(project, rows, directory):
-    parts = list(project.transcript_parts)
-    for index in range(
-        len(parts),
-        math.ceil((project.range_stop - project.range_start) / CHUNK_SECONDS),
-    ):
+def transcribe_part(project, index, directory, user):
+    close_old_connections()
+    try:
         offset = project.range_start + index * CHUNK_SECONDS
-        if not rows.filter(status=ClipProjectStatus.TRANSCRIBING).exists():
-            return None
         start = max(project.range_start, offset - 2)
         end = min(project.range_stop, offset + CHUNK_SECONDS + 2)
         path = Path(directory, f"part-{index}.mp3")
@@ -91,9 +89,7 @@ def transcribe_source(project, rows, directory):
             ]
         )
         with tempfile.TemporaryDirectory(dir=directory) as chunk_directory:
-            local_words = transcribe_audio(
-                path, project.created_by, end - start, chunk_directory
-            )
+            local_words = transcribe_audio(path, user, end - start, chunk_directory)
         adjusted = []
         for word in local_words:
             word_start, word_end = (
@@ -109,16 +105,71 @@ def transcribe_source(project, rows, directory):
                         "end": round(word_end, 4),
                     }
                 )
-        parts.append(adjusted)
-        if not update_jobs(
-            rows.filter(status=ClipProjectStatus.TRANSCRIBING),
-            transcript_parts=parts,
-            updated_at=timezone.now(),
-        ):
-            return None
-    words, previous_end = [], 0
-    for part in parts:
-        for word in part:
+        return adjusted
+    finally:
+        connections.close_all()
+
+
+def transcribe_source(project, rows, directory):
+    user = project.created_by
+    saved = project.transcript_parts
+    parts = (
+        dict(saved)
+        if isinstance(saved, dict)
+        else {str(index): part for index, part in enumerate(saved)}
+    )
+    count = math.ceil((project.range_stop - project.range_start) / CHUNK_SECONDS)
+    remaining = iter(index for index in range(count) if str(index) not in parts)
+    pending, failure, current = {}, None, True
+    with ThreadPoolExecutor(max_workers=TRANSCRIPTION_WORKERS) as executor:
+
+        def submit_next():
+            nonlocal current
+            current = rows.filter(status=ClipProjectStatus.TRANSCRIBING).exists()
+            if not current:
+                return
+            index = next(remaining, None)
+            if index is not None:
+                pending[
+                    executor.submit(
+                        copy_context().run,
+                        transcribe_part,
+                        project,
+                        index,
+                        directory,
+                        user,
+                    )
+                ] = index
+
+        for _ in range(TRANSCRIPTION_WORKERS):
+            if current:
+                submit_next()
+        while pending:
+            completed, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for future in completed:
+                index = pending.pop(future)
+                try:
+                    parts[str(index)] = future.result()
+                except Exception as exc:
+                    failure = failure or exc
+                else:
+                    current = bool(
+                        update_jobs(
+                            rows.filter(status=ClipProjectStatus.TRANSCRIBING),
+                            transcript_parts=parts,
+                            updated_at=timezone.now(),
+                        )
+                    )
+            if current and failure is None:
+                for _ in completed:
+                    submit_next()
+    if not current:
+        return None
+    if failure:
+        raise failure
+    words, previous_end = [], project.range_start
+    for index in range(count):
+        for word in parts[str(index)]:
             start = max(previous_end, word["start"])
             if word["end"] > start:
                 words.append({**word, "start": start})

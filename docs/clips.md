@@ -1,6 +1,10 @@
 # Long video → Shorts
 
-Open **Long video → Shorts** from the creation tools. Upload an MP4, MOV, WebM,
+Open **Long video → Shorts** from the creation tools to see your project library.
+Search by project name or filter by ready, processing, or needs-attention status.
+Cards show the source type, duration, saved clip count, ready export count, and date.
+Choose **New project** to import a video; **Back to projects** returns to the library.
+Upload an MP4, MOV, WebM,
 or M4V video with spoken audio, up to 1 GB, two hours, and 3840 pixels per dimension.
 Alternatively choose **YouTube link** and paste a video or Shorts URL. Imports run
 in the background using the existing pytubefix dependency. They select the highest available
@@ -38,7 +42,8 @@ before sharing. There is no promise of engagement or virality.
 
 1. Upload the source and choose your suggestion settings.
 2. Wait for a browser-friendly preview, word-timed transcription, and highlight suggestions.
-3. Review the suggested titles and explanations, or add a clip manually.
+3. In **Clips**, review the suggested titles and explanations, or add a clip manually.
+   The clip list stays beside the editor on desktop and scrolls horizontally on phones.
 4. Open **Preview & edit**. Adjust start/end times or select boundaries from transcript words.
 5. Choose a portrait crop with horizontal positioning, or preserve the picture over a blurred background.
 6. Correct caption words and timing, choose a font/style, and save.
@@ -59,14 +64,14 @@ suggestions are discarded. Larger candidate sets receive a final ranking pass.
 
 ## Full source transcript
 
-Expand **Full video transcript** on the project page to read the entire saved
+Open **Transcript & AI search** on the project page to read the entire saved
 source transcript without opening a clip. Search filters the displayed passages;
 **Copy full transcript** and **Download TXT** always include all passages and their
 source timestamps. This view does not change when individual clip captions are edited.
 
 ## Find clips by description
 
-Expand the transcript and use **Find clips with AI**. Describe a topic or moment,
+Open **Transcript & AI search** and use **Find clips with AI**. Describe a topic or moment,
 for example, “Find a clip where they explain how to start a business”. Search uses
 the saved transcript and the project's preferred clip lengths. It returns up to
 three candidate excerpts without changing the original extraction brief or adding
@@ -96,7 +101,11 @@ Existing clips start with an empty list. Suggestions do not claim current trend 
 ## Recovery and storage
 
 Transcription is processed in ten-minute chunks with a small overlap and saved
-checkpoints. A retry reuses the saved preview, completed chunks, and full transcript.
+checkpoints. Up to two requests run concurrently per project. Completed chunks are
+saved by index even when they finish out of order, and the final transcript is
+merged in source order. If one request fails, no further chunks are dispatched;
+requests already running finish and their successful results are saved. Retries
+only send missing chunks, including when older sequential checkpoints are present. A retry reuses the saved preview, completed chunks, and full transcript.
 New imports also reuse completed source transcripts from existing projects owned
 by the same user when the source identity matches and the saved range covers the
 new range. Uploads match by SHA-256 content, independent of filename; YouTube links

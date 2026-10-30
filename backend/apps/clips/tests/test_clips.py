@@ -369,7 +369,9 @@ class ClipsTests(TestCase):
         suggest.assert_not_called()
         preview.assert_not_called()
 
-    def test_transcription_chunks_checkpoint_before_later_failure_and_resume(self):
+    def test_legacy_chunk_checkpoints_resume_and_preserve_later_parallel_success(self):
+        from threading import Barrier
+
         project = self.project()
         project.duration, project.status, project.job_id, project.words = (
             1201,
@@ -377,23 +379,26 @@ class ClipsTests(TestCase):
             uuid4(),
             [],
         )
+        project.transcript_parts = [[{"text": "First", "start": 0, "end": 1}]]
         project.save()
         rows = ClipProject.objects.filter(pk=project.pk, job_id=project.job_id)
+        barrier = Barrier(2, timeout=5)
+
+        def transcribe(path, *args):
+            barrier.wait()
+            if path.stem == "part-1":
+                raise RuntimeError("provider")
+            return [{"text": "Last", "start": 2, "end": 3}]
+
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
-            patch(
-                "apps.clips.processing.transcribe_audio",
-                side_effect=[
-                    [{"text": "First", "start": 0, "end": 1}],
-                    RuntimeError("provider"),
-                ],
-            ),
+            patch("apps.clips.processing.transcribe_audio", side_effect=transcribe),
         ):
             with self.assertRaises(RuntimeError):
                 transcribe_source(project, rows, directory)
         project.refresh_from_db()
-        self.assertEqual(len(project.transcript_parts), 1)
+        self.assertEqual(set(project.transcript_parts), {"0", "2"})
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
@@ -403,7 +408,7 @@ class ClipsTests(TestCase):
             ) as transcribe,
         ):
             words = transcribe_source(project, rows, directory)
-        self.assertEqual(transcribe.call_count, 2)
+        self.assertEqual(transcribe.call_count, 1)
         self.assertEqual([word["start"] for word in words], [0, 600, 1200])
 
     def test_real_upload_processing_creates_playable_preview_without_paid_requests(
@@ -1121,9 +1126,12 @@ class ClipsTests(TestCase):
             patch("apps.clips.processing.run_ffmpeg") as ffmpeg,
             patch(
                 "apps.clips.processing.transcribe_audio",
-                side_effect=[
-                    [{"text": "First", "start": 0, "end": 1}],
-                    [{"text": "Next", "start": 2, "end": 3}],
+                side_effect=lambda path, *args: [
+                    {
+                        "text": "Word",
+                        "start": 0 if path.stem == "part-0" else 2,
+                        "end": 1 if path.stem == "part-0" else 3,
+                    }
                 ],
             ) as transcribe,
         ):
@@ -1132,10 +1140,10 @@ class ClipsTests(TestCase):
             )
         self.assertEqual([word["start"] for word in words], [600, 1200])
         self.assertEqual(
-            [call.args[2] for call in transcribe.call_args_list], [602, 22]
+            sorted(call.args[2] for call in transcribe.call_args_list), [22, 602]
         )
         self.assertEqual(
-            [call.args[0][1] for call in ffmpeg.call_args_list], ["600", "1198"]
+            sorted(call.args[0][1] for call in ffmpeg.call_args_list), ["1198", "600"]
         )
 
     def test_matching_upload_reuses_saved_words_without_transcription(self):
@@ -1261,3 +1269,108 @@ class ClipsTests(TestCase):
                 400,
             )
         provider.assert_not_called()
+
+    def test_project_library_search_filters_owned_projects_and_reports_counts(self):
+        project = self.project(
+            youtube_url="https://www.youtube.com/watch?v=abcdefghijk"
+        )
+        clip = self.add(project).data
+        Clip.objects.filter(pk=clip["id"]).update(status="COMPLETED")
+        unrelated = self.project()
+        unrelated.title, unrelated.status = "Another video", "TRANSCRIBING"
+        unrelated.save()
+        other = self.project()
+        other.created_by = user.make()
+        other.save()
+        url = reverse("clipproject-list")
+        response = self.client.get(url, {"search": "interview", "status": "READY"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        result = response.data["results"][0]
+        self.assertEqual(result["clip_total"], 1)
+        self.assertEqual(result["export_total"], 1)
+        self.assertEqual(result["source_type"], "youtube")
+        self.assertNotIn("words", result)
+        processing = self.client.get(url, {"status": "PROCESSING"})
+        self.assertEqual(processing.data["count"], 1)
+        self.assertEqual(processing.data["results"][0]["id"], str(unrelated.pk))
+
+    def test_transcription_runs_two_chunks_concurrently_and_merges_in_source_order(
+        self,
+    ):
+        from threading import Barrier, Lock
+
+        project = self.project()
+        project.duration, project.words, project.status = 1201, [], "TRANSCRIBING"
+        project.save()
+        barrier, lock = Barrier(2, timeout=5), Lock()
+        active, peak = 0, 0
+
+        def transcribe(path, *args):
+            nonlocal active, peak
+            index = int(path.stem.split("-")[1])
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            if index < 2:
+                barrier.wait()
+            with lock:
+                active -= 1
+            return [
+                {
+                    "text": str(index),
+                    "start": 0 if index == 0 else 2,
+                    "end": 1 if index == 0 else 3,
+                }
+            ]
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("apps.clips.processing.run_ffmpeg"),
+            patch("apps.clips.processing.transcribe_audio", side_effect=transcribe),
+        ):
+            words = transcribe_source(
+                project, ClipProject.objects.filter(pk=project.pk), directory
+            )
+        self.assertEqual(peak, 2)
+        self.assertEqual([word["text"] for word in words], ["0", "1", "2"])
+        self.assertEqual([word["start"] for word in words], [0, 600, 1200])
+
+    def test_failed_first_chunk_preserves_later_success_and_retry_only_transcribes_missing_chunks(
+        self,
+    ):
+        from threading import Barrier
+
+        project = self.project()
+        project.duration, project.words, project.status = 1200, [], "TRANSCRIBING"
+        project.save()
+        rows = ClipProject.objects.filter(pk=project.pk)
+        barrier = Barrier(2, timeout=5)
+
+        def transcribe(path, *args):
+            index = int(path.stem.split("-")[1])
+            barrier.wait()
+            if index == 0:
+                raise RuntimeError("provider")
+            return [{"text": "Saved later chunk", "start": 2, "end": 3}]
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("apps.clips.processing.run_ffmpeg"),
+            patch("apps.clips.processing.transcribe_audio", side_effect=transcribe),
+        ):
+            with self.assertRaises(RuntimeError):
+                transcribe_source(project, rows, directory)
+        project.refresh_from_db()
+        self.assertEqual(set(project.transcript_parts), {"1"})
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("apps.clips.processing.run_ffmpeg"),
+            patch(
+                "apps.clips.processing.transcribe_audio",
+                return_value=[{"text": "Retried", "start": 0, "end": 1}],
+            ) as transcribe,
+        ):
+            words = transcribe_source(project, rows, directory)
+        self.assertEqual(transcribe.call_count, 1)
+        self.assertEqual([word["start"] for word in words], [0, 600])

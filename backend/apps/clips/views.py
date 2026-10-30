@@ -3,6 +3,8 @@ from copy import copy
 from django.db.models import (
     BooleanField,
     Case,
+    Count,
+    Q,
     Prefetch,
     Value,
     When,
@@ -18,7 +20,7 @@ from rest_framework.response import Response
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
-from .choices import ClipStatus
+from .choices import PROJECT_BUSY, ClipStatus
 from .highlights import suggest_clips
 from .hashtags import draft_hashtags, save_hashtags
 from .models import Clip, ClipProject
@@ -59,7 +61,24 @@ class ClipProjectView(
             "transcript_parts"
         )
         if self.action == "list":
-            return rows.defer("words")
+            search = self.request.query_params.get("search", "").strip()[:200]
+            status = self.request.query_params.get("status", "")
+            if search:
+                rows = rows.filter(title__icontains=search)
+            if status == "PROCESSING":
+                rows = rows.filter(status__in=PROJECT_BUSY)
+            elif status:
+                rows = rows.filter(status=status)
+            return (
+                rows.defer("words")
+                .annotate(
+                    clip_total=Count("clips"),
+                    export_total=Count(
+                        "clips", filter=Q(clips__status=ClipStatus.COMPLETED)
+                    ),
+                )
+                .order_by("-created_at", "-id")
+            )
         if self.action == "retrieve":
             return rows.prefetch_related("clips")
         return rows

@@ -166,7 +166,7 @@ export const retrySeriesEpisode = (seriesId, episodeId) => post(`${action("serie
 
 export const draftEpisodeMemory = (seriesId, episodeId, summary) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/draft_memory/`, { summary }, callerHandlesErrors);
 
-export const getClipProjects = (page = 1) => request({ url: "clips/", params: { page }, ...callerHandlesErrors });
+export const getClipProjects = (page = 1, filters = {}) => request({ url: "clips/", params: { page, ...filters }, ...callerHandlesErrors });
 export const getClipProject = id => request({ url: detail("clips", id), ...callerHandlesErrors });
 export const createClipProject = data => post("clips/", data, callerHandlesErrors);
 export const retryClipProject = id => post(action("clips", id, "retry"), {}, callerHandlesErrors);

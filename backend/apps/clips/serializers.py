@@ -160,6 +160,13 @@ class ClipSerializer(serializers.ModelSerializer):
 
 
 class ProjectSummarySerializer(serializers.ModelSerializer):
+    clip_total = serializers.IntegerField(read_only=True)
+    export_total = serializers.IntegerField(read_only=True)
+    source_type = serializers.SerializerMethodField()
+
+    def get_source_type(self, project):
+        return "youtube" if project.youtube_url else "upload"
+
     can_retry = serializers.SerializerMethodField()
 
     def get_can_retry(self, project):
@@ -178,6 +185,10 @@ class ProjectSummarySerializer(serializers.ModelSerializer):
             "error",
             "updated_at",
             "can_retry",
+            "created_at",
+            "clip_total",
+            "export_total",
+            "source_type",
         )
         read_only_fields = fields
 

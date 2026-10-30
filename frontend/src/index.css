@@ -92,3 +92,41 @@
   :where(main, nav, [role="dialog"]) :where(button, summary) { min-height: 44px; }
   :where(main, [role="dialog"]) :where(audio, video) { max-inline-size: 100%; }
 }
+
+.clips-workspace :is(button, summary):focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 3px;
+}
+.dark .clips-workspace .clip-panel {
+  background: #142033;
+  border-color: #314258;
+}
+.dark .clips-workspace .clip-card {
+  background: #182438;
+  border-color: #33455f;
+}
+.dark .clips-workspace .clip-card-active {
+  background: #173357;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 1px #60a5fa;
+}
+.dark .clips-workspace .clip-status-ready {
+  background: #12392f;
+  color: #6ee7b7;
+}
+.dark .clips-workspace .clip-status-attention {
+  background: #422f13;
+  color: #fcd34d;
+}
+.dark .clips-workspace .clip-search {
+  background: #101f36;
+  border-color: #314e75;
+}
+.dark .clips-workspace .clip-savebar {
+  background: rgb(20 32 51 / 96%);
+  border-color: #314258;
+}
+.dark .clips-workspace .clip-project-cover {
+  background: #101827;
+  border-color: #314258;
+}

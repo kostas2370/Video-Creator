@@ -18,8 +18,8 @@ export function TranscriptClipSearch({ projectId, disabled, onCreateClip }) {
     } catch { setError("Could not search the transcript. Please retry."); }
     finally { setWorking(false); }
   };
-  return <section aria-label="Find clips with AI" className="mt-5 border-t border-gray-200 pt-5 dark:border-gray-700">
-    <h3 className="font-semibold">Find clips with AI</h3>
+  return <section aria-label="Find clips with AI" className="clip-search mt-6 rounded-2xl border border-blue-200 bg-blue-50/50 p-4 sm:p-6 dark:border-blue-900 dark:bg-blue-950/20">
+    <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-300">Search by idea</p><h3 className="text-lg font-bold">Find clips with AI</h3>
     <form onSubmit={search} className="mt-3 space-y-3"><label className="block text-sm">Describe the moment you want<textarea required maxLength={2000} rows={2} value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="Find a clip where they explain how to start a business" disabled={working || disabled} className={`${editorInput} mt-2`} /></label><p className="text-xs leading-relaxed text-gray-500">Searches the saved transcript for matching moments using your preferred clip lengths. No new transcription is needed; text-provider charges apply. Review each result before adding it.</p><button type="submit" disabled={working || disabled || !prompt.trim()} className={editorButton}>{working ? "Finding matching moments…" : "Find matching clips"}</button></form>
     {error && <p role="alert" className="mt-3 break-words text-sm text-red-600">{error}</p>}
     {results?.length === 0 && <p role="status" className="mt-3 text-sm text-gray-500">No matching moments found. Try a different description.</p>}

@@ -77,6 +77,7 @@ it("reconciles server events without overwriting an open editor or polling the f
 it("submits a YouTube link and optional extraction brief without requiring a file", async () => {
   api.createClipProject.mockResolvedValue({ ok: true, data: { id: "imported" } });
   render(<MemoryRouter initialEntries={["/clips/"]}><Routes><Route path="/clips/" element={<ClipsPage />} /><Route path="/clips/:projectId/" element={<p>Source saved</p>} /></Routes></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "New project", exact: true }));
   fireEvent.click(screen.getByRole("button", { name: "YouTube link", exact: true }));
   fireEvent.change(screen.getByLabelText(/YouTube video link/), { target: { value: "https://youtu.be/abcdefghijk" } });
   fireEvent.change(screen.getByPlaceholderText(/practical business advice/), { target: { value: "Funny moments" } });
@@ -120,6 +121,7 @@ it("switches clip editors without losing drafts and closes after a successful sa
 it("submits the optional source range alongside a YouTube import", async () => {
   api.createClipProject.mockResolvedValue({ ok: true, data: { id: "imported" } });
   render(<MemoryRouter initialEntries={["/clips/"]}><Routes><Route path="/clips/" element={<ClipsPage />} /><Route path="/clips/:projectId/" element={<p>Source saved</p>} /></Routes></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "New project", exact: true }));
   fireEvent.click(screen.getByRole("button", { name: "YouTube link", exact: true }));
   fireEvent.change(screen.getByLabelText(/YouTube video link/), { target: { value: "https://youtu.be/abcdefghijk" } });
   fireEvent.change(screen.getByLabelText("Process from (seconds)"), { target: { value: "600" } });
@@ -136,7 +138,7 @@ it("finds clips by a natural-language request and only creates the chosen result
   api.createClip.mockResolvedValue({ ok: true, data: clipFixture({ id: "clip-found", title: "Business advice", start: 2, end: 14.8 }) });
   render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
   await screen.findByText("Full video transcript");
-  fireEvent.click(screen.getByText("Full video transcript"));
+  await userEvent.click(screen.getByRole("button", { name: "Transcript & AI search" }));
   fireEvent.change(screen.getByLabelText("Describe the moment you want"), { target: { value: "Find advice for starting a business" } });
   await userEvent.click(screen.getByRole("button", { name: "Find matching clips" }));
   await screen.findByRole("heading", { name: "Business advice" });
@@ -151,11 +153,41 @@ it("keeps the AI search query after failure and explains when there are no match
   api.searchClipTranscript.mockResolvedValueOnce({ ok: false, message: "Provider unavailable" }).mockResolvedValueOnce({ ok: true, data: { clips: [] } });
   render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
   await screen.findByText("Full video transcript");
-  fireEvent.click(screen.getByText("Full video transcript"));
+  await userEvent.click(screen.getByRole("button", { name: "Transcript & AI search" }));
   fireEvent.change(screen.getByLabelText("Describe the moment you want"), { target: { value: "Unusual story" } });
   await userEvent.click(screen.getByRole("button", { name: "Find matching clips" }));
   await screen.findByText("Provider unavailable");
   expect(screen.getByLabelText("Describe the moment you want").value).toBe("Unusual story");
   await userEvent.click(screen.getByRole("button", { name: "Find matching clips" }));
   await screen.findByText(/No matching moments found/);
+});
+
+it("keeps an unsaved clip draft when switching between workspace views", async () => {
+  render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Review your clips" });
+  await userEvent.click(screen.getByRole("button", { name: "Preview & edit" }));
+  fireEvent.change(screen.getByLabelText("Clip title"), { target: { value: "Keep this draft" } });
+  await userEvent.click(screen.getByRole("button", { name: "Transcript & AI search" }));
+  expect(screen.getByRole("button", { name: "Transcript & AI search" }).getAttribute("aria-pressed")).toBe("true");
+  await userEvent.click(screen.getByRole("button", { name: /^Clips/ }));
+  expect(screen.getByLabelText("Clip title").value).toBe("Keep this draft");
+});
+
+it("opens on the project library and keeps creation behind New project", async () => {
+  api.getClipProjects.mockResolvedValue({ ok: true, data: { count: 1, results: [{ id: "project-1", title: "Interview", status: "READY", duration: 1200, clip_total: 4, export_total: 2 }], next: null } });
+  render(<MemoryRouter initialEntries={["/clips/"]}><Routes><Route path="/clips/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  await screen.findByRole("heading", { name: "Interview" });
+  expect(screen.queryByLabelText("Source video")).toBeNull();
+  expect(screen.getByRole("link", { name: /Interview/ }).textContent).toContain("4clips");
+  await userEvent.click(screen.getByRole("button", { name: "New project" }));
+  expect(screen.getByLabelText("Source video")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "Back to projects" }));
+  expect(screen.getByLabelText("Search projects")).toBeTruthy();
+});
+
+it("searches and filters projects through the server", async () => {
+  render(<MemoryRouter initialEntries={["/clips/"]}><Routes><Route path="/clips/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText("Search projects"), { target: { value: "Podcast" } });
+  fireEvent.change(screen.getByLabelText("Status"), { target: { value: "READY" } });
+  await waitFor(() => expect(api.getClipProjects).toHaveBeenLastCalledWith(1, { search: "Podcast", status: "READY" }));
 });
