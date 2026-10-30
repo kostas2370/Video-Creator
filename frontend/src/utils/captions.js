@@ -65,7 +65,7 @@ export function validateCaptionWords(words, duration) {
   let previous = 0;
   for (const [index, word] of words.entries()) {
     if (!word.text.trim() || /\s/u.test(word.text.trim()) || [...word.text].length > 40) return `Word ${index + 1}: enter one word, up to 40 characters.`;
-    if (!Number.isFinite(word.start) || !Number.isFinite(word.end) || word.start < previous || word.end <= word.start || word.end > duration) return `Word ${index + 1}: check its start and end times. Words must stay in order without overlapping.`;
+    if (!Number.isFinite(word.start) || !Number.isFinite(word.end) || word.start < previous || word.end <= word.start || word.end > duration + 1e-9) return `Word ${index + 1}: check its start and end times. Words must stay in order without overlapping.`;
     previous = word.end;
   }
   return "";

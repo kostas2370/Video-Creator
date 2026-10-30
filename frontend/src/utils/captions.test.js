@@ -59,3 +59,9 @@ it("groups and highlights according to a custom style definition", () => {
 it("rejects a word just beyond the source duration", () => {
   expect(validateCaptionWords([{ text: "End", start: 0, end: 1.005 }], 1)).toContain("check");
 });
+
+it("accepts saved decimal caption ends with only floating-point noise", () => {
+  const duration = 200.44 - 149.34;
+  expect(validateCaptionWords([{ text: "End", start: 0, end: 51.1 }], duration)).toBe("");
+  expect(validateCaptionWords([{ text: "End", start: 0, end: 51.1001 }], duration)).toContain("check");
+});

@@ -252,6 +252,22 @@ class ClipsTests(TestCase):
             400,
         )
 
+    def test_ai_search_ranges_keep_rounded_caption_ends_within_clip_duration(self):
+        project = self.project()
+        project.duration = 240
+        project.words = [{"text": "Excerpt", "start": 149.34, "end": 200.44}]
+        project.save()
+        response = self.add(project, start=149.34, end=200.44)
+        self.assertEqual(response.status_code, 201, response.data)
+        clip = project.clips.get()
+        self.assertLessEqual(clip.words[-1]["end"], clip.end - clip.start)
+        # Existing clips can already contain the rounded end from before this fix.
+        words = [{"text": "Excerpt", "start": 0, "end": 51.1}]
+        response = self.edit(clip, words=words)
+        self.assertEqual(response.status_code, 200, response.data)
+        response = self.edit(clip, words=[{**words[0], "end": 51.1001}])
+        self.assertEqual(response.status_code, 400, response.data)
+
     def test_busy_clips_cannot_be_changed_and_duplicate_exports_do_not_dispatch(self):
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])

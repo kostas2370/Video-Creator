@@ -22,7 +22,8 @@ def estimated_words(text, duration):
 def validate_word_bounds(words, duration):
     previous_end = 0
     for word in words:
-        if word["start"] < previous_end or word["end"] > duration:
+        # Decimal timestamps can differ by floating-point noise after subtraction.
+        if word["start"] < previous_end or word["end"] > duration + 1e-9:
             raise ValidationError(
                 "Keep words in order, without overlaps, and within the source audio duration."
             )

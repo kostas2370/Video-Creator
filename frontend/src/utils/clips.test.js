@@ -12,6 +12,11 @@ describe("clipping", () => {
     expect(validateClip(10, 70, 120)).toBe("");
     for (const [start, end] of [[-1, 2], [3, 2], [0, 201], [0, NaN], [Infinity, 20]]) expect(validateClip(start, end, 200)).not.toBe("");
   });
+  it("keeps rounded caption ends within decimal AI clip ranges", () => {
+    const [word] = wordsForClip([{ text: "Excerpt", start: 149.34, end: 200.44 }], 149.34, 200.44);
+    expect(word.end).toBeLessThanOrEqual(200.44 - 149.34);
+    expect(word.end).toBeCloseTo(51.1, 9);
+  });
   it("recognizes processing stages and creation navigation", () => {
     expect(projectBusy("ANALYZING")).toBe(true);
     expect(projectBusy("FAILED")).toBe(false);
