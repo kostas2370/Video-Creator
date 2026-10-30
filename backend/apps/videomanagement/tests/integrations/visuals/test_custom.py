@@ -616,7 +616,7 @@ class CustomVideoProviderTests(TestCase):
                     patch.object(
                         custom.requests, "post", return_value=self.video_response()
                     ),
-                    patch.object(custom.subprocess, "run", side_effect=fail_transcode),
+                    patch.object(custom, "run_ffmpeg", side_effect=fail_transcode),
                 ):
                     self.assertIsNone(self.generate())
                 self.assertEqual(os.listdir(self.directory), [])

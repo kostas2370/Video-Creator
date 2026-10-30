@@ -15,6 +15,7 @@ from apps.videomanagement.integrations.visuals import openai_images
 from apps.videomanagement.models import SceneImage, Video
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.fonts import FONT_DIRECTORY
+from apps.videomanagement.utils.frames import extract_video_frame
 from apps.videomanagement.utils.prompt_utils import format_cover_prompt
 from apps.videomanagement.utils.timing import file_timing, media_timing
 
@@ -46,31 +47,8 @@ def frame_image(video, time):
     if not duration or time >= duration:
         raise ValidationError({"time": "Choose a frame within the exported video."})
     try:
-        result = subprocess.run(
-            [
-                "ffmpeg",
-                "-v",
-                "error",
-                "-nostdin",
-                "-ss",
-                str(time),
-                "-i",
-                video.output.path,
-                "-frames:v",
-                "1",
-                "-vf",
-                "scale='min(1280,iw)':'min(1280,ih)':force_original_aspect_ratio=decrease",
-                "-f",
-                "image2pipe",
-                "-vcodec",
-                "png",
-                "pipe:1",
-            ],
-            capture_output=True,
-            check=True,
-            timeout=30,
-        )
-        return Image.open(BytesIO(result.stdout)).convert("RGBA")
+        image = extract_video_frame(video.output.path, time)
+        return Image.open(BytesIO(image)).convert("RGBA")
     except (OSError, ValueError, subprocess.SubprocessError):
         raise ValidationError(
             "Could not read this frame. Choose a slightly earlier time and try again."

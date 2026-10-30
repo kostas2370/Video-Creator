@@ -11,6 +11,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.apikeysmanagement.models import Provider
+from apps.common.media import run_ffmpeg
 from apps.videomanagement.exceptions import VoiceProviderError
 from apps.videomanagement.models import VoiceModel, VoiceModelType
 from apps.videomanagement.services.usage import record_usage
@@ -76,13 +77,8 @@ def normalized_sample(upload):
             source.write(chunk)
         source.flush()
         try:
-            subprocess.run(
+            run_ffmpeg(
                 [
-                    "ffmpeg",
-                    "-nostdin",
-                    "-v",
-                    "error",
-                    "-y",
                     "-protocol_whitelist",
                     "file,pipe",
                     "-i",
@@ -100,9 +96,7 @@ def normalized_sample(upload):
                     "pcm_s16le",
                     output.name,
                 ],
-                capture_output=True,
                 timeout=30,
-                check=True,
             )
             with wave.open(output.name, "rb") as audio:
                 duration = audio.getnframes() / audio.getframerate()

@@ -7,6 +7,8 @@ import subprocess
 import numpy as np
 from django.core.cache import cache
 
+from apps.common.media import run_ffmpeg
+
 
 def narration_file(scene):
     return getattr(scene, "voiceover", None) or scene.file
@@ -48,11 +50,8 @@ def waveform(path):
     cached = cache.get(key)
     if cached is not None:
         return cached
-    result = subprocess.run(
+    result = run_ffmpeg(
         [
-            "ffmpeg",
-            "-v",
-            "error",
             "-i",
             str(path),
             "-t",
@@ -66,9 +65,7 @@ def waveform(path):
             "f32le",
             "pipe:1",
         ],
-        capture_output=True,
         timeout=30,
-        check=True,
     )
     samples = np.frombuffer(result.stdout, dtype="<f4")
     if not len(samples):
