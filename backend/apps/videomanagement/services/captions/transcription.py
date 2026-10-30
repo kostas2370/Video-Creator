@@ -30,6 +30,12 @@ def transcribe_audio(source, user, duration, directory, *, api_key=None):
         ],
         timeout=120,
     )
+    return transcribe_prepared_audio(audio, user, duration, api_key=api_key)
+
+
+def transcribe_prepared_audio(audio, user, duration, *, api_key=None):
+    """Send an already prepared audio file without encoding it again."""
+    audio = Path(audio)
     client = OpenAI(
         api_key=api_key or ApiKeys.key_for(user, Provider.OPENAI),
         timeout=180,

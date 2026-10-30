@@ -348,7 +348,7 @@ class ClipsTests(TestCase):
                 "apps.clips.processing.suggest_clips",
                 side_effect=ValueError("provider secret"),
             ),
-            patch("apps.clips.processing.transcribe_audio") as transcribe,
+            patch("apps.clips.processing.transcribe_prepared_audio") as transcribe,
         ):
             process_project(project.pk, project.job_id)
         transcribe.assert_not_called()
@@ -369,7 +369,7 @@ class ClipsTests(TestCase):
                     }
                 ],
             ),
-            patch("apps.clips.processing.transcribe_audio") as transcribe,
+            patch("apps.clips.processing.transcribe_prepared_audio") as transcribe,
         ):
             process_project(project.pk, project.job_id)
         project.refresh_from_db()
@@ -412,7 +412,7 @@ class ClipsTests(TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
-            patch("apps.clips.processing.transcribe_audio", side_effect=transcribe),
+            patch("apps.clips.processing.transcribe_prepared_audio", side_effect=transcribe),
         ):
             with self.assertRaises(RuntimeError):
                 transcribe_source(project, rows, directory)
@@ -422,7 +422,7 @@ class ClipsTests(TestCase):
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
             patch(
-                "apps.clips.processing.transcribe_audio",
+                "apps.clips.processing.transcribe_prepared_audio",
                 return_value=[{"text": "Next", "start": 2, "end": 3}],
             ) as transcribe,
         ):
@@ -437,7 +437,7 @@ class ClipsTests(TestCase):
         project.words, project.status, project.job_id = [], "QUEUED", uuid4()
         project.save()
         with (
-            patch("apps.clips.processing.transcribe_audio", return_value=self.words),
+            patch("apps.clips.processing.transcribe_prepared_audio", return_value=self.words),
             patch("apps.clips.processing.suggest_clips", return_value=[]),
         ):
             process_project(project.pk, project.job_id)
@@ -1086,7 +1086,7 @@ class ClipsTests(TestCase):
                 "apps.clips.processing.download_youtube",
                 return_value=(self.source, metadata, "Imported interview"),
             ) as download,
-            patch("apps.clips.processing.transcribe_audio", return_value=self.words),
+            patch("apps.clips.processing.transcribe_prepared_audio", return_value=self.words),
             patch(
                 "apps.clips.processing.suggest_clips",
                 side_effect=RuntimeError("provider"),
@@ -1186,7 +1186,7 @@ class ClipsTests(TestCase):
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg") as ffmpeg,
             patch(
-                "apps.clips.processing.transcribe_audio",
+                "apps.clips.processing.transcribe_prepared_audio",
                 side_effect=lambda path, *args: [
                     {
                         "text": "Word",
@@ -1213,7 +1213,7 @@ class ClipsTests(TestCase):
         project.words, project.status, project.job_id = [], "QUEUED", uuid4()
         project.save()
         with (
-            patch("apps.clips.processing.transcribe_audio") as transcribe,
+            patch("apps.clips.processing.transcribe_prepared_audio") as transcribe,
             patch("apps.clips.processing.suggest_clips", return_value=[]),
         ):
             process_project(project.pk, project.job_id)
@@ -1388,7 +1388,7 @@ class ClipsTests(TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
-            patch("apps.clips.processing.transcribe_audio", side_effect=transcribe),
+            patch("apps.clips.processing.transcribe_prepared_audio", side_effect=transcribe),
         ):
             words = transcribe_source(
                 project, ClipProject.objects.filter(pk=project.pk), directory
@@ -1418,7 +1418,7 @@ class ClipsTests(TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
-            patch("apps.clips.processing.transcribe_audio", side_effect=transcribe),
+            patch("apps.clips.processing.transcribe_prepared_audio", side_effect=transcribe),
         ):
             with self.assertRaises(RuntimeError):
                 transcribe_source(project, rows, directory)
@@ -1428,7 +1428,7 @@ class ClipsTests(TestCase):
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
             patch(
-                "apps.clips.processing.transcribe_audio",
+                "apps.clips.processing.transcribe_prepared_audio",
                 return_value=[{"text": "Retried", "start": 0, "end": 1}],
             ) as transcribe,
         ):
