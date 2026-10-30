@@ -3,9 +3,12 @@
 Open **Long video → Shorts** from the creation tools. Upload an MP4, MOV, WebM,
 or M4V video with spoken audio, up to 1 GB, two hours, and 3840 pixels per dimension.
 Alternatively choose **YouTube link** and paste a video or Shorts URL. Imports run
-in the background using the existing pytubefix dependency. They use a combined
-MP4 when available, otherwise download separate video (up to 1080p) and audio
-streams and join them with FFmpeg. The same limits apply before transcription. Only canonical
+in the background using the existing pytubefix dependency. They select the highest available
+resolution up to 1080p that fits within 1 GB, including audio, automatically stepping
+down to 720p, 480p, or lower when needed. At equal resolution, combined MP4 streams
+are preferred; separate video and audio streams are joined with FFmpeg. When no
+resolution fits, the import explains that a trimmed or smaller file is needed.
+The same limits apply before transcription. Only canonical
 YouTube video links are accepted; playlists and arbitrary URLs are rejected.
 Use a video you own or have permission to edit. Private, restricted, or
 YouTube-blocked downloads can fail; a file upload remains available. Retries reuse

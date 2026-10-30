@@ -1060,11 +1060,7 @@ class ClipsTests(TestCase):
             picture.download.return_value = str(picture_path)
             audio = MagicMock(filesize=audio_path.stat().st_size, subtype="mp4")
             audio.download.return_value = str(audio_path)
-            combined, pictures, sounds = MagicMock(), MagicMock(), MagicMock()
-            combined.order_by.return_value.desc.return_value.first.return_value = None
-            pictures.order_by.return_value.desc.return_value.__iter__.return_value = (
-                iter([picture])
-            )
+            combined, pictures, sounds = [], [picture], MagicMock()
             sounds.order_by.return_value.desc.return_value.first.return_value = audio
             with patch("apps.clips.youtube.YouTube") as youtube:
                 youtube.return_value.length = 20

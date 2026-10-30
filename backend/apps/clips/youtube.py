@@ -47,6 +47,46 @@ def youtube_url(value):
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
+def select_streams(video):
+    combined = video.streams.filter(progressive=True, file_extension="mp4")
+    pictures = video.streams.filter(only_video=True, file_extension="mp4")
+    candidates = [(stream, True) for stream in combined] + [
+        (stream, False) for stream in pictures
+    ]
+    candidates = sorted(
+        (
+            (stream, combined)
+            for stream, combined in candidates
+            if int(stream.resolution.rstrip("p")) <= 1080
+        ),
+        key=lambda item: (int(item[0].resolution.rstrip("p")), item[1]),
+        reverse=True,
+    )
+    audio = None
+    compatible = False
+    for stream, combined in candidates:
+        if combined:
+            streams = [stream]
+        else:
+            if audio is None:
+                audio = (
+                    video.streams.filter(only_audio=True).order_by("abr").desc().first()
+                )
+            if audio is None:
+                continue
+            streams = [stream, audio]
+        compatible = True
+        if sum(stream.filesize for stream in streams) <= MAX_UPLOAD_BYTES:
+            return streams
+    if compatible:
+        raise SourceImportError(
+            "Even the lowest available resolution exceeds the 1 GB import limit. Trim the video or upload a smaller file."
+        )
+    raise SourceImportError(
+        "No compatible video and audio streams are available. Upload a file instead."
+    )
+
+
 def download_youtube(project, directory):
     started, downloaded = time.monotonic(), 0
 
@@ -65,35 +105,7 @@ def download_youtube(project, directory):
         raise SourceImportError(
             "Choose a YouTube video between your minimum clip length and 2 hours."
         )
-    combined = (
-        video.streams.filter(progressive=True, file_extension="mp4")
-        .order_by("resolution")
-        .desc()
-        .first()
-    )
-    if combined:
-        streams = [combined]
-    else:
-        picture = next(
-            (
-                stream
-                for stream in video.streams.filter(
-                    only_video=True, file_extension="mp4"
-                )
-                .order_by("resolution")
-                .desc()
-                if int(stream.resolution.rstrip("p")) <= 1080
-            ),
-            None,
-        )
-        audio = video.streams.filter(only_audio=True).order_by("abr").desc().first()
-        streams = [picture, audio] if picture and audio else []
-    if not streams:
-        raise SourceImportError(
-            "No compatible video and audio streams are available. Upload a file instead."
-        )
-    if sum(stream.filesize for stream in streams) > MAX_UPLOAD_BYTES:
-        raise SourceImportError("This YouTube video exceeds the 1 GB import limit.")
+    streams = select_streams(video)
     paths = []
     for index, stream in enumerate(streams):
         path = stream.download(
