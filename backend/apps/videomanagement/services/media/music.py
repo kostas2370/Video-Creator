@@ -57,8 +57,6 @@ def set_music_from_youtube(video, url):
                 url,
                 directory,
                 audio_only=True,
-                max_duration=900,
-                max_bytes=50 * 1024 * 1024,
             )
         except SourceImportError as exc:
             raise ValidationError({"youtube_url": str(exc)}) from exc
@@ -69,6 +67,8 @@ def set_music_from_youtube(video, url):
                     "youtube_url": "Could not download this YouTube audio. Try another link or upload a file."
                 }
             ) from exc
+        if path.stat().st_size > 50 * 1024 * 1024:
+            raise ValidationError({"youtube_url": "Audio must be smaller than 50 MB."})
         with path.open("rb") as audio:
             name = slugify(title)[:100] or "youtube-music"
             return set_music(video, File(audio, name=f"{name}{path.suffix}"))

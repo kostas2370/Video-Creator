@@ -155,7 +155,7 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(video.music.name, "my-youtube-song")
         self.assertTrue(Path(video.music.file.path).exists())
         self.assertEqual(download.call_args.args[0], "https://www.youtube.com/watch?v=abcdefghijk")
-        self.assertEqual(download.call_args.kwargs, {"audio_only": True, "max_duration": 900, "max_bytes": 50 * 1024 * 1024})
+        self.assertEqual(download.call_args.kwargs, {"audio_only": True})
         self.assertFalse(Path(download.call_args.args[1]).exists())
 
     @patch("apps.videomanagement.services.media.music.download_youtube_video")
@@ -166,6 +166,21 @@ class ManualVideoTests(ApiTestCase):
             response = self.client.post(reverse("video-music", args=[video.pk]), data, format="multipart")
             self.assertEqual(response.status_code, 400, response.data)
         download.assert_not_called()
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_downloaded_youtube_music_is_checked_against_the_upload_size_limit(self, download):
+        from unittest.mock import MagicMock
+
+        video = self.create_project()
+        source = MagicMock()
+        source.stat.return_value.st_size = 50 * 1024 * 1024 + 1
+        download.return_value = (source, "Oversized music")
+        response = self.client.post(reverse("video-music", args=[video.pk]),
+                                    {"youtube_url": "https://youtu.be/abcdefghijk"}, format="multipart")
+        self.assertEqual(response.status_code, 400, response.data)
+        source.open.assert_not_called()
+        video.refresh_from_db()
+        self.assertIsNone(video.music_id)
 
     @patch("apps.videomanagement.services.media.music.download_youtube_video")
     def test_failed_youtube_music_import_preserves_existing_music(self, download):
