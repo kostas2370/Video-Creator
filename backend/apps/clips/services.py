@@ -11,7 +11,13 @@ from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
 from apps.videomanagement.utils.captions.timing import validate_word_bounds
 
 from .choices import CLIP_BUSY, PROJECT_BUSY, ClipProjectStatus, ClipStatus
-from .constants import CLIP_RENDER_FIELDS, MAX_CLIPS_PER_PROJECT, STALE_AFTER
+from .constants import (
+    CLIP_RENDER_FIELDS,
+    EXPORT_STALE_AFTER,
+    MAX_CLIPS_PER_PROJECT,
+    PROJECT_STALE_AFTER,
+)
+from .events import publish_project_update, update_jobs
 from .exceptions import ClipConflict, ClipQueueUnavailable
 from .models import Clip, ClipProject
 
@@ -37,8 +43,11 @@ def project_editable(project):
         )
 
 
-def create_project(user, source, metadata, **options):
-    options["title"] = options.get("title") or Path(source.name).stem[:100]
+def create_project(user, source=None, metadata=None, **options):
+    options["title"] = options.get("title") or (
+        Path(source.name).stem[:100] if source else "YouTube video"
+    )
+    metadata = metadata or {"duration": 0, "width": 0, "height": 0}
     project = ClipProject.objects.create(
         created_by=user,
         source=source,
@@ -68,7 +77,7 @@ def queue_project(project):
         if (
             project.status in PROJECT_BUSY
             and project.job_id
-            and project.updated_at > timezone.now() - STALE_AFTER
+            and project.updated_at > timezone.now() - PROJECT_STALE_AFTER
         ):
             raise ClipConflict("Highlight processing is already running.")
         project.job_id, project.status, project.error = (
@@ -77,12 +86,14 @@ def queue_project(project):
             "",
         )
         project.save(update_fields=["job_id", "status", "error", "updated_at"])
+        publish_project_update(project.pk)
     try:
         process_project_task.apply_async(args=(str(project.pk), str(project.job_id)))
     except Exception as exc:
-        ClipProject.objects.filter(
-            pk=project.pk, job_id=project.job_id, status=ClipProjectStatus.QUEUED
-        ).update(
+        update_jobs(
+            ClipProject.objects.filter(
+                pk=project.pk, job_id=project.job_id, status=ClipProjectStatus.QUEUED
+            ),
             status=ClipProjectStatus.FAILED,
             error="Could not queue processing. Retry without uploading again.",
             updated_at=timezone.now(),
@@ -133,6 +144,7 @@ def save_clip(project, changes, clip_id=None):
         if render_changed:
             clip.output, clip.error, clip.status = "", "", ClipStatus.READY
         clip.save()
+        publish_project_update(project.pk)
         if previous_output:
             transaction.on_commit(
                 lambda: clip.output.storage.delete(previous_output), robust=True
@@ -156,20 +168,22 @@ def queue_exports(project, clip_ids):
         for clip in clips:
             if (
                 clip.status in CLIP_BUSY
-                and clip.updated_at > timezone.now() - STALE_AFTER
+                and clip.updated_at > timezone.now() - EXPORT_STALE_AFTER
             ):
                 raise ClipConflict("One of these clips is already exporting.")
         for clip in clips:
             clip.job_id, clip.status, clip.error = uuid4(), ClipStatus.QUEUED, ""
             clip.save(update_fields=["job_id", "status", "error", "updated_at"])
+        publish_project_update(project.pk)
     for clip in clips:
         try:
             export_clip_task.apply_async(args=(str(clip.pk), str(clip.job_id)))
         except Exception:
             logger.exception("Could not queue clip export %s", clip.pk)
-            Clip.objects.filter(
-                pk=clip.pk, job_id=clip.job_id, status=ClipStatus.QUEUED
-            ).update(
+            update_jobs(
+                Clip.objects.filter(
+                    pk=clip.pk, job_id=clip.job_id, status=ClipStatus.QUEUED
+                ),
                 status=ClipStatus.FAILED,
                 error="Could not queue export. Please retry.",
                 updated_at=timezone.now(),
@@ -183,14 +197,18 @@ def delete_project(project):
         project = get_object_or_404(
             ClipProject.objects.select_for_update(), pk=project.pk
         )
-        fresh = timezone.now() - STALE_AFTER
+        fresh = timezone.now() - EXPORT_STALE_AFTER
         if (
-            project.status in PROJECT_BUSY and project.updated_at > fresh
-        ) or project.clips.filter(status__in=CLIP_BUSY, updated_at__gt=fresh).exists():
+            project.status in PROJECT_BUSY
+            and project.updated_at > timezone.now() - PROJECT_STALE_AFTER
+            or project.clips.filter(status__in=CLIP_BUSY, updated_at__gt=fresh).exists()
+        ):
             raise ClipConflict(
                 "Wait for processing to finish before deleting this project."
             )
+        project_id = project.pk
         project.delete()
+        publish_project_update(project_id)
 
 
 def delete_clip(project, clip_id):
@@ -205,3 +223,18 @@ def delete_clip(project, clip_id):
                 "Wait for this clip's export to finish before removing it."
             )
         clip.delete()
+        publish_project_update(project.pk)
+
+
+def reap_stalled_exports(project_id=None):
+    rows = Clip.objects.filter(
+        status__in=CLIP_BUSY, updated_at__lte=timezone.now() - EXPORT_STALE_AFTER
+    )
+    if project_id is not None:
+        rows = rows.filter(project_id=project_id)
+    return update_jobs(
+        rows,
+        status=ClipStatus.FAILED,
+        error="Export stopped responding. Retry this clip; your edits are saved.",
+        updated_at=timezone.now(),
+    )

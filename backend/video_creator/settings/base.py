@@ -138,6 +138,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.videomanagement.tasks.purge_deleted_scenes",
         "schedule": 24 * 60 * 60.0,
     },
+    "reap-stalled-clip-exports": {
+        "task": "apps.clips.tasks.reap_stalled_clip_exports",
+        "schedule": 60.0,
+    },
     "reap-stalled-videos": {
         "task": "apps.videomanagement.tasks.reap_stalled_videos",
         "schedule": 15 * 60.0,
@@ -357,3 +361,5 @@ FAL_KEY = os.getenv("FAL_KEY")
 RUNWAY_API_KEY = os.getenv("RUNWAY_API_KEY")
 VIDEO_GENERATION_TIMEOUT = 900
 VIDEO_POLL_INTERVAL = 5
+
+CLIP_STORAGE_ROOT = os.getenv("CLIP_STORAGE_ROOT") or None

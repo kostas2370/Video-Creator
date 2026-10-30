@@ -3,6 +3,7 @@ from django.db import models
 
 class ClipProjectStatus(models.TextChoices):
     QUEUED = "QUEUED", "Queued"
+    DOWNLOADING = "DOWNLOADING", "Downloading YouTube video"
     TRANSCRIBING = "TRANSCRIBING", "Transcribing"
     ANALYZING = "ANALYZING", "Finding highlights"
     READY = "READY", "Ready"
@@ -25,6 +26,7 @@ class ClipLayout(models.TextChoices):
 PROJECT_BUSY = frozenset(
     {
         ClipProjectStatus.QUEUED,
+        ClipProjectStatus.DOWNLOADING,
         ClipProjectStatus.TRANSCRIBING,
         ClipProjectStatus.ANALYZING,
     }

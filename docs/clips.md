@@ -2,6 +2,14 @@
 
 Open **Long video → Shorts** from the creation tools. Upload an MP4, MOV, WebM,
 or M4V video with spoken audio, up to 1 GB, two hours, and 3840 pixels per dimension.
+Alternatively choose **YouTube link** and paste a video or Shorts URL. Imports run
+in the background using the existing pytubefix dependency. They use a combined
+MP4 when available, otherwise download separate video (up to 1080p) and audio
+streams and join them with FFmpeg. The same limits apply before transcription. Only canonical
+YouTube video links are accepted; playlists and arbitrary URLs are rejected.
+Use a video you own or have permission to edit. Private, restricted, or
+YouTube-blocked downloads can fail; a file upload remains available. Retries reuse
+a downloaded source rather than downloading it again.
 Choose 1–10 suggestions and a preferred duration range between 10 and 180 seconds.
 The source must be at least as long as the requested minimum.
 
@@ -69,11 +77,15 @@ A failure while finding highlights does not remove manual clips or the upload.
 Retry suggestions add non-overlapping clips while preserving existing edits.
 Exports have independent statuses, job tokens, and retries. Batch dispatch reports
 per-clip queue failures. Duplicate deliveries and superseded tokens cannot commit
-results. Jobs idle for three hours can be retried from the workspace.
+results. Source processing idle for three hours can be retried. Exports become retryable
+after 30 minutes, with a scheduled reaper checking once a minute and publishing
+status changes. Old job tokens cannot commit results after recovery.
 
-Project and clip API routes require authentication and filter by owner. Files use
-Viddie's existing media storage and serving model; deployments serving `/media/`
-publicly must treat direct file URLs as shareable. Deleting a project removes its
+Project and clip API routes require authentication and filter by owner. Source files, previews, and exports live in private filesystem storage outside
+the public media directory. Their API URLs require ownership and cookie or bearer
+authentication, support single byte-range requests for seeking, and disable shared
+caching. Old `/media/clips/` URLs return 404 in nginx and Django development mode.
+The storage migration moves existing clip files, preserving their database names. Deleting a project removes its
 upload, preview, clips, and exports through the existing file cleanup integration.
 
 ## Deployment
@@ -82,15 +94,25 @@ The feature lives in the dedicated Django app `apps.clips`, with `/api/clips/`
 routes and `/clips/` frontend pages. It reuses caption word validation, transcription,
 caption styles, ASS composition, font handling, provider credentials, and usage.
 
-Run `python manage.py migrate`, restart the API, general worker, and render worker,
-and rebuild the frontend. The frontend nginx configuration allows 1025 MB request
+Pause uploads and workers before running `python manage.py migrate` so files are
+not written to public storage during the move. Then restart the API, general
+worker, render worker, and Beat, and rebuild the frontend. Back up the private
+clip folder alongside the database. `CLIP_STORAGE_ROOT` optionally overrides its
+default of `backend/private-clips`; keep it outside publicly served directories.
+Rolling back the migration does not move private files back into public storage. The frontend nginx configuration allows 1025 MB request
 bodies only under `/api/clips/`; other upload limits are unchanged. Additional reverse
 proxies must also allow the source upload size and a suitable upload timeout.
 
-General workers process previews, transcription, and suggestions. The `renders`
+Project pages subscribe to the existing authenticated server-event infrastructure.
+Events contain only an invalidation signal; a lightweight progress endpoint omits
+transcripts and caption words. The page fetches only changed clips and loads the
+source transcript once it becomes available. Reconnect, focus, and explicit refresh
+reconcile missed events while retaining unsaved editor and hashtag drafts.
+
+General workers process downloads, previews, transcription, and suggestions. The `renders`
 queue processes exports. Processing has a two-hour task limit; each export has a
 20-minute task limit. The processing endpoints share a ten-per-hour user allowance
 with the existing superuser exemption. No providers are called during tests.
 
-Automatic speaker tracking, split-screen layouts, silence removal, URL importing,
-ZIP downloads, and direct publishing are future work.
+Automatic speaker tracking, split-screen layouts, silence removal, ZIP downloads,
+and direct publishing are future work.

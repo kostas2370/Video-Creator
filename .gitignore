@@ -181,3 +181,5 @@ backend/.local-tunnel/
 
 # macOS folder metadata (at any depth).
 .DS_Store
+
+backend/private-clips/

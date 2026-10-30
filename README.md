@@ -15,8 +15,8 @@ Explore the [dark-theme screenshot gallery](docs/screenshots.md) for more of the
 
 - **AI-assisted videos:** draft a storyboard, review dialogue and visual prompts,
   then generate images, clips, and narration with your chosen providers.
-- **Long video → Shorts:** find transcript-based highlights in uploaded interviews,
-  podcasts, and talks, then trim, frame, caption, and export portrait clips.
+- **Long video → Shorts:** find transcript-based highlights in uploaded videos or
+  YouTube interviews, podcasts, and talks, then trim, frame, caption, and export portrait clips.
 - **Projects from your own media:** upload images, video, and audio, or reuse items
   from your media library.
 - **Scene-by-scene edits:** rewrite dialogue, replace visuals, insert and reorder

@@ -19,3 +19,18 @@ describe("clipping", () => {
     expect(isCreationPath("/clips/project-id/")).toBe(true);
   });
 });
+
+it("loads only changed clips and fetches the full transcript once it becomes available", async () => {
+  const { reconcileClipProgress } = await import("./clips");
+  const { vi } = await import("vitest");
+  const old = { id: "p", words: [{ text: "Saved" }], clips: [{ id: "a", revision: "1", words: ["saved words"] }] };
+  const loadProject = vi.fn();
+  const loadClip = vi.fn().mockResolvedValue({ ok: true, data: { id: "b", revision: "2" } });
+  const result = await reconcileClipProgress(old, { id: "p", has_transcript: true, clips: [{ id: "a", revision: "1", status: "READY" }, { id: "b", revision: "2" }] }, { loadProject, loadClip });
+  expect(loadProject).not.toHaveBeenCalled();
+  expect(loadClip).toHaveBeenCalledExactlyOnceWith("b");
+  expect(result.clips[0].words).toEqual(["saved words"]);
+  loadProject.mockResolvedValue({ ok: true, data: old });
+  await reconcileClipProgress({ ...old, words: [] }, { id: "p", has_transcript: true, clips: [] }, { loadProject, loadClip });
+  expect(loadProject).toHaveBeenCalledTimes(1);
+});

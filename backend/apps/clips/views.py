@@ -1,4 +1,11 @@
-from django.http import FileResponse
+from django.db.models import (
+    BooleanField,
+    Case,
+    Prefetch,
+    Value,
+    When,
+    prefetch_related_objects,
+)
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -11,11 +18,13 @@ from apps.videomanagement.throttling import TagGenerationRateThrottle
 
 from .choices import ClipStatus
 from .hashtags import draft_hashtags, save_hashtags
-from .models import ClipProject
+from .models import Clip, ClipProject
+from .protected_media import media_response
 from .serializers import (
     ClipEditSerializer,
     ClipSerializer,
     ExportClipsSerializer,
+    ProjectProgressSerializer,
     ProjectSerializer,
     ProjectSummarySerializer,
     ProjectUploadSerializer,
@@ -67,7 +76,9 @@ class ClipProjectView(
         serializer = ProjectUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         project = create_project(
-            request.user, metadata=serializer.metadata, **serializer.validated_data
+            request.user,
+            metadata=getattr(serializer, "metadata", None),
+            **serializer.validated_data,
         )
         return Response(self.get_serializer(project).data, status=201)
 
@@ -92,7 +103,9 @@ class ClipProjectView(
         )
 
     @action(
-        detail=True, methods=["patch", "delete"], url_path=r"clips/(?P<clip_id>[^/.]+)"
+        detail=True,
+        methods=["get", "patch", "delete"],
+        url_path=r"clips/(?P<clip_id>[^/.]+)",
     )
     def clip(self, request, pk=None, clip_id=None):
         project = self.get_object()
@@ -100,6 +113,10 @@ class ClipProjectView(
             delete_clip(project, clip_id)
             return Response(status=204)
         clip = get_object_or_404(project.clips, pk=clip_id)
+        if request.method == "GET":
+            return Response(
+                ClipSerializer(clip, context=self.get_serializer_context()).data
+            )
         serializer = ClipEditSerializer(
             clip, data=request.data, partial=True, context={"project": project}
         )
@@ -128,9 +145,7 @@ class ClipProjectView(
         clip = get_object_or_404(self.get_object().clips, pk=clip_id)
         if clip.status != ClipStatus.COMPLETED or not clip.output:
             raise ValidationError("Export this clip before downloading it.")
-        return FileResponse(
-            clip.output.open("rb"), as_attachment=True, filename=f"clip-{clip.pk}.mp4"
-        )
+        return media_response(request, clip.output, filename=f"clip-{clip.pk}.mp4")
 
     @action(
         detail=True,
@@ -145,3 +160,45 @@ class ClipProjectView(
         serializer.is_valid(raise_exception=True)
         clip = save_hashtags(clip, **serializer.validated_data)
         return Response({"hashtags": clip.hashtags})
+
+    @action(detail=True, methods=["get"])
+    def progress(self, request, pk=None):
+        project = get_object_or_404(
+            self.get_queryset()
+            .annotate(
+                has_transcript=Case(
+                    When(words=[], then=Value(False)),
+                    default=Value(True),
+                    output_field=BooleanField(),
+                )
+            )
+            .defer("words"),
+            pk=pk,
+        )
+        prefetch_related_objects(
+            [project],
+            Prefetch(
+                "clips",
+                queryset=Clip.objects.only(
+                    "id", "project_id", "status", "error", "updated_at", "hashtags"
+                ),
+            ),
+        )
+        return Response(
+            ProjectProgressSerializer(
+                project, context=self.get_serializer_context()
+            ).data
+        )
+
+    @action(detail=True, methods=["get"])
+    def source(self, request, pk=None):
+        return media_response(request, self.get_object().source)
+
+    @action(detail=True, methods=["get"])
+    def preview(self, request, pk=None):
+        return media_response(request, self.get_object().preview)
+
+    @action(detail=True, methods=["get"], url_path=r"clips/(?P<clip_id>[^/.]+)/output")
+    def output(self, request, pk=None, clip_id=None):
+        clip = get_object_or_404(self.get_object().clips, pk=clip_id)
+        return media_response(request, clip.output)

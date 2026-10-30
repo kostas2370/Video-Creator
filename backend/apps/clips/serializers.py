@@ -1,20 +1,32 @@
 import math
 
+from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.reverse import reverse
 
 from apps.videomanagement.serializers.caption_words import CaptionWordSerializer
 from apps.videomanagement.serializers.captions import CaptionProjectStyleSerializer
 from apps.videomanagement.serializers.tags import TagTextField, VideoTagsSerializer
 
-from .choices import ClipLayout
-from .constants import MAX_CAPTION_WORDS, MAX_CLIP_DURATION, MAX_CLIPS_PER_PROJECT
+from .choices import CLIP_BUSY, PROJECT_BUSY, ClipLayout, ClipProjectStatus, ClipStatus
+from .constants import (
+    EXPORT_STALE_AFTER,
+    MAX_CAPTION_WORDS,
+    MAX_CLIP_DURATION,
+    MAX_CLIPS_PER_PROJECT,
+    PROJECT_STALE_AFTER,
+)
 from .models import Clip, ClipProject
 from .uploads import validate_upload
+from .youtube import youtube_url
 
 
 class ProjectUploadSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    source = serializers.FileField()
+    source = serializers.FileField(required=False)
+    youtube_url = serializers.CharField(
+        max_length=500, required=False, allow_blank=True
+    )
     extraction_prompt = serializers.CharField(
         max_length=2000, required=False, allow_blank=True, allow_null=True
     )
@@ -25,6 +37,9 @@ class ProjectUploadSerializer(serializers.Serializer):
     max_duration = serializers.IntegerField(
         min_value=10, max_value=MAX_CLIP_DURATION, default=60
     )
+
+    def validate_youtube_url(self, value):
+        return youtube_url(value) if value else ""
 
     def validate_extraction_prompt(self, value):
         return (value or "").strip() or None
@@ -38,7 +53,11 @@ class ProjectUploadSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Maximum length must be at least the minimum length."
             )
-        if self.metadata["duration"] < data["min_duration"]:
+        if bool(data.get("source")) == bool(data.get("youtube_url")):
+            raise serializers.ValidationError(
+                "Choose either a video file or a YouTube link."
+            )
+        if data.get("source") and self.metadata["duration"] < data["min_duration"]:
             raise serializers.ValidationError(
                 "The source video is shorter than the minimum clip length."
             )
@@ -79,6 +98,26 @@ class ClipEditSerializer(serializers.Serializer):
 
 
 class ClipSerializer(serializers.ModelSerializer):
+    output = serializers.SerializerMethodField()
+    can_retry = serializers.SerializerMethodField()
+
+    def get_output(self, clip):
+        return (
+            reverse(
+                "clipproject-output",
+                kwargs={"pk": clip.project_id, "clip_id": clip.pk},
+                request=self.context.get("request"),
+            )
+            if clip.output
+            else None
+        )
+
+    def get_can_retry(self, clip):
+        return clip.status == ClipStatus.FAILED or (
+            clip.status in CLIP_BUSY
+            and clip.updated_at <= timezone.now() - EXPORT_STALE_AFTER
+        )
+
     revision = serializers.DateTimeField(source="updated_at", read_only=True)
 
     class Meta:
@@ -100,23 +139,66 @@ class ClipSerializer(serializers.ModelSerializer):
             "error",
             "revision",
             "updated_at",
+            "can_retry",
         )
         read_only_fields = fields
 
 
 class ProjectSummarySerializer(serializers.ModelSerializer):
+    can_retry = serializers.SerializerMethodField()
+
+    def get_can_retry(self, project):
+        return project.status == ClipProjectStatus.FAILED or (
+            project.status in PROJECT_BUSY
+            and project.updated_at <= timezone.now() - PROJECT_STALE_AFTER
+        )
+
     class Meta:
         model = ClipProject
-        fields = ("id", "title", "duration", "status", "error", "updated_at")
+        fields = (
+            "id",
+            "title",
+            "duration",
+            "status",
+            "error",
+            "updated_at",
+            "can_retry",
+        )
         read_only_fields = fields
 
 
 class ProjectSerializer(ProjectSummarySerializer):
+    source = serializers.SerializerMethodField()
+    preview = serializers.SerializerMethodField()
+
+    def get_source(self, project):
+        return (
+            reverse(
+                "clipproject-source",
+                kwargs={"pk": project.pk},
+                request=self.context.get("request"),
+            )
+            if project.source
+            else None
+        )
+
+    def get_preview(self, project):
+        return (
+            reverse(
+                "clipproject-preview",
+                kwargs={"pk": project.pk},
+                request=self.context.get("request"),
+            )
+            if project.preview
+            else None
+        )
+
     clips = ClipSerializer(many=True, read_only=True)
 
     class Meta(ProjectSummarySerializer.Meta):
         fields = ProjectSummarySerializer.Meta.fields + (
             "source",
+            "youtube_url",
             "preview",
             "width",
             "height",
@@ -159,3 +241,25 @@ class ExportClipsSerializer(serializers.Serializer):
     clip_ids = serializers.ListField(
         child=serializers.UUIDField(), min_length=1, max_length=MAX_CLIPS_PER_PROJECT
     )
+
+
+class ClipProgressSerializer(ClipSerializer):
+    class Meta(ClipSerializer.Meta):
+        fields = ("id", "status", "error", "revision", "hashtags", "can_retry")
+        read_only_fields = fields
+
+
+class ProjectProgressSerializer(ProjectSerializer):
+    clips = ClipProgressSerializer(many=True, read_only=True)
+    has_transcript = serializers.BooleanField(read_only=True)
+
+    class Meta(ProjectSummarySerializer.Meta):
+        fields = ProjectSummarySerializer.Meta.fields + (
+            "clips",
+            "has_transcript",
+            "source",
+            "preview",
+            "width",
+            "height",
+        )
+        read_only_fields = fields

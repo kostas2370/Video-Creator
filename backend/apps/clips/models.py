@@ -6,6 +6,7 @@ from django.db import models
 from apps.videomanagement.models import TimestampedModel, UUIDModel
 
 from .choices import ClipLayout, ClipProjectStatus, ClipStatus
+from .storage import clip_storage
 
 
 def source_path(instance, filename):
@@ -15,11 +16,14 @@ def source_path(instance, filename):
 class ClipProject(UUIDModel, TimestampedModel):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     title = models.CharField(max_length=100)
-    source = models.FileField(upload_to=source_path, max_length=255)
-    preview = models.FileField(blank=True, max_length=255)
-    duration = models.FloatField()
-    width = models.PositiveIntegerField()
-    height = models.PositiveIntegerField()
+    source = models.FileField(
+        upload_to=source_path, max_length=255, storage=clip_storage, blank=True
+    )
+    preview = models.FileField(blank=True, max_length=255, storage=clip_storage)
+    youtube_url = models.URLField(max_length=500, blank=True)
+    duration = models.FloatField(default=0)
+    width = models.PositiveIntegerField(default=0)
+    height = models.PositiveIntegerField(default=0)
     words = models.JSONField(default=list)
     transcript_parts = models.JSONField(default=list)
     extraction_prompt = models.TextField(max_length=2000, blank=True, null=True)
@@ -56,7 +60,7 @@ class Clip(UUIDModel, TimestampedModel):
     captions = models.BooleanField(default=True)
     words = models.JSONField(default=list)
     style = models.JSONField(default=dict)
-    output = models.FileField(blank=True, max_length=255)
+    output = models.FileField(blank=True, max_length=255, storage=clip_storage)
     status = models.CharField(
         max_length=20, choices=ClipStatus.choices, default=ClipStatus.READY
     )

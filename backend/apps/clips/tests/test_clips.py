@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from datetime import timedelta
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from django.core.files import File
@@ -840,3 +840,248 @@ class ClipsTests(TestCase):
             delete_project(project)
         with self.assertRaises(Http404):
             save_clip(project, {"start": 0, "end": 10})
+
+    def test_clip_media_is_private_and_supports_authenticated_byte_ranges(self):
+        import asyncio
+
+        project = self.project()
+        self.assertIn("private-clips", project.source.path)
+        self.assertFalse(Path(self.media.name, project.source.name).exists())
+        url = reverse("clipproject-source", args=[project.pk])
+        response = self.client.get(url, HTTP_RANGE="bytes=2-9")
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(response["Content-Length"], "8")
+        self.assertIn("private", response["Cache-Control"])
+
+        async def content():
+            return b"".join([chunk async for chunk in response.streaming_content])
+
+        self.assertEqual(
+            asyncio.run(content()), Path(project.source.path).read_bytes()[2:10]
+        )
+        self.assertEqual(
+            self.client.get(url, HTTP_RANGE="bytes=999999999-").status_code, 416
+        )
+        self.assertEqual(
+            self.client.get(url, HTTP_RANGE="bytes=0-1,3-4").status_code, 416
+        )
+        self.assertEqual(
+            self.client.head(url)["Content-Length"], str(project.source.size)
+        )
+        data = self.client.get(self.detail(project)).data
+        self.assertIn(f"/api/clips/{project.pk}/source/", data["source"])
+        self.assertNotIn("media/clips", data["source"])
+        self.assertEqual(self.client.get("/" + project.source.name).status_code, 404)
+        self.client.force_authenticate(user.make())
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(url).status_code, 401)
+
+    def test_progress_omits_transcripts_and_reaps_exports_after_thirty_minutes(self):
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        queue_exports(project, [clip.pk])
+        token = Clip.objects.get(pk=clip.pk).job_id
+        Clip.objects.filter(pk=clip.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=31)
+        )
+        from apps.clips.services import reap_stalled_exports
+
+        self.assertEqual(reap_stalled_exports(project.pk), 1)
+        response = self.client.get(reverse("clipproject-progress", args=[project.pk]))
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data["has_transcript"])
+        self.assertNotIn("words", response.data)
+        self.assertNotIn("words", response.data["clips"][0])
+        self.assertNotIn("style", response.data["clips"][0])
+        self.assertEqual(response.data["clips"][0]["status"], "FAILED")
+        self.assertTrue(response.data["clips"][0]["can_retry"])
+        with patch("apps.clips.media.subprocess.run") as run:
+            export_clip(clip.pk, token)
+        run.assert_not_called()
+        self.assertEqual(queue_exports(project, [clip.pk])[0].status, "QUEUED")
+
+    def test_export_retry_threshold_matches_progress_and_preserves_fresh_exports(self):
+        from apps.clips.services import reap_stalled_exports
+
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        queue_exports(project, [clip.pk])
+        Clip.objects.filter(pk=clip.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=29)
+        )
+        self.assertEqual(reap_stalled_exports(project.pk), 0)
+        self.assertEqual(
+            self.client.post(
+                reverse("clipproject-export", args=[project.pk]),
+                {"clip_ids": [str(clip.pk)]},
+                format="json",
+            ).status_code,
+            409,
+        )
+        Clip.objects.filter(pk=clip.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=31)
+        )
+        self.assertEqual(queue_exports(project, [clip.pk])[0].status, "QUEUED")
+
+    def test_job_updates_publish_after_commit_without_exposing_transcripts(self):
+        project = self.project()
+        with patch("apps.videomanagement.events.send_event") as send:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.add(project)
+            self.assertEqual(send.call_args.args[0], f"clips.{project.pk}")
+            self.assertEqual(send.call_args.args[2]["kind"], "clips")
+            self.assertNotIn("words", send.call_args.args[2])
+
+    def test_existing_public_files_are_moved_to_private_storage(self):
+        import importlib
+
+        from django.apps import apps
+
+        migration = importlib.import_module(
+            "apps.clips.migrations.0004_alter_clip_output_alter_clipproject_preview_and_more"
+        )
+        project = self.project()
+        name = f"media/clips/{project.pk}/legacy.mp4"
+        public = Path(self.media.name, name)
+        public.parent.mkdir(parents=True, exist_ok=True)
+        public.write_bytes(b"legacy-content")
+        project.source.name = name
+        project.save(update_fields=["source"])
+        migration.move_to_private_storage(apps, None)
+        self.assertFalse(public.exists())
+        self.assertEqual(Path(project.source.path).read_bytes(), b"legacy-content")
+        migration.move_to_private_storage(apps, None)
+        self.assertEqual(Path(project.source.path).read_bytes(), b"legacy-content")
+
+    def test_youtube_input_is_optional_exclusive_and_restricted_to_video_links(self):
+        from rest_framework.exceptions import ValidationError
+
+        from apps.clips.youtube import youtube_url
+
+        self.assertEqual(
+            youtube_url("https://youtu.be/abcdefghijk?t=20"),
+            "https://www.youtube.com/watch?v=abcdefghijk",
+        )
+        self.assertEqual(
+            youtube_url("https://www.youtube.com/shorts/abcdefghijk"),
+            "https://www.youtube.com/watch?v=abcdefghijk",
+        )
+        for url in (
+            "http://127.0.0.1/watch?v=abcdefghijk",
+            "https://youtube.com.evil.test/watch?v=abcdefghijk",
+            "https://user@youtube.com/watch?v=abcdefghijk",
+            "https://youtube.com:443/watch?v=abcdefghijk",
+            "https://youtube.com/playlist?list=abcdefghijk",
+        ):
+            with self.assertRaises(ValidationError):
+                youtube_url(url)
+        response = self.client.post(
+            reverse("clipproject-list"),
+            {"youtube_url": "https://youtu.be/abcdefghijk", "min_duration": 10},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(
+            response.data["youtube_url"], "https://www.youtube.com/watch?v=abcdefghijk"
+        )
+        self.assertIsNone(response.data["source"])
+        self.assertEqual(
+            self.client.post(
+                reverse("clipproject-list"), {}, format="json"
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("clipproject-list"),
+                {
+                    "source": SimpleUploadedFile("talk.mp4", self.source.read_bytes()),
+                    "youtube_url": "https://youtu.be/abcdefghijk",
+                    "min_duration": 10,
+                },
+                format="multipart",
+            ).status_code,
+            400,
+        )
+
+    def test_youtube_download_is_saved_privately_and_reused_after_analysis_failure(
+        self,
+    ):
+        response = self.client.post(
+            reverse("clipproject-list"),
+            {"youtube_url": "https://youtu.be/abcdefghijk", "min_duration": 10},
+            format="json",
+        )
+        project = ClipProject.objects.get(pk=response.data["id"])
+        metadata = {"duration": 20, "width": 160, "height": 90}
+        with (
+            patch(
+                "apps.clips.processing.download_youtube",
+                return_value=(self.source, metadata, "Imported interview"),
+            ) as download,
+            patch("apps.clips.processing.transcribe_audio", return_value=self.words),
+            patch(
+                "apps.clips.processing.suggest_clips",
+                side_effect=RuntimeError("provider"),
+            ),
+        ):
+            process_project(project.pk, project.job_id)
+        download.assert_called_once()
+        project.refresh_from_db()
+        self.assertEqual(project.status, "FAILED")
+        self.assertTrue(project.source)
+        self.assertEqual(project.title, "Imported interview")
+        queue_project(project)
+        project.refresh_from_db()
+        with (
+            patch("apps.clips.processing.download_youtube") as download,
+            patch("apps.clips.processing.suggest_clips", return_value=[]),
+        ):
+            process_project(project.pk, project.job_id)
+        download.assert_not_called()
+        project.refresh_from_db()
+        self.assertEqual(project.status, "READY")
+
+    def test_youtube_import_joins_separate_video_and_audio_streams(self):
+        from apps.clips.media import run_ffmpeg
+        from apps.clips.youtube import download_youtube
+
+        with tempfile.TemporaryDirectory() as directory:
+            picture_path = Path(directory, "picture.mp4")
+            audio_path = Path(directory, "audio.m4a")
+            run_ffmpeg(
+                ["-i", str(self.source), "-an", "-c:v", "copy", str(picture_path)]
+            )
+            run_ffmpeg(["-i", str(self.source), "-vn", "-c:a", "copy", str(audio_path)])
+            picture = MagicMock(
+                resolution="1080p", filesize=picture_path.stat().st_size, subtype="mp4"
+            )
+            picture.download.return_value = str(picture_path)
+            audio = MagicMock(filesize=audio_path.stat().st_size, subtype="mp4")
+            audio.download.return_value = str(audio_path)
+            combined, pictures, sounds = MagicMock(), MagicMock(), MagicMock()
+            combined.order_by.return_value.desc.return_value.first.return_value = None
+            pictures.order_by.return_value.desc.return_value.__iter__.return_value = (
+                iter([picture])
+            )
+            sounds.order_by.return_value.desc.return_value.first.return_value = audio
+            with patch("apps.clips.youtube.YouTube") as youtube:
+                youtube.return_value.length = 20
+                youtube.return_value.title = "Separate streams"
+                youtube.return_value.streams.filter.side_effect = [
+                    combined,
+                    pictures,
+                    sounds,
+                ]
+                project = ClipProject(
+                    youtube_url="https://youtu.be/abcdefghijk", min_duration=10
+                )
+                path, metadata, title = download_youtube(project, directory)
+            self.assertTrue(path.exists())
+            self.assertTrue(metadata["audio"])
+            self.assertEqual(metadata["width"], 160)
+            self.assertAlmostEqual(metadata["duration"], 20, delta=0.2)
+            self.assertEqual(title, "Separate streams")
+            picture.download.assert_called_once()
+            audio.download.assert_called_once()

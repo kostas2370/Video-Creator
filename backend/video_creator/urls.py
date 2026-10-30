@@ -7,6 +7,7 @@ from drf_yasg import openapi
 from rest_framework import permissions, routers
 
 from apps.clips.urls import router as clips_router
+from apps.clips.protected_media import public_clip_media
 from apps.series.urls import router as series_router
 from apps.videomanagement.urls import router as video_router
 
@@ -41,7 +42,9 @@ urlpatterns = [
     path("api/", include("apps.usermanagement.urls")),
     path("api/", include("apps.apikeysmanagement.urls")),
     path("api/", include("apps.videomanagement.urls")),
+    path("api/", include("apps.clips.urls")),
     path("api/", include(api_router.urls)),
+    path("media/clips/<path:path>", public_clip_media),
     path("api/news/", include("apps.news.urls")),
     path("api/publishing/", include("apps.publishing.urls")),
 ]

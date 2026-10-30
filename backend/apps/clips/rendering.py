@@ -12,6 +12,7 @@ from apps.videomanagement.utils.composer.captions import write_ass
 from apps.videomanagement.utils.fonts import subtitles_filter
 
 from .choices import ClipLayout, ClipStatus
+from .events import update_jobs
 from .media import run_ffmpeg
 from .models import Clip
 
@@ -31,8 +32,10 @@ def framing_filter(clip):
 
 def export_clip(clip_id, token):
     rows = Clip.objects.filter(pk=clip_id, job_id=token)
-    if not rows.filter(status=ClipStatus.QUEUED).update(
-        status=ClipStatus.RENDERING, updated_at=timezone.now()
+    if not update_jobs(
+        rows.filter(status=ClipStatus.QUEUED),
+        status=ClipStatus.RENDERING,
+        updated_at=timezone.now(),
     ):
         return
     clip = rows.select_related("project__created_by").get()
@@ -100,7 +103,8 @@ def export_clip(clip_id, token):
                     clip.output.storage.delete(name)
                     return
                 previous = current.output.name
-                rows.update(
+                update_jobs(
+                    rows,
                     output=name,
                     status=ClipStatus.COMPLETED,
                     error="",
@@ -112,7 +116,8 @@ def export_clip(clip_id, token):
                     )
     except Exception:
         logger.exception("Clip export failed for %s", clip_id)
-        rows.filter(status=ClipStatus.RENDERING).update(
+        update_jobs(
+            rows.filter(status=ClipStatus.RENDERING),
             status=ClipStatus.FAILED,
             error="Could not export this clip. Please retry.",
             updated_at=timezone.now(),
