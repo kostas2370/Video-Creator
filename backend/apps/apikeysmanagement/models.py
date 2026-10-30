@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -15,6 +14,8 @@ from django_lifecycle import (
 )
 from encrypted_model_fields.fields import EncryptedCharField
 from requests.auth import HTTPBasicAuth
+
+from apps.common.models import UUIDModel
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,7 @@ VOICE_KEY_FIELDS = {
 }
 
 
-class ApiKeys(LifecycleModelMixin, models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+class ApiKeys(LifecycleModelMixin, UUIDModel):
     user = models.OneToOneField(
         get_user_model(), on_delete=models.CASCADE, related_name="api_keys"
     )
@@ -66,8 +66,6 @@ class ApiKeys(LifecycleModelMixin, models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    objects = models.Manager()
 
     class Meta:
         verbose_name = "API keys"
@@ -128,8 +126,7 @@ class ApiKeys(LifecycleModelMixin, models.Model):
             .first()
         ) or {}
         return {
-            provider: keys.get(field) or None
-            for provider, (field, _) in fields.items()
+            provider: keys.get(field) or None for provider, (field, _) in fields.items()
         }
 
     @staticmethod
@@ -151,10 +148,9 @@ class ApiKeys(LifecycleModelMixin, models.Model):
                 update_user_voices.delay(self.user_id, provider)
 
 
-class AbstractCustomProvider(models.Model):
+class AbstractCustomProvider(UUIDModel):
     """Shared connection settings; each concrete provider keeps its own table."""
 
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     name = models.CharField(max_length=50)
     endpoint_url = models.URLField(max_length=500)
     extra_parameters = models.JSONField(

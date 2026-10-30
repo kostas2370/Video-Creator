@@ -1,12 +1,12 @@
 import logging
 from pathlib import Path
-from uuid import uuid4
 
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.generics import get_object_or_404
 
+from apps.videomanagement.events import publish_update
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
 from apps.videomanagement.utils.captions.timing import validate_word_bounds
 
@@ -17,7 +17,7 @@ from .constants import (
     MAX_CLIPS_PER_PROJECT,
     PROJECT_STALE_AFTER,
 )
-from .events import publish_project_update, update_jobs
+from .events import update_jobs
 from .exceptions import ClipConflict, ClipQueueUnavailable
 from .models import Clip, ClipProject
 
@@ -80,13 +80,8 @@ def queue_project(project):
             and project.updated_at > timezone.now() - PROJECT_STALE_AFTER
         ):
             raise ClipConflict("Highlight processing is already running.")
-        project.job_id, project.status, project.error = (
-            uuid4(),
-            ClipProjectStatus.QUEUED,
-            "",
-        )
-        project.save(update_fields=["job_id", "status", "error", "updated_at"])
-        publish_project_update(project.pk)
+        project.mark_queued(ClipProjectStatus.QUEUED)
+        publish_update(f"clips.{project.pk}", kind="clips")
     try:
         process_project_task.apply_async(args=(str(project.pk), str(project.job_id)))
     except Exception as exc:
@@ -96,7 +91,6 @@ def queue_project(project):
             ),
             status=ClipProjectStatus.FAILED,
             error="Could not queue processing. Retry without uploading again.",
-            updated_at=timezone.now(),
         )
         raise ClipQueueUnavailable() from exc
     project.refresh_from_db()
@@ -144,7 +138,7 @@ def save_clip(project, changes, clip_id=None):
         if render_changed:
             clip.output, clip.error, clip.status = "", "", ClipStatus.READY
         clip.save()
-        publish_project_update(project.pk)
+        publish_update(f"clips.{project.pk}", kind="clips")
         if previous_output:
             transaction.on_commit(
                 lambda: clip.output.storage.delete(previous_output), robust=True
@@ -172,9 +166,8 @@ def queue_exports(project, clip_ids):
             ):
                 raise ClipConflict("One of these clips is already exporting.")
         for clip in clips:
-            clip.job_id, clip.status, clip.error = uuid4(), ClipStatus.QUEUED, ""
-            clip.save(update_fields=["job_id", "status", "error", "updated_at"])
-        publish_project_update(project.pk)
+            clip.mark_queued(ClipStatus.QUEUED)
+        publish_update(f"clips.{project.pk}", kind="clips")
     for clip in clips:
         try:
             export_clip_task.apply_async(args=(str(clip.pk), str(clip.job_id)))
@@ -186,7 +179,6 @@ def queue_exports(project, clip_ids):
                 ),
                 status=ClipStatus.FAILED,
                 error="Could not queue export. Please retry.",
-                updated_at=timezone.now(),
             )
         clip.refresh_from_db()
     return clips
@@ -208,7 +200,7 @@ def delete_project(project):
             )
         project_id = project.pk
         project.delete()
-        publish_project_update(project_id)
+        publish_update(f"clips.{project_id}", kind="clips")
 
 
 def delete_clip(project, clip_id):
@@ -223,7 +215,7 @@ def delete_clip(project, clip_id):
                 "Wait for this clip's export to finish before removing it."
             )
         clip.delete()
-        publish_project_update(project.pk)
+        publish_update(f"clips.{project.pk}", kind="clips")
 
 
 def reap_stalled_exports(project_id=None):
@@ -236,5 +228,4 @@ def reap_stalled_exports(project_id=None):
         rows,
         status=ClipStatus.FAILED,
         error="Export stopped responding. Retry this clip; your edits are saved.",
-        updated_at=timezone.now(),
     )

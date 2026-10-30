@@ -8,9 +8,9 @@ from django.test import TransactionTestCase, override_settings
 from django_eventstream.views import ListenerManager
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.clips.events import publish_project_update
 from apps.clips.models import ClipProject
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.events import publish_update
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"])
@@ -81,9 +81,11 @@ class ClipEventTests(TransactionTestCase):
             self.assertEqual(
                 set(self.manager.listeners_by_channel), {f"clips.{self.project.pk}"}
             )
-            await sync_to_async(publish_project_update)("someone-else")
+            await sync_to_async(publish_update)("clips.someone-else", kind="clips")
             self.assertTrue(await stream.receive_nothing(interval=0.05))
-            await sync_to_async(publish_project_update)(self.project.pk)
+            await sync_to_async(publish_update)(
+                f"clips.{self.project.pk}", kind="clips"
+            )
             body = (await stream.receive_output())["body"]
             self.assertIn(b'"kind": "clips"', body)
             self.assertNotIn(b"words", body)

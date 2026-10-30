@@ -11,7 +11,7 @@ export function validateClip(start, end, duration, minimum = 0) {
   return Number.isFinite(start) && Number.isFinite(end) && start >= minimum && end <= duration && end > start && end - start <= 180 ? "" : "Choose a clip within the source video, up to 180 seconds long.";
 }
 
-export const clipStalled = clip => clip.can_retry || (clipBusy(clip.status) && Date.now() - new Date(clip.updated_at).getTime() >= 30 * 60000);
+export const clipStalled = clip => clip.can_retry || (clipBusy(clip.status) && Date.now() - new Date(clip.revision).getTime() >= 30 * 60000);
 
 export async function reconcileClipProgress(current, progress, { loadProject, loadClip }) {
   if (!current || current.id !== progress.id || (progress.has_transcript && !current.words?.length)) {

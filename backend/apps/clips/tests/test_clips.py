@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.clips.events import update_jobs
 from apps.clips.highlights import suggest_clips
 from apps.clips.models import Clip, ClipProject
 from apps.clips.processing import process_project, transcribe_source
@@ -206,6 +207,8 @@ class ClipsTests(TestCase):
         project = self.project()
         response = self.add(project)
         self.assertEqual(response.status_code, 201, response.data)
+        self.assertIn("revision", response.data)
+        self.assertNotIn("updated_at", response.data)
         clip = project.clips.get()
         self.assertEqual(clip.words[0]["start"], 0)
         self.assertEqual(clip.words[-1]["text"], "Word12")
@@ -491,7 +494,7 @@ class ClipsTests(TestCase):
         queue_exports(project, [clip.pk])
         clip.refresh_from_db()
         with patch(
-            "apps.clips.media.subprocess.run",
+            "apps.common.media.subprocess.run",
             side_effect=RuntimeError("private path"),
         ):
             export_clip(clip.pk, clip.job_id)
@@ -590,7 +593,7 @@ class ClipsTests(TestCase):
             status="COMPLETED",
             job_id=uuid4(),
         )
-        with patch("apps.clips.media.subprocess.run") as run:
+        with patch("apps.common.media.subprocess.run") as run:
             export_clip(clip.pk, clip.job_id)
             export_clip(clip.pk, uuid4())
         run.assert_not_called()
@@ -901,7 +904,7 @@ class ClipsTests(TestCase):
         self.assertNotIn("style", response.data["clips"][0])
         self.assertEqual(response.data["clips"][0]["status"], "FAILED")
         self.assertTrue(response.data["clips"][0]["can_retry"])
-        with patch("apps.clips.media.subprocess.run") as run:
+        with patch("apps.common.media.subprocess.run") as run:
             export_clip(clip.pk, token)
         run.assert_not_called()
         self.assertEqual(queue_exports(project, [clip.pk])[0].status, "QUEUED")
@@ -937,6 +940,21 @@ class ClipsTests(TestCase):
             self.assertEqual(send.call_args.args[0], f"clips.{project.pk}")
             self.assertEqual(send.call_args.args[2]["kind"], "clips")
             self.assertNotIn("words", send.call_args.args[2])
+
+    def test_job_updates_refresh_timestamps_and_preserve_explicit_checkpoints(self):
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        now = timezone.now()
+        checkpoint = now - timedelta(minutes=10)
+        for instance in (project, clip):
+            rows = type(instance).objects.filter(pk=instance.pk)
+            with patch("apps.clips.events.timezone.now", return_value=now):
+                self.assertEqual(update_jobs(rows, error="Retry"), 1)
+            instance.refresh_from_db()
+            self.assertEqual(instance.updated_at, now)
+            update_jobs(rows, error="", updated_at=checkpoint)
+            instance.refresh_from_db()
+            self.assertEqual(instance.updated_at, checkpoint)
 
     def test_existing_public_files_are_moved_to_private_storage(self):
         import importlib
@@ -1049,8 +1067,8 @@ class ClipsTests(TestCase):
         self.assertEqual(project.status, "READY")
 
     def test_youtube_import_joins_separate_video_and_audio_streams(self):
-        from apps.clips.media import run_ffmpeg
         from apps.clips.youtube import download_youtube
+        from apps.common.media import run_ffmpeg
 
         with tempfile.TemporaryDirectory() as directory:
             picture_path = Path(directory, "picture.mp4")

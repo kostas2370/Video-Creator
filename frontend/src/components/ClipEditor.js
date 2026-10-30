@@ -55,7 +55,7 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
     const message = validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0) || validateCaptionWords(draft.words, duration);
     if (message) { setError(message); return; }
     setWorking(true); onWorkingChange?.(true); setError(""); player.current?.pause();
-    const { id, reason, hashtags, output, status, error: previousError, updated_at, ...changes } = draft;
+    const { id, reason, hashtags, output, status, error: previousError, ...changes } = draft;
     try {
       const result = await saveClip(project.id, clip.id, changes);
       if (result.ok) onSaved(result.data); else setError(result.message);

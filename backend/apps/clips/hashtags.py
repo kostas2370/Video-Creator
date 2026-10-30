@@ -4,9 +4,9 @@ from django.db import transaction
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.generics import get_object_or_404
 
+from apps.videomanagement.events import publish_update
 from apps.videomanagement.integrations.llm import get_update_sentence
 
-from .events import publish_project_update
 from .exceptions import ClipConflict
 from .highlights import read_json
 from .models import Clip
@@ -83,5 +83,5 @@ def save_hashtags(clip, *, hashtags, previous_hashtags):
             )
         clip.hashtags = hashtags
         clip.save(update_fields=["hashtags"])
-        publish_project_update(clip.project_id)
+        publish_update(f"clips.{clip.project_id}", kind="clips")
     return clip

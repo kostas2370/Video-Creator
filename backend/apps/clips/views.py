@@ -1,11 +1,9 @@
-from copy import copy
-
 from django.db.models import (
     BooleanField,
     Case,
     Count,
-    Q,
     Prefetch,
+    Q,
     Value,
     When,
     prefetch_related_objects,
@@ -21,8 +19,8 @@ from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
 from .choices import PROJECT_BUSY, ClipStatus
-from .highlights import suggest_clips
 from .hashtags import draft_hashtags, save_hashtags
+from .highlights import suggest_clips
 from .models import Clip, ClipProject
 from .protected_media import media_response
 from .serializers import (
@@ -50,7 +48,6 @@ from .throttling import ClipProcessingThrottle
 class ClipProjectView(
     mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
-    serializer_class = ProjectSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
@@ -84,6 +81,8 @@ class ClipProjectView(
         return rows
 
     def get_serializer_class(self):
+        if self.action in {"clips", "clip", "export"}:
+            return ClipSerializer
         return ProjectSummarySerializer if self.action == "list" else ProjectSerializer
 
     def get_throttles(self):
@@ -121,9 +120,7 @@ class ClipProjectView(
         serializer = ClipEditSerializer(data=request.data, context={"project": project})
         serializer.is_valid(raise_exception=True)
         clip = save_clip(project, dict(serializer.validated_data))
-        return Response(
-            ClipSerializer(clip, context=self.get_serializer_context()).data, status=201
-        )
+        return Response(self.get_serializer(clip).data, status=201)
 
     @action(
         detail=True,
@@ -137,29 +134,20 @@ class ClipProjectView(
             return Response(status=204)
         clip = get_object_or_404(project.clips, pk=clip_id)
         if request.method == "GET":
-            return Response(
-                ClipSerializer(clip, context=self.get_serializer_context()).data
-            )
+            return Response(self.get_serializer(clip).data)
         serializer = ClipEditSerializer(
             clip, data=request.data, partial=True, context={"project": project}
         )
         serializer.is_valid(raise_exception=True)
         clip = save_clip(project, dict(serializer.validated_data), clip.pk)
-        return Response(
-            ClipSerializer(clip, context=self.get_serializer_context()).data
-        )
+        return Response(self.get_serializer(clip).data)
 
     @action(detail=True, methods=["post"])
     def export(self, request, pk=None):
         serializer = ExportClipsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         clips = queue_exports(self.get_object(), serializer.validated_data["clip_ids"])
-        return Response(
-            ClipSerializer(
-                clips, many=True, context=self.get_serializer_context()
-            ).data,
-            status=202,
-        )
+        return Response(self.get_serializer(clips, many=True).data, status=202)
 
     @action(
         detail=True, methods=["get"], url_path=r"clips/(?P<clip_id>[^/.]+)/download"
@@ -215,7 +203,7 @@ class ClipProjectView(
 
     @action(detail=True, methods=["post"], url_path="search-transcript")
     def search_transcript(self, request, pk=None):
-        project = copy(self.get_object())
+        project = self.get_object()
         serializer = TranscriptSearchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if not project.words:

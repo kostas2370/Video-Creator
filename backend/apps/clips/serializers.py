@@ -6,7 +6,7 @@ from rest_framework.reverse import reverse
 
 from apps.videomanagement.serializers.caption_words import CaptionWordSerializer
 from apps.videomanagement.serializers.captions import CaptionProjectStyleSerializer
-from apps.videomanagement.serializers.tags import TagTextField, VideoTagsSerializer
+from apps.videomanagement.serializers.tags import TagListField
 
 from .choices import CLIP_BUSY, PROJECT_BUSY, ClipLayout, ClipProjectStatus, ClipStatus
 from .constants import (
@@ -20,6 +20,17 @@ from .models import Clip, ClipProject
 from .transcripts import validate_range
 from .uploads import validate_upload
 from .youtube import youtube_url
+
+
+def media_url(instance, field, context):
+    if not getattr(instance, field):
+        return None
+    kwargs = {"pk": instance.pk}
+    if isinstance(instance, Clip):
+        kwargs = {"pk": instance.project_id, "clip_id": instance.pk}
+    return reverse(
+        f"clipproject-{field}", kwargs=kwargs, request=context.get("request")
+    )
 
 
 class ProjectUploadSerializer(serializers.Serializer):
@@ -59,10 +70,6 @@ class ProjectUploadSerializer(serializers.Serializer):
         if bool(data.get("source")) == bool(data.get("youtube_url")):
             raise serializers.ValidationError(
                 "Choose either a video file or a YouTube link."
-            )
-        if data.get("source") and self.metadata["duration"] < data["min_duration"]:
-            raise serializers.ValidationError(
-                "The source video is shorter than the minimum clip length."
             )
         validate_range(
             data["range_start"],
@@ -117,15 +124,7 @@ class ClipSerializer(serializers.ModelSerializer):
     can_retry = serializers.SerializerMethodField()
 
     def get_output(self, clip):
-        return (
-            reverse(
-                "clipproject-output",
-                kwargs={"pk": clip.project_id, "clip_id": clip.pk},
-                request=self.context.get("request"),
-            )
-            if clip.output
-            else None
-        )
+        return media_url(clip, "output", self.context)
 
     def get_can_retry(self, clip):
         return clip.status == ClipStatus.FAILED or (
@@ -153,7 +152,6 @@ class ClipSerializer(serializers.ModelSerializer):
             "status",
             "error",
             "revision",
-            "updated_at",
             "can_retry",
         )
         read_only_fields = fields
@@ -198,26 +196,10 @@ class ProjectSerializer(ProjectSummarySerializer):
     preview = serializers.SerializerMethodField()
 
     def get_source(self, project):
-        return (
-            reverse(
-                "clipproject-source",
-                kwargs={"pk": project.pk},
-                request=self.context.get("request"),
-            )
-            if project.source
-            else None
-        )
+        return media_url(project, "source", self.context)
 
     def get_preview(self, project):
-        return (
-            reverse(
-                "clipproject-preview",
-                kwargs={"pk": project.pk},
-                request=self.context.get("request"),
-            )
-            if project.preview
-            else None
-        )
+        return media_url(project, "preview", self.context)
 
     clips = ClipSerializer(many=True, read_only=True)
 
@@ -248,12 +230,9 @@ class CandidateSerializer(serializers.Serializer):
 
 
 class HashtagsSerializer(serializers.Serializer):
-    hashtags = serializers.ListField(child=TagTextField(max_length=80), max_length=20)
+    hashtags = TagListField(hashtags=True)
 
     def validate_hashtags(self, values):
-        tags = VideoTagsSerializer(data={"tiktok": values, "youtube": [], "search": []})
-        tags.is_valid(raise_exception=True)
-        values = tags.validated_data["tiktok"]
         if any(not value.isascii() for value in values):
             raise serializers.ValidationError(
                 "Use English hashtags with ASCII spelling, including conventional English spellings of names."

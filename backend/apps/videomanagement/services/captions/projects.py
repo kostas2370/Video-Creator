@@ -1,16 +1,15 @@
 """Timestamped captions over an uploaded video's original picture and sound."""
 
 import logging
-import subprocess
 import tempfile
 from pathlib import Path
-from uuid import uuid4
 
 from django.core.files import File
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
+from apps.common.media import run_ffmpeg
 from apps.videomanagement import tasks
 from apps.videomanagement.models import CaptionProject, CaptionProjectStatus
 from apps.videomanagement.services.captions.transcription import transcribe_audio
@@ -40,7 +39,6 @@ class CaptionConflict(APIException):
 
 
 def queue_caption_job(project, *, render=False):
-    token = uuid4()
     with transaction.atomic():
         locked = CaptionProject.objects.select_for_update().get(pk=project.pk)
         # A newly uploaded project has no job yet. Jobs older than 30 minutes can be retried.
@@ -56,13 +54,13 @@ def queue_caption_job(project, *, render=False):
             )
         if render and not locked.words:
             raise CaptionConflict("Add some caption words before exporting.")
-        locked.status = (
+        status = (
             CaptionProjectStatus.RENDER_QUEUED
             if render
             else CaptionProjectStatus.QUEUED
         )
-        locked.job_id, locked.error = token, ""
-        locked.save(update_fields=["status", "job_id", "error", "updated_at"])
+        locked.mark_queued(status)
+        token = locked.job_id
     try:
         tasks.caption_project_task.apply_async(
             args=(str(project.pk), str(token), render)
@@ -82,28 +80,6 @@ def queue_caption_job(project, *, render=False):
         raise error from exc
     project.refresh_from_db()
     return project
-
-
-def run_ffmpeg(arguments, *, cwd=None):
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-hide_banner",
-            "-nostdin",
-            "-v",
-            "error",
-            "-y",
-            "-threads",
-            "2",
-            "-filter_threads",
-            "2",
-            *arguments,
-        ],
-        cwd=cwd,
-        capture_output=True,
-        check=True,
-        timeout=1100,
-    )
 
 
 def transcribe_project(project, directory):
@@ -131,7 +107,8 @@ def transcribe_project(project, directory):
             "-movflags",
             "+faststart",
             str(preview),
-        ]
+        ],
+        timeout=1100,
     )
     words = transcribe_audio(
         project.source.path, project.created_by, project.duration, directory
@@ -199,6 +176,7 @@ def process_caption_project(project_id, token, render=False):
                         str(output),
                     ],
                     cwd=directory,
+                    timeout=1100,
                 )
                 with output.open("rb") as file:
                     name = project.output.storage.save(

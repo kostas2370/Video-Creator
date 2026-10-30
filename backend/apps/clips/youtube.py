@@ -7,7 +7,8 @@ from django.core.files import File
 from pytubefix import YouTube
 from rest_framework.exceptions import ValidationError
 
-from .media import run_ffmpeg
+from apps.common.media import run_ffmpeg
+
 from .uploads import MAX_DURATION_SECONDS, MAX_UPLOAD_BYTES, validate_upload
 
 

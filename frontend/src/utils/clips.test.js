@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { wordsForClip, validateClip, projectBusy, clipBusy } from "./clips";
+import { describe, expect, it, vi } from "vitest";
+import { wordsForClip, validateClip, projectBusy, clipBusy, clipStalled } from "./clips";
 import { isCreationPath } from "./creationModes";
 
 describe("clipping", () => {
@@ -17,6 +17,20 @@ describe("clipping", () => {
     expect(projectBusy("FAILED")).toBe(false);
     expect(clipBusy("RENDERING")).toBe(true);
     expect(isCreationPath("/clips/project-id/")).toBe(true);
+  });
+  it("uses the revision timestamp to detect an export that stalls after loading", () => {
+    const now = Date.parse("2026-10-30T12:00:00Z");
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const clip = { status: "RENDERING", can_retry: false, revision: "2026-10-30T11:45:00Z" };
+      expect(clipStalled(clip)).toBe(false);
+      clock.mockReturnValue(now + 15 * 60000);
+      expect(clipStalled(clip)).toBe(true);
+      expect(clipStalled({ ...clip, status: "COMPLETED" })).toBe(false);
+      expect(clipStalled({ ...clip, can_retry: true })).toBe(true);
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
 

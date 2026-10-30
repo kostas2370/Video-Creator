@@ -7,9 +7,9 @@ from pathlib import Path
 
 from django.core.files import File
 from django.db import close_old_connections, connections, transaction
-from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from apps.common.media import run_ffmpeg
 from apps.videomanagement.services.captions.transcription import transcribe_audio
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
 from apps.videomanagement.utils.timing import video_metadata
@@ -18,7 +18,6 @@ from .choices import ClipProjectStatus
 from .constants import MAX_CLIPS_PER_PROJECT
 from .events import update_jobs
 from .highlights import overlapping, suggest_clips
-from .media import run_ffmpeg
 from .models import Clip, ClipProject
 from .services import clip_words
 from .transcripts import reuse_transcript, source_key, validate_range
@@ -157,7 +156,6 @@ def transcribe_source(project, rows, directory):
                         update_jobs(
                             rows.filter(status=ClipProjectStatus.TRANSCRIBING),
                             transcript_parts=parts,
-                            updated_at=timezone.now(),
                         )
                     )
             if current and failure is None:
@@ -194,7 +192,6 @@ def process_project(project_id, token):
     if not update_jobs(
         rows.filter(status=ClipProjectStatus.QUEUED),
         status=initial,
-        updated_at=timezone.now(),
     ):
         return
     try:
@@ -215,7 +212,6 @@ def process_project(project_id, token):
                     height=metadata["height"],
                     title=title if project.title == "YouTube video" else project.title,
                     status=ClipProjectStatus.TRANSCRIBING,
-                    updated_at=timezone.now(),
                 ):
                     project.source.storage.delete(name)
                     return
@@ -250,7 +246,6 @@ def process_project(project_id, token):
                     preview=name,
                     width=metadata["width"],
                     height=metadata["height"],
-                    updated_at=timezone.now(),
                 ):
                     project.preview.storage.delete(name)
                     return
@@ -266,14 +261,12 @@ def process_project(project_id, token):
                 if not update_jobs(
                     rows.filter(status=ClipProjectStatus.TRANSCRIBING),
                     words=words,
-                    updated_at=timezone.now(),
                 ):
                     return
                 project.words = words
             if not update_jobs(
                 rows.filter(status=ClipProjectStatus.TRANSCRIBING),
                 status=ClipProjectStatus.ANALYZING,
-                updated_at=timezone.now(),
             ):
                 return
             candidates = suggest_clips(
@@ -309,7 +302,6 @@ def process_project(project_id, token):
                     rows,
                     status=ClipProjectStatus.READY,
                     error="",
-                    updated_at=timezone.now(),
                 )
     except Exception as exc:
         logger.exception("Clip project processing failed for %s", project_id)
@@ -327,5 +319,4 @@ def process_project(project_id, token):
             else "Could not import this YouTube video. Check that it is publicly available, or upload a file instead."
             if project.youtube_url and not project.source
             else "Could not finish finding clips. Check your provider keys and retry. Saved transcription will be reused; you can also add clips manually.",
-            updated_at=timezone.now(),
         )

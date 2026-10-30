@@ -129,6 +129,7 @@ class VideoTagsTests(ApiTestCase):
             {**TAGS, "tiktok": "ocean"},
             {**TAGS, "search": ["x" * 81]},
             {**TAGS, "youtube": [f"word {index}" for index in range(21)]},
+            {**TAGS, "tiktok": ["Topic"] * 21},
             {**TAGS, "tiktok": ["!!!"]},
             {**TAGS, "search": [""]},
             {**TAGS, "search": [123]},

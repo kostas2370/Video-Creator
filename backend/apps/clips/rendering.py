@@ -4,8 +4,8 @@ from pathlib import Path
 
 from django.core.files import File
 from django.db import transaction
-from django.utils import timezone
 
+from apps.common.media import run_ffmpeg
 from apps.videomanagement.utils.captions.cues import word_cues
 from apps.videomanagement.utils.captions.styles import project_caption_style
 from apps.videomanagement.utils.composer.captions import write_ass
@@ -13,7 +13,6 @@ from apps.videomanagement.utils.fonts import subtitles_filter
 
 from .choices import ClipLayout, ClipStatus
 from .events import update_jobs
-from .media import run_ffmpeg
 from .models import Clip
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,6 @@ def export_clip(clip_id, token):
     if not update_jobs(
         rows.filter(status=ClipStatus.QUEUED),
         status=ClipStatus.RENDERING,
-        updated_at=timezone.now(),
     ):
         return
     clip = rows.select_related("project__created_by").get()
@@ -108,7 +106,6 @@ def export_clip(clip_id, token):
                     output=name,
                     status=ClipStatus.COMPLETED,
                     error="",
-                    updated_at=timezone.now(),
                 )
                 if previous and previous != name:
                     transaction.on_commit(
@@ -120,5 +117,4 @@ def export_clip(clip_id, token):
             rows.filter(status=ClipStatus.RENDERING),
             status=ClipStatus.FAILED,
             error="Could not export this clip. Please retry.",
-            updated_at=timezone.now(),
         )

@@ -149,6 +149,9 @@ Events contain only an invalidation signal; a lightweight progress endpoint omit
 transcripts and caption words. The page fetches only changed clips and loads the
 source transcript once it becomes available. Reconnect, focus, and explicit refresh
 reconcile missed events while retaining unsaved editor and hashtag drafts.
+Clip responses expose their update timestamp as `revision`; send it back when
+saving edits. Clips omit the duplicate `updated_at` field. Project responses
+continue to use `updated_at`.
 
 General workers process downloads, previews, transcription, and suggestions. The `renders`
 queue processes exports. Processing has a two-hour task limit; each export has a

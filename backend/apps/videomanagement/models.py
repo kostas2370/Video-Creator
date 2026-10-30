@@ -16,6 +16,7 @@ from django_lifecycle.conditions import WhenFieldValueChangesTo
 from django_resized import ResizedImageField
 
 from apps.apikeysmanagement.models import Provider
+from apps.common.models import TimestampedModel, TranscribedMediaModel, UUIDModel
 from apps.usermanagement.models import Notification
 from apps.usermanagement.tasks import send_email
 
@@ -43,26 +44,10 @@ def caption_upload_path(instance, filename):
     return f"media/captions/{instance.pk}/source{Path(filename).suffix.lower()}"
 
 
-class UUIDModel(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-
-    class Meta:
-        abstract = True
-
-
-class TimestampedModel(models.Model):
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
-
-
 class AbstractModel(UUIDModel):
     created_by = models.ForeignKey(
         get_user_model(), on_delete=models.CASCADE, blank=True, null=True
     )
-    objects = models.Manager()
 
     class Meta:
         abstract = True
@@ -78,13 +63,11 @@ class CaptionProjectStatus(models.TextChoices):
     FAILED = "FAILED", "FAILED"
 
 
-class CaptionProject(UUIDModel, TimestampedModel):
+class CaptionProject(TranscribedMediaModel):
     created_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    title = models.CharField(max_length=100)
     source = models.FileField(upload_to=caption_upload_path, max_length=255)
     preview = models.FileField(blank=True, max_length=255)
     output = models.FileField(blank=True, max_length=255)
-    words = models.JSONField(default=list)
     style = models.JSONField(default=dict)
     duration = models.FloatField()
     width = models.PositiveIntegerField()
@@ -94,8 +77,6 @@ class CaptionProject(UUIDModel, TimestampedModel):
         choices=CaptionProjectStatus.choices,
         default=CaptionProjectStatus.QUEUED,
     )
-    error = models.CharField(max_length=300, blank=True)
-    job_id = models.UUIDField(null=True, editable=False)
 
     class Meta:
         ordering = ["-created_at"]
@@ -264,8 +245,6 @@ class TemplatePrompt(AbstractModel):
         related_name="template_prompts",
     )
 
-    objects = models.Manager()
-
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -280,7 +259,6 @@ class TemplatePrompt(AbstractModel):
 class Music(AbstractModel):
     name = models.CharField(max_length=140, blank=False)
     file = models.FileField(upload_to="media/music", blank=False)
-    objects = models.Manager()
 
     def __str__(self):
         return self.name
@@ -288,7 +266,6 @@ class Music(AbstractModel):
 
 class UserPrompt(UUIDModel):
     prompt = models.TextField(blank=False)
-    objects = models.Manager()
 
     def __str__(self):
         return f"{self.id}"
@@ -384,7 +361,6 @@ class SceneImage(UUIDModel):
     )
     prompt = models.TextField(default="", blank=True, null=True)
     with_audio = models.BooleanField(default=False)
-    objects = models.Manager()
 
     @property
     def file(self):
@@ -458,7 +434,6 @@ class Avatar(AbstractModel):
     voice = models.ForeignKey(
         VoiceModel, null=True, on_delete=models.SET_NULL, db_constraint=False
     )
-    objects = models.Manager()
 
     def __str__(self):
         return self.name
@@ -467,13 +442,11 @@ class Avatar(AbstractModel):
 class Intro(AbstractModel):
     name = models.CharField(max_length=100)
     file = models.FileField(upload_to="media/other/intros")
-    objects = models.Manager()
 
 
 class Outro(AbstractModel):
     name = models.CharField(max_length=100)
     file = models.FileField(upload_to="media/other/outros")
-    objects = models.Manager()
 
 
 class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
