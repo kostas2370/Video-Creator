@@ -4,11 +4,11 @@ from django.db import transaction
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.generics import get_object_or_404
 
+from apps.common.ai_json import parse_ai_json
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.integrations.llm import get_update_sentence
 
 from .exceptions import ClipConflict
-from .highlights import read_json
 from .models import Clip
 from .serializers import HashtagsSerializer
 
@@ -42,7 +42,7 @@ def draft_hashtags(clip, owner):
     for attempt in range(2):
         data = None
         try:
-            data = read_json(get_update_sentence(prompt, user=owner))
+            data = parse_ai_json(get_update_sentence(prompt, user=owner))
             serializer = HashtagsSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             if not serializer.validated_data["hashtags"]:

@@ -1,10 +1,11 @@
 import asyncio
 import mimetypes
-import re
 
 from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.utils.cache import patch_vary_headers
 from django.utils.http import content_disposition_header
+
+from apps.common.ranges import parse_byte_range
 
 
 async def file_chunks(field, start, length):
@@ -23,23 +24,12 @@ def media_response(request, field, *, filename=None):
         raise Http404("Media is unavailable.")
     size = field.size
     start, end, partial = 0, size - 1, False
-    header = request.headers.get("Range")
-    if header:
-        if len(header) > 100:
-            return range_error(size)
-        match = re.fullmatch(r"bytes=(\d*)-(\d*)", header.strip())
-        if not match or not any(match.groups()):
-            return range_error(size)
-        first, last = match.groups()
-        if first:
-            start = int(first)
-            end = min(int(last), size - 1) if last else size - 1
-        elif int(last) > 0:
-            start = max(0, size - int(last))
-        else:
-            return range_error(size)
-        if start >= size or start > end:
-            return range_error(size)
+    try:
+        requested = parse_byte_range(request.headers.get("Range"), size)
+    except ValueError:
+        return range_error(size)
+    if requested is not None:
+        start, end = requested
         partial = True
     length = max(0, end - start + 1)
     response = (

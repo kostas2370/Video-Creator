@@ -1,11 +1,11 @@
 """Generate discovery metadata from the current video content."""
 
 import json
-import re
 
 from django.db import transaction
 from rest_framework.exceptions import APIException, ValidationError
 
+from apps.common.ai_json import parse_ai_json
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.integrations.llm import get_update_sentence
@@ -45,8 +45,7 @@ def generate_tags(video, user):
     for attempt in range(2):
         reply = get_update_sentence(instructions, user=user)
         try:
-            cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", reply.strip())
-            serializer = VideoTagsSerializer(data=json.loads(cleaned))
+            serializer = VideoTagsSerializer(data=parse_ai_json(reply))
             serializer.is_valid(raise_exception=True)
             tags = dict(serializer.validated_data)
             if not all(tags.values()):

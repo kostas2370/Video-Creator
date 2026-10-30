@@ -1,12 +1,10 @@
 import json
 
+from apps.common.ai_json import parse_ai_json
+
 from apps.videomanagement.integrations.llm import get_update_sentence
 
 from .serializers import CandidateSerializer
-
-
-def read_json(raw):
-    return json.loads(raw[raw.index("{") : raw.rindex("}") + 1])
 
 
 def overlapping(a, b):
@@ -44,7 +42,7 @@ def suggest_clips(project, *, is_current=lambda: True):
                 ensure_ascii=False,
             )
         )
-        data = read_json(get_update_sentence(prompt, user=project.created_by))
+        data = parse_ai_json(get_update_sentence(prompt, user=project.created_by))
         if not isinstance(data, dict) or not isinstance(data.get("clips"), list):
             raise ValueError("Invalid highlight response")
         for item in data["clips"][: project.clip_count]:
@@ -77,7 +75,7 @@ def suggest_clips(project, *, is_current=lambda: True):
             ensure_ascii=False,
         )
     )
-    data = read_json(get_update_sentence(prompt, user=project.created_by))
+    data = parse_ai_json(get_update_sentence(prompt, user=project.created_by))
     indices = data.get("indices") if isinstance(data, dict) else None
     if (
         not isinstance(indices, list)
