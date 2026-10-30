@@ -14,6 +14,7 @@ from rest_framework.exceptions import ValidationError
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.models import SceneImage, Video, VideoStatus
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
+from apps.videomanagement.utils.frames import extract_video_frame
 from apps.videomanagement.utils.timing import file_timing, media_timing
 
 logger = logging.getLogger(__name__)
@@ -65,37 +66,14 @@ def _create_thumbnail(video, source):
             if source == video.output
             else (0, 0)
         )
-        result = subprocess.run(
-            [
-                "ffmpeg",
-                "-v",
-                "error",
-                "-nostdin",
-                "-threads",
-                "1",
-                "-ss",
-                str(thumbnail_time(duration, intro, outro)),
-                "-i",
-                str(path),
-                "-frames:v",
-                "1",
-                "-vf",
-                "scale='min(640,iw)':'min(640,ih)':force_original_aspect_ratio=decrease",
-                "-q:v",
-                "4",
-                "-threads",
-                "1",
-                "-f",
-                "image2pipe",
-                "-vcodec",
-                "mjpeg",
-                "pipe:1",
-            ],
-            capture_output=True,
-            check=True,
+        image = extract_video_frame(
+            path,
+            thumbnail_time(duration, intro, outro),
+            max_size=640,
+            codec="mjpeg",
             timeout=20,
         )
-        Image.open(BytesIO(result.stdout)).verify()
+        Image.open(BytesIO(image)).verify()
         after = path.stat()
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         logger.warning("Could not create library thumbnail for video %s", video.pk)
@@ -104,7 +82,7 @@ def _create_thumbnail(video, source):
         ) from exc
     if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
         raise ValidationError(CHANGED_MESSAGE)
-    return ContentFile(result.stdout)
+    return ContentFile(image)
 
 
 def _save_thumbnail(video, image):

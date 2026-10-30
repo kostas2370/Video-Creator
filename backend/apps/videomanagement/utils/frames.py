@@ -3,10 +3,40 @@ import subprocess
 import uuid
 from pathlib import Path
 
+from apps.common.media import run_ffmpeg
+
 from .file_utils import check_if_video
 from .timing import video_metadata
 
 logger = logging.getLogger(__name__)
+
+
+def extract_video_frame(source, timestamp, *, max_size=1280, codec="png", timeout=30):
+    """Return an encoded frame, scaled to fit a square without enlarging it."""
+    result = run_ffmpeg(
+        [
+            "-threads",
+            "1",
+            "-ss",
+            str(timestamp),
+            "-i",
+            str(source),
+            "-frames:v",
+            "1",
+            "-vf",
+            f"scale='min({max_size},iw)':'min({max_size},ih)':force_original_aspect_ratio=decrease",
+            *(["-q:v", "4"] if codec == "mjpeg" else []),
+            "-threads",
+            "1",
+            "-f",
+            "image2pipe",
+            "-vcodec",
+            codec,
+            "pipe:1",
+        ],
+        timeout=timeout,
+    )
+    return result.stdout
 
 
 def still_from_video(path: str, dir_name: str, end_time: float = None) -> str:
@@ -40,14 +70,8 @@ def still_from_video(path: str, dir_name: str, end_time: float = None) -> str:
 
 
 def save_video_frame(source, destination, timestamp):
-    subprocess.run(
+    run_ffmpeg(
         [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-nostdin",
-            "-y",
             "-ss",
             str(timestamp),
             "-i",
@@ -58,8 +82,6 @@ def save_video_frame(source, destination, timestamp):
             "1",
             str(destination),
         ],
-        check=True,
-        capture_output=True,
         timeout=30,
     )
     if not Path(destination).is_file():

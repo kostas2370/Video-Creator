@@ -181,7 +181,7 @@ class CaptionProjectTests(ApiTestCase):
             {"audio": False, "duration": 1, "width": 100, "height": 100},
             {"audio": True, "duration": 901, "width": 100, "height": 100},
         ):
-            with patch("apps.videomanagement.services.captions.uploads.uploaded_video_metadata", return_value=metadata):
+            with patch("apps.videomanagement.services.media.video_uploads.uploaded_video_metadata", return_value=metadata):
                 self.assertEqual(self.upload().status_code, 400)
         response = self.client.post(self.url, {"source": SimpleUploadedFile("broken.mp4", b"broken", "video/mp4")}, format="multipart")
         self.assertEqual(response.status_code, 400)

@@ -145,7 +145,7 @@ class ClipsTests(TestCase):
 
     def test_upload_checks_source_duration_audio_and_options(self):
         with patch(
-            "apps.clips.uploads.uploaded_video_metadata",
+            "apps.videomanagement.services.media.video_uploads.uploaded_video_metadata",
             return_value={
                 "duration": 8000,
                 "audio": True,
@@ -160,7 +160,7 @@ class ClipsTests(TestCase):
             )
         self.assertEqual(response.status_code, 400)
         with patch(
-            "apps.clips.uploads.uploaded_video_metadata",
+            "apps.videomanagement.services.media.video_uploads.uploaded_video_metadata",
             return_value={
                 "duration": 60,
                 "audio": False,

@@ -1,25 +1,20 @@
 """Transcribe source audio into validated, ordered caption words."""
 
 import math
-import subprocess
 from pathlib import Path
 
 from openai import OpenAI
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.common.media import run_ffmpeg
 from apps.videomanagement.services.usage import record_usage
 from apps.videomanagement.utils.captions.timing import normalize_words
 
 
 def transcribe_audio(source, user, duration, directory, *, api_key=None):
     audio = Path(directory, "speech.mp3")
-    subprocess.run(
+    run_ffmpeg(
         [
-            "ffmpeg",
-            "-v",
-            "error",
-            "-nostdin",
-            "-y",
             "-i",
             str(source),
             "-map",
@@ -33,8 +28,6 @@ def transcribe_audio(source, user, duration, directory, *, api_key=None):
             "64k",
             str(audio),
         ],
-        capture_output=True,
-        check=True,
         timeout=120,
     )
     client = OpenAI(

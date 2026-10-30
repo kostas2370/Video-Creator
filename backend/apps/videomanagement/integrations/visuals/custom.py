@@ -1,7 +1,6 @@
 import logging
 import os
 import shutil
-import subprocess
 import tempfile
 import uuid
 from contextlib import ExitStack
@@ -12,6 +11,7 @@ from PIL import Image
 from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutputType
+from apps.common.media import run_ffmpeg
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.services.usage import record_usage
 from apps.videomanagement.utils.timing import video_metadata
@@ -46,12 +46,9 @@ def save_video(downloaded, path):
         with open(source, "wb") as file:
             shutil.copyfileobj(downloaded, file)
         video_metadata(source)
-        subprocess.run(
+        run_ffmpeg(
             [
-                "ffmpeg",
-                "-nostdin",
                 "-xerror",
-                "-y",
                 "-i",
                 source,
                 "-map",
@@ -70,9 +67,6 @@ def save_video(downloaded, path):
                 "+faststart",
                 path,
             ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
             timeout=VIDEO_TIMEOUT,
         )
 

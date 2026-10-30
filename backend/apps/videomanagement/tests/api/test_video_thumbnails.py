@@ -2,7 +2,6 @@ import subprocess
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.files import File
@@ -137,7 +136,7 @@ class VideoThumbnailTests(ApiTestCase):
         with (
             patch(SERVICE + ".media_timing", return_value={"duration": 1}),
             patch(
-                SERVICE + ".subprocess.run",
+                SERVICE + ".extract_video_frame",
                 side_effect=subprocess.TimeoutExpired("ffmpeg", 20),
             ),
         ):
@@ -160,11 +159,11 @@ class VideoThumbnailTests(ApiTestCase):
 
         def start_render(*args, **kwargs):
             Video.objects.filter(pk=self.video.pk).update(status="RENDERING")
-            return SimpleNamespace(stdout=image.getvalue())
+            return image.getvalue()
 
         with (
             patch(SERVICE + ".media_timing", return_value={"duration": 1}),
-            patch(SERVICE + ".subprocess.run", side_effect=start_render),
+            patch(SERVICE + ".extract_video_frame", side_effect=start_render),
         ):
             response = self.client.post(self.url, {}, format="json")
         self.assertEqual(response.status_code, 400)
@@ -183,11 +182,11 @@ class VideoThumbnailTests(ApiTestCase):
             Video.objects.filter(pk=self.video.pk).update(
                 thumbnail="media/thumbnails/other.jpg"
             )
-            return SimpleNamespace(stdout=image.getvalue())
+            return image.getvalue()
 
         with (
             patch(SERVICE + ".media_timing", return_value={"duration": 1}),
-            patch(SERVICE + ".subprocess.run", side_effect=save_elsewhere),
+            patch(SERVICE + ".extract_video_frame", side_effect=save_elsewhere),
         ):
             response = self.client.post(self.url, {}, format="json")
         self.assertEqual(response.status_code, 200, response.data)

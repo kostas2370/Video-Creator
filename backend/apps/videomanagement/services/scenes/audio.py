@@ -8,6 +8,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 
+from apps.common.media import run_ffmpeg
 from apps.videomanagement.models import Scene
 from apps.videomanagement.services.scenes.editing import changed, editable_video
 from apps.videomanagement.utils.audio_editing import (
@@ -62,13 +63,8 @@ def playable_voiceover(upload):
         # into a seekable WAV so validation, preview and rendering share timing.
         normalized = Path(directory, "voiceover.wav")
         try:
-            subprocess.run(
+            run_ffmpeg(
                 [
-                    "ffmpeg",
-                    "-v",
-                    "error",
-                    "-nostdin",
-                    "-y",
                     "-i",
                     str(source),
                     "-map",
@@ -83,9 +79,7 @@ def playable_voiceover(upload):
                     "pcm_s16le",
                     str(normalized),
                 ],
-                capture_output=True,
                 timeout=60,
-                check=True,
             )
         except (OSError, subprocess.SubprocessError):
             raise ValidationError(
