@@ -298,7 +298,7 @@ def generate_video(
         logger.info(f"Generated the images for the video with id : {vid.id}")
 
     try:
-        vid.music = download_music(music)
+        vid.music = download_music(music, user=vid.created_by)
     except Exception as exc:
         logger.error(exc)
 

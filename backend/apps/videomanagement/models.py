@@ -257,6 +257,7 @@ class TemplatePrompt(AbstractModel):
 
 
 class Music(AbstractModel):
+    youtube_video_id = models.CharField(max_length=11, blank=True, db_index=True)
     name = models.CharField(max_length=140, blank=False)
     file = models.FileField(upload_to="media/music", blank=False)
 
