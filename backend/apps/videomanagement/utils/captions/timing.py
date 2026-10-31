@@ -19,6 +19,14 @@ def estimated_words(text, duration):
     return words
 
 
+def words_in_range(words, start, end):
+    return [
+        {**word, "start": max(start, word["start"]), "end": min(end, word["end"])}
+        for word in words
+        if word["end"] > start and word["start"] < end
+    ]
+
+
 def validate_word_bounds(words, duration):
     previous_end = 0
     for word in words:

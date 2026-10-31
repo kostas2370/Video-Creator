@@ -26,7 +26,7 @@ def get_model():
 
 def transcribe(audio):
     with inference_lock:
-        segments, info = get_model().transcribe(
+        segments, _ = get_model().transcribe(
             io.BytesIO(audio),
             word_timestamps=True,
             vad_filter=True,
@@ -37,7 +37,7 @@ def transcribe(audio):
             for segment in segments
             for word in segment.words or []
         ]
-    return {"words": words, "language": info.language}
+    return {"words": words}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -53,9 +53,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/health":
             self.reply(404, {"error": "Not found"})
             return
-        self.reply(
-            200, {"status": "ok", "model_loaded": bool(get_model.cache_info().currsize)}
-        )
+        self.reply(200, {"status": "ok"})
 
     def do_POST(self):
         if self.path != "/transcribe":

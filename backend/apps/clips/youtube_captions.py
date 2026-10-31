@@ -7,7 +7,7 @@ import requests
 from django.conf import settings
 from pytubefix import YouTube
 
-from apps.videomanagement.utils.captions.timing import normalize_words
+from apps.videomanagement.utils.captions.timing import normalize_words, words_in_range
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,8 @@ def caption_words(data, start, stop, duration):
             continue
         base = float(event["tStartMs"]) / 1000
         end = base + float(event["dDurationMs"]) / 1000
+        if end <= start or base >= stop:
+            continue
         for index, segment in enumerate(segments):
             text = segment["utf8"].strip()
             if len(text.split()) != 1 or (index and "tOffsetMs" not in segment):
@@ -74,14 +76,11 @@ def caption_words(data, start, stop, duration):
                 items.append(SimpleNamespace(word=text, start=begin, end=end))
                 seen.add(key)
     items.sort(key=lambda word: word.start)
-    for index, word in enumerate(items[:-1]):
-        word.end = min(word.end, items[index + 1].start)
-    words = normalize_words(items, duration)
-    selected = [
-        {**word, "start": max(start, word["start"]), "end": min(stop, word["end"])}
-        for word in words
-        if word["end"] > start and word["start"] < stop
-    ]
+    for word, following in zip(items, items[1:]):
+        if word.start == following.start:
+            return None
+        word.end = min(word.end, following.start)
+    selected = words_in_range(normalize_words(items, duration), start, stop)
     tolerance = min(30, max(3, (stop - start) * 0.05))
     if (
         not selected
@@ -100,39 +99,36 @@ def youtube_transcript(project):
     if not project.youtube_url or not settings.YOUTUBE_CAPTIONS_ENABLED:
         return None
     try:
-        video = YouTube(project.youtube_url)
-        tracks = source_tracks(video)
-        for track in tracks:
-            try:
-                url = urlsplit(track.url)
-                query = dict(parse_qsl(url.query))
-                query["fmt"] = "json3"
-                response = requests.get(
-                    urlunsplit(url._replace(query=urlencode(query))), timeout=(5, 20)
-                )
-                response.raise_for_status()
-                words = caption_words(
-                    response.json(),
-                    project.range_start,
-                    project.range_stop,
-                    project.duration,
-                )
-                if words:
-                    kind = "automatic" if track.code.startswith("a.") else "uploaded"
-                    return (
-                        words,
-                        f"YouTube captions ({track_language(track.code)}, {kind})",
-                    )
-            except (
-                requests.RequestException,
-                ValueError,
-                TypeError,
-                KeyError,
-                AttributeError,
-            ):
-                logger.info(
-                    "YouTube caption track unavailable or unsuitable; trying another track"
-                )
+        tracks = source_tracks(YouTube(project.youtube_url))
     except Exception:
         logger.info("YouTube captions unavailable; using audio transcription")
+        return None
+    for track in tracks:
+        try:
+            url = urlsplit(track.url)
+            query = dict(parse_qsl(url.query))
+            query["fmt"] = "json3"
+            response = requests.get(
+                urlunsplit(url._replace(query=urlencode(query))), timeout=(5, 20)
+            )
+            response.raise_for_status()
+            words = caption_words(
+                response.json(),
+                project.range_start,
+                project.range_stop,
+                project.duration,
+            )
+            if words:
+                kind = "automatic" if track.code.startswith("a.") else "uploaded"
+                return words, f"YouTube captions ({track_language(track.code)}, {kind})"
+        except (
+            requests.RequestException,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+        ):
+            logger.info(
+                "YouTube caption track unavailable or unsuitable; trying another track"
+            )
     return None

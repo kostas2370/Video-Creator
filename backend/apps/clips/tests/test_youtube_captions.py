@@ -49,6 +49,23 @@ class YouTubeCaptionTests(SimpleTestCase):
             [word["text"] for word in caption_words(data, 0, 4, 4)], ["Hello", "world"]
         )
 
+    def test_ignores_phrase_only_captions_outside_the_requested_range(self):
+        data = {
+            "events": [
+                event(0, segments=[{"utf8": "An earlier phrase"}]),
+                event(600000),
+                event(900000, segments=[{"utf8": "A later phrase"}]),
+            ]
+        }
+        words = caption_words(data, 600, 604, 904)
+        self.assertEqual([word["text"] for word in words], ["Hello", "world"])
+
+    def test_conflicting_words_at_the_same_time_fall_back_to_transcription(self):
+        data = {
+            "events": [event(), event(segments=[{"utf8": "Different", "tOffsetMs": 0}])]
+        }
+        self.assertIsNone(caption_words(data, 0, 4, 4))
+
     def test_rejects_tracks_that_do_not_cover_the_requested_section(self):
         data = {"events": [event(0), event(110000)]}
         self.assertIsNone(caption_words(data, 0, 120, 120))

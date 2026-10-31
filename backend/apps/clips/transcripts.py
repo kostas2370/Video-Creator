@@ -4,6 +4,8 @@ import math
 from django.db.models import Q
 from rest_framework.exceptions import ValidationError
 
+from apps.videomanagement.utils.captions.timing import words_in_range
+
 from .models import ClipProject
 
 
@@ -58,14 +60,7 @@ def reuse_transcript(project):
                 source_key=key
             )
         if key == project.source_key:
-            return [
-                {
-                    **word,
-                    "start": max(project.range_start, word["start"]),
-                    "end": min(project.range_stop, word["end"]),
-                }
-                for word in candidate.words
-                if word["end"] > project.range_start
-                and word["start"] < project.range_stop
-            ]
+            return words_in_range(
+                candidate.words, project.range_start, project.range_stop
+            )
     return None

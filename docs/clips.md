@@ -101,8 +101,7 @@ Start the service with `docker compose -f backend/docker-compose.yml up -d --bui
 Set `WHISPER_MODEL` and `WHISPER_CPU_THREADS` in the Compose environment to tune
 accuracy, memory, and CPU use. CPU int8 is the supported compute mode. Larger models
 need more RAM and take longer; benchmark representative long videos and languages
-before changing the defaults. The model is loaded on first transcription; `/health`
-reports service availability and whether the model is already loaded.
+before changing the defaults. The model is loaded on first transcription; `/health` reports service availability.
 
 Set `SPEECH_TRANSCRIPTION_PROVIDER=openai` to opt into paid OpenAI (`whisper-1`)
 transcription using existing service or personal API keys. There is no automatic
