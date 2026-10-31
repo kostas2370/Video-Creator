@@ -59,6 +59,10 @@ class CharacterDescriptionRequestSerializer(CastDraftRequestSerializer):
     )
 
 
+class CharacterImageQuerySerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+
+
 class CharacterImageRequestSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
     class Meta:

@@ -1,8 +1,9 @@
-"""Snapshot a recurring series before sending an episode to the existing storyboard flow."""
+"""Coordinate series character setup, episode generation, and continuity updates."""
 
 import json
 import logging
 from pathlib import Path
+from uuid import uuid4
 
 from django.core.files import File
 from django.db import transaction
@@ -10,9 +11,16 @@ from django.db.models import Max, Q
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
-from apps.series.characters import copy_cast_sheet
+from apps.series.characters import copy_cast_sheet, draft_cast, save_reference_image
 from apps.series.creative import STORY_FORMAT_GUIDANCE
-from apps.series.models import CHARACTER_PROFILE_FIELDS, SeriesEpisode, VideoSeries
+from apps.series.models import (
+    CHARACTER_PROFILE_FIELDS,
+    Character,
+    SeriesEpisode,
+    VideoSeries,
+)
+from apps.series.serializers import validate_episode_generation
+from apps.series.tasks import generate_character_reference_task
 from apps.videomanagement import tasks
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.integrations.llm import get_update_sentence
@@ -39,16 +47,72 @@ PROFILE_FIELDS = (
 )
 
 
+def draft_character_description(owner, choices):
+    character = draft_cast(owner, choices)[0]
+    if choices["name"]:
+        character["name"] = choices["name"]
+    return {key: character[key] for key in CHARACTER_PROFILE_FIELDS}
+
+
+def request_character_image(*, owner, choices):
+    choices = dict(choices)
+    image = choices.pop("image", None)
+    identifier = choices.pop("id", uuid4())
+    with transaction.atomic():
+        reference = Character.objects.select_for_update().filter(pk=identifier).first()
+        created = reference is None
+        if reference is not None and reference.created_by_id != owner.pk:
+            raise ValidationError("Choose a character from your own account.")
+        reference = reference or Character(pk=identifier, created_by=owner)
+        if reference.status in (Character.Status.QUEUED, Character.Status.GENERATING):
+            raise VideoEditConflict(
+                "This character already has an image request in progress."
+            )
+        if any(getattr(reference, key) != value for key, value in choices.items()):
+            reference.image_approved = False
+        for key, value in choices.items():
+            setattr(reference, key, value)
+        reference.job_id = uuid4()
+        reference.status, reference.error, reference.pending_image = (
+            Character.Status.QUEUED,
+            "",
+            "",
+        )
+        reference.save()
+    if image:
+        try:
+            save_reference_image(reference, image)
+        except Exception:
+            if created:
+                reference.delete()
+            else:
+                Character.objects.filter(pk=reference.pk).update(
+                    status=Character.Status.FAILED,
+                    error="Could not save this image. Your previous look is unchanged.",
+                )
+            raise
+    else:
+        try:
+            generate_character_reference_task.delay(
+                str(reference.pk), str(reference.job_id), reference.generation_brief()
+            )
+        except Exception as exc:
+            reference.status = Character.Status.FAILED
+            reference.error = "Image generation could not be queued. Try again."
+            reference.save(update_fields=["status", "error", "updated_at"])
+            error = APIException(reference.error)
+            error.status_code = 503
+            raise error from exc
+    return reference
+
+
 def episode_context(profile, history):
     creative_profile = {
         field: profile[field]
         for field in ("title", "premise", "characters", "visual_style")
     }
     creative_profile["cast"] = [
-        {
-            key: character.get(key, "")
-            for key in CHARACTER_PROFILE_FIELDS
-        }
+        {key: character.get(key, "") for key in CHARACTER_PROFILE_FIELDS}
         for character in profile.get("cast", [])
     ]
     creative_profile["story_format"] = profile.get("story_format", "GENERAL")
@@ -89,7 +153,8 @@ def _queue_episode_generation(episode):
 
 def _locked_series(series_id, owner, exclude_episode=None):
     series = (
-        VideoSeries.objects.select_for_update().prefetch_related("cast_members")
+        VideoSeries.objects.select_for_update()
+        .prefetch_related("cast_members")
         .filter(pk=series_id, created_by=owner)
         .first()
     )
@@ -273,7 +338,19 @@ def draft_episode(series, *, idea, generation_params, owner):
     return _queue_episode_generation(episode)
 
 
-def retry_episode(episode, *, generation_params, owner):
+def retry_episode(episode, *, owner, generation_params=None, validation_context=None):
+    if episode.video_id is None:
+        raise ValidationError(
+            "This episode's video was deleted. Draft a new episode instead."
+        )
+    if not episode.can_retry:
+        raise VideoEditConflict(
+            "Open the episode in the editor to review or resume it."
+        )
+    if generation_params is None:
+        generation_params = validate_episode_generation(
+            episode.generation_params, validation_context
+        )
     with transaction.atomic():
         _locked_series(episode.series_id, owner, exclude_episode=episode.pk)
         video = (

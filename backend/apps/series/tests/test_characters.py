@@ -40,7 +40,7 @@ class CharacterSetupTests(ApiTestCase):
                 ),
             ) as ai,
             patch(
-                "apps.series.views.generate_character_reference_task.delay"
+                "apps.series.services.generate_character_reference_task.delay"
             ) as images,
         ):
             response = self.client.post(
@@ -147,7 +147,7 @@ class CharacterSetupTests(ApiTestCase):
                 return_value=json.dumps({"cast": cast}),
             ) as ai,
             patch(
-                "apps.series.views.generate_character_reference_task.delay"
+                "apps.series.services.generate_character_reference_task.delay"
             ) as images,
         ):
             response = self.client.post(
@@ -228,7 +228,7 @@ class CharacterSetupTests(ApiTestCase):
 
     def test_generation_is_queued_and_a_job_cannot_generate_twice(self):
         with patch(
-            "apps.series.views.generate_character_reference_task.delay"
+            "apps.series.services.generate_character_reference_task.delay"
         ) as queue:
             response = self.client.post(
                 reverse("series-character-references"), self.choices, format="json"
@@ -296,7 +296,7 @@ class CharacterSetupTests(ApiTestCase):
 
     def test_queue_failure_is_reported_and_does_not_touch_existing_references(self):
         with patch(
-            "apps.series.views.generate_character_reference_task.delay",
+            "apps.series.services.generate_character_reference_task.delay",
             side_effect=RuntimeError("broker unavailable"),
         ):
             response = self.client.post(
@@ -427,7 +427,7 @@ class CharacterSetupTests(ApiTestCase):
 
     def test_cannot_replace_another_accounts_character_by_id(self):
         other = Character.objects.create(created_by=user.make(), name="Other", appearance="Fox")
-        with patch("apps.series.views.generate_character_reference_task.delay") as queue:
+        with patch("apps.series.services.generate_character_reference_task.delay") as queue:
             response = self.client.post(reverse("series-character-references"), {**self.choices, "id": str(other.pk)}, format="json")
         self.assertEqual(response.status_code, 400)
         queue.assert_not_called()

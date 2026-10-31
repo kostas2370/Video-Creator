@@ -346,7 +346,7 @@ class SeriesTests(ApiTestCase):
             return dict(episode.generation_params)
 
         with patch(
-            "apps.series.views.validate_episode_generation",
+            "apps.series.services.validate_episode_generation",
             side_effect=delete_video_before_retry,
         ):
             response = self.client.post(self.url("retry", episode=episode))
