@@ -8,8 +8,7 @@ from apps.series.creative import cast_is_ready, series_visual_continuity
 from apps.series.models import (
     CHARACTER_PROFILE_FIELDS,
     CHARACTER_REFERENCE_FIELDS,
-    CharacterReference,
-    SeriesCharacter,
+    Character,
     SeriesEpisode,
     VideoSeries,
 )
@@ -28,10 +27,10 @@ class CastCharacterSerializer(serializers.ModelSerializer):
     reference_id = serializers.UUIDField(required=False, allow_null=True)
     reference_job_id = serializers.UUIDField(required=False, allow_null=True)
     reference_approval = serializers.JSONField(required=False)
-    reference_image = serializers.CharField(read_only=True)
+    reference_image = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
-        model = SeriesCharacter
+        model = Character
         fields = (
             "id", *CHARACTER_PROFILE_FIELDS, "reference_id", "reference_job_id",
             "reference_approval", "reference_image",
@@ -60,10 +59,11 @@ class CharacterDescriptionRequestSerializer(CastDraftRequestSerializer):
     )
 
 
-class CharacterReferenceRequestSerializer(serializers.ModelSerializer):
+class CharacterImageRequestSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(required=False)
     class Meta:
-        model = CharacterReference
-        fields = (*CHARACTER_REFERENCE_FIELDS, "image")
+        model = Character
+        fields = ("id", *CHARACTER_REFERENCE_FIELDS, "image")
         extra_kwargs = {
             "visual_style": {"required": True, "allow_blank": False},
         }
@@ -82,15 +82,21 @@ class CharacterReferenceRequestSerializer(serializers.ModelSerializer):
         )
 
 
-class CharacterReferenceSerializer(serializers.ModelSerializer):
+class CharacterImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    def get_image(self, character):
+        image = character.pending_image or character.image
+        return image.url if image else None
+
     class Meta:
-        model = CharacterReference
+        model = Character
         fields = ("id", "status", "image", "error")
         read_only_fields = fields
 
 
 class VideoSeriesSerializer(serializers.ModelSerializer):
-    # Parse JSON/multipart input; the database stores related SeriesCharacter rows.
+    # Parse JSON/multipart input; the database stores related Character rows.
     cast = serializers.JSONField(required=False)
     cast_ready = serializers.SerializerMethodField()
     episode_count = serializers.IntegerField(read_only=True)
@@ -180,44 +186,8 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Each character must have a unique ID.")
         if len({character["name"].casefold() for character in cast}) != len(cast):
             raise serializers.ValidationError("Give each character a different name.")
-        reference_ids = [
-            character["reference_id"]
-            for character in cast
-            if character.get("reference_id")
-        ]
-        references = {
-            reference.pk: reference
-            for reference in CharacterReference.objects.filter(
-                pk__in=reference_ids,
-                created_by=self.context["request"].user,
-                status=CharacterReference.Status.READY,
-            )
-        }
-        for character in cast:
-            reference_id = character.get("reference_id")
-            if reference_id:
-                reference = references.get(reference_id)
-                if not reference or not reference.image:
-                    raise serializers.ValidationError(
-                        "Choose a completed character reference from your own account."
-                    )
-                character["reference_id"] = str(reference_id)
-                character["reference_image"] = reference.image.url
-        job_ids = {
-            character["reference_job_id"]
-            for character in cast
-            if character.get("reference_job_id")
-        }
-        if CharacterReference.objects.filter(
-            pk__in=job_ids, created_by=self.context["request"].user
-        ).count() != len(job_ids):
-            raise serializers.ValidationError(
-                "Choose a character image request from your own account."
-            )
-        for character in cast:
-            if character.get("reference_job_id"):
-                character["reference_job_id"] = str(character["reference_job_id"])
-        return cast
+        from apps.series.cast import validate_cast_images
+        return validate_cast_images(cast, self.context["request"].user, self.instance)
 
     def validate_intro(self, value):
         selected = owned_asset(Intro, value, self.context["request"].user)

@@ -32,7 +32,7 @@ like ReelShort-style episodes. Both use the same cast and continuity workflow.
 Still planned: a cross-series character library, standalone-video cast panels,
 multiple reference images per character, explicit per-shot cast selection,
 per-character dialogue/voices, and starting-image approval before animation.
-Apply series migrations through `0005_structured_characters`, restart the API and
+Apply series migrations through `0006_single_character`, restart the API and
 general worker, and rebuild the frontend to use it in Docker.
 
 Suggested first-release defaults: 30–60 seconds, portrait format, 2–3 characters,

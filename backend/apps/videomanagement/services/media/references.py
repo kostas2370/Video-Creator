@@ -9,8 +9,8 @@ from apps.videomanagement.utils.file_utils import stored_file_exists
 
 def archive_reference(instance):
     model = instance._meta.model_name
-    if model == "characterreference":
-        fields = {"image": "character reference"}
+    if model == "character":
+        fields = {"image": "character reference", "pending_image": "character candidate"}
         title = instance.name or "Character"
         owner = instance.created_by
         video = None

@@ -89,7 +89,7 @@ def _queue_episode_generation(episode):
 
 def _locked_series(series_id, owner, exclude_episode=None):
     series = (
-        VideoSeries.objects.select_for_update().prefetch_related("character_profiles__reference")
+        VideoSeries.objects.select_for_update().prefetch_related("cast_members")
         .filter(pk=series_id, created_by=owner)
         .first()
     )

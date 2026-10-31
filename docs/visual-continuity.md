@@ -103,19 +103,17 @@ inputs. These references improve identity guidance but do not guarantee identica
 faces or frame-to-frame continuity. Explicit per-shot cast selection, a review step
 for starting images, and per-character voices are still planned.
 
-Character profiles are stored as ordered `SeriesCharacter` rows belonging to a
-series, with regular name, appearance, wardrobe, personality and relationship
-fields. Approved and pending looks use foreign keys to `CharacterReference`.
-An image reference has explicit name, appearance, wardrobe and visual-style fields
-recording the brief for that particular look. Editing a profile does not rewrite
-the image's brief. Episode profiles and reference approvals remain JSON snapshots;
-the editable cast and image-generation brief are not JSON database fields.
-Shared field definitions and field lists drive profile validation and AI payloads.
+Characters use a single `Character` model linked directly to their series. It
+stores name, appearance, wardrobe, personality, relationships, visual style,
+position, image, approval flag and image-generation status. A pending-image field
+holds a proposed replacement until it is accepted. No separate profile or image
+reference model is needed. Characters being prepared in the wizard can have an
+empty series link until the setup is saved. Episode snapshots remain JSON.
 
-Deploy with series migrations through `0005_structured_characters`, restart the
-API and general worker, and rebuild the frontend. The migration retains saved
-characters, their order, image links and approvals without generating new images.
-The worker must reload to register the character-image task.
+Deploy with series migrations through `0006_single_character`, restart the API
+and workers, and rebuild the frontend. The migration retains saved characters,
+their order, images and approvals without generating new images. The image task
+uses a request ID to avoid accepting an obsolete background result.
 
 ## Extracting details from a reference image
 

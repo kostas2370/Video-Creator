@@ -30,7 +30,7 @@ export function CharacterImageControls({ character, visualStyle, onPatch }) {
   const create = async file => {
     if (busy || job) return;
     setBusy(true); setError("");
-    const choices = { name: character.name, appearance: character.appearance, wardrobe: character.wardrobe || "", visual_style: visualStyle };
+    const choices = { id: character.id, name: character.name, appearance: character.appearance, wardrobe: character.wardrobe || "", visual_style: visualStyle };
     let payload = choices;
     if (file) {
       if (!/image\/(png|jpeg|webp)/.test(file.type) || file.size > 10 * 1024 * 1024) { setError("Choose a PNG, JPEG or WebP image smaller than 10 MB."); setBusy(false); return; }

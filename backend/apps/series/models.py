@@ -25,34 +25,6 @@ CHARACTER_PROFILE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "personality", "relation
 CHARACTER_REFERENCE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "visual_style")
 
 
-class CharacterIdentityFields(models.Model):
-    name = models.CharField(max_length=60)
-    appearance = models.CharField(max_length=300)
-    wardrobe = models.CharField(max_length=150, blank=True, default="")
-
-    class Meta:
-        abstract = True
-
-
-class CharacterReference(CharacterIdentityFields, AbstractModel, TimestampedModel):
-    class Status(models.TextChoices):
-        QUEUED = "QUEUED", "Queued"
-        GENERATING = "GENERATING", "Generating"
-        READY = "READY", "Ready"
-        FAILED = "FAILED", "Failed"
-
-    image = models.ImageField(upload_to="media/characters/%Y/%m/%d", blank=True)
-    status = models.CharField(
-        max_length=12, choices=Status.choices, default=Status.QUEUED
-    )
-    visual_style = models.TextField(max_length=800, blank=True, default="")
-    error = models.CharField(max_length=300, blank=True)
-
-    def generation_brief(self):
-        """The fixed identity/style that this particular image was requested with."""
-        return {field: getattr(self, field) for field in CHARACTER_REFERENCE_FIELDS}
-
-
 class VideoSeries(AbstractModel, TimestampedModel):
     title = models.CharField(max_length=100)
     premise = models.TextField(max_length=2000)
@@ -89,55 +61,62 @@ class VideoSeries(AbstractModel, TimestampedModel):
     @property
     def cast(self):
         """Keep the public ordered cast representation separate from relational storage."""
-        return [character.as_cast_entry() for character in self.character_profiles.all()]
+        return [character.as_cast_entry() for character in self.cast_members.all()]
 
     class Meta:
         db_table = "videomanagement_videoseries"
         ordering = ["-updated_at", "id"]
 
 
-class SeriesCharacter(CharacterIdentityFields, UUIDModel, TimestampedModel):
+class Character(AbstractModel, TimestampedModel):
+    class Status(models.TextChoices):
+        EMPTY = "EMPTY", "No image"
+        QUEUED = "QUEUED", "Queued"
+        GENERATING = "GENERATING", "Generating"
+        READY = "READY", "Ready"
+        FAILED = "FAILED", "Failed"
+
+    # A character can be prepared in the wizard before its series is saved.
     series = models.ForeignKey(
-        VideoSeries, on_delete=models.CASCADE, related_name="character_profiles"
+        VideoSeries, null=True, blank=True, on_delete=models.CASCADE,
+        related_name="cast_members",
     )
-    character_id = models.UUIDField()
-    position = models.PositiveSmallIntegerField()
+    name = models.CharField(max_length=60)
+    appearance = models.CharField(max_length=300)
+    wardrobe = models.CharField(max_length=150, blank=True, default="")
     personality = models.CharField(max_length=200, blank=True, default="")
     relationships = models.CharField(max_length=200, blank=True, default="")
-    reference = models.ForeignKey(
-        CharacterReference, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="character_profiles",
+    visual_style = models.TextField(max_length=800, blank=True, default="")
+    position = models.PositiveSmallIntegerField(default=0)
+    image = models.ImageField(upload_to="media/characters/%Y/%m/%d", blank=True)
+    pending_image = models.ImageField(upload_to="media/characters/%Y/%m/%d", blank=True)
+    image_approved = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.EMPTY
     )
-    reference_job = models.ForeignKey(
-        CharacterReference, null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="pending_profiles",
-    )
-    reference_approval = models.JSONField(null=True, blank=True, default=None)
+    job_id = models.UUIDField(null=True, blank=True, editable=False)
+    error = models.CharField(max_length=300, blank=True)
 
     class Meta:
         ordering = ["position", "id"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["series", "character_id"], name="unique_series_character_identity"
-            ),
-            models.UniqueConstraint(
-                fields=["series", "position"], name="unique_series_character_position"
-            ),
-        ]
+
+    def generation_brief(self):
+        return {field: getattr(self, field) for field in CHARACTER_REFERENCE_FIELDS}
 
     def as_cast_entry(self):
         entry = {
-            "id": str(self.character_id),
+            "id": str(self.pk),
             **{field: getattr(self, field) for field in CHARACTER_PROFILE_FIELDS},
         }
-        if self.reference_id:
-            entry["reference_id"] = str(self.reference_id)
-            if self.reference.image:
-                entry["reference_image"] = self.reference.image.url
-        if self.reference_job_id:
-            entry["reference_job_id"] = str(self.reference_job_id)
-        if self.reference_approval is not None:
-            entry["reference_approval"] = self.reference_approval
+        if self.image:
+            entry.update(reference_id=str(self.pk), reference_image=self.image.url)
+            if self.image_approved:
+                entry["reference_approval"] = {
+                    "reference_id": str(self.pk),
+                    **self.generation_brief(),
+                }
+        if self.pending_image or self.status in (self.Status.QUEUED, self.Status.GENERATING):
+            entry["reference_job_id"] = str(self.pk)
         return entry
 
 

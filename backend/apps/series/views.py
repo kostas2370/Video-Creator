@@ -1,3 +1,6 @@
+from uuid import uuid4
+
+from django.db import transaction
 from django.db.models import Count, OuterRef, Subquery
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -7,7 +10,7 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.series.models import CHARACTER_PROFILE_FIELDS, CharacterReference, SeriesEpisode, VideoSeries
+from apps.series.models import CHARACTER_PROFILE_FIELDS, Character, SeriesEpisode, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     EpisodeMemoryDraftSerializer,
@@ -30,8 +33,8 @@ from .characters import draft_cast, save_reference_image
 from .serializers import (
     CastDraftRequestSerializer,
     CharacterDescriptionRequestSerializer,
-    CharacterReferenceRequestSerializer,
-    CharacterReferenceSerializer,
+    CharacterImageRequestSerializer,
+    CharacterImageSerializer,
 )
 from .tasks import generate_character_reference_task
 from .throttling import (
@@ -64,7 +67,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
                 active_video_id=Subquery(active.values("video_id")[:1]),
                 active_episode_number=Subquery(active.values("number")[:1]),
             )
-            .prefetch_related("character_profiles__reference")
+            .prefetch_related("cast_members")
             .order_by("-updated_at", "id")
         )
 
@@ -121,38 +124,57 @@ class VideoSeriesView(viewsets.ModelViewSet):
                 request.query_params.get("id")
             )
             reference = get_object_or_404(
-                CharacterReference, pk=identifier, created_by=request.user
+                Character, pk=identifier, created_by=request.user
             )
             return Response(
-                CharacterReferenceSerializer(
+                CharacterImageSerializer(
                     reference, context=self.get_serializer_context()
                 ).data
             )
-        serializer = CharacterReferenceRequestSerializer(data=request.data)
+        serializer = CharacterImageRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         choices = dict(serializer.validated_data)
         image = choices.pop("image", None)
-        reference = CharacterReference.objects.create(
-            created_by=request.user, **choices
-        )
+        identifier = choices.pop("id", uuid4())
+        with transaction.atomic():
+            reference = Character.objects.select_for_update().filter(pk=identifier).first()
+            created = reference is None
+            if reference is not None and reference.created_by_id != request.user.pk:
+                raise ValidationError("Choose a character from your own account.")
+            reference = reference or Character(pk=identifier, created_by=request.user)
+            if reference.status in (Character.Status.QUEUED, Character.Status.GENERATING):
+                raise VideoEditConflict("This character already has an image request in progress.")
+            if any(getattr(reference, key) != value for key, value in choices.items()):
+                reference.image_approved = False
+            for key, value in choices.items():
+                setattr(reference, key, value)
+            reference.job_id = uuid4()
+            reference.status, reference.error, reference.pending_image = Character.Status.QUEUED, "", ""
+            reference.save()
         if image:
             try:
                 save_reference_image(reference, image)
             except Exception:
-                reference.delete()
+                if created:
+                    reference.delete()
+                else:
+                    Character.objects.filter(pk=reference.pk).update(
+                        status=Character.Status.FAILED,
+                        error="Could not save this image. Your previous look is unchanged.",
+                    )
                 raise
         else:
             try:
-                generate_character_reference_task.delay(str(reference.pk))
+                generate_character_reference_task.delay(str(reference.pk), str(reference.job_id), reference.generation_brief())
             except Exception as exc:
-                reference.status = CharacterReference.Status.FAILED
+                reference.status = Character.Status.FAILED
                 reference.error = "Image generation could not be queued. Try again."
                 reference.save(update_fields=["status", "error", "updated_at"])
                 error = APIException(reference.error)
                 error.status_code = 503
                 raise error from exc
         return Response(
-            CharacterReferenceSerializer(
+            CharacterImageSerializer(
                 reference, context=self.get_serializer_context()
             ).data,
             status=201 if image else 202,

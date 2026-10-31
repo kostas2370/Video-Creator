@@ -13,7 +13,7 @@ from PIL import Image
 
 from apps.series.characters import save_reference_image
 from apps.series.creative import reference_approval
-from apps.series.models import CharacterReference, SeriesEpisode, VideoSeries
+from apps.series.models import Character, SeriesEpisode, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     VideoSeriesSerializer,
@@ -129,10 +129,10 @@ class SeriesTests(ApiTestCase):
         Image.new("RGB", (64, 64), "orange").save(source, format="PNG")
         source.seek(0)
         reference = save_reference_image(
-            CharacterReference.objects.create(created_by=self.user), source
+            Character.objects.create(created_by=self.user), source
         )
         character = self.character(
-            reference_id=str(reference.pk), reference_image=reference.image.url
+            id=str(reference.pk), reference_id=str(reference.pk), reference_image=reference.image.url
         )
         character["reference_approval"] = reference_approval(
             character, self.series.visual_style
@@ -711,7 +711,7 @@ class SeriesTests(ApiTestCase):
                 intro_id=opening.pk,
                 outro_id=ending.pk,
             )
-        profiles = list(VideoSeries.objects.filter(voice_model_id=voice.pk).prefetch_related("character_profiles__reference"))
+        profiles = list(VideoSeries.objects.filter(voice_model_id=voice.pk).prefetch_related("cast_members"))
         with self.assertNumQueries(0):
             data = VideoSeriesSerializer(profiles, many=True).data
         self.assertEqual(len(data), 3)

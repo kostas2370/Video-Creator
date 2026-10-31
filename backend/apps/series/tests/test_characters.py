@@ -12,7 +12,7 @@ from PIL import Image
 
 from apps.series.characters import generate_reference
 from apps.series.creative import reference_approval
-from apps.series.models import CharacterReference, SeriesEpisode, VideoSeries
+from apps.series.models import Character, SeriesEpisode, VideoSeries
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.services.videos.generation import generate_video
 from apps.videomanagement.tests.api.base import ApiTestCase
@@ -129,7 +129,7 @@ class CharacterSetupTests(ApiTestCase):
         }
         if reference:
             character.update(
-                reference_id=reference["id"], reference_image=reference["image"]
+                id=reference["id"], reference_id=reference["id"], reference_image=reference["image"]
             )
             character["reference_approval"] = reference_approval(
                 character, "Watercolor"
@@ -169,7 +169,7 @@ class CharacterSetupTests(ApiTestCase):
         )
         self.assertIn("Rivals become friends", ai.call_args.args[0])
         self.assertFalse(VideoSeries.objects.exists())
-        self.assertFalse(CharacterReference.objects.exists())
+        self.assertFalse(Character.objects.exists())
         images.assert_not_called()
 
     def test_invalid_ai_cast_does_not_replace_any_saved_profiles(self):
@@ -194,7 +194,7 @@ class CharacterSetupTests(ApiTestCase):
     def test_uploaded_references_are_normalized_and_owner_scoped(self):
         response = self.upload()
         self.assertEqual(response.status_code, 201, response.data)
-        reference = CharacterReference.objects.get(pk=response.data["id"])
+        reference = Character.objects.get(pk=response.data["id"])
         self.assertEqual(reference.status, "READY")
         with Image.open(reference.image.path) as image:
             self.assertEqual(image.format, "PNG")
@@ -235,7 +235,7 @@ class CharacterSetupTests(ApiTestCase):
             )
         self.assertEqual(response.status_code, 202, response.data)
         identifier = response.data["id"]
-        queue.assert_called_once_with(identifier)
+        queue.assert_called_once_with(identifier, str(Character.objects.get(pk=identifier).job_id), self.choices)
         path = Path(self.files.name) / "generated.png"
         Image.new("RGB", (32, 32), "orange").save(path)
         with patch(
@@ -246,14 +246,14 @@ class CharacterSetupTests(ApiTestCase):
             generate_reference(identifier)
         generate.assert_called_once()
         self.assertIn("single-character identity reference", generate.call_args.args[0])
-        reference = CharacterReference.objects.get(pk=identifier)
+        reference = Character.objects.get(pk=identifier)
         self.assertEqual(reference.status, "READY")
         self.assertTrue(reference.image.storage.exists(reference.image.name))
 
     def test_generation_failures_are_safe_and_leave_previous_images_intact(self):
         previous = self.upload().data
-        reference = CharacterReference.objects.create(
-            created_by=self.user, **self.choices
+        reference = Character.objects.create(
+            created_by=self.user, status="QUEUED", **self.choices
         )
         with patch(
             "apps.series.characters.openai_images.generate_openai_image",
@@ -266,15 +266,15 @@ class CharacterSetupTests(ApiTestCase):
         self.assertEqual(response.data["status"], "FAILED")
         self.assertNotIn("private provider details", response.data["error"])
         self.assertEqual(
-            CharacterReference.objects.get(pk=previous["id"]).status, "READY"
+            Character.objects.get(pk=previous["id"]).status, "READY"
         )
 
     def test_pending_image_requests_can_be_saved_but_must_belong_to_the_owner(self):
-        reference = CharacterReference.objects.create(
-            created_by=self.user, **self.choices
+        reference = Character.objects.create(
+            created_by=self.user, status="QUEUED", **self.choices
         )
         series = self.profile(story_format="SERIAL_DRAMA")
-        character = self.character() | {"reference_job_id": str(reference.pk)}
+        character = self.character() | {"id": str(reference.pk), "reference_job_id": str(reference.pk)}
         response = self.client.patch(
             reverse("series-detail", args=[series.pk]),
             {"cast": [character]},
@@ -303,7 +303,7 @@ class CharacterSetupTests(ApiTestCase):
                 reverse("series-character-references"), self.choices, format="json"
             )
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(CharacterReference.objects.get().status, "FAILED")
+        self.assertEqual(Character.objects.get().status, "FAILED")
 
     def test_episode_requires_approved_images_and_changes_require_review(self):
         reference = self.upload().data
@@ -330,6 +330,7 @@ class CharacterSetupTests(ApiTestCase):
                 )
             self.assertEqual(response.status_code, 400, response.data)
             queue.assert_not_called()
+            replace_series_cast(series, [])
         self.assertFalse(SeriesEpisode.objects.exists())
 
     def test_episode_copies_a_cast_sheet_and_later_cast_edits_cannot_change_it(self):
@@ -393,3 +394,42 @@ class CharacterSetupTests(ApiTestCase):
         episode.video.refresh_from_db()
         self.assertTrue(episode.video.settings["character_references"])
         self.assertEqual(episode.video.status, "REVIEW")
+
+    def test_new_look_stays_pending_on_the_same_character_until_accepted(self):
+        reference = self.upload().data
+        series = self.profile(cast=[self.character(reference)])
+        character = Character.objects.get(pk=reference["id"])
+        original = character.image.name
+        image = io.BytesIO()
+        Image.new("RGB", (64, 64), "blue").save(image, format="PNG")
+        response = self.client.post(
+            reverse("series-character-references"),
+            {**self.choices, "id": str(character.pk), "image": SimpleUploadedFile("new.png", image.getvalue(), content_type="image/png")},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["id"], str(character.pk))
+        character.refresh_from_db()
+        self.assertEqual(character.image.name, original)
+        self.assertTrue(character.image.storage.exists(original))
+        self.assertTrue(character.image_approved)
+        self.assertTrue(character.pending_image)
+        new_image = character.pending_image.name
+        selected = self.character(reference) | {"reference_image": response.data["image"]}
+        saved = self.client.patch(reverse("series-detail", args=[series.pk]), {"cast": [selected]}, format="json")
+        self.assertEqual(saved.status_code, 200, saved.data)
+        character.refresh_from_db()
+        self.assertEqual(character.image.name, new_image)
+        self.assertFalse(character.pending_image)
+        self.assertTrue(character.image.storage.exists(new_image))
+        self.assertTrue(character.image_approved)
+        self.assertEqual(Character.objects.count(), 1)
+
+    def test_cannot_replace_another_accounts_character_by_id(self):
+        other = Character.objects.create(created_by=user.make(), name="Other", appearance="Fox")
+        with patch("apps.series.views.generate_character_reference_task.delay") as queue:
+            response = self.client.post(reverse("series-character-references"), {**self.choices, "id": str(other.pk)}, format="json")
+        self.assertEqual(response.status_code, 400)
+        queue.assert_not_called()
+        other.refresh_from_db()
+        self.assertEqual(other.name, "Other")

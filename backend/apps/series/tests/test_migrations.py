@@ -1,5 +1,7 @@
 """Verify the app move against populated tables and existing permission grants."""
 
+from uuid import UUID
+
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
@@ -155,3 +157,12 @@ class StructuredCharacterMigrationTests(TransactionTestCase):
             self.assertEqual(reference.name, original["name"])
             self.assertEqual(reference.image.name, files[reference.pk])
             self.assertEqual(reference.status, "READY")
+
+        unified = self.migrate([("series", "0006_single_character")])
+        characters = list(unified.get_model("series", "Character").objects.filter(series_id=series.pk).order_by("position"))
+        self.assertEqual(len(characters), 3)
+        for original, character in zip(cast, characters):
+            self.assertEqual(str(character.pk), original["id"])
+            self.assertEqual(character.name, original["name"])
+            self.assertEqual(character.image.name, files[UUID(original["reference_id"])])
+            self.assertTrue(character.image_approved)

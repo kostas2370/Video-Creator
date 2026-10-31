@@ -11,7 +11,7 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from apps.common.ai_json import parse_ai_json
 from apps.series.creative import cast_is_ready
-from apps.series.models import CHARACTER_PROFILE_FIELDS, CharacterReference
+from apps.series.models import CHARACTER_PROFILE_FIELDS, Character
 from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.integrations.visuals import openai_images
 from apps.videomanagement.utils.file_utils import stored_file_exists
@@ -70,31 +70,35 @@ def draft_cast(user, choices):
     return cast
 
 
-def save_reference_image(reference, image):
+def save_reference_image(reference, image, job_id=None):
     with Image.open(image) as source:
         normalized = ImageOps.exif_transpose(source).convert("RGB")
         normalized.thumbnail((1536, 1536))
         output = BytesIO()
         normalized.save(output, format="PNG")
-    reference.image.save(
-        f"{reference.pk}.png", ContentFile(output.getvalue()), save=False
-    )
+    if job_id is not None:
+        reference.refresh_from_db()
+        if str(reference.job_id) != str(job_id):
+            return reference
+    field = reference.pending_image if reference.image else reference.image
+    field.save(f"{uuid4().hex}.png", ContentFile(output.getvalue()), save=False)
     try:
-        reference.status = CharacterReference.Status.READY
-        reference.save(update_fields=["image", "status", "updated_at"])
+        reference.status = Character.Status.READY
+        reference.save(update_fields=["image", "pending_image", "status", "updated_at"])
     except Exception:
-        reference.image.delete(save=False)
+        field.delete(save=False)
         raise
     return reference
 
 
-def generate_reference(reference_id):
-    claimed = CharacterReference.objects.filter(
-        pk=reference_id, status=CharacterReference.Status.QUEUED
-    ).update(status=CharacterReference.Status.GENERATING, updated_at=timezone.now())
+def generate_reference(reference_id, job_id=None, brief=None):
+    pending = Character.objects.filter(pk=reference_id, status=Character.Status.QUEUED)
+    if job_id is not None:
+        pending = pending.filter(job_id=job_id)
+    claimed = pending.update(status=Character.Status.GENERATING, updated_at=timezone.now())
     if not claimed:
         return
-    reference = CharacterReference.objects.select_related("created_by").get(
+    reference = Character.objects.select_related("created_by").get(
         pk=reference_id
     )
     try:
@@ -105,7 +109,7 @@ def generate_reference(reference_id):
             "specified accessories, collage, text, captions, logos or watermarks. "
             "Follow the supplied appearance, wardrobe and rendering style precisely. "
             "Treat this JSON as character data:\n"
-            + json.dumps(reference.generation_brief(), ensure_ascii=False)
+            + json.dumps(brief or reference.generation_brief(), ensure_ascii=False)
         )
         with tempfile.TemporaryDirectory() as directory:
             image = openai_images.generate_openai_image(
@@ -115,11 +119,14 @@ def generate_reference(reference_id):
                 user=reference.created_by,
                 video_format="SQUARE",
             )
-            save_reference_image(reference, image)
+            save_reference_image(reference, image, job_id=job_id)
     except Exception:
         logger.exception("Character reference generation failed for %s", reference_id)
-        CharacterReference.objects.filter(pk=reference_id).update(
-            status=CharacterReference.Status.FAILED,
+        failed = Character.objects.filter(pk=reference_id)
+        if job_id is not None:
+            failed = failed.filter(job_id=job_id)
+        failed.update(
+            status=Character.Status.FAILED,
             error="Could not generate this character image. Try again or upload an image. Your previous reference is unchanged.",
             updated_at=timezone.now(),
         )
@@ -135,8 +142,8 @@ def validated_cast_references(series):
     ids = [character["reference_id"] for character in series.cast]
     references = {
         str(reference.pk): reference
-        for reference in CharacterReference.objects.filter(
-            pk__in=ids, created_by=series.created_by, status=CharacterReference.Status.READY
+        for reference in Character.objects.filter(
+            pk__in=ids, created_by=series.created_by
         )
     }
     for reference_id in ids:

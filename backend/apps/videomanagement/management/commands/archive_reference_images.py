@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand
 
-from apps.series.models import CharacterReference, VideoSeries
+from apps.series.models import Character, VideoSeries
 from apps.videomanagement.models import MediaAsset, Scene, Video
 from apps.videomanagement.services.media.references import archive_reference
 
@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
     def handle(self, **options):
         count = 0
-        for model in (CharacterReference, VideoSeries, Video):
+        for model in (Character, VideoSeries, Video):
             for instance in model.objects.all().select_related("created_by").iterator():
                 if archive_reference(instance):
                     count += 1

@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from model_bakery import baker
 from PIL import Image
 
-from apps.series.models import CharacterReference, VideoSeries
+from apps.series.models import Character, VideoSeries
 from apps.usermanagement.models import User
 from apps.videomanagement.models import MediaAsset, Scene, SceneImage, Video
 from apps.videomanagement.services.media.references import archive_reference
@@ -25,7 +25,7 @@ class ReferenceAssetTests(TestCase):
         self.image = output.getvalue()
 
     def test_character_upload_is_durable_and_owner_scoped(self):
-        reference = CharacterReference.objects.create(created_by=self.user, name="Milo")
+        reference = Character.objects.create(created_by=self.user, name="Milo")
         reference.image.save("milo.png", ContentFile(self.image))
         asset = MediaAsset.objects.get(created_by=self.user)
         self.assertIn("character reference", asset.tags)

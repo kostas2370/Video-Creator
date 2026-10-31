@@ -61,6 +61,7 @@ def notification_changed(sender, instance, using, **kwargs):
 
 @receiver(cleanup_pre_delete, sender=MediaAsset)
 @receiver(cleanup_pre_delete, sender=Scene)
+@receiver(cleanup_pre_delete, sender="series.Character")
 def preserve_shared_asset_file(sender, file, file_name, **kwargs):
     # Cleanup runs after commit. Include archived scenes and all media-bearing
     # models so a shared narration, logo, or library file survives its first owner.
@@ -78,7 +79,7 @@ def preserve_shared_asset_file(sender, file, file_name, **kwargs):
 
 @receiver(post_save, sender=Video)
 @receiver(post_save, sender="series.VideoSeries")
-@receiver(post_save, sender="series.CharacterReference")
+@receiver(post_save, sender="series.Character")
 @receiver(post_save, sender=Scene)
 def reference_saved(sender, instance, **kwargs):
     if not kwargs.get("raw"):
