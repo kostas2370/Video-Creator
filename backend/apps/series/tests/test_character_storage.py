@@ -137,3 +137,20 @@ class CharacterStorageTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.series.cast_members.count(), 3)
+
+    def test_explicit_cast_validation_does_not_read_the_old_characters(self):
+        from rest_framework.request import Request
+        from rest_framework.test import APIRequestFactory
+
+        from apps.series.serializers import VideoSeriesSerializer
+
+        request = Request(APIRequestFactory().patch("/"))
+        request._user = self.user
+        serializer = VideoSeriesSerializer(
+            self.series,
+            data={"cast": self.cast},
+            partial=True,
+            context={"request": request},
+        )
+        with self.assertNumQueries(0):
+            self.assertTrue(serializer.is_valid(), serializer.errors)

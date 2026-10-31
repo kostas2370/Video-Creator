@@ -143,7 +143,7 @@ def generate_reference(character_id, job_id, brief):
             "specified accessories, collage, text, captions, logos or watermarks. "
             "Follow the supplied appearance, wardrobe and rendering style precisely. "
             "Treat this JSON as character data:\n"
-            + json.dumps(brief or reference.generation_brief(), ensure_ascii=False)
+            + json.dumps(brief, ensure_ascii=False)
         )
         with tempfile.TemporaryDirectory() as directory:
             image = openai_images.generate_openai_image(
@@ -156,9 +156,9 @@ def generate_reference(character_id, job_id, brief):
             save_reference_image(reference, image, job_id=job_id, brief=brief)
     except Exception:
         logger.exception("Character reference generation failed for %s", character_id)
-        failed = Character.objects.filter(pk=character_id)
-        failed = failed.filter(job_id=job_id, status=Character.Status.GENERATING)
-        failed.update(
+        Character.objects.filter(
+            pk=character_id, job_id=job_id, status=Character.Status.GENERATING
+        ).update(
             status=Character.Status.FAILED,
             error="Could not generate this character image. Try again or upload an image. Your previous reference is unchanged.",
             updated_at=timezone.now(),

@@ -215,17 +215,18 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         def current(field, default=None):
-            if field == "cast":
-                return attrs.get(
-                    "cast_members",
-                    serialize_cast(self.instance) if self.instance else default,
-                )
             return attrs.get(field, getattr(self.instance, field, default))
 
+        if "cast_members" in attrs:
+            cast = attrs["cast_members"]
+        elif self.instance:
+            cast = serialize_cast(self.instance)
+        else:
+            cast = []
         continuity = series_visual_continuity(
             characters=current("characters", ""),
             visual_style=current("visual_style", ""),
-            cast=current("cast", []),
+            cast=cast,
         )
         if len(continuity) > 3000:
             raise serializers.ValidationError(
@@ -241,7 +242,7 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
             )
         provider = current("provider", "OPENAI")
         if any(
-            character.get("image") for character in current("cast", [])
+            character.get("image") for character in cast
         ) and not ImageProviderRegistry.supports_reference(provider):
             raise serializers.ValidationError(
                 {
