@@ -4,9 +4,9 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.videomanagement.filters import UsageFilter
-from apps.videomanagement.models import AIUsage
-from apps.videomanagement.serializers.usage import UsageSerializer
+from apps.usage.filters import UsageFilter
+from apps.usage.models import AIUsage
+from apps.usage.serializers import UsageSerializer
 
 
 class UsageView(GenericAPIView):

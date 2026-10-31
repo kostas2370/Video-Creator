@@ -1,4 +1,3 @@
-
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -11,14 +10,13 @@ from django.utils.dateparse import parse_datetime
 from rest_framework.exceptions import APIException
 from rest_framework.test import APIClient
 
+from apps.usage.models import AIUsage
+from apps.usage.serializers import UsageSerializer
+from apps.usage.services import record_usage
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.integrations import llm as llm
 from apps.videomanagement.integrations import tts as tts_utils
 from apps.videomanagement.integrations.visuals import openai_images
-from apps.videomanagement.services.usage import record_usage
-
-from ...models import AIUsage
-from ...serializers.usage import UsageSerializer
 
 
 class UsageTests(TestCase):
@@ -177,7 +175,7 @@ class UsageTests(TestCase):
 
     def test_measurement_failure_does_not_break_generation_or_transaction(self):
         with patch(
-            "apps.videomanagement.services.usage.AIUsage.objects.create",
+            "apps.usage.services.AIUsage.objects.create",
             side_effect=DatabaseError,
         ):
             record_usage(self.user, "text", "OPENAI")

@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "apps.usermanagement",
     "apps.videomanagement",
+    "apps.usage",
     "apps.series",
     "apps.clips",
     "apps.news",

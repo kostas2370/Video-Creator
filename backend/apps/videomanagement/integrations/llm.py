@@ -12,7 +12,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.schemas.shot_planning import ShotPlanSerializer
 from apps.videomanagement.utils.image_inputs import image_data

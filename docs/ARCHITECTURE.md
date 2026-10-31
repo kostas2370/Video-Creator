@@ -47,6 +47,7 @@ resource budgeting alongside the general worker.
 | Video services | Coordinate generation, recovery, and edits | [`videomanagement/services/`](../backend/apps/videomanagement/services/) |
 | Background tasks | Invoke services, record failures, import voices, reap stalled work | [`videomanagement/tasks.py`](../backend/apps/videomanagement/tasks.py) |
 | Media utilities | Media inspection, caption calculations, script processing, composition | [`videomanagement/utils/`](../backend/apps/videomanagement/utils/) |
+| AI usage | Record provider consumption and report user-scoped totals | [`usage/`](../backend/apps/usage/) |
 | Provider credentials | Built-in keys, custom TTS configuration, masked API responses | [`apikeysmanagement/`](../backend/apps/apikeysmanagement/) |
 | Accounts and notifications | Authentication, password reset, notifications, email tasks | [`usermanagement/`](../backend/apps/usermanagement/) |
 
@@ -64,7 +65,7 @@ Video services are grouped by feature:
 - `services/captions/`: caption projects, transcription, alignment, scene edits and exports.
 - `services/media/`: media library, covers, asset selection, limits, downloads and upload policies.
 - `services/voices/`: voice cloning and credential rules.
-- `services/usage.py`: persistence of provider usage measurements.
+- `apps/usage/services.py`: persistence of provider usage measurements, owned by the separate usage app.
 
 `integrations/` contains LLM, TTS and visual-provider adapters. `utils/captions/`
 contains shared styles, word timing and cue/SRT formatting. Other utilities contain
@@ -564,7 +565,9 @@ is reported by scene status and editor warnings, not a video-failure notificatio
 
 ## Usage tracking and current limitations
 
-Provider consumption is recorded in `AIUsage` and exposed on the account's Usage page.
+Provider consumption is recorded in `apps.usage.models.AIUsage` and exposed on the account's Usage page.
+The `usage` app owns recording, token normalization, aggregation, and the `/api/usage/` endpoint.
+It retains the existing `videomanagement_aiusage` table and records.
 Generation is not gated by an internal balance and does not deduct application credits.
 Provider credentials and upstream limits still apply. Authentication, asset ownership,
 request throttles, and in-flight status checks remain enforced.
@@ -591,7 +594,7 @@ production-ready by themselves.
 | Add a composition layer | `utils/composer/` and `handle_final_video()` |
 | Change ownership behavior | Owner-scoped querysets, `permissions.py`, `asset_selection.py`, API and service regressions |
 | Change recovery behavior | Task wrappers, `resume_video()`, file-existence helpers, reaper, frontend subscriptions |
-| Change usage accounting | `services/usage.py`, `utils/token_usage.py`, and `AIUsageQuerySet` |
+| Change usage accounting | `usage/services.py`, `usage/tokens.py`, and `usage/querysets.py` |
 
 Backend tests are grouped under `tests/api/`, `tests/services/`, `tests/utils/`,
 `tests/composer/`, and `tests/image_providers/`, with credential/account tests in their
