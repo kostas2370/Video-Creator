@@ -21,7 +21,10 @@ from apps.series.models import (
     Character,
     VideoSeries,
 )
-from apps.videomanagement.exceptions import VideoEditConflict
+from apps.videomanagement.exceptions import (
+    GenerationQueueUnavailable,
+    VideoEditConflict,
+)
 from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.integrations.visuals import openai_images
 from apps.videomanagement.models import MediaAsset
@@ -66,10 +69,7 @@ def draft_cast(user, choices):
             many=True,
         )
         serializer.is_valid(raise_exception=True)
-        cast = [
-            {**character, "id": str(character["id"])}
-            for character in serializer.validated_data
-        ]
+        cast = serializer.data
         if len({character["name"].casefold() for character in cast}) != len(cast):
             raise ValueError("Duplicate names")
     except (ValueError, KeyError, TypeError, AttributeError, ValidationError) as exc:
@@ -203,19 +203,10 @@ def copy_cast_sheet(series, video):
         return False
     columns = min(len(characters), 3)
     rows = (len(characters) + columns - 1) // columns
-    sheet = Image.new("RGB", (columns * 512, rows * 568), "white")
-    draw = ImageDraw.Draw(sheet)
-    for index, character in enumerate(characters):
-        x, y = (index % columns) * 512, (index // columns) * 568
-        with character.image.open("rb") as source:
-            with Image.open(source) as image:
-                tile = ImageOps.contain(
-                    ImageOps.exif_transpose(image).convert("RGB"), (496, 496)
-                )
-                sheet.paste(
-                    tile, (x + (512 - tile.width) // 2, y + (504 - tile.height) // 2)
-                )
-        draw.text((x + 12, y + 516), character.name, fill="black", font_size=22)
+    references = [
+        (character.image, character.name, index % columns, index // columns)
+        for index, character in enumerate(characters)
+    ]
     if series.reference_image:
         if not stored_file_exists(series.reference_image):
             raise ValidationError(
@@ -223,20 +214,22 @@ def copy_cast_sheet(series, video):
                     "reference_image": "The shared style reference is missing. Upload it again or remove it."
                 }
             )
-        combined = Image.new(
-            "RGB", (sheet.width + 512, max(sheet.height, 568)), "white"
-        )
-        combined.paste(sheet)
-        with series.reference_image.open("rb") as source:
+        references.append((series.reference_image, "Shared style / world", columns, 0))
+    sheet = Image.new(
+        "RGB", ((columns + bool(series.reference_image)) * 512, rows * 568), "white"
+    )
+    draw = ImageDraw.Draw(sheet)
+    for reference, label, column, row in references:
+        x, y = column * 512, row * 568
+        with reference.open("rb") as source:
             with Image.open(source) as image:
                 tile = ImageOps.contain(
                     ImageOps.exif_transpose(image).convert("RGB"), (496, 496)
                 )
-                combined.paste(tile, (sheet.width + 8, 8))
-        ImageDraw.Draw(combined).text(
-            (sheet.width + 12, 516), "Shared style / world", fill="black", font_size=22
-        )
-        sheet = combined
+                sheet.paste(
+                    tile, (x + (512 - tile.width) // 2, y + (504 - tile.height) // 2)
+                )
+        draw.text((x + 12, y + 516), label, fill="black", font_size=22)
     output = BytesIO()
     sheet.save(output, format="PNG")
     video.reference_image.save(
@@ -317,9 +310,7 @@ def request_character_image(*, owner, choices):
                 error=reference.error,
                 updated_at=timezone.now(),
             )
-            error = APIException(reference.error)
-            error.status_code = 503
-            raise error from exc
+            raise GenerationQueueUnavailable(reference.error) from exc
     return reference
 
 
@@ -344,7 +335,7 @@ def replace_series_cast(series, cast):
         .filter(Q(pk__in=ids) | Q(series=series))
         .order_by("pk")
     }
-    for data in cast:
+    for position, data in enumerate(cast):
         character = characters.get(str(data["id"]))
         if character and (
             character.created_by_id != series.created_by_id
@@ -359,9 +350,6 @@ def replace_series_cast(series, cast):
             raise ValidationError(
                 {"cast": "Upload or generate this character's image first."}
             )
-    series.cast_members.exclude(pk__in=ids).update(series=None)
-    for position, data in enumerate(cast):
-        character = characters.get(str(data["id"]))
         created = character is None
         character = character or Character(pk=data["id"], created_by=series.created_by)
         changed = any(
@@ -400,4 +388,5 @@ def replace_series_cast(series, cast):
             raise VideoEditConflict(
                 "Character setup changed. Refresh and try again."
             ) from exc
+    series.cast_members.exclude(pk__in=ids).update(series=None)
     getattr(series, "_prefetched_objects_cache", {}).pop("cast_members", None)

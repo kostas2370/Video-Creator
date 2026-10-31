@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
@@ -334,7 +335,6 @@ class CharacterSetupTests(ApiTestCase):
             series = self.profile(story_format="ANIMATED_STORY")
             for field, value in changes.items():
                 if field == "cast":
-
                     replace_series_cast(series, value)
                 else:
                     setattr(series, field, value)
@@ -556,3 +556,28 @@ class CharacterSetupTests(ApiTestCase):
         self.assertEqual(character.status, "FAILED")
         self.assertFalse(character.image)
         self.assertEqual(MediaAsset.objects.filter(created_by=self.user).count(), 1)
+
+    def test_cast_sheet_keeps_shared_style_in_its_own_column_for_a_multirow_cast(self):
+        cast = []
+        for index, color in enumerate(("orange", "blue", "red", "yellow")):
+            character = self.character(self.upload(color).data)
+            character["name"] = f"Character {index}"
+            cast.append(character)
+        series = self.profile(story_format="ANIMATED_STORY", cast=cast)
+        image = io.BytesIO()
+        Image.new("RGB", (64, 64), "green").save(image, format="PNG")
+        series.reference_image.save("world.png", ContentFile(image.getvalue()))
+        with patch("apps.videomanagement.tasks.generate_video_task.delay"):
+            response = self.client.post(
+                reverse("series-episodes", args=[series.pk]),
+                {"idea": "Find a lantern"},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 202, response.data)
+        episode = SeriesEpisode.objects.get(pk=response.data["id"])
+        with Image.open(episode.video.reference_image.path) as sheet:
+            self.assertEqual(sheet.size, (2048, 1136))
+            self.assertEqual(sheet.getpixel((256, 252)), (255, 165, 0))
+            self.assertEqual(sheet.getpixel((256, 820)), (255, 255, 0))
+            self.assertEqual(sheet.getpixel((1792, 252)), (0, 128, 0))
+            self.assertEqual(sheet.getpixel((1792, 820)), (255, 255, 255))

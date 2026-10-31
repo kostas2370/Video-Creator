@@ -9,6 +9,7 @@ from rest_framework.test import APIRequestFactory
 from apps.series.models import Character, VideoSeries
 from apps.series.serializers import VideoSeriesSerializer
 from apps.series.services.characters import replace_series_cast
+from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.tests.api.base import ApiTestCase
 
 
@@ -152,3 +153,31 @@ class CharacterStorageTests(ApiTestCase):
         )
         with self.assertNumQueries(0):
             self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_invalid_later_cast_member_rolls_back_earlier_edits_and_removals(self):
+        original = list(
+            self.series.cast_members.values_list(
+                "pk", "name", "image", "image_approved"
+            )
+        )
+        other = Character.objects.create(
+            created_by=user.make(), name="Other", appearance="Fox"
+        )
+        cast = [
+            {**self.cast[0], "name": "Edited first character"},
+            {"id": str(other.pk), "name": "Other", "appearance": "Fox"},
+        ]
+        response = self.client.patch(
+            reverse("series-detail", args=[self.series.pk]),
+            {"cast": cast},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            list(
+                self.series.cast_members.values_list(
+                    "pk", "name", "image", "image_approved"
+                )
+            ),
+            original,
+        )
