@@ -14,9 +14,11 @@ class YouTubeLimitTests(SimpleTestCase):
         )
 
     @patch("apps.clips.youtube.YouTube")
-    def test_duration_limit_is_checked_before_downloading(self, youtube):
-        youtube.return_value.length = 7201
-        with self.assertRaises(SourceImportError):
+    def test_minimum_clip_length_is_checked_before_downloading(self, youtube):
+        youtube.return_value.length = 9
+        with self.assertRaisesMessage(
+            SourceImportError, "shorter than the requested minimum"
+        ):
             download_youtube(self.project, "/unused")
         youtube.return_value.streams.filter.assert_not_called()
 

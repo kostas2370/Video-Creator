@@ -1,4 +1,5 @@
 import json
+import logging
 
 from apps.common.ai_json import parse_ai_json
 
@@ -9,6 +10,14 @@ from .choices import ClipFocus, ClipSelectionMode
 from .serializers import CandidateSerializer
 
 RANKING_BATCH_SIZE = 20
+RANKING_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
+
+
+class HighlightRankingError(ValueError):
+    """The provider repeatedly returned an unusable editorial review."""
+
+
 QUALITY_RUBRIC = (
     "Judge the spoken excerpt itself, not how exciting its title or reason sounds. "
     "Hook: the opening quickly raises a clear question, tension, surprise, or useful promise; "
@@ -134,22 +143,57 @@ def rank_candidates(project, candidates):
         "Return fewer clips, or none, rather than filling the quota with weak or repetitive excerpts. "
         'Return JSON only: {"assessments": [{"index": 0, "hook": 4, "context": 4, '
         '"payoff": 3, "relevance": 3, "duplicate_of": null}], "indices": [0]}. '
-        "Include exactly one assessment per candidate; use distinct zero-based indices.\n"
+        f"There are exactly {len(candidates)} candidates in this batch. "
+        f"Include exactly {len(candidates)} assessments, including rejected candidates; "
+        f"use each candidate index from 0 to {len(candidates) - 1} exactly once. "
+        f"Only indices is limited to {project.clip_count} selections. "
+        "Candidate indices are local to this batch, not transcript word numbers or timestamps.\n"
         + json.dumps(
-            {"extraction_brief": project.extraction_prompt, "candidates": candidates},
+            {
+                "extraction_brief": project.extraction_prompt,
+                "candidates": [
+                    {**candidate, "index": index}
+                    for index, candidate in enumerate(candidates)
+                ],
+            },
             ensure_ascii=False,
         )
     )
-    data = parse_ai_json(get_update_sentence(prompt, user=project.created_by))
-    indices = validate_ranking(
-        data,
-        len(candidates),
-        project.clip_count,
-        bool(project.extraction_prompt)
-        or getattr(project, "clip_focus", ClipFocus.GENERAL) != ClipFocus.GENERAL,
-        strict=strict,
-    )
-    return [candidates[index] for index in indices]
+    for attempt in range(RANKING_ATTEMPTS):
+        raw = get_update_sentence(prompt, user=project.created_by)
+        try:
+            data = parse_ai_json(raw)
+            indices = validate_ranking(
+                data,
+                len(candidates),
+                project.clip_count,
+                bool(project.extraction_prompt)
+                or getattr(project, "clip_focus", ClipFocus.GENERAL)
+                != ClipFocus.GENERAL,
+                strict=strict,
+            )
+        except (ValueError, TypeError) as exc:
+            logger.warning(
+                "Invalid highlight ranking for %s candidates (attempt %s/%s)",
+                len(candidates),
+                attempt + 1,
+                RANKING_ATTEMPTS,
+            )
+            if attempt + 1 == RANKING_ATTEMPTS:
+                raise HighlightRankingError(
+                    "The AI returned an invalid clip ranking after several attempts. "
+                    "Retry processing; your saved transcript will be reused."
+                ) from exc
+            prompt = (
+                "Your previous review did not match the required JSON format. "
+                "Return a complete replacement. Assess EVERY candidate, including rejected ones. "
+                "Use integer scores from 0 to 5 and include duplicate_of (null for unique clips). "
+                "Use each batch index exactly once in assessments and only distinct valid indices "
+                "in the selected indices array. Do not exceed the selection limit.\n"
+                + prompt
+            )
+            continue
+        return [candidates[index] for index in indices]
 
 
 def suggest_clips(project, *, is_current=lambda: True):

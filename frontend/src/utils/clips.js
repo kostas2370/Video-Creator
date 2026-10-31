@@ -6,6 +6,7 @@ export const formatTime = value => {
   const seconds = Math.max(0, Math.floor(value || 0));
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 };
+export const minutesToSeconds = value => Number((Number(value) * 60).toFixed(6));
 export const wordsForClip = (words, start, end) => words.filter(word => word.end > start && word.start < end).map(word => ({ text: word.text, start: Number((Math.max(start, word.start) - start).toFixed(4)), end: Math.min(end - start, Number((Math.min(end, word.end) - start).toFixed(4))) }));
 export function validateClip(start, end, duration, minimum = 0) {
   return Number.isFinite(start) && Number.isFinite(end) && start >= minimum && end <= duration && end > start && end - start <= 180 ? "" : "Choose a clip within the source video, up to 180 seconds long.";

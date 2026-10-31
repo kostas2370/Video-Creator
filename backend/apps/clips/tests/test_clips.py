@@ -21,7 +21,7 @@ from rest_framework.test import APIClient
 
 from apps.clips.events import update_jobs
 from apps.clips.hashtags import save_hashtags
-from apps.clips.highlights import suggest_clips
+from apps.clips.highlights import RANKING_ATTEMPTS, HighlightRankingError, suggest_clips
 from apps.clips.models import Clip, ClipProject
 from apps.clips.processing import process_project, transcribe_source
 from apps.clips.rendering import export_clip
@@ -162,7 +162,7 @@ class ClipsTests(TestCase):
         self.assertEqual(response.status_code, 202)
         self.assertEqual(ClipProject.objects.count(), 1)
 
-    def test_upload_checks_source_duration_audio_and_options(self):
+    def test_upload_accepts_sources_longer_than_two_hours(self):
         with patch(
             "apps.videomanagement.services.media.video_uploads.uploaded_video_metadata",
             return_value={
@@ -177,7 +177,11 @@ class ClipsTests(TestCase):
                 {"source": SimpleUploadedFile("talk.mp4", b"data")},
                 format="multipart",
             )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data["duration"], 8000)
+        self.project_queue.assert_called_once()
+
+    def test_upload_rejects_sources_without_audio(self):
         with patch(
             "apps.videomanagement.services.media.video_uploads.uploaded_video_metadata",
             return_value={
@@ -429,7 +433,10 @@ class ClipsTests(TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
-            patch("apps.clips.processing.transcribe_prepared_audio", side_effect=transcribe),
+            patch(
+                "apps.clips.processing.transcribe_prepared_audio",
+                side_effect=transcribe,
+            ),
         ):
             with self.assertRaises(RuntimeError):
                 transcribe_source(project, rows, directory)
@@ -454,7 +461,10 @@ class ClipsTests(TestCase):
         project.words, project.status, project.job_id = [], "QUEUED", uuid4()
         project.save()
         with (
-            patch("apps.clips.processing.transcribe_prepared_audio", return_value=self.words),
+            patch(
+                "apps.clips.processing.transcribe_prepared_audio",
+                return_value=self.words,
+            ),
             patch("apps.clips.processing.suggest_clips", return_value=[]),
         ):
             process_project(project.pk, project.job_id)
@@ -587,10 +597,33 @@ class ClipsTests(TestCase):
         self.assertEqual([item["title"] for item in result], ["Second"])
         with patch(
             "apps.clips.highlights.get_update_sentence",
-            side_effect=[json.dumps(first), json.dumps(second), '{"indices": [200]}'],
+            side_effect=[json.dumps(first), json.dumps(second)]
+            + ['{"indices": [200]}'] * RANKING_ATTEMPTS,
         ):
             with self.assertRaises(ValueError):
                 suggest_clips(project)
+
+    def test_ranking_failure_reports_the_cause_and_preserves_transcription(self):
+        project = self.project()
+        project.preview = project.source.name
+        project.status = "FAILED"
+        project.save()
+        queue_project(project)
+        project.refresh_from_db()
+        message = "The AI returned an invalid clip ranking after several attempts. Retry processing; your saved transcript will be reused."
+        with (
+            patch(
+                "apps.clips.processing.suggest_clips",
+                side_effect=HighlightRankingError(message),
+            ),
+            patch("apps.clips.processing.transcribe_prepared_audio") as transcribe,
+        ):
+            process_project(project.pk, project.job_id)
+        project.refresh_from_db()
+        self.assertEqual(project.status, "FAILED")
+        self.assertEqual(project.error, message)
+        self.assertEqual(project.words, self.words)
+        transcribe.assert_not_called()
 
     def test_analysis_retry_preserves_manual_clips_and_adds_nonoverlapping_suggestions(
         self,
@@ -1157,7 +1190,10 @@ class ClipsTests(TestCase):
                 "apps.clips.processing.download_youtube",
                 return_value=(self.source, metadata, "Imported interview"),
             ) as download,
-            patch("apps.clips.processing.transcribe_prepared_audio", return_value=self.words),
+            patch(
+                "apps.clips.processing.transcribe_prepared_audio",
+                return_value=self.words,
+            ),
             patch(
                 "apps.clips.processing.suggest_clips",
                 side_effect=RuntimeError("provider"),
@@ -1179,6 +1215,24 @@ class ClipsTests(TestCase):
         download.assert_not_called()
         project.refresh_from_db()
         self.assertEqual(project.status, "READY")
+
+    def test_youtube_import_accepts_sources_longer_than_two_hours(self):
+        metadata = {"duration": 10800, "audio": True, "width": 160, "height": 90}
+        with (
+            patch("apps.clips.youtube.YouTube") as youtube,
+            patch("apps.clips.youtube.select_streams", return_value=[]),
+            patch("apps.clips.youtube.download_streams", return_value=self.source),
+            patch("apps.clips.youtube.validate_upload", return_value=metadata),
+        ):
+            youtube.return_value.length = 10800
+            youtube.return_value.title = "Long interview"
+            project = ClipProject(
+                youtube_url="https://youtu.be/abcdefghijk", min_duration=10
+            )
+            path, result, title = download_youtube(project, self.media.name)
+        self.assertEqual(path, self.source)
+        self.assertEqual(result["duration"], 10800)
+        self.assertEqual(title, "Long interview")
 
     def test_youtube_import_joins_separate_video_and_audio_streams(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1448,7 +1502,10 @@ class ClipsTests(TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
-            patch("apps.clips.processing.transcribe_prepared_audio", side_effect=transcribe),
+            patch(
+                "apps.clips.processing.transcribe_prepared_audio",
+                side_effect=transcribe,
+            ),
         ):
             words = transcribe_source(
                 project, ClipProject.objects.filter(pk=project.pk), directory
@@ -1476,7 +1533,10 @@ class ClipsTests(TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch("apps.clips.processing.run_ffmpeg"),
-            patch("apps.clips.processing.transcribe_prepared_audio", side_effect=transcribe),
+            patch(
+                "apps.clips.processing.transcribe_prepared_audio",
+                side_effect=transcribe,
+            ),
         ):
             with self.assertRaises(RuntimeError):
                 transcribe_source(project, rows, directory)

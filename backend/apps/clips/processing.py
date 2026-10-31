@@ -10,14 +10,16 @@ from django.db import close_old_connections, connections, transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.common.media import run_ffmpeg
-from apps.videomanagement.services.captions.transcription import transcribe_prepared_audio
+from apps.videomanagement.services.captions.transcription import (
+    transcribe_prepared_audio,
+)
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
 from apps.videomanagement.utils.timing import video_metadata
 
 from .choices import ClipProjectStatus
 from .constants import MAX_CLIPS_PER_PROJECT
 from .events import update_jobs
-from .highlights import overlapping, suggest_clips
+from .highlights import HighlightRankingError, overlapping, suggest_clips
 from .models import Clip, ClipProject
 from .services import clip_words
 from .transcripts import reuse_transcript, source_key, validate_range
@@ -314,7 +316,7 @@ def process_project(project_id, token):
             ),
             status=ClipProjectStatus.FAILED,
             error=str(exc)
-            if isinstance(exc, SourceImportError)
+            if isinstance(exc, (SourceImportError, HighlightRankingError))
             else "Could not import this YouTube video. Check that it is publicly available, or upload a file instead."
             if project.youtube_url and not project.source
             else "Could not finish finding clips. Check your provider keys and retry. Saved transcription will be reused; you can also add clips manually.",

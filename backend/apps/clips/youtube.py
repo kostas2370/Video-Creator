@@ -8,7 +8,7 @@ from apps.common.youtube import (
     youtube_url as youtube_url,
 )
 
-from .uploads import MAX_DURATION_SECONDS, MAX_UPLOAD_BYTES, validate_upload
+from .uploads import MAX_UPLOAD_BYTES, validate_upload
 
 
 def select_streams(video):
@@ -53,9 +53,9 @@ def select_streams(video):
 
 def download_youtube(project, directory):
     video = YouTube(project.youtube_url)
-    if not project.min_duration <= video.length <= MAX_DURATION_SECONDS:
+    if video.length < project.min_duration:
         raise SourceImportError(
-            "Choose a YouTube video between your minimum clip length and 2 hours."
+            "This video is shorter than the requested minimum clip length."
         )
     path = download_streams(select_streams(video), directory)
     with path.open("rb") as file:

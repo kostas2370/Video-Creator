@@ -45,7 +45,7 @@ it("reviews generated hashtags before saving and preserves edits after a failed 
 it("rebases captions after trimming and keeps unsaved edits when saving fails", async () => {
   api.saveClip.mockResolvedValue({ ok: false, message: "Reload before saving; your edits are still here." });
   render(<ClipEditor project={projectFixture()} clip={clipFixture()} onSaved={vi.fn()} onClose={vi.fn()} />);
-  fireEvent.change(screen.getByLabelText("Start (seconds)"), { target: { value: "2" } });
+  fireEvent.change(screen.getByLabelText("Start (minutes)"), { target: { value: String(2 / 60) } });
   fireEvent.change(screen.getByLabelText("Clip title"), { target: { value: "My edited title" } });
   fireEvent.submit(screen.getByRole("button", { name: "Save clip", exact: true }).closest("form"));
   await screen.findByRole("alert");
@@ -92,6 +92,9 @@ it("submits a YouTube link and optional extraction brief without requiring a fil
   expect(data.get("clip_focus")).toBe("funny");
   expect(data.get("selection_mode")).toBe("fast");
   expect(data.has("source")).toBe(false);
+  expect(data.has("range_end")).toBe(false);
+  expect(data.get("min_duration")).toBe("30");
+  expect(data.get("max_duration")).toBe("60");
   await screen.findByText("Source saved");
 });
 
@@ -129,13 +132,18 @@ it("submits the optional source range alongside a YouTube import", async () => {
   fireEvent.click(screen.getByRole("button", { name: "New project", exact: true }));
   fireEvent.click(screen.getByRole("button", { name: "YouTube link", exact: true }));
   fireEvent.change(screen.getByLabelText(/YouTube video link/), { target: { value: "https://youtu.be/abcdefghijk" } });
-  fireEvent.change(screen.getByLabelText("Process from (seconds)"), { target: { value: "600" } });
-  fireEvent.change(screen.getByLabelText("Process until (seconds)"), { target: { value: "1800" } });
+  expect(screen.getByLabelText("Process until (minutes)").hasAttribute("max")).toBe(false);
+  fireEvent.change(screen.getByLabelText("Process from (minutes)"), { target: { value: "130" } });
+  fireEvent.change(screen.getByLabelText("Process until (minutes)"), { target: { value: "180" } });
+  fireEvent.change(screen.getByLabelText("Minimum clip length (minutes)"), { target: { value: "0.75" } });
+  fireEvent.change(screen.getByLabelText("Maximum clip length (minutes)"), { target: { value: "1.5" } });
   fireEvent.click(screen.getByRole("button", { name: "Find short clips" }));
   await waitFor(() => expect(api.createClipProject).toHaveBeenCalledTimes(1));
   const data = api.createClipProject.mock.calls[0][0];
-  expect(data.get("range_start")).toBe("600");
-  expect(data.get("range_end")).toBe("1800");
+  expect(data.get("range_start")).toBe("7800");
+  expect(data.get("range_end")).toBe("10800");
+  expect(data.get("min_duration")).toBe("45");
+  expect(data.get("max_duration")).toBe("90");
   expect(data.get("clip_focus")).toBe("general");
   expect(data.get("selection_mode")).toBe("balanced");
 });
@@ -237,4 +245,27 @@ it("keeps the saved uploaded marker unchanged when saving fails", async () => {
   await userEvent.click(marker);
   expect((await screen.findByRole("alert")).textContent).toBe("Could not save uploaded marker.");
   expect(marker.checked).toBe(false);
+});
+
+
+it("keeps the final preview time visible and restarts when replaying", () => {
+  const { container } = render(<ClipEditor project={projectFixture()} clip={clipFixture()} onSaved={vi.fn()} onClose={vi.fn()} />);
+  const video = container.querySelector("video:not([aria-hidden])");
+  video.currentTime = 12.2;
+  fireEvent.timeUpdate(video);
+  expect(video.currentTime).toBe(12);
+  expect(screen.getByText("0:12 / 0:12")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Play", exact: true }));
+  expect(video.currentTime).toBe(0);
+  expect(video.play).toHaveBeenCalled();
+});
+
+it("shows End of video while a YouTube duration is unknown and updates from progress", async () => {
+  const pending = projectFixture({ status: "DOWNLOADING", duration: 0, range_start: 7800, range_end: null, words: [], clips: [] });
+  api.getClipProject.mockResolvedValue({ ok: true, data: pending });
+  render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  await screen.findByText(/Processing range: 130:00–End of video/);
+  expect(screen.getByText("Source duration pending…")).toBeTruthy();
+  await act(async () => stream.options.onUpdate({ ...pending, duration: 10800, status: "TRANSCRIBING", has_transcript: false }));
+  expect(screen.getByText(/Processing range: 130:00–180:00/)).toBeTruthy();
 });

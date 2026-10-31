@@ -4,7 +4,7 @@ import { CaptionLayer } from "./CaptionLayer";
 import { FontPicker } from "./FontPicker";
 import { editorButton, editorInput } from "./ui/EditorDialog";
 import { captionAt, captionGroups, defaultCaptionStyle, validateCaptionWords, resolveCaptionConfig } from "../utils/captions";
-import { formatTime, validateClip, wordsForClip } from "../utils/clips";
+import { formatTime, minutesToSeconds, validateClip, wordsForClip } from "../utils/clips";
 import { API_HOST } from "../endpoints";
 import { saveClip } from "../api/apiService";
 
@@ -45,9 +45,12 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
   const sync = event => {
     const video = event.currentTarget;
     if (validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0)) { video.pause(); return; }
-    if (video.currentTime >= draft.end) { video.pause(); video.currentTime = draft.start; }
+    if (video.currentTime >= draft.end) {
+      video.pause();
+      if (video.currentTime > draft.end) video.currentTime = draft.end;
+    }
     if (video.currentTime < draft.start) video.currentTime = draft.start;
-    setTime(Math.max(0, video.currentTime - draft.start));
+    setTime(Math.min(duration, Math.max(0, video.currentTime - draft.start)));
     if (backdrop.current && Math.abs(backdrop.current.currentTime - video.currentTime) > 0.2) backdrop.current.currentTime = video.currentTime;
   };
   const submit = async event => {
@@ -76,12 +79,12 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
               <video key={`${clip.id}-${draft.start}`} ref={player} src={source} playsInline preload="metadata" onLoadedMetadata={() => seek(0)} onTimeUpdate={sync} onSeeked={sync} onPlay={() => { setPlaying(true); if (backdrop.current) { backdrop.current.currentTime = player.current.currentTime; backdrop.current.play().catch(() => {}); } }} onPause={() => { setPlaying(false); backdrop.current?.pause(); }} onError={() => setError("Could not play this preview. Try reloading the project.")} className={`absolute inset-0 h-full w-full ${draft.layout === "CROP" ? "object-cover" : "object-contain"}`} style={{ objectPosition: `${draft.crop_position}% 50%` }} />
               {draft.captions && <CaptionLayer cue={cue} style={config} size={[720, 1280]} />}
             </div>
-            <div className="mt-3 flex items-center gap-3"><button type="button" disabled={!!validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0)} onClick={() => playing ? player.current?.pause() : player.current?.play().catch(() => {})} className="rounded-lg bg-gray-100 px-3 py-2 text-sm dark:bg-gray-700">{playing ? "Pause" : "Play"}</button><input aria-label="Clip preview position" type="range" min={0} max={Number.isFinite(duration) && duration > 0 ? duration : 1} step="0.05" value={Number.isFinite(duration) ? Math.min(time, Math.max(0, duration)) : 0} onChange={event => seek(Number(event.target.value))} className="min-w-0 flex-1" /><span className="text-xs tabular-nums">{formatTime(time)}</span></div>
+            <div className="mt-3 flex items-center gap-3"><button type="button" disabled={!!validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0)} onClick={() => { if (playing) player.current?.pause(); else { if (time >= duration) seek(0); player.current?.play().catch(() => {}); } }} className="rounded-lg bg-gray-100 px-3 py-2 text-sm dark:bg-gray-700">{playing ? "Pause" : "Play"}</button><input aria-label="Clip preview position" type="range" min={0} max={Number.isFinite(duration) && duration > 0 ? duration : 1} step="0.05" value={Number.isFinite(duration) ? Math.min(time, Math.max(0, duration)) : 0} onChange={event => seek(Number(event.target.value))} className="min-w-0 flex-1" /><span className="text-xs tabular-nums">{formatTime(time)} / {formatTime(duration)}</span></div>
             <p className="mt-2 text-xs text-gray-500">Preview · exports use the original footage</p>
           </div>
           <div className="min-w-0 space-y-4">
             <label className="block text-sm font-medium">Clip title<input required maxLength={100} value={draft.title} onChange={event => edit("title", event.target.value)} className={`${editorInput} mt-2`} /></label>
-            <div className="grid grid-cols-2 gap-3">{["start", "end"].map(key => <label key={key} className="text-sm">{key === "start" ? "Start" : "End"} (seconds)<input type="number" required min={project.range_start ?? 0} max={project.range_end ?? project.duration} step="any" value={Number.isFinite(draft[key]) ? draft[key] : ""} onChange={event => trim(key, event.target.value === "" ? NaN : Number(event.target.value))} className={`${editorInput} mt-2`} /></label>)}</div>
+            <div className="grid grid-cols-2 gap-3">{["start", "end"].map(key => <label key={key} className="text-sm">{key === "start" ? "Start" : "End"} (minutes)<input type="number" required min={(project.range_start ?? 0) / 60} max={(project.range_end ?? project.duration) / 60} step="any" value={Number.isFinite(draft[key]) ? draft[key] / 60 : ""} onChange={event => trim(key, event.target.value === "" ? NaN : minutesToSeconds(event.target.value))} className={`${editorInput} mt-2`} /></label>)}</div>
             <p className="text-xs text-gray-500">{Number.isFinite(duration) ? `${duration.toFixed(1)} seconds` : "Enter clip times"} · Changing the trim rebuilds captions from the original transcript.</p>
             <label className="block text-sm">Portrait layout<select value={draft.layout} onChange={event => edit("layout", event.target.value)} className={`${editorInput} mt-2`}><option value="FIT">Full picture with blurred background</option><option value="CROP">Crop to portrait</option></select></label>
             {draft.layout === "CROP" && <label className="block text-sm">Horizontal framing<input aria-label="Horizontal framing" type="range" min={0} max={100} value={draft.crop_position} onChange={event => edit("crop_position", Number(event.target.value))} className="mt-2 w-full" /><span className="flex justify-between text-xs text-gray-500"><span>Left</span><span>Right</span></span></label>}
