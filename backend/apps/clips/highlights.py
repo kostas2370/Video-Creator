@@ -246,19 +246,19 @@ def suggest_clips(project, *, is_current=lambda: True):
             if not project.min_duration <= end - start <= project.max_duration:
                 continue
             first, last = refine_boundaries(
-                window,
-                first - offset,
-                last - offset,
+                words,
+                first,
+                last,
                 project.min_duration,
                 project.max_duration,
             )
-            start, end = window[first]["start"], window[last]["end"]
+            start, end = words[first]["start"], words[last]["end"]
             candidate = {
                 **item,
                 "start": start,
                 "end": end,
                 "transcript": " ".join(
-                    word["text"] for word in window[first : last + 1]
+                    word["text"] for word in words[first : last + 1]
                 ),
             }
             if not any(overlapping(candidate, other) for other in candidates):

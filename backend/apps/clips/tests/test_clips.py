@@ -1550,7 +1550,7 @@ class ClipsTests(TestCase):
                 url, {"prompt": "Find advice for starting a business"}, format="json"
             )
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["clips"][0]["start"], 2)
+        self.assertEqual(response.data["clips"][0]["start"], 0)
         self.assertEqual(response.data["clips"][0]["end"], 14.8)
         self.assertIn("Find advice for starting a business", provider.call_args.args[0])
         project.refresh_from_db()
