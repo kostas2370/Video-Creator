@@ -27,9 +27,10 @@ suggestions reviewable and provider costs visible.
 - [ ] Add sentence-aware boundaries. Prefer complete openings and endings, use
       pauses where helpful, and preserve the requested duration range and original
       video timestamps.
-      Initial refinement extends valid suggestions to punctuation or pauses within
-      five seconds per edge, without extra provider calls. Still evaluate on real
-      videos and improve sentence-aware transcript windows and incomplete context.
+      Refinement adjusts valid suggestions to punctuation or pauses within five
+      seconds per edge, considers each edge independently under duration limits,
+      and uses context across AI windows without extra provider calls. Still
+      evaluate on real videos and improve sentence-aware windows and incomplete context.
 - [ ] Rank candidates with an explicit rubric for hook strength, standalone
       context, and payoff. Validate structured scores and evaluate whether they
       improve actual selections rather than treating model scores as objective.

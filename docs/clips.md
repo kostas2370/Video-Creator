@@ -137,11 +137,14 @@ for zero or one candidate. Those cases rely on the extraction rubric. Deduplicat
 pool; it does not semantically compare against previously saved clips. Existing
 saved clips are preserved.
 
-New suggestions and AI transcript search results extend their cuts to nearby
-sentence boundaries or pauses when possible. Each edge can extend by up to five
-seconds within its transcript window, while preserving the chosen duration limits
-and original source timestamps. If the expanded cut would exceed the maximum,
-the original valid cut is kept. This uses transcript punctuation and word timing;
+New suggestions and AI transcript search results adjust their cuts to nearby
+sentence boundaries or pauses when possible. Each edge can move by up to five
+seconds, while preserving the chosen duration limits and original source
+timestamps. Refinement checks the full saved transcript, including context across
+AI window edges. It prefers two clean edges, then preserving selected speech,
+then the smallest adjustment. If completing both edges cannot fit, it can still
+fix one edge or trim to a nearby complete sentence. Already clean edges stay put.
+This uses transcript punctuation (including Greek question marks) and word timing;
 review the result because a natural boundary does not guarantee complete context.
 Existing saved clips and manual trims are unchanged, and refinement makes no
 additional provider requests.

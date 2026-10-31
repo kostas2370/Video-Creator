@@ -23,8 +23,8 @@ class ClipBoundaryTests(SimpleTestCase):
     def test_preserves_an_already_complete_sentence(self):
         self.assertEqual(refine_boundaries(self.words, 10, 27, 10, 20), (10, 27))
 
-    def test_preserves_the_original_when_completion_would_exceed_the_maximum(self):
-        self.assertEqual(refine_boundaries(self.words, 12, 24, 10, 15), (12, 24))
+    def test_fixes_one_edge_when_completing_both_would_exceed_the_maximum(self):
+        self.assertEqual(refine_boundaries(self.words, 12, 24, 10, 15), (10, 24))
 
     def test_does_not_extend_more_than_five_seconds_per_edge(self):
         self.words[9]["text"] = "Introduction"
@@ -39,12 +39,31 @@ class ClipBoundaryTests(SimpleTestCase):
         self.assertEqual(refine_boundaries(self.words, 12, 24, 10, 20), (10, 27))
 
     def test_recognizes_sentence_punctuation_before_closing_quotes(self):
-        for ending in ("done.”", "τέλος!»", "終わり。", "结束！", "끝？", "fin…"):
+        for ending in ("done.”", "τέλος!»", "終わり。", "结束！", "끝？", "fin…", "τέλος;»", "τέλος;»"):
             with self.subTest(ending=ending):
                 self.words[27]["text"] = ending
                 self.assertEqual(
                     refine_boundaries(self.words, 12, 24, 10, 20), (10, 27)
                 )
+
+    def test_trims_to_a_complete_ending_when_expansion_cannot_fit(self):
+        self.words[22]["text"] = "Complete."
+        self.assertEqual(refine_boundaries(self.words, 10, 24, 10, 15), (10, 22))
+
+    def test_preserves_selected_speech_when_expansion_and_trimming_both_fit(self):
+        self.words[22]["text"] = "Complete."
+        self.assertEqual(refine_boundaries(self.words, 10, 24, 10, 20), (10, 27))
+
+    def test_does_not_trim_below_the_minimum(self):
+        self.words[22]["text"] = "Complete."
+        self.assertEqual(refine_boundaries(self.words, 10, 24, 14, 15), (10, 24))
+
+    def test_can_trim_an_incomplete_opening(self):
+        self.words[14]["text"] = "Previous."
+        self.assertEqual(refine_boundaries(self.words, 12, 27, 10, 16), (15, 27))
+
+    def test_handles_source_start_and_end(self):
+        self.assertEqual(refine_boundaries(self.words, 0, 39, 10, 40), (0, 39))
 
     def test_keeps_original_decimal_timestamps_in_suggestions(self):
         project = SimpleNamespace(
@@ -99,6 +118,48 @@ class ClipBoundaryTests(SimpleTestCase):
         ):
             result = suggest_clips(project)
         self.assertEqual((result[0]["start"], result[0]["end"]), (1100, 1115.8))
+
+    def test_window_start_is_not_treated_as_a_sentence_opening(self):
+        words = [
+            {"text": "word", "start": float(index), "end": index + 0.8}
+            for index in range(1250)
+        ]
+        words[997]["text"] = "Previous."
+        words[1015]["text"] = "Complete."
+        project = SimpleNamespace(
+            words=words, clip_count=1, min_duration=10, max_duration=20,
+            extraction_prompt="", created_by=None,
+        )
+        response = json.dumps({"clips": [{
+            "first_word": 1000, "last_word": 1015, "title": "A", "reason": "B",
+        }]})
+        with patch(
+            "apps.clips.highlights.get_update_sentence",
+            side_effect=['{"clips": []}', response],
+        ):
+            result = suggest_clips(project)
+        self.assertEqual((result[0]["start"], result[0]["end"]), (998, 1015.8))
+
+    def test_window_end_is_not_treated_as_a_sentence_ending(self):
+        words = [
+            {"text": "word", "start": float(index), "end": index + 0.8}
+            for index in range(1250)
+        ]
+        words[1183]["text"] = "Previous."
+        words[1202]["text"] = "Complete."
+        project = SimpleNamespace(
+            words=words, clip_count=1, min_duration=10, max_duration=20,
+            extraction_prompt="", created_by=None,
+        )
+        response = json.dumps({"clips": [{
+            "first_word": 1184, "last_word": 1199, "title": "A", "reason": "B",
+        }]})
+        with patch(
+            "apps.clips.highlights.get_update_sentence",
+            side_effect=[response, '{"clips": []}'],
+        ):
+            result = suggest_clips(project)
+        self.assertEqual((result[0]["start"], result[0]["end"]), (1184, 1202.8))
 
     def test_removes_candidates_that_become_duplicates_after_expansion(self):
         self.words[32]["text"] = "Next."
