@@ -4,10 +4,12 @@ import json
 import logging
 import tempfile
 from io import BytesIO
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from PIL import Image, ImageDraw, ImageOps
 from rest_framework.exceptions import APIException, ValidationError
@@ -29,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def draft_cast(user, choices):
+    # Serializers import cast readiness from this module.
     from apps.series.serializers import CharacterSerializer
 
     prompt = (
@@ -250,6 +253,7 @@ def draft_character_description(owner, choices):
 
 
 def request_character_image(*, owner, choices):
+    # Tasks import the generation service from this module.
     from apps.series.tasks import generate_character_reference_task
 
     choices = dict(choices)
@@ -321,8 +325,6 @@ def request_character_image(*, owner, choices):
 
 def selected_image(character, url):
     """Resolve an explicitly reviewed URL against this character's own files."""
-    from urllib.parse import urlparse
-
     for image in (character.pending_image, character.image):
         if image and urlparse(image.url).path == urlparse(url).path:
             return image
@@ -333,8 +335,6 @@ def selected_image(character, url):
 
 @transaction.atomic
 def replace_series_cast(series, cast):
-    from django.db.models import Q
-
     VideoSeries.objects.select_for_update().get(pk=series.pk)
     ids = [row["id"] for row in cast]
     # Load and lock every affected character once, in a stable order.

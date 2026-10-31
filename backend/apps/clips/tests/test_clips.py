@@ -1,24 +1,43 @@
+import asyncio
+import importlib
 import json
 import subprocess
 import tempfile
 from datetime import timedelta
 from pathlib import Path
+from threading import Barrier, Lock
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+from django.apps import apps
 from django.core.files import File
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.http import Http404
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
 from apps.clips.events import update_jobs
+from apps.clips.hashtags import save_hashtags
 from apps.clips.highlights import suggest_clips
 from apps.clips.models import Clip, ClipProject
 from apps.clips.processing import process_project, transcribe_source
 from apps.clips.rendering import export_clip
-from apps.clips.services import clip_words, queue_exports, queue_project
+from apps.clips.serializers import ProjectUploadSerializer
+from apps.clips.services import (
+    clip_words,
+    delete_clip,
+    delete_project,
+    queue_exports,
+    queue_project,
+    reap_stalled_exports,
+    save_clip,
+)
+from apps.clips.transcripts import reuse_transcript, source_key
+from apps.clips.youtube import download_youtube, youtube_url
+from apps.common.media import run_ffmpeg
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.utils.timing import video_metadata
 
@@ -389,8 +408,6 @@ class ClipsTests(TestCase):
         preview.assert_not_called()
 
     def test_legacy_chunk_checkpoints_resume_and_preserve_later_parallel_success(self):
-        from threading import Barrier
-
         project = self.project()
         project.duration, project.status, project.job_id, project.words = (
             1201,
@@ -746,8 +763,6 @@ class ClipsTests(TestCase):
     def test_extraction_brief_is_optional_nullable_and_used_in_highlight_selection(
         self,
     ):
-        from apps.clips.serializers import ProjectUploadSerializer
-
         for value in (None, "", "   ", "  Focus on business advice  "):
             serializer = ProjectUploadSerializer(
                 data={
@@ -948,11 +963,6 @@ class ClipsTests(TestCase):
         self.assertFalse(ClipProject.objects.filter(pk=project.pk).exists())
 
     def test_deleted_objects_return_not_found_when_service_lock_is_acquired(self):
-        from django.http import Http404
-
-        from apps.clips.hashtags import save_hashtags
-        from apps.clips.services import delete_clip, delete_project, save_clip
-
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])
         Clip.objects.filter(pk=clip.pk).delete()
@@ -967,8 +977,6 @@ class ClipsTests(TestCase):
             save_clip(project, {"start": 0, "end": 10})
 
     def test_clip_media_is_private_and_supports_authenticated_byte_ranges(self):
-        import asyncio
-
         project = self.project()
         self.assertIn("private-clips", project.source.path)
         self.assertFalse(Path(self.media.name, project.source.name).exists())
@@ -1010,7 +1018,6 @@ class ClipsTests(TestCase):
         Clip.objects.filter(pk=clip.pk).update(
             updated_at=timezone.now() - timedelta(minutes=31)
         )
-        from apps.clips.services import reap_stalled_exports
 
         self.assertEqual(reap_stalled_exports(project.pk), 1)
         response = self.client.get(reverse("clipproject-progress", args=[project.pk]))
@@ -1027,8 +1034,6 @@ class ClipsTests(TestCase):
         self.assertEqual(queue_exports(project, [clip.pk])[0].status, "QUEUED")
 
     def test_export_retry_threshold_matches_progress_and_preserves_fresh_exports(self):
-        from apps.clips.services import reap_stalled_exports
-
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])
         queue_exports(project, [clip.pk])
@@ -1074,10 +1079,6 @@ class ClipsTests(TestCase):
             self.assertEqual(instance.updated_at, checkpoint)
 
     def test_existing_public_files_are_moved_to_private_storage(self):
-        import importlib
-
-        from django.apps import apps
-
         migration = importlib.import_module(
             "apps.clips.migrations.0004_alter_clip_output_alter_clipproject_preview_and_more"
         )
@@ -1095,10 +1096,6 @@ class ClipsTests(TestCase):
         self.assertEqual(Path(project.source.path).read_bytes(), b"legacy-content")
 
     def test_youtube_input_is_optional_exclusive_and_restricted_to_video_links(self):
-        from rest_framework.exceptions import ValidationError
-
-        from apps.clips.youtube import youtube_url
-
         self.assertEqual(
             youtube_url("https://youtu.be/abcdefghijk?t=20"),
             "https://www.youtube.com/watch?v=abcdefghijk",
@@ -1184,9 +1181,6 @@ class ClipsTests(TestCase):
         self.assertEqual(project.status, "READY")
 
     def test_youtube_import_joins_separate_video_and_audio_streams(self):
-        from apps.clips.youtube import download_youtube
-        from apps.common.media import run_ffmpeg
-
         with tempfile.TemporaryDirectory() as directory:
             picture_path = Path(directory, "picture.mp4")
             audio_path = Path(directory, "audio.m4a")
@@ -1304,8 +1298,6 @@ class ClipsTests(TestCase):
     def test_transcript_reuse_never_reads_another_users_words_or_incomplete_ranges(
         self,
     ):
-        from apps.clips.transcripts import reuse_transcript, source_key
-
         cached = self.project(range_start=5, range_end=18)
         cached.source_key = source_key(cached)
         cached.save()
@@ -1319,8 +1311,6 @@ class ClipsTests(TestCase):
         self.assertIsNone(reuse_transcript(project))
 
     def test_different_uploaded_bytes_do_not_reuse_the_transcript(self):
-        from apps.clips.transcripts import reuse_transcript, source_key
-
         cached = self.project()
         project = self.project()
         project.source.save(
@@ -1332,8 +1322,6 @@ class ClipsTests(TestCase):
         self.assertEqual(cached.source_key, "")
 
     def test_youtube_transcript_identity_is_shared_across_download_qualities(self):
-        from apps.clips.transcripts import reuse_transcript, source_key
-
         url = "https://www.youtube.com/watch?v=abcdefghijk"
         cached = self.project(youtube_url=url)
         project = self.project(youtube_url=url, range_start=5, range_end=18)
@@ -1433,8 +1421,6 @@ class ClipsTests(TestCase):
     def test_transcription_runs_two_chunks_concurrently_and_merges_in_source_order(
         self,
     ):
-        from threading import Barrier, Lock
-
         project = self.project()
         project.duration, project.words, project.status = 1201, [], "TRANSCRIBING"
         project.save()
@@ -1474,8 +1460,6 @@ class ClipsTests(TestCase):
     def test_failed_first_chunk_preserves_later_success_and_retry_only_transcribes_missing_chunks(
         self,
     ):
-        from threading import Barrier
-
         project = self.project()
         project.duration, project.words, project.status = 1200, [], "TRANSCRIBING"
         project.save()

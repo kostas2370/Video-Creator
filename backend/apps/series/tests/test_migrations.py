@@ -1,6 +1,5 @@
 """Verify the app move against populated tables and existing permission grants."""
-
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
@@ -131,7 +130,6 @@ class StructuredCharacterMigrationTests(TransactionTestCase):
         Reference = old.get_model("series", "CharacterReference")
         cast = []
         files = {}
-        from uuid import uuid4
         for name in ("Bananito", "Bananita", "Bruno"):
             brief = {"name": name, "appearance": "Yellow banana", "wardrobe": "", "visual_style": "3D"}
             reference = Reference.objects.create(

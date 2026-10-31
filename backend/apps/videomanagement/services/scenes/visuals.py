@@ -1,9 +1,10 @@
-import logging
 import hashlib
 import json
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from django.core.files import File
 from django.db import close_old_connections
 
 from apps.apikeysmanagement.models import Provider
@@ -11,7 +12,14 @@ from apps.videomanagement.integrations.visuals import (
     ImageProviderRegistry,
     openai_images,
 )
-from apps.videomanagement.models import ImageMode, MediaAsset, Scene, SceneImage, Video, VideoType
+from apps.videomanagement.models import (
+    ImageMode,
+    MediaAsset,
+    Scene,
+    SceneImage,
+    Video,
+    VideoType,
+)
 from apps.videomanagement.services.scenes.narration import ensure_scene_rows
 from apps.videomanagement.utils.audio_editing import duration_override
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
@@ -133,7 +141,6 @@ def character_starting_frame(video, prompt, style, provider, mode, user, scene=N
     if not frame:
         raise RuntimeError("Could not create the character shot's starting image.")
     if scene is not None:
-        from django.core.files import File
         with open(frame, "rb") as source:
             asset = MediaAsset.from_visual(
                 user=user, upload=File(source, name="starting-image.png"),

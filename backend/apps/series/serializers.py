@@ -11,7 +11,11 @@ from apps.series.models import (
     SeriesEpisode,
     VideoSeries,
 )
-from apps.series.services.characters import cast_is_ready
+from apps.series.services.characters import (
+    cast_is_ready,
+    replace_series_cast,
+    validated_cast_references,
+)
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import Intro, Outro
 from apps.videomanagement.serializers.fields import (
@@ -115,8 +119,6 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        from apps.series.services.characters import replace_series_cast
-
         cast = validated_data.pop("cast_members", [])
         series = super().create(validated_data)
         replace_series_cast(series, cast)
@@ -124,8 +126,6 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        from apps.series.services.characters import replace_series_cast
-
         instance = VideoSeries.objects.select_for_update().get(pk=instance.pk)
         cast = validated_data.pop("cast_members", None)
         series = super().update(instance, validated_data)
@@ -299,8 +299,6 @@ class EpisodeDraftSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         series = self.context["series"]
-        from apps.series.services.characters import validated_cast_references
-
         validated_cast_references(series)
         if series.narration and not series.voice_model_id:
             raise serializers.ValidationError(

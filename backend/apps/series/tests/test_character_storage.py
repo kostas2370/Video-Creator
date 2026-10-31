@@ -3,8 +3,11 @@ from uuid import uuid4
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory
 
 from apps.series.models import Character, VideoSeries
+from apps.series.serializers import VideoSeriesSerializer
 from apps.series.services.characters import replace_series_cast
 from apps.videomanagement.tests.api.base import ApiTestCase
 
@@ -139,11 +142,6 @@ class CharacterStorageTests(ApiTestCase):
         self.assertEqual(self.series.cast_members.count(), 3)
 
     def test_explicit_cast_validation_does_not_read_the_old_characters(self):
-        from rest_framework.request import Request
-        from rest_framework.test import APIRequestFactory
-
-        from apps.series.serializers import VideoSeriesSerializer
-
         request = Request(APIRequestFactory().patch("/"))
         request._user = self.user
         serializer = VideoSeriesSerializer(

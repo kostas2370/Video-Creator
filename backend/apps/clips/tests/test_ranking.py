@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from apps.clips.highlights import suggest_clips, validate_ranking
+from apps.clips.highlights import FOCUS_GUIDANCE, suggest_clips, validate_ranking
 
 
 def assessment(index, **changes):
@@ -260,8 +260,6 @@ class ClipRankingTests(SimpleTestCase):
             self.assertIn("explicit extraction brief takes priority", call.args[0])
 
     def test_all_focus_presets_are_applied_without_rewriting_the_user_brief(self):
-        from apps.clips.highlights import FOCUS_GUIDANCE
-
         for focus, guidance in FOCUS_GUIDANCE.items():
             with self.subTest(focus=focus):
                 project = self.project()

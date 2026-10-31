@@ -1,7 +1,10 @@
 import io
 import tempfile
+from pathlib import Path
 
+from django.conf import settings
 from django.core.files.base import ContentFile
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from model_bakery import baker
 from PIL import Image
@@ -57,10 +60,6 @@ class ReferenceAssetTests(TestCase):
         self.assertEqual(MediaAsset.objects.count(), 1)
 
     def test_backfill_recovers_unlinked_images_from_an_earlier_failed_job(self):
-        from pathlib import Path
-        from django.conf import settings
-        from django.core.management import call_command
-
         directory = Path(settings.MEDIA_ROOT, "project", "images")
         directory.mkdir(parents=True)
         (directory / "old-starting-image.png").write_bytes(self.image)

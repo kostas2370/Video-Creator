@@ -9,11 +9,18 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory
 
 from apps.series.models import Character, SeriesEpisode, VideoSeries
-from apps.series.serializers import serialize_cast
-from apps.series.services.characters import generate_reference
+from apps.series.serializers import VideoSeriesSerializer, serialize_cast
+from apps.series.services.characters import (
+    generate_reference,
+    replace_series_cast,
+    save_reference_image,
+)
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.models import MediaAsset
 from apps.videomanagement.services.videos.generation import generate_video
 from apps.videomanagement.tests.api.base import ApiTestCase
 
@@ -109,8 +116,6 @@ class CharacterSetupTests(ApiTestCase):
         )
 
     def profile(self, **changes):
-        from apps.series.services.characters import replace_series_cast
-
         cast = changes.pop("cast", [])
         series = VideoSeries.objects.create(
             created_by=self.user,
@@ -329,7 +334,6 @@ class CharacterSetupTests(ApiTestCase):
             series = self.profile(story_format="ANIMATED_STORY")
             for field, value in changes.items():
                 if field == "cast":
-                    from apps.series.services.characters import replace_series_cast
 
                     replace_series_cast(series, value)
                 else:
@@ -362,7 +366,6 @@ class CharacterSetupTests(ApiTestCase):
         self.assertTrue(episode.video.settings["character_references"])
         with episode.video.reference_image.open("rb") as source:
             saved = source.read()
-        from apps.series.services.characters import replace_series_cast
 
         replace_series_cast(series, [self.character(self.upload("blue").data)])
         series.save()
@@ -465,12 +468,6 @@ class CharacterSetupTests(ApiTestCase):
         self.assertEqual(other.name, "Other")
 
     def test_series_save_validated_before_completion_keeps_the_new_pending_image(self):
-        from rest_framework.request import Request
-        from rest_framework.test import APIRequestFactory
-
-        from apps.series.serializers import VideoSeriesSerializer, serialize_cast
-        from apps.series.services.characters import save_reference_image
-
         reference = self.upload().data
         series = self.profile(cast=[self.character(reference)])
         character = Character.objects.get(pk=reference["id"])
@@ -504,9 +501,6 @@ class CharacterSetupTests(ApiTestCase):
     def test_superseded_job_archives_its_image_without_overwriting_the_new_request(
         self,
     ):
-        from apps.series.services.characters import save_reference_image
-        from apps.videomanagement.models import MediaAsset
-
         reference = Character.objects.create(
             created_by=self.user, job_id=uuid4(), status="GENERATING", **self.choices
         )
@@ -530,9 +524,6 @@ class CharacterSetupTests(ApiTestCase):
     def test_edit_during_generation_cannot_attach_an_image_for_the_old_description(
         self,
     ):
-        from apps.series.services.characters import replace_series_cast
-        from apps.videomanagement.models import MediaAsset
-
         character = Character.objects.create(
             created_by=self.user, job_id=uuid4(), status="QUEUED", **self.choices
         )

@@ -8,6 +8,7 @@ from apps.usermanagement.models import Notification
 
 from .events import publish_update
 from .models import MediaAsset, Scene, SceneImage, Video
+from .services.media.references import archive_reference
 from .utils.composer.scene_cache import remove_project_cache
 
 
@@ -83,5 +84,4 @@ def preserve_shared_asset_file(sender, file, file_name, **kwargs):
 @receiver(post_save, sender=Scene)
 def reference_saved(sender, instance, **kwargs):
     if not kwargs.get("raw"):
-        from .services.media.references import archive_reference
         archive_reference(instance)
