@@ -40,6 +40,7 @@ from apps.clips.youtube import download_youtube, youtube_url
 from apps.common.media import run_ffmpeg
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.utils.timing import video_metadata
+from apps.videomanagement.services.captions.local_whisper import TranscriptionError
 
 
 class ClipsTests(TestCase):
@@ -400,6 +401,96 @@ class ClipsTests(TestCase):
         self.assertEqual(project.clips.count(), 1)
         transcribe.assert_not_called()
 
+    def test_youtube_captions_skip_audio_transcription_and_save_provenance(self):
+        project = self.project(youtube_url="https://youtu.be/abcdefghijk")
+        project.preview, project.words, project.status = (
+            project.source.name,
+            [],
+            "FAILED",
+        )
+        project.save()
+        queue_project(project)
+        project.refresh_from_db()
+        with (
+            patch("apps.clips.processing.reuse_transcript", return_value=None),
+            patch(
+                "apps.clips.processing.youtube_transcript",
+                return_value=(self.words, "YouTube captions (el, automatic)"),
+            ),
+            patch("apps.clips.processing.transcribe_source") as transcribe,
+            patch("apps.clips.processing.suggest_clips", return_value=[]),
+        ):
+            process_project(project.pk, project.job_id)
+        project.refresh_from_db()
+        self.assertEqual(project.status, "READY", project.error)
+        self.assertEqual(project.words, self.words)
+        self.assertEqual(project.transcript_source, "YouTube captions (el, automatic)")
+        self.assertEqual(
+            self.client.get(self.detail(project)).data["transcript_source"],
+            project.transcript_source,
+        )
+        transcribe.assert_not_called()
+
+    @override_settings(SPEECH_TRANSCRIPTION_PROVIDER="local")
+    def test_missing_youtube_captions_fall_back_to_local_audio_and_saved_words_are_reused(
+        self,
+    ):
+        project = self.project(youtube_url="https://youtu.be/abcdefghijk")
+        project.preview, project.words, project.status = (
+            project.source.name,
+            [],
+            "FAILED",
+        )
+        project.save()
+        queue_project(project)
+        project.refresh_from_db()
+        with (
+            patch("apps.clips.processing.reuse_transcript", return_value=None),
+            patch(
+                "apps.clips.processing.youtube_transcript", return_value=None
+            ) as captions,
+            patch(
+                "apps.clips.processing.transcribe_source", return_value=self.words
+            ) as transcribe,
+            patch("apps.clips.processing.suggest_clips", return_value=[]),
+        ):
+            process_project(project.pk, project.job_id)
+            captions.assert_called_once()
+            transcribe.assert_called_once()
+            project.refresh_from_db()
+            self.assertEqual(project.transcript_source, "Local Whisper")
+            project.status = "FAILED"
+            project.save()
+            queue_project(project)
+            project.refresh_from_db()
+            process_project(project.pk, project.job_id)
+            self.assertEqual(captions.call_count, 1)
+            self.assertEqual(transcribe.call_count, 1)
+
+    @override_settings(SPEECH_TRANSCRIPTION_PROVIDER="local")
+    def test_partial_transcription_checkpoints_skip_youtube_caption_fetch(self):
+        project = self.project(youtube_url="https://youtu.be/abcdefghijk")
+        project.preview, project.words, project.status = (
+            project.source.name,
+            [],
+            "FAILED",
+        )
+        project.transcript_parts = {"0": self.words}
+        project.transcript_source = "OpenAI Whisper"
+        project.save()
+        queue_project(project)
+        project.refresh_from_db()
+        with (
+            patch("apps.clips.processing.reuse_transcript", return_value=None),
+            patch("apps.clips.processing.youtube_transcript") as captions,
+            patch("apps.clips.processing.transcribe_source", return_value=self.words),
+            patch("apps.clips.processing.suggest_clips", return_value=[]),
+        ):
+            process_project(project.pk, project.job_id)
+        captions.assert_not_called()
+        project.refresh_from_db()
+        self.assertEqual(project.transcript_source, "Saved chunks + Local Whisper")
+
     def test_wrong_tokens_and_duplicate_deliveries_do_not_call_providers(self):
         project = self.project()
         with (
@@ -410,6 +501,49 @@ class ClipsTests(TestCase):
             process_project(project.pk, project.job_id)
         suggest.assert_not_called()
         preview.assert_not_called()
+
+    def test_local_transcription_failure_keeps_checkpoints_and_reports_service_error(
+        self,
+    ):
+        for result in (
+            [],
+            TranscriptionError("Local Whisper is unavailable. Retry processing."),
+        ):
+            with self.subTest(result=result):
+                project = self.project()
+                project.preview, project.words, project.status = (
+                    project.source.name,
+                    [],
+                    "FAILED",
+                )
+                project.transcript_parts = {"0": self.words}
+                project.save()
+                queue_project(project)
+                project.refresh_from_db()
+                with (
+                    patch("apps.clips.processing.reuse_transcript", return_value=None),
+                    patch(
+                        "apps.clips.processing.transcribe_source",
+                        **(
+                            {"side_effect": result}
+                            if isinstance(result, Exception)
+                            else {"return_value": result}
+                        ),
+                    ),
+                    patch("apps.clips.processing.suggest_clips") as suggest,
+                ):
+                    process_project(project.pk, project.job_id)
+                project.refresh_from_db()
+                self.assertEqual(project.status, "FAILED")
+                self.assertEqual(project.transcript_parts, {"0": self.words})
+                self.assertIn(
+                    "Local Whisper"
+                    if isinstance(result, Exception)
+                    else "No usable speech",
+                    project.error,
+                )
+                self.assertNotIn("provider keys", project.error)
+                suggest.assert_not_called()
 
     def test_legacy_chunk_checkpoints_resume_and_preserve_later_parallel_success(self):
         project = self.project()

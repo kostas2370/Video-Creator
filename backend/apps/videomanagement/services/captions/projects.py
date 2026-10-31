@@ -220,7 +220,7 @@ def process_caption_project(project_id, token, render=False):
             if isinstance(exc, ValueError)
             else "Could not export the video. Please retry."
             if render
-            else "Could not finish processing. Check your OpenAI key or try again."
+            else "Could not finish processing. Check your transcription provider and retry."
         )
         rows.filter(status=running).update(
             status=CaptionProjectStatus.READY

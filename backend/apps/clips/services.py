@@ -8,7 +8,10 @@ from rest_framework.generics import get_object_or_404
 
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.utils.captions.styles import PROJECT_STYLE_DEFAULTS
-from apps.videomanagement.utils.captions.timing import validate_word_bounds
+from apps.videomanagement.utils.captions.timing import (
+    validate_word_bounds,
+    words_in_range,
+)
 
 from .choices import CLIP_BUSY, PROJECT_BUSY, ClipProjectStatus, ClipStatus
 from .constants import (
@@ -28,11 +31,10 @@ def clip_words(words, start, end):
     return [
         {
             "text": word["text"],
-            "start": round(max(start, word["start"]) - start, 4),
-            "end": min(end - start, round(min(end, word["end"]) - start, 4)),
+            "start": round(word["start"] - start, 4),
+            "end": min(end - start, round(word["end"] - start, 4)),
         }
-        for word in words
-        if word["end"] > start and word["start"] < end
+        for word in words_in_range(words, start, end)
     ]
 
 

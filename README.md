@@ -140,6 +140,11 @@ The [environment template](backend/.env_example) lists available settings. Blank
 values generally use application defaults; credentials are required for whichever
 providers you select.
 
+YouTube clipping projects first check for suitable captions. When captions cannot
+be used, audio transcription defaults to OpenAI (`whisper-1`) and requires a service
+or personal API key. See [transcription setup](docs/clips.md) for the optional local
+Whisper service.
+
 | Purpose | Service credentials |
 | --- | --- |
 | OpenAI scripts, images, speech, and Sora | `OPEN_API_KEY` |

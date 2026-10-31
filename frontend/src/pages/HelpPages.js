@@ -66,7 +66,7 @@ export function GuidePage() {
           </Link>)}</div>
         </GuideSection>
         <GuideSection {...guideSections[1]}>
-          <p>For AI tools, open <Link to="/api-keys/" className={linkStyle}>API keys and providers</Link> from your account menu. Connect the providers required by your chosen tool before starting. Add captions requires an OpenAI API key.</p>
+          <p>For AI tools, open <Link to="/api-keys/" className={linkStyle}>API keys and providers</Link> from your account menu. Connect the providers required by your chosen tool before starting. Audio transcription uses OpenAI by default and requires an OpenAI API key.</p>
           <p>You can create a manual project with your own photos, clips, and recorded voiceover without connecting an AI provider.</p>
         </GuideSection>
         <GuideSection {...guideSections[2]}>
@@ -92,7 +92,7 @@ export function GuidePage() {
           <p>After exporting, use the publishing action in the editor to choose an account and review the post details. Reconnect an account if the app says its connection has expired.</p>
         </GuideSection>
         <GuideSection {...guideSections[5]}>
-          <p>Open <Link to="/clips/" className={linkStyle}>Long video → Shorts</Link> to find highlights in an interview, podcast, talk, or other video with spoken audio. Transcription needs an OpenAI API key, and AI suggestions use your configured text provider.</p>
+          <p>Open <Link to="/clips/" className={linkStyle}>Long video → Shorts</Link> to find highlights in an interview, podcast, talk, or other video with spoken audio. Suitable YouTube captions are checked first; otherwise audio is transcribed with OpenAI. AI suggestions use your configured text provider.</p>
           <ol className="list-decimal space-y-3 pl-5">
             <li>Choose <strong>New project</strong>. Upload a video or paste a public YouTube video link, then choose your preferred clip lengths. Optionally describe the moments you want or select a processing range.</li>
             <li>Wait for the preview, transcript, and suggestions. You can leave the page and return to the saved project later.</li>

@@ -3,11 +3,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from apps.videomanagement.services.captions import transcription
 
 
+@override_settings(SPEECH_TRANSCRIPTION_PROVIDER="openai")
 class PreparedTranscriptionTests(SimpleTestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()

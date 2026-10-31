@@ -22,7 +22,17 @@ from apps.videomanagement.services.videos.preview import preview_timeline
 from apps.videomanagement.utils.composer.render import write_captions
 
 
+@override_settings(SPEECH_TRANSCRIPTION_PROVIDER="openai")
 class SpeechAlignmentTests(TestCase):
+    @override_settings(SPEECH_TRANSCRIPTION_PROVIDER="local")
+    def test_local_alignment_does_not_require_an_openai_key(self):
+        self.key.return_value = None
+        words = [{"text": "Hello", "start": 0.1, "end": 0.5}]
+        with patch("apps.videomanagement.services.captions.alignment.transcribe_audio", return_value=words):
+            align_scene_narration(self.scene)
+        self.key.assert_not_called()
+        self.assertEqual(aligned_words(self.scene), words)
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
