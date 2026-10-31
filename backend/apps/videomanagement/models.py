@@ -273,6 +273,11 @@ class UserPrompt(UUIDModel):
 
 
 class Scene(UUIDModel):
+    starting_asset = models.ForeignKey(
+        "MediaAsset", null=True, blank=True, on_delete=models.RESTRICT,
+        related_name="starting_scenes", editable=False,
+    )
+    starting_image_context = models.JSONField(default=dict, blank=True, editable=False)
     script_index = models.PositiveIntegerField(null=True, blank=True, editable=False)
     shot_plan = models.JSONField(default=dict, blank=True)
     archived_at = models.DateTimeField(
@@ -608,14 +613,20 @@ class MediaAsset(AbstractModel):
             return cls.from_visual(
                 user=scene.video.created_by, upload=file.file, **defaults
             )
+        file_name = file.name
+        if Path(file_name).is_absolute():
+            try:
+                file_name = str(Path(file_name).relative_to(settings.MEDIA_ROOT))
+            except ValueError:
+                pass
         existing = cls.objects.filter(
-            created_by=scene.video.created_by, file=file.name
+            created_by=scene.video.created_by, file=file_name
         ).first()
         if existing:
             return existing
         return cls.objects.create(
             created_by=scene.video.created_by,
-            file=file.name,
+            file=file_name,
             duration=file_timing(file).get("duration")
             if kind == cls.Kind.VIDEO
             else None,

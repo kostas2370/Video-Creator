@@ -13,9 +13,14 @@ suggestions reviewable and provider costs visible.
 - [ ] Add sentence-aware boundaries. Prefer complete openings and endings, use
       pauses where helpful, and preserve the requested duration range and original
       video timestamps.
+      Initial refinement extends valid suggestions to punctuation or pauses within
+      five seconds per edge, without extra provider calls. Still evaluate on real
+      videos and improve sentence-aware transcript windows and incomplete context.
 - [ ] Rank candidates with an explicit rubric for hook strength, standalone
       context, and payoff. Validate structured scores and evaluate whether they
       improve actual selections rather than treating model scores as objective.
+      Implemented transcript-based reviews with validated ratings and fewer-result
+      support. Real-video before/after quality, latency, and cost evaluation remains.
 
 ## Better context and variety
 
@@ -27,6 +32,9 @@ suggestions reviewable and provider costs visible.
 - [ ] Add meaning-based deduplication across the whole video. Avoid several clips
       making the same point even when their timestamps do not overlap; retain
       distinct perspectives and topics.
+      Initial review groups repeated points in the new candidate pool, including
+      across transcript windows. Still evaluate semantic accuracy and consider
+      existing saved clips when retrying extraction.
 - [ ] Offer two cuts of a promising moment: a short, punchy version and a longer
       version with more context. Let users compare and choose before creating or
       exporting clips.
@@ -48,3 +56,6 @@ suggestions reviewable and provider costs visible.
 
 Suggested order: establish the evaluation set, then implement sentence-aware cuts
 and explicit quality ranking before adding more complex signals.
+
+See [initial transcript review notes](clip-selection-review.md) for the local
+examples inspected and the remaining evaluation limits.

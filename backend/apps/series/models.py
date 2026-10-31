@@ -19,11 +19,24 @@ from apps.videomanagement.video_formats import (
 from .memory import video_script_snapshot
 from .querysets import SeriesEpisodeQuerySet
 
+CHARACTER_IDENTITY_FIELDS = ("name", "appearance", "wardrobe")
+CHARACTER_PROFILE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "personality", "relationships")
+CHARACTER_REFERENCE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "visual_style")
+
 
 class VideoSeries(AbstractModel, TimestampedModel):
     title = models.CharField(max_length=100)
     premise = models.TextField(max_length=2000)
     characters = models.TextField(max_length=2000, blank=True)
+    story_format = models.CharField(
+        max_length=20,
+        choices=[
+            ("GENERAL", "General series"),
+            ("ANIMATED_STORY", "Animated character story"),
+            ("SERIAL_DRAMA", "Serial drama"),
+        ],
+        default="GENERAL",
+    )
     visual_style = models.TextField(max_length=800)
     reference_image = models.ImageField(upload_to="media/series/%Y/%m/%d", blank=True)
     voice_model = models.ForeignKey(
@@ -47,6 +60,42 @@ class VideoSeries(AbstractModel, TimestampedModel):
     class Meta:
         db_table = "videomanagement_videoseries"
         ordering = ["-updated_at", "id"]
+
+
+class Character(AbstractModel, TimestampedModel):
+    class Status(models.TextChoices):
+        EMPTY = "EMPTY", "No image"
+        QUEUED = "QUEUED", "Queued"
+        GENERATING = "GENERATING", "Generating"
+        READY = "READY", "Ready"
+        FAILED = "FAILED", "Failed"
+
+    # A character can be prepared in the wizard before its series is saved.
+    series = models.ForeignKey(
+        VideoSeries, null=True, blank=True, on_delete=models.CASCADE,
+        related_name="cast_members",
+    )
+    name = models.CharField(max_length=60)
+    appearance = models.CharField(max_length=300)
+    wardrobe = models.CharField(max_length=150, blank=True, default="")
+    personality = models.CharField(max_length=200, blank=True, default="")
+    relationships = models.CharField(max_length=200, blank=True, default="")
+    visual_style = models.TextField(max_length=800, blank=True, default="")
+    position = models.PositiveSmallIntegerField(default=0)
+    image = models.ImageField(upload_to="media/characters/%Y/%m/%d", blank=True)
+    pending_image = models.ImageField(upload_to="media/characters/%Y/%m/%d", blank=True)
+    image_approved = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.EMPTY
+    )
+    job_id = models.UUIDField(null=True, blank=True, editable=False)
+    error = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def generation_brief(self):
+        return {field: getattr(self, field) for field in CHARACTER_REFERENCE_FIELDS}
 
 
 class SeriesEpisode(UUIDModel, TimestampedModel):

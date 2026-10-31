@@ -75,7 +75,7 @@ class VideoQuerySet(models.QuerySet):
 class SceneQuerySet(models.QuerySet):
     def with_media(self):
         """Load scene visuals in one extra query, retaining existing ordering."""
-        return self.prefetch_related(
+        return self.select_related("starting_asset").prefetch_related(
             Prefetch(
                 "scene_images",
                 queryset=video_models.SceneImage.objects.select_related("asset"),

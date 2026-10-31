@@ -12,7 +12,7 @@ describe("series workspace", () => {
     expect(html).toContain("A familiar world. A new story.");
     expect(html).toContain("Recurring characters");
     expect(html).toContain("Signature visual style");
-    expect(html).toContain("Narrator");
+    expect(html).toContain("Voice-over");
     expect(html).toContain("References improve consistency; generated appearances can still vary.");
   });
   it("keeps memory editable even after the original video is deleted", () => {
@@ -45,6 +45,13 @@ it("replaces drafting with one clear continuation action for an active episode",
   expect(html).toContain("/videos/active-video/");
   expect(html).not.toContain("textarea");
   expect(html).not.toContain('type="submit"');
+});
+
+it("requires cast setup before offering episode drafting for story series", () => {
+  const html = renderToStaticMarkup(<EpisodeComposer profile={{ cast_ready: false }} />);
+  expect(html).toContain("Create and approve your characters first");
+  expect(html).toContain("Set up your cast");
+  expect(html).not.toContain("textarea");
 });
 it("explains first episode creation and disables drafting while setup is being edited", () => {
   const html = renderToStaticMarkup(<EpisodeComposer profile={{ episode_count: 0 }} idea="A discovery" editing onSubmit={() => {}} />);

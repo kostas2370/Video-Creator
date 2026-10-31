@@ -1,16 +1,16 @@
-
 import io
 import subprocess
 import tempfile
 import wave
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
 
+from apps.common.youtube import SourceImportError
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.services.scenes.visuals import generate_new_image
 from apps.videomanagement.services.videos.manual import add_manual_scene
@@ -169,8 +169,6 @@ class ManualVideoTests(ApiTestCase):
 
     @patch("apps.videomanagement.services.media.music.download_youtube_video")
     def test_downloaded_youtube_music_is_checked_against_the_upload_size_limit(self, download):
-        from unittest.mock import MagicMock
-
         video = self.create_project()
         source = MagicMock()
         source.stat.return_value.st_size = 50 * 1024 * 1024 + 1
@@ -184,8 +182,6 @@ class ManualVideoTests(ApiTestCase):
 
     @patch("apps.videomanagement.services.media.music.download_youtube_video")
     def test_failed_youtube_music_import_preserves_existing_music(self, download):
-        from apps.common.youtube import SourceImportError
-
         video = self.create_project()
         self.client.post(reverse("video-music", args=[video.pk]), {"file": self.audio()}, format="multipart")
         video.refresh_from_db()
@@ -273,8 +269,6 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.data["captions"][-1]["end"], 3)
 
     def test_optional_ai_visual_generation_resolves_a_provider_only_when_requested(self):
-
-
         video = self.create_project()
         self.add_scene(video, text="My scene")
         visual = SceneImage.objects.create(scene=video.scenes.first(), prompt="A blue ocean")
@@ -304,8 +298,6 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.data["timing"]["duration"], 2)
 
     def test_failed_visual_save_rolls_back_scene_order_and_removes_uploaded_file(self):
-
-
         video = self.create_project()
         self.add_scene(video, text="Existing scene")
         existing = video.scenes.first()
@@ -326,8 +318,6 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(list(Path(self.directory.name).rglob("*.png")), [])
 
     def test_failure_before_visual_upload_does_not_delete_an_existing_file(self):
-
-
         video = self.create_project()
         existing_file = Path(self.directory.name, "photo.png")
         existing_file.write_bytes(b"existing file")

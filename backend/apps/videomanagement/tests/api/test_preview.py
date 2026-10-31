@@ -76,6 +76,20 @@ class PreviewTests(ApiTestCase):
         scene_image.make(scene=self.first, file="picture.png", with_audio=False)
         self.url = reverse("video-preview", args=[self.video.pk])
 
+    def test_series_preview_defaults_to_cuts_including_the_first_frame(self):
+        self.video.settings = {"narration": False, "creation_mode": "SERIES"}
+        self.video.save()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        for segment in response.data["segments"]:
+            self.assertEqual(segment["transition"], "CUT")
+            self.assertEqual((segment["fade_in"], segment["fade_out"], segment["dissolve_in"]), (0, 0, 0))
+        self.first.transition_after = "DISSOLVE"
+        self.first.transition_duration = 0.25
+        self.first.save()
+        segments = self.client.get(self.url).data["segments"]
+        self.assertEqual(segments[1]["dissolve_in"], 0.25)
+
     def test_preview_resolves_auto_motion_for_images_only(self):
 
         self.first.motion_style = "AUTO"

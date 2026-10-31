@@ -30,8 +30,27 @@ metadata. Downloads and previews still cover the full source and retain existing
 Optionally describe the clips you want in **What kind of clips do you want?**,
 for example, “Funny moments” or “Practical advice for first-time founders”.
 The saved brief guides both candidate extraction and final ranking. Omitting it,
-sending `null`, or leaving it blank uses general highlights. The limit is 2,000
+sending `null`, or leaving it blank uses the chosen clip focus. The limit is 2,000
 characters. Selection remains based on spoken content.
+
+## Selection preferences
+
+New projects offer two controls:
+
+- **Clip focus:** General highlights (default), Funny moments, Practical advice,
+  Stories, or Debates and opinions. Focus guides extraction and review without
+  replacing your written brief. A conflicting explicit request, including an AI
+  transcript search query, takes priority over the preset.
+- **Selection mode:** Fast skips the extra ranking review, reducing text-provider
+  usage. Initial suggestions and transcription still incur normal charges, and
+  repeated ideas may remain. Balanced (default) reviews pools with multiple
+  candidates. Strict reviews even a single candidate with a higher acceptance
+  bar; it may return fewer clips or none. Balanced and Strict add review usage.
+
+These choices are saved with the project and shown in its workspace. Retries and
+AI transcript searches use them. The controls are set when creating a project;
+existing projects default to General highlights and Balanced. All modes use the
+spoken transcript; none analyse video frames, voice delivery, or laughter.
 
 The first release targets interviews, podcasts, talks, and other speech-led videos.
 Highlight selection uses the transcript, not visual understanding. It may return
@@ -65,7 +84,41 @@ Audio is sent to OpenAI (`whisper-1`) for transcription using the existing servi
 or personal key selection. Transcript windows are sent to the configured text model
 (`DEFAULT_GPT_MODEL`) for suggestions. Both use existing AI usage tracking. Model
 responses must identify real word indices; invalid ranges and near-duplicate
-suggestions are discarded. Larger candidate sets receive a final ranking pass.
+suggestions are discarded.
+
+Selection uses a shared editorial rubric: an opening hook, standalone context,
+a payoff within the spoken excerpt, and relevance to your brief. Missing setup,
+garbled transcription, and unfinished punchlines count against an excerpt. A
+reaction or joke must make sense in the transcript; the model cannot inspect
+unseen visuals to fill in missing meaning.
+
+In Balanced mode, when two or more candidates remain, a review pass reads their actual excerpts,
+alongside their titles and reasons. It returns validated integer ratings from
+0–5. Clips need at least 2 for hook and 3 for context and payoff; when a brief
+or a non-general focus is present, relevance must also reach 3. Strict mode raises
+the hook threshold to 3 and the other thresholds to 4, and reviews a single
+candidate too. These are subjective model judgments,
+not measured audience engagement, and ratings are not saved or shown as quality
+guarantees. Review can return fewer clips or none. It also groups candidates
+repeating substantially the same point or joke, keeping one per group even
+when their timestamps do not overlap. Different perspectives can remain.
+
+When enabled by the selection mode, review runs even when the candidate count fits the requested count. Requests
+contain at most 20 candidates; larger pools are reviewed in batches, with their
+survivors reviewed together. This adds text-provider usage and latency, tracked
+through existing AI usage records. Fast always skips review; Balanced skips review
+for zero or one candidate. Those cases rely on the extraction rubric. Deduplication covers the new candidate
+pool; it does not semantically compare against previously saved clips. Existing
+saved clips are preserved.
+
+New suggestions and AI transcript search results extend their cuts to nearby
+sentence boundaries or pauses when possible. Each edge can extend by up to five
+seconds within its transcript window, while preserving the chosen duration limits
+and original source timestamps. If the expanded cut would exceed the maximum,
+the original valid cut is kept. This uses transcript punctuation and word timing;
+review the result because a natural boundary does not guarantee complete context.
+Existing saved clips and manual trims are unchanged, and refinement makes no
+additional provider requests.
 
 ## Full source transcript
 
@@ -142,6 +195,11 @@ upload, preview, clips, and exports through the existing file cleanup integratio
 The feature lives in the dedicated Django app `apps.clips`, with `/api/clips/`
 routes and `/clips/` frontend pages. It reuses caption word validation, transcription,
 caption styles, ASS composition, font handling, provider credentials, and usage.
+
+Selection preferences add migration
+`0008_clipproject_clip_focus_clipproject_selection_mode`. Apply migrations, restart
+the API and workers, and rebuild the frontend to expose the new controls. No
+provider calls or clip regeneration are performed by this migration.
 
 Pause uploads and workers before running `python manage.py migrate` so files are
 not written to public storage during the move. Then restart the API, general

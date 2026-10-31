@@ -4,7 +4,7 @@ import { useAssetOptions } from "../hooks/useAssetOptions";
 import { MoreAssetOptions } from "./ui/MoreAssetOptions";
 import React, { useState, useEffect } from "react";
 import { getIntro, getOutro, getAvatars, getVoices, updateVideo } from "../api/apiService";
-import { transitionDurations, transitionStyles } from "./SceneTransition";
+import { defaultTransition, transitionDurations, transitionStyles } from "./SceneTransition";
 import { AssetDropBox } from "./ui/assetDropBox";
 import { toast } from "react-toastify";
 import { CloseModalButton } from "./ui/CloseModalButton";
@@ -84,7 +84,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     setSubtitles(info?.settings?.subtitles === true);
     setCaptionStyle(info?.settings?.caption_style || (info?.settings?.platform === "TIKTOK" ? "TIKTOK" : "CLASSIC"));
     setCaptionConfig(info?.settings?.caption_config || {});
-    setTransitionDefault(info?.settings?.transition_default || "FADE");
+    setTransitionDefault(defaultTransition(info?.settings));
     setTransitionDuration(info?.settings?.transition_duration ?? "");
     setIntroTransition(info?.settings?.intro_transition || "DEFAULT");
     setIntroTransitionDuration(info?.settings?.intro_transition_duration ?? "");

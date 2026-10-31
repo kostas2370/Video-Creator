@@ -1,27 +1,28 @@
-from apps.publishing.platforms import instagram, tiktok, youtube
 import io
 import tempfile
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import Mock, patch
+from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import requests
-from PIL import Image
 from django.core.files.base import ContentFile
 from django.db import connection
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 from rest_framework.exceptions import ValidationError
-
-from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.tests.api.base import ApiTestCase
 
 from apps.publishing import accounts, http, oauth, tasks
 from apps.publishing.models import OAuthAttempt, Platform, PublishJob, SocialAccount
-from apps.publishing.serializers import PublishSerializer
-from apps.publishing.platforms import get_publisher
+from apps.publishing.platforms import get_publisher, instagram, tiktok, youtube
+from apps.publishing.platforms.base import Publisher
 from apps.publishing.platforms.instagram import media_url
+from apps.publishing.serializers import PublishSerializer
+from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.tests.api.base import ApiTestCase
 
 CONFIG = {platform: {"client_id": "client-id", "client_secret": "app-secret", "api_version": "v25.0"} for platform in Platform.values}
 METADATA = {"duration": 10, "fps": 30, "width": 1080, "height": 1920, "audio": True}
@@ -177,7 +178,6 @@ class PublishingTests(ApiTestCase):
         self.video.cover.save("invalid.png", ContentFile(b"not an image"))
         self.assertEqual(self.post().status_code, 400)
         self.assertFalse(PublishJob.objects.exists())
-        from pathlib import Path
         self.assertEqual(list(Path(self.directory.name, "snapshots").rglob("*.mp4")), [])
         self.queue.assert_not_called()
 
@@ -198,7 +198,6 @@ class PublishingTests(ApiTestCase):
 
     def test_oauth_is_bound_to_browser_and_consumed_once(self):
         url, browser = oauth.begin(self.user, "youtube", self.video)
-        from urllib.parse import parse_qs, urlparse
         state = parse_qs(urlparse(url).query)["state"][0]
         with self.assertRaises(ValidationError):
             oauth.consume("youtube", state, "wrong-browser")
@@ -210,7 +209,6 @@ class PublishingTests(ApiTestCase):
             oauth.consume("youtube", state, browser)
 
     def test_oauth_expiry_and_inactive_users_are_rejected(self):
-        from urllib.parse import parse_qs, urlparse
         for inactive in (False, True):
             url, browser = oauth.begin(self.user, "youtube", self.video)
             state = parse_qs(urlparse(url).query)["state"][0]
@@ -240,8 +238,6 @@ class PublishingTests(ApiTestCase):
         self.assertNotIn("app-secret", response.data["url"])
 
     def test_connect_without_video_returns_to_connections(self):
-        from urllib.parse import parse_qs, urlparse
-
         response = self.client.post(reverse("publishing-connect", args=["youtube"]), {})
         self.assertEqual(response.status_code, 200)
         state = parse_qs(urlparse(response.data["url"]).query)["state"][0]
@@ -261,8 +257,6 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_denied_connection_without_video_returns_to_connections(self):
-        from urllib.parse import parse_qs, urlparse
-
         url, browser = oauth.begin(self.user, "youtube")
         self.client.cookies[oauth.COOKIE_NAME] = browser
         state = parse_qs(urlparse(url).query)["state"][0]
@@ -271,7 +265,6 @@ class PublishingTests(ApiTestCase):
         self.assertIn("publishing=failed", response.url)
 
     def test_tiktok_sandbox_rejection_returns_actionable_result(self):
-        from urllib.parse import parse_qs, urlparse
         url, browser = oauth.begin(self.user, "tiktok", self.video)
         state = parse_qs(urlparse(url).query)["state"][0]
         self.client.cookies[oauth.COOKIE_NAME] = browser
@@ -348,7 +341,6 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(sum("media_publish" in call.args[1] for call in request.call_args_list), 1)
 
     def test_signed_media_urls_are_bound_to_one_job(self):
-        from urllib.parse import parse_qs, urlparse
         job = self.new_job("instagram", status="PROCESSING")
         other = self.new_job("instagram", status="PROCESSING")
         token = parse_qs(urlparse(media_url(job)).query)["token"][0]
@@ -561,8 +553,6 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(job.status, "PUBLISHED")
 
     def test_publisher_requires_both_upload_and_status_methods(self):
-        from apps.publishing.platforms.base import Publisher
-
         class UploadOnly(Publisher):
             def upload(self, job):
                 pass
@@ -595,7 +585,6 @@ class PublishingTests(ApiTestCase):
         self.assertNotIn("secret-access", str(caught.exception))
 
     def test_successful_callback_saves_to_the_initiating_creator_only(self):
-        from urllib.parse import parse_qs, urlparse
         url, browser = oauth.begin(self.user, "youtube", self.video)
         state = parse_qs(urlparse(url).query)["state"][0]
         self.client.force_authenticate(None)
@@ -619,7 +608,6 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(self.account.refresh_token, "secret-refresh")
 
     def test_signed_media_supports_byte_ranges_for_platform_fetchers(self):
-        from urllib.parse import parse_qs, urlparse
         job = self.new_job("instagram")
         token = parse_qs(urlparse(media_url(job)).query)["token"][0]
         self.client.force_authenticate(None)
@@ -631,8 +619,6 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(response.status_code, 416)
 
     def test_signed_media_supports_open_and_suffix_ranges(self):
-        from urllib.parse import parse_qs, urlparse
-
         job = self.new_job("instagram")
         token = parse_qs(urlparse(media_url(job)).query)["token"][0]
         self.client.force_authenticate(None)

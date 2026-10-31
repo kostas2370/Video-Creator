@@ -4,7 +4,6 @@
   "private": true,
   "dependencies": {
     "@headlessui/react": "^2.1.2",
-    "@material-tailwind/react": "^2.0.1",
     "axios": "^1.20.0",
     "date-fns": "^3.6.0",
     "js-cookie": "^3.0.7",
@@ -14,8 +13,7 @@
     "react-loading": "^2.0.3",
     "react-password-checklist": "^1.6.0",
     "react-router-dom": "^7.18.4",
-    "react-toastify": "^10.0.5",
-    "web-vitals": "^2.1.4"
+    "react-toastify": "^10.0.5"
   },
   "scripts": {
     "fonts:sync": "node ../scripts/sync-video-fonts.mjs",

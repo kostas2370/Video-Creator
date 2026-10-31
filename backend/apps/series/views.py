@@ -1,32 +1,45 @@
 from django.db.models import Count, OuterRef, Subquery
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.series.models import SeriesEpisode, VideoSeries
+from apps.series.models import Character, SeriesEpisode, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     EpisodeMemoryDraftSerializer,
     EpisodeMemorySerializer,
     SeriesEpisodeSerializer,
     VideoSeriesSerializer,
-    validate_episode_generation,
 )
-from apps.series.services import (
+from apps.series.services.characters import (
+    draft_cast,
+    draft_character_description,
+    request_character_image,
+)
+from apps.series.services.episodes import (
     draft_episode,
     draft_episode_memory,
     retry_episode,
     update_episode_memory,
 )
-from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.paginator import AssetResultsPagination
 from apps.videomanagement.throttling import GenerateRateThrottle
 
-from .throttling import SeriesMemoryRateThrottle
+from .serializers import (
+    CastDraftRequestSerializer,
+    CharacterDescriptionRequestSerializer,
+    CharacterImageQuerySerializer,
+    CharacterImageRequestSerializer,
+    CharacterSerializer,
+)
+from .throttling import (
+    CharacterImageRateThrottle,
+    SeriesCastDraftRateThrottle,
+    SeriesMemoryRateThrottle,
+)
 
 
 class VideoSeriesView(viewsets.ModelViewSet):
@@ -52,6 +65,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
                 active_video_id=Subquery(active.values("video_id")[:1]),
                 active_episode_number=Subquery(active.values("number")[:1]),
             )
+            .prefetch_related("cast_members")
             .order_by("-updated_at", "id")
         )
 
@@ -64,11 +78,59 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
     def get_throttles(self):
+        if self.action in ("cast_draft", "character_description"):
+            return [SeriesCastDraftRateThrottle()]
+        if self.action == "character_references" and self.request.method == "POST":
+            return [CharacterImageRateThrottle()]
         if self.action == "draft_memory":
             return [SeriesMemoryRateThrottle()]
         if self.request.method == "POST" and self.action in ("episodes", "retry"):
             return [GenerateRateThrottle()]
         return super().get_throttles()
+
+    @action(detail=False, methods=["post"])
+    def cast_draft(self, request):
+        serializer = CastDraftRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"cast": draft_cast(request.user, dict(serializer.validated_data))}
+        )
+
+    @action(detail=False, methods=["post"])
+    def character_description(self, request):
+        serializer = CharacterDescriptionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {
+                "character": draft_character_description(
+                    request.user, serializer.validated_data
+                )
+            }
+        )
+
+    @action(detail=False, methods=["get", "post"])
+    def character_references(self, request):
+        if request.method == "GET":
+            query = CharacterImageQuerySerializer(data=request.query_params)
+            query.is_valid(raise_exception=True)
+            identifier = query.validated_data["id"]
+            reference = get_object_or_404(
+                Character, pk=identifier, created_by=request.user
+            )
+            return Response(
+                CharacterSerializer(
+                    reference, context=self.get_serializer_context()
+                ).data
+            )
+        serializer = CharacterImageRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reference = request_character_image(
+            owner=request.user, choices=serializer.validated_data
+        )
+        return Response(
+            CharacterSerializer(reference, context=self.get_serializer_context()).data,
+            status=201 if serializer.validated_data.get("image") else 202,
+        )
 
     @action(detail=True, methods=["get", "post"])
     def episodes(self, request, pk=None):
@@ -111,18 +173,11 @@ class VideoSeriesView(viewsets.ModelViewSet):
     )
     def retry(self, request, pk=None, episode_id=None):
         episode = self.get_episode(episode_id)
-        if episode.video_id is None:
-            raise ValidationError(
-                "This episode's video was deleted. Draft a new episode instead."
-            )
-        if not episode.can_retry:
-            raise VideoEditConflict(
-                "Open the episode in the editor to review or resume it."
-            )
-        params = validate_episode_generation(
-            episode.generation_params, self.get_serializer_context()
+        episode = retry_episode(
+            episode,
+            owner=request.user,
+            validation_context=self.get_serializer_context(),
         )
-        episode = retry_episode(episode, generation_params=params, owner=request.user)
         return Response(SeriesEpisodeSerializer(episode).data, status=202)
 
     @action(

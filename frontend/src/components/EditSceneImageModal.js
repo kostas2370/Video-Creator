@@ -32,7 +32,7 @@ export const EditSceneImageModal = ({ showModal, setShowModal, scene_info, setUp
       }
       if (response) { toast.success("Scene visual updated successfully"); setUpdate(true); setShowModal(false); }
     } catch { toast.error("Could not update the visual. Please try again."); }
-    finally { setBusy(""); }
+    finally { setBusy(""); setUpdate(true); }
   };
   const media = preview || (scene_info.scene_image_id ? scene_info.image : "");
   const previewAspectRatio = { LANDSCAPE: "16 / 9", PORTRAIT: "9 / 16", SQUARE: "1 / 1" }[scene_info.video_format] || "16 / 9";

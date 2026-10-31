@@ -32,6 +32,89 @@ Regenerate the desired scenes to apply it. Clearing the field removes the guidan
 from future requests. Web-image searches do not use this guidance. This is
 prompt-level consistency, not a guarantee of identical characters or continuous motion.
 
+## Structured series cast and story formats
+
+Series setup uses three steps: **Idea → Cast → Finish**. Choose a story format
+and a visual-style preset in Idea, then add up to six recurring character cards in
+Cast. Only the selected character is expanded; extra personality, wardrobe and
+relationship controls are available on demand. Production and advanced settings
+live in Finish. Back and the step buttons retain unsaved work, including image
+requests and AI drafts. New series start with voice-over off; existing setups keep
+their saved narration and other defaults.
+
+Each has a unique name, fixed appearance, optional default wardrobe,
+personality/motivation, and starting relationships. Keep fixed physical features
+in appearance and editable clothes in wardrobe. Existing free-text cast/world
+notes remain available for locations, props and world rules.
+
+Choose **Animated character story** for a visual hook, conflict, escalation and
+payoff or cliffhanger, or **Serial drama** for emotional hooks, relationship
+stakes, revelations and cliffhangers. **General series** keeps the open-ended
+workflow. The format guides the script; signature visual style controls the look.
+These choices do not change narrator or rendering settings automatically.
+
+Character appearance and wardrobe join the shared visual guidance. Personality
+and relationships guide storyboard drafting. Visual guidance has a combined
+3,000-character limit across cast appearance, wardrobe, world, style and labels;
+provider-specific prompt limits still apply. Episode memory drafting is asked to
+retain ongoing injuries, important props, wardrobe changes, relationship changes
+and unresolved stakes where relevant. Review those memories before using them
+for later episodes.
+
+Before episode one, choose **Create characters with AI** to draft profiles from
+the premise, visual style and story format. Review the proposal and choose **Use
+proposed cast**; this does not generate images or change saved series setup.
+For an individual character, optionally enter a short **Character idea** and choose
+**Write description with AI**. It drafts appearance, wardrobe, personality and
+relationships using the current character and series as context. **Use description**
+applies only that character's text; it preserves the character ID and image. Visual
+changes require reviewing the existing look again. Keeping or discarding the draft
+does not modify saved profiles or generate an image.
+Each card can **Generate character image with AI** using the configured OpenAI
+image model, or accept an uploaded PNG, JPEG or WebP up to 10 MB and 25 million
+pixels. Image generation runs in the general worker and shows progress and safe
+failure messages. Uploads do not make a paid generation request.
+Saving series setup also retains pending image requests, so reopening setup can
+resume checking their progress and review completed images without paying again.
+
+Review each candidate and choose **Use this look**. Existing images remain until
+their replacements are accepted. Changing name, appearance, wardrobe or the shared
+visual style requires reviewing the look again with **Approve current look** or
+accepting a replacement. Personality and relationship edits do not invalidate the
+visual approval. Save the series setup to persist these choices. Animated stories
+and serial dramas require a cast; any series using character cards requires an
+approved image for every character before a new episode can be drafted. General
+series without a cast retain the existing workflow.
+
+Each episode copies a labeled sheet containing its character images and, when
+present, the optional shared style/world reference. The sheet is passed to
+storyboard drafting and OpenAI still-image generation. For a video provider, each
+shot first generates a scene-specific starting image through OpenAI, using the
+episode's cast sheet, shot prompt and shared guidance. The video provider animates
+that starting image; it does not animate the cast sheet itself. This uses one extra
+image-generation request per video shot, including replacements. The sheet stays
+the identity source for every shot instead of accumulating drift through closing
+frames. A provider without reference-image support cannot be saved with character
+references.
+
+Every episode snapshots its cast and story format and keeps its copied sheet;
+future series edits cannot change those inputs. Draft retries retain the original
+inputs. These references improve identity guidance but do not guarantee identical
+faces or frame-to-frame continuity. Explicit per-shot cast selection, a review step
+for starting images, and per-character voices are still planned.
+
+Characters use a single `Character` model linked directly to their series. It
+stores name, appearance, wardrobe, personality, relationships, visual style,
+position, image, approval flag and image-generation status. A pending-image field
+holds a proposed replacement until it is accepted. No separate profile or image
+reference model is needed. Characters being prepared in the wizard can have an
+empty series link until the setup is saved. Episode snapshots remain JSON.
+
+Deploy with series migrations through `0006_single_character`, restart the API
+and workers, and rebuild the frontend. The migration retains saved characters,
+their order, images and approvals without generating new images. The image task
+uses a request ID to avoid accepting an obsolete background result.
+
 ## Extracting details from a reference image
 
 Upload an optional reference and choose **Character**, **Style**, or **Both**.
@@ -53,7 +136,7 @@ description and reference preview appear in storyboard review. Editing or cleari
 the description takes effect on approval, and approval does not analyze the image again.
 
 OpenAI image generation receives role-specific guidance with the reference.
-Video providers use a character/both reference as the first frame. In style-only
+Standalone video projects use a character/both reference as the first frame. In style-only
 mode, video generation uses the extracted written style instead of copying the
 uploaded reference as the first frame. Later video shots can still use closing
 frames from generated clips for continuity.
@@ -77,3 +160,12 @@ exclude any repeated source footage from the resulting scene.
 
 No database migration is required for the shared brief. Restart the API and worker
 and rebuild the frontend to use updated code in Docker.
+
+
+### Saved starting images and image assets
+
+AI images are archived immediately in the owner's media library, before downstream video generation. Character images, uploaded series/video references, covers, thumbnails, and scene logos also receive independent library copies. Identical image bytes reuse an asset within the same account. Removing or changing the original reference does not remove the library copy.
+
+Character-based video shots save a starting-image asset on the scene before calling the video provider. The editor shows this image and offers **Retry video with saved image**. Retries reuse it while the shot, cast reference, style, and frame format match; changing those inputs produces a new image and keeps the earlier asset in the library. An asset used as a scene's starting image is protected from deletion. Carry-on updates the failed visual row so the successful clip appears in the editor.
+
+After upgrading, run `python manage.py archive_reference_images` to archive existing character/project images and logos. Image files left in project image folders by earlier failed jobs are also added to the library. They cannot be reliably associated with a specific scene retroactively; choose them from the library when needed.

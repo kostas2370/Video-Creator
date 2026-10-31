@@ -64,6 +64,7 @@ def create_project(user, source=None, metadata=None, **options):
 
 
 def queue_project(project):
+    # Tasks import processing, which imports this service module.
     from .tasks import process_project_task
 
     with transaction.atomic():
@@ -147,6 +148,7 @@ def save_clip(project, changes, clip_id=None):
 
 
 def queue_exports(project, clip_ids):
+    # Tasks import processing, which imports this service module.
     from .tasks import export_clip_task
 
     if not clip_ids or len(clip_ids) != len(set(clip_ids)):

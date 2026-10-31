@@ -219,13 +219,18 @@ def generate_video(
         dir_name = video.dir_name
     else:
         x = get_reply(
-            prompt, gpt_model=gpt_model, user=video.created_by,
-            narration=narration, scene_count=scene_count,
+            prompt,
+            gpt_model=gpt_model,
+            user=video.created_by,
+            narration=narration,
+            scene_count=scene_count,
             ai_scene_editing=ai_scene_editing,
             video_provider=video_provider,
             require_visual_continuity=image_mode == "AI",
             **({"require_episode_summary": True} if series_context else {}),
-            **({"reference_image": video.reference_image.path} if has_reference else {}),
+            **(
+                {"reference_image": video.reference_image.path} if has_reference else {}
+            ),
         )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
@@ -250,6 +255,7 @@ def generate_video(
     vid.intro = intro
     vid.outro = outro
     creation_mode = (vid.settings or {}).get("creation_mode")
+    character_references = (vid.settings or {}).get("character_references", False)
     generation_params = (vid.settings or {}).get("generation_params")
     vid.settings = dict(
         subtitles=subtitles,
@@ -262,7 +268,11 @@ def generate_video(
     )
     if creation_mode:
         vid.settings["creation_mode"] = creation_mode
-    run_video_hooks("storyboard_generated", video=vid, storyboard=x, new_script=new_script)
+    if character_references:
+        vid.settings["character_references"] = True
+    run_video_hooks(
+        "storyboard_generated", video=vid, storyboard=x, new_script=new_script
+    )
     if has_reference:
         vid.settings["reference_role"] = reference_role
     if visual_continuity:
@@ -273,7 +283,10 @@ def generate_video(
         vid.settings["scene_count"] = scene_count
     if review_script:
         if generation_params is not None and image_mode == "AI":
-            generation_params = {**generation_params, "visual_continuity": visual_continuity}
+            generation_params = {
+                **generation_params,
+                "visual_continuity": visual_continuity,
+            }
         vid.settings["generation_params"] = generation_params
     vid.save()
 

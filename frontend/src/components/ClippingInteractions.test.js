@@ -81,11 +81,16 @@ it("submits a YouTube link and optional extraction brief without requiring a fil
   fireEvent.click(screen.getByRole("button", { name: "YouTube link", exact: true }));
   fireEvent.change(screen.getByLabelText(/YouTube video link/), { target: { value: "https://youtu.be/abcdefghijk" } });
   fireEvent.change(screen.getByPlaceholderText(/practical business advice/), { target: { value: "Funny moments" } });
+  fireEvent.change(screen.getByLabelText("Clip focus"), { target: { value: "funny" } });
+  fireEvent.change(screen.getByLabelText("Selection mode"), { target: { value: "fast" } });
+  expect(screen.getByText(/without an extra ranking review/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Find short clips" }));
   await waitFor(() => expect(api.createClipProject).toHaveBeenCalledTimes(1));
   const data = api.createClipProject.mock.calls[0][0];
   expect(data.get("youtube_url")).toBe("https://youtu.be/abcdefghijk");
   expect(data.get("extraction_prompt")).toBe("Funny moments");
+  expect(data.get("clip_focus")).toBe("funny");
+  expect(data.get("selection_mode")).toBe("fast");
   expect(data.has("source")).toBe(false);
   await screen.findByText("Source saved");
 });
@@ -131,6 +136,19 @@ it("submits the optional source range alongside a YouTube import", async () => {
   const data = api.createClipProject.mock.calls[0][0];
   expect(data.get("range_start")).toBe("600");
   expect(data.get("range_end")).toBe("1800");
+  expect(data.get("clip_focus")).toBe("general");
+  expect(data.get("selection_mode")).toBe("balanced");
+});
+
+it("explains strict selection and shows saved preferences in the project", async () => {
+  render(<MemoryRouter initialEntries={["/clips/"]}><Routes><Route path="/clips/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "New project", exact: true }));
+  fireEvent.change(screen.getByLabelText("Selection mode"), { target: { value: "strict" } });
+  expect(screen.getByText(/May return fewer clips or none/)).toBeTruthy();
+  cleanup();
+  api.getClipProject.mockResolvedValue({ ok: true, data: projectFixture({ clip_focus: "stories", selection_mode: "strict" }) });
+  render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  await screen.findByText(/Stories · Strict selection/);
 });
 
 it("finds clips by a natural-language request and only creates the chosen result", async () => {

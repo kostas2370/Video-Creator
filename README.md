@@ -29,6 +29,19 @@ Explore the [dark-theme screenshot gallery](docs/screenshots.md) for more of the
   professional accounts after configuring the platform integrations.
 
 Save generation templates and reusable assets to speed up your next project.
+AI video and series creation forms also recover unfinished work automatically in
+the same browser and account. Reopen the page to return to your step, prompts,
+settings, character profiles, completed AI proposals and selected reference files.
+Unsaved series setup opens again from **Series**; saved-series edits recover in
+their own workspace. **Cancel** keeps the draft, while **Start over** discards it
+after confirmation. Successfully saving a series clears its browser draft.
+
+Character image requests resume checking their existing progress. A video that
+already has a queued storyboard shows **Open saved project**, so returning to the
+form does not start another paid request. Draft recovery does not sync between
+browsers or devices and depends on browser storage. If an uploaded reference cannot
+be recovered, reattach or explicitly remove it before generating.
+
 Accounts can use shared service credentials or encrypted personal provider keys.
 AI generation requires access to the selected providers and may incur API charges.
 
@@ -92,8 +105,10 @@ cookies stay on the same site.
 
 ## Create your first video
 
-1. **Choose a starting point.** Describe your idea for an AI project, or start a
-   manual project with your own media. Select the format and generation options.
+1. **Choose a starting point.** AI creation uses **Idea → Look & sound → Review**:
+   enter a prompt, choose visuals/voice and frame, then review before drafting.
+   Optional providers, presenter and advanced settings stay folded away. Back
+   preserves your choices. You can also start a manual project with your own media.
 2. **Review the storyboard.** Edit the dialogue and visual prompts before generating
    media. For AI visuals, refine each shot's framing, camera direction, subject action,
    and target duration. You can save a draft and return to it from **My videos**.
@@ -348,10 +363,35 @@ resume flow. The existing timeout cleanup also marks stalled exports as retryabl
 
 Choose **Create a series** from the creation tools. Save a series name, premise,
 recurring cast/world, visual style, narrator, frame, captions and optional intro/outro.
-You can also upload one PNG, JPEG or WebP reference image (up to 10 MB), such as a
-cast sheet. Choose a supported built-in AI visual provider; a reference requires a
+Series setup uses **Idea → Cast → Finish**, with style presets and optional advanced
+settings. Choose General, Animated character story or Serial drama. Before drafting a story,
+use **Create characters with AI** to propose profiles from your premise and style,
+then review and accept the cast. For each character, generate an image with AI or
+upload one and choose **Use this look**. Save the setup after approving the cast.
+You can also use **Write description with AI** on a single character to draft its
+appearance, wardrobe, personality and relationships from a short idea. Review and
+apply that draft without replacing the character's identity or image.
+Story formats require characters with approved images before drafting an episode.
+You can also upload one shared PNG, JPEG or WebP style/world reference (up to 10 MB).
+Choose a supported built-in AI visual provider; a reference requires a
 provider with reference-image support. References guide appearance, but do not
 promise identical characters across generations.
+
+Character images run through the configured OpenAI image model in the general
+worker; uploaded references do not make an AI request. Each episode gets its own
+copied cast sheet. When using a video provider, each shot first generates a starting
+image from that sheet through OpenAI and then animates it, using image and video
+generation credits. Later cast edits do not change existing episode references.
+See [visual continuity](docs/visual-continuity.md) for the full workflow.
+
+Generated images, character references, shared references, covers and scene logos
+are saved in the media library. If video generation fails after the starting image
+is created, the scene keeps that image and offers **Retry video with saved image**.
+The existing result is retained until its replacement succeeds.
+
+After upgrading, apply the included migrations, restart the API and workers, and
+rebuild the frontend. Run `python manage.py archive_reference_images` to add older
+reference images and project image files to the library; this makes no AI requests.
 
 Use **Draft next episode** with a new idea. Drafting uses the configured text model
 and opens a normal video project. Review and edit its storyboard before approving
