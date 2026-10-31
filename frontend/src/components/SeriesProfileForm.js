@@ -12,7 +12,7 @@ import { SeriesCastDesigner } from "./SeriesCastDesigner";
 import { CreationSteps } from "./ui/CreationSteps";
 import { visualProviderNames, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
 import { videoFormats } from "../utils/videoFormats";
-import { API_HOST } from "../endpoints";
+import { mediaUrl } from "../utils/media";
 import { MoreAssetOptions } from "./ui/MoreAssetOptions";
 import { editorInput, editorButton } from "./ui/EditorDialog";
 
@@ -58,7 +58,7 @@ export function SeriesProfileForm({ initial, busy, onSave, onCancel, error }) {
     ...(key === "visual_style" && value !== current.visual_style ? { cast: current.cast.map(character => ({ ...character, image_approved: false })) } : {}),
   }));
   const referenceSupported = supportsVisualReference(form.provider, "AI");
-  const currentReference = initial?.reference_image && (/^https?:\/\//i.test(initial.reference_image) ? initial.reference_image : `${API_HOST}${initial.reference_image}`);
+  const currentReference = mediaUrl(initial?.reference_image);
   const image = preview || (!removeReference && currentReference);
   const approvedCount = form.cast.filter(character => characterIsApproved(character, form.visual_style)).length;
   const navigate = target => {

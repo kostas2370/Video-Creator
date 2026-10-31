@@ -1,3 +1,4 @@
+import json
 from uuid import UUID
 
 from django.db import transaction
@@ -55,11 +56,6 @@ def serialize_cast(series):
     return CharacterSerializer(series.cast_members.all(), many=True).data
 
 
-class CastField(serializers.JSONField):
-    def to_representation(self, value):
-        return CharacterSerializer(value.all(), many=True).data
-
-
 class CastDraftRequestSerializer(serializers.Serializer):
     premise = serializers.CharField(max_length=2000)
     visual_style = serializers.CharField(max_length=800)
@@ -111,8 +107,9 @@ class CharacterImageRequestSerializer(serializers.ModelSerializer):
 
 
 class VideoSeriesSerializer(serializers.ModelSerializer):
-    # Parse JSON/multipart input; the database stores related Character rows.
-    cast = CastField(source="cast_members", required=False)
+    cast = CharacterSerializer(
+        source="cast_members", many=True, required=False, max_length=6
+    )
     cast_ready = serializers.SerializerMethodField()
     episode_count = serializers.IntegerField(read_only=True)
     active_episode = serializers.SerializerMethodField()
@@ -188,13 +185,19 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
     def validate_reference_image(self, value):
         return validate_reference_image(value)
 
-    def validate_cast(self, value):
-        serializer = CharacterSerializer(data=value, many=True, max_length=6)
-        serializer.is_valid(raise_exception=True)
-        cast = [
-            dict(character, id=str(character["id"]))
-            for character in serializer.validated_data
-        ]
+    def to_internal_value(self, data):
+        # Multipart encodes the nested list as text alongside the uploaded image.
+        if hasattr(data, "getlist") and "cast" in data:
+            data = data.dict()
+            try:
+                data["cast"] = json.loads(data["cast"])
+            except (ValueError, TypeError) as exc:
+                raise serializers.ValidationError(
+                    {"cast": "Enter a valid JSON list of characters."}
+                ) from exc
+        return super().to_internal_value(data)
+
+    def validate_cast(self, cast):
         if len({character["id"] for character in cast}) != len(cast):
             raise serializers.ValidationError("Each character must have a unique ID.")
         if len({character["name"].casefold() for character in cast}) != len(cast):

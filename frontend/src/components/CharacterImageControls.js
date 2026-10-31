@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { createCharacterReference, getCharacterReference } from "../api/apiService";
-import { API_HOST } from "../endpoints";
+import { mediaUrl } from "../utils/media";
 import { characterIsApproved } from "../utils/series";
 
-export const characterImageUrl = url => url && (/^https?:\/\//i.test(url) ? url : `${API_HOST}${url}`);
 const inProgress = status => ["QUEUED", "GENERATING"].includes(status);
 
 export function CharacterImageControls({ character, visualStyle, onPatch }) {
@@ -74,13 +73,13 @@ export function CharacterImageControls({ character, visualStyle, onPatch }) {
   return <div className="space-y-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50">
     <p className="text-sm font-semibold">Character reference image</p>
     {character.image && <>
-      <img src={characterImageUrl(character.image)} alt={`${character.name || "Character"} approved reference`} className="max-h-56 rounded-lg object-contain" />
+      <img src={mediaUrl(character.image)} alt={`${character.name || "Character"} approved reference`} className="max-h-56 rounded-lg object-contain" />
       <p role="status" className={`text-xs ${approved ? "text-green-700 dark:text-green-300" : "text-amber-700 dark:text-amber-300"}`}>{approved ? "Look approved for future episodes" : "Review this image after changing the character or visual style."}</p>
       {!approved && <button type="button" onClick={() => approve(character.image)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-300">Approve current look</button>}
     </>}
     {candidate && <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
       <p className="text-sm font-semibold">Review new character image</p>
-      <img src={characterImageUrl(candidate)} alt={`Proposed reference for ${character.name}`} className="max-h-64 rounded-lg object-contain" />
+      <img src={mediaUrl(candidate)} alt={`Proposed reference for ${character.name}`} className="max-h-64 rounded-lg object-contain" />
       <div className="flex gap-4">
         <button type="button" onClick={() => approve(candidate)} className="text-sm font-semibold text-indigo-600 dark:text-indigo-300">Use this look</button>
         <button type="button" onClick={() => setCandidate(null)} className="text-sm text-gray-500">Review later</button>

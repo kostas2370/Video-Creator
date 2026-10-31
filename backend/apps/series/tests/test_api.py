@@ -89,7 +89,10 @@ class SeriesTests(ApiTestCase):
                 format=encoding,
             )
             self.assertEqual(response.status_code, 200, response.data)
-            self.assertEqual([{key: row[key] for key in cast[0]} for row in response.data["cast"]], cast)
+            self.assertEqual(
+                [{key: row[key] for key in cast[0]} for row in response.data["cast"]],
+                cast,
+            )
         response = self.client.patch(self.url(), {"cast": []}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["cast"], [])
@@ -132,7 +135,10 @@ class SeriesTests(ApiTestCase):
             Character.objects.create(created_by=self.user), source
         )
         character = self.character(
-            id=str(reference.pk), image=reference.image.url, image_approved=True, visual_style=self.series.visual_style
+            id=str(reference.pk),
+            image=reference.image.url,
+            image_approved=True,
+            visual_style=self.series.visual_style,
         )
         for story_format, guidance in (
             ("ANIMATED_STORY", "satisfying visual payoff"),
@@ -708,7 +714,11 @@ class SeriesTests(ApiTestCase):
                 intro_id=opening.pk,
                 outro_id=ending.pk,
             )
-        profiles = list(VideoSeries.objects.filter(voice_model_id=voice.pk).prefetch_related("cast_members"))
+        profiles = list(
+            VideoSeries.objects.filter(voice_model_id=voice.pk).prefetch_related(
+                "cast_members"
+            )
+        )
         with self.assertNumQueries(0):
             data = VideoSeriesSerializer(profiles, many=True).data
         self.assertEqual(len(data), 3)
@@ -926,3 +936,36 @@ class SeriesTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 400)
         ai.assert_not_called()
+
+    def test_multipart_nested_cast_preserves_the_uploaded_reference_file(self):
+        source = io.BytesIO()
+        Image.new("RGB", (64, 64), "orange").save(source, format="PNG")
+        cast = [self.character()]
+        response = self.client.patch(
+            self.url(),
+            {
+                "cast": json.dumps(cast),
+                "reference_image": SimpleUploadedFile(
+                    "world.png", source.getvalue(), content_type="image/png"
+                ),
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["cast"][0]["id"], cast[0]["id"])
+        self.series.refresh_from_db()
+        self.assertEqual(self.series.cast_members.count(), 1)
+        with self.series.reference_image.open("rb") as saved:
+            self.assertEqual(saved.read(), source.getvalue())
+
+    def test_invalid_multipart_cast_does_not_change_the_series(self):
+        for cast in ("invalid JSON", '{"name": "Milo"}', "null"):
+            with self.subTest(cast=cast):
+                response = self.client.patch(
+                    self.url(), {"cast": cast, "title": "Changed"}, format="multipart"
+                )
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn("cast", response.data)
+        self.series.refresh_from_db()
+        self.assertEqual(self.series.title, "Milo")
+        self.assertEqual(self.series.cast_members.count(), 0)

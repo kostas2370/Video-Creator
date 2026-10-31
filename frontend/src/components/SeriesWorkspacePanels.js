@@ -3,17 +3,16 @@ import { HiOutlineArrowRight, HiOutlineBookOpen, HiOutlineSparkles } from "react
 import { videoFormats } from "../utils/videoFormats";
 import { visualProviderNames } from "../utils/visualProviders";
 import { storyFormats } from "../utils/series";
-import { API_HOST } from "../endpoints";
+import { mediaUrl } from "../utils/media";
 import { editorButton, editorInput } from "./ui/EditorDialog";
 
 const surface = "rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800";
-const seriesReferenceUrl = image => image && (/^https?:\/\//i.test(image) ? image : `${API_HOST}${image}`);
 
 export function SeriesLibraryCard({ series }) {
   const frame = videoFormats.find(item => item.value === series.video_format);
   return <Link to={`/series/${series.id}/`} className={`${surface} group flex flex-col overflow-hidden transition hover:-translate-y-1 hover:border-indigo-400 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`}>
     <div className="relative flex h-36 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-100 via-purple-50 to-blue-100 dark:from-indigo-900 dark:via-gray-800 dark:to-blue-900">
-      {series.reference_image ? <img src={seriesReferenceUrl(series.reference_image)} alt="" loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : <HiOutlineBookOpen aria-hidden="true" className="h-12 w-12 text-indigo-400 dark:text-indigo-300" />}
+      {series.reference_image ? <img src={mediaUrl(series.reference_image)} alt="" loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : <HiOutlineBookOpen aria-hidden="true" className="h-12 w-12 text-indigo-400 dark:text-indigo-300" />}
       <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-gray-800 shadow-sm dark:bg-gray-900/95 dark:text-gray-100">{series.episode_count || 0} episodes</span>
     </div>
     <div className="flex flex-1 flex-col p-5"><h3 className="break-words text-lg font-bold">{series.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{series.premise}</p>
@@ -55,11 +54,11 @@ export function SeriesOverview({ profile }) {
   const frame = videoFormats.find(item => item.value === profile.video_format);
   return <aside className={`${surface} min-w-0 overflow-hidden lg:sticky lg:top-6`} aria-label="Saved series setup">
     <div className="border-b border-gray-100 p-5 dark:border-gray-700"><h2 className="flex items-center gap-2 font-bold"><HiOutlineBookOpen aria-hidden="true" className="text-indigo-500" />Series setup</h2><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Carried into every new episode</p></div>
-    {profile.reference_image && <img src={seriesReferenceUrl(profile.reference_image)} alt="Saved cast and style reference" className="max-h-52 w-full bg-gray-50 object-contain dark:bg-gray-900" />}
+    {profile.reference_image && <img src={mediaUrl(profile.reference_image)} alt="Saved cast and style reference" className="max-h-52 w-full bg-gray-50 object-contain dark:bg-gray-900" />}
     <div className="space-y-5 p-5">
       <dl className="grid grid-cols-2 gap-4 text-sm"><div><dt className="text-xs text-gray-500 dark:text-gray-400">Frame</dt><dd className="mt-1 font-semibold">{frame ? `${frame.label} ${frame.ratio}` : profile.video_format}</dd></div><div><dt className="text-xs text-gray-500 dark:text-gray-400">Episode length</dt><dd className="mt-1 font-semibold">{profile.scene_count} shots</dd></div><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-semibold">{profile.narration ? "Saved narrator" : "No narration"}</dd></div><div><dt className="text-xs text-gray-500 dark:text-gray-400">Captions</dt><dd className="mt-1 font-semibold">{profile.subtitles ? "On" : "Off"}</dd></div></dl>
       <p className="text-xs text-gray-500 dark:text-gray-400">{visualProviderNames[profile.provider] || profile.provider}</p>
-      <div className="text-sm"><p className="font-semibold">{storyFormats.find(format => format.value === profile.story_format)?.label || "General series"}</p>{profile.cast?.length > 0 && <ul className="mt-2 space-y-3" aria-label="Saved characters">{profile.cast.map(character => <li key={character.id}>{character.image && <img src={seriesReferenceUrl(character.image)} alt={`${character.name} reference`} className="mb-2 h-24 w-24 rounded-lg object-contain" />}<span className="font-semibold">{character.name}</span><p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{character.appearance}</p></li>)}</ul>}</div>
+      <div className="text-sm"><p className="font-semibold">{storyFormats.find(format => format.value === profile.story_format)?.label || "General series"}</p>{profile.cast?.length > 0 && <ul className="mt-2 space-y-3" aria-label="Saved characters">{profile.cast.map(character => <li key={character.id}>{character.image && <img src={mediaUrl(character.image)} alt={`${character.name} reference`} className="mb-2 h-24 w-24 rounded-lg object-contain" />}<span className="font-semibold">{character.name}</span><p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{character.appearance}</p></li>)}</ul>}</div>
       <details className="border-t border-gray-100 pt-4 dark:border-gray-700"><summary className="cursor-pointer text-sm font-semibold">World, cast &amp; style</summary><div className="mt-4 space-y-4">{[["Premise", profile.premise], ["Cast & world", profile.characters], ["Signature style", profile.visual_style]].filter(([, value]) => value).map(([label, value]) => <div key={label}><h3 className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">{label}</h3><p className="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-gray-500 dark:text-gray-400">{value}</p></div>)}</div></details>
       <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Setup changes apply to future episodes. Each existing episode keeps its original choices. References guide appearance; results can vary.</p>
     </div>
