@@ -74,3 +74,13 @@ def preserve_shared_asset_file(sender, file, file_name, **kwargs):
         if model._base_manager.filter(references).exists():
             file.name = None
             return
+
+
+@receiver(post_save, sender=Video)
+@receiver(post_save, sender="series.VideoSeries")
+@receiver(post_save, sender="series.CharacterReference")
+@receiver(post_save, sender=Scene)
+def reference_saved(sender, instance, **kwargs):
+    if not kwargs.get("raw"):
+        from .services.media.references import archive_reference
+        archive_reference(instance)

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { HiOutlineArrowRight, HiOutlineBookOpen, HiOutlineSparkles } from "react-icons/hi2";
 import { videoFormats } from "../utils/videoFormats";
 import { visualProviderNames } from "../utils/visualProviders";
+import { storyFormats } from "../utils/series";
 import { API_HOST } from "../endpoints";
 import { editorButton, editorInput } from "./ui/EditorDialog";
 
@@ -22,7 +23,7 @@ export function SeriesLibraryCard({ series }) {
   </Link>;
 }
 
-export function EpisodeComposer({ profile, idea, onIdeaChange, onSubmit, busy, editing, loading, error }) {
+export function EpisodeComposer({ profile, idea, onIdeaChange, onSubmit, busy, editing, loading, error, onSetup }) {
   const active = profile.active_episode;
   if (active) return <section aria-label="Current episode" className="mb-7 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 sm:p-6 dark:border-indigo-800 dark:bg-indigo-900/40">
     <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Pick up where you left off</span>
@@ -31,6 +32,7 @@ export function EpisodeComposer({ profile, idea, onIdeaChange, onSubmit, busy, e
     <Link to={`/videos/${active.video_id}/`} className={`${editorButton} mt-5 inline-flex items-center gap-2`}>Continue episode {active.number}<HiOutlineArrowRight aria-hidden="true" /></Link>
     {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">{error}</p>}
   </section>;
+  if (profile.cast_ready === false) return <section aria-label="Set up characters" className={`${surface} mb-7 space-y-4 p-6`}><h2 className="text-xl font-bold">Create and approve your characters first</h2><p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">Design the cast with AI or add your own characters. Generate or upload a reference image for each character, review their looks, then save series setup to start an episode.</p><button type="button" disabled={busy || editing || loading} onClick={onSetup} className={editorButton}>{editing ? "Finish and save the cast above" : "Set up your cast"}</button>{error && <p role="alert" className="text-sm text-red-600">{error}</p>}</section>;
   return <form onSubmit={onSubmit} className={`${surface} mb-7 overflow-hidden`} aria-label="Draft next episode">
     <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white px-5 py-4 sm:px-6 dark:border-gray-700 dark:from-indigo-900/50 dark:to-gray-800">
       <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300"><HiOutlineSparkles aria-hidden="true" />Next chapter</span>
@@ -57,6 +59,7 @@ export function SeriesOverview({ profile }) {
     <div className="space-y-5 p-5">
       <dl className="grid grid-cols-2 gap-4 text-sm"><div><dt className="text-xs text-gray-500 dark:text-gray-400">Frame</dt><dd className="mt-1 font-semibold">{frame ? `${frame.label} ${frame.ratio}` : profile.video_format}</dd></div><div><dt className="text-xs text-gray-500 dark:text-gray-400">Episode length</dt><dd className="mt-1 font-semibold">{profile.scene_count} shots</dd></div><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-semibold">{profile.narration ? "Saved narrator" : "No narration"}</dd></div><div><dt className="text-xs text-gray-500 dark:text-gray-400">Captions</dt><dd className="mt-1 font-semibold">{profile.subtitles ? "On" : "Off"}</dd></div></dl>
       <p className="text-xs text-gray-500 dark:text-gray-400">{visualProviderNames[profile.provider] || profile.provider}</p>
+      <div className="text-sm"><p className="font-semibold">{storyFormats.find(format => format.value === profile.story_format)?.label || "General series"}</p>{profile.cast?.length > 0 && <ul className="mt-2 space-y-3" aria-label="Saved characters">{profile.cast.map(character => <li key={character.id}>{character.reference_image && <img src={seriesReferenceUrl(character.reference_image)} alt={`${character.name} reference`} className="mb-2 h-24 w-24 rounded-lg object-contain" />}<span className="font-semibold">{character.name}</span><p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{character.appearance}</p></li>)}</ul>}</div>
       <details className="border-t border-gray-100 pt-4 dark:border-gray-700"><summary className="cursor-pointer text-sm font-semibold">World, cast &amp; style</summary><div className="mt-4 space-y-4">{[["Premise", profile.premise], ["Cast & world", profile.characters], ["Signature style", profile.visual_style]].filter(([, value]) => value).map(([label, value]) => <div key={label}><h3 className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">{label}</h3><p className="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-gray-500 dark:text-gray-400">{value}</p></div>)}</div></details>
       <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Setup changes apply to future episodes. Each existing episode keeps its original choices. References guide appearance; results can vary.</p>
     </div>

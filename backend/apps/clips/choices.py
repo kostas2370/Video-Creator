@@ -23,6 +23,20 @@ class ClipLayout(models.TextChoices):
     FIT = "FIT", "Blurred background"
 
 
+class ClipFocus(models.TextChoices):
+    GENERAL = "general", "General highlights"
+    FUNNY = "funny", "Funny moments"
+    ADVICE = "advice", "Practical advice"
+    STORIES = "stories", "Stories"
+    DEBATE = "debate", "Debates and opinions"
+
+
+class ClipSelectionMode(models.TextChoices):
+    FAST = "fast", "Fast"
+    BALANCED = "balanced", "Balanced"
+    STRICT = "strict", "Strict"
+
+
 PROJECT_BUSY = frozenset(
     {
         ClipProjectStatus.QUEUED,

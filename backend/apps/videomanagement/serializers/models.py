@@ -44,6 +44,17 @@ class SceneImageSerializer(serializers.ModelSerializer):
 
 
 class SceneSerializer(serializers.ModelSerializer):
+    starting_image = serializers.SerializerMethodField()
+    starting_image_description = serializers.SerializerMethodField()
+
+    def get_starting_image(self, obj):
+        if obj.starting_asset_id and stored_file_exists(obj.starting_asset.file):
+            return obj.starting_asset.file.url
+        return None
+
+    def get_starting_image_description(self, obj):
+        return obj.starting_image_context.get("description", "")
+
     scene_image = serializers.SerializerMethodField()
     narration_status = serializers.SerializerMethodField()
     timing = serializers.SerializerMethodField()

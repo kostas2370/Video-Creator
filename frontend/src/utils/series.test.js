@@ -25,6 +25,15 @@ describe("series creation", () => {
     expect(data.get("narration")).toBe("true");
     expect(data.get("voice_model")).toBe("");
     expect(data.get("reference_image").size).toBe(file.size);
+    expect(JSON.parse(data.get("cast"))).toEqual([]);
+  });
+  it("preserves structured cast and format when saving with a reference", () => {
+    const cast = [{ id: "cast-1", name: "Milo", appearance: "Orange fox", wardrobe: "Teal scarf", personality: "Curious", relationships: "Rival of Rin" }];
+    const profile = { ...defaultSeries, cast, story_format: "SERIAL_DRAMA" };
+    expect(seriesPayload(profile).cast).toEqual(cast);
+    const uploaded = seriesPayload(profile, new Blob(["image"], { type: "image/png" }));
+    expect(JSON.parse(uploaded.get("cast"))).toEqual(cast);
+    expect(uploaded.get("story_format")).toBe("SERIAL_DRAMA");
   });
 });
 

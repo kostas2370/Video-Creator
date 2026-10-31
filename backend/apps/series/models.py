@@ -20,10 +20,27 @@ from .memory import video_script_snapshot
 from .querysets import SeriesEpisodeQuerySet
 
 
+class CharacterReference(AbstractModel, TimestampedModel):
+    image = models.ImageField(upload_to="media/characters/%Y/%m/%d", blank=True)
+    status = models.CharField(max_length=12, default="QUEUED")
+    description = models.JSONField(default=dict)
+    error = models.CharField(max_length=300, blank=True)
+
+
 class VideoSeries(AbstractModel, TimestampedModel):
     title = models.CharField(max_length=100)
     premise = models.TextField(max_length=2000)
     characters = models.TextField(max_length=2000, blank=True)
+    cast = models.JSONField(default=list, blank=True)
+    story_format = models.CharField(
+        max_length=20,
+        choices=[
+            ("GENERAL", "General series"),
+            ("ANIMATED_STORY", "Animated character story"),
+            ("SERIAL_DRAMA", "Serial drama"),
+        ],
+        default="GENERAL",
+    )
     visual_style = models.TextField(max_length=800)
     reference_image = models.ImageField(upload_to="media/series/%Y/%m/%d", blank=True)
     voice_model = models.ForeignKey(

@@ -2,17 +2,89 @@ from uuid import UUID
 
 from rest_framework import serializers
 
-from apps.series.models import SeriesEpisode, VideoSeries
+from apps.series.creative import cast_is_ready, series_visual_continuity
+from apps.series.models import CharacterReference, SeriesEpisode, VideoSeries
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import Intro, Outro
-from apps.videomanagement.serializers.fields import validate_reference_image
+from apps.videomanagement.serializers.fields import (
+    validate_image_upload,
+    validate_reference_image,
+)
 from apps.videomanagement.serializers.requests import GenerateSerializer
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 
 
+class CastCharacterSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField(max_length=60)
+    appearance = serializers.CharField(max_length=300)
+    wardrobe = serializers.CharField(max_length=150, allow_blank=True, default="")
+    personality = serializers.CharField(max_length=200, allow_blank=True, default="")
+    relationships = serializers.CharField(max_length=200, allow_blank=True, default="")
+    reference_id = serializers.UUIDField(required=False, allow_null=True)
+    reference_job_id = serializers.UUIDField(required=False, allow_null=True)
+    reference_approval = serializers.JSONField(required=False)
+    reference_image = serializers.CharField(read_only=True)
+
+
+class CastDraftRequestSerializer(serializers.Serializer):
+    premise = serializers.CharField(max_length=2000)
+    visual_style = serializers.CharField(max_length=800)
+    story_format = serializers.ChoiceField(
+        choices=VideoSeries._meta.get_field("story_format").choices
+    )
+    count = serializers.IntegerField(min_value=1, max_value=6, default=2)
+
+
+class CharacterDescriptionRequestSerializer(CastDraftRequestSerializer):
+    count = serializers.IntegerField(min_value=1, max_value=1, default=1)
+    name = serializers.CharField(max_length=60, allow_blank=True, default="")
+    idea = serializers.CharField(max_length=500, allow_blank=True, default="")
+    appearance = serializers.CharField(max_length=300, allow_blank=True, default="")
+    wardrobe = serializers.CharField(max_length=150, allow_blank=True, default="")
+    personality = serializers.CharField(max_length=200, allow_blank=True, default="")
+    relationships = serializers.CharField(max_length=200, allow_blank=True, default="")
+    cast_names = serializers.ListField(
+        child=serializers.CharField(max_length=60), max_length=6, required=False
+    )
+
+
+class CharacterReferenceRequestSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=60)
+    appearance = serializers.CharField(max_length=300)
+    wardrobe = serializers.CharField(max_length=150, allow_blank=True, default="")
+    visual_style = serializers.CharField(max_length=800)
+    image = serializers.ImageField(required=False)
+
+    def validate_image(self, value):
+        return validate_image_upload(
+            value,
+            max_pixels=25000000,
+            still_only=True,
+            messages={
+                "size": "Choose an image smaller than 10 MB.",
+                "format": "Choose a PNG, JPEG or WebP image.",
+                "pixels": "Choose an image with at most 25 million pixels.",
+                "animated": "Choose a still image.",
+            },
+        )
+
+
+class CharacterReferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CharacterReference
+        fields = ("id", "status", "image", "error")
+        read_only_fields = fields
+
+
 class VideoSeriesSerializer(serializers.ModelSerializer):
+    cast = serializers.JSONField(required=False)
+    cast_ready = serializers.SerializerMethodField()
     episode_count = serializers.IntegerField(read_only=True)
     active_episode = serializers.SerializerMethodField()
+
+    def get_cast_ready(self, series):
+        return cast_is_ready(series.cast, series.story_format, series.visual_style)
 
     def get_active_episode(self, series):
         if not getattr(series, "active_episode_id", None):
@@ -39,6 +111,9 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
             "title",
             "premise",
             "characters",
+            "cast",
+            "cast_ready",
+            "story_format",
             "visual_style",
             "reference_image",
             "remove_reference",
@@ -61,6 +136,56 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
     def validate_reference_image(self, value):
         return validate_reference_image(value)
 
+    def validate_cast(self, value):
+        serializer = CastCharacterSerializer(data=value, many=True, max_length=6)
+        serializer.is_valid(raise_exception=True)
+        cast = [
+            dict(character, id=str(character["id"]))
+            for character in serializer.validated_data
+        ]
+        if len({character["id"] for character in cast}) != len(cast):
+            raise serializers.ValidationError("Each character must have a unique ID.")
+        if len({character["name"].casefold() for character in cast}) != len(cast):
+            raise serializers.ValidationError("Give each character a different name.")
+        reference_ids = [
+            character["reference_id"]
+            for character in cast
+            if character.get("reference_id")
+        ]
+        references = {
+            reference.pk: reference
+            for reference in CharacterReference.objects.filter(
+                pk__in=reference_ids,
+                created_by=self.context["request"].user,
+                status="READY",
+            )
+        }
+        for character in cast:
+            reference_id = character.get("reference_id")
+            if reference_id:
+                reference = references.get(reference_id)
+                if not reference or not reference.image:
+                    raise serializers.ValidationError(
+                        "Choose a completed character reference from your own account."
+                    )
+                character["reference_id"] = str(reference_id)
+                character["reference_image"] = reference.image.url
+        job_ids = {
+            character["reference_job_id"]
+            for character in cast
+            if character.get("reference_job_id")
+        }
+        if CharacterReference.objects.filter(
+            pk__in=job_ids, created_by=self.context["request"].user
+        ).count() != len(job_ids):
+            raise serializers.ValidationError(
+                "Choose a character image request from your own account."
+            )
+        for character in cast:
+            if character.get("reference_job_id"):
+                character["reference_job_id"] = str(character["reference_job_id"])
+        return cast
+
     def validate_intro(self, value):
         selected = owned_asset(Intro, value, self.context["request"].user)
         return selected.pk if selected else None
@@ -77,6 +202,17 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
         def current(field, default=None):
             return attrs.get(field, getattr(self.instance, field, default))
 
+        continuity = series_visual_continuity(
+            characters=current("characters", ""),
+            visual_style=current("visual_style", ""),
+            cast=current("cast", []),
+        )
+        if len(continuity) > 3000:
+            raise serializers.ValidationError(
+                {
+                    "characters": "Shorten the cast appearance, wardrobe, world or style descriptions; combined visual guidance must fit within 3,000 characters."
+                }
+            )
         if current("narration", True) and not current("voice_model_id"):
             raise serializers.ValidationError(
                 {
@@ -84,6 +220,14 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
                 }
             )
         provider = current("provider", "OPENAI")
+        if any(
+            character.get("reference_id") for character in current("cast", [])
+        ) and not ImageProviderRegistry.supports_reference(provider):
+            raise serializers.ValidationError(
+                {
+                    "provider": "Choose a visual provider with reference-image support to use your character images."
+                }
+            )
         # Start with the built-in providers whose reference handling is known.
         if ImageProviderRegistry.registration(provider, "AI") is None:
             raise serializers.ValidationError(
@@ -134,6 +278,9 @@ class EpisodeDraftSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         series = self.context["series"]
+        from apps.series.characters import validated_cast_references
+
+        validated_cast_references(series)
         if series.narration and not series.voice_model_id:
             raise serializers.ValidationError(
                 {
@@ -153,7 +300,11 @@ class EpisodeDraftSerializer(serializers.Serializer):
             "platform": series.platform,
             "scene_count": series.scene_count,
             "review_script": True,
-            "visual_continuity": f"Cast: {series.characters}\nStyle: {series.visual_style}",
+            "visual_continuity": series_visual_continuity(
+                characters=series.characters,
+                visual_style=series.visual_style,
+                cast=series.cast,
+            ),
         }
         attrs["generation_params"] = validate_episode_generation(choices, self.context)
         return attrs

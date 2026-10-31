@@ -548,9 +548,23 @@ class ClipsTests(TestCase):
                 }
             ]
         }
+        ranking = {
+            "assessments": [
+                {
+                    "index": index,
+                    "hook": 4,
+                    "context": 4,
+                    "payoff": 4,
+                    "relevance": 3,
+                    "duplicate_of": None,
+                }
+                for index in range(2)
+            ],
+            "indices": [1],
+        }
         with patch(
             "apps.clips.highlights.get_update_sentence",
-            side_effect=[json.dumps(first), json.dumps(second), '{"indices": [1]}'],
+            side_effect=[json.dumps(first), json.dumps(second), json.dumps(ranking)],
         ):
             result = suggest_clips(project)
         self.assertEqual([item["title"] for item in result], ["Second"])
@@ -780,6 +794,66 @@ class ClipsTests(TestCase):
             self.assertEqual(
                 response.data["extraction_prompt"], supplied.get("extraction_prompt")
             )
+            self.assertEqual(response.data["clip_focus"], "general")
+            self.assertEqual(response.data["selection_mode"], "balanced")
+
+    def test_import_saves_selection_preferences_and_preserves_them_on_retry_and_search(
+        self,
+    ):
+        self.project_queue.side_effect = RuntimeError("queue unavailable")
+        response = self.client.post(
+            reverse("clipproject-list"),
+            {
+                "youtube_url": "https://youtu.be/abcdefghijk",
+                "clip_focus": "funny",
+                "selection_mode": "fast",
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        project = ClipProject.objects.get()
+        self.assertEqual(
+            (project.clip_focus, project.selection_mode), ("funny", "fast")
+        )
+        self.project_queue.side_effect = None
+        retry = self.client.post(reverse("clipproject-retry", args=[project.pk]))
+        self.assertEqual(retry.status_code, 202)
+        self.assertEqual(retry.data["clip_focus"], "funny")
+        self.assertEqual(retry.data["selection_mode"], "fast")
+        project.words, project.status, project.duration = self.words, "READY", 20
+        project.save()
+        with patch("apps.clips.views.suggest_clips", return_value=[]) as suggest:
+            search = self.client.post(
+                reverse("clipproject-search-transcript", args=[project.pk]),
+                {"prompt": "Find practical advice"},
+                format="json",
+            )
+        self.assertEqual(search.status_code, 200, search.data)
+        searched = suggest.call_args.args[0]
+        self.assertEqual(
+            (searched.clip_focus, searched.selection_mode), ("funny", "fast")
+        )
+        self.assertEqual(searched.extraction_prompt, "Find practical advice")
+        project.refresh_from_db()
+        self.assertIsNone(project.extraction_prompt)
+
+    def test_invalid_selection_preferences_are_rejected_before_queuing(self):
+        for field, value in (
+            ("clip_focus", "unknown"),
+            ("clip_focus", ""),
+            ("selection_mode", "video"),
+            ("selection_mode", None),
+        ):
+            with self.subTest(field=field, value=value):
+                response = self.client.post(
+                    reverse("clipproject-list"),
+                    {"youtube_url": "https://youtu.be/abcdefghijk", field: value},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn(field, response.data)
+        self.assertFalse(ClipProject.objects.exists())
+        self.project_queue.assert_not_called()
 
     def test_non_english_hashtags_are_retried_then_rejected_without_saving(self):
         project = self.project()

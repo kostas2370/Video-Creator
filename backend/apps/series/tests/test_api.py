@@ -11,7 +11,9 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from apps.series.models import SeriesEpisode, VideoSeries
+from apps.series.characters import save_reference_image
+from apps.series.creative import reference_approval
+from apps.series.models import CharacterReference, SeriesEpisode, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     VideoSeriesSerializer,
@@ -37,6 +39,17 @@ from apps.videomanagement.tests.api.base import ApiTestCase
 
 
 class SeriesTests(ApiTestCase):
+    def character(self, **changes):
+        return {
+            "id": "11111111-1111-4111-8111-111111111111",
+            "name": "Milo",
+            "appearance": "Small orange fox, cream muzzle, round glasses",
+            "wardrobe": "Teal scarf",
+            "personality": "Curious and loyal",
+            "relationships": "Rin is his rival",
+            **changes,
+        }
+
     def setUp(self):
         super().setUp()
         self.files = tempfile.TemporaryDirectory()
@@ -66,6 +79,98 @@ class SeriesTests(ApiTestCase):
                 f"series-{action}", kwargs={"pk": sid, "episode_id": episode.pk}
             )
         return reverse(f"series-{action}", args=[sid])
+
+    def test_cast_round_trips_in_json_and_multipart_and_can_be_cleared(self):
+        for encoding in ("json", "multipart"):
+            cast = [self.character()]
+            response = self.client.patch(
+                self.url(),
+                {"cast": json.dumps(cast) if encoding == "multipart" else cast},
+                format=encoding,
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data["cast"], cast)
+        response = self.client.patch(self.url(), {"cast": []}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["cast"], [])
+
+    def test_invalid_cast_and_story_format_are_rejected_without_changing_setup(self):
+        for changes in (
+            {"cast": None},
+            {"cast": {}},
+            {"cast": [self.character(appearance="")]},
+            {"cast": [self.character(id="invalid")]},
+            {"cast": [self.character(), self.character(name="Rin")]},
+            {
+                "cast": [
+                    self.character(),
+                    self.character(
+                        id="22222222-2222-4222-8222-222222222222", name="milo"
+                    ),
+                ]
+            },
+            {"cast": [self.character()] * 7},
+            {"story_format": "UNKNOWN"},
+            {
+                "characters": "x" * 2000,
+                "visual_style": "y" * 800,
+                "cast": [self.character()],
+            },
+        ):
+            with self.subTest(changes=changes):
+                response = self.client.patch(self.url(), changes, format="json")
+                self.assertEqual(response.status_code, 400, response.data)
+        self.series.refresh_from_db()
+        self.assertEqual(self.series.cast, [])
+        self.assertEqual(self.series.story_format, "GENERAL")
+
+    def test_both_formats_snapshot_cast_and_pass_identity_to_visual_generation(self):
+        source = io.BytesIO()
+        Image.new("RGB", (64, 64), "orange").save(source, format="PNG")
+        source.seek(0)
+        reference = save_reference_image(
+            CharacterReference.objects.create(created_by=self.user), source
+        )
+        character = self.character(
+            reference_id=str(reference.pk), reference_image=reference.image.url
+        )
+        character["reference_approval"] = reference_approval(
+            character, self.series.visual_style
+        )
+        for story_format, guidance in (
+            ("ANIMATED_STORY", "satisfying visual payoff"),
+            ("SERIAL_DRAMA", "relationship stakes"),
+        ):
+            with self.subTest(story_format=story_format):
+                saved = self.client.patch(
+                    self.url(),
+                    {"cast": [character], "story_format": story_format},
+                    format="json",
+                )
+                self.assertEqual(saved.status_code, 200, saved.data)
+                response = self.draft()
+                self.assertEqual(response.status_code, 202, response.data)
+                episode = SeriesEpisode.objects.get(pk=response.data["id"])
+                params = episode.generation_params
+                self.assertIn(guidance, params["series_context"])
+                self.assertIn("Curious and loyal", params["series_context"])
+                self.assertIn(
+                    "fixed appearance: Small orange fox", params["visual_continuity"]
+                )
+                self.assertIn(
+                    "Default wardrobe: Teal scarf", params["visual_continuity"]
+                )
+                self.assertNotIn("Rin is his rival", params["visual_continuity"])
+                changed = self.client.patch(
+                    self.url(), {"cast": [], "story_format": "GENERAL"}, format="json"
+                )
+                self.assertEqual(changed.status_code, 200, changed.data)
+                episode.refresh_from_db()
+                self.assertEqual(episode.profile_snapshot["cast"], [character])
+                self.assertEqual(episode.profile_snapshot["story_format"], story_format)
+                self.assertEqual(episode.generation_params, params)
+                episode.video.status = "READY"
+                episode.video.save(update_fields=["status"])
 
     def draft(self, idea="Milo discovers shadows", series=None):
         return self.client.post(

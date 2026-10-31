@@ -2,7 +2,7 @@ import base64
 import tempfile
 from unittest.mock import MagicMock, patch
 
-from django.test import SimpleTestCase, override_settings
+from django.test import TestCase, override_settings
 from rest_framework.exceptions import APIException
 
 from apps.videomanagement.integrations.visuals import openai_images
@@ -11,10 +11,13 @@ from apps.videomanagement.integrations.visuals.openai_images import (
 )
 
 
-class GenerateOpenAIImageTests(SimpleTestCase):
+class GenerateOpenAIImageTests(TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        settings_override = override_settings(MEDIA_ROOT=self.tmp.name)
+        settings_override.enable()
+        self.addCleanup(settings_override.disable)
         self.client = MagicMock()
         self.client.images.generate.return_value.data = [
             MagicMock(b64_json=base64.b64encode(b"a png").decode())
@@ -33,6 +36,7 @@ class GenerateOpenAIImageTests(SimpleTestCase):
         path = generate_openai_image("a cat", f"{self.tmp.name}/", style="vivid")
 
         self.assertTrue(path.endswith(".png"))
+        self.assertTrue(openai_images.MediaAsset.objects.filter(kind="IMAGE").exists())
         self.assertEqual(open(path, "rb").read(), b"a png")
 
     @override_settings(

@@ -1,7 +1,9 @@
 import base64
 import logging
 import os
-import uuid
+
+from django.core.files.base import ContentFile
+from apps.videomanagement.models import MediaAsset
 
 from django.conf import settings
 from openai import OpenAI
@@ -99,8 +101,10 @@ def generate_openai_image(
             code=status.HTTP_400_BAD_REQUEST,
         )
 
-    x = str(uuid.uuid4())
-    with open(rf"{dir_name}{x}.png", "wb") as image_file:
-        image_file.write(base64.b64decode(response.data[0].b64_json))
-
-    return rf"{dir_name}{x}.png"
+    asset = MediaAsset.from_visual(
+        user=user,
+        upload=ContentFile(base64.b64decode(response.data[0].b64_json), name="generated.png"),
+        title=(title or "AI generated image")[:100],
+        tags=["ai image"], kind=MediaAsset.Kind.IMAGE,
+    )
+    return asset.file.path

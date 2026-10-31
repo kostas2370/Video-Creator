@@ -5,7 +5,13 @@ from django.db import models
 
 from apps.common.models import TranscribedMediaModel
 
-from .choices import ClipLayout, ClipProjectStatus, ClipStatus
+from .choices import (
+    ClipFocus,
+    ClipLayout,
+    ClipProjectStatus,
+    ClipSelectionMode,
+    ClipStatus,
+)
 from .storage import clip_storage
 
 
@@ -30,6 +36,14 @@ class ClipProject(TranscribedMediaModel):
     height = models.PositiveIntegerField(default=0)
     transcript_parts = models.JSONField(default=list)
     extraction_prompt = models.TextField(max_length=2000, blank=True, null=True)
+    clip_focus = models.CharField(
+        max_length=16, choices=ClipFocus.choices, default=ClipFocus.GENERAL
+    )
+    selection_mode = models.CharField(
+        max_length=16,
+        choices=ClipSelectionMode.choices,
+        default=ClipSelectionMode.BALANCED,
+    )
     clip_count = models.PositiveSmallIntegerField(default=5)
     min_duration = models.PositiveSmallIntegerField(default=30)
     max_duration = models.PositiveSmallIntegerField(default=60)

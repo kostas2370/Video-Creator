@@ -247,7 +247,7 @@ class UsageTests(TestCase):
         )
         with (
             patch.object(openai_images, "OpenAI", return_value=client),
-            patch("builtins.open", side_effect=OSError),
+            patch.object(openai_images.MediaAsset, "from_visual", side_effect=OSError),
         ):
             with self.assertRaises(OSError):
                 openai_images.generate_openai_image(

@@ -1,7 +1,7 @@
 from django.db.models import Count, OuterRef, Subquery
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
@@ -26,7 +26,20 @@ from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.paginator import AssetResultsPagination
 from apps.videomanagement.throttling import GenerateRateThrottle
 
-from .throttling import SeriesMemoryRateThrottle
+from .characters import draft_cast, save_reference_image
+from .models import CharacterReference
+from .serializers import (
+    CastDraftRequestSerializer,
+    CharacterDescriptionRequestSerializer,
+    CharacterReferenceRequestSerializer,
+    CharacterReferenceSerializer,
+)
+from .tasks import generate_character_reference_task
+from .throttling import (
+    CharacterImageRateThrottle,
+    SeriesCastDraftRateThrottle,
+    SeriesMemoryRateThrottle,
+)
 
 
 class VideoSeriesView(viewsets.ModelViewSet):
@@ -64,11 +77,92 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
     def get_throttles(self):
+        if self.action in ("cast_draft", "character_description"):
+            return [SeriesCastDraftRateThrottle()]
+        if self.action == "character_references" and self.request.method == "POST":
+            return [CharacterImageRateThrottle()]
         if self.action == "draft_memory":
             return [SeriesMemoryRateThrottle()]
         if self.request.method == "POST" and self.action in ("episodes", "retry"):
             return [GenerateRateThrottle()]
         return super().get_throttles()
+
+    @action(detail=False, methods=["post"])
+    def cast_draft(self, request):
+        serializer = CastDraftRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            {"cast": draft_cast(request.user, dict(serializer.validated_data))}
+        )
+
+    @action(detail=False, methods=["post"])
+    def character_description(self, request):
+        serializer = CharacterDescriptionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        choices = dict(serializer.validated_data)
+        character = draft_cast(request.user, choices)[0]
+        if choices["name"]:
+            character["name"] = choices["name"]
+        return Response(
+            {
+                "character": {
+                    key: character[key]
+                    for key in (
+                        "name",
+                        "appearance",
+                        "wardrobe",
+                        "personality",
+                        "relationships",
+                    )
+                }
+            }
+        )
+
+    @action(detail=False, methods=["get", "post"])
+    def character_references(self, request):
+        if request.method == "GET":
+            from rest_framework import serializers
+
+            identifier = serializers.UUIDField().run_validation(
+                request.query_params.get("id")
+            )
+            reference = get_object_or_404(
+                CharacterReference, pk=identifier, created_by=request.user
+            )
+            return Response(
+                CharacterReferenceSerializer(
+                    reference, context=self.get_serializer_context()
+                ).data
+            )
+        serializer = CharacterReferenceRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        choices = dict(serializer.validated_data)
+        image = choices.pop("image", None)
+        reference = CharacterReference.objects.create(
+            created_by=request.user, description=choices
+        )
+        if image:
+            try:
+                save_reference_image(reference, image)
+            except Exception:
+                reference.delete()
+                raise
+        else:
+            try:
+                generate_character_reference_task.delay(str(reference.pk))
+            except Exception as exc:
+                reference.status = "FAILED"
+                reference.error = "Image generation could not be queued. Try again."
+                reference.save(update_fields=["status", "error", "updated_at"])
+                error = APIException(reference.error)
+                error.status_code = 503
+                raise error from exc
+        return Response(
+            CharacterReferenceSerializer(
+                reference, context=self.get_serializer_context()
+            ).data,
+            status=201 if image else 202,
+        )
 
     @action(detail=True, methods=["get", "post"])
     def episodes(self, request, pk=None):

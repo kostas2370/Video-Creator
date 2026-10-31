@@ -16,7 +16,9 @@ class SeriesAppMigrationTests(TransactionTestCase):
         return loader.project_state(list(loader.applied_migrations)).apps
 
     def setUp(self):
-        self.addCleanup(self.migrate, self.new_targets)
+        self.addCleanup(
+            self.migrate, MigrationExecutor(connection).loader.graph.leaf_nodes()
+        )
         self.old_apps = self.migrate(self.old_targets)
 
     def test_forward_and_backward_preserve_records_relations_and_permissions(self):

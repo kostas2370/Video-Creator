@@ -157,6 +157,10 @@ export const draftVideoTags = id => post(action("videos", id, "draft_tags"), {},
 export const getSeries = (search, page = 1) => request({ url: "series/", params: { search: search || undefined, page }, ...callerHandlesErrors });
 export const getSeriesProfile = id => request({ url: detail("series", id), ...callerHandlesErrors });
 export const createSeries = data => post("series/", data, callerHandlesErrors);
+export const draftSeriesCast = data => post("series/cast_draft/", data, callerHandlesErrors);
+export const draftCharacterDescription = data => post("series/character_description/", data, callerHandlesErrors);
+export const createCharacterReference = data => post("series/character_references/", data, callerHandlesErrors);
+export const getCharacterReference = id => request({ url: "series/character_references/", params: { id }, ...callerHandlesErrors });
 export const updateSeries = (id, data) => patch(detail("series", id), data, callerHandlesErrors);
 export const deleteSeries = id => remove(detail("series", id), callerHandlesErrors);
 export const getSeriesEpisodes = (id, page = 1) => request({ url: action("series", id, "episodes"), params: { page }, ...callerHandlesErrors });

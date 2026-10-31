@@ -8,7 +8,15 @@ from apps.videomanagement.serializers.caption_words import CaptionWordSerializer
 from apps.videomanagement.serializers.captions import CaptionProjectStyleSerializer
 from apps.videomanagement.serializers.tags import TagListField
 
-from .choices import CLIP_BUSY, PROJECT_BUSY, ClipLayout, ClipProjectStatus, ClipStatus
+from .choices import (
+    CLIP_BUSY,
+    PROJECT_BUSY,
+    ClipFocus,
+    ClipLayout,
+    ClipProjectStatus,
+    ClipSelectionMode,
+    ClipStatus,
+)
 from .constants import (
     EXPORT_STALE_AFTER,
     MAX_CAPTION_WORDS,
@@ -41,6 +49,12 @@ class ProjectUploadSerializer(serializers.Serializer):
     )
     extraction_prompt = serializers.CharField(
         max_length=2000, required=False, allow_blank=True, allow_null=True
+    )
+    clip_focus = serializers.ChoiceField(
+        choices=ClipFocus.choices, default=ClipFocus.GENERAL
+    )
+    selection_mode = serializers.ChoiceField(
+        choices=ClipSelectionMode.choices, default=ClipSelectionMode.BALANCED
     )
     range_start = serializers.FloatField(min_value=0, default=0)
     range_end = serializers.FloatField(min_value=0, required=False, allow_null=True)
@@ -217,6 +231,8 @@ class ProjectSerializer(ProjectSummarySerializer):
             "words",
             "clip_count",
             "extraction_prompt",
+            "clip_focus",
+            "selection_mode",
             "min_duration",
             "max_duration",
             "clips",

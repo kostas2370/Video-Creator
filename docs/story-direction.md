@@ -6,4 +6,4 @@ Individual clip prompts ask for one achievable action, purposeful timing, and no
 
 Series episodes default to cuts and muted generated-clip audio. This avoids fading through black at every scene and prevents independently generated scores from restarting between clips. Add one soundtrack using the project's existing music controls. Users can keep a clip's audio through **Edit visual → Keep uploaded video audio** and choose a fade or dissolve explicitly. Existing saved per-clip audio choices are preserved on retry; standalone videos retain their audio and transition defaults. Preview, export, and transition controls resolve the same defaults, including the first scene and any intro.
 
-The Gemini URI-download request also enables stored interactions, as required by the provider. Starting-image generation and the saved asset library are separate changes and are not part of this PR.
+The Gemini URI-download request also enables stored interactions, as required by the provider. Character references and starting images are saved as media assets. If animation fails, the scene retains its starting image and can retry the video without generating that image again.
