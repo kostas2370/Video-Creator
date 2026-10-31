@@ -9,7 +9,7 @@ export const clipFocusOptions = [
 ];
 
 export const clipSelectionModes = [
-  { value: "fast", label: "Fast", description: "Uses the initial suggestions without an extra ranking review. Lower AI usage; repeated ideas may remain. Transcription and initial suggestions still incur provider charges." },
+  { value: "fast", label: "Fast", description: "Uses the initial suggestions without an extra ranking review. Lower AI usage; repeated ideas may remain. Initial suggestions incur AI provider charges. Local transcription has no provider fee." },
   { value: "balanced", label: "Balanced", description: "Reviews multiple candidates for context, payoff, relevance, and repeated ideas. Adds AI usage when there is more than one candidate." },
   { value: "strict", label: "Strict", description: "Reviews every candidate with a higher acceptance bar. May return fewer clips or none. Adds AI usage." },
 ];
