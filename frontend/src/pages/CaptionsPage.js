@@ -155,7 +155,7 @@ export function Captions() {
           if (next?.size > 100 * 1024 * 1024) { setError("Choose a video smaller than 100 MB."); setFile(null); event.target.value = ""; } else setFile(next || null);
         }} className="w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-blue-700" /><span className="mt-3 block text-xs text-gray-500">MP4, MOV, WebM or M4V · Up to 100 MB / 15 minutes</span></label>
         <button type="submit" disabled={!file || working} className={`${editorButton} mt-6 inline-flex items-center gap-2`}><HiOutlineSparkles />{working ? "Uploading video…" : "Generate captions"}</button>
-        <p className="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Audio is transcribed locally by default. OpenAI transcription is available when configured. Language is detected automatically. Your video's framing and sound are preserved.</p>
+        <p className="mt-4 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Audio is transcribed with OpenAI. Connect an OpenAI API key before starting. Language is detected automatically. Your video's framing and sound are preserved.</p>
       </form>
       <aside className="rounded-2xl bg-gray-900 p-6 text-white"><span className="rounded-full bg-white/10 px-3 py-1 text-xs">Built for your voice</span><div className="relative mt-6 aspect-[9/12] overflow-hidden rounded-xl bg-gradient-to-br from-blue-900 to-gray-900"><CaptionLayer style="TIKTOK" cue={{ text: "YOUR WORDS.\nTHEIR ATTENTION.", active_word: 2 }} /></div><p className="mt-5 text-sm leading-relaxed text-gray-300">Word highlights that follow the audio. Clean subtitles when you want a quieter look.</p></aside>
     </div> : project && <>

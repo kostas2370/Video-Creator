@@ -9,7 +9,7 @@ from urllib.parse import unquote, urlparse
 # settings/ is a package now, so BASE_DIR is three parents up rather than two.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SPEECH_TRANSCRIPTION_PROVIDER = os.getenv("SPEECH_TRANSCRIPTION_PROVIDER") or "local"
+SPEECH_TRANSCRIPTION_PROVIDER = os.getenv("SPEECH_TRANSCRIPTION_PROVIDER") or "openai"
 LOCAL_WHISPER_URL = os.getenv("LOCAL_WHISPER_URL") or "http://whisper:9000"
 LOCAL_WHISPER_TIMEOUT = int(os.getenv("LOCAL_WHISPER_TIMEOUT") or 1800)
 YOUTUBE_CAPTIONS_ENABLED = (os.getenv("YOUTUBE_CAPTIONS_ENABLED") or "true").lower() == "true"

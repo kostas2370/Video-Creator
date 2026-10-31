@@ -87,25 +87,22 @@ unavailable caption endpoints fall back to audio transcription. The workspace
 shows whether the transcript came from YouTube, local Whisper, OpenAI, or a saved
 transcript. Existing saved transcripts and successful chunk checkpoints are reused.
 
-Audio transcription defaults to the local `whisper` Docker service using
-[faster-whisper](https://github.com/SYSTRAN/faster-whisper), the multilingual `small`
-model, CPU int8 inference, and word timestamps. Inference is serialized to bound
-CPU and memory use while the existing clipping chunks remain resumable. Audio
-stays within the local Docker network; the service has no published host port.
-The first request downloads model files from Hugging Face into the persistent
-`whisper-models` volume. Later requests reuse the model and cached files. Local
-inference does not create paid provider usage records. AI highlight selection
-still uses the configured text provider.
+Audio transcription defaults to paid OpenAI (`whisper-1`) using existing service
+or personal API keys. Suitable YouTube captions are checked first, avoiding an
+audio transcription request when they can be reused. AI highlight selection still
+uses the configured text provider.
 
-Start the service with `docker compose -f backend/docker-compose.yml up -d --build whisper`.
-Set `WHISPER_MODEL` and `WHISPER_CPU_THREADS` in the Compose environment to tune
-accuracy, memory, and CPU use. CPU int8 is the supported compute mode. Larger models
-need more RAM and take longer; benchmark representative long videos and languages
-before changing the defaults. The model is loaded on first transcription; `/health` reports service availability.
+Local Whisper remains optional. Set `SPEECH_TRANSCRIPTION_PROVIDER=local` and start
+it with `docker compose -f backend/docker-compose.yml --profile local-whisper up -d --build whisper`.
+The service uses [faster-whisper](https://github.com/SYSTRAN/faster-whisper), the
+multilingual `small` model, CPU int8 inference, and word timestamps. It has no
+published host port and downloads models on first use into the persistent
+`whisper-models` volume. Set `WHISPER_MODEL` and `WHISPER_CPU_THREADS` in the Compose
+environment to tune it. Larger models need more RAM and take longer; benchmark
+representative audio before changing models. `/health` reports service availability.
 
-Set `SPEECH_TRANSCRIPTION_PROVIDER=openai` to opt into paid OpenAI (`whisper-1`)
-transcription using existing service or personal API keys. There is no automatic
-paid fallback when local Whisper fails. `LOCAL_WHISPER_URL` defaults to
+Local inference does not create paid usage records and does not automatically
+fall back to the paid API on failure. `LOCAL_WHISPER_URL` defaults to
 `http://whisper:9000`; `LOCAL_WHISPER_TIMEOUT` defaults to 1800 seconds per chunk,
 including model loading and queued work. Non-Docker backends must point this URL
 at their local service. Set `YOUTUBE_CAPTIONS_ENABLED=false` to skip caption reuse.

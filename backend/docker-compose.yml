@@ -1,5 +1,6 @@
 services:
   whisper:
+    profiles: ["local-whisper"]
     build: ./whisper
     restart: unless-stopped
     environment:
@@ -36,8 +37,6 @@ services:
       - .:/app
     env_file:
       - ./.env
-    depends_on:
-      - whisper
 
   frontend:
     build: ../frontend
@@ -66,7 +65,6 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - whisper
       - redis-stack-server
       - db
 

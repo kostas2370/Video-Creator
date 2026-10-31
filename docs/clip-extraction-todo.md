@@ -7,9 +7,9 @@ suggestions reviewable and provider costs visible.
 
 - [x] Check original-language YouTube captions before transcribing audio, preserve
       source timestamps, and fall back when word timing or range coverage is unsuitable.
-- [x] Add Docker local Whisper as the default audio transcription provider, with
+- [x] Add optional Docker local Whisper transcription, with
       persistent model caching, configurable model and CPU threads, word timestamps,
-      resumable chunks, and optional OpenAI transcription. Show the transcript source
+      resumable chunks, and OpenAI as the default audio provider. Show the transcript source
       and keep local inference out of paid provider usage records.
 - [x] Cover caption selection, unavailable captions, range timing, malformed local
       responses, provider selection, saved checkpoints, and transcript reuse in tests.

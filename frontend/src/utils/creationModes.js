@@ -34,7 +34,7 @@ export const creationModes = [
   {
     to: "/captions/", label: "Add captions", eyebrow: "Already have a video?", icon: HiOutlineChatBubbleBottomCenterText,
     description: "Turn speech into editable captions. Choose a style, fine-tune the words, and export your captioned video.",
-    requirement: "A video with speech · Local transcription", action: "Caption a video",
+    requirement: "A video with speech + an OpenAI API key", action: "Caption a video",
     color: "text-amber-700 dark:text-amber-300", background: "bg-amber-50 dark:bg-amber-950/40", preview: "captions",
   },
 ];
