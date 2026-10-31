@@ -5,6 +5,8 @@ import logging
 import tempfile
 from pathlib import Path
 
+from django.conf import settings
+
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.services.captions.transcription import transcribe_audio
 from apps.videomanagement.utils.audio_editing import narration_enabled, narration_file
@@ -56,9 +58,11 @@ def align_scene_narration(scene):
     if not identity or has_caption_alignment(scene):
         return
     try:
-        key = ApiKeys.key_for(scene.video.created_by, Provider.OPENAI)
-        if not key:
-            return
+        key = None
+        if settings.SPEECH_TRANSCRIPTION_PROVIDER == "openai":
+            key = ApiKeys.key_for(scene.video.created_by, Provider.OPENAI)
+            if not key:
+                return
         duration = file_timing(narration_file(scene)).get("audio_duration")
         if not duration:
             return

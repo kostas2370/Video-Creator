@@ -21,6 +21,7 @@ from ...utils.timing import video_metadata
 from .base import ApiTestCase
 
 
+@override_settings(SPEECH_TRANSCRIPTION_PROVIDER="openai")
 class CaptionProjectTests(ApiTestCase):
     def setUp(self):
         super().setUp()

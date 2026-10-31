@@ -3,24 +3,19 @@
 Goal: find more complete, interesting, and distinct moments while keeping
 suggestions reviewable and provider costs visible.
 
-## Transcription sources (planned; not implemented)
+## Transcription sources
 
-- [ ] Check YouTube videos for available captions before transcribing audio.
-      Select a suitable caption track in the source language, validate coverage
-      of the requested processing range, and preserve original video timestamps.
-      Fall back to transcription when captions are missing, inaccessible, or
-      unsuitable. Ensure word-level timing is suitable for clip boundaries and
-      caption editing; segment-only timing may require alignment.
-- [ ] Add local Whisper and make it the default audio transcription provider.
-      Use it for uploaded videos and as the fallback when YouTube captions cannot
-      be used. Keep OpenAI transcription as an optional provider.
-      Support Docker, persistent model caching, configurable model and compute
-      settings, word-level timestamps, existing chunk checkpoints, and transcript
-      reuse on retries. Show which source produced the transcript and distinguish
-      local processing from paid provider usage.
-- [ ] Test caption availability and fallback behavior, multiple languages,
-      processing ranges, word timing, model loading failures, and long-video
-      performance before enabling the new defaults.
+- [x] Check original-language YouTube captions before transcribing audio, preserve
+      source timestamps, and fall back when word timing or range coverage is unsuitable.
+- [x] Add Docker local Whisper as the default audio transcription provider, with
+      persistent model caching, configurable model and CPU threads, word timestamps,
+      resumable chunks, and optional OpenAI transcription. Show the transcript source
+      and keep local inference out of paid provider usage records.
+- [x] Cover caption selection, unavailable captions, range timing, malformed local
+      responses, provider selection, saved checkpoints, and transcript reuse in tests.
+- [ ] Evaluate real-world accuracy and processing speed across languages and long
+      videos; tune model choice and CPU limits. Consider alignment for phrase-only
+      YouTube captions rather than transcribing the audio again.
 
 ## First priorities
 

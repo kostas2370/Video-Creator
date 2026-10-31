@@ -80,9 +80,39 @@ elsewhere. This marker is saved per clip and can be cleared manually. Downloadin
 or exporting a clip does not mark it as uploaded, and changing the marker keeps
 the saved export.
 
-Audio is sent to OpenAI (`whisper-1`) for transcription using the existing service
-or personal key selection. Transcript windows are sent to the configured text model
-(`DEFAULT_GPT_MODEL`) for suggestions. Both use existing AI usage tracking. Model
+For YouTube sources, suitable captions are checked through pytubefix before audio
+transcription. Original-language tracks with usable word offsets are preferred.
+Tracks with only phrase timing, incomplete range coverage, ambiguous language, or
+unavailable caption endpoints fall back to audio transcription. The workspace
+shows whether the transcript came from YouTube, local Whisper, OpenAI, or a saved
+transcript. Existing saved transcripts and successful chunk checkpoints are reused.
+
+Audio transcription defaults to the local `whisper` Docker service using
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper), the multilingual `small`
+model, CPU int8 inference, and word timestamps. Inference is serialized to bound
+CPU and memory use while the existing clipping chunks remain resumable. Audio
+stays within the local Docker network; the service has no published host port.
+The first request downloads model files from Hugging Face into the persistent
+`whisper-models` volume. Later requests reuse the model and cached files. Local
+inference does not create paid provider usage records. AI highlight selection
+still uses the configured text provider.
+
+Start the service with `docker compose -f backend/docker-compose.yml up -d --build whisper`.
+Set `WHISPER_MODEL` and `WHISPER_CPU_THREADS` in the Compose environment to tune
+accuracy, memory, and CPU use. CPU int8 is the supported compute mode. Larger models
+need more RAM and take longer; benchmark representative long videos and languages
+before changing the defaults. The model is loaded on first transcription; `/health`
+reports service availability and whether the model is already loaded.
+
+Set `SPEECH_TRANSCRIPTION_PROVIDER=openai` to opt into paid OpenAI (`whisper-1`)
+transcription using existing service or personal API keys. There is no automatic
+paid fallback when local Whisper fails. `LOCAL_WHISPER_URL` defaults to
+`http://whisper:9000`; `LOCAL_WHISPER_TIMEOUT` defaults to 1800 seconds per chunk,
+including model loading and queued work. Non-Docker backends must point this URL
+at their local service. Set `YOUTUBE_CAPTIONS_ENABLED=false` to skip caption reuse.
+
+Transcript windows are sent to the configured text model
+(`DEFAULT_GPT_MODEL`) for suggestions. Paid provider calls use existing AI usage tracking. Model
 responses must identify real word indices; invalid ranges and near-duplicate
 suggestions are discarded.
 

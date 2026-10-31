@@ -5,11 +5,13 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from pathlib import Path
 
+from django.conf import settings
 from django.core.files import File
 from django.db import close_old_connections, connections, transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.common.media import run_ffmpeg
+from apps.videomanagement.services.captions.local_whisper import TranscriptionError
 from apps.videomanagement.services.captions.transcription import (
     transcribe_prepared_audio,
 )
@@ -24,6 +26,7 @@ from .models import Clip, ClipProject
 from .services import clip_words
 from .transcripts import reuse_transcript, source_key, validate_range
 from .youtube import SourceImportError, download_youtube
+from .youtube_captions import youtube_transcript
 
 logger = logging.getLogger(__name__)
 CHUNK_SECONDS = 600
@@ -253,15 +256,41 @@ def process_project(project_id, token):
                 project.refresh_from_db()
             if not project.words:
                 words = reuse_transcript(project)
+                transcript_source = "Saved transcript"
+                if words is None and not project.transcript_parts:
+                    captions = youtube_transcript(project)
+                    if captions is not None:
+                        words, transcript_source = captions
                 if words is None:
+                    provider = (
+                        "Local Whisper"
+                        if settings.SPEECH_TRANSCRIPTION_PROVIDER == "local"
+                        else "OpenAI Whisper"
+                    )
+                    transcript_source = provider
+                    if project.transcript_parts:
+                        transcript_source = (
+                            provider
+                            if project.transcript_source == provider
+                            else f"Saved chunks + {provider}"
+                        )
+                    if not update_jobs(
+                        rows.filter(status=ClipProjectStatus.TRANSCRIBING),
+                        transcript_source=transcript_source,
+                    ):
+                        return
                     words = transcribe_source(project, rows, directory)
                 if words is None:
                     return
                 if not words:
-                    raise ValueError("No speech")
+                    raise TranscriptionError(
+                        "No usable speech was detected in the selected section. "
+                        "Choose another section or change the transcription provider."
+                    )
                 if not update_jobs(
                     rows.filter(status=ClipProjectStatus.TRANSCRIBING),
                     words=words,
+                    transcript_source=transcript_source,
                 ):
                     return
                 project.words = words
@@ -316,8 +345,10 @@ def process_project(project_id, token):
             ),
             status=ClipProjectStatus.FAILED,
             error=str(exc)
-            if isinstance(exc, (SourceImportError, HighlightRankingError))
+            if isinstance(
+                exc, (SourceImportError, HighlightRankingError, TranscriptionError)
+            )
             else "Could not import this YouTube video. Check that it is publicly available, or upload a file instead."
             if project.youtube_url and not project.source
-            else "Could not finish finding clips. Check your provider keys and retry. Saved transcription will be reused; you can also add clips manually.",
+            else "Could not finish finding clips. Check your transcription service or AI provider and retry. Saved transcription will be reused; you can also add clips manually.",
         )

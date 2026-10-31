@@ -3,12 +3,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from apps.clips.processing import transcribe_part
 from apps.videomanagement.services.captions import transcription
 
 
+@override_settings(SPEECH_TRANSCRIPTION_PROVIDER="openai")
 class ChunkEncodingTests(SimpleTestCase):
     def test_chunk_is_encoded_once_and_keeps_source_timestamps(self):
         project = SimpleNamespace(

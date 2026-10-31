@@ -140,6 +140,11 @@ The [environment template](backend/.env_example) lists available settings. Blank
 values generally use application defaults; credentials are required for whichever
 providers you select.
 
+Audio transcription defaults to the local Whisper Docker service and does not
+require an API key. YouTube clipping projects first check for suitable captions.
+See [transcription setup](docs/clips.md) for model caching and the optional paid
+OpenAI transcription provider.
+
 | Purpose | Service credentials |
 | --- | --- |
 | OpenAI scripts, images, speech, and Sora | `OPEN_API_KEY` |

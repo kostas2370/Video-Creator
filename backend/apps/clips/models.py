@@ -35,6 +35,7 @@ class ClipProject(TranscribedMediaModel):
     width = models.PositiveIntegerField(default=0)
     height = models.PositiveIntegerField(default=0)
     transcript_parts = models.JSONField(default=list)
+    transcript_source = models.CharField(max_length=128, blank=True, default="")
     extraction_prompt = models.TextField(max_length=2000, blank=True, null=True)
     clip_focus = models.CharField(
         max_length=16, choices=ClipFocus.choices, default=ClipFocus.GENERAL

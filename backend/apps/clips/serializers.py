@@ -203,6 +203,7 @@ class ProjectSummarySerializer(serializers.ModelSerializer):
             "clip_total",
             "export_total",
             "source_type",
+            "transcript_source",
         )
         read_only_fields = fields
 

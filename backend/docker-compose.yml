@@ -1,4 +1,19 @@
 services:
+  whisper:
+    build: ./whisper
+    restart: unless-stopped
+    environment:
+      HF_HOME: /models
+      WHISPER_MODEL: ${WHISPER_MODEL:-small}
+      WHISPER_CPU_THREADS: ${WHISPER_CPU_THREADS:-4}
+    volumes:
+      - whisper-models:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=5)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   db:
     image: mysql:8.4
     restart: always
@@ -21,6 +36,8 @@ services:
       - .:/app
     env_file:
       - ./.env
+    depends_on:
+      - whisper
 
   frontend:
     build: ../frontend
@@ -49,6 +66,7 @@ services:
     env_file:
       - ./.env
     depends_on:
+      - whisper
       - redis-stack-server
       - db
 
@@ -74,3 +92,6 @@ services:
     depends_on:
       - redis-stack-server
       - db
+
+volumes:
+  whisper-models:
