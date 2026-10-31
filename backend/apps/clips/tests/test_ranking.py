@@ -5,7 +5,14 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from apps.clips.highlights import FOCUS_GUIDANCE, suggest_clips, validate_ranking
+from apps.clips.highlights import (
+    FOCUS_GUIDANCE,
+    RANKING_ATTEMPTS,
+    HighlightRankingError,
+    rank_candidates,
+    suggest_clips,
+    validate_ranking,
+)
 
 
 def assessment(index, **changes):
@@ -118,6 +125,70 @@ class ClipRankingTests(SimpleTestCase):
             "title": title,
             "reason": "Exciting!",
         }
+
+    def test_retries_malformed_or_incomplete_reviews_without_bypassing_quality(self):
+        candidates = [{"title": "A"}, {"title": "B"}]
+        valid = {
+            "assessments": [assessment(0, payoff=1), assessment(1)],
+            "indices": [0, 1],
+        }
+        for invalid in (
+            "not JSON",
+            json.dumps({"assessments": [assessment(0)], "indices": [0]}),
+            json.dumps({"assessments": [assessment(1), assessment(2)], "indices": [1]}),
+            json.dumps(
+                {"assessments": [assessment(0), assessment(1)], "indices": [0, 0]}
+            ),
+        ):
+            with (
+                self.subTest(invalid=invalid),
+                patch(
+                    "apps.clips.highlights.get_update_sentence",
+                    side_effect=[invalid, json.dumps(valid)],
+                ) as provider,
+            ):
+                result = rank_candidates(self.project(), candidates)
+                self.assertEqual(result, [candidates[1]])
+                self.assertEqual(provider.call_count, 2)
+                self.assertIn("complete replacement", provider.call_args.args[0])
+
+    def test_ranking_prompt_labels_every_candidate_including_large_batches(self):
+        candidates = [{"title": str(i)} for i in range(20)]
+        valid = {"assessments": [assessment(i) for i in range(20)], "indices": [19]}
+        with patch(
+            "apps.clips.highlights.get_update_sentence", return_value=json.dumps(valid)
+        ) as provider:
+            self.assertEqual(
+                rank_candidates(self.project(count=3), candidates), [candidates[19]]
+            )
+        prompt = provider.call_args.args[0]
+        self.assertIn("exactly 20 assessments", prompt)
+        payload = json.loads(prompt.split("\n", 1)[1])
+        self.assertEqual([c["index"] for c in payload["candidates"]], list(range(20)))
+        self.assertNotIn("index", candidates[0])
+
+    def test_stops_after_bounded_invalid_review_attempts(self):
+        with patch(
+            "apps.clips.highlights.get_update_sentence", return_value='{"indices": []}'
+        ) as provider:
+            with self.assertRaisesRegex(HighlightRankingError, "saved transcript"):
+                rank_candidates(self.project(), [{"title": "A"}])
+        self.assertEqual(provider.call_count, RANKING_ATTEMPTS)
+
+    def test_does_not_retry_provider_failures_or_valid_empty_selection(self):
+        with patch(
+            "apps.clips.highlights.get_update_sentence",
+            side_effect=RuntimeError("provider"),
+        ) as provider:
+            with self.assertRaisesRegex(RuntimeError, "provider"):
+                rank_candidates(self.project(), [{"title": "A"}])
+        provider.assert_called_once()
+        with patch(
+            "apps.clips.highlights.get_update_sentence",
+            return_value=json.dumps({"assessments": [assessment(0)], "indices": []}),
+        ) as provider:
+            self.assertEqual(rank_candidates(self.project(), [{"title": "A"}]), [])
+        provider.assert_called_once()
 
     def test_reviews_actual_excerpts_even_when_the_candidate_count_fits_the_request(
         self,

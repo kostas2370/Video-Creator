@@ -5,7 +5,7 @@ Search by project name or filter by ready, processing, or needs-attention status
 Cards show the source type, duration, saved clip count, ready export count, and date.
 Choose **New project** to import a video; **Back to projects** returns to the library.
 Upload an MP4, MOV, WebM,
-or M4V video with spoken audio, up to 1 GB, two hours, and 3840 pixels per dimension.
+or M4V video with spoken audio, up to 1 GB and 3840 pixels per dimension. There is no source duration cap.
 Alternatively choose **YouTube link** and paste a video or Shorts URL. Imports run
 in the background using the existing pytubefix dependency. They select the highest available
 resolution up to 1080p that fits within 1 GB, including audio, automatically stepping
@@ -17,10 +17,10 @@ YouTube video links are accepted; playlists and arbitrary URLs are rejected.
 Use a video you own or have permission to edit. Private, restricted, or
 YouTube-blocked downloads can fail; a file upload remains available. Retries reuse
 a downloaded source rather than downloading it again.
-Choose 1–10 suggestions and a preferred duration range between 10 and 180 seconds.
+Choose 1–10 suggestions and a preferred duration range in minutes (from 1/6 to 3 minutes). Decimal minutes are supported; 0.5 means 30 seconds.
 The source must be at least as long as the requested minimum.
 
-Expand **Process only part of the video** to set optional start/end times in seconds.
+Expand **Process only part of the video** to set optional start/end times in minutes.
 The default is the whole video. Leaving the end blank uses the end of the source.
 Only the chosen range is sent for transcription and highlight selection; timestamps
 stay on the original source timeline. The range must fit the video and be at least
@@ -63,7 +63,7 @@ before sharing. There is no promise of engagement or virality.
 2. Wait for a browser-friendly preview, word-timed transcription, and highlight suggestions.
 3. In **Clips**, review the suggested titles and explanations, or add a clip manually.
    The clip list stays beside the editor on desktop and scrolls horizontally on phones.
-4. Open **Preview & edit**. Adjust start/end times or select boundaries from transcript words.
+4. Open **Preview & edit**. Adjust start/end times in minutes or select boundaries from transcript words.
 5. Choose a portrait crop with horizontal positioning, or preserve the picture over a blurred background.
 6. Correct caption words and timing, choose a font/style, and save.
 7. Export individual clips or select several and use **Export selected**. Download each finished file.

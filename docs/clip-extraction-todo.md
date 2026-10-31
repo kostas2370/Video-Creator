@@ -3,6 +3,25 @@
 Goal: find more complete, interesting, and distinct moments while keeping
 suggestions reviewable and provider costs visible.
 
+## Transcription sources (planned; not implemented)
+
+- [ ] Check YouTube videos for available captions before transcribing audio.
+      Select a suitable caption track in the source language, validate coverage
+      of the requested processing range, and preserve original video timestamps.
+      Fall back to transcription when captions are missing, inaccessible, or
+      unsuitable. Ensure word-level timing is suitable for clip boundaries and
+      caption editing; segment-only timing may require alignment.
+- [ ] Add local Whisper and make it the default audio transcription provider.
+      Use it for uploaded videos and as the fallback when YouTube captions cannot
+      be used. Keep OpenAI transcription as an optional provider.
+      Support Docker, persistent model caching, configurable model and compute
+      settings, word-level timestamps, existing chunk checkpoints, and transcript
+      reuse on retries. Show which source produced the transcript and distinguish
+      local processing from paid provider usage.
+- [ ] Test caption availability and fallback behavior, multiple languages,
+      processing ranges, word timing, model loading failures, and long-video
+      performance before enabling the new defaults.
+
 ## First priorities
 
 - [ ] Build a small, manually reviewed evaluation set of representative videos:
