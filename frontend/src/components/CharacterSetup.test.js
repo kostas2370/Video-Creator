@@ -6,9 +6,9 @@ vi.mock("../api/apiService", () => ({ draftSeriesCast: vi.fn(), createCharacterR
 import * as api from "../api/apiService";
 import { CharacterImageControls } from "./CharacterImageControls";
 import { SeriesCastDesigner } from "./SeriesCastDesigner";
-import { characterApproval, characterIsApproved } from "../utils/series";
+import { patchCharacter, characterIsApproved } from "../utils/series";
 
-const character = { id: "char-1", name: "Milo", appearance: "Orange fox", wardrobe: "Teal scarf", reference_id: "old-ref", reference_image: "/media/old.png" };
+const character = { id: "char-1", name: "Milo", appearance: "Orange fox", wardrobe: "Teal scarf", image: "/media/old.png" };
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
@@ -32,10 +32,10 @@ it("keeps the previous reference until a queued AI image is reviewed and accepte
   render(<CharacterImageControls character={character} visualStyle="Watercolor" onPatch={onPatch} />);
   fireEvent.click(screen.getByRole("button", { name: "Generate another look with AI" }));
   await screen.findByText("Review new character image");
-  expect(onPatch).toHaveBeenCalledWith({ reference_job_id: "new-ref" });
+  expect(onPatch).toHaveBeenCalledWith({ status: "QUEUED", error: "" });
   expect(screen.getByAltText("Milo approved reference").getAttribute("src")).toBe("/media/old.png");
   fireEvent.click(screen.getByRole("button", { name: "Use this look" }));
-  expect(onPatch).toHaveBeenCalledWith({ reference_id: "new-ref", reference_job_id: null, reference_image: "/media/new.png", reference_approval: characterApproval({ ...character, reference_id: "new-ref" }, "Watercolor") });
+  expect(onPatch).toHaveBeenCalledWith({ image: "/media/new.png", pending_image: null, image_approved: true, visual_style: "Watercolor", status: "READY" });
 });
 
 it("preserves the previous look and shows the saved job failure", async () => {
@@ -45,7 +45,7 @@ it("preserves the previous look and shows the saved job failure", async () => {
   render(<CharacterImageControls character={character} visualStyle="Watercolor" onPatch={onPatch} />);
   fireEvent.click(screen.getByRole("button", { name: "Generate another look with AI" }));
   expect((await screen.findByRole("alert")).textContent).toBe("Image provider unavailable");
-  expect(onPatch.mock.calls.every(([patch]) => !patch.reference_id)).toBe(true);
+  expect(onPatch.mock.calls.every(([patch]) => !patch.image)).toBe(true);
   expect(screen.getByAltText("Milo approved reference")).toBeTruthy();
 });
 
@@ -63,18 +63,28 @@ it("uploads an image for review without triggering paid generation", async () =>
 });
 
 it("requires reviewing visual changes while allowing story and personality edits", () => {
-  const approved = { ...character, reference_approval: characterApproval(character, "Watercolor") };
+  const approved = { ...character, image_approved: true, visual_style: "Watercolor" };
   expect(characterIsApproved(approved, "Watercolor")).toBe(true);
   expect(characterIsApproved({ ...approved, personality: "Brave" }, "Watercolor")).toBe(true);
-  expect(characterIsApproved({ ...approved, wardrobe: "Red coat" }, "Watercolor")).toBe(false);
-  expect(characterIsApproved({ ...approved, reference_id: "other" }, "Watercolor")).toBe(false);
+  expect(characterIsApproved(patchCharacter(approved, { wardrobe: "Red coat" }), "Watercolor")).toBe(false);
+  expect(characterIsApproved({ ...approved, image_approved: false }, "Watercolor")).toBe(false);
   expect(characterIsApproved(approved, "Photorealistic")).toBe(false);
 });
 
 it("resumes a saved image request without making another paid request", async () => {
   api.getCharacterReference.mockResolvedValue({ ok: true, data: { id: "saved-job", status: "READY", image: "/media/recovered.png" } });
-  render(<CharacterImageControls character={{ ...character, reference_job_id: "saved-job" }} visualStyle="Watercolor" onPatch={vi.fn()} />);
+  render(<CharacterImageControls character={{ ...character, status: "QUEUED" }} visualStyle="Watercolor" onPatch={vi.fn()} />);
   await screen.findByText("Review new character image");
-  expect(api.getCharacterReference).toHaveBeenCalledWith("saved-job");
+  expect(api.getCharacterReference).toHaveBeenCalledWith(character.id);
   expect(api.createCharacterReference).not.toHaveBeenCalled();
+});
+
+it("reopens a completed image awaiting review without another request", () => {
+  render(<CharacterImageControls character={{ ...character, pending_image: "/media/candidate.png", status: "READY" }} visualStyle="Watercolor" onPatch={vi.fn()} />);
+  expect(screen.getByAltText("Proposed reference for Milo").getAttribute("src")).toBe("/media/candidate.png");
+  expect(api.createCharacterReference).not.toHaveBeenCalled();
+  expect(api.getCharacterReference).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Review later" }));
+  expect(screen.queryByAltText("Proposed reference for Milo")).toBeNull();
+  expect(screen.getByAltText("Milo approved reference")).toBeTruthy();
 });

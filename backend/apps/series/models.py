@@ -19,7 +19,6 @@ from apps.videomanagement.video_formats import (
 from .memory import video_script_snapshot
 from .querysets import SeriesEpisodeQuerySet
 
-
 CHARACTER_IDENTITY_FIELDS = ("name", "appearance", "wardrobe")
 CHARACTER_PROFILE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "personality", "relationships")
 CHARACTER_REFERENCE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "visual_style")
@@ -57,11 +56,6 @@ class VideoSeries(AbstractModel, TimestampedModel):
     scene_count = models.PositiveSmallIntegerField(
         default=6, validators=[MinValueValidator(1), MaxValueValidator(60)]
     )
-
-    @property
-    def cast(self):
-        """Keep the public ordered cast representation separate from relational storage."""
-        return [character.as_cast_entry() for character in self.cast_members.all()]
 
     class Meta:
         db_table = "videomanagement_videoseries"
@@ -102,22 +96,6 @@ class Character(AbstractModel, TimestampedModel):
 
     def generation_brief(self):
         return {field: getattr(self, field) for field in CHARACTER_REFERENCE_FIELDS}
-
-    def as_cast_entry(self):
-        entry = {
-            "id": str(self.pk),
-            **{field: getattr(self, field) for field in CHARACTER_PROFILE_FIELDS},
-        }
-        if self.image:
-            entry.update(reference_id=str(self.pk), reference_image=self.image.url)
-            if self.image_approved:
-                entry["reference_approval"] = {
-                    "reference_id": str(self.pk),
-                    **self.generation_brief(),
-                }
-        if self.pending_image or self.status in (self.Status.QUEUED, self.Status.GENERATING):
-            entry["reference_job_id"] = str(self.pk)
-        return entry
 
 
 class SeriesEpisode(UUIDModel, TimestampedModel):

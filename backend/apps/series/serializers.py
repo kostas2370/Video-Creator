@@ -1,10 +1,9 @@
 from uuid import UUID
 
 from django.db import transaction
-
 from rest_framework import serializers
 
-from apps.series.creative import cast_is_ready, series_visual_continuity
+from apps.series.creative import series_visual_continuity
 from apps.series.models import (
     CHARACTER_PROFILE_FIELDS,
     CHARACTER_REFERENCE_FIELDS,
@@ -12,6 +11,7 @@ from apps.series.models import (
     SeriesEpisode,
     VideoSeries,
 )
+from apps.series.services.characters import cast_is_ready
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import Intro, Outro
 from apps.videomanagement.serializers.fields import (
@@ -22,19 +22,38 @@ from apps.videomanagement.serializers.requests import GenerateSerializer
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 
 
-class CastCharacterSerializer(serializers.ModelSerializer):
+class CharacterImagePathField(serializers.CharField):
+    def to_representation(self, value):
+        return value.url if value else None
+
+
+class CharacterSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField()
-    reference_id = serializers.UUIDField(required=False, allow_null=True)
-    reference_job_id = serializers.UUIDField(required=False, allow_null=True)
-    reference_approval = serializers.JSONField(required=False)
-    reference_image = serializers.CharField(required=False, allow_blank=True)
+    image = CharacterImagePathField(required=False, allow_blank=True, allow_null=True)
+    pending_image = CharacterImagePathField(read_only=True)
 
     class Meta:
         model = Character
         fields = (
-            "id", *CHARACTER_PROFILE_FIELDS, "reference_id", "reference_job_id",
-            "reference_approval", "reference_image",
+            "id",
+            *CHARACTER_PROFILE_FIELDS,
+            "visual_style",
+            "image",
+            "pending_image",
+            "image_approved",
+            "status",
+            "error",
         )
+        read_only_fields = ("status", "error")
+
+
+def serialize_cast(series):
+    return CharacterSerializer(series.cast_members.all(), many=True).data
+
+
+class CastField(serializers.JSONField):
+    def to_representation(self, value):
+        return CharacterSerializer(value.all(), many=True).data
 
 
 class CastDraftRequestSerializer(serializers.Serializer):
@@ -65,6 +84,7 @@ class CharacterImageQuerySerializer(serializers.Serializer):
 
 class CharacterImageRequestSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(required=False)
+
     class Meta:
         model = Character
         fields = ("id", *CHARACTER_REFERENCE_FIELDS, "image")
@@ -86,48 +106,37 @@ class CharacterImageRequestSerializer(serializers.ModelSerializer):
         )
 
 
-class CharacterImageSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
-
-    def get_image(self, character):
-        image = character.pending_image or character.image
-        return image.url if image else None
-
-    class Meta:
-        model = Character
-        fields = ("id", "status", "image", "error")
-        read_only_fields = fields
-
-
 class VideoSeriesSerializer(serializers.ModelSerializer):
     # Parse JSON/multipart input; the database stores related Character rows.
-    cast = serializers.JSONField(required=False)
+    cast = CastField(source="cast_members", required=False)
     cast_ready = serializers.SerializerMethodField()
     episode_count = serializers.IntegerField(read_only=True)
     active_episode = serializers.SerializerMethodField()
 
     @transaction.atomic
     def create(self, validated_data):
-        from apps.series.cast import replace_series_cast
+        from apps.series.services.characters import replace_series_cast
 
-        cast = validated_data.pop("cast", [])
+        cast = validated_data.pop("cast_members", [])
         series = super().create(validated_data)
         replace_series_cast(series, cast)
         return series
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        from apps.series.cast import replace_series_cast
+        from apps.series.services.characters import replace_series_cast
 
         instance = VideoSeries.objects.select_for_update().get(pk=instance.pk)
-        cast = validated_data.pop("cast", None)
+        cast = validated_data.pop("cast_members", None)
         series = super().update(instance, validated_data)
         if cast is not None:
             replace_series_cast(series, cast)
         return series
 
     def get_cast_ready(self, series):
-        return cast_is_ready(series.cast, series.story_format, series.visual_style)
+        return cast_is_ready(
+            series.cast_members.all(), series.story_format, series.visual_style
+        )
 
     def get_active_episode(self, series):
         if not getattr(series, "active_episode_id", None):
@@ -180,7 +189,7 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
         return validate_reference_image(value)
 
     def validate_cast(self, value):
-        serializer = CastCharacterSerializer(data=value, many=True, max_length=6)
+        serializer = CharacterSerializer(data=value, many=True, max_length=6)
         serializer.is_valid(raise_exception=True)
         cast = [
             dict(character, id=str(character["id"]))
@@ -190,8 +199,7 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Each character must have a unique ID.")
         if len({character["name"].casefold() for character in cast}) != len(cast):
             raise serializers.ValidationError("Give each character a different name.")
-        from apps.series.cast import validate_cast_images
-        return validate_cast_images(cast, self.context["request"].user, self.instance)
+        return cast
 
     def validate_intro(self, value):
         selected = owned_asset(Intro, value, self.context["request"].user)
@@ -207,6 +215,11 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         def current(field, default=None):
+            if field == "cast":
+                return attrs.get(
+                    "cast_members",
+                    serialize_cast(self.instance) if self.instance else default,
+                )
             return attrs.get(field, getattr(self.instance, field, default))
 
         continuity = series_visual_continuity(
@@ -228,7 +241,7 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
             )
         provider = current("provider", "OPENAI")
         if any(
-            character.get("reference_id") for character in current("cast", [])
+            character.get("image") for character in current("cast", [])
         ) and not ImageProviderRegistry.supports_reference(provider):
             raise serializers.ValidationError(
                 {
@@ -285,7 +298,7 @@ class EpisodeDraftSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         series = self.context["series"]
-        from apps.series.characters import validated_cast_references
+        from apps.series.services.characters import validated_cast_references
 
         validated_cast_references(series)
         if series.narration and not series.voice_model_id:
@@ -310,7 +323,7 @@ class EpisodeDraftSerializer(serializers.Serializer):
             "visual_continuity": series_visual_continuity(
                 characters=series.characters,
                 visual_style=series.visual_style,
-                cast=series.cast,
+                cast=serialize_cast(series),
             ),
         }
         attrs["generation_params"] = validate_episode_generation(choices, self.context)

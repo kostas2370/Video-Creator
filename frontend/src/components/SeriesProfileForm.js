@@ -53,7 +53,10 @@ export function SeriesProfileForm({ initial, busy, onSave, onCancel, error }) {
   const voices = useAssetOptions(getVoices);
   const intros = useAssetOptions(getIntro);
   const outros = useAssetOptions(getOutro);
-  const change = (key, value) => setForm(current => ({ ...current, [key]: value }));
+  const change = (key, value) => setForm(current => ({
+    ...current, [key]: value,
+    ...(key === "visual_style" && value !== current.visual_style ? { cast: current.cast.map(character => ({ ...character, image_approved: false })) } : {}),
+  }));
   const referenceSupported = supportsVisualReference(form.provider, "AI");
   const currentReference = initial?.reference_image && (/^https?:\/\//i.test(initial.reference_image) ? initial.reference_image : `${API_HOST}${initial.reference_image}`);
   const image = preview || (!removeReference && currentReference);

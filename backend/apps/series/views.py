@@ -14,12 +14,14 @@ from apps.series.serializers import (
     SeriesEpisodeSerializer,
     VideoSeriesSerializer,
 )
-from apps.series.services import (
+from apps.series.services.characters import (
     draft_cast,
     draft_character_description,
+    request_character_image,
+)
+from apps.series.services.episodes import (
     draft_episode,
     draft_episode_memory,
-    request_character_image,
     retry_episode,
     update_episode_memory,
 )
@@ -31,7 +33,7 @@ from .serializers import (
     CharacterDescriptionRequestSerializer,
     CharacterImageQuerySerializer,
     CharacterImageRequestSerializer,
-    CharacterImageSerializer,
+    CharacterSerializer,
 )
 from .throttling import (
     CharacterImageRateThrottle,
@@ -116,7 +118,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
                 Character, pk=identifier, created_by=request.user
             )
             return Response(
-                CharacterImageSerializer(
+                CharacterSerializer(
                     reference, context=self.get_serializer_context()
                 ).data
             )
@@ -126,9 +128,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
             owner=request.user, choices=serializer.validated_data
         )
         return Response(
-            CharacterImageSerializer(
-                reference, context=self.get_serializer_context()
-            ).data,
+            CharacterSerializer(reference, context=self.get_serializer_context()).data,
             status=201 if serializer.validated_data.get("image") else 202,
         )
 

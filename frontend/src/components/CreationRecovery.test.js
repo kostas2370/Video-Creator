@@ -75,7 +75,7 @@ it("resumes checking the saved character image job without starting a paid repla
   fireEvent.change(screen.getByLabelText("Character 1 name"), { target: { value: "Milo" } });
   fireEvent.change(screen.getByLabelText("Fixed appearance"), { target: { value: "Orange fox" } });
   fireEvent.click(screen.getByRole("button", { name: "Generate character image with AI" }));
-  await waitFor(() => expect(JSON.parse(localStorage.getItem(creationDraftKey("alice", "series-new"))).value.form.cast[0].reference_job_id).toBe("image-job"));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(creationDraftKey("alice", "series-new"))).value.form.cast[0].status).toBe("QUEUED"));
   first.unmount();
   api.getCharacterReference.mockResolvedValue({ ok: true, data: { id: "image-job", status: "READY", image: "/media/milo.png" } });
   render(wrap(<SeriesProfileForm onSave={vi.fn()} />));

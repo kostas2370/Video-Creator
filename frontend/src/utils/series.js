@@ -11,13 +11,13 @@ export const storyFormats = [
   { value: "SERIAL_DRAMA", label: "Serial drama", description: "Emotional hook, relationship stakes, a revelation and a cliffhanger for the next episode." },
 ];
 
-export function characterApproval(character, visualStyle) {
-  return Object.fromEntries(["reference_id", "name", "appearance", "wardrobe"].map(key => [key, character[key] || ""]).concat([["visual_style", visualStyle]]));
+export function patchCharacter(character, values) {
+  const identityChanged = ["name", "appearance", "wardrobe"].some(key => key in values && values[key] !== character[key]);
+  return { ...character, ...values, ...(identityChanged && values.image_approved === undefined ? { image_approved: false } : {}) };
 }
 
 export function characterIsApproved(character, visualStyle) {
-  const expected = characterApproval(character, visualStyle);
-  return !!character.reference_id && Object.keys(expected).every(key => character.reference_approval?.[key] === expected[key]);
+  return !!character.image && !!character.image_approved && character.visual_style === visualStyle;
 }
 
 export function seriesPayload(profile, file, removeReference = false) {

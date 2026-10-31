@@ -11,15 +11,15 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from apps.series.characters import save_reference_image
-from apps.series.creative import reference_approval
 from apps.series.models import Character, SeriesEpisode, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     VideoSeriesSerializer,
+    serialize_cast,
     validate_episode_generation,
 )
-from apps.series.services import draft_episode, retry_episode
+from apps.series.services.characters import save_reference_image
+from apps.series.services.episodes import draft_episode, retry_episode
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import (
     intro,
@@ -89,7 +89,7 @@ class SeriesTests(ApiTestCase):
                 format=encoding,
             )
             self.assertEqual(response.status_code, 200, response.data)
-            self.assertEqual(response.data["cast"], cast)
+            self.assertEqual([{key: row[key] for key in cast[0]} for row in response.data["cast"]], cast)
         response = self.client.patch(self.url(), {"cast": []}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["cast"], [])
@@ -121,7 +121,7 @@ class SeriesTests(ApiTestCase):
                 response = self.client.patch(self.url(), changes, format="json")
                 self.assertEqual(response.status_code, 400, response.data)
         self.series.refresh_from_db()
-        self.assertEqual(self.series.cast, [])
+        self.assertEqual(serialize_cast(self.series), [])
         self.assertEqual(self.series.story_format, "GENERAL")
 
     def test_both_formats_snapshot_cast_and_pass_identity_to_visual_generation(self):
@@ -132,10 +132,7 @@ class SeriesTests(ApiTestCase):
             Character.objects.create(created_by=self.user), source
         )
         character = self.character(
-            id=str(reference.pk), reference_id=str(reference.pk), reference_image=reference.image.url
-        )
-        character["reference_approval"] = reference_approval(
-            character, self.series.visual_style
+            id=str(reference.pk), image=reference.image.url, image_approved=True, visual_style=self.series.visual_style
         )
         for story_format, guidance in (
             ("ANIMATED_STORY", "satisfying visual payoff"),
@@ -166,7 +163,7 @@ class SeriesTests(ApiTestCase):
                 )
                 self.assertEqual(changed.status_code, 200, changed.data)
                 episode.refresh_from_db()
-                self.assertEqual(episode.profile_snapshot["cast"], [character])
+                self.assertEqual(episode.profile_snapshot["cast"], saved.data["cast"])
                 self.assertEqual(episode.profile_snapshot["story_format"], story_format)
                 self.assertEqual(episode.generation_params, params)
                 episode.video.status = "READY"
@@ -346,7 +343,7 @@ class SeriesTests(ApiTestCase):
             return dict(episode.generation_params)
 
         with patch(
-            "apps.series.services.validate_episode_generation",
+            "apps.series.services.episodes.validate_episode_generation",
             side_effect=delete_video_before_retry,
         ):
             response = self.client.post(self.url("retry", episode=episode))
@@ -375,7 +372,7 @@ class SeriesTests(ApiTestCase):
                         if cleanup_fails
                         else None,
                     ) as delete,
-                    patch("apps.series.services.logger") as logger,
+                    patch("apps.series.services.episodes.logger") as logger,
                     self.assertRaises(RuntimeError) as raised,
                 ):
                     draft_episode(
@@ -816,7 +813,7 @@ class SeriesTests(ApiTestCase):
         )
 
     @patch(
-        "apps.series.services.get_update_sentence",
+        "apps.series.services.episodes.get_update_sentence",
         return_value="Milo found a blue lantern.",
     )
     def test_memory_update_is_an_unsaved_draft_and_includes_manual_corrections(
@@ -839,7 +836,7 @@ class SeriesTests(ApiTestCase):
         self.assertEqual(response.data["script_hash"], episode.script_hash)
 
     @patch(
-        "apps.series.services.get_update_sentence",
+        "apps.series.services.episodes.get_update_sentence",
         return_value="",
     )
     def test_invalid_memory_draft_preserves_saved_memory(self, ai):
@@ -852,7 +849,7 @@ class SeriesTests(ApiTestCase):
         episode.refresh_from_db()
         self.assertEqual(episode.summary, "Milo built a lantern")
 
-    @patch("apps.series.services.get_update_sentence")
+    @patch("apps.series.services.episodes.get_update_sentence")
     def test_memory_update_rejects_changes_during_generation(self, ai):
         episode = self.episode()
         line = scene.make(video=episode.video, text="Before")
@@ -913,7 +910,7 @@ class SeriesTests(ApiTestCase):
         line.save(update_fields=["archived_at"])
         self.assertTrue(SeriesEpisode.objects.get(pk=episode.pk).memory_needs_review)
 
-    @patch("apps.series.services.get_update_sentence")
+    @patch("apps.series.services.episodes.get_update_sentence")
     def test_memory_update_is_owner_scoped_and_requires_current_script(self, ai):
         episode = self.episode()
         other = VideoSeries.objects.create(

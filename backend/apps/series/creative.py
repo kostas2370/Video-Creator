@@ -1,6 +1,3 @@
-from .models import CHARACTER_IDENTITY_FIELDS
-
-
 STORY_FORMAT_GUIDANCE = {
     "GENERAL": "Follow the series premise and the new episode idea.",
     "ANIMATED_STORY": (
@@ -19,24 +16,6 @@ STORY_FORMAT_GUIDANCE = {
         "Do not resolve the entire series in one episode or retell previous episodes."
     ),
 }
-
-
-def reference_approval(character, visual_style):
-    return {
-        key: character.get(key) or ""
-        for key in ("reference_id", *CHARACTER_IDENTITY_FIELDS)
-    } | {"visual_style": visual_style}
-
-
-def cast_is_ready(cast, story_format, visual_style):
-    if not cast:
-        return story_format == "GENERAL"
-    return all(
-        character.get("reference_id")
-        and character.get("reference_approval")
-        == reference_approval(character, visual_style)
-        for character in cast
-    )
 
 
 def series_visual_continuity(*, characters, visual_style, cast):

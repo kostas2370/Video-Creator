@@ -27,10 +27,27 @@ export function mergeDraft(defaults, saved) {
   }));
 }
 
+// Upgrade browser drafts saved before characters used a single ID and image fields.
+function restoreCharacter(character, visualStyle) {
+  const { reference_id, reference_job_id, reference_image, reference_approval, ...current } = character;
+  if (!reference_id && !reference_job_id && !reference_image && !reference_approval) return current;
+  const approved = !!reference_image && reference_approval &&
+    ["reference_id", "name", "appearance", "wardrobe"].every(key => reference_approval[key] === (character[key] || "")) &&
+    reference_approval.visual_style === visualStyle;
+  return {
+    ...current,
+    id: reference_job_id || reference_id || current.id,
+    image: current.image || reference_image || null,
+    image_approved: !!approved,
+    visual_style: reference_approval?.visual_style || visualStyle,
+    status: reference_job_id ? "QUEUED" : current.status || (reference_image ? "READY" : "EMPTY"),
+  };
+}
+
 export function restoreWizardDraft(saved, defaults) {
   const value = mergeDraft(defaults, saved);
   if (saved.form && ["number", "string"].includes(typeof saved.form.scene_count)) value.form.scene_count = saved.form.scene_count;
-  if (Array.isArray(value.form?.cast)) value.form.cast = value.form.cast.filter(character => character && ["id", "name", "appearance"].every(key => typeof character[key] === "string"));
+  if (Array.isArray(value.form?.cast)) value.form.cast = value.form.cast.filter(character => character && ["id", "name", "appearance"].every(key => typeof character[key] === "string")).map(character => restoreCharacter(character, value.form.visual_style));
   value.step = [0, 1, 2].includes(value.step) ? value.step : 0;
   value.ui = saved.ui && typeof saved.ui === "object" && !Array.isArray(saved.ui) ? saved.ui : {};
   return value;
