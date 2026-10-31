@@ -1,9 +1,18 @@
 from uuid import UUID
 
+from django.db import transaction
+
 from rest_framework import serializers
 
 from apps.series.creative import cast_is_ready, series_visual_continuity
-from apps.series.models import CharacterReference, SeriesEpisode, VideoSeries
+from apps.series.models import (
+    CHARACTER_PROFILE_FIELDS,
+    CHARACTER_REFERENCE_FIELDS,
+    CharacterReference,
+    SeriesCharacter,
+    SeriesEpisode,
+    VideoSeries,
+)
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import Intro, Outro
 from apps.videomanagement.serializers.fields import (
@@ -14,17 +23,19 @@ from apps.videomanagement.serializers.requests import GenerateSerializer
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 
 
-class CastCharacterSerializer(serializers.Serializer):
+class CastCharacterSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField()
-    name = serializers.CharField(max_length=60)
-    appearance = serializers.CharField(max_length=300)
-    wardrobe = serializers.CharField(max_length=150, allow_blank=True, default="")
-    personality = serializers.CharField(max_length=200, allow_blank=True, default="")
-    relationships = serializers.CharField(max_length=200, allow_blank=True, default="")
     reference_id = serializers.UUIDField(required=False, allow_null=True)
     reference_job_id = serializers.UUIDField(required=False, allow_null=True)
     reference_approval = serializers.JSONField(required=False)
     reference_image = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = SeriesCharacter
+        fields = (
+            "id", *CHARACTER_PROFILE_FIELDS, "reference_id", "reference_job_id",
+            "reference_approval", "reference_image",
+        )
 
 
 class CastDraftRequestSerializer(serializers.Serializer):
@@ -49,12 +60,13 @@ class CharacterDescriptionRequestSerializer(CastDraftRequestSerializer):
     )
 
 
-class CharacterReferenceRequestSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=60)
-    appearance = serializers.CharField(max_length=300)
-    wardrobe = serializers.CharField(max_length=150, allow_blank=True, default="")
-    visual_style = serializers.CharField(max_length=800)
-    image = serializers.ImageField(required=False)
+class CharacterReferenceRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CharacterReference
+        fields = (*CHARACTER_REFERENCE_FIELDS, "image")
+        extra_kwargs = {
+            "visual_style": {"required": True, "allow_blank": False},
+        }
 
     def validate_image(self, value):
         return validate_image_upload(
@@ -78,10 +90,31 @@ class CharacterReferenceSerializer(serializers.ModelSerializer):
 
 
 class VideoSeriesSerializer(serializers.ModelSerializer):
+    # Parse JSON/multipart input; the database stores related SeriesCharacter rows.
     cast = serializers.JSONField(required=False)
     cast_ready = serializers.SerializerMethodField()
     episode_count = serializers.IntegerField(read_only=True)
     active_episode = serializers.SerializerMethodField()
+
+    @transaction.atomic
+    def create(self, validated_data):
+        from apps.series.cast import replace_series_cast
+
+        cast = validated_data.pop("cast", [])
+        series = super().create(validated_data)
+        replace_series_cast(series, cast)
+        return series
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        from apps.series.cast import replace_series_cast
+
+        instance = VideoSeries.objects.select_for_update().get(pk=instance.pk)
+        cast = validated_data.pop("cast", None)
+        series = super().update(instance, validated_data)
+        if cast is not None:
+            replace_series_cast(series, cast)
+        return series
 
     def get_cast_ready(self, series):
         return cast_is_ready(series.cast, series.story_format, series.visual_style)
@@ -157,7 +190,7 @@ class VideoSeriesSerializer(serializers.ModelSerializer):
             for reference in CharacterReference.objects.filter(
                 pk__in=reference_ids,
                 created_by=self.context["request"].user,
-                status="READY",
+                status=CharacterReference.Status.READY,
             )
         }
         for character in cast:

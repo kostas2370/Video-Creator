@@ -11,7 +11,7 @@ def archive_reference(instance):
     model = instance._meta.model_name
     if model == "characterreference":
         fields = {"image": "character reference"}
-        title = instance.description.get("name", "Character")
+        title = instance.name or "Character"
         owner = instance.created_by
         video = None
     elif model == "scene":

@@ -113,3 +113,45 @@ class SeriesAppMigrationTests(TransactionTestCase):
                         .permissions.filter(pk=permission.pk)
                         .exists()
                     )
+
+
+class StructuredCharacterMigrationTests(TransactionTestCase):
+    def migrate(self, targets):
+        executor = MigrationExecutor(connection)
+        executor.migrate(targets)
+        loader = MigrationExecutor(connection).loader
+        return loader.project_state(list(loader.applied_migrations)).apps
+
+    def test_keeps_three_approved_characters_and_their_reference_files(self):
+        self.addCleanup(self.migrate, MigrationExecutor(connection).loader.graph.leaf_nodes())
+        old = self.migrate([("series", "0004_characterreference")])
+        owner = old.get_model("usermanagement", "User").objects.create(username="approved-cast-owner")
+        Reference = old.get_model("series", "CharacterReference")
+        cast = []
+        files = {}
+        from uuid import uuid4
+        for name in ("Bananito", "Bananita", "Bruno"):
+            brief = {"name": name, "appearance": "Yellow banana", "wardrobe": "", "visual_style": "3D"}
+            reference = Reference.objects.create(
+                created_by_id=owner.pk, status="READY", description=brief,
+                image=f"media/characters/{uuid4().hex}.png",
+            )
+            files[reference.pk] = reference.image.name
+            character = {"id": str(uuid4()), "name": name, "appearance": "Yellow banana", "wardrobe": "", "personality": "Curious", "relationships": "Friends", "reference_id": str(reference.pk)}
+            character["reference_approval"] = {"reference_id": str(reference.pk), **brief}
+            cast.append(character)
+        series = old.get_model("series", "VideoSeries").objects.create(
+            created_by_id=owner.pk, title="Fruit story", premise="Relationships",
+            visual_style="3D", narration=False, cast=cast,
+        )
+        new = self.migrate([("series", "0005_structured_characters")])
+        profiles = list(new.get_model("series", "SeriesCharacter").objects.filter(series_id=series.pk).order_by("position"))
+        self.assertEqual(len(profiles), 3)
+        for original, profile in zip(cast, profiles):
+            self.assertEqual(str(profile.character_id), original["id"])
+            self.assertEqual(str(profile.reference_id), original["reference_id"])
+            self.assertEqual(profile.reference_approval, original["reference_approval"])
+            reference = new.get_model("series", "CharacterReference").objects.get(pk=profile.reference_id)
+            self.assertEqual(reference.name, original["name"])
+            self.assertEqual(reference.image.name, files[reference.pk])
+            self.assertEqual(reference.status, "READY")

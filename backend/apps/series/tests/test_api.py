@@ -711,7 +711,7 @@ class SeriesTests(ApiTestCase):
                 intro_id=opening.pk,
                 outro_id=ending.pk,
             )
-        profiles = list(VideoSeries.objects.filter(voice_model_id=voice.pk))
+        profiles = list(VideoSeries.objects.filter(voice_model_id=voice.pk).prefetch_related("character_profiles__reference"))
         with self.assertNumQueries(0):
             data = VideoSeriesSerializer(profiles, many=True).data
         self.assertEqual(len(data), 3)

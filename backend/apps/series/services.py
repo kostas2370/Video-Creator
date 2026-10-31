@@ -12,7 +12,7 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from apps.series.characters import copy_cast_sheet
 from apps.series.creative import STORY_FORMAT_GUIDANCE
-from apps.series.models import SeriesEpisode, VideoSeries
+from apps.series.models import CHARACTER_PROFILE_FIELDS, SeriesEpisode, VideoSeries
 from apps.videomanagement import tasks
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.integrations.llm import get_update_sentence
@@ -47,13 +47,7 @@ def episode_context(profile, history):
     creative_profile["cast"] = [
         {
             key: character.get(key, "")
-            for key in (
-                "name",
-                "appearance",
-                "wardrobe",
-                "personality",
-                "relationships",
-            )
+            for key in CHARACTER_PROFILE_FIELDS
         }
         for character in profile.get("cast", [])
     ]
@@ -95,7 +89,7 @@ def _queue_episode_generation(episode):
 
 def _locked_series(series_id, owner, exclude_episode=None):
     series = (
-        VideoSeries.objects.select_for_update()
+        VideoSeries.objects.select_for_update().prefetch_related("character_profiles__reference")
         .filter(pk=series_id, created_by=owner)
         .first()
     )

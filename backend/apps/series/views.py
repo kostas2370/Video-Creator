@@ -7,7 +7,7 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.series.models import SeriesEpisode, VideoSeries
+from apps.series.models import CHARACTER_PROFILE_FIELDS, CharacterReference, SeriesEpisode, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     EpisodeMemoryDraftSerializer,
@@ -27,7 +27,6 @@ from apps.videomanagement.paginator import AssetResultsPagination
 from apps.videomanagement.throttling import GenerateRateThrottle
 
 from .characters import draft_cast, save_reference_image
-from .models import CharacterReference
 from .serializers import (
     CastDraftRequestSerializer,
     CharacterDescriptionRequestSerializer,
@@ -65,6 +64,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
                 active_video_id=Subquery(active.values("video_id")[:1]),
                 active_episode_number=Subquery(active.values("number")[:1]),
             )
+            .prefetch_related("character_profiles__reference")
             .order_by("-updated_at", "id")
         )
 
@@ -107,13 +107,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
             {
                 "character": {
                     key: character[key]
-                    for key in (
-                        "name",
-                        "appearance",
-                        "wardrobe",
-                        "personality",
-                        "relationships",
-                    )
+                    for key in CHARACTER_PROFILE_FIELDS
                 }
             }
         )
@@ -139,7 +133,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
         choices = dict(serializer.validated_data)
         image = choices.pop("image", None)
         reference = CharacterReference.objects.create(
-            created_by=request.user, description=choices
+            created_by=request.user, **choices
         )
         if image:
             try:
@@ -151,7 +145,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
             try:
                 generate_character_reference_task.delay(str(reference.pk))
             except Exception as exc:
-                reference.status = "FAILED"
+                reference.status = CharacterReference.Status.FAILED
                 reference.error = "Image generation could not be queued. Try again."
                 reference.save(update_fields=["status", "error", "updated_at"])
                 error = APIException(reference.error)

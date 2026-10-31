@@ -20,18 +20,43 @@ from .memory import video_script_snapshot
 from .querysets import SeriesEpisodeQuerySet
 
 
-class CharacterReference(AbstractModel, TimestampedModel):
+CHARACTER_IDENTITY_FIELDS = ("name", "appearance", "wardrobe")
+CHARACTER_PROFILE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "personality", "relationships")
+CHARACTER_REFERENCE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "visual_style")
+
+
+class CharacterIdentityFields(models.Model):
+    name = models.CharField(max_length=60)
+    appearance = models.CharField(max_length=300)
+    wardrobe = models.CharField(max_length=150, blank=True, default="")
+
+    class Meta:
+        abstract = True
+
+
+class CharacterReference(CharacterIdentityFields, AbstractModel, TimestampedModel):
+    class Status(models.TextChoices):
+        QUEUED = "QUEUED", "Queued"
+        GENERATING = "GENERATING", "Generating"
+        READY = "READY", "Ready"
+        FAILED = "FAILED", "Failed"
+
     image = models.ImageField(upload_to="media/characters/%Y/%m/%d", blank=True)
-    status = models.CharField(max_length=12, default="QUEUED")
-    description = models.JSONField(default=dict)
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.QUEUED
+    )
+    visual_style = models.TextField(max_length=800, blank=True, default="")
     error = models.CharField(max_length=300, blank=True)
+
+    def generation_brief(self):
+        """The fixed identity/style that this particular image was requested with."""
+        return {field: getattr(self, field) for field in CHARACTER_REFERENCE_FIELDS}
 
 
 class VideoSeries(AbstractModel, TimestampedModel):
     title = models.CharField(max_length=100)
     premise = models.TextField(max_length=2000)
     characters = models.TextField(max_length=2000, blank=True)
-    cast = models.JSONField(default=list, blank=True)
     story_format = models.CharField(
         max_length=20,
         choices=[
@@ -61,9 +86,59 @@ class VideoSeries(AbstractModel, TimestampedModel):
         default=6, validators=[MinValueValidator(1), MaxValueValidator(60)]
     )
 
+    @property
+    def cast(self):
+        """Keep the public ordered cast representation separate from relational storage."""
+        return [character.as_cast_entry() for character in self.character_profiles.all()]
+
     class Meta:
         db_table = "videomanagement_videoseries"
         ordering = ["-updated_at", "id"]
+
+
+class SeriesCharacter(CharacterIdentityFields, UUIDModel, TimestampedModel):
+    series = models.ForeignKey(
+        VideoSeries, on_delete=models.CASCADE, related_name="character_profiles"
+    )
+    character_id = models.UUIDField()
+    position = models.PositiveSmallIntegerField()
+    personality = models.CharField(max_length=200, blank=True, default="")
+    relationships = models.CharField(max_length=200, blank=True, default="")
+    reference = models.ForeignKey(
+        CharacterReference, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="character_profiles",
+    )
+    reference_job = models.ForeignKey(
+        CharacterReference, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="pending_profiles",
+    )
+    reference_approval = models.JSONField(null=True, blank=True, default=None)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["series", "character_id"], name="unique_series_character_identity"
+            ),
+            models.UniqueConstraint(
+                fields=["series", "position"], name="unique_series_character_position"
+            ),
+        ]
+
+    def as_cast_entry(self):
+        entry = {
+            "id": str(self.character_id),
+            **{field: getattr(self, field) for field in CHARACTER_PROFILE_FIELDS},
+        }
+        if self.reference_id:
+            entry["reference_id"] = str(self.reference_id)
+            if self.reference.image:
+                entry["reference_image"] = self.reference.image.url
+        if self.reference_job_id:
+            entry["reference_job_id"] = str(self.reference_job_id)
+        if self.reference_approval is not None:
+            entry["reference_approval"] = self.reference_approval
+        return entry
 
 
 class SeriesEpisode(UUIDModel, TimestampedModel):

@@ -109,14 +109,14 @@ class CharacterSetupTests(ApiTestCase):
         )
 
     def profile(self, **changes):
-        return VideoSeries.objects.create(
-            created_by=self.user,
-            title="Milo",
-            premise="A fox and his rival",
-            visual_style="Watercolor",
-            narration=False,
-            **changes,
+        from apps.series.cast import replace_series_cast
+        cast = changes.pop("cast", [])
+        series = VideoSeries.objects.create(
+            created_by=self.user, title="Milo", premise="A fox and his rival",
+            visual_style="Watercolor", narration=False, **changes,
         )
+        replace_series_cast(series, cast)
+        return series
 
     def character(self, reference=None):
         character = {
@@ -253,7 +253,7 @@ class CharacterSetupTests(ApiTestCase):
     def test_generation_failures_are_safe_and_leave_previous_images_intact(self):
         previous = self.upload().data
         reference = CharacterReference.objects.create(
-            created_by=self.user, description=self.choices
+            created_by=self.user, **self.choices
         )
         with patch(
             "apps.series.characters.openai_images.generate_openai_image",
@@ -271,7 +271,7 @@ class CharacterSetupTests(ApiTestCase):
 
     def test_pending_image_requests_can_be_saved_but_must_belong_to_the_owner(self):
         reference = CharacterReference.objects.create(
-            created_by=self.user, description=self.choices
+            created_by=self.user, **self.choices
         )
         series = self.profile(story_format="SERIAL_DRAMA")
         character = self.character() | {"reference_job_id": str(reference.pk)}
@@ -316,7 +316,11 @@ class CharacterSetupTests(ApiTestCase):
         ):
             series = self.profile(story_format="ANIMATED_STORY")
             for field, value in changes.items():
-                setattr(series, field, value)
+                if field == "cast":
+                    from apps.series.cast import replace_series_cast
+                    replace_series_cast(series, value)
+                else:
+                    setattr(series, field, value)
             series.save()
             with patch("apps.videomanagement.tasks.generate_video_task.delay") as queue:
                 response = self.client.post(
@@ -344,7 +348,8 @@ class CharacterSetupTests(ApiTestCase):
         self.assertTrue(episode.video.settings["character_references"])
         with episode.video.reference_image.open("rb") as source:
             saved = source.read()
-        series.cast = [self.character(self.upload("blue").data)]
+        from apps.series.cast import replace_series_cast
+        replace_series_cast(series, [self.character(self.upload("blue").data)])
         series.save()
         with episode.video.reference_image.open("rb") as source:
             self.assertEqual(source.read(), saved)

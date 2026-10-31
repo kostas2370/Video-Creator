@@ -25,7 +25,7 @@ class ReferenceAssetTests(TestCase):
         self.image = output.getvalue()
 
     def test_character_upload_is_durable_and_owner_scoped(self):
-        reference = CharacterReference.objects.create(created_by=self.user, description={"name": "Milo"})
+        reference = CharacterReference.objects.create(created_by=self.user, name="Milo")
         reference.image.save("milo.png", ContentFile(self.image))
         asset = MediaAsset.objects.get(created_by=self.user)
         self.assertIn("character reference", asset.tags)

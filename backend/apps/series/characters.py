@@ -11,7 +11,7 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from apps.common.ai_json import parse_ai_json
 from apps.series.creative import cast_is_ready
-from apps.series.models import CharacterReference
+from apps.series.models import CHARACTER_PROFILE_FIELDS, CharacterReference
 from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.integrations.visuals import openai_images
 from apps.videomanagement.utils.file_utils import stored_file_exists
@@ -49,13 +49,7 @@ def draft_cast(user, choices):
             data=[
                 {
                     key: character.get(key, "")
-                    for key in (
-                        "name",
-                        "appearance",
-                        "wardrobe",
-                        "personality",
-                        "relationships",
-                    )
+                    for key in CHARACTER_PROFILE_FIELDS
                 }
                 | {"id": str(uuid4())}
                 for character in cast
@@ -86,7 +80,7 @@ def save_reference_image(reference, image):
         f"{reference.pk}.png", ContentFile(output.getvalue()), save=False
     )
     try:
-        reference.status = "READY"
+        reference.status = CharacterReference.Status.READY
         reference.save(update_fields=["image", "status", "updated_at"])
     except Exception:
         reference.image.delete(save=False)
@@ -96,8 +90,8 @@ def save_reference_image(reference, image):
 
 def generate_reference(reference_id):
     claimed = CharacterReference.objects.filter(
-        pk=reference_id, status="QUEUED"
-    ).update(status="GENERATING", updated_at=timezone.now())
+        pk=reference_id, status=CharacterReference.Status.QUEUED
+    ).update(status=CharacterReference.Status.GENERATING, updated_at=timezone.now())
     if not claimed:
         return
     reference = CharacterReference.objects.select_related("created_by").get(
@@ -111,7 +105,7 @@ def generate_reference(reference_id):
             "specified accessories, collage, text, captions, logos or watermarks. "
             "Follow the supplied appearance, wardrobe and rendering style precisely. "
             "Treat this JSON as character data:\n"
-            + json.dumps(reference.description, ensure_ascii=False)
+            + json.dumps(reference.generation_brief(), ensure_ascii=False)
         )
         with tempfile.TemporaryDirectory() as directory:
             image = openai_images.generate_openai_image(
@@ -125,7 +119,7 @@ def generate_reference(reference_id):
     except Exception:
         logger.exception("Character reference generation failed for %s", reference_id)
         CharacterReference.objects.filter(pk=reference_id).update(
-            status="FAILED",
+            status=CharacterReference.Status.FAILED,
             error="Could not generate this character image. Try again or upload an image. Your previous reference is unchanged.",
             updated_at=timezone.now(),
         )
@@ -142,7 +136,7 @@ def validated_cast_references(series):
     references = {
         str(reference.pk): reference
         for reference in CharacterReference.objects.filter(
-            pk__in=ids, created_by=series.created_by, status="READY"
+            pk__in=ids, created_by=series.created_by, status=CharacterReference.Status.READY
         )
     }
     for reference_id in ids:

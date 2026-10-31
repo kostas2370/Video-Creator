@@ -1,3 +1,6 @@
+from .models import CHARACTER_IDENTITY_FIELDS
+
+
 STORY_FORMAT_GUIDANCE = {
     "GENERAL": "Follow the series premise and the new episode idea.",
     "ANIMATED_STORY": (
@@ -21,7 +24,7 @@ STORY_FORMAT_GUIDANCE = {
 def reference_approval(character, visual_style):
     return {
         key: character.get(key) or ""
-        for key in ("reference_id", "name", "appearance", "wardrobe")
+        for key in ("reference_id", *CHARACTER_IDENTITY_FIELDS)
     } | {"visual_style": visual_style}
 
 
