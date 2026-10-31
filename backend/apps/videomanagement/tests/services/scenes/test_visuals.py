@@ -211,6 +211,12 @@ class CreateImageScenesTests(TestCase):
 
         self.assertTrue(create.call_args.kwargs["with_audio"])
 
+    def test_series_defaults_to_muted_clip_audio_without_narration(self):
+        self.video.settings = dict(narration=False, creation_mode="SERIES")
+        create, _ = self.run_with()
+        self.assertTrue(create.called)
+        self.assertTrue(all(not call.kwargs["with_audio"] for call in create.call_args_list))
+
     def test_narrates_by_default_when_the_video_has_no_settings(self):
         self.video.settings = None
 
@@ -411,6 +417,17 @@ class GenerateNewImageTests(TestCase):
 
         self.scene_image.refresh_from_db()
         self.assertEqual(self.scene_image.file, "images/new.png")
+
+    def test_replacement_preserves_explicit_clip_audio_choices(self):
+        self.video.settings = {"creation_mode": "SERIES", "narration": False}
+        for keep_audio in (True, False):
+            with self.subTest(keep_audio=keep_audio):
+                self.scene_image.with_audio = keep_audio
+                self.scene_image.save()
+                with patch.object(openai_images, "generate_openai_image", return_value="images/new.mp4"):
+                    generate_new_image(self.scene_image, self.video)
+                self.scene_image.refresh_from_db()
+                self.assertEqual(self.scene_image.with_audio, keep_audio)
 
     def test_keeps_the_old_image_when_generation_fails(self):
         with (

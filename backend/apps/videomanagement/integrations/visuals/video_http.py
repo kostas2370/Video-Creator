@@ -212,6 +212,12 @@ def seconds_for(duration, minimum, maximum):
 
 def shot_prompt(prompt, style="", reference=None):
     text = f"One continuous shot, no cuts. {prompt}"
+    text += (
+        " No montage, internal cuts, fade to black, opening fade, or closing transition."
+        " Keep the final action and reaction visible until the clip ends."
+        " Use only explicitly specified dialogue and natural ambient sounds."
+        " No background music or invented speech; the editor supplies the shared soundtrack."
+    )
     if style:
         text += f" Visual style: {style}."
     if reference:

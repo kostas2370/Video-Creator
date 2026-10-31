@@ -19,7 +19,7 @@ from apps.videomanagement.utils.audio_editing import (
 )
 from apps.videomanagement.utils.captions.cues import CaptionCue
 from apps.videomanagement.utils.timing import file_timing
-from apps.videomanagement.utils.transitions import intro_transition
+from apps.videomanagement.utils.transitions import default_transition, intro_transition
 
 
 @dataclass
@@ -76,7 +76,7 @@ def apply_transitions(segments, choices, opening=None):
         incoming_style = (
             previous.transition
             if previous
-            else choices.get("transition_default", TransitionStyle.FADE)
+            else default_transition(choices)
         )
         if incoming_style == TransitionStyle.FADE:
             requested = (

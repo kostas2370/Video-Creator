@@ -49,7 +49,8 @@ def generate_from_gemini_video(request):
             "model": MODEL,
             "input": content,
             "background": False,
-            "store": False,
+            # URI delivery requires a stored interaction so the file can be fetched.
+            "store": True,
             "stream": False,
             "response_format": {
                 "type": "video",

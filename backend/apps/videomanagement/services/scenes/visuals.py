@@ -211,7 +211,13 @@ def create_image_scenes(
     """
 
     dir_name = video.dir_name
-    with_audio = not (video.settings or {}).get("narration", True)
+    choices = video.settings or {}
+    # Keep each generated scene's independent score out of the episode mix.
+    # Users can still enable audio on individual visuals in the editor.
+    with_audio = (
+        not choices.get("narration", True)
+        and choices.get("creation_mode") != "SERIES"
+    )
     lines, indexed = ensure_scene_rows(video)
     pairs = [(line, indexed[index]) for index, line in enumerate(lines)]
     pending = [(line, scene) for line, scene in pairs if existing_visual(video, line.text, scene) is None]

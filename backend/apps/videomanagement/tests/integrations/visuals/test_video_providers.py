@@ -227,7 +227,8 @@ class VideoProviderTests(SimpleTestCase):
         body = request.call_args_list[0].kwargs["body"]
         self.assertEqual(body["response_format"]["aspect_ratio"], "9:16")
         self.assertEqual(body["input"][0]["type"], "image")
-        self.assertFalse(body["store"])
+        self.assertTrue(body["store"])
+        self.assertEqual(body["response_format"]["delivery"], "uri")
         self.assertEqual(
             self.save_download.call_args.kwargs["auth_host"], gemini_video.HOST
         )
