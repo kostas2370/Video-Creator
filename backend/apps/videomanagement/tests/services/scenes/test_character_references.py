@@ -57,6 +57,7 @@ class CharacterShotReferenceTests(TestCase):
             scene=self.scene,
             mode="AI",
             provider="kling",
+            style=(self.video.settings or {}).get("style", "natural"),
             user=self.video.created_by,
         )
         self.scene.refresh_from_db()
@@ -200,4 +201,43 @@ class CharacterShotReferenceTests(TestCase):
         self.prepare()
         target.refresh_from_db()
         self.assertEqual(target.file.name, "images/approved.mp4")
+        self.provider.assert_not_called()
+
+    def use_legacy_image_key(self):
+        context = self.scene.starting_image_context
+        context["key"] = visuals.starting_frame_key(
+            self.video,
+            visuals.planned_visual_prompt(
+                self.scene, context["description"], "AI", "kling"
+            ),
+            context["style"],
+            legacy=True,
+        )
+        self.scene.save(update_fields=["starting_image_context"])
+
+    def test_existing_images_from_before_review_can_be_approved_without_regeneration(
+        self,
+    ):
+        self.prepare()
+        self.use_legacy_image_key()
+        self.approve()
+        animate_starting_image(self.scene, self.scene.starting_asset_id)
+        self.starting.assert_called_once()
+        self.assertEqual(self.provider.call_count, 1)
+
+    def test_resume_reuses_a_legacy_starting_image_without_paid_requests(self):
+        self.prepare()
+        self.use_legacy_image_key()
+        self.prepare()
+        self.starting.assert_called_once()
+        self.provider.assert_not_called()
+
+    def test_legacy_images_still_require_new_review_after_style_changes(self):
+        self.prepare()
+        self.use_legacy_image_key()
+        self.video.settings["style"] = "cinematic"
+        self.video.save(update_fields=["settings"])
+        self.scene.video = self.video
+        with self.assertRaises(ValidationError):
+            self.approve()
         self.provider.assert_not_called()

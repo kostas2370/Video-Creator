@@ -102,15 +102,25 @@ def reference_role_for(video, reference):
     return "both"
 
 
-def starting_frame_key(video, prompt, style):
+def starting_frame_key(video, prompt, style, *, legacy=False):
     context = {
         "prompt": prompt,
         "style": style,
         "cast": video.reference_image.name,
         "format": (video.settings or {}).get("video_format", "PORTRAIT"),
-        "settings_style": (video.settings or {}).get("style", "natural"),
     }
+    if not legacy:
+        context["settings_style"] = (video.settings or {}).get("style", "natural")
     return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
+
+
+def starting_frame_matches(video, prompt, style, context):
+    key = context.get("key")
+    if key == starting_frame_key(video, prompt, style):
+        return True
+    return style == (video.settings or {}).get(
+        "style", "natural"
+    ) and key == starting_frame_key(video, prompt, style, legacy=True)
 
 
 def store_starting_image(scene, upload, *, description, style, key):
@@ -166,7 +176,7 @@ def character_starting_frame(
         not force
         and scene is not None
         and scene.starting_asset_id
-        and scene.starting_image_context.get("key") == key
+        and starting_frame_matches(video, prompt, style, scene.starting_image_context)
         and stored_file_exists(scene.starting_asset.file)
     ):
         return scene.starting_asset.file.path

@@ -8,6 +8,7 @@ from apps.videomanagement.services.scenes.visuals import (
     generate_scene_visual,
     store_starting_image,
     starting_frame_key,
+    starting_frame_matches,
 )
 from apps.videomanagement.utils.file_utils import stored_file_exists
 
@@ -35,13 +36,27 @@ def current_key(scene, description, style):
     )
 
 
+def starting_image_current(scene):
+    context = scene.starting_image_context or {}
+    video = scene.video
+    return starting_frame_matches(
+        video,
+        planned_visual_prompt(
+            scene,
+            context.get("description", ""),
+            video.mode,
+            (video.settings or {}).get("provider"),
+        ),
+        context.get("style", "natural"),
+        context,
+    )
+
+
 def starting_image_status(scene):
     context = scene.starting_image_context or {}
     if not scene.starting_asset_id or not stored_file_exists(scene.starting_asset.file):
         return "missing"
-    if context.get("key") != current_key(
-        scene, context.get("description", ""), context.get("style", "natural")
-    ):
+    if not starting_image_current(scene):
         return "needs_review"
     return (
         "approved"
@@ -93,9 +108,7 @@ def save_starting_image(
         elif operation == "approve":
             if starting_image_status(scene) == "missing":
                 raise ValidationError("Prepare a starting image before approving it.")
-            if context.get("key") != current_key(
-                scene, context.get("description", ""), context.get("style", "natural")
-            ):
+            if not starting_image_current(scene):
                 raise ValidationError(
                     "The shot settings changed. Prepare and review a new starting image."
                 )
