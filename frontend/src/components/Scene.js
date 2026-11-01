@@ -7,7 +7,7 @@ import { Menu, MenuButton, MenuItems, MenuItem } from "@headlessui/react";
 import { IoTrashBinSharp } from "react-icons/io5";
 import { DeleteModal } from "./DeleteModal";
 import { HiOutlinePencilSquare, HiOutlineEllipsisVertical } from "react-icons/hi2";
-import { deleteImageScene, deleteScene, updateScene, generateSceneImage } from "../api/apiService";
+import { deleteImageScene, deleteScene, updateScene } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { SceneOverlays } from "./SceneOverlays";
 import { SceneCaptions } from "./SceneCaptions";
@@ -15,6 +15,7 @@ import { SceneAudio } from "./SceneAudio";
 import { SceneMotion } from "./SceneMotion";
 import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
+import { SceneStartingImage } from "./SceneStartingImage";
 import { SceneTextEditor } from "./SceneTextEditor";
 
 const EditSceneImageModal = lazy(() => import("./EditSceneImageModal").then(module => ({ default: module.EditSceneImageModal })));
@@ -32,22 +33,6 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
   const [showEditImageModal, setShowEditImageModal] = useState(false);
 
   const MEDIA_URL = API_HOST;
-  const [retryingVideo, setRetryingVideo] = useState(false);
-  const retryVideo = async () => {
-    if (retryingVideo) return;
-    setRetryingVideo(true);
-    try {
-      const data = new FormData();
-      data.append("image_description", scene.starting_image_description);
-      const response = await generateSceneImage(scene.id, data);
-      if (response.ok) toast.success("Video is ready");
-    } catch {
-      toast.error("Could not generate the video. Your starting image is saved.");
-    } finally {
-      setRetryingVideo(false);
-      setUpdated(true);
-    }
-  };
   const [retryingNarration, setRetryingNarration] = useState(false);
   const retryNarration = async () => {
     if (retryingNarration) return;
@@ -61,6 +46,9 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
       }
     } finally { setRetryingNarration(false); }
   };
+
+  const visualPrompt = scene.scene_image?.prompt;
+  const promptShownInStartingImage = scene.starting_image_required && visualPrompt?.trim() === scene.starting_image_description?.trim();
 
   return (
     <>
@@ -96,6 +84,7 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
           prompt: scene.scene_image?.prompt,
           with_audio: scene.scene_image?.with_audio,
           video_format,
+          starting_image_required: scene.starting_image_required,
         }}
         setUpdate={setUpdated}
       /></DeferredDialog>
@@ -112,14 +101,9 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
 
             </div>
 
-            {scene.starting_image && <details className="mt-4" open={!scene.scene_image?.file}>
-              <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-300">Saved starting image</summary>
-              <a href={MEDIA_URL + scene.starting_image} target="_blank" rel="noreferrer"><img src={MEDIA_URL + scene.starting_image} alt={`Scene ${index + 1} saved starting image`} className="mt-3 max-h-64 rounded-xl object-contain" /></a>
-              <p className="mt-2 text-xs text-gray-500">Saved in your media library. Retrying uses this image without generating it again.</p>
-              {scene.starting_image_description && <button type="button" disabled={timingDisabled || retryingVideo} onClick={retryVideo} className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{retryingVideo ? "Generating video…" : "Retry video with saved image"}</button>}
-            </details>}
+            {(scene.starting_image_required || scene.starting_image) && <SceneStartingImage scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} />}
 
-            {scene.scene_image?.prompt && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
+            {visualPrompt && !promptShownInStartingImage && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
           </div>
           <div className="min-w-0">
             <SceneTextEditor scene={scene} index={index} manual={manual} draft={textDraft} onDraftChange={onTextDraftChange} onSave={onTextSave} onRewrite={onTextRewrite} disabled={timingDisabled} />

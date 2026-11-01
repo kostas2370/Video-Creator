@@ -63,7 +63,9 @@ class GenerateSerializer(serializers.Serializer):
     )
     reference_image = serializers.ImageField(required=False)
     reference_role = serializers.ChoiceField(
-        choices=("character", "style", "both"), required=False, default="both",
+        choices=("character", "style", "both"),
+        required=False,
+        default="both",
     )
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
@@ -214,7 +216,9 @@ class GenerateSceneImageSerializer(serializers.Serializer):
 
 
 class RenderVideoSerializer(serializers.Serializer):
-    export_preset = serializers.ChoiceField(choices=tuple(EXPORT_PRESETS), required=False)
+    export_preset = serializers.ChoiceField(
+        choices=tuple(EXPORT_PRESETS), required=False
+    )
     export_fps = serializers.ChoiceField(choices=EXPORT_FRAME_RATES, required=False)
 
 
@@ -310,7 +314,9 @@ class StoryboardSceneSerializer(serializers.Serializer):
 
 class StoryboardSerializer(serializers.Serializer):
     visual_continuity = serializers.CharField(
-        required=False, allow_blank=True, max_length=3000,
+        required=False,
+        allow_blank=True,
+        max_length=3000,
     )
     title = serializers.CharField(max_length=50)
     target_audience = serializers.CharField(
@@ -397,3 +403,22 @@ class VideoNotesSerializer(serializers.Serializer):
     previous_notes = serializers.CharField(
         allow_blank=True, max_length=10000, trim_whitespace=False, write_only=True
     )
+
+
+class StartingImageSerializer(serializers.Serializer):
+    operation = serializers.ChoiceField(choices=("upload", "approve", "animate"))
+    asset_id = serializers.UUIDField(required=False, allow_null=True)
+    image = serializers.ImageField(required=False)
+    image_description = serializers.CharField(max_length=2000, required=False)
+
+    def validate_image(self, value):
+        return validate_reference_image(value)
+
+    def validate(self, attrs):
+        if attrs["operation"] == "upload" and "image" not in attrs:
+            raise serializers.ValidationError({"image": "Choose a starting image."})
+        if attrs["operation"] != "upload" and not attrs.get("asset_id"):
+            raise serializers.ValidationError(
+                {"asset_id": "Select the image you reviewed."}
+            )
+        return attrs

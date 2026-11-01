@@ -1,13 +1,17 @@
 import tempfile
 from pathlib import Path
-from django.test import override_settings
-
 from unittest.mock import Mock, patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.baker_recipes import scene, scene_image, video
 from apps.videomanagement.services.scenes import visuals
+from apps.videomanagement.services.scenes.starting_images import (
+    animate_starting_image,
+    save_starting_image,
+    starting_image_status,
+)
 
 
 class CharacterShotReferenceTests(TestCase):
@@ -19,9 +23,11 @@ class CharacterShotReferenceTests(TestCase):
         self.addCleanup(storage.disable)
         self.frame = str(Path(self.tmp.name, "starting.png"))
         Path(self.frame).write_bytes(b"starting image")
+        Path(self.tmp.name, "cast.png").write_bytes(b"cast")
         self.video = video.make(
             mode="AI",
-            reference_image="media/cast.png",
+            status="READY",
+            reference_image="cast.png",
             settings={
                 "provider": "kling",
                 "character_references": True,
@@ -30,151 +36,208 @@ class CharacterShotReferenceTests(TestCase):
             },
         )
         self.scene = scene.make(video=self.video, text="Milo finds a lantern")
-
-    def test_video_generation_animates_a_scene_image_rather_than_the_cast_sheet(self):
-        provider = Mock(return_value="images/shot.mp4")
-        with (
-            patch.object(
-                visuals.ImageProviderRegistry, "resolve", return_value=provider
-            ),
-            patch.object(visuals, "stored_file_exists", return_value=True),
-            patch.object(
-                visuals.openai_images,
-                "generate_openai_image",
-                return_value=self.frame,
-            ) as starting,
-        ):
-            visuals.create_image_scene(
-                self.video,
-                "Milo at the forest gate",
-                self.scene.text,
-                self.video.dir_name,
-                scene=self.scene,
-                mode="AI",
-                provider="kling",
-                user=self.video.created_by,
-            )
-        self.assertEqual(
-            starting.call_args.kwargs["reference"], self.video.reference_image.path
+        self.provider = Mock(return_value="images/shot.mp4")
+        resolver = patch.object(
+            visuals.ImageProviderRegistry, "resolve", return_value=self.provider
         )
-        self.assertEqual(starting.call_args.kwargs["reference_role"], "character")
-        self.assertIn("Milo at the forest gate", starting.call_args.args[0])
+        resolver.start()
+        self.addCleanup(resolver.stop)
+        generator = patch.object(
+            visuals.openai_images, "generate_openai_image", return_value=self.frame
+        )
+        self.starting = generator.start()
+        self.addCleanup(generator.stop)
+
+    def prepare(self):
+        visuals.create_image_scene(
+            self.video,
+            "Milo at the forest gate",
+            self.scene.text,
+            self.video.dir_name,
+            scene=self.scene,
+            mode="AI",
+            provider="kling",
+            style=(self.video.settings or {}).get("style", "natural"),
+            user=self.video.created_by,
+        )
         self.scene.refresh_from_db()
-        self.assertEqual(provider.call_args.kwargs["reference"], self.scene.starting_asset.file.path)
 
-    def test_replacing_a_video_shot_uses_the_episode_cast_again(self):
-        target = scene_image.make(
-            scene=self.scene, prompt="Milo inside the workshop", file="images/old.mp4"
+    def approve(self):
+        save_starting_image(
+            self.scene, operation="approve", asset_id=self.scene.starting_asset_id
         )
-        provider = Mock(return_value="images/new.mp4")
-        with (
-            patch.object(
-                visuals.ImageProviderRegistry, "resolve", return_value=provider
-            ),
-            patch.object(visuals, "stored_file_exists", return_value=True),
-            patch.object(
-                visuals.openai_images,
-                "generate_openai_image",
-                return_value=self.frame,
-            ) as starting,
-        ):
+        self.scene.refresh_from_db()
+
+    def test_generation_prepares_a_scene_image_without_animating(self):
+        self.prepare()
+        self.assertEqual(
+            self.starting.call_args.kwargs["reference"], self.video.reference_image.path
+        )
+        self.assertEqual(self.starting.call_args.kwargs["reference_role"], "character")
+        self.assertIn("Milo at the forest gate", self.starting.call_args.args[0])
+        self.assertTrue(Path(self.scene.starting_asset.file.path).exists())
+        self.assertEqual(starting_image_status(self.scene), "needs_review")
+        self.provider.assert_not_called()
+        self.assertFalse(self.scene.scene_images.first().file)
+
+    def test_animation_requires_approval_and_uses_the_exact_saved_image(self):
+        self.prepare()
+        with self.assertRaises(ValidationError):
+            animate_starting_image(self.scene, self.scene.starting_asset_id)
+        self.provider.assert_not_called()
+        self.approve()
+        animate_starting_image(self.scene, self.scene.starting_asset_id)
+        self.assertEqual(
+            self.provider.call_args.kwargs["reference"],
+            self.scene.starting_asset.file.path,
+        )
+        self.starting.assert_called_once()
+        self.assertEqual(self.scene.scene_images.first().file.name, "images/shot.mp4")
+
+    def test_replacement_image_preserves_existing_video_and_requires_new_approval(self):
+        target = scene_image.make(
+            scene=self.scene, file="images/approved.mp4", prompt="Old shot"
+        )
+        self.prepare()
+        self.approve()
+        target.prompt = "Milo inside the workshop"
+        visuals.generate_new_image(target, self.video)
+        target.refresh_from_db()
+        self.scene.refresh_from_db()
+        self.assertEqual(target.file.name, "images/approved.mp4")
+        self.assertEqual(target.prompt, "Old shot")
+        self.assertEqual(
+            self.scene.starting_image_context["description"], "Milo inside the workshop"
+        )
+        self.assertEqual(starting_image_status(self.scene), "needs_review")
+        self.provider.assert_not_called()
+
+    def test_image_failure_preserves_saved_image_and_video(self):
+        self.prepare()
+        self.approve()
+        asset_id = self.scene.starting_asset_id
+        target = self.scene.scene_images.first()
+        target.file = "images/approved.mp4"
+        target.save()
+        self.starting.side_effect = RuntimeError("provider unavailable")
+        with self.assertRaises(RuntimeError):
             visuals.generate_new_image(target, self.video)
-        self.assertEqual(
-            starting.call_args.kwargs["reference"], self.video.reference_image.path
-        )
+        target.refresh_from_db()
         self.scene.refresh_from_db()
-        self.assertEqual(provider.call_args.kwargs["reference"], self.scene.starting_asset.file.path)
+        self.assertEqual(target.file.name, "images/approved.mp4")
+        self.assertEqual(self.scene.starting_asset_id, asset_id)
+        self.assertEqual(starting_image_status(self.scene), "approved")
+        self.provider.assert_not_called()
 
-    def test_starting_image_failure_preserves_the_saved_video_shot(self):
-        target = scene_image.make(
-            scene=self.scene, prompt="Milo at the gate", file="images/approved.mp4"
-        )
-        provider = Mock()
-        with (
-            patch.object(
-                visuals.ImageProviderRegistry, "resolve", return_value=provider
-            ),
-            patch.object(visuals, "stored_file_exists", return_value=True),
-            patch.object(
-                visuals.openai_images,
-                "generate_openai_image",
-                side_effect=RuntimeError("provider unavailable"),
-            ),
-        ):
-            with self.assertRaises(RuntimeError):
-                visuals.generate_new_image(target, self.video)
+    def test_failed_animation_can_retry_without_regenerating_the_image(self):
+        self.prepare()
+        self.approve()
+        target = self.scene.scene_images.first()
+        target.file = "images/approved.mp4"
+        target.save()
+        self.provider.side_effect = RuntimeError("video unavailable")
+        with self.assertRaises(RuntimeError):
+            animate_starting_image(self.scene, self.scene.starting_asset_id)
         target.refresh_from_db()
         self.assertEqual(target.file.name, "images/approved.mp4")
-        provider.assert_not_called()
+        self.provider.side_effect = None
+        animate_starting_image(self.scene, self.scene.starting_asset_id)
+        self.starting.assert_called_once()
+        target.refresh_from_db()
+        self.assertEqual(target.file.name, "images/shot.mp4")
+
+    def test_resume_reuses_pending_images_and_never_starts_animation(self):
+        self.prepare()
+        self.approve()
+        self.prepare()
+        self.assertEqual(self.scene.scene_images.count(), 1)
+        self.starting.assert_called_once()
+        self.provider.assert_not_called()
+
+    def test_changed_shot_plan_invalidates_approval_without_paid_requests(self):
+        self.prepare()
+        self.approve()
+        self.scene.shot_plan = {"shot_size": "CLOSE_UP"}
+        self.scene.save(update_fields=["shot_plan"])
+        with self.assertRaises(ValidationError):
+            animate_starting_image(self.scene, self.scene.starting_asset_id)
+        self.provider.assert_not_called()
+
+    def test_stale_image_cannot_be_approved_or_animated(self):
+        self.prepare()
+        from uuid import uuid4
+
+        with self.assertRaises(ValidationError):
+            save_starting_image(self.scene, operation="approve", asset_id=uuid4())
+        self.approve()
+        with self.assertRaises(ValidationError):
+            animate_starting_image(self.scene, uuid4())
+        self.provider.assert_not_called()
 
     def test_missing_cast_sheet_never_falls_back_to_unreferenced_generation(self):
-        with (
-            patch.object(visuals, "stored_file_exists", return_value=False),
-            patch.object(visuals.openai_images, "generate_openai_image") as image,
-        ):
-            with self.assertRaisesMessage(ValueError, "character reference is missing"):
-                visuals.character_starting_frame(
-                    self.video, "Milo", "", "kling", "AI", self.video.created_by
-                )
-        image.assert_not_called()
-
-    def test_failed_video_keeps_image_and_retry_does_not_regenerate_it(self):
-        provider = Mock(side_effect=RuntimeError("video unavailable"))
-        with (
-            patch.object(visuals.ImageProviderRegistry, "resolve", return_value=provider),
-            patch.object(visuals, "stored_file_exists", return_value=True),
-            patch.object(visuals.openai_images, "generate_openai_image", return_value=self.frame) as starting,
-        ):
-            visuals.create_image_scene(
-                self.video, "Milo at gate", self.scene.text, self.video.dir_name,
-                mode="AI", provider="kling", user=self.video.created_by, scene=self.scene,
+        Path(self.video.reference_image.path).unlink()
+        with self.assertRaisesMessage(ValueError, "character reference is missing"):
+            visuals.character_starting_frame(
+                self.video, "Milo", "", "kling", "AI", self.video.created_by
             )
-            self.scene.refresh_from_db()
-            self.assertTrue(self.scene.starting_asset_id)
-            self.assertTrue(Path(self.scene.starting_asset.file.path).exists())
-            target = self.scene.scene_images.first()
-            self.assertFalse(target.file)
-            provider.side_effect = None
-            provider.return_value = "images/retried.mp4"
-            visuals.generate_new_image(target, self.video)
-            starting.assert_called_once()
-            self.assertEqual(provider.call_args.kwargs["reference"], self.scene.starting_asset.file.path)
-            target.refresh_from_db()
-            self.assertEqual(target.file.name, "images/retried.mp4")
+        self.starting.assert_not_called()
 
-    def test_changed_shot_does_not_reuse_an_outdated_starting_image(self):
-        provider = Mock(return_value="images/shot.mp4")
-        with (
-            patch.object(visuals.ImageProviderRegistry, "resolve", return_value=provider),
-            patch.object(visuals, "stored_file_exists", return_value=True),
-            patch.object(visuals.openai_images, "generate_openai_image", return_value=self.frame) as starting,
-        ):
-            visuals.create_image_scene(
-                self.video, "Milo at gate", self.scene.text, self.video.dir_name,
-                mode="AI", provider="kling", user=self.video.created_by, scene=self.scene,
-            )
-            target = self.scene.scene_images.first()
-            target.prompt = "Milo on the moon"
-            visuals.generate_new_image(target, self.video)
-            self.assertEqual(starting.call_count, 2)
+    def test_changed_style_is_used_when_regenerating_the_starting_image(self):
+        self.prepare()
+        self.approve()
+        self.video.settings["style"] = "cinematic"
+        self.video.save(update_fields=["settings"])
+        target = self.scene.scene_images.first()
+        target.scene = self.scene
+        self.scene.video = self.video
+        self.assertEqual(starting_image_status(self.scene), "needs_review")
+        visuals.generate_new_image(target, self.video)
+        self.assertEqual(self.starting.call_args.kwargs["style"], "cinematic")
+        self.provider.assert_not_called()
 
-    def test_carry_on_updates_the_failed_row_instead_of_hiding_the_new_clip(self):
-        provider = Mock(side_effect=RuntimeError("video unavailable"))
-        with (
-            patch.object(visuals.ImageProviderRegistry, "resolve", return_value=provider),
-            patch.object(visuals, "stored_file_exists", return_value=True),
-            patch.object(visuals.openai_images, "generate_openai_image", return_value=self.frame) as starting,
-        ):
-            def attempt():
-                visuals.create_image_scene(
-                    self.video, "Milo at gate", self.scene.text, self.video.dir_name,
-                    mode="AI", provider="kling", user=self.video.created_by, scene=self.scene,
-                )
-            attempt()
-            self.scene.refresh_from_db()
-            provider.side_effect = None
-            provider.return_value = "images/recovered.mp4"
-            attempt()
-            starting.assert_called_once()
-            self.assertEqual(self.scene.scene_images.count(), 1)
-            self.assertEqual(self.scene.scene_images.first().file.name, "images/recovered.mp4")
+    def test_automatic_preparation_failure_does_not_clear_an_existing_clip(self):
+        target = scene_image.make(scene=self.scene, file="images/approved.mp4")
+        self.starting.side_effect = RuntimeError("provider unavailable")
+        self.prepare()
+        target.refresh_from_db()
+        self.assertEqual(target.file.name, "images/approved.mp4")
+        self.provider.assert_not_called()
+
+    def use_legacy_image_key(self):
+        context = self.scene.starting_image_context
+        context["key"] = visuals.starting_frame_key(
+            self.video,
+            visuals.planned_visual_prompt(
+                self.scene, context["description"], "AI", "kling"
+            ),
+            context["style"],
+            legacy=True,
+        )
+        self.scene.save(update_fields=["starting_image_context"])
+
+    def test_existing_images_from_before_review_can_be_approved_without_regeneration(
+        self,
+    ):
+        self.prepare()
+        self.use_legacy_image_key()
+        self.approve()
+        animate_starting_image(self.scene, self.scene.starting_asset_id)
+        self.starting.assert_called_once()
+        self.assertEqual(self.provider.call_count, 1)
+
+    def test_resume_reuses_a_legacy_starting_image_without_paid_requests(self):
+        self.prepare()
+        self.use_legacy_image_key()
+        self.prepare()
+        self.starting.assert_called_once()
+        self.provider.assert_not_called()
+
+    def test_legacy_images_still_require_new_review_after_style_changes(self):
+        self.prepare()
+        self.use_legacy_image_key()
+        self.video.settings["style"] = "cinematic"
+        self.video.save(update_fields=["settings"])
+        self.scene.video = self.video
+        with self.assertRaises(ValidationError):
+            self.approve()
+        self.provider.assert_not_called()

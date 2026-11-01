@@ -3,6 +3,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -22,6 +23,7 @@ from apps.videomanagement.serializers.overlays import SceneOverlaysSerializer
 from apps.videomanagement.serializers.requests import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
+    StartingImageSerializer,
     ManualTextSerializer,
     RestoreSceneSerializer,
     SceneImageQuerySerializer,
@@ -57,6 +59,11 @@ from apps.videomanagement.services.scenes.jobs import (
     scene_job_result,
 )
 from apps.videomanagement.services.scenes.overlays import update_overlays
+from apps.videomanagement.services.scenes.starting_images import (
+    checked_scene,
+    save_starting_image,
+    starting_image_status,
+)
 from apps.videomanagement.services.videos.details import load_video_detail
 from apps.videomanagement.tasks import generate_scene_image_task, rewrite_scene_task
 
@@ -97,6 +104,7 @@ class SceneView(viewsets.GenericViewSet):
             "generate": SceneUpdateSerializer,
             "change_image_scene": ChangeSceneImageSerializer,
             "generate_image_scene": GenerateSceneImageSerializer,
+            "starting_image": StartingImageSerializer,
         }.get(self.action, super().get_serializer_class())
 
     @action(detail=True, methods=["GET", "PATCH"])
@@ -283,6 +291,29 @@ class SceneView(viewsets.GenericViewSet):
             serializer.validated_data["image_description"],
         )
         return Response(operation, status=status.HTTP_202_ACCEPTED)
+
+    @action(detail=True, methods=["POST"])
+    def starting_image(self, request, pk=None):
+        scene = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        values = serializer.validated_data
+        checked_scene(scene, values.get("asset_id"))
+        if values["operation"] == "animate":
+            if starting_image_status(scene) != "approved":
+                raise ValidationError(
+                    "Approve the current starting image before animating it."
+                )
+            operation = queue_scene_job(
+                scene,
+                generate_scene_image_task,
+                {"operation": "animate", "asset_id": str(values["asset_id"])},
+            )
+            return Response(operation, status=status.HTTP_202_ACCEPTED)
+        scene = save_starting_image(scene, **values)
+        return Response(
+            SceneSerializer(scene, context=self.get_serializer_context()).data
+        )
 
     @swagger_auto_schema(
         query_serializer=SceneJobQuerySerializer,

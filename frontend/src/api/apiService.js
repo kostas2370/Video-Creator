@@ -95,6 +95,7 @@ export const saveVideoTags = (id, tags, previousTags) => patch(action("videos", 
 export const saveVideoNotes = (id, notes, previousNotes) => patch(`${detail("videos", id)}notes/`, { notes, previous_notes: previousNotes }, callerHandlesErrors);
 export const updateVideo = (id, data) => patch(detail("videos", id), data);
 export const generateScene = (id, data) => sceneOperation(id, () => patch(action("scenes", id, "generate"), data));
+export const updateStartingImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "starting_image"), data, callerHandlesErrors));
 export const generateSceneImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "generate_image_scene"), data));
 export const updateSceneImage = (id, imageId, data) => request({ method: "post", url: action("scenes", id, "change_image_scene"), data, params: { scene_image: imageId || undefined } });
 export const resumeVideo = id => patch(action("videos", id, "resume"), {}, callerHandlesErrors);
