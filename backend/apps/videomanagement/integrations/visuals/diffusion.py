@@ -1,3 +1,5 @@
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.usage.pricing import image_estimate
 import json
 import logging
 import os
@@ -15,67 +17,76 @@ logger = logging.getLogger(__name__)
 
 
 @ImageProviderRegistry.register("stable-diffusion")
-def generate_from_diffusion(
-    prompt: str, dir_name: str, title: str = "", user=None, *args, **kwargs
-):
-    """
-    Generate an image using the Diffusion model.
+class StableDiffusionProvider(ImageProvider):
+    @staticmethod
+    def generate(
+        prompt: str, dir_name: str, title: str = "", user=None, *args, **kwargs
+    ):
+        """
+        Generate an image using the Diffusion model.
 
-    Parameters:
-    -----------
-    prompt : str
-        The prompt for generating the image.
-    dir_name : str
-        The directory path where the generated image will be saved.
-    title : str, optional
-        The title for the image. Default is an empty string.
-    *args, **kwargs : additional arguments and keyword arguments
-        Additional arguments and keyword arguments to pass to the diffusion model API.
+        Parameters:
+        -----------
+        prompt : str
+            The prompt for generating the image.
+        dir_name : str
+            The directory path where the generated image will be saved.
+        title : str, optional
+            The title for the image. Default is an empty string.
+        *args, **kwargs : additional arguments and keyword arguments
+            Additional arguments and keyword arguments to pass to the diffusion model API.
 
-    Returns:
-    --------
-    str
-        The path to the generated image file.
+        Returns:
+        --------
+        str
+            The path to the generated image file.
 
-    Notes:
-    ------
-    - This function uses the Diffusion model API to generate an image based on the provided prompt.
-    - The generated image is saved in the specified directory path.
-    - The filename of the generated image is a UUID followed by '.png'.
-    """
+        Notes:
+        ------
+        - This function uses the Diffusion model API to generate an image based on the provided prompt.
+        - The generated image is saved in the specified directory path.
+        - The filename of the generated image is a UUID followed by '.png'.
+        """
 
-    url = "https://stablediffusionapi.com/api/v3/text2img"
+        url = "https://stablediffusionapi.com/api/v3/text2img"
 
-    diffusion_key = ApiKeys.key_for(user, Provider.STABLE_DIFFUSION)
-    if not diffusion_key:
-        logger.error("Tried to call diffusion but no api key")
-        return
+        diffusion_key = ApiKeys.key_for(user, Provider.STABLE_DIFFUSION)
+        if not diffusion_key:
+            logger.error("Tried to call diffusion but no api key")
+            return
 
-    logger.warning("Api call in diffusion")
-    payload = json.dumps(
-        {
-            "key": diffusion_key,
-            "prompt": format_image_prompt(title=title, image_description=prompt),
-            "negative_prompt": None,
-            "width": "1024",
-            "height": "1024",
-            "samples": "1",
-            "num_inference_steps": "20",
-            "guidance_scale": 7.5,
-        }
-    )
+        logger.warning("Api call in diffusion")
+        payload = json.dumps(
+            {
+                "key": diffusion_key,
+                "prompt": format_image_prompt(title=title, image_description=prompt),
+                "negative_prompt": None,
+                "width": "1024",
+                "height": "1024",
+                "samples": "1",
+                "num_inference_steps": "20",
+                "guidance_scale": 7.5,
+            }
+        )
 
-    headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json"}
 
-    response = requests.post(url, headers=headers, data=payload)
-    body = response.json()
-    output = body.get("output") or []
+        response = requests.post(url, headers=headers, data=payload)
+        body = response.json()
+        output = body.get("output") or []
 
-    if not output:
-        logger.error("Diffusion returned no image: %s", body.get("status"))
-        return
+        if not output:
+            logger.error("Diffusion returned no image: %s", body.get("status"))
+            return
 
-    saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
-    record_usage(user, "images", Provider.STABLE_DIFFUSION, images=1)
-    urllib.request.urlretrieve(output[0], saved)
-    return saved
+        saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")
+        record_usage(user, "images", Provider.STABLE_DIFFUSION, images=1)
+        urllib.request.urlretrieve(output[0], saved)
+        return saved
+
+    @staticmethod
+    def calculate(request):
+        return image_estimate(request.count, Provider.STABLE_DIFFUSION)
+
+
+generate_from_diffusion = StableDiffusionProvider.generate

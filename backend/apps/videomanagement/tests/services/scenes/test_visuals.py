@@ -90,7 +90,7 @@ class CreateImageSceneTests(TestCase):
 
     def build(self, produced, **kwargs):
         with (
-            patch.object(bing, "download_image", return_value=produced),
+            patch.object(bing.BingImageProvider, "generate", return_value=produced),
             patch.object(scenes_utils, "scene_narration_duration", return_value=4.0),
         ):
             create_image_scene(
@@ -114,7 +114,7 @@ class CreateImageSceneTests(TestCase):
     def test_leaves_the_scene_image_empty_when_generation_failed(self):
         with (
             patch.object(
-                bing, "download_image", side_effect=RuntimeError("no results")
+                bing.BingImageProvider, "generate", side_effect=RuntimeError("no results")
             ),
             patch.object(scenes_utils, "scene_narration_duration", return_value=0),
         ):
@@ -131,7 +131,7 @@ class CreateImageSceneTests(TestCase):
 
     def test_tells_the_provider_how_long_the_sentence_is_spoken_for(self):
         with (
-            patch.object(bing, "download_image", return_value="a.png") as download,
+            patch.object(bing.BingImageProvider, "generate", return_value="a.png") as download,
             patch.object(scenes_utils, "scene_narration_duration", return_value=6.5),
         ):
             create_image_scene(
@@ -411,7 +411,7 @@ class GenerateNewImageTests(TestCase):
 
     def test_replaces_the_file_with_the_newly_generated_one(self):
         with patch.object(
-            openai_images, "generate_openai_image", return_value="images/new.png"
+            openai_images.OpenAIImageProvider, "generate", return_value="images/new.png"
         ):
             generate_new_image(self.scene_image, self.video)
 
@@ -424,7 +424,7 @@ class GenerateNewImageTests(TestCase):
             with self.subTest(keep_audio=keep_audio):
                 self.scene_image.with_audio = keep_audio
                 self.scene_image.save()
-                with patch.object(openai_images, "generate_openai_image", return_value="images/new.mp4"):
+                with patch.object(openai_images.OpenAIImageProvider, "generate", return_value="images/new.mp4"):
                     generate_new_image(self.scene_image, self.video)
                 self.scene_image.refresh_from_db()
                 self.assertEqual(self.scene_image.with_audio, keep_audio)
@@ -432,8 +432,8 @@ class GenerateNewImageTests(TestCase):
     def test_keeps_the_old_image_when_generation_fails(self):
         with (
             patch.object(
-                openai_images,
-                "generate_openai_image",
+                openai_images.OpenAIImageProvider,
+                "generate",
                 side_effect=RuntimeError("rate limit"),
             ),
             self.assertRaisesRegex(RuntimeError, "rate limit"),
@@ -447,7 +447,7 @@ class GenerateNewImageTests(TestCase):
         self.video.mode = "UNKNOWN"
 
         with (
-            patch.object(openai_images, "generate_openai_image") as generate,
+            patch.object(openai_images.OpenAIImageProvider, "generate") as generate,
             self.assertRaisesRegex(ValueError, "Unsupported visual mode"),
         ):
             generate_new_image(self.scene_image, self.video)
@@ -470,7 +470,7 @@ class GenerateNewImageTests(TestCase):
         with (
             patch.object(scenes_utils, "stored_file_exists", return_value=True),
             patch.object(
-                openai_images, "generate_openai_image", return_value="images/new.png"
+                openai_images.OpenAIImageProvider, "generate", return_value="images/new.png"
             ) as generate,
         ):
             generate_new_image(self.scene_image, self.video)
@@ -533,7 +533,7 @@ class ReferenceRoleTests(TestCase):
         visual = scene_image.make(scene=scene.make(video=self.video), prompt="A castle")
         self.video.settings["provider"] = "OPENAI"
         with patch.object(scenes_utils, "stored_file_exists", return_value=True), patch.object(
-            openai_images, "generate_openai_image", return_value="media/new.png",
+            openai_images.OpenAIImageProvider, "generate", return_value="media/new.png",
         ) as generate:
             generate_new_image(visual, self.video)
         self.assertEqual(generate.call_args.kwargs["reference"], self.video.reference_image.path)

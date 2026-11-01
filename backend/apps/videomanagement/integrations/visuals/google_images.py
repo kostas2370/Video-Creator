@@ -1,3 +1,5 @@
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.usage.pricing import image_estimate
 import logging
 import os
 import urllib.request
@@ -79,39 +81,46 @@ def download(q: str, amt: int = 1, path: str = "", user=None) -> Union[str, None
 
 
 @ImageProviderRegistry.register("google", mode="WEB")
-def download_image_from_google(
-    q: str, path: str, amt: int = 1, user=None, *args, **kwargs
-) -> str:
-    """
-    Download images from Google using a downloader.
+class GoogleImageProvider(ImageProvider):
+    @staticmethod
+    def generate(q: str, path: str, amt: int = 1, user=None, *args, **kwargs) -> str:
+        """
+        Download images from Google using a downloader.
 
-    Parameters:
-    -----------
-    q : str
-        The search query for images.
-    path : str
-        The directory path where the downloaded images will be saved.
-    amt : int, optional
-        The number of images to download. Default is 1.
-    *args, **kwargs : additional arguments and keyword arguments
-        Additional arguments and keyword arguments to pass to the downloader.
+        Parameters:
+        -----------
+        q : str
+            The search query for images.
+        path : str
+            The directory path where the downloaded images will be saved.
+        amt : int, optional
+            The number of images to download. Default is 1.
+        *args, **kwargs : additional arguments and keyword arguments
+            Additional arguments and keyword arguments to pass to the downloader.
 
-    Returns:
-    --------
-    str
-        The path to the downloaded image.
+        Returns:
+        --------
+        str
+            The path to the downloaded image.
 
-    Notes:
-    ------
-    - This function uses a downloader to download images from Google based on the provided search query.
-    - The downloaded image is saved in the specified directory path.
-    - The number of images to download can be specified using the 'amt' parameter.
-    - Additional arguments and keyword arguments can be passed to the downloader.
-    """
-    try:
-        logger.info("Downloading image from google")
-        return download(q=q, path=path, amt=amt, user=user)
+        Notes:
+        ------
+        - This function uses a downloader to download images from Google based on the provided search query.
+        - The downloaded image is saved in the specified directory path.
+        - The number of images to download can be specified using the 'amt' parameter.
+        - Additional arguments and keyword arguments can be passed to the downloader.
+        """
+        try:
+            logger.info("Downloading image from google")
+            return download(q=q, path=path, amt=amt, user=user)
 
-    except Exception as exc:
-        logger.error(f"Error downloading image with query {q} Error {exc}")
-        return None
+        except Exception as exc:
+            logger.error(f"Error downloading image with query {q} Error {exc}")
+            return None
+
+    @staticmethod
+    def calculate(request):
+        return image_estimate(request.count, "google", custom=True)
+
+
+download_image_from_google = GoogleImageProvider.generate

@@ -383,7 +383,7 @@ class CustomImageProviderTests(TestCase):
 
     def test_registry_routes_custom_names_to_the_retrieval_function(self):
         with patch.object(
-            custom, "generate_from_custom_provider", return_value="image.png"
+            custom.CustomImageProvider, "generate", return_value="image.png"
         ) as generate:
             result = ImageProviderRegistry.resolve("AI", self.provider.name)(
                 "a cat", self.directory, user=self.user

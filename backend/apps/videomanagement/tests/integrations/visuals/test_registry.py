@@ -61,7 +61,7 @@ class BuiltinImageRegistryTests(SimpleTestCase):
         self.assertEqual(VIDEO_PROVIDERS, {"sora", "kling", "runway", "gemini-video"})
 
     def test_provider_modules_are_resolved_at_call_time(self):
-        with patch.object(openai_images, "generate_openai_image") as generate:
+        with patch.object(openai_images.OpenAIImageProvider, "generate") as generate:
             self.assertIs(ImageProviderRegistry.resolve("AI", "OPENAI"), generate)
         self.assertIs(
             ImageProviderRegistry.resolve("AI", "OPENAI"),
