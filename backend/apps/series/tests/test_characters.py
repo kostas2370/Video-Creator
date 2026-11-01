@@ -253,7 +253,7 @@ class CharacterSetupTests(ApiTestCase):
         path = Path(self.files.name) / "generated.png"
         Image.new("RGB", (32, 32), "orange").save(path)
         with patch(
-            "apps.series.services.characters.openai_images.generate_openai_image",
+            "apps.series.services.characters.openai_images.OpenAIImageProvider.generate",
             return_value=str(path),
         ) as generate:
             generate_reference(
@@ -274,7 +274,7 @@ class CharacterSetupTests(ApiTestCase):
             created_by=self.user, status="QUEUED", **self.choices
         )
         with patch(
-            "apps.series.services.characters.openai_images.generate_openai_image",
+            "apps.series.services.characters.openai_images.OpenAIImageProvider.generate",
             side_effect=RuntimeError("private provider details"),
         ):
             generate_reference(reference.pk, reference.job_id, self.choices)
@@ -545,7 +545,7 @@ class CharacterSetupTests(ApiTestCase):
             return str(path)
 
         with patch(
-            "apps.series.services.characters.openai_images.generate_openai_image",
+            "apps.series.services.characters.openai_images.OpenAIImageProvider.generate",
             side_effect=finish_old_image,
         ):
             generate_reference(

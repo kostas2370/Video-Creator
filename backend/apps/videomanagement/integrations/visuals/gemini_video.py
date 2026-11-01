@@ -1,8 +1,6 @@
 """Gemini Omni Flash via Interactions REST; reads model-output steps, not SDK aliases."""
 
-from apps.videomanagement.integrations.base import ImageProvider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
-from apps.usage.pricing import estimate_line
 
 
 import base64
@@ -33,7 +31,9 @@ def video_output(payload):
 @ImageProviderRegistry.register(
     "gemini-video", output_type="VIDEO", supports_reference=True
 )
-class GeminiVideoProvider(ImageProvider):
+class GeminiVideoProvider(http.DurationVideoProvider):
+    PROVIDER = Provider.GEMINI
+    MODEL = MODEL
     MINIMUM = 3
     MAXIMUM = 10
 
@@ -127,23 +127,3 @@ class GeminiVideoProvider(ImageProvider):
             usage=result.get("usage"),
         )
         return path
-
-    @staticmethod
-    def calculate(request):
-        durations = request.durations or (None,) * request.count
-        seconds = sum(
-            http.seconds_for(
-                value, GeminiVideoProvider.MINIMUM, GeminiVideoProvider.MAXIMUM
-            )
-            for value in durations
-        )
-        return estimate_line(
-            "Animation",
-            "video",
-            Provider.GEMINI,
-            MODEL,
-            {"seconds": seconds, "requests": len(durations)},
-        )
-
-
-generate_from_gemini_video = GeminiVideoProvider.generate

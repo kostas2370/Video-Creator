@@ -52,7 +52,7 @@ class VideoProviderTests(SimpleTestCase):
             patch.object(kling, "record_usage") as usage,
         ):
             self.assertEqual(
-                kling.generate_from_kling(
+                kling.KlingProvider.generate(
                     "fox runs",
                     "images/",
                     duration=6.1,
@@ -87,7 +87,7 @@ class VideoProviderTests(SimpleTestCase):
                 {"video": {"url": "https://v3.fal.media/a.mp4"}},
             ],
         ) as request:
-            kling.generate_from_kling("cat", "images/")
+            kling.KlingProvider.generate("cat", "images/")
         self.assertNotIn("start_image_url", request.call_args_list[0].kwargs["body"])
 
     def test_failed_fal_job_does_not_download(self):
@@ -105,7 +105,7 @@ class VideoProviderTests(SimpleTestCase):
             ),
             self.assertRaises(APIException) as caught,
         ):
-            kling.generate_from_kling("cat", "images/")
+            kling.KlingProvider.generate("cat", "images/")
         self.assertNotIn("secret raw", str(caught.exception))
         self.save_download.assert_not_called()
 
@@ -125,7 +125,7 @@ class VideoProviderTests(SimpleTestCase):
             ) as request,
             patch.object(runway, "record_usage"),
         ):
-            runway.generate_from_runway(
+            runway.RunwayProvider.generate(
                 "fox",
                 "images/",
                 duration=4.1,
@@ -157,7 +157,7 @@ class VideoProviderTests(SimpleTestCase):
             ) as request,
             patch.object(runway, "record_usage"),
         ):
-            runway.generate_from_runway(
+            runway.RunwayProvider.generate(
                 "fox", "images/", duration=20, video_format="SQUARE"
             )
         body = request.call_args_list[0].kwargs["body"]
@@ -171,7 +171,7 @@ class VideoProviderTests(SimpleTestCase):
             patch.object(http, "json_request") as request,
             self.assertRaisesRegex(APIException, "1,000"),
         ):
-            runway.generate_from_runway("🦊" * 500, "images/")
+            runway.RunwayProvider.generate("🦊" * 500, "images/")
         request.assert_not_called()
 
     def test_runway_failed_job_does_not_download(self):
@@ -186,7 +186,7 @@ class VideoProviderTests(SimpleTestCase):
             ),
             self.assertRaises(APIException),
         ):
-            runway.generate_from_runway("fox", "images/")
+            runway.RunwayProvider.generate("fox", "images/")
         self.save_download.assert_not_called()
 
     def gemini_result(self, output):
@@ -221,7 +221,7 @@ class VideoProviderTests(SimpleTestCase):
             patch.object(gemini_video, "video_metadata", return_value={"duration": 8}),
             patch.object(gemini_video, "record_usage") as usage,
         ):
-            gemini_video.generate_from_gemini_video(
+            gemini_video.GeminiVideoProvider.generate(
                 "fox", "images/", reference="ref.png", video_format="PORTRAIT"
             )
         body = request.call_args_list[0].kwargs["body"]
@@ -248,7 +248,7 @@ class VideoProviderTests(SimpleTestCase):
             patch.object(gemini_video, "record_usage") as usage,
         ):
             self.assertEqual(
-                gemini_video.generate_from_gemini_video("fox", "images/"), "a.mp4"
+                gemini_video.GeminiVideoProvider.generate("fox", "images/"), "a.mp4"
             )
         self.assertEqual(save.call_args.args[0].getvalue(), b"video")
         self.assertEqual(usage.call_args.kwargs["seconds"], 7)
@@ -261,7 +261,7 @@ class VideoProviderTests(SimpleTestCase):
             patch.object(http, "json_request", return_value=response),
             self.assertRaises(APIException),
         ):
-            gemini_video.generate_from_gemini_video("fox", "images/")
+            gemini_video.GeminiVideoProvider.generate("fox", "images/")
         self.save_download.assert_not_called()
 
     def test_gemini_requires_model_video_output(self):
