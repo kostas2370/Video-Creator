@@ -102,7 +102,28 @@ def reference_role_for(video, reference):
     return "both"
 
 
-def character_starting_frame(video, prompt, style, provider, mode, user, scene=None, description=None):
+def starting_frame_key(video, prompt, style):
+    context = {
+        "prompt": prompt,
+        "style": style,
+        "cast": video.reference_image.name,
+        "format": (video.settings or {}).get("video_format", "PORTRAIT"),
+        "settings_style": (video.settings or {}).get("style", "natural"),
+    }
+    return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
+
+
+def character_starting_frame(
+    video,
+    prompt,
+    style,
+    provider,
+    mode,
+    user,
+    scene=None,
+    description=None,
+    force=False,
+):
     if not (video.settings or {}).get("character_references") or mode != ImageMode.AI:
         return None
     if not ImageProviderRegistry.supports_reference(provider or Provider.OPENAI):
@@ -115,14 +136,14 @@ def character_starting_frame(video, prompt, style, provider, mode, user, scene=N
         )
     if not ImageProviderRegistry.is_video(provider, user=user, mode=mode):
         return None
-    context = {
-        "prompt": prompt, "style": style, "cast": video.reference_image.name,
-        "format": (video.settings or {}).get("video_format", "PORTRAIT"),
-    }
-    key = hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
-    if (scene is not None and scene.starting_asset_id
-            and scene.starting_image_context.get("key") == key
-            and stored_file_exists(scene.starting_asset.file)):
+    key = starting_frame_key(video, prompt, style)
+    if (
+        not force
+        and scene is not None
+        and scene.starting_asset_id
+        and scene.starting_image_context.get("key") == key
+        and stored_file_exists(scene.starting_asset.file)
+    ):
         return scene.starting_asset.file.path
     frame = openai_images.generate_openai_image(
         "Create the starting frame of this single film shot. The reference is a labeled "
@@ -135,7 +156,9 @@ def character_starting_frame(video, prompt, style, provider, mode, user, scene=N
         user=user,
         reference=video.reference_image.path,
         reference_role="character",
-        title=f"{video.title} · Scene {scene.position} starting image" if scene else "Character starting image",
+        title=f"{video.title} · Scene {scene.position} starting image"
+        if scene
+        else "Character starting image",
         video_format=(video.settings or {}).get("video_format", "PORTRAIT"),
     )
     if not frame:
@@ -143,9 +166,12 @@ def character_starting_frame(video, prompt, style, provider, mode, user, scene=N
     if scene is not None:
         with open(frame, "rb") as source:
             asset = MediaAsset.from_visual(
-                user=user, upload=File(source, name="starting-image.png"),
+                user=user,
+                upload=File(source, name="starting-image.png"),
                 title=f"{video.title} · Scene {scene.position} starting image",
-                tags=["starting image"], kind=MediaAsset.Kind.IMAGE, source_video=video,
+                tags=["starting image"],
+                kind=MediaAsset.Kind.IMAGE,
+                source_video=video,
             )
         if "starting image" not in asset.tags:
             asset.tags = list(dict.fromkeys([*asset.tags, "starting image"]))
@@ -154,7 +180,9 @@ def character_starting_frame(video, prompt, style, provider, mode, user, scene=N
             asset.save(update_fields=["tags", "source_video"])
         scene.starting_asset = asset
         scene.starting_image_context = {
-            "key": key, "description": description or prompt, "style": style,
+            "key": key,
+            "description": description or prompt,
+            "style": style,
         }
         scene.save(update_fields=["starting_asset", "starting_image_context"])
         return asset.file.path
@@ -224,10 +252,22 @@ def create_image_scene(
     try:
         generate = ImageProviderRegistry.resolve(mode, provider)
         visual_prompt = planned_visual_prompt(scene, image, mode, provider)
-        reference = (
-            character_starting_frame(video, visual_prompt, style, provider, mode, user, scene=scene, description=image)
-            or reference
+        starting_frame = character_starting_frame(
+            video,
+            visual_prompt,
+            style,
+            provider,
+            mode,
+            user,
+            scene=scene,
+            description=image,
         )
+        if starting_frame:
+            saved = scene.scene_images.first() or SceneImage(scene=scene)
+            if not saved.file:
+                saved.prompt = image
+                saved.save()
+            return None
         downloaded_image = generate(
             visual_prompt,
             f"{dir_name}/images/",
@@ -241,12 +281,25 @@ def create_image_scene(
         )
     except Exception as ex:
         logger.error(ex)
+        if (video.settings or {}).get("character_references"):
+            scene.starting_image_context = {
+                **scene.starting_image_context,
+                "description": image,
+                "preparation_error": "Could not prepare the starting image. Your saved media is preserved. Try again.",
+            }
+            scene.save(update_fields=["starting_image_context"])
         downloaded_image = None
 
-    saved = scene.scene_images.filter(asset__isnull=True).first() or SceneImage(scene=scene)
+    saved = scene.scene_images.filter(asset__isnull=True).first() or SceneImage(
+        scene=scene
+    )
+    if not downloaded_image and saved.file:
+        return None
     saved.file = downloaded_image
     saved.prompt = image
-    saved.with_audio = bool(with_audio and downloaded_image and check_if_video(downloaded_image))
+    saved.with_audio = bool(
+        with_audio and downloaded_image and check_if_video(downloaded_image)
+    )
     saved.save()
     return downloaded_image
 
@@ -302,8 +355,7 @@ def create_image_scenes(
     # Keep each generated scene's independent score out of the episode mix.
     # Users can still enable audio on individual visuals in the editor.
     with_audio = (
-        not choices.get("narration", True)
-        and choices.get("creation_mode") != "SERIES"
+        not choices.get("narration", True) and choices.get("creation_mode") != "SERIES"
     )
     lines, indexed = ensure_scene_rows(video)
     pairs = [(line, indexed[index]) for index, line in enumerate(lines)]
@@ -440,11 +492,8 @@ def generate_new_image(
         The updated scene image object with the new image.
 
     """
-    context = scene_image.scene.starting_image_context
-    style = style if style is not None else (
-        context.get("style", "natural")
-        if context.get("description") == scene_image.prompt
-        else (video.settings or {}).get("style", "natural")
+    style = (
+        style if style is not None else (video.settings or {}).get("style", "natural")
     )
     provider = (video.settings or {}).get("provider")
     mode = video.mode
@@ -456,11 +505,20 @@ def generate_new_image(
         scene_image.scene, scene_image.prompt or "", mode, provider
     )
     starting_frame = character_starting_frame(
-        video, visual_prompt, style, provider, mode, video.created_by,
-        scene=scene_image.scene, description=scene_image.prompt,
+        video,
+        visual_prompt,
+        style,
+        provider,
+        mode,
+        video.created_by,
+        scene=scene_image.scene,
+        description=scene_image.prompt,
+        force=True,
     )
     if starting_frame:
-        kwargs["reference"] = starting_frame
+        if not scene_image.file:
+            scene_image.save()
+        return scene_image
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     kwargs.setdefault("reference_role", reference_role_for(video, kwargs["reference"]))

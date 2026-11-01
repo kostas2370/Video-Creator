@@ -44,7 +44,20 @@ class SceneImageSerializer(serializers.ModelSerializer):
 
 
 class SceneSerializer(serializers.ModelSerializer):
+    starting_image_required = serializers.SerializerMethodField()
+    starting_image_status = serializers.SerializerMethodField()
     starting_image = serializers.SerializerMethodField()
+
+    def get_starting_image_required(self, obj):
+        from ..services.scenes.starting_images import requires_starting_image
+
+        return requires_starting_image(obj.video)
+
+    def get_starting_image_status(self, obj):
+        from ..services.scenes.starting_images import starting_image_status
+
+        return starting_image_status(obj)
+
     starting_image_description = serializers.SerializerMethodField()
 
     def get_starting_image(self, obj):

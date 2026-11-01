@@ -95,6 +95,23 @@ class VideoView(
     viewsets.GenericViewSet,
 ):
     serializer_class = VideoSerializer
+    serializer_classes = {
+        "manual": ManualVideoSerializer,
+        "notes": VideoNotesSerializer,
+        "story": StoryVideoSerializer,
+        "draft_story": StoryDraftSerializer,
+        "music": MusicUploadSerializer,
+        "audio": MusicAudioSerializer,
+        "approve_script": StoryboardSerializer,
+        "auto_motion": BulkAutoMotionSerializer,
+        "reorder_scenes": ReorderScenesSerializer,
+        "draft_scene": SceneDraftSerializer,
+        "retrieve": VideoNestedSerializer,
+        "partial_update": VideoUpdateSerializer,
+        "add_scene": AddSceneSerializer,
+        "preview": PreviewTimelineSerializer,
+        "render_video": RenderVideoSerializer,
+    }
     queryset = Video.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ["title", "tags__tiktok", "tags__youtube", "tags__search"]
@@ -183,30 +200,7 @@ class VideoView(
         return queryset
 
     def get_serializer_class(self):
-        if self.action == "add_scene" and not getattr(self, "swagger_fake_view", False):
-            if self.get_object().video_type == VideoType.MANUAL:
-                return ManualSceneSerializer
-            if "scenes" in self.request.data:
-                return AddScenesSerializer
-        serializer_class = {
-            "manual": ManualVideoSerializer,
-            "notes": VideoNotesSerializer,
-            "story": StoryVideoSerializer,
-            "draft_story": StoryDraftSerializer,
-            "music": MusicUploadSerializer,
-            "audio": MusicAudioSerializer,
-            "approve_script": StoryboardSerializer,
-            "auto_motion": BulkAutoMotionSerializer,
-            "reorder_scenes": ReorderScenesSerializer,
-            "draft_scene": SceneDraftSerializer,
-            "retrieve": VideoNestedSerializer,
-            "partial_update": VideoUpdateSerializer,
-            "add_scene": AddSceneSerializer,
-            "preview": PreviewTimelineSerializer,
-            "render_video": RenderVideoSerializer,
-        }
-
-        return serializer_class.get(self.action, VideoSerializer)
+        return self.serializer_classes.get(self.action, self.serializer_class)
 
     def get_throttles(self):
         if self.action in ("approve_script", "resume", "story"):
@@ -353,7 +347,13 @@ class VideoView(
     @action(detail=True, methods=["POST"])
     def add_scene(self, request, pk):
         video = self.get_object()
-        serializer = self.get_serializer(
+        serializer_class = {
+            VideoType.MANUAL: ManualSceneSerializer,
+            VideoType.AI: AddScenesSerializer
+            if "scenes" in request.data
+            else AddSceneSerializer,
+        }[video.video_type]
+        serializer = serializer_class(
             data=request.data, context={**self.get_serializer_context(), "video": video}
         )
         serializer.is_valid(raise_exception=True)

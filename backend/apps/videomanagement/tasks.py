@@ -21,6 +21,10 @@ from apps.videomanagement.services.media.archive import archive_generated_cover
 from apps.videomanagement.services.scenes import generation as scene_generation
 from apps.videomanagement.services.scenes import visuals as scenes
 from apps.videomanagement.services.scenes.jobs import scene_job
+from apps.videomanagement.services.scenes.starting_images import (
+    animate_starting_image,
+    requires_starting_image,
+)
 from apps.videomanagement.services.videos import generation as video_generation
 
 from .events import publish_update
@@ -70,9 +74,32 @@ def rewrite_scene_task(scene_id, instructions, previous_status):
 def generate_scene_image_task(scene_id, image_description, previous_status):
     """Generate and save a replacement scene visual."""
     with scene_job(scene_id, previous_status) as scene:
+        if isinstance(image_description, dict):
+            try:
+                animate_starting_image(scene, image_description["asset_id"])
+            except Exception:
+                scene.starting_image_context = {
+                    **scene.starting_image_context,
+                    "animation_error": "Animation failed. Your starting image and existing clip are saved. Retry when ready.",
+                }
+                scene.save(update_fields=["starting_image_context"])
+                raise
+            scene.starting_image_context.pop("animation_error", None)
+            scene.save(update_fields=["starting_image_context"])
+            return {"Message": "Animation is ready"}
         image = scene.scene_images.first() or SceneImage.objects.create(scene=scene)
         image.prompt = image_description
-        scenes.generate_new_image(image, scene.video)
+        try:
+            scenes.generate_new_image(image, scene.video)
+        except Exception:
+            if requires_starting_image(scene.video):
+                scene.refresh_from_db()
+                scene.starting_image_context = {
+                    **scene.starting_image_context,
+                    "preparation_error": "Could not prepare the starting image. Your saved media is preserved. Try again.",
+                }
+                scene.save(update_fields=["starting_image_context"])
+            raise
         return {"Message": "Image Scene was added successfully"}
 
 
@@ -93,7 +120,11 @@ def _mark_failed(video_id: str | UUID, render_error=None) -> None:
             "reference": current_request_id() or uuid4().hex,
         }
     if render_error:
-        logger.error("Export failed for video %s. Reference: %s", video_id, render_error["reference"])
+        logger.error(
+            "Export failed for video %s. Reference: %s",
+            video_id,
+            render_error["reference"],
+        )
     video.render_error = render_error or {}
     video.status = VideoStatus.FAILED
     video.save()
@@ -139,11 +170,16 @@ def render_video_task(self, video_id: str | UUID):
         render.make_video(video)
     except Exception:
         reference = current_request_id() or uuid4().hex
-        logger.exception("Render failed for video %s. Reference: %s", video_id, reference)
-        _mark_failed(video_id, render_error={
-            "message": "The export could not finish. Retry the export; your scenes and media are saved. If it fails again, share the reference with support.",
-            "reference": reference,
-        })
+        logger.exception(
+            "Render failed for video %s. Reference: %s", video_id, reference
+        )
+        _mark_failed(
+            video_id,
+            render_error={
+                "message": "The export could not finish. Retry the export; your scenes and media are saved. If it fails again, share the reference with support.",
+                "reference": reference,
+            },
+        )
         raise
 
     logger.info("Render finished for video %s", video_id)

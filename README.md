@@ -391,8 +391,18 @@ See [visual continuity](docs/visual-continuity.md) for the full workflow.
 
 Generated images, character references, shared references, covers and scene logos
 are saved in the media library. If video generation fails after the starting image
-is created, the scene keeps that image and offers **Retry video with saved image**.
-The existing result is retained until its replacement succeeds.
+is created, the scene keeps that image for retry. Character video shots now stop
+after preparing their starting images. In each scene, review the characters and
+composition, edit the description and regenerate if needed, or upload a PNG, JPEG
+or WebP replacement (up to 10 MB). Choose **Approve starting image**, then
+**Animate approved image** to start that shot's paid animation request. Image
+preparation and animation are separate requests; approving an image makes no AI
+request. A failed animation offers **Retry animation** using the approved image.
+Existing clips remain until their replacement succeeds. Resume prepares missing
+images without starting animations. Changed shot guidance or frame settings
+invalidate image approval and require preparing and reviewing a new image.
+Restart the API and general worker and rebuild the frontend together when
+upgrading to this workflow; no new database migration is required.
 
 After upgrading, apply the included migrations, restart the API and workers, and
 rebuild the frontend. Run `python manage.py archive_reference_images` to add older

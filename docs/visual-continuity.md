@@ -90,9 +90,11 @@ Each episode copies a labeled sheet containing its character images and, when
 present, the optional shared style/world reference. The sheet is passed to
 storyboard drafting and OpenAI still-image generation. For a video provider, each
 shot first generates a scene-specific starting image through OpenAI, using the
-episode's cast sheet, shot prompt and shared guidance. The video provider animates
-that starting image; it does not animate the cast sheet itself. This uses one extra
-image-generation request per video shot, including replacements. The sheet stays
+episode's cast sheet, shot prompt and shared guidance. Generation stops there for
+review. In the editor, approve the image, then explicitly start animation. The video
+provider animates that starting image; it does not animate the cast sheet itself.
+Preparing or regenerating a starting image uses an image-generation request;
+animation is a separate paid request. Uploading and approving images make no AI requests. The sheet stays
 the identity source for every shot instead of accumulating drift through closing
 frames. A provider without reference-image support cannot be saved with character
 references.
@@ -100,8 +102,8 @@ references.
 Every episode snapshots its cast and story format and keeps its copied sheet;
 future series edits cannot change those inputs. Draft retries retain the original
 inputs. These references improve identity guidance but do not guarantee identical
-faces or frame-to-frame continuity. Explicit per-shot cast selection, a review step
-for starting images, and per-character voices are still planned.
+faces or frame-to-frame continuity. Explicit per-shot cast selection and
+per-character voices are still planned.
 
 Characters use a single `Character` model linked directly to their series. It
 stores name, appearance, wardrobe, personality, relationships, visual style,
@@ -166,6 +168,18 @@ and rebuild the frontend to use updated code in Docker.
 
 AI images are archived immediately in the owner's media library, before downstream video generation. Character images, uploaded series/video references, covers, thumbnails, and scene logos also receive independent library copies. Identical image bytes reuse an asset within the same account. Removing or changing the original reference does not remove the library copy.
 
-Character-based video shots save a starting-image asset on the scene before calling the video provider. The editor shows this image and offers **Retry video with saved image**. Retries reuse it while the shot, cast reference, style, and frame format match; changing those inputs produces a new image and keeps the earlier asset in the library. An asset used as a scene's starting image is protected from deletion. Carry-on updates the failed visual row so the successful clip appears in the editor.
+Character video shots save a starting-image asset and stop before animation. The
+editor shows **Starting image** with its approval state. Review the characters and
+composition, edit the description and regenerate, or upload a PNG, JPEG or WebP
+replacement up to 10 MB. Choose **Approve starting image**, then **Animate approved
+image**. New images and changes to shot guidance, cast reference, style or frame
+format require preparing and approving an image again. Approval is checked again
+in the worker before any animation request.
+
+Failed animation shows a saved message and **Retry animation**, reusing the approved
+image without regenerating it. Existing clips stay until a replacement succeeds.
+Resume prepares missing images and never starts animation. An asset used as a scene's
+starting image is protected from deletion. Restart the API and general worker and
+rebuild the frontend together when upgrading; no new database migration is required.
 
 After upgrading, run `python manage.py archive_reference_images` to archive existing character/project images and logos. Image files left in project image folders by earlier failed jobs are also added to the library. They cannot be reliably associated with a specific scene retroactively; choose them from the library when needed.

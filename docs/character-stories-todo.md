@@ -31,7 +31,7 @@ like ReelShort-style episodes. Both use the same cast and continuity workflow.
 
 Still planned: a cross-series character library, standalone-video cast panels,
 multiple reference images per character, explicit per-shot cast selection,
-per-character dialogue/voices, and starting-image approval before animation.
+per-character dialogue/voices, and previous-shot frame continuity.
 Apply series migrations through `0006_single_character`, restart the API and
 general worker, and rebuild the frontend to use it in Docker.
 
@@ -63,12 +63,12 @@ and 6–10 simple shots. These are product defaults, not model limits.
 
 - [x] Generate a starting image for each series video shot using its cast
       references, setting, action, and shared style.
-- [ ] Let users review, edit, regenerate, or upload the starting image.
-- [ ] Animate the approved image with an image-to-video model.
+- [x] Let users review, edit the description, regenerate, or upload the starting image.
+- [x] Animate the approved image with an explicit image-to-video request.
 - [ ] Use previous-shot frames where continuity helps, rather than forcing every
       shot to start from the previous clip's last frame.
-- [ ] Preserve approved media when prompts change; flag affected shots as needing
-      review and require an explicit generation action before paid requests.
+- [x] Preserve existing clips while preparing replacements; new images and changed
+      shot guidance require review and approval before explicit animation requests.
 
 ### 4. Visual story preset
 
@@ -81,11 +81,11 @@ and 6–10 simple shots. These are product defaults, not model limits.
 
 ### 5. Retry individual shots
 
-- [ ] Reuse or extend existing replacement controls to regenerate one starting
-      image or one animation without rebuilding the whole video.
-- [ ] Retain the existing approved result until its replacement succeeds and is
-      accepted.
-- [ ] Make each shot's generation status and failure reason visible.
+- [x] Regenerate one starting image or retry one animation without rebuilding
+      the whole video.
+- [x] Retain the existing clip until its replacement animation succeeds.
+      Separate acceptance of completed animations remains a later step.
+- [x] Show image approval state and saved, safe image/animation failure messages.
 
 ## First-release workflow
 

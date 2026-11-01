@@ -15,6 +15,7 @@ import { SceneAudio } from "./SceneAudio";
 import { SceneMotion } from "./SceneMotion";
 import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
+import { SceneStartingImage } from "./SceneStartingImage";
 import { SceneTextEditor } from "./SceneTextEditor";
 
 const EditSceneImageModal = lazy(() => import("./EditSceneImageModal").then(module => ({ default: module.EditSceneImageModal })));
@@ -96,6 +97,7 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
           prompt: scene.scene_image?.prompt,
           with_audio: scene.scene_image?.with_audio,
           video_format,
+          starting_image_required: scene.starting_image_required,
         }}
         setUpdate={setUpdated}
       /></DeferredDialog>
@@ -112,7 +114,8 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
 
             </div>
 
-            {scene.starting_image && <details className="mt-4" open={!scene.scene_image?.file}>
+            {scene.starting_image_required && <SceneStartingImage scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} />}
+            {!scene.starting_image_required && scene.starting_image && <details className="mt-4" open={!scene.scene_image?.file}>
               <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-300">Saved starting image</summary>
               <a href={MEDIA_URL + scene.starting_image} target="_blank" rel="noreferrer"><img src={MEDIA_URL + scene.starting_image} alt={`Scene ${index + 1} saved starting image`} className="mt-3 max-h-64 rounded-xl object-contain" /></a>
               <p className="mt-2 text-xs text-gray-500">Saved in your media library. Retrying uses this image without generating it again.</p>
