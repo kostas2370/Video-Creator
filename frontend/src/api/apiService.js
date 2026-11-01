@@ -43,6 +43,9 @@ export const refreshVoice = id => post(action("voices", id, "refresh"), {}, call
 export const deleteVoice = id => remove(detail("voices", id), callerHandlesErrors);
 export const getTemplates = (search, page = 1) => get("templates/", { search: search || undefined, page });
 export const getNotifications = (options = {}) => request({ url: "notifications/", ...options });
+export const getCostEstimate = data => post("usage/estimate/", data, callerHandlesErrors);
+export const getScenarioCostEstimate = data => post("usage/scenario-estimate/", data, callerHandlesErrors);
+export const getProjectCosts = id => request({ url: `usage/projects/${encodeURIComponent(id)}/`, ...callerHandlesErrors });
 export const getUsage = period => request({ url: "usage/", params: { period }, notifyError: false });
 
 export const createIntro = data => post("intros/", data);
@@ -105,6 +108,7 @@ export const deleteIntro = id => remove(detail("intros", id));
 export const deleteOutro = id => remove(detail("outros", id));
 export const deleteAvatar = id => remove(detail("avatars", id));
 export const deleteVideo = id => remove(detail("videos", id));
+export const deleteDraftVideo = id => remove(action("videos", id, "draft"), callerHandlesErrors);
 export const deleteScene = id => remove(detail("scenes", id));
 export const deleteImageScene = id => remove(detail("scene_images", id));
 export const deleteTemplate = id => remove(detail("templates", id));

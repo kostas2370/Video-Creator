@@ -37,7 +37,7 @@ the summary card and individual table columns. No requests in a period gives zer
 totals; requests without a measurement give null for that metric.
 Known totals can be partial when a provider omits measurements. Voice characters,
 images, and video seconds are separate units, not converted into text tokens.
-These measurements are not prices, account balances, or invoices. Interrupted
+These measurements are not account balances or invoices. Interrupted
 streams and failed provider requests may incur charges that the app cannot measure.
 Web image searches, uploads, and local rendering are excluded.
 
@@ -46,6 +46,94 @@ Database errors while saving usage are logged without failing successful generat
 Custom visual providers are recorded once the upstream response provides a media
 URL or a successful binary response, before download, conversion, or file saving.
 JSON responses can supply a standard `usage` object for token normalization.
+
+## Generation cost estimates
+
+AI creation shows a scenario/script estimate before **Draft storyboard**.
+Storyboard review shows an estimated USD generation cost before **Proceed**,
+including the scenario cost already incurred and the planned media costs. The
+estimate updates with unsaved narration and shot-duration edits. Scene controls
+also show estimates before generating a replacement visual, preparing a starting
+image, animating an approved image, or regenerating narration. Looking up an
+estimate makes no provider request and does not save the script or start generation.
+An unavailable estimate does not prevent generation.
+
+The breakdown separates scenario/script, images, animation, and narration.
+Scenario estimates use the assembled prompt, an approximate range of two to four
+characters per input token, expected output by scene count, and the configured
+output budget, including OpenAI reasoning allowance. This planning range is not a
+guaranteed bound; reference inputs, language, series context and retries can change it. Character video projects
+include starting-image preparation and later animation as separate line items;
+animation is charged only when explicitly requested. Narrated clip durations use a
+150-words-per-minute planning assumption until narration audio exists. Known built-in
+video providers use the same duration rounding and limits as generation.
+
+Built-in rates were checked on **1 November 2026**:
+
+- OpenAI scenario rates include `gpt-5.4-mini`, `gpt-5.4`, `gpt-5.4-nano` and
+  `gpt-5.5`, using their official model pages linked from the cost breakdown.
+  Other script models use configured rates or remain unavailable.
+- OpenAI `tts-1` uses the published per-character rate from its
+  [model page](https://developers.openai.com/api/docs/models/tts-1).
+- GPT Image 2, GPT Image 1.5, and GPT Image 1 Mini use output-only reference-price
+  ranges by quality from the [image guide](https://developers.openai.com/api/docs/guides/image-generation).
+  These compare the guide's 1024-square and 1024×1536/1536×1024 sizes; they are not
+  bounds or quotes for the project's exact frame. Text and image inputs cost extra.
+  Automatic quality and unknown models remain unpriced.
+- Runway `gen4.5` uses its [API list price](https://dev.runwayml.com/pricing).
+- Other providers and models remain **Price unavailable** until configured.
+  Unknown line items are excluded from the clearly labeled known subtotal. When
+  all prices are unknown, the total is unavailable, rather than zero.
+
+The **Usage** page shows cost estimated from completed requests, with coverage
+counts when only some requests have a price. Prices are saved on new usage
+records; later rate changes do not reprice them. GPT Image 2 recorded costs require
+separate reported text/image input counts and output tokens and use the
+[token rate card](https://developers.openai.com/api/docs/pricing), without cache
+discounts. Missing measurements stay unpriced. Earlier usage is not backfilled.
+
+Open **Project extras → Generation costs** to compare the saved storyboard generation
+estimate with recorded scenario and media costs. The original estimate is captured
+at storyboard approval or the first generation pass and preserved on resume. Recorded project
+usage includes subsequent replacements and measured retries, including provider
+successes followed by local saving failures. Association is set around each media
+provider call, including calls in generation threads, and checked against ownership.
+Older requests have no project association. Scenario calls and script rewrites are linked to the project and included in the
+comparison, including measured script-validation retries. Standalone media-library
+generation is excluded. Existing estimates without a scenario line retain their
+original media amounts and mark the earlier scenario cost unavailable. Deleting a project preserves account usage
+while removing the project association and saved estimate.
+
+These are planning estimates, not invoices or a spending cap. Additional rewrites, retries, taxes, negotiated rates and discounts are excluded
+from the pre-generation estimate. Scenario drafting costs already incurred are
+labeled separately so Proceed does not imply another scenario charge. Failed or
+interrupted requests can incur charges without producing a measurement.
+
+### Configuring other rates
+
+Set `AI_COST_RATES` in `backend/.env` to a JSON object. Keys are
+`service:provider:model`; service is `text`, `images`, `tts`, `video`, or `stt`.
+Provider and model must match usage identifiers exactly. Custom providers use their
+configured name and a blank model. Built-in visual selection names `runway`,
+`kling`, `gemini-video`, `midjourney` and `stable-diffusion` map to their recorded
+provider/model identifiers. Rates can override built-in entries.
+
+```dotenv
+AI_COST_RATES={"images:My image provider:":{"images":"0.04","checked_at":"2026-11-01","source":"https://example.com/pricing"},"video:My video provider:":{"requests":"0.60","checked_at":"2026-11-01"}}
+```
+
+Each value is USD per **one** unit. Supported units are `characters`, `images`,
+`seconds`, `requests`, `input_tokens`, and `output_tokens`. Divide published
+per-million-token prices by one million before entering token rates. Multiple
+specified units are additive. Scenario token estimates are approximate; configured token rates can price both
+the planning range and recorded provider usage. Recorded measurements remain
+unavailable when the provider omits required counts. Custom video integrations record request counts, so use a request
+rate for those; a missing duration is never priced as zero seconds. Supply a
+`checked_at` date and public `source` URL for the rate's provenance.
+
+Apply migration `usage.0003`, restart the API and generation workers, and rebuild
+the frontend together when upgrading. No provider calls or historical repricing
+run during the migration.
 
 Token normalization lives in `apps/usage/tokens.py`, independently of persistence.
 The default adapter accepts common token field names in dictionaries or SDK objects.

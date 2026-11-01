@@ -1,3 +1,4 @@
+import { GenerationCost } from "./GenerationCost";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { generateSceneImage, updateStartingImage } from "../api/apiService";
@@ -67,6 +68,7 @@ export const SceneStartingImage = ({ scene, index, disabled, onSaved }) => {
     <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Review the characters and composition, then approve the image before animating. Image generation and animation are separate paid requests. Your current clip stays until a new animation succeeds.</p>
     {startingImage}
     <label className="mt-3 block text-sm">Shot description<textarea aria-label={`Scene ${index + 1} starting image description`} maxLength={2000} rows={3} value={description} disabled={blocked} onChange={event => setDescription(event.target.value)} className={`${editorInput} mt-1`} /></label>
+    <GenerationCost refresh={scene} videoId={scene.video} sceneId={scene.id} operation="visual" />
     <button type="button" disabled={blocked || !description.trim()} onClick={() => run("prepare")} className={`${buttonClass} mt-3`}>{busy === "prepare" ? "Preparing image…" : scene.starting_image ? "Regenerate starting image" : "Generate starting image"}</button>
     <label className="mt-3 block text-sm">Upload a replacement image<input aria-label={`Scene ${index + 1} replacement starting image`} type="file" accept="image/png,image/jpeg,image/webp" disabled={blocked} onChange={event => setFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" /></label>
     {file && <button type="button" disabled={blocked || !description.trim()} onClick={() => run("upload")} className={`${buttonClass} mt-3`}>{busy === "upload" ? "Uploading…" : "Save starting image"}</button>}
@@ -74,6 +76,7 @@ export const SceneStartingImage = ({ scene, index, disabled, onSaved }) => {
       <button type="button" disabled={blocked || approved || edited || !!file} onClick={() => run("approve")} className={buttonClass}>{busy === "approve" ? "Approving…" : "Approve starting image"}</button>
       <button type="button" disabled={blocked || !approved || edited || !!file} onClick={() => run("animate")} className={buttonClass}>{busy === "animate" ? "Animating…" : scene.starting_image_context?.animation_error ? "Retry animation" : "Animate approved image"}</button>
     </div>}
+    {scene.starting_image && <GenerationCost refresh={scene} videoId={scene.video} sceneId={scene.id} operation="animation" />}
     {edited && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Generate or upload an image for the changed description, then review and approve it.</p>}
     {failure}
   </RememberedDetails>;

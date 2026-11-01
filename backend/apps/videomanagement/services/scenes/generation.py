@@ -1,5 +1,7 @@
 import logging
 
+from apps.usage.services import video_usage
+
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.common.ai_json import parse_ai_json
@@ -37,9 +39,10 @@ def generate_scene(text: str, scene: Scene) -> str:
     if text == scene.text.strip():
         return text
 
-    text = get_update_sentence(
-        format_update_form(scene.text, text), user=scene.video.created_by
-    )
+    with video_usage(scene.video):
+        text = get_update_sentence(
+            format_update_form(scene.text, text), user=scene.video.created_by
+        )
 
     return text
 

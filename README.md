@@ -42,8 +42,19 @@ form does not start another paid request. Draft recovery does not sync between
 browsers or devices and depends on browser storage. If an uploaded reference cannot
 be recovered, reattach or explicitly remove it before generating.
 
+Use **Delete draft project** on AI creation or storyboard review to remove a saved
+draft after confirmation. Your creation settings stay in this browser so you can
+draft again. Draft projects can also be deleted from **My videos**. Active generation
+and exports must finish before deletion; reusable library media and usage history
+are preserved. **Start over** only discards the browser draft and keeps saved projects.
+
 Accounts can use shared service credentials or encrypted personal provider keys.
 AI generation requires access to the selected providers and may incur API charges.
+AI creation estimates scenario costs before drafting. Storyboard review includes
+the scenario already drafted alongside planned media costs, and scene generation
+controls show estimates before paid requests. **Usage** shows costs from recorded requests; **Project extras →
+Generation costs** compares these with the project's original estimate. Unknown
+prices remain unavailable. See [cost coverage and rate configuration](docs/ai-usage.md#generation-cost-estimates).
 
 ## Quick start with Docker
 

@@ -1,4 +1,8 @@
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
+
+from apps.videomanagement.exceptions import VideoEditConflict
 
 from apps.videomanagement.models import Avatar, Intro, Outro, Video
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
@@ -81,6 +85,18 @@ def update_music_settings(video, changes):
     return video
 
 
-def delete_video(video):
-    with editable_video(video.pk) as locked:
+def delete_video(video, *, draft_only=False):
+    with transaction.atomic():
+        locked = get_object_or_404(Video.objects.select_for_update(), pk=video.pk)
+        if locked.status not in ("REVIEW", "READY", "COMPLETED", "FAILED"):
+            raise VideoEditConflict(
+                "This project is still processing. Wait for it to finish before deleting it."
+            )
+        if draft_only and not (
+            locked.status == "REVIEW"
+            or (locked.status == "FAILED" and not locked.scenes.exists())
+        ):
+            raise VideoEditConflict(
+                "This project is no longer a draft. Open it or manage it from My videos."
+            )
         locked.delete()

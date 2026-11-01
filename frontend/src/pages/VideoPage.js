@@ -1,3 +1,4 @@
+import { ProjectCosts } from "../components/GenerationCost";
 import { DeferredDialog } from "../components/ui/DeferredDialog";
 import { RecentlyDeletedScenes } from "../components/RecentlyDeletedScenes";
 import { RememberedDetails } from "../components/ui/RememberedDetails";
@@ -357,6 +358,7 @@ export const Video = () => {
               <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h2 className="mb-3 text-sm font-semibold">Image motion</h2><BulkAutoMotion scenes={scenes} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={pendingSceneChange?.type === "bulkMotion"} onApply={onAutoMotion} /></div>
             </div>
           </section>
+          {videoInfo && <ProjectCosts videoId={videoInfo.id} refresh={`${videoInfo.updated_at}:${videoInfo.status}:${refresh}`} />}
           {videoInfo && <RecentlyDeletedScenes key={`deleted-${videoId}`} videoId={videoId} refresh={videoInfo.updated_at} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo.status)} onRestore={recoverScene} />}
           </RememberedDetails>
       </main>

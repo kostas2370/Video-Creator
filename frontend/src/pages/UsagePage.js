@@ -1,3 +1,4 @@
+import { RecordedCost } from "../components/GenerationCost";
 import React, { useEffect, useState } from "react";
 import { tokenMetric } from "../utils/usage";
 import { getUsage } from "../api/apiService";
@@ -49,9 +50,10 @@ export function Usage() {
           <button type="button" disabled={loading} onClick={() => setRefresh(value => value + 1)} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">Refresh</button>
         </div>
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400">Tokens are reported by providers. Voice services are measured in characters; images and video also have their own units. These are usage measurements, not a billing estimate. Only requests made after tracking was enabled are included.</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">Tokens are reported by providers. Voice services are measured in characters; images and video also have their own units. Costs are estimates from recorded usage and saved rates, not invoices. Unknown prices and older unpriced requests are excluded; partial coverage is shown. Only requests made after tracking was enabled are included.</p>
       {loading ? <p role="status">Loading usage…</p> : error ? <p role="alert" className="text-red-600 dark:text-red-400">{error}</p> : data && <>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className={card}><p className="text-sm text-gray-500 dark:text-gray-400">Estimated cost · USD</p><p className="mt-2 text-3xl font-semibold"><RecordedCost metrics={data.totals} /></p></div>
           <div className={card}><p className="text-sm text-gray-500 dark:text-gray-400">Reported tokens</p><p className="mt-2 text-3xl font-semibold"><TokenValue row={data.totals} field="total_tokens" /></p></div>
           {[["TTS characters", data.totals.characters], ["Images generated", data.totals.images], ["Generation requests", data.totals.requests]].map(([label, value]) => <div key={label} className={card}><p className="text-sm text-gray-500 dark:text-gray-400">{label}</p><p className="mt-2 text-3xl font-semibold">{number(value)}</p></div>)}
         </div>
@@ -60,13 +62,14 @@ export function Usage() {
           <p className="mb-3 text-xs text-gray-500 sm:hidden dark:text-gray-400">Swipe the table to see all usage details.</p>
           <table className="w-full whitespace-nowrap text-left text-sm">
             <caption className="sr-only">Provider consumption for the selected period</caption>
-            <thead className="text-gray-500 dark:text-gray-400"><tr>{["Service", "Provider / model", "API keys", "Requests", "Input tokens", "Output tokens", "Total tokens", "Other units"].map(label => <th key={label} scope="col" className="px-3 pb-3 font-medium">{label}</th>)}</tr></thead>
+            <thead className="text-gray-500 dark:text-gray-400"><tr>{["Service", "Provider / model", "API keys", "Requests", "Input tokens", "Output tokens", "Total tokens", "Estimated cost · USD", "Other units"].map(label => <th key={label} scope="col" className="px-3 pb-3 font-medium">{label}</th>)}</tr></thead>
             <tbody>{data.breakdown.map(row => <tr key={[row.service, row.provider, row.model, row.key_source].join(":")} className="border-t border-gray-100 dark:border-gray-700">
               <th scope="row" className="px-3 py-4 font-medium">{services[row.service]}</th>
               <td className="px-3 py-4">{providers[row.provider] || row.provider}<span className="block text-xs text-gray-500 dark:text-gray-400">{row.model || "Model not reported"}</span></td>
               <td className="px-3 py-4">{row.key_source === "service" ? "Service" : "Personal"}</td>
               <td className="px-3 py-4">{number(row.requests)}</td>
               {["input_tokens", "output_tokens", "total_tokens"].map(field => <td key={field} className="px-3 py-4"><TokenValue row={row} field={field} /></td>)}
+              <td className="px-3 py-4"><RecordedCost metrics={row} /></td>
               <td className="px-3 py-4">{row.service === "tts" ? `${number(row.characters)} characters` : row.service === "images" ? `${number(row.images)} images` : ["video", "stt"].includes(row.service) && row.seconds ? `${number(row.seconds)} seconds` : "—"}</td>
             </tr>)}</tbody>
           </table>

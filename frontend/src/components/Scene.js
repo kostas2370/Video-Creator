@@ -1,3 +1,4 @@
+import { GenerationCost } from "./GenerationCost";
 import { DeferredDialog } from "./ui/DeferredDialog";
 import { RememberedDetails } from "./ui/RememberedDetails";
 import { formatDuration } from "../utils/timing";
@@ -110,6 +111,7 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
             {scene.narration_status === "missing" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
               <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Narration unavailable</p>
               <p className="mt-1 text-xs leading-relaxed text-amber-800 dark:text-amber-300">This scene has no narration audio. Your dialogue and visual are saved.</p>
+              <GenerationCost refresh={scene} videoId={scene.video} sceneId={scene.id} operation="narration" />
               <button type="button" disabled={retryingNarration} onClick={retryNarration} className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/50 dark:text-amber-200">{retryingNarration ? "Retrying…" : "Retry narration"}</button>
             </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">{manual ? "Use Audio to record or upload a voiceover." : "Narration is off for this video"}</p> : ((scene.voiceover || scene.file) ? <details className="mt-4"><summary className="mb-3 cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Listen to original narration</summary><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Before audio edits. Use Preview edit to hear the current mix.</p><audio aria-label={`Scene ${index + 1} narration`} controls preload="none" key={scene.voiceover || scene.file} className="h-10 w-full"><source src={MEDIA_URL + (scene.voiceover || scene.file)} /></audio></details> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
             <div className="mt-4"><SceneAudio scene={scene} index={index} nextScene={nextScene} disabled={timingDisabled} onSaved={setUpdated} /></div>

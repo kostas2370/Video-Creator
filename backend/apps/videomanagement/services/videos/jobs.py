@@ -149,6 +149,10 @@ def approve_script(video, storyboard):
                 "generation_params": params,
             }
         video.gpt_answer = dict(storyboard)
+        from apps.usage.scenarios import project_estimate
+        from apps.usage.models import GenerationEstimate
+
+        GenerationEstimate.objects.update_or_create(video=video, defaults={"estimate": project_estimate(video, storyboard)})
         video.title = storyboard["title"]
         video.status = VideoStatus.GENERATION
         video.save()
