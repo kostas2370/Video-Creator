@@ -1,3 +1,5 @@
+from apps.videomanagement.integrations.base import TTSProvider
+from apps.usage.pricing import estimate_line
 import base64
 import logging
 import os
@@ -31,167 +33,237 @@ class ApiSyn:
 
 
 @TTSRegistry.register(Provider.OPENAI)
-def tts_from_openai(
-    text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
-) -> Any:
-    logger.warning("API CALL IN OpenAI TTS")
+class OpenAITTSProvider(TTSProvider):
+    @staticmethod
+    def generate(
+        text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
+    ) -> Any:
+        logger.warning("API CALL IN OpenAI TTS")
 
-    client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
-    response = client.audio.speech.create(
-        model="tts-1", voice=voice, input=text, response_format="wav"
-    )
-    record_usage(user, "tts", Provider.OPENAI, "tts-1", characters=len(text))
-    response.stream_to_file(save_path)
+        client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
+        response = client.audio.speech.create(
+            model="tts-1", voice=voice, input=text, response_format="wav"
+        )
+        record_usage(user, "tts", Provider.OPENAI, "tts-1", characters=len(text))
+        response.stream_to_file(save_path)
 
-    return response
+        return response
+
+    @staticmethod
+    def calculate(request):
+        return estimate_line(
+            "Narration",
+            "tts",
+            Provider.OPENAI,
+            "tts-1",
+            {"characters": len(request.text), "requests": request.requests},
+        )
+
+
+tts_from_openai = OpenAITTSProvider.generate
 
 
 @TTSRegistry.register(Provider.ELEVENLABS)
-def tts_from_elevenlabs(
-    text: str, save_path: str, voice: str, user=None, **kwargs
-) -> Optional[requests.Response]:
-    logger.warning("API CALL IN ElevenLabs TTS")
+class ElevenLabsTTSProvider(TTSProvider):
+    @staticmethod
+    def generate(
+        text: str, save_path: str, voice: str, user=None, **kwargs
+    ) -> Optional[requests.Response]:
+        logger.warning("API CALL IN ElevenLabs TTS")
 
-    clone = VoiceModel.objects.filter(
-        provider=Provider.ELEVENLABS, path=voice, is_cloned=True
-    ).first()
-    key = (
-        voice_key(user, clone) if clone else ApiKeys.key_for(user, Provider.ELEVENLABS)
-    )
-    if clone and clone.requires_verification:
-        raise ValidationError("This voice requires verification in ElevenLabs.")
-
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
-    headers = {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": key,
-    }
-    model = "eleven_multilingual_v2" if clone else "eleven_monolingual_v1"
-    data = {
-        "text": text,
-        "model_id": model,
-        "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
-    }
-
-    response = None
-    try:
-        response = requests.post(
-            url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+        clone = VoiceModel.objects.filter(
+            provider=Provider.ELEVENLABS, path=voice, is_cloned=True
+        ).first()
+        key = (
+            voice_key(user, clone)
+            if clone
+            else ApiKeys.key_for(user, Provider.ELEVENLABS)
         )
-        response.raise_for_status()
-        record_usage(user, "tts", Provider.ELEVENLABS, model, characters=len(text))
-        with open(save_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
-    except Exception as exc:
-        logger.error("ElevenLabs TTS request failed: %s", exc)
+        if clone and clone.requires_verification:
+            raise ValidationError("This voice requires verification in ElevenLabs.")
 
-    return response
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice}"
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": key,
+        }
+        model = "eleven_multilingual_v2" if clone else "eleven_monolingual_v1"
+        data = {
+            "text": text,
+            "model_id": model,
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
+        }
+
+        response = None
+        try:
+            response = requests.post(
+                url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+            )
+            response.raise_for_status()
+            record_usage(user, "tts", Provider.ELEVENLABS, model, characters=len(text))
+            with open(save_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+        except Exception as exc:
+            logger.error("ElevenLabs TTS request failed: %s", exc)
+
+        return response
+
+    @staticmethod
+    def calculate(request):
+        model = (
+            "eleven_multilingual_v2"
+            if request.voice and request.voice.is_cloned
+            else "eleven_monolingual_v1"
+        )
+        return estimate_line(
+            "Narration",
+            "tts",
+            Provider.ELEVENLABS,
+            model,
+            {"characters": len(request.text), "requests": request.requests},
+        )
+
+
+tts_from_elevenlabs = ElevenLabsTTSProvider.generate
 
 
 @TTSRegistry.register(Provider.SIXTYDB)
-def tts_from_sixtydb(
-    text: str, save_path: str, voice: str, user=None, **kwargs
-) -> Optional[requests.Response]:
-    logger.warning("API CALL IN 60dB TTS")
+class SixtyDbTTSProvider(TTSProvider):
+    @staticmethod
+    def generate(
+        text: str, save_path: str, voice: str, user=None, **kwargs
+    ) -> Optional[requests.Response]:
+        logger.warning("API CALL IN 60dB TTS")
 
-    url = "https://api.60db.ai/tts-synthesize"
-    headers = {
-        "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
-        "Content-Type": "application/json",
-    }
-    data = {
-        "text": text,
-        "voice_id": voice,
-        "output_format": "wav",
-        "enhance": True,
-        "speed": 1,
-        "stability": 50,
-        "similarity": 75,
-    }
+        url = "https://api.60db.ai/tts-synthesize"
+        headers = {
+            "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "text": text,
+            "voice_id": voice,
+            "output_format": "wav",
+            "enhance": True,
+            "speed": 1,
+            "stability": 50,
+            "similarity": 75,
+        }
 
-    response = None
-    try:
-        response = requests.post(
-            url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+        response = None
+        try:
+            response = requests.post(
+                url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+            )
+            response.raise_for_status()
+            payload = response.json()
+            audio_base64 = payload.get("audio_base64")
+            if not audio_base64:
+                raise ValueError(
+                    f"60dB TTS returned no audio: {payload.get('message')}"
+                )
+            record_usage(user, "tts", Provider.SIXTYDB, characters=len(text))
+
+            with open(save_path, "wb") as f:
+                f.write(base64.b64decode(audio_base64))
+        except Exception as exc:
+            logger.error("60dB TTS request failed: %s", exc)
+
+        return response
+
+    @staticmethod
+    def calculate(request):
+        return estimate_line(
+            "Narration",
+            "tts",
+            Provider.SIXTYDB,
+            "",
+            {"characters": len(request.text), "requests": request.requests},
         )
-        response.raise_for_status()
-        payload = response.json()
-        audio_base64 = payload.get("audio_base64")
-        if not audio_base64:
-            raise ValueError(f"60dB TTS returned no audio: {payload.get('message')}")
-        record_usage(user, "tts", Provider.SIXTYDB, characters=len(text))
 
-        with open(save_path, "wb") as f:
-            f.write(base64.b64decode(audio_base64))
-    except Exception as exc:
-        logger.error("60dB TTS request failed: %s", exc)
 
-    return response
+tts_from_sixtydb = SixtyDbTTSProvider.generate
 
 
 @TTSRegistry.register_fallback()
-def tts_from_custom_provider(
-    text: str,
-    save_path: str,
-    voice: str,
-    user=None,
-    provider_name: Optional[str] = None,
-) -> Optional[requests.Response]:
-    logger.warning("API CALL IN USER CUSTOM TTS: %s", provider_name)
+class CustomTTSProvider(TTSProvider):
+    @staticmethod
+    def generate(
+        text: str,
+        save_path: str,
+        voice: str,
+        user=None,
+        provider_name: Optional[str] = None,
+    ) -> Optional[requests.Response]:
+        logger.warning("API CALL IN USER CUSTOM TTS: %s", provider_name)
 
-    if not user or not provider_name:
-        raise APIException(
-            detail=f"Custom provider '{provider_name}' not found for this user.",
-            code=status.HTTP_404_NOT_FOUND,
+        if not user or not provider_name:
+            raise APIException(
+                detail=f"Custom provider '{provider_name}' not found for this user.",
+                code=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            provider_config = UserCustomTTSProvider.objects.get(
+                user=user, name=provider_name
+            )
+        except UserCustomTTSProvider.DoesNotExist:
+            raise APIException(
+                detail=f"Custom provider '{provider_name}' not found for this user.",
+                code=status.HTTP_404_NOT_FOUND,
+            )
+
+        headers, auth = provider_config.get_auth_headers()
+        data = provider_config.request_payload(
+            {
+                provider_config.text_field_name: text,
+                provider_config.voice_field_name: voice,
+            }
         )
 
-    try:
-        provider_config = UserCustomTTSProvider.objects.get(
-            user=user, name=provider_name
-        )
-    except UserCustomTTSProvider.DoesNotExist:
-        raise APIException(
-            detail=f"Custom provider '{provider_name}' not found for this user.",
-            code=status.HTTP_404_NOT_FOUND,
-        )
+        response = None
+        try:
+            response = requests.post(
+                provider_config.endpoint_url,
+                json=data,
+                headers=headers,
+                auth=auth,
+                timeout=DEFAULT_TIMEOUT,
+            )
+            response.raise_for_status()
 
-    headers, auth = provider_config.get_auth_headers()
-    data = provider_config.request_payload(
-        {
-            provider_config.text_field_name: text,
-            provider_config.voice_field_name: voice,
-        }
-    )
+            record_usage(user, "tts", provider_name, characters=len(text), custom=True)
+            with open(save_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+        except Exception as exc:
+            if os.path.exists(save_path):
+                os.remove(save_path)
+            logger.error(
+                "Error generating audio from custom provider '%s': %s",
+                provider_name,
+                exc,
+            )
 
-    response = None
-    try:
-        response = requests.post(
-            provider_config.endpoint_url,
-            json=data,
-            headers=headers,
-            auth=auth,
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
+        return response
 
-        record_usage(user, "tts", provider_name, characters=len(text), custom=True)
-        with open(save_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
-    except Exception as exc:
-        if os.path.exists(save_path):
-            os.remove(save_path)
-        logger.error(
-            "Error generating audio from custom provider '%s': %s",
-            provider_name,
-            exc,
+    @staticmethod
+    def calculate(request):
+        return estimate_line(
+            "Narration",
+            "tts",
+            request.provider_name,
+            "",
+            {"characters": len(request.text), "requests": request.requests},
+            custom=True,
         )
 
-    return response
+
+tts_from_custom_provider = CustomTTSProvider.generate
 
 
 def save(
