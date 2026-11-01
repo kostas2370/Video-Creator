@@ -47,6 +47,9 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
     } finally { setRetryingNarration(false); }
   };
 
+  const visualPrompt = scene.scene_image?.prompt;
+  const promptShownInStartingImage = scene.starting_image_required && visualPrompt?.trim() === scene.starting_image_description?.trim();
+
   return (
     <>
       <DeleteModal
@@ -100,7 +103,7 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
 
             {(scene.starting_image_required || scene.starting_image) && <SceneStartingImage scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} />}
 
-            {scene.scene_image?.prompt && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
+            {visualPrompt && !promptShownInStartingImage && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
           </div>
           <div className="min-w-0">
             <SceneTextEditor scene={scene} index={index} manual={manual} draft={textDraft} onDraftChange={onTextDraftChange} onSave={onTextSave} onRewrite={onTextRewrite} disabled={timingDisabled} />
