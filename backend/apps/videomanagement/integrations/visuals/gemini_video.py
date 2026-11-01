@@ -127,6 +127,3 @@ class GeminiVideoProvider(http.DurationVideoProvider):
             usage=result.get("usage"),
         )
         return path
-
-
-generate_from_gemini_video = GeminiVideoProvider.generate

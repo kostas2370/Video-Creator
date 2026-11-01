@@ -100,7 +100,7 @@ def generate_cover_image(video, user, choices):
     prompt = format_cover_prompt(content, choices.get("title", ""), choices["prompt"])
     with tempfile.TemporaryDirectory() as directory:
         reference = cover_reference(video, directory, choices["time"])
-        path = openai_images.generate_openai_image(
+        path = openai_images.OpenAIImageProvider.generate(
             prompt, directory + "/", style="", user=user, reference=reference
         )
         with Image.open(path) as image:

@@ -182,7 +182,7 @@ def character_starting_frame(
     ):
         return scene.starting_asset.file.path
     with video_usage(video):
-        frame = openai_images.generate_openai_image(
+        frame = openai_images.OpenAIImageProvider.generate(
             "Create the starting frame of this single film shot. The reference is a labeled "
             "character identity sheet, not a scene composition. Use only the characters called "
             "for in this shot. Preserve their faces, anatomy and distinguishing features. "

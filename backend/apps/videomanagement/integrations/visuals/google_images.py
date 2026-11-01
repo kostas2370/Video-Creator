@@ -95,6 +95,3 @@ class GoogleImageProvider(ImageProvider):
     @staticmethod
     def calculate(request):
         return image_estimate(request.count, "google", custom=True)
-
-
-download_image_from_google = GoogleImageProvider.generate

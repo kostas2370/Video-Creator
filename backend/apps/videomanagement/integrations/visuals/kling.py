@@ -51,6 +51,3 @@ class KlingProvider(http.DurationVideoProvider):
             request.user, "video", Provider.FAL, MODEL, seconds=request.seconds
         )
         return http.save_download(result["video"]["url"], request.directory)
-
-
-generate_from_kling = KlingProvider.generate

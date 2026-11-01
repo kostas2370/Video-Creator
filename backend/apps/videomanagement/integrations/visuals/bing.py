@@ -34,6 +34,3 @@ class BingImageProvider(ImageProvider):
     @staticmethod
     def calculate(request):
         return image_estimate(request.count, "bing", custom=True)
-
-
-download_image = BingImageProvider.generate
