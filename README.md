@@ -398,8 +398,9 @@ or WebP replacement (up to 10 MB). Choose **Approve starting image**, then
 **Animate approved image** to start that shot's paid animation request. Image
 preparation and animation are separate requests; approving an image makes no AI
 request. A failed animation offers **Retry animation** using the approved image.
-Existing clips remain until their replacement succeeds. Resume prepares missing
-images without starting animations. Changed shot guidance or frame settings
+Click the **Starting image** heading to hide or reopen the review controls; your
+choice is remembered for each scene in this browser. Existing clips remain until
+their replacement succeeds. Resume prepares missing images without starting animations. Changed shot guidance or frame settings
 invalidate image approval and require preparing and reviewing a new image.
 Restart the API and general worker and rebuild the frontend together when
 upgrading to this workflow; no new database migration is required.

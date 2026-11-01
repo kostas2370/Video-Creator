@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { Scene } from "./Scene";
 import * as api from "../api/apiService";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 it("shows a saved starting image after video failure and retries the saved description", async () => {
   const retry = vi.spyOn(api, "generateSceneImage").mockResolvedValue({ ok: true });
   const updated = vi.fn();
@@ -74,4 +74,16 @@ it("offers retry for a failed animation with the approved image", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Retry animation" }));
   await waitFor(() => expect(update).toHaveBeenCalled());
   expect(update.mock.calls[0][1].get("asset_id")).toBe("asset-1");
+});
+
+it("remembers a hidden starting-image panel for that scene after reopening the editor", async () => {
+  const { unmount } = render(<Scene scene={reviewScene} manual setUpdated={vi.fn()} />);
+  const panel = screen.getByText("Starting image · Needs review").closest("details");
+  expect(panel.open).toBe(true);
+  panel.open = false;
+  fireEvent(panel, new Event("toggle"));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem("editor-workspace:video-1"))["startingImage:scene-1"]).toBe(false));
+  unmount();
+  render(<Scene scene={reviewScene} manual setUpdated={vi.fn()} />);
+  expect(screen.getByText("Starting image · Needs review").closest("details").open).toBe(false);
 });

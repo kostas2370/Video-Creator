@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { generateSceneImage, updateStartingImage } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { useObjectUrl } from "../hooks/useObjectUrl";
+import { RememberedDetails } from "./ui/RememberedDetails";
 import { editorInput } from "./ui/EditorDialog";
 
 export const SceneStartingImage = ({ scene, index, disabled, onSaved }) => {
@@ -54,15 +55,15 @@ export const SceneStartingImage = ({ scene, index, disabled, onSaved }) => {
   const buttonClass = "rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50";
   const startingImage = (preview || scene.starting_image) && <img src={preview || API_HOST + scene.starting_image} alt={`Scene ${index + 1} ${scene.starting_image_required ? "starting image to review" : "saved starting image"}`} className="mt-3 max-h-64 w-full rounded-xl object-contain" />;
   const failure = (error || savedError) && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error || savedError}</p>;
-  if (!scene.starting_image_required) return <details className="mt-4" open={!scene.scene_image?.file}>
+  if (!scene.starting_image_required) return <RememberedDetails videoId={scene.video} panel={`startingImage:${scene.id}`} defaultOpen={!scene.scene_image?.file} className="mt-4">
     <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-300">Saved starting image</summary>
     <a href={API_HOST + scene.starting_image} target="_blank" rel="noreferrer">{startingImage}</a>
     <p className="mt-2 text-xs text-gray-500">Saved in your media library.</p>
     {scene.starting_image_description && <button type="button" disabled={blocked} onClick={() => run("retry")} className={`${buttonClass} mt-3`}>{busy ? "Generating video…" : "Retry video with saved image"}</button>}
     {failure}
-  </details>;
-  return <section aria-label={`Scene ${index + 1} starting image review`} className="mt-4 rounded-xl border border-blue-200 p-4 dark:border-blue-900">
-    <h3 className="text-sm font-semibold">Starting image · {approved ? "Approved" : "Needs review"}</h3>
+  </RememberedDetails>;
+  return <RememberedDetails videoId={scene.video} panel={`startingImage:${scene.id}`} defaultOpen aria-label={`Scene ${index + 1} starting image review`} className="mt-4 rounded-xl border border-blue-200 p-4 dark:border-blue-900">
+    <summary className="cursor-pointer text-sm font-semibold">Starting image · {approved ? "Approved" : "Needs review"}</summary>
     <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Review the characters and composition, then approve the image before animating. Image generation and animation are separate paid requests. Your current clip stays until a new animation succeeds.</p>
     {startingImage}
     <label className="mt-3 block text-sm">Shot description<textarea aria-label={`Scene ${index + 1} starting image description`} maxLength={2000} rows={3} value={description} disabled={blocked} onChange={event => setDescription(event.target.value)} className={`${editorInput} mt-1`} /></label>
@@ -75,5 +76,5 @@ export const SceneStartingImage = ({ scene, index, disabled, onSaved }) => {
     </div>}
     {edited && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Generate or upload an image for the changed description, then review and approve it.</p>}
     {failure}
-  </section>;
+  </RememberedDetails>;
 };
