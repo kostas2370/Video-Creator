@@ -1,8 +1,6 @@
 """Runway Gen-4.5 text/image-to-video with bounded task polling."""
 
-from apps.videomanagement.integrations.base import ImageProvider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
-from apps.usage.pricing import estimate_line
 
 
 from apps.apikeysmanagement.models import Provider
@@ -15,7 +13,9 @@ RATIOS = {"16:9": "1280:720", "9:16": "720:1280", "1:1": "960:960"}
 
 
 @ImageProviderRegistry.register("runway", output_type="VIDEO", supports_reference=True)
-class RunwayProvider(ImageProvider):
+class RunwayProvider(http.DurationVideoProvider):
+    PROVIDER = Provider.RUNWAY
+    MODEL = MODEL
     MINIMUM = 2
     MAXIMUM = 10
 
@@ -57,21 +57,6 @@ class RunwayProvider(ImageProvider):
             request.user, "video", Provider.RUNWAY, MODEL, seconds=request.seconds
         )
         return http.save_download(result["output"][0], request.directory)
-
-    @staticmethod
-    def calculate(request):
-        durations = request.durations or (None,) * request.count
-        seconds = sum(
-            http.seconds_for(value, RunwayProvider.MINIMUM, RunwayProvider.MAXIMUM)
-            for value in durations
-        )
-        return estimate_line(
-            "Animation",
-            "video",
-            Provider.RUNWAY,
-            MODEL,
-            {"seconds": seconds, "requests": len(durations)},
-        )
 
 
 generate_from_runway = RunwayProvider.generate

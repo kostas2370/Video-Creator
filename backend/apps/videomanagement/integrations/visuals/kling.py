@@ -1,8 +1,6 @@
 """Kling O3 reference-to-video through fal's queued API."""
 
-from apps.videomanagement.integrations.base import ImageProvider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
-from apps.usage.pricing import estimate_line
 
 
 from apps.apikeysmanagement.models import Provider
@@ -13,7 +11,9 @@ MODEL = "fal-ai/kling-video/o3/pro/reference-to-video"
 
 
 @ImageProviderRegistry.register("kling", output_type="VIDEO", supports_reference=True)
-class KlingProvider(ImageProvider):
+class KlingProvider(http.DurationVideoProvider):
+    PROVIDER = Provider.FAL
+    MODEL = MODEL
     MINIMUM = 3
     MAXIMUM = 15
 
@@ -51,21 +51,6 @@ class KlingProvider(ImageProvider):
             request.user, "video", Provider.FAL, MODEL, seconds=request.seconds
         )
         return http.save_download(result["video"]["url"], request.directory)
-
-    @staticmethod
-    def calculate(request):
-        durations = request.durations or (None,) * request.count
-        seconds = sum(
-            http.seconds_for(value, KlingProvider.MINIMUM, KlingProvider.MAXIMUM)
-            for value in durations
-        )
-        return estimate_line(
-            "Animation",
-            "video",
-            Provider.FAL,
-            MODEL,
-            {"seconds": seconds, "requests": len(durations)},
-        )
 
 
 generate_from_kling = KlingProvider.generate
