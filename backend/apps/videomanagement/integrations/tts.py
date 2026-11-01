@@ -12,7 +12,7 @@ from rest_framework.exceptions import APIException, ValidationError
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
 from apps.videomanagement.integrations.registry import ProviderRegistry
 from apps.videomanagement.models import VoiceModel
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from apps.videomanagement.services.voices.credentials import voice_key
 
 logger = logging.getLogger(__name__)

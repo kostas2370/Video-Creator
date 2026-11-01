@@ -12,7 +12,7 @@ from apps.videomanagement.services.captions.local_whisper import (
     TranscriptionError,
     transcribe_local,
 )
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from apps.videomanagement.utils.captions.timing import normalize_words
 
 

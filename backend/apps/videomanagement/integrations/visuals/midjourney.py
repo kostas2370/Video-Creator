@@ -7,7 +7,7 @@ import requests
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from apps.videomanagement.utils.prompt_utils import format_image_prompt
 
 logger = logging.getLogger(__name__)

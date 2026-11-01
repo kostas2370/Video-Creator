@@ -4,8 +4,8 @@ import logging
 
 from django.db import DatabaseError, transaction
 
-from apps.videomanagement.models import AIUsage
-from apps.videomanagement.utils.token_usage import normalize_token_usage
+from apps.usage.models import AIUsage
+from apps.usage.tokens import normalize_token_usage
 
 logger = logging.getLogger(__name__)
 

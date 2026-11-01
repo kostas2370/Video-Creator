@@ -1,7 +1,7 @@
 """Runway Gen-4.5 text/image-to-video with bounded task polling."""
 
 from apps.apikeysmanagement.models import Provider
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from . import video_http as http
 
 MODEL = "gen4.5"

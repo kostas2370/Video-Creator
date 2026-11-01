@@ -16,7 +16,9 @@ from apps.videomanagement.services.captions.projects import (
     write_project_ass,
 )
 
-from ...models import AIUsage, CaptionProject
+from apps.usage.models import AIUsage
+
+from ...models import CaptionProject
 from ...utils.timing import video_metadata
 from .base import ApiTestCase
 

@@ -14,7 +14,7 @@ from apps.apikeysmanagement.models import Provider
 from apps.common.media import run_ffmpeg
 from apps.videomanagement.exceptions import VoiceProviderError
 from apps.videomanagement.models import VoiceModel, VoiceModelType
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from apps.videomanagement.services.voices.credentials import (
     key_fingerprint,
     key_source,

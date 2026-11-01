@@ -1,7 +1,7 @@
 """Kling O3 reference-to-video through fal's queued API."""
 
 from apps.apikeysmanagement.models import Provider
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from . import video_http as http
 
 MODEL = "fal-ai/kling-video/o3/pro/reference-to-video"

@@ -25,7 +25,9 @@ from apps.videomanagement.services.voices.cloning import (
 from apps.videomanagement.services.voices.credentials import key_fingerprint
 
 from ...baker_recipes import voice_model
-from ...models import AIUsage, VoiceModel
+from apps.usage.models import AIUsage
+
+from ...models import VoiceModel
 from ...tasks import update_user_voices
 
 

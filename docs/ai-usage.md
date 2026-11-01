@@ -4,8 +4,17 @@ The authenticated **Usage** page (`/usage/`) shows each user's consumption by
 service, provider, model, and personal/service API keys. The API is
 `GET /api/usage/?period=7|30|all` (default: 30 rolling days).
 
-Apply migration `0028_ai_usage` and restart backend workers when deploying.
-Only new requests are measured; historical usage cannot be reconstructed.
+Usage tracking belongs to `apps/usage`: `models.py` owns `AIUsage`, `services.py`
+records measurements, `tokens.py` normalizes provider counts, and `querysets.py`
+aggregates reports. Filters, serializers, views, and the existing `/api/usage/`
+route live in the same app. Provider integrations call `apps.usage.services.record_usage`.
+
+Run `python manage.py migrate` and restart backend workers when deploying.
+The app-move migrations adopt the existing `videomanagement_aiusage` table without
+copying or dropping records. They also retain content-type IDs, permission grants,
+and admin history. The table name is kept intentionally for compatibility; future
+usage model changes belong to the `usage` app. No historical consumption is
+reconstructed, and recording/reporting behavior stays the same.
 
 Generation has no internal application credit balance. The usermanagement migration
 `0008_remove_generation_credit_balance` removes stored legacy balances; generation,
@@ -38,7 +47,7 @@ Custom visual providers are recorded once the upstream response provides a media
 URL or a successful binary response, before download, conversion, or file saving.
 JSON responses can supply a standard `usage` object for token normalization.
 
-Token normalization lives in `utils/token_usage.py`, independently of persistence.
+Token normalization lives in `apps/usage/tokens.py`, independently of persistence.
 The default adapter accepts common token field names in dictionaries or SDK objects.
 Add a `TokenUsageAdapter` to `TOKEN_USAGE_ADAPTERS` for a provider with different
 field names or additive input counts; the recording function needs no new branches.

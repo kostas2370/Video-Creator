@@ -7,7 +7,7 @@ from io import BytesIO
 from urllib.parse import urlparse
 
 from apps.apikeysmanagement.models import Provider
-from apps.videomanagement.services.usage import record_usage
+from apps.usage.services import record_usage
 from apps.videomanagement.utils.timing import video_metadata
 from . import video_http as http
 

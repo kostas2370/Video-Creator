@@ -11,7 +11,6 @@ from apps.videomanagement.views.assets import (
 )
 from apps.videomanagement.views.generation import GenerateView
 from apps.videomanagement.views.scenes import SceneView
-from apps.videomanagement.views.usage import UsageView
 from apps.videomanagement.views.videos import VideoView
 
 from .event_stream import event_updates
@@ -34,7 +33,6 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
-    path("usage/", UsageView.as_view(), name="ai_usage"),
     path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]

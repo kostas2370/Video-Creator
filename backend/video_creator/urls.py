@@ -42,6 +42,7 @@ urlpatterns = [
     path("api/", include("apps.usermanagement.urls")),
     path("api/", include("apps.apikeysmanagement.urls")),
     path("api/", include("apps.videomanagement.urls")),
+    path("api/", include("apps.usage.urls")),
     path("api/", include("apps.clips.urls")),
     path("api/", include(api_router.urls)),
     path("media/clips/<path:path>", public_clip_media),

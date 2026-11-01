@@ -14,7 +14,7 @@ from apps.apikeysmanagement.models import UserCustomVisualProvider
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import scene, scene_image, video
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry, custom
-from apps.videomanagement.models import AIUsage
+from apps.usage.models import AIUsage
 from apps.videomanagement.services.scenes.visuals import (
     create_image_scene,
     generate_new_image,
