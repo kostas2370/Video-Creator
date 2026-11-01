@@ -49,6 +49,17 @@ JSON responses can supply a standard `usage` object for token normalization.
 
 ## Generation cost estimates
 
+Visual and narration providers implement `ImageProvider` and `TTSProvider` in
+`integrations/base.py`. Each registered class exposes `generate()` and a pure
+`calculate()` method taking an immutable `ImageCostRequest` or `TTSCostRequest`.
+`apps/usage/estimates.py` assembles the project's planned work and delegates to
+these calculators; provider identity, model selection and billing units live with
+the provider. Shared rate lookup, arithmetic, ranges and totals remain in
+`apps/usage/pricing.py`. Recorded usage retains its existing central pricing path.
+Custom providers use explicitly configured names and rates and never inherit
+built-in pricing. Generation callers resolve the registered class or call its
+`generate()` method directly; transitional module-level function aliases are removed.
+
 ### Optional Economy mode
 
 **Generation mode → Economy** is available in AI creation review, storyboard

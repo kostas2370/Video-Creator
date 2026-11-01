@@ -109,7 +109,7 @@ class CustomImageProviderTests(TestCase):
         self.directory = directory.name
 
     def generate(self, **kwargs):
-        return custom.generate_from_custom_provider(
+        return custom.CustomImageProvider.generate(
             "a red house",
             self.directory,
             user=kwargs.pop("user", self.user),
@@ -383,7 +383,7 @@ class CustomImageProviderTests(TestCase):
 
     def test_registry_routes_custom_names_to_the_retrieval_function(self):
         with patch.object(
-            custom, "generate_from_custom_provider", return_value="image.png"
+            custom.CustomImageProvider, "generate", return_value="image.png"
         ) as generate:
             result = ImageProviderRegistry.resolve("AI", self.provider.name)(
                 "a cat", self.directory, user=self.user

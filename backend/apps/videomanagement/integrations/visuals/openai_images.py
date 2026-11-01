@@ -1,3 +1,5 @@
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.usage.pricing import image_estimate
 import base64
 import logging
 import os
@@ -43,70 +45,81 @@ def image_size_for_frame(video_format):
 
 
 @ImageProviderRegistry.register("OPENAI", supports_reference=True)
-def generate_openai_image(
-    prompt: str,
-    dir_name: str,
-    style: str,
-    title: str = "",
-    user=None,
-    reference: str = None,
-    reference_role: str = "both",
-    *args,
-    video_format: str = None,
-    generation_mode: str = "STANDARD",
-    **kwargs,
-) -> str:
-    """Generate or edit an image using the configured GPT image model."""
-    logger.warning("API CALL IN OPENAI IMAGES")
+class OpenAIImageProvider(ImageProvider):
+    @staticmethod
+    def generate(
+        prompt: str,
+        dir_name: str,
+        style: str,
+        title: str = "",
+        user=None,
+        reference: str = None,
+        reference_role: str = "both",
+        *args,
+        video_format: str = None,
+        generation_mode: str = "STANDARD",
+        **kwargs,
+    ) -> str:
+        """Generate or edit an image using the configured GPT image model."""
+        logger.warning("API CALL IN OPENAI IMAGES")
 
-    client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
+        client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
 
-    has_reference = bool(reference and os.path.isfile(reference))
-    image_prompt = format_image_prompt(
-        title=title,
-        image_description=prompt,
-        style=style,
-        preserve_reference=has_reference,
-        reference_role=reference_role,
-    )
-
-    request = dict(
-        model=settings.IMAGE_MODEL,
-        prompt=image_prompt,
-        size=image_size_for_frame(video_format),
-        quality=image_quality_for(generation_mode),
-        n=1,
-        output_format="png",
-    )
-    if has_reference:
-        if settings.IMAGE_MODEL in {"gpt-image-1", "gpt-image-1.5"}:
-            request["input_fidelity"] = "high"
-        with open(reference, "rb") as anchor:
-            response = client.images.edit(image=anchor, **request)
-    else:
-        response = client.images.generate(**request)
-
-    record_usage(
-        user,
-        "images",
-        Provider.OPENAI,
-        settings.IMAGE_MODEL,
-        getattr(response, "usage", None),
-        images=len(response.data or []),
-    )
-
-    # gpt-image always answers with base64 and never populates `url`.
-    if not response.data or not response.data[0].b64_json:
-        logger.error("Image model %s returned no image data", settings.IMAGE_MODEL)
-        raise APIException(
-            detail="The image model returned no image",
-            code=status.HTTP_400_BAD_REQUEST,
+        has_reference = bool(reference and os.path.isfile(reference))
+        image_prompt = format_image_prompt(
+            title=title,
+            image_description=prompt,
+            style=style,
+            preserve_reference=has_reference,
+            reference_role=reference_role,
         )
 
-    asset = MediaAsset.from_visual(
-        user=user,
-        upload=ContentFile(base64.b64decode(response.data[0].b64_json), name="generated.png"),
-        title=(title or "AI generated image")[:100],
-        tags=["ai image"], kind=MediaAsset.Kind.IMAGE,
-    )
-    return asset.file.path
+        request = dict(
+            model=settings.IMAGE_MODEL,
+            prompt=image_prompt,
+            size=image_size_for_frame(video_format),
+            quality=image_quality_for(generation_mode),
+            n=1,
+            output_format="png",
+        )
+        if has_reference:
+            if settings.IMAGE_MODEL in {"gpt-image-1", "gpt-image-1.5"}:
+                request["input_fidelity"] = "high"
+            with open(reference, "rb") as anchor:
+                response = client.images.edit(image=anchor, **request)
+        else:
+            response = client.images.generate(**request)
+
+        record_usage(
+            user,
+            "images",
+            Provider.OPENAI,
+            settings.IMAGE_MODEL,
+            getattr(response, "usage", None),
+            images=len(response.data or []),
+        )
+
+        # gpt-image always answers with base64 and never populates `url`.
+        if not response.data or not response.data[0].b64_json:
+            logger.error("Image model %s returned no image data", settings.IMAGE_MODEL)
+            raise APIException(
+                detail="The image model returned no image",
+                code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        asset = MediaAsset.from_visual(
+            user=user,
+            upload=ContentFile(
+                base64.b64decode(response.data[0].b64_json), name="generated.png"
+            ),
+            title=(title or "AI generated image")[:100],
+            tags=["ai image"],
+            kind=MediaAsset.Kind.IMAGE,
+        )
+        return asset.file.path
+
+    @staticmethod
+    def calculate(request):
+        return image_estimate(
+            request.count, quality=image_quality_for(request.generation_mode)
+        )

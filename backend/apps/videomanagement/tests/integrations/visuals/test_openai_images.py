@@ -7,16 +7,16 @@ from rest_framework.exceptions import APIException
 
 from apps.videomanagement.integrations.visuals import openai_images
 from apps.videomanagement.integrations.visuals.openai_images import (
-    generate_openai_image,
+    OpenAIImageProvider,
 )
 
 
 class GenerateOpenAIImageTests(TestCase):
     @override_settings(IMAGE_QUALITY="high", IMAGE_MODEL="gpt-image-2")
     def test_economy_changes_only_the_explicit_request_quality(self):
-        generate_openai_image("cat", f"{self.tmp.name}/", style="natural", generation_mode="ECONOMY")
+        OpenAIImageProvider.generate("cat", f"{self.tmp.name}/", style="natural", generation_mode="ECONOMY")
         self.assertEqual(self.client.images.generate.call_args.kwargs["quality"], "medium")
-        generate_openai_image("cat", f"{self.tmp.name}/", style="natural")
+        OpenAIImageProvider.generate("cat", f"{self.tmp.name}/", style="natural")
         self.assertEqual(self.client.images.generate.call_args.kwargs["quality"], "high")
 
     def setUp(self):
@@ -40,7 +40,7 @@ class GenerateOpenAIImageTests(TestCase):
         IMAGE_QUALITY="high",
     )
     def test_decodes_the_image_to_a_png(self):
-        path = generate_openai_image("a cat", f"{self.tmp.name}/", style="vivid")
+        path = OpenAIImageProvider.generate("a cat", f"{self.tmp.name}/", style="vivid")
 
         self.assertTrue(path.endswith(".png"))
         self.assertTrue(openai_images.MediaAsset.objects.filter(kind="IMAGE").exists())
@@ -53,7 +53,7 @@ class GenerateOpenAIImageTests(TestCase):
         IMAGE_QUALITY="high",
     )
     def test_folds_the_style_into_the_prompt(self):
-        generate_openai_image("a cat", f"{self.tmp.name}/", style="vivid", title="Cats")
+        OpenAIImageProvider.generate("a cat", f"{self.tmp.name}/", style="vivid", title="Cats")
 
         kwargs = self.client.images.generate.call_args.kwargs
         self.assertIn("Style: vivid", kwargs["prompt"])
@@ -69,7 +69,7 @@ class GenerateOpenAIImageTests(TestCase):
         self.client.images.generate.return_value.data = []
 
         with self.assertRaises(APIException):
-            generate_openai_image("a cat", f"{self.tmp.name}/", style="vivid")
+            OpenAIImageProvider.generate("a cat", f"{self.tmp.name}/", style="vivid")
 
     @override_settings(OPEN_API_KEY="key", IMAGE_MODEL="gpt-image-2")
     def test_uses_reference_edits_and_keeps_the_configured_model(self):
@@ -77,7 +77,7 @@ class GenerateOpenAIImageTests(TestCase):
             MagicMock(b64_json=base64.b64encode(b"reference result").decode())
         ]
         with tempfile.NamedTemporaryFile(suffix=".png") as anchor:
-            path = generate_openai_image(
+            path = OpenAIImageProvider.generate(
                 "cat running", f"{self.tmp.name}/", style="vivid", reference=anchor.name
             )
         self.client.images.generate.assert_not_called()
@@ -94,7 +94,7 @@ class GenerateOpenAIImageTests(TestCase):
             self.client.images.generate.return_value.data
         )
         with tempfile.NamedTemporaryFile(suffix=".png") as anchor:
-            generate_openai_image(
+            OpenAIImageProvider.generate(
                 "cat", f"{self.tmp.name}/", style="", reference=anchor.name
             )
         self.assertEqual(
@@ -103,7 +103,7 @@ class GenerateOpenAIImageTests(TestCase):
 
     @override_settings(OPEN_API_KEY="key")
     def test_missing_reference_generates_a_fresh_image(self):
-        generate_openai_image(
+        OpenAIImageProvider.generate(
             "cat", f"{self.tmp.name}/", style="", reference="/missing.png"
         )
         self.client.images.generate.assert_called_once()
@@ -118,7 +118,7 @@ class GenerateOpenAIImageTests(TestCase):
             tempfile.NamedTemporaryFile(suffix=".png") as anchor,
             self.assertRaises(RuntimeError),
         ):
-            generate_openai_image(
+            OpenAIImageProvider.generate(
                 "cat", f"{self.tmp.name}/", style="", reference=anchor.name
             )
         self.client.images.generate.assert_not_called()
@@ -133,7 +133,7 @@ class GenerateOpenAIImageTests(TestCase):
             ("SQUARE", "1024x1024"),
         ):
             with self.subTest(frame=frame):
-                generate_openai_image(
+                OpenAIImageProvider.generate(
                     "a cat", f"{self.tmp.name}/", style="", video_format=frame
                 )
                 self.assertEqual(
@@ -154,7 +154,7 @@ class GenerateOpenAIImageTests(TestCase):
                 ("SQUARE", "1024x1024"),
             ):
                 with self.subTest(frame=frame):
-                    generate_openai_image(
+                    OpenAIImageProvider.generate(
                         "a cat",
                         f"{self.tmp.name}/",
                         style="",
@@ -182,14 +182,14 @@ class GenerateOpenAIImageTests(TestCase):
                     ("SQUARE", "1024x1024"),
                 ):
                     with self.subTest(model=model, frame=frame):
-                        generate_openai_image(
+                        OpenAIImageProvider.generate(
                             "a cat", f"{self.tmp.name}/", style="", video_format=frame
                         )
                         self.assertEqual(
                             self.client.images.generate.call_args.kwargs["size"],
                             expected,
                         )
-                        generate_openai_image(
+                        OpenAIImageProvider.generate(
                             "a cat",
                             f"{self.tmp.name}/",
                             style="",
@@ -202,7 +202,7 @@ class GenerateOpenAIImageTests(TestCase):
 
     @override_settings(OPEN_API_KEY="key", IMAGE_MODEL="gpt-image-2-2026-04-21")
     def test_pinned_model_snapshots_keep_exact_portrait_sizing(self):
-        generate_openai_image(
+        OpenAIImageProvider.generate(
             "a cat", f"{self.tmp.name}/", style="", video_format="PORTRAIT"
         )
         self.assertEqual(
@@ -215,7 +215,7 @@ class GenerateOpenAIImageTests(TestCase):
     def test_standalone_and_unknown_format_requests_keep_configured_size(self):
         for frame in (None, "UNKNOWN"):
             with self.subTest(frame=frame):
-                generate_openai_image(
+                OpenAIImageProvider.generate(
                     "a cover", f"{self.tmp.name}/", style="", video_format=frame
                 )
                 self.assertEqual(

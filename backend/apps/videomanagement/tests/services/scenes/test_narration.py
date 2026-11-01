@@ -7,7 +7,7 @@ from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider
 from apps.apikeysmanagement.models import UserCustomTTSProvider
 from apps.usermanagement.baker_recipes import user as user_recipe
 from apps.videomanagement.baker_recipes import scene, video, voice_model
-from apps.videomanagement.integrations.tts import tts_from_custom_provider
+from apps.videomanagement.integrations.tts import CustomTTSProvider
 from apps.videomanagement.models import Scene
 from apps.videomanagement.services.scenes import narration as audio_utils
 from apps.videomanagement.services.scenes.narration import (
@@ -29,7 +29,7 @@ class TTSFromCustomProviderTests(TestCase):
 
     def test_raises_api_exception_when_provider_not_found(self):
         with self.assertRaises(APIException) as ctx:
-            tts_from_custom_provider(
+            CustomTTSProvider.generate(
                 "hello",
                 "/tmp/out.wav",
                 "voice_123",
@@ -48,7 +48,7 @@ class TTSFromCustomProviderTests(TestCase):
         with patch.object(
             UserCustomTTSProvider, "get_auth_headers", return_value=({}, None)
         ):
-            res = tts_from_custom_provider(
+            res = CustomTTSProvider.generate(
                 "hello",
                 "/tmp/out.wav",
                 "v1",

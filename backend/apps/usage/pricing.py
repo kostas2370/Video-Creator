@@ -162,6 +162,17 @@ def estimate_line(label, service, provider, model, measurements, *, custom=False
     }
 
 
+def tts_estimate(text, provider, model="", *, requests=1, custom=False):
+    return estimate_line(
+        "Narration",
+        "tts",
+        provider,
+        model,
+        {"characters": len(text), "requests": requests},
+        custom=custom,
+    )
+
+
 def image_estimate(count, provider="OPENAI", model=None, *, custom=False, quality=None):
     model = model or (
         settings.IMAGE_MODEL if provider == "OPENAI" and not custom else ""
