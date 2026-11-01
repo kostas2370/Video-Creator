@@ -4,6 +4,7 @@ import uuid
 from collections import defaultdict, deque
 
 from django.db import transaction
+from apps.usage.services import video_usage
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.integrations.tts import ApiSyn, save
@@ -36,12 +37,13 @@ def narrate_scene(scene: Scene, voice_model, dir_name: str, user=None) -> Scene:
     filename = str(uuid.uuid4())
     save_path = os.path.join(dir_name, "dialogues", f"{filename}.wav")
 
-    scene.file = save(
-        syn,
-        scene.text,
-        save_path=save_path,
-        user=user,
-    )
+    with video_usage(scene.video):
+        scene.file = save(
+            syn,
+            scene.text,
+            save_path=save_path,
+            user=user,
+        )
     scene.save()
 
     align_scene_narration(scene)

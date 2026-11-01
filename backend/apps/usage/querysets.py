@@ -20,6 +20,8 @@ class AIUsageQuerySet(models.QuerySet):
             for field, coverage in TOKEN_METRICS.items()
         }
         metrics["requests"] = Count("id")
+        metrics["requests_with_cost"] = Count("id", filter=Q(cost_usd__isnull=False))
+        metrics["cost_usd"] = Sum("cost_usd")
         metrics.update(
             {
                 field: Sum(field, default=0)
@@ -28,6 +30,8 @@ class AIUsageQuerySet(models.QuerySet):
         )
 
         def preserve_unknowns(row):
+            if not row["requests"]:
+                row["cost_usd"] = 0
             for field, coverage in TOKEN_METRICS.items():
                 if row["requests"] and not row[coverage]:
                     row[field] = None

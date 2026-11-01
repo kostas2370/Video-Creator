@@ -1,3 +1,5 @@
+import { GenerationCost } from "./GenerationCost";
+import { DeleteDraftProject } from "./DeleteDraftProject";
 import { API_HOST } from "../endpoints";
 import { VisualContinuity } from "./VisualContinuity";
 import { ShotPlanFields } from "./ShotPlanFields";
@@ -8,7 +10,7 @@ import { approveScript } from "../api/apiService";
 
 const inputClass = "mt-2 w-full rounded-xl border border-gray-300 bg-white p-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white";
 
-export function StoryboardModal({ open, video, onClose, onApproved }) {
+export function StoryboardModal({ open, video, onClose, onApproved, onDeleted }) {
   const navigate = useNavigate();
   const [script, setScript] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -50,7 +52,9 @@ export function StoryboardModal({ open, video, onClose, onApproved }) {
   if (!open || !script) return null;
   const narration = video?.settings?.narration !== false;
   return (
-    <EditorDialog open={open} onClose={onClose} busy={busy} title="Review your storyboard" description="Review and edit the generated prompts below. Visuals and narration will be created after you press Proceed." maxWidth="max-w-5xl" footer={<div className="flex justify-end gap-3">
+    <EditorDialog open={open} onClose={onClose} busy={busy} title="Review your storyboard" description="Review and edit the generated prompts below. Visuals and narration will be created after you press Proceed." maxWidth="max-w-5xl" footer={<div className="flex flex-wrap items-end justify-end gap-3">
+      <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost refresh={video.settings} videoId={video.id} storyboard={script} /></div>
+      <DeleteDraftProject id={video.id} disabled={busy} onDeleted={onDeleted} />
       <button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 disabled:opacity-50 dark:text-gray-200">Close</button>
       <button type="submit" form="storyboard-review" disabled={busy} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{busy ? "Starting generation…" : "Proceed"}</button>
     </div>}>

@@ -29,6 +29,15 @@ class AIUsage(models.Model):
     characters = models.PositiveBigIntegerField(default=0)
     images = models.PositiveIntegerField(default=0)
     seconds = models.PositiveIntegerField(default=0)
+    video = models.ForeignKey(
+        "videomanagement.Video",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ai_usage",
+    )
+    cost_usd = models.DecimalField(max_digits=16, decimal_places=8, null=True)
+    cost_details = models.JSONField(default=dict, blank=True)
     objects = AIUsageQuerySet.as_manager()
 
     class Meta:
@@ -36,3 +45,9 @@ class AIUsage(models.Model):
         indexes = [
             models.Index(fields=["user", "created_at"], name="ai_usage_user_date")
         ]
+
+
+class GenerationEstimate(models.Model):
+    video = models.OneToOneField("videomanagement.Video", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now)
+    estimate = models.JSONField(default=dict)

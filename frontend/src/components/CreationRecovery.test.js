@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../hooks/useAxiosPrivate", () => ({ useAxiosPrivate: () => ({}) }));
-vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), draftCharacterDescription: vi.fn(), draftSeriesCast: vi.fn(), createCharacterReference: vi.fn(), getCharacterReference: vi.fn() }));
+vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), deleteDraftVideo: vi.fn(), draftCharacterDescription: vi.fn(), draftSeriesCast: vi.fn(), createCharacterReference: vi.fn(), getCharacterReference: vi.fn() }));
 vi.mock("../utils/draftFiles", () => ({ readDraftFile: vi.fn(), writeDraftFile: vi.fn() }));
 import * as api from "../api/apiService";
 import * as files from "../utils/draftFiles";
@@ -168,4 +168,19 @@ it("reports browser storage errors instead of claiming the draft is saved", () =
   render(wrap(<SeriesProfileForm onSave={vi.fn()} />));
   fireEvent.change(screen.getByLabelText("Series name"), { target: { value: "Important draft" } });
   expect(screen.getByRole("status").textContent).toContain("could not save this draft");
+});
+
+it("deletes a saved draft project without losing the creation settings", async () => {
+  const key = creationDraftKey("alice", "ai-video");
+  localStorage.setItem(key, JSON.stringify({ version: 1, value: { form: { message: "My existing story" }, step: 2, pendingVideoId: "saved-project", ui: {} } }));
+  api.deleteDraftVideo.mockResolvedValue({ ok: true, status: 204 });
+  render(wrap(<Home />));
+  fireEvent.click(screen.getByRole("button", { name: "Delete draft project" }));
+  expect(api.deleteDraftVideo).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Delete", exact: true }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Draft storyboard" })).toBeTruthy());
+  const saved = JSON.parse(localStorage.getItem(key)).value;
+  expect(saved.pendingVideoId).toBeNull();
+  expect(saved.form.message).toBe("My existing story");
+  expect(api.generateVideo).not.toHaveBeenCalled();
 });

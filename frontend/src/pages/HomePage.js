@@ -1,3 +1,4 @@
+import { GenerationCost } from "../components/GenerationCost";
 import { visualProviderNames, isBuiltinVisualProvider, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
 import { useCreationDraft } from "../hooks/useCreationDraft";
 import { useDraftFile } from "../hooks/useDraftFile";
@@ -109,6 +110,13 @@ const Home = () => {
   };
   useAxiosPrivate();
   const pollRef = useRef(null);
+  const draftProjectDeleted = () => {
+    pollRef.current?.cancel();
+    setDraftVideo(null);
+    setVideo_id("");
+    setOpen(false);
+    draft.update(previous => ({ ...previous, pendingVideoId: null }));
+  };
 
   useEffect(() => () => pollRef.current?.cancel(), []);
 
@@ -328,7 +336,7 @@ const Home = () => {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-      <DeferredDialog open={Boolean(draftVideo)} onClose={() => setDraftVideo(null)}><StoryboardModal open={Boolean(draftVideo)} video={draftVideo} onClose={() => setDraftVideo(null)} /></DeferredDialog>
+      <DeferredDialog open={Boolean(draftVideo)} onClose={() => setDraftVideo(null)}><StoryboardModal open={Boolean(draftVideo)} video={draftVideo} onDeleted={draftProjectDeleted} onClose={() => setDraftVideo(null)} /></DeferredDialog>
       <DeferredDialog open={open} onClose={() => isOpenFunction(false)}><ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} /></DeferredDialog>
       <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
@@ -339,7 +347,7 @@ const Home = () => {
       </header>
 
       <form noValidate onSubmit={submitWizard} className="mx-auto max-w-4xl">
-        <CreationDraftNotice draft={draft} pendingVideoId={pendingVideoId} disabled={isLoading} onReset={() => { setReferenceImage(null); draft.reset(); setValidation(""); setDraftVideo(null); }} />
+        <CreationDraftNotice onProjectDeleted={draftProjectDeleted} draft={draft} pendingVideoId={pendingVideoId} disabled={isLoading} onReset={() => { setReferenceImage(null); draft.reset(); setValidation(""); setDraftVideo(null); }} />
         {referenceFile.error && <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-200">{referenceFile.error} <button type="button" onClick={() => setReferenceImage(null)} className="underline">Remove this reference</button></p>}
         <CreationSteps steps={["Idea", "Look & sound", "Review"]} current={step} onSelect={navigateStep} disabled={isLoading} />
         {validation && <p role="alert" className="mb-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{validation}</p>}
@@ -491,6 +499,7 @@ const Home = () => {
         </fieldset>
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
           <div>{step > 0 ? <button type="button" disabled={isLoading} onClick={() => navigateStep(step - 1)} className="text-sm font-semibold text-gray-500">Back</button> : <span className="text-xs text-gray-500">You can edit every scene later.</span>}</div>
+          {step === 2 && !pendingVideoId && <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost scenario={{ ...formData, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count), has_reference: !!referenceImage }} /></div>}
           {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || unavailableVisualProvider))} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }
         </div>
         {step === 2 && <p role={isLoading ? "status" : undefined} className="mt-3 text-center text-xs text-gray-500">{isLoading ? "Drafting your storyboard. This can take a few minutes." : "Review the storyboard before generating voice and visuals."}</p>}

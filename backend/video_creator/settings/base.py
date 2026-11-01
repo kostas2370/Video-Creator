@@ -1,6 +1,7 @@
 from pathlib import Path
 import base64
 import hashlib
+import json
 import os
 from datetime import timedelta
 from urllib.parse import unquote, urlparse
@@ -11,6 +12,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SPEECH_TRANSCRIPTION_PROVIDER = os.getenv("SPEECH_TRANSCRIPTION_PROVIDER") or "openai"
 LOCAL_WHISPER_URL = os.getenv("LOCAL_WHISPER_URL") or "http://whisper:9000"
+AI_COST_RATES = json.loads(os.getenv("AI_COST_RATES") or "{}")
 LOCAL_WHISPER_TIMEOUT = int(os.getenv("LOCAL_WHISPER_TIMEOUT") or 1800)
 YOUTUBE_CAPTIONS_ENABLED = (os.getenv("YOUTUBE_CAPTIONS_ENABLED") or "true").lower() == "true"
 

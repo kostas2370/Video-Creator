@@ -4,6 +4,7 @@ from typing import Literal, Union
 
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
+from apps.usage.services import video_usage
 from rest_framework import status
 from rest_framework.exceptions import APIException
 from slugify import slugify
@@ -48,6 +49,10 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
     Video providers stay sequential: they can use narration duration and a previous
     clip's final frame as an input to the next scene.
     """
+    from apps.usage.scenarios import project_estimate
+    from apps.usage.models import GenerationEstimate
+
+    GenerationEstimate.objects.get_or_create(video=video, defaults={"estimate": project_estimate(video)})
     if not image_mode or ImageProviderRegistry.is_video(
         provider, user=video.created_by, mode=image_mode
     ):
@@ -218,20 +223,21 @@ def generate_video(
         x = video.gpt_answer
         dir_name = video.dir_name
     else:
-        x = get_reply(
-            prompt,
-            gpt_model=gpt_model,
-            user=video.created_by,
-            narration=narration,
-            scene_count=scene_count,
-            ai_scene_editing=ai_scene_editing,
-            video_provider=video_provider,
-            require_visual_continuity=image_mode == "AI",
-            **({"require_episode_summary": True} if series_context else {}),
-            **(
-                {"reference_image": video.reference_image.path} if has_reference else {}
-            ),
-        )
+        with video_usage(video):
+            x = get_reply(
+                prompt,
+                gpt_model=gpt_model,
+                user=video.created_by,
+                narration=narration,
+                scene_count=scene_count,
+                ai_scene_editing=ai_scene_editing,
+                video_provider=video_provider,
+                require_visual_continuity=image_mode == "AI",
+                **({"require_episode_summary": True} if series_context else {}),
+                **(
+                    {"reference_image": video.reference_image.path} if has_reference else {}
+                ),
+            )
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     if image_mode == "AI":

@@ -7,6 +7,7 @@ from pathlib import Path
 from django.core.files import File
 from django.db import close_old_connections
 
+from apps.usage.services import video_usage
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations.visuals import (
     ImageProviderRegistry,
@@ -180,22 +181,23 @@ def character_starting_frame(
         and stored_file_exists(scene.starting_asset.file)
     ):
         return scene.starting_asset.file.path
-    frame = openai_images.generate_openai_image(
-        "Create the starting frame of this single film shot. The reference is a labeled "
-        "character identity sheet, not a scene composition. Use only the characters called "
-        "for in this shot. Preserve their faces, anatomy and distinguishing features. "
-        "Do not reproduce the sheet, panels, labels, or neutral studio backgrounds. "
-        "Compose the actual story setting and action.\n" + prompt,
-        f"{video.dir_name}/images/",
-        style=style,
-        user=user,
-        reference=video.reference_image.path,
-        reference_role="character",
-        title=f"{video.title} · Scene {scene.position} starting image"
-        if scene
-        else "Character starting image",
-        video_format=(video.settings or {}).get("video_format", "PORTRAIT"),
-    )
+    with video_usage(video):
+        frame = openai_images.generate_openai_image(
+            "Create the starting frame of this single film shot. The reference is a labeled "
+            "character identity sheet, not a scene composition. Use only the characters called "
+            "for in this shot. Preserve their faces, anatomy and distinguishing features. "
+            "Do not reproduce the sheet, panels, labels, or neutral studio backgrounds. "
+            "Compose the actual story setting and action.\n" + prompt,
+            f"{video.dir_name}/images/",
+            style=style,
+            user=user,
+            reference=video.reference_image.path,
+            reference_role="character",
+            title=f"{video.title} · Scene {scene.position} starting image"
+            if scene
+            else "Character starting image",
+            video_format=(video.settings or {}).get("video_format", "PORTRAIT"),
+        )
     if not frame:
         raise RuntimeError("Could not create the character shot's starting image.")
     if scene is not None:
@@ -290,17 +292,18 @@ def create_image_scene(
                 saved.prompt = image
                 saved.save()
             return None
-        downloaded_image = generate(
-            visual_prompt,
-            f"{dir_name}/images/",
-            style=style,
-            title=title,
-            duration=visual_generation_duration(scene),
-            video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
-            reference=reference,
-            reference_role=reference_role_for(video, reference),
-            user=user,
-        )
+        with video_usage(video):
+            downloaded_image = generate(
+                visual_prompt,
+                f"{dir_name}/images/",
+                style=style,
+                title=title,
+                duration=visual_generation_duration(scene),
+                video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
+                reference=reference,
+                reference_role=reference_role_for(video, reference),
+                user=user,
+            )
     except Exception as ex:
         logger.error(ex)
         if (video.settings or {}).get("character_references"):
@@ -563,15 +566,16 @@ def generate_scene_visual(scene_image, video, style, *args, mode, provider, **kw
     kwargs.setdefault(
         "video_format", (video.settings or {}).get("video_format", "LANDSCAPE")
     )
-    img = generate(
-        visual_prompt,
-        f"{video.dir_name}/images/",
-        *args,
-        style=style,
-        title=video.title,
-        user=video.created_by,
-        **kwargs,
-    )
+    with video_usage(video):
+        img = generate(
+            visual_prompt,
+            f"{video.dir_name}/images/",
+            *args,
+            style=style,
+            title=video.title,
+            user=video.created_by,
+            **kwargs,
+        )
 
     if not img:
         raise RuntimeError("The visual provider returned no image")

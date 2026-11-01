@@ -1,3 +1,4 @@
+import { GenerationCost } from "./GenerationCost";
 import { useRef, useState } from "react";
 import { editorButton, editorInput } from "./ui/EditorDialog";
 
@@ -43,6 +44,7 @@ export function SceneTextEditor({ scene, index, manual, draft, onDraftChange, on
       if (event.key === "Escape" && changed && !locked) { event.preventDefault(); discard(); }
     }} className={`${editorInput} resize-y leading-7`} />
     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400"><span>{manual ? "Save to update captions." : "Saving updates the script and regenerates narration when enabled."}</span><span>{text.length}/2000</span></div>
+    <GenerationCost refresh={scene} videoId={scene.video} sceneId={scene.id} operation="narration" text={text} active={changed && scene.narration_status !== "disabled"} />
     {conflict && <p role="alert" className="mt-3 text-xs leading-relaxed text-amber-700 dark:text-amber-300">The saved text changed while you were editing. Choose which version to keep.</p>}
     {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
     <div className="mt-3 flex flex-wrap items-center gap-2">

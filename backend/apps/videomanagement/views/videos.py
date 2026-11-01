@@ -230,6 +230,11 @@ class VideoView(
     def perform_destroy(self, instance):
         delete_video(instance)
 
+    @action(detail=True, methods=["DELETE"], url_path="draft")
+    def discard_draft(self, request, pk=None):
+        delete_video(self.get_object(), draft_only=True)
+        return Response(status=204)
+
     @swagger_auto_schema(request_body=MusicAudioSerializer)
     @action(detail=True, methods=["PATCH"])
     def audio(self, request, pk=None):
