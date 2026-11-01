@@ -43,7 +43,7 @@ class CharacterShotReferenceTests(TestCase):
         resolver.start()
         self.addCleanup(resolver.stop)
         generator = patch.object(
-            visuals.openai_images, "generate_openai_image", return_value=self.frame
+            visuals.openai_images.OpenAIImageProvider, "generate", return_value=self.frame
         )
         self.starting = generator.start()
         self.addCleanup(generator.stop)

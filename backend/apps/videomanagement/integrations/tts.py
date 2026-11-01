@@ -1,5 +1,5 @@
 from apps.videomanagement.integrations.base import TTSProvider
-from apps.usage.pricing import estimate_line
+from apps.usage.pricing import tts_estimate
 import base64
 import logging
 import os
@@ -32,6 +32,13 @@ class ApiSyn:
     path: str
 
 
+def write_audio(response, path):
+    with open(path, "wb") as audio:
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                audio.write(chunk)
+
+
 @TTSRegistry.register(Provider.OPENAI)
 class OpenAITTSProvider(TTSProvider):
     @staticmethod
@@ -51,20 +58,21 @@ class OpenAITTSProvider(TTSProvider):
 
     @staticmethod
     def calculate(request):
-        return estimate_line(
-            "Narration",
-            "tts",
-            Provider.OPENAI,
-            "tts-1",
-            {"characters": len(request.text), "requests": request.requests},
+        return tts_estimate(
+            request.text, Provider.OPENAI, "tts-1", requests=request.requests
         )
-
-
-tts_from_openai = OpenAITTSProvider.generate
 
 
 @TTSRegistry.register(Provider.ELEVENLABS)
 class ElevenLabsTTSProvider(TTSProvider):
+    @staticmethod
+    def model_for(voice):
+        return (
+            "eleven_multilingual_v2"
+            if voice and voice.is_cloned
+            else "eleven_monolingual_v1"
+        )
+
     @staticmethod
     def generate(
         text: str, save_path: str, voice: str, user=None, **kwargs
@@ -88,7 +96,7 @@ class ElevenLabsTTSProvider(TTSProvider):
             "Content-Type": "application/json",
             "xi-api-key": key,
         }
-        model = "eleven_multilingual_v2" if clone else "eleven_monolingual_v1"
+        model = ElevenLabsTTSProvider.model_for(clone)
         data = {
             "text": text,
             "model_id": model,
@@ -102,10 +110,7 @@ class ElevenLabsTTSProvider(TTSProvider):
             )
             response.raise_for_status()
             record_usage(user, "tts", Provider.ELEVENLABS, model, characters=len(text))
-            with open(save_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
+            write_audio(response, save_path)
         except Exception as exc:
             logger.error("ElevenLabs TTS request failed: %s", exc)
 
@@ -113,21 +118,10 @@ class ElevenLabsTTSProvider(TTSProvider):
 
     @staticmethod
     def calculate(request):
-        model = (
-            "eleven_multilingual_v2"
-            if request.voice and request.voice.is_cloned
-            else "eleven_monolingual_v1"
+        model = ElevenLabsTTSProvider.model_for(request.voice)
+        return tts_estimate(
+            request.text, Provider.ELEVENLABS, model, requests=request.requests
         )
-        return estimate_line(
-            "Narration",
-            "tts",
-            Provider.ELEVENLABS,
-            model,
-            {"characters": len(request.text), "requests": request.requests},
-        )
-
-
-tts_from_elevenlabs = ElevenLabsTTSProvider.generate
 
 
 @TTSRegistry.register(Provider.SIXTYDB)
@@ -176,16 +170,7 @@ class SixtyDbTTSProvider(TTSProvider):
 
     @staticmethod
     def calculate(request):
-        return estimate_line(
-            "Narration",
-            "tts",
-            Provider.SIXTYDB,
-            "",
-            {"characters": len(request.text), "requests": request.requests},
-        )
-
-
-tts_from_sixtydb = SixtyDbTTSProvider.generate
+        return tts_estimate(request.text, Provider.SIXTYDB, requests=request.requests)
 
 
 @TTSRegistry.register_fallback()
@@ -236,10 +221,7 @@ class CustomTTSProvider(TTSProvider):
             response.raise_for_status()
 
             record_usage(user, "tts", provider_name, characters=len(text), custom=True)
-            with open(save_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
+            write_audio(response, save_path)
         except Exception as exc:
             if os.path.exists(save_path):
                 os.remove(save_path)
@@ -253,17 +235,9 @@ class CustomTTSProvider(TTSProvider):
 
     @staticmethod
     def calculate(request):
-        return estimate_line(
-            "Narration",
-            "tts",
-            request.provider_name,
-            "",
-            {"characters": len(request.text), "requests": request.requests},
-            custom=True,
+        return tts_estimate(
+            request.text, request.provider_name, requests=request.requests, custom=True
         )
-
-
-tts_from_custom_provider = CustomTTSProvider.generate
 
 
 def save(
@@ -272,8 +246,8 @@ def save(
     if not syn:
         return None
 
-    handler = TTSRegistry.get(syn.provider)
-    if not handler:
+    provider = TTSRegistry.provider(syn.provider)
+    if not provider:
         logger.error("No TTS handler registered for provider: %s", syn.provider)
         return None
 
@@ -281,7 +255,7 @@ def save(
     # Prepare the destination before requesting audio from any provider.
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
 
-    handler(
+    provider.generate(
         text,
         save_path,
         syn.path,

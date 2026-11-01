@@ -149,7 +149,7 @@ def generate_reference(character_id, job_id, brief):
             + json.dumps(brief, ensure_ascii=False)
         )
         with tempfile.TemporaryDirectory() as directory:
-            image = openai_images.generate_openai_image(
+            image = openai_images.OpenAIImageProvider.generate(
                 prompt,
                 directory + "/",
                 style="",
