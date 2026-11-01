@@ -113,8 +113,6 @@ class GenerateSerializer(serializers.Serializer):
         return validate_reference_image(value)
 
     def validate(self, attrs):
-        if attrs.get("image_mode") == ImageMode.AI and attrs.get("provider") == "sora":
-            raise serializers.ValidationError({"provider": "Sora is no longer available. Choose another video provider."})
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != ImageMode.AI
             or not ImageProviderRegistry.supports_reference(

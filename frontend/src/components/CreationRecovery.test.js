@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../hooks/useAxiosPrivate", () => ({ useAxiosPrivate: () => ({}) }));
-vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), deleteDraftVideo: vi.fn(), draftCharacterDescription: vi.fn(), draftSeriesCast: vi.fn(), createCharacterReference: vi.fn(), getCharacterReference: vi.fn() }));
+vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), deleteDraftVideo: vi.fn(), draftCharacterDescription: vi.fn(), draftSeriesCast: vi.fn(), createCharacterReference: vi.fn(), getCharacterReference: vi.fn() }));
 vi.mock("../utils/draftFiles", () => ({ readDraftFile: vi.fn(), writeDraftFile: vi.fn() }));
 import * as api from "../api/apiService";
 import * as files from "../utils/draftFiles";
@@ -23,6 +23,7 @@ const startSeries = () => {
 beforeEach(() => {
   vi.clearAllMocks(); localStorage.clear(); savedFiles = new Map();
   [api.getAvatars, api.getTemplates, api.getVoices, api.getIntro, api.getOutro].forEach(fn => fn.mockResolvedValue({ ok: true, data: { results: [], next: null } }));
+  api.getGenerationModels.mockResolvedValue({ ok: true, data: { script_models: { OPENAI: ["gpt-5.4-mini"] }, default_script_model: "gpt-5.4-mini" } });
   api.getCustomVisualProviders.mockResolvedValue({ ok: true, data: [] });
   api.generateVideo.mockResolvedValue({ ok: false });
   files.readDraftFile.mockImplementation(async key => savedFiles.get(key) || null);

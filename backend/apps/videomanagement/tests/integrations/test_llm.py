@@ -171,17 +171,9 @@ class OfficialGptCallTests(SimpleTestCase):
 
 
 class ClaudeCallTests(SimpleTestCase):
-    def test_reads_text_after_thinking_blocks_without_sending_unsupported_temperature(self):
-        client = MagicMock()
-        client.messages.create.return_value.content = [MagicMock(type="thinking"), MagicMock(type="text", text="hello")]
-        with patch.object(llm.anthropic, "Anthropic", return_value=client):
-            self.assertEqual(claude_call("prompt").getvalue(), "hello")
-        self.assertEqual(client.messages.create.call_args.kwargs["model"], "claude-sonnet-5-5")
-        self.assertNotIn("temperature", client.messages.create.call_args.kwargs)
-
     def test_sends_reference_image_using_claude_base64_blocks(self):
         client = MagicMock()
-        client.messages.create.return_value.content = [MagicMock(type="text", text="hello")]
+        client.messages.create.return_value.content = [MagicMock(text="hello")]
         with patch.object(llm.anthropic, "Anthropic", return_value=client):
             claude_call("prompt", image="encoded-jpeg")
         content = client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -193,7 +185,7 @@ class ClaudeCallTests(SimpleTestCase):
     @override_settings(ANTHROPIC_API_KEY="key")
     def test_returns_the_message_text(self):
         client = MagicMock()
-        client.messages.create.return_value.content = [MagicMock(type="text", text="hello")]
+        client.messages.create.return_value.content = [MagicMock(text="hello")]
 
         with patch.object(llm.anthropic, "Anthropic", return_value=client):
             self.assertEqual(claude_call("a prompt").getvalue(), "hello")
@@ -208,40 +200,31 @@ class ClaudeCallTests(SimpleTestCase):
 
 
 class GeminiCallTests(SimpleTestCase):
-    def response(self, parts=None):
-        response = MagicMock()
-        response.json.return_value = {
-            "candidates": [{"content": {"parts": parts or [{"text": "hello"}]}}],
-            "usageMetadata": {"promptTokenCount": 5, "candidatesTokenCount": 3, "thoughtsTokenCount": 2},
-        }
-        return response
+    def test_sends_reference_as_a_gemini_image_blob(self):
+        model = MagicMock()
+        model.generate_content.return_value = MagicMock(text="hello")
+        with patch.object(llm.genai, "configure"), patch.object(llm.genai, "GenerativeModel", return_value=model):
+            gemini_call("prompt", image=base64.b64encode(b"jpeg-bytes").decode())
+        content = model.generate_content.call_args.args[0]
+        self.assertEqual(content, ["prompt", {"mime_type": "image/jpeg", "data": b"jpeg-bytes"}])
+        # Validate the shape against the installed legacy SDK's actual converter.
+        from google.generativeai.types.content_types import to_part
+        self.assertEqual(to_part(content[1]).inline_data.data, b"jpeg-bytes")
 
     @override_settings(GEMINI_API_KEY="key")
-    def test_sends_the_current_model_and_reference_with_an_account_scoped_key(self):
-        image = base64.b64encode(b"jpeg-bytes").decode()
-        with patch.object(llm.requests, "post", return_value=self.response()) as post:
-            self.assertEqual(gemini_call("prompt", image=image).getvalue(), "hello")
-        self.assertTrue(post.call_args.args[0].endswith("models/gemini-3.8-flash:generateContent"))
-        self.assertEqual(post.call_args.kwargs["headers"], {"x-goog-api-key": "key"})
-        self.assertEqual(post.call_args.kwargs["json"]["contents"][0]["parts"], [
-            {"text": "prompt"}, {"inlineData": {"mimeType": "image/jpeg", "data": image}},
-        ])
+    def test_returns_the_reply_text(self):
+        model = MagicMock()
+        model.generate_content.return_value = MagicMock(text="hello")
 
-    def test_ignores_thought_parts_and_records_all_reported_usage(self):
-        response = self.response([{"text": "private reasoning", "thought": True}, {"text": "hello"}])
-        with patch.object(llm.requests, "post", return_value=response), patch.object(llm, "record_usage") as record:
-            self.assertEqual(gemini_call("prompt").getvalue(), "hello")
-        self.assertEqual(record.call_args.args[4]["thoughtsTokenCount"], 2)
+        with (
+            patch.object(llm.genai, "configure"),
+            patch.object(llm.genai, "GenerativeModel", return_value=model),
+        ):
+            self.assertEqual(gemini_call("a prompt").getvalue(), "hello")
 
+    @override_settings(GEMINI_API_KEY="key")
     def test_turns_a_provider_failure_into_an_api_exception(self):
-        with patch.object(llm.requests, "post", side_effect=RuntimeError("upstream down")):
-            with self.assertRaises(APIException):
-                gemini_call("a prompt")
-
-    def test_rejects_an_empty_or_blocked_response(self):
-        response = self.response()
-        response.json.return_value = {"promptFeedback": {"blockReason": "SAFETY"}}
-        with patch.object(llm.requests, "post", return_value=response):
+        with patch.object(llm.genai, "configure", side_effect=RuntimeError("no key")):
             with self.assertRaises(APIException):
                 gemini_call("a prompt")
 

@@ -131,11 +131,6 @@ class GenerateSerializerTests(SerializerWithRequest):
         serializer.is_valid()
         return serializer
 
-    def test_rejects_retired_script_models_and_sora_before_generation(self):
-        for model in ("claude-3-5-sonnet-20240620", "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.0-pro"):
-            self.assertFalse(self.valid(gpt_model=model).is_valid())
-        self.assertIn("provider", self.valid(image_mode="AI", provider="sora").errors)
-
     def test_needs_nothing_but_a_message(self):
         self.assertTrue(self.valid().is_valid())
 

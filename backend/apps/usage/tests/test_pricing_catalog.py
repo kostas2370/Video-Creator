@@ -1,5 +1,4 @@
 from datetime import date
-from unittest.mock import patch
 from decimal import Decimal
 import json
 from pathlib import Path
@@ -57,19 +56,3 @@ class PricingCatalogTests(SimpleTestCase):
             self.assertEqual(set(rate), {"text_input", "image_input", "image_output"})
             for value in rate.values():
                 self.assert_valid_price(value)
-
-    def test_gemini_promotional_prices_change_on_the_published_dates(self):
-        for day, model, expected in (
-            (date(2026, 11, 30), "gemini-4-argon", "0.000002"),
-            (date(2026, 12, 1), "gemini-4-argon", "0.000004"),
-            (date(2026, 12, 31), "gemini-3.8-flash", "0.00000075"),
-            (date(2027, 1, 1), "gemini-3.8-flash", "0.0000015"),
-        ):
-            with (
-                self.subTest(day=day, model=model),
-                patch.object(pricing, "date") as clock,
-            ):
-                clock.today.return_value = day
-                self.assertEqual(
-                    pricing.rate_for("text", "GEMINI", model)["input_tokens"], expected
-                )

@@ -82,7 +82,7 @@ class GenerateViewTests(ApiTestCase):
             },
             {
                 "image_mode": "AI",
-                "provider": "runway",
+                "provider": "sora",
                 "reference_image": self.reference_upload("GIF"),
             },
         ):
@@ -106,7 +106,7 @@ class GenerateViewTests(ApiTestCase):
                     {
                         "message": "cat",
                         "image_mode": "AI",
-                        "provider": "runway",
+                        "provider": "sora",
                         "reference_image": self.reference_upload(),
                     },
                 )
@@ -271,7 +271,7 @@ class StoryboardApprovalTests(ApiTestCase):
         video.settings["ai_scene_editing"] = True
         video.settings["generation_params"]["ai_scene_editing"] = True
         video.settings["generation_params"]["image_mode"] = "AI"
-        video.settings["generation_params"]["provider"] = "runway"
+        video.settings["generation_params"]["provider"] = "sora"
         video.save()
         self.assertEqual(self.approve(video).status_code, 400)
         script = deepcopy(self.script)

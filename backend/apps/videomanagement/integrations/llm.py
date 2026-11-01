@@ -1,12 +1,12 @@
+import base64
 import io
 import json
 import logging
 import sys
 
 import anthropic
-import requests
+import google.generativeai as genai
 from django.conf import settings
-from video_creator.model_catalog import current_script_model
 from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
@@ -140,39 +140,24 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
 
 
 def gemini_call(prompt: str, model="gemini-3.8-flash", user=None, image=None):
-    model = current_script_model(model)
     x = io.StringIO()
     try:
-        parts = [{"text": prompt}]
-        if image is not None:
-            parts.append({"inlineData": {"mimeType": "image/jpeg", "data": image}})
-        response = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            headers={"x-goog-api-key": ApiKeys.key_for(user, Provider.GEMINI)},
-            json={
-                "contents": [{"role": "user", "parts": parts}],
-                "generationConfig": {
-                    "maxOutputTokens": settings.MAX_TOKENS + settings.REASONING_TOKEN_ALLOWANCE,
-                },
-            },
-            timeout=180,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        record_usage(user, "text", Provider.GEMINI, model, payload.get("usageMetadata"))
-        candidates = payload.get("candidates") or []
-        output = candidates[0].get("content", {}).get("parts", []) if candidates else []
-        text = "".join(part.get("text", "") for part in output if not part.get("thought"))
-        if not text:
-            raise ValueError("Gemini returned no script text.")
-        x.write(text)
+        genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
+        client = genai.GenerativeModel(model)
+        content = prompt if image is None else [
+            prompt, {"mime_type": "image/jpeg", "data": base64.b64decode(image)},
+        ]
+        response = client.generate_content(content)
+        record_usage(user, "text", Provider.GEMINI, model, response.usage_metadata)
+        x.write(response.text)
+
     except Exception as err:
         model_error(err, image)
+
     return x
 
 
-def claude_call(prompt: str, model="claude-sonnet-5-5", user=None, image=None):
-    model = current_script_model(model)
+def claude_call(prompt: str, model="claude-sonnet-4-6", user=None, image=None):
     x = io.StringIO()
     try:
         client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))
@@ -184,12 +169,13 @@ def claude_call(prompt: str, model="claude-sonnet-5-5", user=None, image=None):
             })
         message = client.messages.create(
             model=model,
-            max_tokens=settings.MAX_TOKENS + settings.REASONING_TOKEN_ALLOWANCE,
+            max_tokens=settings.MAX_TOKENS,
+            temperature=0,
             messages=[{"role": "user", "content": content}],
         )
 
         record_usage(user, "text", Provider.ANTHROPIC, model, message.usage)
-        x.write("".join(block.text for block in message.content if block.type == "text"))
+        x.write(message.content[0].text)
         return x
     except Exception as err:
         model_error(err, image)
@@ -199,7 +185,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
               narration=None, scene_count=None, ai_scene_editing=False, video_provider=False,
               require_visual_continuity=False, reference_image=None, require_episode_summary=False):
     """Route text requests and retry invalid scripts with specific correction feedback."""
-    gpt_model = current_script_model(gpt_model or settings.DEFAULT_GPT_MODEL)
+    gpt_model = gpt_model or settings.DEFAULT_GPT_MODEL
     original_prompt = prompt
     call_options = {"user": user}
     if reference_image:

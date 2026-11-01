@@ -105,7 +105,7 @@ class GenerationCostTests(TestCase):
         self.assertEqual(animation["low_usd"], "0.84000000")
 
     def test_unknown_voice_is_excluded_from_partial_subtotal(self):
-        self.project.voice_model.provider = "SIXTYDB"
+        self.project.voice_model.provider = "ELEVENLABS"
         self.project.voice_model.save()
         result = self.estimate(storyboard=self.storyboard).data
         self.assertTrue(result["partial"])

@@ -5,11 +5,6 @@ import {
 } from "./visualProviders";
 
 describe("visual provider capabilities", () => {
-  it("hides retired Sora while recognizing saved projects", () => {
-    expect(visualProviderNames).not.toHaveProperty("sora");
-    expect(isBuiltinVideoProvider("sora")).toBe(true);
-    expect(isReservedVisualProvider("sora")).toBe(true);
-  });
   it("reserves picker providers regardless of case or surrounding whitespace", () => {
     for (const name of Object.keys(visualProviderNames)) {
       expect(isReservedVisualProvider("  " + name.toUpperCase() + "  ")).toBe(true);

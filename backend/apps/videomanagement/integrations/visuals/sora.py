@@ -1,28 +1,112 @@
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.usage.pricing import estimate_line
+import logging
+import os
+import uuid
+from io import BytesIO
+
+from django.conf import settings
+from openai import OpenAI
+from PIL import Image, ImageOps
+from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from apps.usage.pricing import estimate_line
-from apps.videomanagement.integrations.base import ImageProvider
+from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.usage.services import record_usage
+from apps.videomanagement.utils.prompt_utils import format_sora_prompt
 
+logger = logging.getLogger(__name__)
 
-SORA_RETIRED_MESSAGE = "Sora is no longer available. Choose Kling, Runway or Gemini video to generate new clips."
+SORA_ALLOWED_SECONDS = (4, 8, 12)
 
 
 @ImageProviderRegistry.register("sora", output_type="VIDEO", supports_reference=True)
 class SoraProvider(ImageProvider):
     @staticmethod
-    def generate(*args, **kwargs):
-        raise APIException(SORA_RETIRED_MESSAGE)
+    def generate(
+        prompt: str,
+        dir_name: str,
+        style: str = "",
+        title: str = "",
+        duration: float = 0,
+        reference: str = None,
+        user=None,
+        *args,
+        **kwargs,
+    ) -> str:
+        logger.warning("API CALL IN SORA")
+
+        # No narration to fit means no duration is passed; fall back to the configured
+        # silent scene length instead of collapsing to the 4s minimum by accident.
+        wanted = duration or settings.SILENT_SCENE_SECONDS
+        seconds = next(
+            (s for s in SORA_ALLOWED_SECONDS if s >= wanted), SORA_ALLOWED_SECONDS[-1]
+        )
+        request = dict(
+            model=settings.SORA_MODEL,
+            prompt=format_sora_prompt(
+                title=title,
+                image_description=prompt,
+                style=style or settings.SORA_STYLE,
+            ),
+            seconds=str(seconds),
+            size=settings.SORA_SIZE,
+        )
+
+        client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
+        if reference and os.path.isfile(reference):
+            request["prompt"] += (
+                " Continue from the supplied opening frame into the action described "
+                "above. Preserve recurring subjects' identity, wardrobe, proportions, "
+                "and the established visual style. Keep motion, lighting, and spatial "
+                "relationships coherent unless the shot explicitly calls for a change."
+            )
+            # Sora requires the reference to match the requested video dimensions.
+            size = tuple(int(value) for value in settings.SORA_SIZE.split("x"))
+            with Image.open(reference) as source, BytesIO() as anchor:
+                ImageOps.fit(ImageOps.exif_transpose(source).convert("RGB"), size).save(
+                    anchor, format="PNG"
+                )
+                anchor.name = "reference.png"
+                anchor.seek(0)
+                video = client.videos.create_and_poll(input_reference=anchor, **request)
+        else:
+            video = client.videos.create_and_poll(**request)
+
+        if video.status != "completed":
+            reason = getattr(video, "error", None)
+            code = getattr(reason, "code", None) or "unknown"
+            message = getattr(reason, "message", None) or "no reason given"
+            logger.error(
+                "Sora job %s ended as %s: %s - %s",
+                video.id,
+                video.status,
+                code,
+                message,
+            )
+            raise APIException(
+                detail=f"Sora did not return a video ({video.status}: {code} - {message})",
+                code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        record_usage(
+            user, "video", Provider.OPENAI, settings.SORA_MODEL, seconds=seconds
+        )
+        filename = f"{dir_name}{uuid.uuid4()}.mp4"
+        client.videos.download_content(video.id, variant="video").write_to_file(
+            filename
+        )
+
+        return filename
 
     @staticmethod
     def calculate(request):
-        line = estimate_line(
+        return estimate_line(
             "Animation",
             "video",
             "sora",
-            "sora-2",
+            settings.SORA_MODEL,
             {"requests": request.count},
             custom=True,
         )
-        line["note"] = SORA_RETIRED_MESSAGE
-        return line

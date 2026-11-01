@@ -184,8 +184,6 @@ def generate_video(
     - It retrieves a template, formats a prompt, and generates video content using various sources for text, images,
       and audio.
     """
-    if image_mode == "AI" and provider == "sora":
-        raise APIException("Sora is no longer available. Choose another video provider.")
     selected_avatar = owned_asset(Avatar, avatar_selection, video.created_by)
     intro = owned_asset(Intro, intro, video.created_by)
     outro = owned_asset(Outro, outro, video.created_by)

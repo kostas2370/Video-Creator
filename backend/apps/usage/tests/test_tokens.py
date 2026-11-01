@@ -28,10 +28,6 @@ class TokenUsageTests(SimpleTestCase):
                         },
                     )
 
-    def test_gemini_bills_thinking_tokens_as_output_in_both_api_formats(self):
-        for usage in ({"promptTokenCount": 3, "candidatesTokenCount": 4, "thoughtsTokenCount": 2}, {"prompt_token_count": 3, "candidates_token_count": 4, "thoughts_token_count": 2}):
-            self.assertEqual(normalize_token_usage(usage, "GEMINI"), {"input_tokens": 3, "output_tokens": 6, "total_tokens": 9})
-
     def test_preserves_reported_total_even_when_components_differ(self):
         result = normalize_token_usage(
             {

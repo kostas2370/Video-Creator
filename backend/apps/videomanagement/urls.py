@@ -9,7 +9,7 @@ from apps.videomanagement.views.assets import (
     TemplatePromptView,
     VoiceView,
 )
-from apps.videomanagement.views.generation import GenerateView
+from apps.videomanagement.views.generation import GenerateView, GenerationModelsView
 from apps.videomanagement.views.scenes import SceneView
 from apps.videomanagement.views.videos import VideoView
 
@@ -33,6 +33,7 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
+    path("generation-models/", GenerationModelsView.as_view(), name="generation_models"),
     path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
 ]

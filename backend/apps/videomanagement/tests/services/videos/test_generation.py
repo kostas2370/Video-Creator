@@ -268,7 +268,7 @@ class GenerateVideoTests(TestCase):
     def test_asks_for_a_shot_brief_for_a_video_provider(self):
         # A still model wastes most of its value on "a tray of donuts", and the other
         # way round.
-        self.generate(provider="runway", image_mode="AI")
+        self.generate(provider="sora", image_mode="AI")
 
         self.assertIn("camera move", self.get_reply.call_args.args[0])
 
@@ -307,7 +307,7 @@ class GenerateVideoTests(TestCase):
         self.make_scenes_speech.side_effect = lambda *a, **k: calls.append("speech")
         self.create_image_scenes.side_effect = lambda *a, **k: calls.append("images")
 
-        self.generate(provider="runway", image_mode="AI")
+        self.generate(provider="sora", image_mode="AI")
 
         self.assertEqual(calls, ["speech", "images"])
 

@@ -1,7 +1,6 @@
 import json
 import logging
 from pathlib import Path
-from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
@@ -36,13 +35,7 @@ def rate_for(service, provider, model, *, custom=False):
     )
     if not isinstance(rate, dict):
         return None
-    selected = {"checked_at": PRICING_DATE, **rate}
-    for change in sorted(
-        rate.get("changes", []), key=lambda item: item["effective_at"]
-    ):
-        if change["effective_at"] <= date.today().isoformat():
-            selected.update(change)
-    return selected
+    return {"checked_at": PRICING_DATE, **rate}
 
 
 def unit_cost(rate, measurements):

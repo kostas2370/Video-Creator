@@ -6,8 +6,6 @@ import os
 from datetime import timedelta
 from urllib.parse import unquote, urlparse
 
-from video_creator.model_catalog import current_script_model
-
 # Paths
 # settings/ is a package now, so BASE_DIR is three parents up rather than two.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -265,7 +263,7 @@ TEST_RUNNER = "video_creator.test_runner.ServiceKeysRunner"
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
 REASONING_TOKEN_ALLOWANCE = int(os.getenv("REASONING_TOKEN_ALLOWANCE") or 8000)
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
-DEFAULT_GPT_MODEL = current_script_model(os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini")
+DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini"
 
 IMAGE_MODEL = os.getenv("IMAGE_MODEL") or "gpt-image-2"
 IMAGE_QUALITY = os.getenv("IMAGE_QUALITY") or "high"
@@ -300,41 +298,42 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-ACCEPTED_MODELS = [
-    "gpt-3.5-turbo",
-    "gpt-4",
-    "gpt-4-turbo",
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4.1-nano",
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "gpt-5-chat-latest",
-    "gpt-5.1",
-    "gpt-5.1-chat-latest",
-    "gpt-5.2",
-    "gpt-5.2-chat-latest",
-    "gpt-5.3-chat-latest",
-    "gpt-5.4",
-    "gpt-5.4-mini",
-    "gpt-5.4-nano",
-    "gpt-5.5",
-    "gpt-5.6-luna",
-    "gpt-5.6-sol",
-    "gpt-5.6-terra",
-    "gpt-6-astra",
-    "o1",
-    "o3",
-    "o3-mini",
-    "o4-mini",
-    "claude-sonnet-5-5",
-    "gemini-4-argon",
-    "gemini-3.8-flash",
-    "gemini-3.5-flash-lite",
-]
+SCRIPT_MODELS = {
+    "OPENAI": [
+        "gpt-3.5-turbo",
+        "gpt-4",
+        "gpt-4-turbo",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano",
+        "gpt-5-chat-latest",
+        "gpt-5.1",
+        "gpt-5.1-chat-latest",
+        "gpt-5.2",
+        "gpt-5.2-chat-latest",
+        "gpt-5.3-chat-latest",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+        "gpt-5.5",
+        "gpt-5.6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.6-terra",
+        "gpt-6-astra",
+        "o1",
+        "o3",
+        "o3-mini",
+        "o4-mini",
+    ],
+    "ANTHROPIC": ["claude-sonnet-4-6"],
+    "GEMINI": ["gemini-4-argon", "gemini-3.8-flash", "gemini-3.5-flash-lite"],
+}
+ACCEPTED_MODELS = [model for models in SCRIPT_MODELS.values() for model in models]
 
 FFMPEG_RENDER_TIMEOUT = int(os.getenv("FFMPEG_RENDER_TIMEOUT") or "3600")
 FFMPEG_DIRECT_RENDER = (os.getenv("FFMPEG_DIRECT_RENDER") or "true").lower() not in (
