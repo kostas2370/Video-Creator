@@ -113,6 +113,31 @@ def starting_frame_key(video, prompt, style):
     return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
 
 
+def store_starting_image(scene, upload, *, description, style, key):
+    video = scene.video
+    asset = MediaAsset.from_visual(
+        user=video.created_by,
+        upload=upload,
+        title=f"{video.title} · Scene {scene.position} starting image",
+        tags=["starting image"],
+        kind=MediaAsset.Kind.IMAGE,
+        source_video=video,
+    )
+    if "starting image" not in asset.tags:
+        asset.tags = list(dict.fromkeys([*asset.tags, "starting image"]))
+        if not asset.source_video_id:
+            asset.source_video = video
+        asset.save(update_fields=["tags", "source_video"])
+    scene.starting_asset = asset
+    scene.starting_image_context = {
+        "key": key,
+        "description": description,
+        "style": style,
+    }
+    scene.save(update_fields=["starting_asset", "starting_image_context"])
+    return asset
+
+
 def character_starting_frame(
     video,
     prompt,
@@ -165,26 +190,13 @@ def character_starting_frame(
         raise RuntimeError("Could not create the character shot's starting image.")
     if scene is not None:
         with open(frame, "rb") as source:
-            asset = MediaAsset.from_visual(
-                user=user,
-                upload=File(source, name="starting-image.png"),
-                title=f"{video.title} · Scene {scene.position} starting image",
-                tags=["starting image"],
-                kind=MediaAsset.Kind.IMAGE,
-                source_video=video,
+            asset = store_starting_image(
+                scene,
+                File(source, name="starting-image.png"),
+                description=description or prompt,
+                style=style,
+                key=key,
             )
-        if "starting image" not in asset.tags:
-            asset.tags = list(dict.fromkeys([*asset.tags, "starting image"]))
-            if not asset.source_video_id:
-                asset.source_video = video
-            asset.save(update_fields=["tags", "source_video"])
-        scene.starting_asset = asset
-        scene.starting_image_context = {
-            "key": key,
-            "description": description or prompt,
-            "style": style,
-        }
-        scene.save(update_fields=["starting_asset", "starting_image_context"])
         return asset.file.path
     return frame
 
@@ -500,7 +512,6 @@ def generate_new_image(
     if video.video_type == VideoType.MANUAL:
         mode, provider = ImageMode.AI, Provider.OPENAI
         Path(video.dir_name, "images").mkdir(parents=True, exist_ok=True)
-    generate = ImageProviderRegistry.resolve(mode, provider)
     visual_prompt = planned_visual_prompt(
         scene_image.scene, scene_image.prompt or "", mode, provider
     )
@@ -519,6 +530,22 @@ def generate_new_image(
         if not scene_image.file:
             scene_image.save()
         return scene_image
+    return generate_scene_visual(
+        scene_image,
+        video,
+        style,
+        *args,
+        mode=mode,
+        provider=provider,
+        **kwargs,
+    )
+
+
+def generate_scene_visual(scene_image, video, style, *args, mode, provider, **kwargs):
+    generate = ImageProviderRegistry.resolve(mode, provider)
+    visual_prompt = planned_visual_prompt(
+        scene_image.scene, scene_image.prompt or "", mode, provider
+    )
     if "reference" not in kwargs:
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     kwargs.setdefault("reference_role", reference_role_for(video, kwargs["reference"]))

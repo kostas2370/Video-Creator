@@ -1,13 +1,13 @@
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
-from apps.videomanagement.models import ImageMode, MediaAsset, SceneImage
+from apps.videomanagement.models import ImageMode, SceneImage
 from apps.videomanagement.services.scenes.editing import changed, editable_video
 from apps.videomanagement.services.scenes.visuals import (
     planned_visual_prompt,
-    reference_role_for,
+    generate_scene_visual,
+    store_starting_image,
     starting_frame_key,
-    visual_generation_duration,
 )
 from apps.videomanagement.utils.file_utils import stored_file_exists
 
@@ -83,20 +83,13 @@ def save_starting_image(
                     "Add a shot description before uploading a starting image."
                 )
             style = (video.settings or {}).get("style", "natural")
-            asset = MediaAsset.from_visual(
-                user=video.created_by,
-                upload=image,
-                title=f"{video.title} · Scene {scene.position} starting image",
-                tags=["starting image"],
-                kind=MediaAsset.Kind.IMAGE,
-                source_video=video,
+            store_starting_image(
+                scene,
+                image,
+                description=description,
+                style=style,
+                key=current_key(scene, description, style),
             )
-            scene.starting_asset = asset
-            context = {
-                "description": description,
-                "style": style,
-                "key": current_key(scene, description, style),
-            }
         elif operation == "approve":
             if starting_image_status(scene) == "missing":
                 raise ValidationError("Prepare a starting image before approving it.")
@@ -107,8 +100,8 @@ def save_starting_image(
                     "The shot settings changed. Prepare and review a new starting image."
                 )
             context["approved_asset"] = str(scene.starting_asset_id)
-        scene.starting_image_context = context
-        scene.save(update_fields=["starting_asset", "starting_image_context"])
+            scene.starting_image_context = context
+            scene.save(update_fields=["starting_image_context"])
         changed(video, invalidate_avatar=False)
     return scene
 
@@ -120,22 +113,13 @@ def animate_starting_image(scene, asset_id):
     video = scene.video
     context = scene.starting_image_context
     provider = (video.settings or {}).get("provider")
-    generate = ImageProviderRegistry.resolve(video.mode, provider)
-    result = generate(
-        planned_visual_prompt(scene, context["description"], video.mode, provider),
-        f"{video.dir_name}/images/",
-        style=context.get("style", "natural"),
-        title=video.title,
-        user=video.created_by,
-        reference=scene.starting_asset.file.path,
-        reference_role=reference_role_for(video, scene.starting_asset.file.path),
-        duration=visual_generation_duration(scene),
-        video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
-    )
-    if not result:
-        raise RuntimeError("The visual provider returned no video")
     target = scene.scene_images.first() or SceneImage(scene=scene)
-    target.file = result
     target.prompt = context["description"]
-    target.save()
-    return target
+    return generate_scene_visual(
+        target,
+        video,
+        context.get("style", "natural"),
+        mode=video.mode,
+        provider=provider,
+        reference=scene.starting_asset.file.path,
+    )
