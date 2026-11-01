@@ -178,8 +178,8 @@ class UpdateUserVoicesTests(TestCase):
         self.user.use_service_api_keys = False
         self.user.save(update_fields=["use_service_api_keys"])
         for provider, fetcher, handler in (
-            (Provider.ELEVENLABS, "get_voices_from_elevenlabs", "tts_from_elevenlabs"),
-            (Provider.SIXTYDB, "get_voices_from_sixtydb", "tts_from_sixtydb"),
+            (Provider.ELEVENLABS, "get_voices_from_elevenlabs", tts_utils.ElevenLabsTTSProvider),
+            (Provider.SIXTYDB, "get_voices_from_sixtydb", tts_utils.SixtyDbTTSProvider),
         ):
             with self.subTest(provider=provider):
                 with patch.object(tts_utils, fetcher, autospec=True) as fetch:
@@ -193,7 +193,7 @@ class UpdateUserVoicesTests(TestCase):
                     return_value={provider: "key" for provider in (Provider.OPENAI, Provider.ELEVENLABS, Provider.SIXTYDB)}
                 ):
                     self.assertIn(voice, VoiceModel.objects.available_to(self.user))
-                with patch.object(tts_utils, handler) as synthesize:
+                with patch.object(handler, "generate") as synthesize:
                     tts_utils.save(
                         tts_utils.ApiSyn(provider=voice.provider, path=voice.path),
                         "hello",

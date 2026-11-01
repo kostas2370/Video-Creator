@@ -109,7 +109,7 @@ class CustomImageProviderTests(TestCase):
         self.directory = directory.name
 
     def generate(self, **kwargs):
-        return custom.generate_from_custom_provider(
+        return custom.CustomImageProvider.generate(
             "a red house",
             self.directory,
             user=kwargs.pop("user", self.user),

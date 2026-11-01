@@ -10,6 +10,30 @@ from apps.videomanagement.integrations.visuals.openai_images import OpenAIImageP
 
 @override_settings(IMAGE_MODEL="gpt-image-2", IMAGE_QUALITY="high", AI_COST_RATES={})
 class ImageProviderCostTests(SimpleTestCase):
+    @override_settings(SILENT_SCENE_SECONDS=30)
+    def test_video_calculators_use_generation_duration_rounding_and_clamps(self):
+        for name, provider_name, expected in (
+            ("runway", "RUNWAY", 26),
+            ("kling", "FAL", 37),
+            ("gemini-video", "GEMINI", 27),
+        ):
+            with self.subTest(provider=name):
+                provider = ImageProviderRegistry.provider(name, "AI")
+                self.assertIsInstance(provider, ImageProvider)
+                with patch.object(type(provider), "generate") as generate:
+                    line = provider.calculate(
+                        ImageCostRequest(count=4, durations=(0.2, 3.1, 100, None))
+                    )
+                self.assertEqual(line["provider"], provider_name)
+                self.assertEqual(line["units"], {"seconds": expected, "requests": 4})
+                generate.assert_not_called()
+
+    def test_runway_uses_its_known_per_second_rate(self):
+        line = ImageProviderRegistry.provider("runway", "AI").calculate(
+            ImageCostRequest(count=2, durations=(1, 3.1))
+        )
+        self.assertEqual(line["low_usd"], "0.72000000")
+
     def test_image_registrations_expose_class_calculators_without_generating_media(
         self,
     ):

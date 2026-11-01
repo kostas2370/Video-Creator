@@ -68,7 +68,7 @@ class CustomTtsTests(TestCase):
                 with patch.object(
                     tts_utils.requests, "post", return_value=response
                 ) as post:
-                    tts_utils.tts_from_custom_provider(
+                    tts_utils.CustomTTSProvider.generate(
                         "hello",
                         self.out,
                         "voice",
@@ -143,7 +143,7 @@ class CustomTtsTests(TestCase):
             ):
                 with self.subTest(provider=name, user=owner):
                     with self.assertRaises(APIException):
-                        tts_utils.tts_from_custom_provider(
+                        tts_utils.CustomTTSProvider.generate(
                             "hello", self.out, "voice", user=owner, provider_name=name
                         )
             post.assert_not_called()

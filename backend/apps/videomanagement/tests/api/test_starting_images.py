@@ -46,7 +46,7 @@ class StartingImageTests(ApiTestCase):
         )
         self.url = reverse("scene-starting-image", args=[self.scene.pk])
         with patch(
-            "apps.videomanagement.services.scenes.visuals.openai_images.generate_openai_image",
+            "apps.videomanagement.services.scenes.visuals.openai_images.OpenAIImageProvider.generate",
             return_value=str(self.frame),
         ):
             create_image_scene(

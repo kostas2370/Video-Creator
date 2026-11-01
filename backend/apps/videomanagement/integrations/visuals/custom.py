@@ -192,6 +192,3 @@ class CustomImageProvider(ImageProvider):
                 custom=True,
             )
         return image_estimate(request.count, request.provider_name, custom=True)
-
-
-generate_from_custom_provider = CustomImageProvider.generate
