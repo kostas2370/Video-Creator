@@ -139,7 +139,7 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
     return x
 
 
-def gemini_call(prompt: str, model="gemini-1.5-pro", user=None, image=None):
+def gemini_call(prompt: str, model=settings.SCRIPT_MODELS["GEMINI"][0], user=None, image=None):
     x = io.StringIO()
     try:
         genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
@@ -157,7 +157,7 @@ def gemini_call(prompt: str, model="gemini-1.5-pro", user=None, image=None):
     return x
 
 
-def claude_call(prompt: str, model="claude-3-5-sonnet-20240620", user=None, image=None):
+def claude_call(prompt: str, model=settings.SCRIPT_MODELS["ANTHROPIC"][0], user=None, image=None):
     x = io.StringIO()
     try:
         client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))

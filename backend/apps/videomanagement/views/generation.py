@@ -1,3 +1,5 @@
+from django.conf import settings
+from rest_framework.views import APIView
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
@@ -29,4 +31,16 @@ class GenerateView(GenericAPIView):
                 "video": VideoSerializer(video).data,
             },
             status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class GenerationModelsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(
+            {
+                "script_models": settings.SCRIPT_MODELS,
+                "default_script_model": settings.DEFAULT_GPT_MODEL,
+            }
         )

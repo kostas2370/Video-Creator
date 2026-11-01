@@ -1,7 +1,6 @@
 // Keep picker labels and capabilities together so new providers need one UI entry.
 const providers = {
   OPENAI: { label: "OpenAI images", reference: true },
-  sora: { label: "OpenAI Sora (legacy)", reference: true, video: true },
   kling: { label: "Kling O3 · fal.ai (video)", reference: true, video: true },
   runway: { label: "Runway Gen-4.5 (video)", reference: true, video: true },
   "gemini-video": { label: "Gemini Omni Flash (video)", reference: true, video: true },
@@ -23,7 +22,7 @@ export const isBuiltinVideoProvider = name =>
   isBuiltinVisualProvider(name) && providers[name].video === true;
 
 const reservedNames = new Set(
-  [...Object.keys(providers), "stable_diffusion", "bing", "google"].map(name => name.toLowerCase())
+  [...Object.keys(providers), "sora", "stable_diffusion", "bing", "google"].map(name => name.toLowerCase())
 );
 
 export const isReservedVisualProvider = name => reservedNames.has(name.trim().toLowerCase());

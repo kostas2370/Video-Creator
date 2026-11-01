@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../hooks/useAxiosPrivate", () => ({ useAxiosPrivate: () => ({}) }));
-vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), draftCharacterDescription: vi.fn() }));
+vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), draftCharacterDescription: vi.fn() }));
 import * as api from "../api/apiService";
 import Home from "../pages/HomePage";
 import { SeriesProfileForm } from "./SeriesProfileForm";
@@ -13,6 +13,7 @@ import { CharacterDescriptionDraft } from "./CharacterDescriptionDraft";
 beforeEach(() => {
   vi.clearAllMocks();
   [api.getAvatars, api.getTemplates, api.getVoices, api.getIntro, api.getOutro].forEach(fn => fn.mockResolvedValue({ ok: true, data: { results: [], next: null } }));
+  api.getGenerationModels.mockResolvedValue({ ok: true, data: { script_models: { OPENAI: ["server-script-model"] }, default_script_model: "server-script-model" } });
   api.getCustomVisualProviders.mockResolvedValue({ ok: true, data: [] });
   api.generateVideo.mockResolvedValue({ ok: false });
 });
@@ -92,4 +93,15 @@ it("keeps the existing description when AI drafting fails", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Write description with AI" }));
   expect((await screen.findByRole("alert")).textContent).toContain("Text provider unavailable");
   expect(onUse).not.toHaveBeenCalled();
+});
+
+it("loads script choices and the default from the backend", async () => {
+  render(<MemoryRouter><Home /></MemoryRouter>);
+  await waitFor(() => expect(api.getGenerationModels).toHaveBeenCalledOnce());
+  fireEvent.change(screen.getByLabelText("Your prompt"), { target: { value: "A fox" } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+  fireEvent.click(screen.getByRole("button", { name: "Review video" }));
+  await waitFor(() => expect(screen.getByLabelText("Script model").value).toBe("server-script-model"));
+  expect(screen.getByRole("option", { name: "server-script-model", hidden: true })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "gpt-5.4-mini", hidden: true })).toBeNull();
 });

@@ -13,7 +13,7 @@ import { useObjectUrl } from "../hooks/useObjectUrl";
 import { useAssetOptions } from "../hooks/useAssetOptions";
 import { MoreAssetOptions } from "../components/ui/MoreAssetOptions";
 import React, { lazy, useState, useEffect, useRef } from "react";
-import { getAvatars, getTemplates, getVoices, getCustomVisualProviders } from "../api/apiService";
+import { getAvatars, getTemplates, getVoices, getCustomVisualProviders, getGenerationModels } from "../api/apiService";
 import { toast } from "react-toastify";
 import { deleteTemplate, generateVideo } from "../api/apiService";
 import { waitForVideo } from "../api/waitForVideo";
@@ -50,6 +50,9 @@ const Home = () => {
   const avatars = avatarOptions.items;
   const { items: templates, setItems: setTemplates } = templateOptions;
   const voices = voiceOptions.items;
+  const [scriptModels, setScriptModels] = useState({});
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelsError, setModelsError] = useState("");
   const [visualProviders, setVisualProviders] = useState([]);
   const [visualProvidersLoading, setVisualProvidersLoading] = useState(true);
   const [visualProvidersError, setVisualProvidersError] = useState("");
@@ -74,7 +77,7 @@ const Home = () => {
     ai_scene_editing: false,
     target_audience: "",
     image_mode: "WEB",
-    gpt_model: "gpt-5.4-mini",
+    gpt_model: "",
     generation_mode: "STANDARD",
     style: "natural",
     visual_continuity: "",
@@ -121,6 +124,20 @@ const Home = () => {
   };
 
   useEffect(() => () => pollRef.current?.cancel(), []);
+
+  useEffect(() => {
+    let current = true;
+    getGenerationModels().then(result => {
+      if (!current) return;
+      if (result.ok) {
+        setScriptModels(result.data.script_models);
+        setFormData(previous => ({ ...previous, gpt_model: previous.gpt_model || result.data.default_script_model }));
+      } else setModelsError(result.message);
+      setModelsLoading(false);
+    });
+    return () => { current = false; };
+  }, []);
+
 
   useEffect(() => {
     let current = true;
@@ -230,7 +247,7 @@ const Home = () => {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (pendingVideoId || referenceFile.loading || (referenceFile.error && !referenceImage)) return;
+    if (modelsLoading || modelsError || pendingVideoId || referenceFile.loading || (referenceFile.error && !referenceImage)) return;
     if (formData.image_mode === "AI" && !isBuiltinVisualProvider(formData.provider) && (visualProvidersLoading || visualProvidersError || !visualProviders.some((provider) => provider.name === formData.provider))) {
       toast.error("Choose an available visual provider before generating.");
       return;
@@ -445,49 +462,10 @@ const Home = () => {
               {formData.image_mode === "AI" && <div className="sm:col-span-2"><VisualContinuity description="AI will draft character and setting details with your storyboard. Add any preferences here; your description takes priority." value={formData.visual_continuity} onChange={value => setFormData(previous => ({ ...previous, visual_continuity: value }))} disabled={isLoading} /></div>}
               {field("target_audience", "Who is this for?", <input id="target_audience" name="target_audience" value={formData.target_audience} onChange={handleInputChange} className={inputClassName} placeholder="e.g. curious beginners" />, "Shapes the language and level of detail.")}
               {field("genre", "Tone or genre", <input id="genre" name="genre" value={formData.genre} onChange={handleInputChange} className={inputClassName} placeholder="e.g. documentary" />, "Give the script a style, such as documentary or playful.")}
-              {field("gpt_model", "Script model", select("gpt_model", <><optgroup label="OpenAI">
-                          <option value="gpt-5.4-mini">gpt-5.4-mini</option>
-                          <option value="gpt-5.4">gpt-5.4</option>
-                          <option value="gpt-5.4-nano">gpt-5.4-nano</option>
-                          <option value="gpt-5.5">gpt-5.5</option>
-                          <option value="gpt-5.6-luna">gpt-5.6-luna</option>
-                          <option value="gpt-5.6-sol">gpt-5.6-sol</option>
-                          <option value="gpt-5.6-terra">gpt-5.6-terra</option>
-                          <option value="gpt-6-astra">gpt-6-astra</option>
-                          <option value="gpt-5">gpt-5</option>
-                          <option value="gpt-5-mini">gpt-5-mini</option>
-                          <option value="gpt-5-nano">gpt-5-nano</option>
-                          <option value="gpt-5.1">gpt-5.1</option>
-                          <option value="gpt-5.2">gpt-5.2</option>
-                          <option value="gpt-5.3-chat-latest">
-                            gpt-5.3-chat-latest
-                          </option>
-                          <option value="gpt-4.1">gpt-4.1</option>
-                          <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                          <option value="gpt-4.1-nano">gpt-4.1-nano</option>
-                          <option value="gpt-4o">gpt-4o</option>
-                          <option value="gpt-4o-mini">gpt-4o-mini</option>
-                          <option value="gpt-4-turbo">gpt-4-turbo</option>
-                          <option value="gpt-4">gpt-4</option>
-                          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-                          <option value="o3">o3</option>
-                          <option value="o3-mini">o3-mini</option>
-                          <option value="o4-mini">o4-mini</option>
-                          <option value="o1">o1</option>
-                        </optgroup>
-                        <optgroup label="Anthropic">
-                          <option value="claude-3-5-sonnet-20240620">
-                            claude 3-5
-                          </option>
-                        </optgroup>
-                        <optgroup label="Google">
-                          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-                          <option value="gemini-1.5-flash">
-                            gemini-1.5-flash
-                          </option>
-                          <option value="gemini-1.0-pro">gemini-1.0-pro</option>
-                        </optgroup>
-                      </>))}
+              {field("gpt_model", "Script model", select("gpt_model", <>
+                <option value="" disabled>{modelsLoading ? "Loading models..." : "Choose a script model"}</option>
+                {Object.entries(scriptModels).map(([provider, models]) => <optgroup key={provider} label={provider}>{models.map(model => <option key={model} value={model}>{model}</option>)}</optgroup>)}
+              </>, modelsLoading || Boolean(modelsError)), modelsError)}
               {field("platform", "Optimize for", <div role="radiogroup" aria-label="Optimize for platform" className="mt-2 grid grid-cols-2 gap-2">
                 {platformOptions.map((option) => <label key={option.value} className={`flex cursor-pointer items-center justify-center rounded-xl border p-3 text-sm font-medium transition focus-within:ring-2 focus-within:ring-blue-500 ${formData.platform === option.value ? "border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500/20 dark:border-blue-400 dark:bg-blue-400/10 dark:text-blue-200" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}>
                   <input className="sr-only" type="radio" name="platform" value={option.value} checked={formData.platform === option.value} onChange={handleInputChange} />{option.label}
@@ -503,7 +481,7 @@ const Home = () => {
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
           <div>{step > 0 ? <button type="button" disabled={isLoading} onClick={() => navigateStep(step - 1)} className="text-sm font-semibold text-gray-500">Back</button> : <span className="text-xs text-gray-500">You can edit every scene later.</span>}</div>
           {step === 2 && !pendingVideoId && <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost scenario={{ ...formData, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count), has_reference: !!referenceImage }} /></div>}
-          {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || unavailableVisualProvider))} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }
+          {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || modelsLoading || Boolean(modelsError) || unavailableVisualProvider))} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }
         </div>
         {step === 2 && <p role={isLoading ? "status" : undefined} className="mt-3 text-center text-xs text-gray-500">{isLoading ? "Drafting your storyboard. This can take a few minutes." : "Review the storyboard before generating voice and visuals."}</p>}
       </form>
