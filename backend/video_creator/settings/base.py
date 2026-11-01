@@ -6,6 +6,8 @@ import os
 from datetime import timedelta
 from urllib.parse import unquote, urlparse
 
+from video_creator.model_catalog import current_script_model
+
 # Paths
 # settings/ is a package now, so BASE_DIR is three parents up rather than two.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -263,7 +265,7 @@ TEST_RUNNER = "video_creator.test_runner.ServiceKeysRunner"
 MAX_TOKENS = int(os.getenv("MAX_TOKENS") or 3900)
 REASONING_TOKEN_ALLOWANCE = int(os.getenv("REASONING_TOKEN_ALLOWANCE") or 8000)
 OPEN_API_KEY = os.getenv("OPEN_API_KEY")
-DEFAULT_GPT_MODEL = os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini"
+DEFAULT_GPT_MODEL = current_script_model(os.getenv("DEFAULT_GPT_MODEL") or "gpt-5.4-mini")
 
 IMAGE_MODEL = os.getenv("IMAGE_MODEL") or "gpt-image-2"
 IMAGE_QUALITY = os.getenv("IMAGE_QUALITY") or "high"
@@ -328,10 +330,10 @@ ACCEPTED_MODELS = [
     "o3",
     "o3-mini",
     "o4-mini",
-    "claude-3-5-sonnet-20240620",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash",
-    "gemini-1.0-pro",
+    "claude-sonnet-5-5",
+    "gemini-4-argon",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite",
 ]
 
 FFMPEG_RENDER_TIMEOUT = int(os.getenv("FFMPEG_RENDER_TIMEOUT") or "3600")

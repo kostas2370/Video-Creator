@@ -476,16 +476,16 @@ const Home = () => {
                           <option value="o1">o1</option>
                         </optgroup>
                         <optgroup label="Anthropic">
-                          <option value="claude-3-5-sonnet-20240620">
-                            claude 3-5
+                          <option value="claude-sonnet-5-5">
+                            Claude Sonnet 5.5
                           </option>
                         </optgroup>
                         <optgroup label="Google">
-                          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-                          <option value="gemini-1.5-flash">
-                            gemini-1.5-flash
+                          <option value="gemini-4-argon">gemini-4-argon</option>
+                          <option value="gemini-3.8-flash">
+                            gemini-3.8-flash
                           </option>
-                          <option value="gemini-1.0-pro">gemini-1.0-pro</option>
+                          <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite</option>
                         </optgroup>
                       </>))}
               {field("platform", "Optimize for", <div role="radiogroup" aria-label="Optimize for platform" className="mt-2 grid grid-cols-2 gap-2">

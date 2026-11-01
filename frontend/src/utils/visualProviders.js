@@ -1,7 +1,7 @@
 // Keep picker labels and capabilities together so new providers need one UI entry.
 const providers = {
   OPENAI: { label: "OpenAI images", reference: true },
-  sora: { label: "OpenAI Sora (legacy)", reference: true, video: true },
+  sora: { label: "OpenAI Sora (retired)", reference: true, video: true, retired: true },
   kling: { label: "Kling O3 · fal.ai (video)", reference: true, video: true },
   runway: { label: "Runway Gen-4.5 (video)", reference: true, video: true },
   "gemini-video": { label: "Gemini Omni Flash (video)", reference: true, video: true },
@@ -10,7 +10,7 @@ const providers = {
 };
 
 export const visualProviderNames = Object.fromEntries(
-  Object.entries(providers).map(([name, provider]) => [name, provider.label])
+  Object.entries(providers).filter(([, provider]) => !provider.retired).map(([name, provider]) => [name, provider.label])
 );
 
 export const isBuiltinVisualProvider = name =>

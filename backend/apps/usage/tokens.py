@@ -31,6 +31,7 @@ class TokenUsageAdapter:
     )
     total_fields: tuple[str, ...] = ("total_tokens", "total_token_count")
     additional_input_fields: tuple[str, ...] = ()
+    additional_output_fields: tuple[str, ...] = ()
 
     def normalize(self, usage):
         input_tokens = first_count(usage, self.input_fields)
@@ -40,6 +41,11 @@ class TokenUsageAdapter:
             input_tokens += sum(
                 first_count(usage, (field,)) or 0
                 for field in self.additional_input_fields
+            )
+        if output_tokens is not None:
+            output_tokens += sum(
+                first_count(usage, (field,)) or 0
+                for field in self.additional_output_fields
             )
         if (
             total_tokens is None
@@ -57,6 +63,12 @@ class TokenUsageAdapter:
 DEFAULT_TOKEN_ADAPTER = TokenUsageAdapter()
 # Provider-specific semantics belong here, not in the persistence function.
 TOKEN_USAGE_ADAPTERS = {
+    "GEMINI": TokenUsageAdapter(
+        input_fields=("promptTokenCount", "prompt_token_count"),
+        output_fields=("candidatesTokenCount", "candidates_token_count"),
+        total_fields=("totalTokenCount", "total_token_count"),
+        additional_output_fields=("thoughtsTokenCount", "thoughts_token_count"),
+    ),
     "ANTHROPIC": TokenUsageAdapter(
         additional_input_fields=(
             "cache_read_input_tokens",

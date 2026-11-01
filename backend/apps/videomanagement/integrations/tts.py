@@ -67,11 +67,7 @@ class OpenAITTSProvider(TTSProvider):
 class ElevenLabsTTSProvider(TTSProvider):
     @staticmethod
     def model_for(voice):
-        return (
-            "eleven_multilingual_v2"
-            if voice and voice.is_cloned
-            else "eleven_monolingual_v1"
-        )
+        return "eleven_multilingual_v2"
 
     @staticmethod
     def generate(

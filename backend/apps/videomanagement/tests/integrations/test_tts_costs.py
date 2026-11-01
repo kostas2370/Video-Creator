@@ -39,8 +39,8 @@ class TTSProviderCostTests(SimpleTestCase):
         )
         self.assertEqual(cloned["model"], "eleven_multilingual_v2")
         self.assertEqual(cloned["low_usd"], "0.05000000")
-        self.assertEqual(normal["model"], "eleven_monolingual_v1")
-        self.assertIsNone(normal["low_usd"])
+        self.assertEqual(normal["model"], "eleven_multilingual_v2")
+        self.assertEqual(normal["low_usd"], "0.05000000")
 
     @override_settings(AI_COST_RATES={"tts:Studio:": {"requests": "0.03"}})
     def test_custom_voice_costs_use_the_owned_name_and_explicit_request_count(self):

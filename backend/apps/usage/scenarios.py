@@ -1,6 +1,7 @@
 import math
 
 from django.conf import settings
+from video_creator.model_catalog import current_script_model
 
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.utils.prompt_utils import build_script_prompt
@@ -10,7 +11,7 @@ from .pricing import estimate_line, money, total_estimate
 
 
 def scenario_estimate(data, user):
-    model = data.get("gpt_model") or settings.DEFAULT_GPT_MODEL
+    model = current_script_model(data.get("gpt_model") or settings.DEFAULT_GPT_MODEL)
     provider = (
         "ANTHROPIC"
         if model.startswith("claude")
@@ -39,7 +40,7 @@ def scenario_estimate(data, user):
         else None,
     )
     budget = settings.MAX_TOKENS + (
-        settings.REASONING_TOKEN_ALLOWANCE if provider == "OPENAI" else 0
+        settings.REASONING_TOKEN_ALLOWANCE if provider in ("OPENAI", "ANTHROPIC", "GEMINI") else 0
     )
     low = estimate_line(
         "Scenario / script",

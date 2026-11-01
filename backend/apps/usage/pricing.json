@@ -37,6 +37,51 @@
     "video:RUNWAY:gen4.5": {
       "seconds": "0.12",
       "source": "https://dev.runwayml.com/pricing"
+    },
+    "text:ANTHROPIC:claude-sonnet-5-5": {
+      "input_tokens": "0.000002",
+      "output_tokens": "0.00001",
+      "source": "https://platform.claude.com/docs/en/models/overview",
+      "basis": "Standard uncached paid-tier token rates."
+    },
+    "text:GEMINI:gemini-4-argon": {
+      "input_tokens": "0.000002",
+      "output_tokens": "0.00001",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "basis": "Standard uncached paid-tier token rates. Promotional rates through November 30, 2026; review before December 1.",
+      "changes": [
+        {
+          "effective_at": "2026-12-01",
+          "input_tokens": "0.000004",
+          "output_tokens": "0.00002",
+          "basis": "Standard uncached paid-tier token rates after the introductory promotion."
+        }
+      ]
+    },
+    "text:GEMINI:gemini-3.8-flash": {
+      "input_tokens": "0.00000075",
+      "output_tokens": "0.00000375",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "basis": "Standard uncached paid-tier token rates. Promotional rates through December 31, 2026; review before January 1.",
+      "changes": [
+        {
+          "effective_at": "2027-01-01",
+          "input_tokens": "0.0000015",
+          "output_tokens": "0.0000075",
+          "basis": "Standard uncached paid-tier token rates after the introductory promotion."
+        }
+      ]
+    },
+    "text:GEMINI:gemini-3.5-flash-lite": {
+      "input_tokens": "0.0000003",
+      "output_tokens": "0.0000025",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "basis": "Standard uncached paid-tier token rates."
+    },
+    "tts:ELEVENLABS:eleven_multilingual_v2": {
+      "characters": "0.00008",
+      "source": "https://elevenlabs.io/pricing/api",
+      "basis": "Published API list rate; excludes account discounts."
     }
   },
   "image_reference_prices": {

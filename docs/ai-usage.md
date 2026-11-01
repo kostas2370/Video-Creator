@@ -182,3 +182,30 @@ use the generic format even if their display name matches a built-in provider.
 Provider response references:
 [Chat streaming usage](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events)
 and [image usage](https://developers.openai.com/api/reference/resources/images/methods/generate).
+
+## Model availability (November 1, 2026)
+
+Retired script selections are replaced in templates, saved retry parameters and
+queued requests while preserving the provider:
+
+| Retired model | Replacement |
+| --- | --- |
+| `claude-3-5-sonnet-20240620` | `claude-sonnet-5-5` |
+| `gemini-1.5-pro` | `gemini-4-argon` |
+| `gemini-1.5-flash` | `gemini-3.8-flash` |
+| `gemini-1.0-pro` | `gemini-3.5-flash-lite` |
+
+ElevenLabs uses `eleven_multilingual_v2` for both regular and cloned voices.
+Existing script output, rendered media and recorded usage are retained.
+Sora is no longer offered for new projects; saved Sora projects require an explicit
+choice of another video provider, without automatically sending prompts elsewhere.
+
+Sources: [Anthropic models](https://platform.claude.com/docs/en/models/overview),
+[Gemini models](https://ai.google.dev/gemini-api/docs/models),
+[ElevenLabs removal notice](https://elevenlabs.io/docs/changelog/2026/6/8),
+[OpenAI Sora shutdown](https://developers.openai.com/api/docs/models/sora-2).
+
+The catalog includes announced Gemini price changes on December 1, 2026 (Argon)
+and January 1, 2027 (Flash). Calculations select the rate effective on the current
+server date. Provider overrides continue to take priority. Gemini output counts
+include thinking tokens; standard catalog rates exclude caching and tier discounts.
