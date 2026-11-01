@@ -35,20 +35,6 @@ class SoraProvider(ImageProvider):
         *args,
         **kwargs,
     ) -> str:
-        """
-        Generate a short video clip for one sentence with Sora.
-
-        Returns the path to an .mp4 rather than an image. process_scene already branches on
-        file type, so the rest of the pipeline treats it like any other scene visual: the
-        narration stays the source of truth for timing and handle_video fits the clip to it.
-
-        `duration` is the narration length for this sentence. Sora only renders 4, 8 or 12
-        second clips, so the shortest one that covers the narration is requested; anything
-        longer than 12s is covered by handle_video holding the final frame.
-
-        `reference` is the preceding clip's closing frame. Every sentence is its own
-        job, so this opening frame carries visual continuity into the next shot.
-        """
         logger.warning("API CALL IN SORA")
 
         # No narration to fit means no duration is passed; fall back to the configured
@@ -124,6 +110,3 @@ class SoraProvider(ImageProvider):
             {"requests": request.count},
             custom=True,
         )
-
-
-generate_from_sora = SoraProvider.generate

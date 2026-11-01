@@ -6,7 +6,7 @@ from PIL import Image
 from rest_framework.exceptions import APIException
 
 from apps.videomanagement.integrations.visuals import sora
-from apps.videomanagement.integrations.visuals.sora import generate_from_sora
+from apps.videomanagement.integrations.visuals.sora import SoraProvider
 
 
 class GenerateFromSoraTests(SimpleTestCase):
@@ -22,7 +22,7 @@ class GenerateFromSoraTests(SimpleTestCase):
         with tempfile.TemporaryDirectory() as tmp:
             kwargs.setdefault("prompt", "a cat naps")
             kwargs.setdefault("dir_name", f"{tmp}/")
-            return generate_from_sora(**kwargs)
+            return SoraProvider.generate(**kwargs)
 
     def requested_seconds(self, duration):
         self.generate(duration=duration)

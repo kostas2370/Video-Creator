@@ -25,7 +25,7 @@ class SavedPathTests(SimpleTestCase):
             patch.object(diffusion.requests, "post", return_value=response),
             patch.object(diffusion.urllib.request, "urlretrieve") as retrieve,
         ):
-            saved = diffusion.generate_from_diffusion("a cat", self.DIR)
+            saved = diffusion.StableDiffusionProvider.generate("a cat", self.DIR)
 
         self.assert_saved_into_the_directory(saved)
         self.assertEqual(retrieve.call_args.args[1], saved)
@@ -41,7 +41,7 @@ class SavedPathTests(SimpleTestCase):
             patch.object(midjourney.requests, "get", return_value=finished),
             patch.object(midjourney.urllib.request, "urlretrieve") as retrieve,
         ):
-            saved = midjourney.generate_from_midjourney("a cat", self.DIR)
+            saved = midjourney.MidjourneyProvider.generate("a cat", self.DIR)
 
         self.assert_saved_into_the_directory(saved)
         self.assertEqual(retrieve.call_args.args[1], saved)
