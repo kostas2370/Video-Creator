@@ -323,7 +323,6 @@ class CharacterSetupTests(ApiTestCase):
         reference = self.upload().data
         character = self.character(reference)
         for changes in (
-            {"cast": []},
             {"cast": [self.character()]},
             {
                 "cast": [

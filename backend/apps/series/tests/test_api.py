@@ -198,6 +198,27 @@ class SeriesTests(ApiTestCase):
         episode.save(update_fields=["memory_source_hash"])
         return episode
 
+    def test_series_without_characters_can_be_created_and_draft_episodes_in_every_format(self):
+        for story_format in ("GENERAL", "ANIMATED_STORY", "SERIAL_DRAMA"):
+            with self.subTest(story_format=story_format):
+                response = self.client.post(self.url("list"), {
+                    "title": "Everyday science", "premise": "Explore a different science topic each week",
+                    "visual_style": "Clean diagrams", "narration": False,
+                    "story_format": story_format,
+                }, format="json")
+                self.assertEqual(response.status_code, 201, response.data)
+                self.assertEqual(response.data["cast"], [])
+                self.assertTrue(response.data["cast_ready"])
+                series = VideoSeries.objects.get(pk=response.data["id"])
+                self.assertEqual(series.characters, "")
+                draft = self.draft("How rainbows form", series=series)
+                self.assertEqual(draft.status_code, 202, draft.data)
+                episode = SeriesEpisode.objects.get(pk=draft.data["id"])
+                self.assertEqual(episode.profile_snapshot["cast"], [])
+                self.assertFalse(episode.video.reference_image)
+                self.assertFalse(episode.video.settings["character_references"])
+        self.assertEqual(self.queue.call_count, 3)
+
     def test_profile_creation_validation_and_owner_scope(self):
         other = VideoSeries.objects.create(
             created_by=user.make(),

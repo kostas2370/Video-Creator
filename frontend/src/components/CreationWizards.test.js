@@ -105,3 +105,16 @@ it("loads script choices and the default from the backend", async () => {
   expect(screen.getByRole("option", { name: "server-script-model", hidden: true })).toBeTruthy();
   expect(screen.queryByRole("option", { name: "gpt-5.4-mini", hidden: true })).toBeNull();
 });
+
+it("creates a topic-based series by skipping optional characters", async () => {
+  const onSave = vi.fn();
+  render(<SeriesProfileForm onSave={onSave} />);
+  fireEvent.change(screen.getByLabelText("Series name"), { target: { value: "Everyday science" } });
+  fireEvent.change(screen.getByLabelText("What is this series about?"), { target: { value: "A different science topic each week" } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to cast" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continue without characters" }));
+  expect(screen.getByRole("heading", { name: "Ready for your first episode?" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Create series" }));
+  await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ cast: [], characters: "", story_format: "GENERAL" })));
+  expect(api.draftCharacterDescription).not.toHaveBeenCalled();
+});

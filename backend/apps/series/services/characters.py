@@ -171,7 +171,7 @@ def generate_reference(character_id, job_id, brief):
 def cast_is_ready(characters, story_format, visual_style):
     characters = list(characters)
     if not characters:
-        return story_format == "GENERAL"
+        return True
     return all(
         character.image
         and character.image_approved
