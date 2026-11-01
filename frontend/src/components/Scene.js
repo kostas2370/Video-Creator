@@ -27,7 +27,7 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite, manual, scene, setUpdated, onRemoveScene, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
+export const Scene = ({ generationMode = "STANDARD", textDraft, onTextDraftChange, onTextSave, onTextRewrite, manual, scene, setUpdated, onRemoveScene, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -85,6 +85,7 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
           prompt: scene.scene_image?.prompt,
           with_audio: scene.scene_image?.with_audio,
           video_format,
+          generation_mode: generationMode,
           starting_image_required: scene.starting_image_required,
         }}
         setUpdate={setUpdated}
@@ -102,7 +103,7 @@ export const Scene = ({ textDraft, onTextDraftChange, onTextSave, onTextRewrite,
 
             </div>
 
-            {(scene.starting_image_required || scene.starting_image) && <SceneStartingImage scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} />}
+            {(scene.starting_image_required || scene.starting_image) && <SceneStartingImage generationMode={generationMode} scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} />}
 
             {visualPrompt && !promptShownInStartingImage && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
           </div>

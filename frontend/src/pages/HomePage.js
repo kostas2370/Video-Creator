@@ -1,3 +1,4 @@
+import { GenerationModeSelect } from "../components/GenerationModeSelect";
 import { GenerationCost } from "../components/GenerationCost";
 import { visualProviderNames, isBuiltinVisualProvider, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
 import { useCreationDraft } from "../hooks/useCreationDraft";
@@ -74,6 +75,7 @@ const Home = () => {
     target_audience: "",
     image_mode: "WEB",
     gpt_model: "gpt-5.4-mini",
+    generation_mode: "STANDARD",
     style: "natural",
     visual_continuity: "",
     reference_role: "both",
@@ -422,6 +424,7 @@ const Home = () => {
         <aside aria-labelledby="summary-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 p-5 dark:from-blue-900 dark:to-indigo-900"><RiSparkling2Line aria-hidden="true" className="mb-3 h-7 w-7 text-blue-600 dark:text-blue-300" /><h2 id="summary-heading" className="text-lg font-semibold">Review your video</h2><p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">A first draft you can edit and refine.</p></div>
           <p className="mb-5 whitespace-pre-line text-sm leading-relaxed text-gray-600 dark:text-gray-300">{formData.message}</p>
+          <GenerationModeSelect value={formData.generation_mode} onChange={value => setFormData(previous => ({ ...previous, generation_mode: value }))} disabled={isLoading} />
           <p className="mb-5 text-xs text-gray-500">{videoFormatOptions.find(format => format.value === formData.video_format)?.label} · {formData.scene_count || "AI-selected"} scenes</p>
             <div className="mt-4 max-w-xs">{field("scene_count", "Number of scenes", <input id="scene_count" name="scene_count" type="number" min={1} max={60} value={formData.scene_count} onChange={handleInputChange} className={inputClassName} placeholder="Let AI choose" />, "One short sentence per scene. Choose 1–60, or leave blank to let AI choose.")}</div>
           <dl className="space-y-4 text-sm">

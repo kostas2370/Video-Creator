@@ -12,6 +12,13 @@ from apps.videomanagement.integrations.visuals.openai_images import (
 
 
 class GenerateOpenAIImageTests(TestCase):
+    @override_settings(IMAGE_QUALITY="high", IMAGE_MODEL="gpt-image-2")
+    def test_economy_changes_only_the_explicit_request_quality(self):
+        generate_openai_image("cat", f"{self.tmp.name}/", style="natural", generation_mode="ECONOMY")
+        self.assertEqual(self.client.images.generate.call_args.kwargs["quality"], "medium")
+        generate_openai_image("cat", f"{self.tmp.name}/", style="natural")
+        self.assertEqual(self.client.images.generate.call_args.kwargs["quality"], "high")
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

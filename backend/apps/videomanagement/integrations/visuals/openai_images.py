@@ -13,6 +13,7 @@ from rest_framework.exceptions import APIException
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.usage.services import record_usage
+from apps.videomanagement.utils.generation_quality import image_quality_for
 from apps.videomanagement.utils.prompt_utils import format_image_prompt
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ def generate_openai_image(
     reference_role: str = "both",
     *args,
     video_format: str = None,
+    generation_mode: str = "STANDARD",
     **kwargs,
 ) -> str:
     """Generate or edit an image using the configured GPT image model."""
@@ -72,7 +74,7 @@ def generate_openai_image(
         model=settings.IMAGE_MODEL,
         prompt=image_prompt,
         size=image_size_for_frame(video_format),
-        quality=settings.IMAGE_QUALITY,
+        quality=image_quality_for(generation_mode),
         n=1,
         output_format="png",
     )

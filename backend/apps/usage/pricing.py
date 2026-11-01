@@ -162,7 +162,7 @@ def estimate_line(label, service, provider, model, measurements, *, custom=False
     }
 
 
-def image_estimate(count, provider="OPENAI", model=None, *, custom=False):
+def image_estimate(count, provider="OPENAI", model=None, *, custom=False, quality=None):
     model = model or (
         settings.IMAGE_MODEL if provider == "OPENAI" and not custom else ""
     )
@@ -176,13 +176,14 @@ def image_estimate(count, provider="OPENAI", model=None, *, custom=False):
     )
     if line["low_usd"] is not None or custom or provider != "OPENAI":
         return line
-    prices = IMAGE_REFERENCE_PRICES.get(model, {}).get(settings.IMAGE_QUALITY)
+    quality = quality or settings.IMAGE_QUALITY
+    prices = IMAGE_REFERENCE_PRICES.get(model, {}).get(quality)
     if prices:
         line.update(
             low_usd=money(Decimal(prices[0]) * count),
             high_usd=money(Decimal(prices[1]) * count),
             source=IMAGE_SOURCE,
-            note=f"{settings.IMAGE_QUALITY.title()} quality: output-only guide for 1024-square and 1024×1536 reference sizes. Your frame size, prompt and reference images change the final cost.",
+            note=f"{quality.title()} quality: output-only guide for 1024-square and 1024×1536 reference sizes. Your frame size, prompt and reference images change the final cost.",
         )
     return line
 

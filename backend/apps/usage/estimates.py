@@ -4,6 +4,7 @@ from django.conf import settings
 
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import VoiceModelType
+from apps.videomanagement.utils.generation_quality import image_quality_for
 from apps.videomanagement.services.scenes.visuals import visual_generation_duration
 
 from .pricing import estimate_line, image_estimate, total_estimate
@@ -71,6 +72,13 @@ def animation_estimate(video, durations):
 
 def media_estimate(video, storyboard=None, *, scene=None, operation="all", text=None):
     options = video.settings or {}
+    generation_mode = (
+        (storyboard or {}).get(
+            "generation_mode", options.get("generation_mode", "STANDARD")
+        )
+        if isinstance(storyboard, dict)
+        else options.get("generation_mode", "STANDARD")
+    )
     narration = options.get("narration", video.video_type != "MANUAL")
     if scene is None:
         storyboard = storyboard if storyboard is not None else video.gpt_answer
@@ -131,6 +139,7 @@ def media_estimate(video, storyboard=None, *, scene=None, operation="all", text=
                         custom=custom
                         and not character_images
                         and video.video_type != "MANUAL",
+                        quality=image_quality_for(generation_mode),
                     )
                 )
     estimate = total_estimate(lines)

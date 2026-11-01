@@ -1,3 +1,4 @@
+import { GenerationModeSelect } from "./GenerationModeSelect";
 import { GenerationCost } from "./GenerationCost";
 import { DeleteDraftProject } from "./DeleteDraftProject";
 import { API_HOST } from "../endpoints";
@@ -20,6 +21,7 @@ export function StoryboardModal({ open, video, onClose, onApproved, onDeleted })
     if (!video?.gpt_answer || initializedVideo.current === video.id) return;
     initializedVideo.current = video.id;
     const draft = JSON.parse(JSON.stringify(video.gpt_answer));
+    draft.generation_mode = video.settings?.generation_mode || draft.generation_mode || "STANDARD";
     if (video.mode === "AI") draft.visual_continuity = video.settings?.visual_continuity ?? draft.visual_continuity ?? "";
     setScript(draft);
     setError("");
@@ -59,6 +61,7 @@ export function StoryboardModal({ open, video, onClose, onApproved, onDeleted })
       <button type="submit" form="storyboard-review" disabled={busy} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{busy ? "Starting generation…" : "Proceed"}</button>
     </div>}>
       <form id="storyboard-review" onSubmit={proceed} className="text-gray-700 dark:text-gray-200">
+          {video.mode === "AI" && <GenerationModeSelect value={script.generation_mode} onChange={value => setScript(current => ({ ...current, generation_mode: value }))} disabled={busy} />}
           <label className="block text-sm font-semibold">Video title
             <input autoFocus required maxLength={50} value={script.title} disabled={busy} onChange={event => setScript({ ...script, title: event.target.value })} className={inputClass} />
           </label>

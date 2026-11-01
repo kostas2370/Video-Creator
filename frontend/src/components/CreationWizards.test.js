@@ -18,6 +18,19 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("offers Economy only as an explicit generation choice", async () => {
+  render(<MemoryRouter><Home /></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText("Your prompt"), { target: { value: "A fox solves a mystery" } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+  fireEvent.click(screen.getByRole("button", { name: "Review video" }));
+  expect(screen.getByRole("combobox", { name: "Generation mode" }).value).toBe("STANDARD");
+  fireEvent.change(screen.getByRole("combobox", { name: "Generation mode" }), { target: { value: "ECONOMY" } });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Draft storyboard" }).disabled).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Draft storyboard" }));
+  await waitFor(() => expect(api.generateVideo).toHaveBeenCalledOnce());
+  expect(api.generateVideo.mock.calls[0][0]).toMatchObject({ generation_mode: "ECONOMY" });
+});
+
 it("walks through video steps without generating until final review and preserves earlier choices", async () => {
   render(<MemoryRouter><Home /></MemoryRouter>);
   expect(screen.queryByRole("heading", { name: "Choose the look & sound" })).toBeNull();

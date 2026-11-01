@@ -132,6 +132,7 @@ def generate_video(
     visual_continuity: str = "",
     reference_role: str = "both",
     series_context: str = "",
+    generation_mode: str = "STANDARD",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -271,6 +272,7 @@ def generate_video(
         platform=platform,
         style=style,
         provider=provider,
+        generation_mode=generation_mode,
     )
     if creation_mode:
         vid.settings["creation_mode"] = creation_mode
