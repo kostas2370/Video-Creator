@@ -47,7 +47,7 @@ it("replaces drafting with one clear continuation action for an active episode",
   expect(html).not.toContain('type="submit"');
 });
 
-it("requires cast setup before offering episode drafting for story series", () => {
+it("requires approval for provided characters before offering episode drafting", () => {
   const html = renderToStaticMarkup(<EpisodeComposer profile={{ cast_ready: false }} />);
   expect(html).toContain("Create and approve your characters first");
   expect(html).toContain("Set up your cast");
