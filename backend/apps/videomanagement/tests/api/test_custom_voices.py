@@ -17,7 +17,7 @@ from apps.apikeysmanagement.baker_recipes import api_keys
 from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.exceptions import VoiceProviderError
-from apps.videomanagement.integrations.tts import tts_from_elevenlabs
+from apps.videomanagement.integrations.tts import ElevenLabsTTSProvider
 from apps.videomanagement.services.voices.cloning import (
     normalized_sample,
     provider_request,
@@ -223,11 +223,11 @@ class CustomVoiceTests(TestCase):
         voice = self.clone()
         with patch("apps.videomanagement.integrations.tts.requests.post") as speech:
             with self.assertRaises(PermissionDenied):
-                tts_from_elevenlabs("Hello", "/tmp/unused.wav", voice.path, user=user.make())
+                ElevenLabsTTSProvider.generate("Hello", "/tmp/unused.wav", voice.path, user=user.make())
             voice.requires_verification = True
             voice.save()
             with self.assertRaises(ValidationError):
-                tts_from_elevenlabs("Hello", "/tmp/unused.wav", voice.path, user=self.user)
+                ElevenLabsTTSProvider.generate("Hello", "/tmp/unused.wav", voice.path, user=self.user)
             speech.assert_not_called()
 
     def test_creation_is_throttled(self):

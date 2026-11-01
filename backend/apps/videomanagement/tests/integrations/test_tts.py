@@ -14,9 +14,9 @@ from apps.videomanagement.integrations.tts import (
     get_voices_from_elevenlabs,
     get_voices_from_sixtydb,
     save,
-    tts_from_elevenlabs,
-    tts_from_openai,
-    tts_from_sixtydb,
+    ElevenLabsTTSProvider,
+    OpenAITTSProvider,
+    SixtyDbTTSProvider,
 )
 
 
@@ -40,7 +40,7 @@ class SaveTests(TestCase):
         out = os.path.join(tempfile.mkdtemp(), "out.wav")
 
         with patch.object(
-            tts_utils, "tts_from_elevenlabs", side_effect=wrote(out)
+            tts_utils.ElevenLabsTTSProvider, "generate", side_effect=wrote(out)
         ) as eleven:
             self.assertEqual(save(syn, "hello", out, user=self.user), out)
 
@@ -56,21 +56,21 @@ class SaveTests(TestCase):
         syn = ApiSyn(provider=Provider.ELEVENLABS, path="a-voice-id")
         out = os.path.join(tempfile.mkdtemp(), "missing.wav")
 
-        with patch.object(tts_utils, "tts_from_elevenlabs"):
+        with patch.object(tts_utils.ElevenLabsTTSProvider, "generate"):
             self.assertIsNone(save(syn, "hello", out, user=self.user))
 
     def test_creates_missing_video_and_dialogue_folders_before_generating_audio(self):
         for provider, function in (
-            (Provider.OPENAI, "tts_from_openai"),
-            (Provider.ELEVENLABS, "tts_from_elevenlabs"),
-            (Provider.SIXTYDB, "tts_from_sixtydb"),
-            ("custom-tts", "tts_from_custom_provider"),
+            (Provider.OPENAI, tts_utils.OpenAITTSProvider),
+            (Provider.ELEVENLABS, tts_utils.ElevenLabsTTSProvider),
+            (Provider.SIXTYDB, tts_utils.SixtyDbTTSProvider),
+            ("custom-tts", tts_utils.CustomTTSProvider),
         ):
             with self.subTest(provider=provider), tempfile.TemporaryDirectory() as root:
                 out = os.path.join(root, "manual", "video-id", "dialogues", "scene.wav")
                 syn = ApiSyn(provider=provider, path="voice-id")
 
-                with patch.object(tts_utils, function, side_effect=wrote(out)):
+                with patch.object(function, "generate", side_effect=wrote(out)):
                     self.assertEqual(save(syn, "hello", out, user=self.user), out)
 
                 with open(out, "rb") as audio:
@@ -81,7 +81,7 @@ class SaveTests(TestCase):
 
         with (
             patch.object(tts_utils.os, "makedirs", side_effect=PermissionError),
-            patch.object(tts_utils, "tts_from_openai") as provider,
+            patch.object(tts_utils.OpenAITTSProvider, "generate") as provider,
         ):
             with self.assertRaises(PermissionError):
                 save(syn, "hello", "dialogues/out.wav", user=self.user)
@@ -90,12 +90,12 @@ class SaveTests(TestCase):
 
     def test_routes_each_supported_provider_to_its_own_function(self):
         for provider, function in (
-            (Provider.OPENAI, "tts_from_openai"),
-            (Provider.ELEVENLABS, "tts_from_elevenlabs"),
-            (Provider.SIXTYDB, "tts_from_sixtydb"),
+            (Provider.OPENAI, tts_utils.OpenAITTSProvider),
+            (Provider.ELEVENLABS, tts_utils.ElevenLabsTTSProvider),
+            (Provider.SIXTYDB, tts_utils.SixtyDbTTSProvider),
         ):
             with self.subTest(provider=provider):
-                with patch.object(tts_utils, function) as call:
+                with patch.object(function, "generate") as call:
                     save(
                         ApiSyn(provider=provider, path="v"),
                         "hello",
@@ -121,7 +121,7 @@ class OpenAiTtsTests(TestCase):
         client = MagicMock()
 
         with patch.object(tts_utils, "OpenAI", return_value=client):
-            tts_from_openai("hello", "out.wav", voice="onyx", user=self.user)
+            OpenAITTSProvider.generate("hello", "out.wav", voice="onyx", user=self.user)
 
         kwargs = client.audio.speech.create.call_args.kwargs
         self.assertEqual(kwargs["response_format"], "wav")
@@ -144,7 +144,7 @@ class ElevenLabsTtsTests(TestCase):
         response.iter_content.return_value = [b"RIFF", b"", b"data"]
 
         with patch.object(tts_utils.requests, "post", return_value=response) as post:
-            tts_from_elevenlabs("hello", self.out, "a-voice-id", user=self.user)
+            ElevenLabsTTSProvider.generate("hello", self.out, "a-voice-id", user=self.user)
 
         self.assertEqual(open(self.out, "rb").read(), b"RIFFdata")
         self.assertIn("a-voice-id", post.call_args.args[0])
@@ -157,7 +157,7 @@ class ElevenLabsTtsTests(TestCase):
 
         with patch.object(tts_utils.requests, "post", return_value=response):
             self.assertIs(
-                tts_from_elevenlabs("hello", self.out, "v", user=self.user), response
+                ElevenLabsTTSProvider.generate("hello", self.out, "v", user=self.user), response
             )
 
         self.assertFalse(os.path.exists(self.out))
@@ -178,7 +178,7 @@ class SixtyDbTtsTests(TestCase):
         }
 
         with patch.object(tts_utils.requests, "post", return_value=response) as post:
-            tts_from_sixtydb("hello", self.out, "a-voice-id", user=self.user)
+            SixtyDbTTSProvider.generate("hello", self.out, "a-voice-id", user=self.user)
 
         self.assertEqual(open(self.out, "rb").read(), b"RIFFdata")
         self.assertEqual(post.call_args.kwargs["json"]["voice_id"], "a-voice-id")
@@ -191,7 +191,7 @@ class SixtyDbTtsTests(TestCase):
 
         with patch.object(tts_utils.requests, "post", return_value=response):
             with patch("builtins.open", mock_open()) as opened:
-                tts_from_sixtydb("hello", self.out, "v", user=self.user)
+                SixtyDbTTSProvider.generate("hello", self.out, "v", user=self.user)
 
         opened.assert_not_called()
 
@@ -202,7 +202,7 @@ class SixtyDbTtsTests(TestCase):
 
         with patch.object(tts_utils.requests, "post", return_value=response):
             self.assertIs(
-                tts_from_sixtydb("hello", self.out, "v", user=self.user), response
+                SixtyDbTTSProvider.generate("hello", self.out, "v", user=self.user), response
             )
 
         self.assertFalse(os.path.exists(self.out))
