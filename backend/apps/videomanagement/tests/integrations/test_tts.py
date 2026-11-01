@@ -14,9 +14,9 @@ from apps.videomanagement.integrations.tts import (
     get_voices_from_elevenlabs,
     get_voices_from_sixtydb,
     save,
-    tts_from_elevenlabs,
-    tts_from_openai,
-    tts_from_sixtydb,
+    ElevenLabsTTSProvider,
+    OpenAITTSProvider,
+    SixtyDbTTSProvider,
 )
 
 
@@ -121,7 +121,7 @@ class OpenAiTtsTests(TestCase):
         client = MagicMock()
 
         with patch.object(tts_utils, "OpenAI", return_value=client):
-            tts_from_openai("hello", "out.wav", voice="onyx", user=self.user)
+            OpenAITTSProvider.generate("hello", "out.wav", voice="onyx", user=self.user)
 
         kwargs = client.audio.speech.create.call_args.kwargs
         self.assertEqual(kwargs["response_format"], "wav")
@@ -144,7 +144,7 @@ class ElevenLabsTtsTests(TestCase):
         response.iter_content.return_value = [b"RIFF", b"", b"data"]
 
         with patch.object(tts_utils.requests, "post", return_value=response) as post:
-            tts_from_elevenlabs("hello", self.out, "a-voice-id", user=self.user)
+            ElevenLabsTTSProvider.generate("hello", self.out, "a-voice-id", user=self.user)
 
         self.assertEqual(open(self.out, "rb").read(), b"RIFFdata")
         self.assertIn("a-voice-id", post.call_args.args[0])
@@ -157,7 +157,7 @@ class ElevenLabsTtsTests(TestCase):
 
         with patch.object(tts_utils.requests, "post", return_value=response):
             self.assertIs(
-                tts_from_elevenlabs("hello", self.out, "v", user=self.user), response
+                ElevenLabsTTSProvider.generate("hello", self.out, "v", user=self.user), response
             )
 
         self.assertFalse(os.path.exists(self.out))
@@ -178,7 +178,7 @@ class SixtyDbTtsTests(TestCase):
         }
 
         with patch.object(tts_utils.requests, "post", return_value=response) as post:
-            tts_from_sixtydb("hello", self.out, "a-voice-id", user=self.user)
+            SixtyDbTTSProvider.generate("hello", self.out, "a-voice-id", user=self.user)
 
         self.assertEqual(open(self.out, "rb").read(), b"RIFFdata")
         self.assertEqual(post.call_args.kwargs["json"]["voice_id"], "a-voice-id")
@@ -191,7 +191,7 @@ class SixtyDbTtsTests(TestCase):
 
         with patch.object(tts_utils.requests, "post", return_value=response):
             with patch("builtins.open", mock_open()) as opened:
-                tts_from_sixtydb("hello", self.out, "v", user=self.user)
+                SixtyDbTTSProvider.generate("hello", self.out, "v", user=self.user)
 
         opened.assert_not_called()
 
@@ -202,7 +202,7 @@ class SixtyDbTtsTests(TestCase):
 
         with patch.object(tts_utils.requests, "post", return_value=response):
             self.assertIs(
-                tts_from_sixtydb("hello", self.out, "v", user=self.user), response
+                SixtyDbTTSProvider.generate("hello", self.out, "v", user=self.user), response
             )
 
         self.assertFalse(os.path.exists(self.out))

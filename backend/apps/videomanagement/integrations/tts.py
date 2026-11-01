@@ -63,9 +63,6 @@ class OpenAITTSProvider(TTSProvider):
         )
 
 
-tts_from_openai = OpenAITTSProvider.generate
-
-
 @TTSRegistry.register(Provider.ELEVENLABS)
 class ElevenLabsTTSProvider(TTSProvider):
     @staticmethod
@@ -127,9 +124,6 @@ class ElevenLabsTTSProvider(TTSProvider):
         )
 
 
-tts_from_elevenlabs = ElevenLabsTTSProvider.generate
-
-
 @TTSRegistry.register(Provider.SIXTYDB)
 class SixtyDbTTSProvider(TTSProvider):
     @staticmethod
@@ -177,9 +171,6 @@ class SixtyDbTTSProvider(TTSProvider):
     @staticmethod
     def calculate(request):
         return tts_estimate(request.text, Provider.SIXTYDB, requests=request.requests)
-
-
-tts_from_sixtydb = SixtyDbTTSProvider.generate
 
 
 @TTSRegistry.register_fallback()
@@ -249,17 +240,14 @@ class CustomTTSProvider(TTSProvider):
         )
 
 
-tts_from_custom_provider = CustomTTSProvider.generate
-
-
 def save(
     syn: Union[ApiSyn, None], text: str = "", save_path: str = "", user=None
 ) -> Union[str, None]:
     if not syn:
         return None
 
-    handler = TTSRegistry.get(syn.provider)
-    if not handler:
+    provider = TTSRegistry.provider(syn.provider)
+    if not provider:
         logger.error("No TTS handler registered for provider: %s", syn.provider)
         return None
 
@@ -267,7 +255,7 @@ def save(
     # Prepare the destination before requesting audio from any provider.
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
 
-    handler(
+    provider.generate(
         text,
         save_path,
         syn.path,

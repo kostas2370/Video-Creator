@@ -56,6 +56,3 @@ class StableDiffusionProvider(ImageProvider):
     @staticmethod
     def calculate(request):
         return image_estimate(request.count, Provider.STABLE_DIFFUSION)
-
-
-generate_from_diffusion = StableDiffusionProvider.generate

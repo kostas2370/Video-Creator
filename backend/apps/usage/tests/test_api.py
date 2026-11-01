@@ -232,7 +232,7 @@ class UsageTests(TestCase):
     def test_tts_measures_characters_without_inventing_tokens(self):
         client = MagicMock()
         with patch.object(tts_utils, "OpenAI", return_value=client):
-            tts_utils.tts_from_openai("Hello κόσμε", "unused.wav", user=self.user)
+            tts_utils.OpenAITTSProvider.generate("Hello κόσμε", "unused.wav", user=self.user)
         usage = AIUsage.objects.get()
         self.assertEqual(usage.characters, len("Hello κόσμε"))
         self.assertIsNone(usage.total_tokens)
@@ -248,7 +248,7 @@ class UsageTests(TestCase):
             patch.object(openai_images.MediaAsset, "from_visual", side_effect=OSError),
         ):
             with self.assertRaises(OSError):
-                openai_images.generate_openai_image(
+                openai_images.OpenAIImageProvider.generate(
                     "cat", "unused/", "", user=self.user
                 )
         usage = AIUsage.objects.get()

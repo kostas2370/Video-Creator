@@ -110,6 +110,3 @@ class SoraProvider(ImageProvider):
             {"requests": request.count},
             custom=True,
         )
-
-
-generate_from_sora = SoraProvider.generate

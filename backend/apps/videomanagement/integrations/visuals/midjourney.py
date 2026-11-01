@@ -60,6 +60,3 @@ class MidjourneyProvider(ImageProvider):
     @staticmethod
     def calculate(request):
         return image_estimate(request.count, Provider.MIDJOURNEY)
-
-
-generate_from_midjourney = MidjourneyProvider.generate

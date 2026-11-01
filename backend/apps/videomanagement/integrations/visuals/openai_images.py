@@ -123,6 +123,3 @@ class OpenAIImageProvider(ImageProvider):
         return image_estimate(
             request.count, quality=image_quality_for(request.generation_mode)
         )
-
-
-generate_openai_image = OpenAIImageProvider.generate

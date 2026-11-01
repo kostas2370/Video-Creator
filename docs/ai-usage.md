@@ -57,7 +57,8 @@ these calculators; provider identity, model selection and billing units live wit
 the provider. Shared rate lookup, arithmetic, ranges and totals remain in
 `apps/usage/pricing.py`. Recorded usage retains its existing central pricing path.
 Custom providers use explicitly configured names and rates and never inherit
-built-in pricing. Existing module-level generation entry points remain available.
+built-in pricing. Generation callers resolve the registered class or call its
+`generate()` method directly; transitional module-level function aliases are removed.
 
 ### Optional Economy mode
 

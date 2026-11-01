@@ -57,6 +57,3 @@ class RunwayProvider(http.DurationVideoProvider):
             request.user, "video", Provider.RUNWAY, MODEL, seconds=request.seconds
         )
         return http.save_download(result["output"][0], request.directory)
-
-
-generate_from_runway = RunwayProvider.generate
