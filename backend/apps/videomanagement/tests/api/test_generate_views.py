@@ -315,9 +315,19 @@ class StoryboardApprovalTests(ApiTestCase):
         self.assertEqual(video.gpt_answer, self.script)
         self.assertEqual(video.title, "Reviewed title")
         self.assertEqual(video.status, "GENERATION")
-        delay.assert_called_once_with(video_id=video.pk, message="original idea", review_script=False)
+        delay.assert_called_once_with(video_id=video.pk, message="original idea", review_script=False, generation_mode="STANDARD")
         self.assertEqual(self.approve(video).status_code, 409)
         delay.assert_called_once()
+
+    @patch("apps.videomanagement.tasks.generate_video_task.delay")
+    def test_approval_preserves_an_explicit_economy_choice_in_settings_and_task(self, delay):
+        video = self.draft()
+        response = self.approve(video, {**self.script, "generation_mode": "ECONOMY"})
+        self.assertEqual(response.status_code, 202, response.data)
+        video.refresh_from_db()
+        self.assertEqual(video.settings["generation_mode"], "ECONOMY")
+        self.assertEqual(video.settings["generation_params"]["generation_mode"], "ECONOMY")
+        self.assertEqual(delay.call_args.kwargs["generation_mode"], "ECONOMY")
 
     @patch("apps.videomanagement.tasks.generate_video_task.delay", side_effect=RuntimeError("offline"))
     def test_queue_failure_keeps_draft_reviewable(self, delay):
