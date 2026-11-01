@@ -1,0 +1,93 @@
+{
+  "currency": "USD",
+  "checked_at": "2026-11-01",
+  "sources": {
+    "image_reference": "https://developers.openai.com/api/docs/guides/image-generation",
+    "image_tokens": "https://developers.openai.com/api/docs/pricing"
+  },
+  "rates": {
+    "text:OPENAI:gpt-5.4-mini": {
+      "input_tokens": "0.00000075",
+      "output_tokens": "0.0000045",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "basis": "Standard token rates; excludes cache discounts and regional surcharges."
+    },
+    "text:OPENAI:gpt-5.4": {
+      "input_tokens": "0.0000025",
+      "output_tokens": "0.000015",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4",
+      "basis": "Standard token rates; excludes cache discounts and regional surcharges."
+    },
+    "text:OPENAI:gpt-5.4-nano": {
+      "input_tokens": "0.0000002",
+      "output_tokens": "0.00000125",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+      "basis": "Standard token rates; excludes cache discounts and regional surcharges."
+    },
+    "text:OPENAI:gpt-5.5": {
+      "input_tokens": "0.000005",
+      "output_tokens": "0.00003",
+      "source": "https://developers.openai.com/api/docs/models/gpt-5.5",
+      "basis": "Standard token rates; excludes cache discounts and regional surcharges."
+    },
+    "tts:OPENAI:tts-1": {
+      "characters": "0.000015",
+      "source": "https://developers.openai.com/api/docs/models/tts-1"
+    },
+    "video:RUNWAY:gen4.5": {
+      "seconds": "0.12",
+      "source": "https://dev.runwayml.com/pricing"
+    }
+  },
+  "image_reference_prices": {
+    "gpt-image-2": {
+      "low": {
+        "low_usd": "0.005",
+        "high_usd": "0.006"
+      },
+      "medium": {
+        "low_usd": "0.041",
+        "high_usd": "0.053"
+      },
+      "high": {
+        "low_usd": "0.165",
+        "high_usd": "0.211"
+      }
+    },
+    "gpt-image-1.5": {
+      "low": {
+        "low_usd": "0.009",
+        "high_usd": "0.013"
+      },
+      "medium": {
+        "low_usd": "0.034",
+        "high_usd": "0.050"
+      },
+      "high": {
+        "low_usd": "0.133",
+        "high_usd": "0.200"
+      }
+    },
+    "gpt-image-1-mini": {
+      "low": {
+        "low_usd": "0.005",
+        "high_usd": "0.006"
+      },
+      "medium": {
+        "low_usd": "0.011",
+        "high_usd": "0.015"
+      },
+      "high": {
+        "low_usd": "0.036",
+        "high_usd": "0.052"
+      }
+    }
+  },
+  "image_token_rates_per_million": {
+    "gpt-image-2": {
+      "text_input": "5",
+      "image_input": "8",
+      "image_output": "30"
+    }
+  }
+}

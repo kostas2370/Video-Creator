@@ -139,9 +139,16 @@ interrupted requests can incur charges without producing a measurement.
 
 ### Configuring other rates
 
+Bundled prices are stored in `backend/apps/usage/pricing.json`, including the
+checked date, source links, per-unit rates, image reference ranges and image token
+rates per million. Monetary values are decimal strings to avoid rounding through
+floating-point numbers. Update this file when changing the default rate card;
+restart the API and workers to load it. Calculation rules stay in Python, and
+existing recorded usage keeps its original saved price.
+
 Set `AI_COST_RATES` in `backend/.env` to a JSON object. Keys are
 `service:provider:model`; service is `text`, `images`, `tts`, `video`, or `stt`.
-Provider and model must match usage identifiers exactly. Custom providers use their
+These overrides take precedence over the bundled JSON. Provider and model must match usage identifiers exactly. Custom providers use their
 configured name and a blank model. Built-in visual selection names `runway`,
 `kling`, `gemini-video`, `midjourney` and `stable-diffusion` map to their recorded
 provider/model identifiers. Rates can override built-in entries.

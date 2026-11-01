@@ -1,54 +1,20 @@
+import json
 import logging
+from pathlib import Path
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
-PRICING_DATE = "2026-11-01"
-OPENAI_SOURCE = "https://developers.openai.com/api/docs/pricing"
-IMAGE_SOURCE = "https://developers.openai.com/api/docs/guides/image-generation"
-RUNWAY_SOURCE = "https://dev.runwayml.com/pricing"
-DEFAULT_RATES = {
-    **{
-        f"text:OPENAI:{model}": {
-            "input_tokens": str(Decimal(input_price) / 1_000_000),
-            "output_tokens": str(Decimal(output_price) / 1_000_000),
-            "source": f"https://developers.openai.com/api/docs/models/{model}",
-            "basis": "Standard token rates; excludes cache discounts and regional surcharges.",
-        }
-        for model, input_price, output_price in (
-            ("gpt-5.4-mini", "0.75", "4.50"),
-            ("gpt-5.4", "2.50", "15"),
-            ("gpt-5.4-nano", "0.20", "1.25"),
-            ("gpt-5.5", "5", "30"),
-        )
-    },
-    "tts:OPENAI:tts-1": {
-        "characters": "0.000015",
-        "source": "https://developers.openai.com/api/docs/models/tts-1",
-    },
-    "video:RUNWAY:gen4.5": {"seconds": "0.12", "source": RUNWAY_SOURCE},
-}
-IMAGE_REFERENCE_PRICES = {
-    "gpt-image-2": {
-        "low": ("0.005", "0.006"),
-        "medium": ("0.041", "0.053"),
-        "high": ("0.165", "0.211"),
-    },
-    "gpt-image-1.5": {
-        "low": ("0.009", "0.013"),
-        "medium": ("0.034", "0.050"),
-        "high": ("0.133", "0.200"),
-    },
-    "gpt-image-1-mini": {
-        "low": ("0.005", "0.006"),
-        "medium": ("0.011", "0.015"),
-        "high": ("0.036", "0.052"),
-    },
-}
-IMAGE_TOKEN_RATES = {
-    "gpt-image-2": ("5", "8", "30"),
-}
+_CATALOG = json.loads(
+    Path(__file__).with_name("pricing.json").read_text(encoding="utf-8")
+)
+PRICING_DATE = _CATALOG["checked_at"]
+OPENAI_SOURCE = _CATALOG["sources"]["image_tokens"]
+IMAGE_SOURCE = _CATALOG["sources"]["image_reference"]
+DEFAULT_RATES = _CATALOG["rates"]
+IMAGE_REFERENCE_PRICES = _CATALOG["image_reference_prices"]
+IMAGE_TOKEN_RATES = _CATALOG["image_token_rates_per_million"]
 
 
 def money(value):
@@ -125,7 +91,10 @@ def measured_cost(service, provider, model, measurements, usage=None, *, custom=
         for value in (text, images, output)
     ):
         return None, {}
-    prices = IMAGE_TOKEN_RATES[model]
+    prices = tuple(
+        IMAGE_TOKEN_RATES[model][unit]
+        for unit in ("text_input", "image_input", "image_output")
+    )
     cost = sum(
         (
             Decimal(value) * Decimal(price) / 1_000_000
@@ -191,8 +160,8 @@ def image_estimate(count, provider="OPENAI", model=None, *, custom=False, qualit
     prices = IMAGE_REFERENCE_PRICES.get(model, {}).get(quality)
     if prices:
         line.update(
-            low_usd=money(Decimal(prices[0]) * count),
-            high_usd=money(Decimal(prices[1]) * count),
+            low_usd=money(Decimal(prices["low_usd"]) * count),
+            high_usd=money(Decimal(prices["high_usd"]) * count),
             source=IMAGE_SOURCE,
             note=f"{quality.title()} quality: output-only guide for 1024-square and 1024×1536 reference sizes. Your frame size, prompt and reference images change the final cost.",
         )
@@ -202,7 +171,7 @@ def image_estimate(count, provider="OPENAI", model=None, *, custom=False, qualit
 def total_estimate(lines):
     known = [line for line in lines if line["low_usd"] is not None]
     return {
-        "currency": "USD",
+        "currency": _CATALOG["currency"],
         "lines": lines,
         "partial": len(known) != len(lines)
         or any(line.get("partial", False) for line in lines),
