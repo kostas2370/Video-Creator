@@ -53,6 +53,7 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False, default="STANDARD")
     visual_continuity = serializers.CharField(
         required=False, allow_blank=True, max_length=3000
     )
@@ -223,6 +224,7 @@ class RenderVideoSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False)
     visual_continuity = serializers.CharField(
         required=False, allow_blank=True, max_length=3000
     )
@@ -313,6 +315,7 @@ class StoryboardSceneSerializer(serializers.Serializer):
 
 
 class StoryboardSerializer(serializers.Serializer):
+    generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False)
     visual_continuity = serializers.CharField(
         required=False,
         allow_blank=True,

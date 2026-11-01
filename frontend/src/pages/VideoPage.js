@@ -271,6 +271,7 @@ export const Video = () => {
           settings: videoInfo?.settings,
           id: videoInfo?.id,
           video_type: videoInfo?.video_type,
+          mode: videoInfo?.mode,
         }}
       /></DeferredDialog>
 

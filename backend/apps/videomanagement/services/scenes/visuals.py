@@ -182,7 +182,7 @@ def character_starting_frame(
     ):
         return scene.starting_asset.file.path
     with video_usage(video):
-        frame = openai_images.generate_openai_image(
+        frame = openai_images.OpenAIImageProvider.generate(
             "Create the starting frame of this single film shot. The reference is a labeled "
             "character identity sheet, not a scene composition. Use only the characters called "
             "for in this shot. Preserve their faces, anatomy and distinguishing features. "
@@ -197,6 +197,7 @@ def character_starting_frame(
             if scene
             else "Character starting image",
             video_format=(video.settings or {}).get("video_format", "PORTRAIT"),
+            **({"generation_mode": "ECONOMY"} if (video.settings or {}).get("generation_mode") == "ECONOMY" else {}),
         )
     if not frame:
         raise RuntimeError("Could not create the character shot's starting image.")
@@ -300,6 +301,7 @@ def create_image_scene(
                 title=title,
                 duration=visual_generation_duration(scene),
                 video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
+                **({"generation_mode": "ECONOMY"} if (video.settings or {}).get("generation_mode") == "ECONOMY" else {}),
                 reference=reference,
                 reference_role=reference_role_for(video, reference),
                 user=user,
@@ -566,6 +568,8 @@ def generate_scene_visual(scene_image, video, style, *args, mode, provider, **kw
     kwargs.setdefault(
         "video_format", (video.settings or {}).get("video_format", "LANDSCAPE")
     )
+    if (video.settings or {}).get("generation_mode") == "ECONOMY":
+        kwargs.setdefault("generation_mode", "ECONOMY")
     with video_usage(video):
         img = generate(
             visual_prompt,

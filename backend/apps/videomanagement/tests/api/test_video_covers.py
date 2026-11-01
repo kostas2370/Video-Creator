@@ -259,7 +259,7 @@ class VideoCoverTests(ApiTestCase):
         generated = self.root / "draft.png"
         Image.new("RGB", (600, 400), "green").save(generated)
         with patch(
-            "apps.videomanagement.integrations.visuals.openai_images.generate_openai_image",
+            "apps.videomanagement.integrations.visuals.openai_images.OpenAIImageProvider.generate",
             return_value=generated,
         ) as generate:
             result = generate_cover_image(
@@ -281,7 +281,7 @@ class VideoCoverTests(ApiTestCase):
             return generated
 
         with patch(
-            "apps.videomanagement.integrations.visuals.openai_images.generate_openai_image",
+            "apps.videomanagement.integrations.visuals.openai_images.OpenAIImageProvider.generate",
             side_effect=generate,
         ):
             result = generate_cover_image(

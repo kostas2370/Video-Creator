@@ -128,6 +128,9 @@ def approve_script(video, storyboard):
         params = (video.settings or {}).get("generation_params")
         if not params:
             raise VideoEditConflict("Generation settings are missing.")
+        generation_mode = storyboard.get("generation_mode", (video.settings or {}).get("generation_mode", "STANDARD"))
+        params = {**params, "generation_mode": generation_mode}
+        video.settings = {**(video.settings or {}), "generation_mode": generation_mode, "generation_params": params}
         if params.get("ai_scene_editing"):
             errors = script_errors(
                 storyboard, narration=params.get("narration", True),

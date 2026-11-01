@@ -14,6 +14,27 @@ from apps.usage.services import record_usage, video_usage, current_video
 
 @override_settings(IMAGE_MODEL="gpt-image-2", IMAGE_QUALITY="high", AI_COST_RATES={})
 class GenerationCostTests(TestCase):
+    def test_image_estimates_use_the_registered_provider_calculator(self):
+        from apps.videomanagement.integrations.base import ImageCostRequest
+        from apps.videomanagement.integrations.visuals.openai_images import OpenAIImageProvider
+
+        quoted = OpenAIImageProvider.calculate(ImageCostRequest())
+        quoted.update(low_usd="0.12300000", high_usd="0.12300000")
+        with patch.object(OpenAIImageProvider, "calculate", return_value=quoted) as calculate:
+            result = media_estimate(self.project, self.storyboard)
+        self.assertIn(quoted, result["lines"])
+        self.assertEqual(calculate.call_args.args[0].count, 1)
+
+    def test_economy_estimates_medium_images_without_changing_standard_or_voice_costs(self):
+        standard = media_estimate(self.project, self.storyboard)
+        economy = media_estimate(self.project, {**self.storyboard, "generation_mode": "ECONOMY"})
+        standard_image = next(line for line in standard["lines"] if line["service"] == "images")
+        economy_image = next(line for line in economy["lines"] if line["service"] == "images")
+        self.assertEqual(standard_image["low_usd"], "0.16500000")
+        self.assertEqual(economy_image["low_usd"], "0.04100000")
+        self.assertEqual(standard["lines"][0], economy["lines"][0])
+        self.assertNotIn("generation_mode", self.project.settings)
+
     def setUp(self):
         self.owner = user.make(use_service_api_keys=True)
         self.project = video.make(

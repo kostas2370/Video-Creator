@@ -13,6 +13,7 @@ from apps.videomanagement.services.scenes.narration import update_scene
 def video_update(video: Video, **changes) -> Video:
     """Apply only supplied fields, resolving every asset before changing the video."""
     if {
+        "generation_mode",
         "visual_continuity",
         "transition_default",
         "transition_duration",
@@ -50,6 +51,7 @@ def _apply_video_changes(video, changes):
         updates["voice_model"] = selected_voice
 
     settings_fields = (
+        "generation_mode",
         "video_format",
         "platform",
         "subtitles",

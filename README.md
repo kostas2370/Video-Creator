@@ -56,6 +56,11 @@ controls show estimates before paid requests. **Usage** shows costs from recorde
 Generation costs** compares these with the project's original estimate. Unknown
 prices remain unavailable. See [cost coverage and rate configuration](docs/ai-usage.md#generation-cost-estimates).
 
+For lower-cost new OpenAI images and starting frames, choose **Generation mode →
+Economy** in creation review, storyboard review, or project settings. This optional
+mode trades image detail for cost; Standard remains the default. Saved media is
+kept, and animation and narration prices are unchanged.
+
 ## Quick start with Docker
 
 Install Docker with Docker Compose. Run these commands from the repository root:

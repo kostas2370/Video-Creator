@@ -20,7 +20,12 @@ class ProviderRegistration:
 
     def handler(self):
         # Read the current module attribute so patches and reloads remain effective.
-        return getattr(import_module(self.module), self.function)
+        handler = getattr(import_module(self.module), self.function)
+        return handler().generate if isinstance(handler, type) else handler
+
+    def provider(self):
+        handler = getattr(import_module(self.module), self.function)
+        return handler() if isinstance(handler, type) else None
 
 
 class ProviderNames(Set):
@@ -130,3 +135,8 @@ class ProviderRegistry:
     def get(cls, name=None, mode=None):
         entry = cls._select(name, mode)
         return entry.handler() if entry is not None else None
+
+    @classmethod
+    def provider(cls, name=None, mode=None):
+        entry = cls._select(name, mode)
+        return entry.provider() if entry is not None else None

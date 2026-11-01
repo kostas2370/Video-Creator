@@ -1,76 +1,63 @@
-import math
-
-from django.conf import settings
+from apps.videomanagement.integrations.base import ImageCostRequest, TTSCostRequest
+from apps.videomanagement.integrations.tts import CustomTTSProvider, TTSRegistry
+from apps.videomanagement.integrations.visuals.custom import CustomImageProvider
 
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import VoiceModelType
 from apps.videomanagement.services.scenes.visuals import visual_generation_duration
 
-from .pricing import estimate_line, image_estimate, total_estimate
-
-VIDEO_MODELS = {
-    "runway": ("RUNWAY", "gen4.5", 2, 10),
-    "kling": ("FAL", "fal-ai/kling-video/o3/pro/reference-to-video", 3, 15),
-    "gemini-video": ("GEMINI", "gemini-omni-1.1-flash", 3, 10),
-}
+from .pricing import estimate_line, total_estimate
 
 
 def voice_estimate(video, text, requests=1):
     voice = video.voice_model
-    provider = voice.provider if voice else "Unselected voice"
-    model = (
-        "tts-1"
-        if provider == "OPENAI"
-        else (
-            "eleven_multilingual_v2"
-            if voice and voice.is_cloned
-            else "eleven_monolingual_v1"
+    if voice is None:
+        return estimate_line(
+            "Narration",
+            "tts",
+            "Unselected voice",
+            "",
+            {"characters": len(text), "requests": requests},
         )
-        if provider == "ELEVENLABS"
-        else ""
+    provider = (
+        CustomTTSProvider()
+        if voice.type == VoiceModelType.CUSTOM_API
+        else TTSRegistry.provider(voice.provider) or CustomTTSProvider()
     )
-    custom = bool(voice and voice.type == VoiceModelType.CUSTOM_API)
-    return estimate_line(
-        "Narration",
-        "tts",
-        provider,
-        "" if custom else model,
-        {"characters": len(text), "requests": requests},
-        custom=custom,
+    return provider.calculate(
+        TTSCostRequest(
+            text, requests=requests, voice=voice, provider_name=voice.provider
+        )
     )
 
 
 def animation_estimate(video, durations):
-    provider = (video.settings or {}).get("provider")
-    known = VIDEO_MODELS.get(provider)
-    if known:
-        name, model, minimum, maximum = known
-        seconds = sum(
-            max(
-                minimum,
-                min(maximum, math.ceil(duration or settings.SILENT_SCENE_SECONDS)),
-            )
-            for duration in durations
+    name = (video.settings or {}).get("provider")
+    registration = ImageProviderRegistry.registration(name, "AI") if name else None
+    provider = (
+        ImageProviderRegistry.provider(name, "AI")
+        if registration and registration.capabilities.get("output_type") == "VIDEO"
+        else None
+    ) or CustomImageProvider()
+    return provider.calculate(
+        ImageCostRequest(
+            count=len(durations),
+            durations=tuple(durations),
+            provider_name=name or "Unselected provider",
+            output_type="VIDEO",
         )
-        return estimate_line(
-            "Animation",
-            "video",
-            name,
-            model,
-            {"seconds": seconds, "requests": len(durations)},
-        )
-    return estimate_line(
-        "Animation",
-        "video",
-        provider or "Unselected provider",
-        settings.SORA_MODEL if provider == "sora" else "",
-        {"requests": len(durations)},
-        custom=True,
     )
 
 
 def media_estimate(video, storyboard=None, *, scene=None, operation="all", text=None):
     options = video.settings or {}
+    generation_mode = (
+        (storyboard or {}).get(
+            "generation_mode", options.get("generation_mode", "STANDARD")
+        )
+        if isinstance(storyboard, dict)
+        else options.get("generation_mode", "STANDARD")
+    )
     narration = options.get("narration", video.video_type != "MANUAL")
     if scene is None:
         storyboard = storyboard if storyboard is not None else video.gpt_answer
@@ -118,19 +105,22 @@ def media_estimate(video, storyboard=None, *, scene=None, operation="all", text=
             lines.append(line)
         if operation != "animation" and (character_images or not is_video):
             if video.mode == "AI" or video.video_type == "MANUAL":
-                custom = not bool(ImageProviderRegistry.registration(provider, "AI"))
+                image_name = (
+                    "OPENAI"
+                    if character_images or video.video_type == "MANUAL"
+                    else provider
+                )
+                calculator = (
+                    ImageProviderRegistry.provider(image_name, "AI")
+                    or CustomImageProvider()
+                )
                 lines.append(
-                    image_estimate(
-                        count,
-                        "OPENAI"
-                        if character_images or video.video_type == "MANUAL"
-                        else {
-                            "midjourney": "MIDJOURNEY",
-                            "stable-diffusion": "STABLE_DIFFUSION",
-                        }.get(provider, provider),
-                        custom=custom
-                        and not character_images
-                        and video.video_type != "MANUAL",
+                    calculator.calculate(
+                        ImageCostRequest(
+                            count=count,
+                            generation_mode=generation_mode,
+                            provider_name=image_name,
+                        )
                     )
                 )
     estimate = total_estimate(lines)

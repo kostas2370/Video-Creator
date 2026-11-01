@@ -1,3 +1,4 @@
+import { GenerationModeSelect } from "./GenerationModeSelect";
 import { VisualContinuity } from "./VisualContinuity";
 import { videoFormats } from "../utils/videoFormats";
 import { useAssetOptions } from "../hooks/useAssetOptions";
@@ -61,6 +62,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [introTransitionDuration, setIntroTransitionDuration] = useState("");
   const [visualContinuity, setVisualContinuity] = useState("");
   const [saving, setSaving] = useState(false);
+  const [generationMode, setGenerationMode] = useState("STANDARD");
 
 
   useEffect(() => {
@@ -79,6 +81,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   useEffect(() => {
     setAvatarPosition(normalizeAvatarPosition(info?.settings?.avatar_position));
     setVisualContinuity(info?.settings?.visual_continuity || "");
+    setGenerationMode(info?.settings?.generation_mode || "STANDARD");
     setPlatform(info?.settings?.platform || "GENERAL");
     setVideoFormat(info?.settings?.video_format || "LANDSCAPE");
     setSubtitles(info?.settings?.subtitles === true);
@@ -105,6 +108,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     try {
       const changes = {
         visual_continuity: visualContinuity,
+        generation_mode: generationMode,
         intro,
         outro,
         avatar,
@@ -148,6 +152,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
 
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-7">
+            {(info?.mode === "AI" || info?.video_type === "MANUAL") && <GenerationModeSelect value={generationMode} onChange={setGenerationMode} disabled={saving} />}
             {(info?.mode === "AI" || info?.video_type === "MANUAL") && <VisualContinuity value={visualContinuity} onChange={setVisualContinuity} disabled={saving} />}
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
               <h3 className={sectionTitle}>Output format</h3>

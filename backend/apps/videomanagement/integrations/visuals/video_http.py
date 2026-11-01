@@ -16,12 +16,32 @@ from django.conf import settings
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys
+from apps.usage.pricing import estimate_line
+from apps.videomanagement.integrations.base import ImageProvider
 from apps.videomanagement.utils.image_inputs import image_data
 from .custom import save_video
 from .registry import ImageProviderRegistry
 
 logger = logging.getLogger(__name__)
 MAX_VIDEO_BYTES = 200 * 1024 * 1024
+
+
+class DurationVideoProvider(ImageProvider):
+    @classmethod
+    def calculate(cls, request):
+        durations = request.durations or (None,) * request.count
+        return estimate_line(
+            "Animation",
+            "video",
+            cls.PROVIDER,
+            cls.MODEL,
+            {
+                "seconds": sum(
+                    seconds_for(value, cls.MINIMUM, cls.MAXIMUM) for value in durations
+                ),
+                "requests": len(durations),
+            },
+        )
 
 
 def guarded(label):
@@ -97,11 +117,11 @@ def video_provider(
     auth_scheme="Bearer",
     auth_header="Authorization",
     extra_headers=None,
+    register=True,
 ):
     """Keep registry handlers uniform while adapters describe only their protocol."""
 
     def decorate(fn):
-        @ImageProviderRegistry.register(name, output_type="VIDEO", supports_reference=True)
         @guarded(label)
         @functools.wraps(fn)
         def generate(
@@ -131,6 +151,10 @@ def video_provider(
                 )
             )
 
+        if register:
+            return ImageProviderRegistry.register(
+                name, output_type="VIDEO", supports_reference=True
+            )(generate)
         return generate
 
     return decorate

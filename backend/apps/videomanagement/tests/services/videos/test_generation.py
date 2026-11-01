@@ -250,6 +250,7 @@ class GenerateVideoTests(TestCase):
                 platform="GENERAL",
                 style="vivid",
                 provider=None,
+                generation_mode="STANDARD",
             ),
         )
 

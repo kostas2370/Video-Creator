@@ -49,6 +49,34 @@ JSON responses can supply a standard `usage` object for token normalization.
 
 ## Generation cost estimates
 
+Visual and narration providers implement `ImageProvider` and `TTSProvider` in
+`integrations/base.py`. Each registered class exposes `generate()` and a pure
+`calculate()` method taking an immutable `ImageCostRequest` or `TTSCostRequest`.
+`apps/usage/estimates.py` assembles the project's planned work and delegates to
+these calculators; provider identity, model selection and billing units live with
+the provider. Shared rate lookup, arithmetic, ranges and totals remain in
+`apps/usage/pricing.py`. Recorded usage retains its existing central pricing path.
+Custom providers use explicitly configured names and rates and never inherit
+built-in pricing. Generation callers resolve the registered class or call its
+`generate()` method directly; transitional module-level function aliases are removed.
+
+### Optional Economy mode
+
+**Generation mode → Economy** is available in AI creation review, storyboard
+review, and project settings. Standard remains the default for new and existing
+projects. Economy requests medium quality for newly generated OpenAI images and
+character-shot starting frames; if the installation already uses low quality,
+it keeps low quality. Other providers, narration, animation durations, and export
+quality are unchanged. The mode can reduce detail in new images; it does not
+guarantee a lower total when animation or another provider dominates the cost.
+
+Changing the mode makes no paid request and retains saved media and approved
+starting images. It applies when you next explicitly generate missing or replacement
+images. The cost breakdown uses the selected mode, including unsaved choices in
+storyboard review. Original saved estimates and historical usage are retained.
+No migration is required; load the updated API and generation worker and rebuild
+the frontend to use the option.
+
 AI creation shows a scenario/script estimate before **Draft storyboard**.
 Storyboard review shows an estimated USD generation cost before **Proceed**,
 including the scenario cost already incurred and the planned media costs. The

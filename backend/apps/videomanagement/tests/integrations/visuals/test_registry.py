@@ -34,15 +34,15 @@ def custom_handler(prompt, directory, provider_name=None, **kwargs):
 class BuiltinImageRegistryTests(SimpleTestCase):
     def test_resolves_each_builtin_adapter(self):
         for mode, name, handler in (
-            ("AI", "OPENAI", openai_images.generate_openai_image),
-            ("AI", "sora", sora.generate_from_sora),
-            ("AI", "kling", kling.generate_from_kling),
-            ("AI", "runway", runway.generate_from_runway),
-            ("AI", "gemini-video", gemini_video.generate_from_gemini_video),
-            ("AI", "stable-diffusion", diffusion.generate_from_diffusion),
-            ("AI", "midjourney", midjourney.generate_from_midjourney),
-            ("WEB", "bing", bing.download_image),
-            ("WEB", "google", google_images.download_image_from_google),
+            ("AI", "OPENAI", openai_images.OpenAIImageProvider.generate),
+            ("AI", "sora", sora.SoraProvider.generate),
+            ("AI", "kling", kling.KlingProvider.generate),
+            ("AI", "runway", runway.RunwayProvider.generate),
+            ("AI", "gemini-video", gemini_video.GeminiVideoProvider.generate),
+            ("AI", "stable-diffusion", diffusion.StableDiffusionProvider.generate),
+            ("AI", "midjourney", midjourney.MidjourneyProvider.generate),
+            ("WEB", "bing", bing.BingImageProvider.generate),
+            ("WEB", "google", google_images.GoogleImageProvider.generate),
         ):
             with self.subTest(provider=name):
                 self.assertIs(ImageProviderRegistry.resolve(mode, name), handler)
@@ -51,21 +51,21 @@ class BuiltinImageRegistryTests(SimpleTestCase):
         for name in (None, ""):
             self.assertIs(
                 ImageProviderRegistry.resolve("AI", name),
-                openai_images.generate_openai_image,
+                openai_images.OpenAIImageProvider.generate,
             )
             self.assertIs(
-                ImageProviderRegistry.resolve("WEB", name), bing.download_image
+                ImageProviderRegistry.resolve("WEB", name), bing.BingImageProvider.generate
             )
 
     def test_marks_the_video_adapter_for_shot_prompt_generation(self):
         self.assertEqual(VIDEO_PROVIDERS, {"sora", "kling", "runway", "gemini-video"})
 
     def test_provider_modules_are_resolved_at_call_time(self):
-        with patch.object(openai_images, "generate_openai_image") as generate:
+        with patch.object(openai_images.OpenAIImageProvider, "generate") as generate:
             self.assertIs(ImageProviderRegistry.resolve("AI", "OPENAI"), generate)
         self.assertIs(
             ImageProviderRegistry.resolve("AI", "OPENAI"),
-            openai_images.generate_openai_image,
+            openai_images.OpenAIImageProvider.generate,
         )
 
     def test_unregistered_providers_use_the_mode_default_without_a_custom_fallback(
@@ -73,19 +73,19 @@ class BuiltinImageRegistryTests(SimpleTestCase):
     ):
         with patch.dict(ImageProviderRegistry._fallback_providers, {}, clear=True):
             for mode, name, handler in (
-                ("AI", "unconfigured", openai_images.generate_openai_image),
-                ("WEB", "OPENAI", bing.download_image),
-                ("AI", "bing", openai_images.generate_openai_image),
+                ("AI", "unconfigured", openai_images.OpenAIImageProvider.generate),
+                ("WEB", "OPENAI", bing.BingImageProvider.generate),
+                ("AI", "bing", openai_images.OpenAIImageProvider.generate),
             ):
                 with self.subTest(mode=mode, name=name):
                     self.assertIs(ImageProviderRegistry.resolve(mode, name), handler)
 
     def test_custom_image_adapter_is_the_ai_fallback(self):
         handler = ImageProviderRegistry.resolve("AI", "Studio images")
-        self.assertIs(handler.func, custom.generate_from_custom_provider)
+        self.assertIs(handler.func, custom.CustomImageProvider.generate)
         self.assertEqual(handler.keywords, {"provider_name": "Studio images"})
         self.assertIs(
-            ImageProviderRegistry.resolve("WEB", "unconfigured"), bing.download_image
+            ImageProviderRegistry.resolve("WEB", "unconfigured"), bing.BingImageProvider.generate
         )
 
     def test_unsupported_modes_raise_a_configuration_error(self):
