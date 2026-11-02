@@ -178,6 +178,8 @@ def fit_filter(size):
 
 
 def motion_filter(scene, duration, size, fps=FPS):
+    from ..photo_animation import animation_plan, keyframe_expression
+
     style = resolved_motion(scene)
     amount = AMOUNTS[scene.motion_intensity]
     last = max(1, math.ceil(duration * fps) - 1)
@@ -185,7 +187,13 @@ def motion_filter(scene, duration, size, fps=FPS):
     zoom = "1"
     x = "iw/2-iw/zoom/2"
     y = "ih/2-ih/zoom/2"
-    if style == MotionStyle.ZOOM_IN:
+    plan = animation_plan(scene)
+    if plan:
+        frames = plan["camera"]
+        zoom = keyframe_expression(frames, "scale", progress)
+        x += f"-iw*({keyframe_expression(frames, 'x', progress)})/zoom"
+        y += f"-ih*({keyframe_expression(frames, 'y', progress)})/zoom"
+    elif style == MotionStyle.ZOOM_IN:
         zoom = f"1+{amount}*{progress}"
     elif style == MotionStyle.ZOOM_OUT:
         zoom = f"1+{amount}*(1-{progress})"
@@ -215,7 +223,7 @@ def visual_stream(graph, segment, size, fps=FPS):
                 [], f"color=c=black:s={size[0]}x{size[1]}:r={fps}:d={segment.duration}"
             )
         else:
-            if resolved_motion(segment.content) == MotionStyle.NONE:
+            if resolved_motion(segment.content) == MotionStyle.NONE and getattr(segment.content, "animation_preset", "NONE") == "NONE":
                 index = graph.input(field.path, ("-loop", "1", "-framerate", str(fps)))
                 stream = graph.filter([f"{index}:v"], fit_filter(size))
             else:
@@ -496,6 +504,7 @@ def can_render_directly(segments):
         len(segments) <= 3
         and all(
             s.visual_type == "image" and resolved_motion(s.content) == MotionStyle.NONE
+            and getattr(s.content, "animation_preset", "NONE") == "NONE"
             for s in segments
         )
     )

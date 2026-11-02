@@ -1,5 +1,6 @@
 import { DeferredVideo } from "./ui/DeferredVideo";
 import { OverlayLayer } from "./OverlayLayer";
+import { PhotoAnimationLayer } from "./PhotoAnimationLayer";
 import { CaptionLayer } from "./CaptionLayer";
 import React, { useCallback, useEffect, useId, useRef, useState, useMemo, memo } from "react";
 import { FaPause, FaPlay, FaUndo, FaVolumeMute, FaVolumeUp } from "react-icons/fa";
@@ -123,7 +124,7 @@ function VideoPreview({ video, disabled = false }) {
   // Polling returns new objects even when nothing changed; only an edited timeline reloads.
   const revision = useMemo(() => JSON.stringify([video?.id, video?.status, video?.updated_at, video?.settings,
     video?.intro, video?.outro, video?.avatar, video?.music,
-    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.overlays, s.overlay_logo])]), [video]);
+    video?.scenes?.map(s => [s.id, s.text, s.file, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.animation_preset, s.animation_accents, s.overlays, s.overlay_logo])]), [video]);
   useEffect(() => {
     setPlaying(false);
     setManifest(null);
@@ -213,7 +214,8 @@ function VideoPreview({ video, disabled = false }) {
             {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {(manifest.audio_tracks || []).filter(track => time >= track.start - 0.5 && time <= track.start + track.duration + 0.1).map(track => <Track key={`voice-${track.id}`} source={track.source} time={time - track.start} trimStart={track.trim_start} duration={track.duration} volume={voiceGain(time - track.start, track)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />)}
             {manifest.music && <Track key={`music-${manifest.music.source}`} source={manifest.music.source} loop time={time - manifest.music.start} duration={manifest.music.duration} volume={musicGain(time - manifest.music.start, manifest.music.duration, manifest.music.settings, musicSpeech)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
-            {active && <OverlayLayer frameSize={manifest.size} overlays={active.overlays} logo={active.overlay_logo} time={local} duration={active.duration} />}
+            {active && <PhotoAnimationLayer plan={active.photo_animation} time={local} duration={active.base_duration} fps={active.fps} />}
+            {active && <OverlayLayer frameSize={manifest.size} overlays={active.overlays} logo={active.overlay_logo} time={local} duration={active.duration} animationPreset={active.photo_animation?.preset} />}
             <CaptionLayer cue={cue} style={manifest.caption_style} size={manifest.size} config={manifest.caption_config} />
           </div>
         </div>

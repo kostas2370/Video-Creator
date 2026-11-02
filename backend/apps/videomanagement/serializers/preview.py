@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from drf_yasg.utils import swagger_serializer_method
 from rest_framework import serializers
 
+from apps.videomanagement.export_settings import export_settings
+
 from apps.videomanagement.services.videos.preview import (
     PreviewTimeline,
     preview_timeline,
@@ -18,6 +20,7 @@ from ..models import MotionIntensity, MotionStyle, TransitionStyle, Video
 from ..utils.audio_editing import narration_file, voice_tracks
 from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
 from ..utils.motion import resolved_motion
+from ..utils.photo_animation import animation_plan
 from ..video_formats import output_size
 
 
@@ -61,6 +64,8 @@ class PreviewSegmentSerializer(serializers.Serializer):
     )
     transition_duration = serializers.FloatField(allow_null=True)
     motion_style = serializers.SerializerMethodField()
+    fps = serializers.SerializerMethodField()
+    photo_animation = serializers.SerializerMethodField()
     motion_intensity = serializers.CharField(
         source="content.motion_intensity", default=MotionIntensity.SUBTLE
     )
@@ -71,6 +76,16 @@ class PreviewSegmentSerializer(serializers.Serializer):
     fade_in = serializers.FloatField()
     fade_out = serializers.FloatField()
     dissolve_in = serializers.FloatField()
+
+    def get_fps(self, segment):
+        if segment.kind == "scene":
+            return export_settings(segment.content.video.settings or {})["fps"]
+        return 24
+
+    def get_photo_animation(self, segment):
+        if segment.kind == "scene" and segment.visual_type == "image":
+            return animation_plan(segment.content)
+        return None
 
     @swagger_serializer_method(serializer_or_field=serializers.CharField())
     def get_motion_style(self, segment):

@@ -380,7 +380,9 @@ class VideoView(
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = apply_auto_motion(
-            owned_video, serializer.validated_data["motion_intensity"]
+            owned_video, serializer.validated_data["motion_intensity"],
+            serializer.validated_data["animation_preset"],
+            serializer.validated_data["animation_accents"],
         )
         return Response(self.serialize_video_detail(video))
 

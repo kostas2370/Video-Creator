@@ -89,7 +89,7 @@ export const removeVoiceover = id => remove(action("scenes", id, "voiceover"), c
 export const updateMusicAudio = (id, data) => patch(action("videos", id, "audio"), data, callerHandlesErrors);
 
 
-export const applyAutoMotion = (id, intensity) => patch(action("videos", id, "auto_motion"), { motion_intensity: intensity }, callerHandlesErrors);
+export const applyAutoMotion = (id, intensity, preset = "NONE", accents = true) => patch(action("videos", id, "auto_motion"), { motion_intensity: intensity, animation_preset: preset, animation_accents: accents }, callerHandlesErrors);
 export const updateSceneMotion = (id, changes) => patch(action("scenes", id, "motion"), changes, callerHandlesErrors);
 export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);

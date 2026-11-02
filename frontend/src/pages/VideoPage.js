@@ -176,11 +176,11 @@ export const Video = () => {
     () => updateSceneTransition(scene.id, changes),
     "Could not save transition. Please try again.",
   );
-  const onAutoMotion = intensity => saveSceneChange(
+  const onAutoMotion = (intensity, preset = "NONE", accents = true) => saveSceneChange(
     { type: "bulkMotion" },
-    current => ({ ...current, scenes: current.scenes.map(scene => hasStillImage(scene) ? { ...scene, motion_style: "AUTO", motion_intensity: intensity } : scene) }),
-    () => applyAutoMotion(videoId, intensity),
-    "Could not apply Auto motion. Please try again.",
+    current => ({ ...current, scenes: current.scenes.map(scene => hasStillImage(scene) ? { ...scene, motion_style: "AUTO", motion_intensity: intensity, animation_preset: preset, animation_accents: accents } : scene) }),
+    () => applyAutoMotion(videoId, intensity, preset, accents),
+    "Could not apply photo animations. Please try again.",
     true,
   );
   const onMotion = (scene, changes) => saveSceneChange(
@@ -356,7 +356,7 @@ export const Video = () => {
             <div className="mt-4 grid items-start gap-6 sm:grid-cols-3">
               <MusicAudio video={videoInfo} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} onSaved={setUpdated} />
               <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h2 className="text-sm font-semibold">Subtitle file</h2><p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Download captions and timing from your current edit.</p><button type="button" disabled={!canDownloadSubtitles || downloadingSubtitles} onClick={downloadSubtitles} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium disabled:opacity-40 dark:border-gray-600"><FaDownload aria-hidden="true" />{downloadingSubtitles ? "Downloading…" : "Download SRT"}</button></div>
-              <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h2 className="mb-3 text-sm font-semibold">Image motion</h2><BulkAutoMotion scenes={scenes} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={pendingSceneChange?.type === "bulkMotion"} onApply={onAutoMotion} /></div>
+              <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-700"><h2 className="mb-3 text-sm font-semibold">Photo animations</h2><BulkAutoMotion scenes={scenes} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={pendingSceneChange?.type === "bulkMotion"} onApply={onAutoMotion} /></div>
             </div>
           </section>
           {videoInfo && <ProjectCosts videoId={videoInfo.id} refresh={`${videoInfo.updated_at}:${videoInfo.status}:${refresh}`} />}

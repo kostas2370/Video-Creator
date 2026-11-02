@@ -69,12 +69,16 @@ def reorder_scenes(video, scene_ids, expected_scene_ids=None):
     return locked_video
 
 
-def apply_auto_motion(video, intensity):
+def apply_auto_motion(video, intensity, animation_preset="NONE", animation_accents=True):
+    settings = {
+        "motion_style": MotionStyle.AUTO,
+        "motion_intensity": intensity,
+        "animation_preset": animation_preset,
+        "animation_accents": animation_accents,
+    }
     with editable_video(video.pk) as locked_video:
         scenes = (
-            locked_video.scenes.exclude(
-                motion_style=MotionStyle.AUTO, motion_intensity=intensity
-            )
+            locked_video.scenes.exclude(**settings)
             .select_for_update()
             .with_media()
         )
@@ -84,10 +88,7 @@ def apply_auto_motion(video, intensity):
             if image and image.file and check_if_image(image.file.name):
                 scene_ids.append(scene.pk)
         if scene_ids:
-            locked_video.scenes.filter(pk__in=scene_ids).update(
-                motion_style=MotionStyle.AUTO,
-                motion_intensity=intensity,
-            )
+            locked_video.scenes.filter(pk__in=scene_ids).update(**settings)
             changed(locked_video, invalidate_avatar=False)
     return locked_video
 
@@ -97,7 +98,9 @@ def update_scene_transition(scene, **changes):
 
 
 def update_scene_motion(scene, **changes):
-    return _update_playback(scene, ("motion_style", "motion_intensity"), changes)
+    return _update_playback(
+        scene, ("motion_style", "motion_intensity", "animation_preset", "animation_accents"), changes
+    )
 
 
 def update_scene_timing(scene, **changes):

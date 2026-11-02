@@ -13,6 +13,7 @@ from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 
 from ..motion import resolved_motion
+from ..photo_animation import animation_plan
 
 logger = logging.getLogger(__name__)
 # Bump when the intermediate scene filters or encoding settings change.
@@ -116,6 +117,7 @@ class SceneClipCache:
             "loop": segment.loop_visual,
             "motion": resolved_motion(segment.content),
             "intensity": segment.content.motion_intensity,
+            "animation": animation_plan(segment.content),
             "fade_in": segment.fade_in,
             "fade_out": segment.fade_out,
             "dissolve_in": segment.dissolve_in,
