@@ -156,13 +156,16 @@ def ensure_scene_rows(video: Video):
                 )
                 plan.is_valid(raise_exception=True)
                 editing = dict(plan.validated_data)
+            planned_overlays = editing.pop("overlays", [])
             shot_plan = {}
-            if video.mode == "AI" and line.shot_plan is not None:
+            if (video.mode == "AI" or choices.get("ai_scene_editing")) and line.shot_plan is not None:
                 plan = ShotPlanSerializer(data=line.shot_plan)
                 plan.is_valid(raise_exception=True)
                 shot_plan = dict(plan.validated_data)
                 if not video_provider and shot_plan.get("camera_movement"):
                     editing["motion_style"] = STILL_MOTION[shot_plan["camera_movement"]]
+            if planned_overlays:
+                shot_plan["overlay_plan"] = {"items": planned_overlays, "applied": False}
             audio_settings = {}
             if not choices.get("narration", True) and shot_plan.get("target_duration"):
                 audio_settings["duration"] = shot_plan["target_duration"]

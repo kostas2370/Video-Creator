@@ -163,8 +163,24 @@ a preset across existing image scenes. Video clips keep their appearance. Choose
 **Camera only** for individual zoom/pan controls (or varied Auto movement when
 applying to all photos). Existing projects keep their current appearance until a
 preset is saved. These effects reuse the existing photos and do not request AI video
-generation. Moving separate character/object cutouts and automatic animation
-planning are not included in this version.
+generation. Moving separate character/object cutouts is not included in this version.
+
+### Plan visual storytelling from the script
+
+Enable **AI visual planning** in the advanced settings when creating an AI video.
+The storyboard request then suggests varied framing, each shot's role in the story
+(such as a hook, comparison, reveal, or payoff), what the viewer should notice,
+a photo animation, and up to two short emphasis labels per shot. Review or edit
+these choices before pressing **Proceed**. Camera movement for generated video
+clips stays with the visual provider; photo animation presets apply to images.
+
+Label timing is an approximate percentage of each finished scene. After media
+generation, the app converts those percentages to editable seconds using the actual
+scene duration. These labels are not synchronized to individual spoken words.
+Labels, animation, and timing can be adjusted in the scene editor; resuming
+generation preserves your edits, including labels you removed. Existing drafts
+without visual plans still work. Planning uses the existing storyboard request and
+does not add AI video generation requests.
 
 When updating an already running installation, apply the database migrations and
 restart the API and Celery workers as well as rebuilding the frontend. The API must

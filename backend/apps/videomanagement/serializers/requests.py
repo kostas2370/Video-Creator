@@ -14,7 +14,6 @@ from ..models import (
     MotionIntensity,
     MotionStyle,
     Outro,
-    PhotoAnimation,
     TransitionStyle,
 )
 from ..schemas.scene_editing import SceneEditingPlanSerializer
@@ -28,6 +27,7 @@ from ..video_formats import (
 )
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
 from .fields import FiniteFloat, validate_reference_image
+from .motion import MotionSettingsSerializer
 
 
 class TransitionDurationField(FiniteFloat):
@@ -369,16 +369,6 @@ class SceneOrderSerializer(serializers.Serializer):
 class SceneTransitionSerializer(serializers.Serializer):
     transition_after = serializers.ChoiceField(choices=TransitionStyle.choices)
     transition_duration = TransitionDurationField(required=False, allow_null=True)
-
-
-class MotionSettingsSerializer(serializers.Serializer):
-    """Shared motion and animation fields; endpoints set their update defaults."""
-
-    motion_intensity = serializers.ChoiceField(
-        choices=MotionIntensity.choices, required=False
-    )
-    animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, default="NONE")
-    animation_accents = serializers.BooleanField(required=False)
 
 
 class SceneMotionSerializer(MotionSettingsSerializer):

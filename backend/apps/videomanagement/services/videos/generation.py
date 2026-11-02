@@ -23,6 +23,7 @@ from apps.videomanagement.models import (
 )
 from apps.videomanagement.services.media.downloads import download_music
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
+from apps.videomanagement.services.scenes.visual_planning import apply_visual_plans
 from apps.videomanagement.services.scenes.narration import (
     ensure_scene_rows,
     make_scenes_speech,
@@ -59,24 +60,24 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
         make_scenes_speech(video)
         if image_mode:
             create_image_scenes(video, mode=image_mode, style=style, provider=provider)
-        return
-
-    # Images look up their Scene rows, so finish creating the full script before either
-    # worker starts. Two workers overlap the independent provider requests without
-    # adding unbounded load to TTS, image providers, or the database.
-    ensure_scene_rows(video)
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="video-assets") as pool:
-        narration = pool.submit(
-            _run_with_thread_db_cleanup, lambda: make_scenes_speech(video)
-        )
-        visuals = pool.submit(
-            _run_with_thread_db_cleanup,
-            lambda: create_image_scenes(
-                video, mode=image_mode, style=style, provider=provider
-            ),
-        )
-        narration.result()
-        visuals.result()
+    else:
+        # Images look up their Scene rows, so finish creating the full script before either
+        # worker starts. Two workers overlap the independent provider requests without
+        # adding unbounded load to TTS, image providers, or the database.
+        ensure_scene_rows(video)
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="video-assets") as pool:
+            narration = pool.submit(
+                _run_with_thread_db_cleanup, lambda: make_scenes_speech(video)
+            )
+            visuals = pool.submit(
+                _run_with_thread_db_cleanup,
+                lambda: create_image_scenes(
+                    video, mode=image_mode, style=style, provider=provider
+                ),
+            )
+            narration.result()
+            visuals.result()
+    apply_visual_plans(video)
 
 
 def create_pending_video(
@@ -287,6 +288,7 @@ def generate_video(
         vid.settings["visual_continuity"] = visual_continuity
     if ai_scene_editing:
         vid.settings["ai_scene_editing"] = True
+        vid.settings["visual_type"] = "VIDEO" if video_provider else "IMAGE"
     if scene_count is not None:
         vid.settings["scene_count"] = scene_count
     if review_script:
