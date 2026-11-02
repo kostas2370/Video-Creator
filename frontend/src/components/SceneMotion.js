@@ -92,7 +92,7 @@ function MotionEditor({ scene, index, disabled, saving, onChange, videoFormat, f
       <div>
         <PresetPicker preset={preset} setPreset={setPreset} accents={accents} setAccents={setAccents} disabled={locked || disabled} />
         {preset === "NONE" && <fieldset disabled={locked || disabled} className="mt-5"><legend className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Camera movement</legend><div className="grid grid-cols-2 gap-2">{styles.map(([value, label, icon]) => <button type="button" key={value} aria-pressed={style === value} onClick={() => setStyle(value)} className={`${optionClass(style === value)} flex items-center gap-2`}><span aria-hidden="true" className="w-4 text-center text-lg">{icon}</span>{label}</button>)}</div></fieldset>}
-        <fieldset disabled={locked || disabled || stopped} className="mt-5"><legend className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Intensity</legend><div className="grid grid-cols-3 gap-2">{intensities.map(([value, label]) => <button type="button" key={value} aria-pressed={intensity === value} onClick={() => setIntensity(value)} className={optionClass(intensity === value)}>{label}</button>)}</div></fieldset>
+        <IntensityPicker value={intensity} onChange={setIntensity} disabled={locked || disabled || stopped} />
         {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
     </div>
@@ -129,7 +129,7 @@ function BulkAutoEditor({ count, disabled, saving, onApply, onClose }) {
   return <EditorDialog open onClose={onClose} title="Animate all photos" description={`Apply to ${count} image ${count === 1 ? "scene" : "scenes"}.`} busy={locked} footer={<div className="flex justify-end gap-3"><button type="button" disabled={locked} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 disabled:opacity-40 dark:text-gray-300">Cancel</button><button type="button" disabled={locked || disabled || !count} onClick={apply} className={editorButton}>{locked ? "Applying…" : "Apply animation"}</button></div>}>
     <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">Choose a reusable style for your photo scenes. This replaces their current animation settings. Video clips keep their existing appearance. Camera only applies varied zooms and pans.</p>
     <div className="mt-5"><PresetPicker preset={preset} setPreset={setPreset} accents={accents} setAccents={setAccents} disabled={locked || disabled} /></div>
-    <fieldset disabled={locked || disabled} className="mt-5"><legend className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Intensity</legend><div className="grid grid-cols-3 gap-2">{intensities.map(([value, label]) => <button type="button" key={value} aria-pressed={intensity === value} onClick={() => setIntensity(value)} className={optionClass(intensity === value)}>{label}</button>)}</div></fieldset>
+    <IntensityPicker value={intensity} onChange={setIntensity} disabled={locked || disabled} />
     <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">You can adjust individual scenes afterward. Preview your video, then render again to export.</p>
     {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
   </EditorDialog>;
@@ -141,5 +141,12 @@ function PresetPicker({ preset, setPreset, accents, setAccents, disabled }) {
     <div className="grid grid-cols-2 gap-2">{photoPresets.map(([value, label, description]) => <button type="button" key={value} aria-pressed={preset === value} onClick={() => setPreset(value)} className={`${optionClass(preset === value)} text-left`}><span className="block">{label}</span><span className="mt-1 block text-xs font-normal">{description}</span></button>)}</div>
     {preset !== "NONE" && preset !== "EXPLAINER" && <label className="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" checked={accents} onChange={event => setAccents(event.target.checked)} />Decorative particles</label>}
     <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Uses your existing photos. No AI video generation needed. Add text in Text & logos to animate labels and titles.</p>
+  </fieldset>;
+}
+
+function IntensityPicker({ value, onChange, disabled }) {
+  return <fieldset disabled={disabled} className="mt-5">
+    <legend className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Intensity</legend>
+    <div className="grid grid-cols-3 gap-2">{intensities.map(([option, label]) => <button type="button" key={option} aria-pressed={value === option} onClick={() => onChange(option)} className={optionClass(value === option)}>{label}</button>)}</div>
   </fieldset>;
 }
