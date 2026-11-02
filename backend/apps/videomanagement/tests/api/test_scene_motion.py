@@ -48,6 +48,18 @@ class SceneMotionTests(ApiTestCase):
         }, format="json")
         self.assertEqual(response.status_code, 400)
 
+    def test_omitted_options_preserve_scene_intensity_and_particles(self):
+        self.scene.motion_intensity = "STRONG"
+        self.scene.animation_accents = False
+        self.scene.save()
+        response = self.client.patch(
+            self.url, {"motion_style": "AUTO"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.scene.motion_intensity, "STRONG")
+        self.assertFalse(self.scene.animation_accents)
+
     def test_invalid_choices_do_not_change_scene(self):
         for changes in (
             {"motion_style": "SPIN"},
@@ -143,6 +155,21 @@ class BulkAutoMotionTests(ApiTestCase):
         for row in self.images:
             row.refresh_from_db()
             self.assertEqual(row.motion_style, "ZOOM_OUT")
+
+    def test_bulk_options_default_to_camera_only_with_particles_enabled(self):
+        self.video.scenes.update(animation_preset="PLAYFUL", animation_accents=False)
+        response = self.client.patch(
+            self.url, {"motion_intensity": "MEDIUM"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        for row in self.images:
+            row.refresh_from_db()
+            self.assertEqual(row.motion_intensity, "MEDIUM")
+            self.assertEqual(row.animation_preset, "NONE")
+            self.assertTrue(row.animation_accents)
+        self.clip.refresh_from_db()
+        self.assertEqual(self.clip.animation_preset, "PLAYFUL")
+        self.assertFalse(self.clip.animation_accents)
 
     def test_foreign_video_cannot_be_edited(self):
         other = self.video_for(owner=user.make(), status="READY")

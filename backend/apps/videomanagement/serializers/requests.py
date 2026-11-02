@@ -371,19 +371,23 @@ class SceneTransitionSerializer(serializers.Serializer):
     transition_duration = TransitionDurationField(required=False, allow_null=True)
 
 
-class BulkAutoMotionSerializer(serializers.Serializer):
-    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices)
-    animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, default="NONE")
-    animation_accents = serializers.BooleanField(default=True)
+class MotionSettingsSerializer(serializers.Serializer):
+    """Shared motion and animation fields; endpoints set their update defaults."""
 
-
-class SceneMotionSerializer(serializers.Serializer):
-    motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
-    animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, default="NONE")
-    animation_accents = serializers.BooleanField(required=False)
     motion_intensity = serializers.ChoiceField(
         choices=MotionIntensity.choices, required=False
     )
+    animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, default="NONE")
+    animation_accents = serializers.BooleanField(required=False)
+
+
+class SceneMotionSerializer(MotionSettingsSerializer):
+    motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
+
+
+class BulkAutoMotionSerializer(MotionSettingsSerializer):
+    motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices)
+    animation_accents = serializers.BooleanField(default=True)
 
 
 class SceneTimingSerializer(serializers.Serializer):
