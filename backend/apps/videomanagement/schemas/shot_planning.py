@@ -3,6 +3,7 @@ from rest_framework import serializers
 from apps.videomanagement.serializers.fields import FiniteFloat
 
 SHOT_SIZES = ("WIDE", "MEDIUM", "CLOSE_UP", "DETAIL")
+VISUAL_ROLES = ("HOOK", "CONTEXT", "EXPLANATION", "COMPARISON", "REACTION", "REVEAL", "PAYOFF")
 CAMERA_MOVEMENTS = (
     "STATIC",
     "PAN_LEFT",
@@ -24,6 +25,8 @@ STILL_MOTION = {
 
 
 class ShotPlanSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=VISUAL_ROLES, required=False, allow_blank=True)
+    visual_focus = serializers.CharField(required=False, allow_blank=True, max_length=200)
     shot_size = serializers.ChoiceField(
         choices=SHOT_SIZES, required=False, allow_blank=True
     )

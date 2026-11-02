@@ -15,7 +15,7 @@ describe("storyboard shot planning", () => {
   });
   it("keeps legacy shots unspecified until the user adds directions", () => {
     const markup = render({});
-    expect(markup.match(/value="" selected/g)).toHaveLength(2);
+    expect(markup.match(/value="" selected/g)).toHaveLength(3);
     expect(markup).toContain('value=""');
   });
   it("explains the duration behavior and prevents edits while generation starts", () => {

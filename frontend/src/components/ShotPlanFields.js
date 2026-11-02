@@ -1,6 +1,7 @@
 import React from "react";
 
 const shotSizes = [["WIDE", "Wide"], ["MEDIUM", "Medium"], ["CLOSE_UP", "Close-up"], ["DETAIL", "Detail"]];
+const roles = [["HOOK", "Hook"], ["CONTEXT", "Context"], ["EXPLANATION", "Explanation"], ["COMPARISON", "Comparison"], ["REACTION", "Reaction"], ["REVEAL", "Reveal"], ["PAYOFF", "Payoff"]];
 const movements = [["STATIC", "Static"], ["PAN_LEFT", "Pan left"], ["PAN_RIGHT", "Pan right"], ["TILT_UP", "Tilt up"], ["TILT_DOWN", "Tilt down"], ["PUSH_IN", "Push in"], ["PULL_OUT", "Pull out"]];
 const controlClass = "mt-2 w-full rounded-xl border border-gray-300 bg-white p-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white";
 
@@ -8,7 +9,16 @@ export function ShotPlanFields({ plan = {}, onChange, disabled = false, narratio
   const change = (field, value) => onChange({ ...plan, [field]: value });
   return <fieldset disabled={disabled} className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900/50">
     <legend className="px-1 text-sm font-semibold">Shot plan</legend>
-    <div className="grid gap-3 sm:grid-cols-2">
+    <label className="block text-sm font-medium">Role in the story
+      <select value={plan.role || ""} onChange={event => change("role", event.target.value)} className={controlClass}>
+        <option value="">Use visual prompt</option>
+        {roles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
+    </label>
+    <label className="mt-3 block text-sm font-medium">What should the viewer notice?
+      <input value={plan.visual_focus || ""} maxLength={200} onChange={event => change("visual_focus", event.target.value)} className={controlClass} />
+    </label>
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
       <label className="block text-sm font-medium">Shot size
         <select value={plan.shot_size || ""} onChange={event => change("shot_size", event.target.value)} className={controlClass}>
           <option value="">Use visual prompt</option>
