@@ -20,7 +20,7 @@ POSITIONS = (
 
 
 class OverlaySerializer(serializers.Serializer):
-    kind = serializers.ChoiceField(choices=("title", "lower-third", "watermark", "cta"))
+    kind = serializers.ChoiceField(choices=("title", "lower-third", "watermark", "cta", "arrow"))
     font = serializers.ChoiceField(choices=FONTS, required=False)
     text = serializers.CharField(max_length=200, allow_blank=True, default="")
     logo = serializers.BooleanField(default=False)

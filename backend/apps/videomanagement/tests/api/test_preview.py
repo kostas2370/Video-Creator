@@ -18,6 +18,21 @@ from .base import ApiTestCase
 
 
 class PreviewTests(ApiTestCase):
+    def test_photo_animation_plan_and_fps_are_in_preview_but_not_for_clips(self):
+        self.first.animation_preset = "PLAYFUL"
+        self.first.save()
+        self.video.settings["export_fps"] = 30
+        self.video.save()
+        data = self.client.get(self.url).data
+        first = next(segment for segment in data["segments"] if segment["id"] == str(self.first.pk))
+        self.assertEqual(first["photo_animation"]["preset"], "PLAYFUL")
+        self.assertEqual(first["fps"], 30)
+        image = self.first.scene_images.first()
+        image.file = "clip.mp4"
+        image.save()
+        first = next(segment for segment in self.client.get(self.url).data["segments"] if segment["id"] == str(self.first.pk))
+        self.assertIsNone(first["photo_animation"])
+
     def test_tiktok_style_is_saved_and_preview_exposes_word_highlights(self):
         response = self.client.patch(reverse("video-detail", args=[self.video.pk]), {"caption_style": "TIKTOK"}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
