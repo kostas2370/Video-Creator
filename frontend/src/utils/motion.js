@@ -1,8 +1,8 @@
-import { animationProgress, cameraAt } from "./photoAnimation";
+import { animationProgress, keyframeAt } from "./photoAnimation";
 
 export function imageMotion(segment, time) {
   if (segment.photo_animation?.camera?.length) {
-    const camera = cameraAt(segment.photo_animation.camera, animationProgress(time, segment.base_duration, segment.fps));
+    const camera = keyframeAt(segment.photo_animation.camera, animationProgress(time, segment.base_duration, segment.fps));
     return { transform: `translate(${camera.x * 100}%, ${camera.y * 100}%) scale(${camera.scale})`, transformOrigin: "center" };
   }
   const end = Math.max(0, segment.base_duration - 1 / 24);

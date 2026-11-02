@@ -15,6 +15,18 @@ from ..photo_animation import animation_plan
 from .ass import ass_color, ass_event, escape_ass_text, write_document
 
 
+# ASS templates use bounded entrance times, matching the preview's keyframes.
+TEXT_ENTRANCES = {
+    "PLAYFUL": (r"\pos({x},{y})\fscx70\fscy70"
+                r"\t(0,{first:g},\fscx110\fscy110)"
+                r"\t({first:g},{last:g},\fscx100\fscy100)"),
+    "DRAMATIC": (r"\pos({x},{y})\fad({fade:g},0)\fscx115\fscy115"
+                 r"\t(0,{settle:g},\fscx100\fscy100)"),
+    "CALM": r"\pos({x},{y})\fad({settle:g},0)",
+    "EXPLAINER": r"\move({x},{slide_y},{x},{y},0,{slide:g})\fad({slide:g},0)",
+}
+
+
 def placement(position, width, height):
     vertical, horizontal = position.split("-")
     column = {"left": 0, "center": 1, "right": 2}[horizontal]
@@ -74,20 +86,15 @@ def text_overlay(item, name, size, start, end, preset="NONE"):
     alignment, x, y = placement(item["position"], *size)
     style = text_style(item, name, font, size[0] * fitted_size / 100, alignment)
     safe = wrapped.replace("\n", "\\N")
-    tags = f"\\an{alignment}\\pos({x},{y})"
     duration = (end - start) * 1000
-    if item.get("kind") == "watermark":
-        preset = "NONE"
-    if preset == "PLAYFUL":
-        first, last = min(140, duration / 2), min(260, duration)
-        tags += f"\\fscx70\\fscy70\\t(0,{first:g},\\fscx110\\fscy110)\\t({first:g},{last:g},\\fscx100\\fscy100)"
-    elif preset == "DRAMATIC":
-        tags += f"\\fad({min(200, duration):g},0)\\fscx115\\fscy115\\t(0,{min(300, duration):g},\\fscx100\\fscy100)"
-    elif preset == "CALM":
-        tags += f"\\fad({min(300, duration):g},0)"
-    elif preset == "EXPLAINER":
-        entrance = min(220, duration)
-        tags = f"\\an{alignment}\\move({x},{y + size[1] * .025},{x},{y},0,{entrance:g})\\fad({entrance:g},0)"
+    preset = "NONE" if item.get("kind") == "watermark" else preset
+    template = TEXT_ENTRANCES.get(preset, r"\pos({x},{y})")
+    position = template.format(
+        x=x, y=y, slide_y=y + size[1] * .025,
+        first=min(140, duration / 2), last=min(260, duration),
+        fade=min(200, duration), settle=min(300, duration), slide=min(220, duration),
+    )
+    tags = f"\\an{alignment}{position}"
     text = f"{{{tags}}}{safe}"
     return style, ass_event(start, end, text, name)
 

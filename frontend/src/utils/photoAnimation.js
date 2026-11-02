@@ -7,26 +7,34 @@ export const photoPresets = [
   ["EXPLAINER", "Explainer", "Zoom, hold, and pull back, with sliding labels."],
 ];
 
+// (time, zoom amount, horizontal travel); mirrors the render timeline tables.
+const cameraFrames = {
+  PLAYFUL: [[0, 0, 0], [.12, 1, 0], [.22, .6, 0], [.58, .6, 0], [.7, 1.2, 0], [1, .8, 0]],
+  DRAMATIC: [[0, 0, 0], [.7, .4, 0], [1, 1.5, 0]],
+  CALM: [[0, 1, -.2], [1, 1, .2]],
+  EXPLAINER: [[0, 0, 0], [.18, 1, 0], [.75, 1, 0], [1, 0, 0]],
+};
+// (colors, vertical travel, size, opacity). Explainer has no particles.
+const particleStyles = {
+  PLAYFUL: [["#facc15", "#38bdf8", "#f472b6"], .08, .005, .65],
+  DRAMATIC: [["#fbbf24"], -.05, .0025, .35],
+  CALM: [["#ffffff"], -.05, .0025, .35],
+};
+
 export function photoAnimationPlan(preset = "NONE", intensity = "SUBTLE", sceneId, accents = true) {
-  if (preset === "NONE") return null;
+  if (!cameraFrames[preset]) return null;
   const identity = String(sceneId).replaceAll("-", "");
   const seed = /^[0-9a-f]+$/i.test(identity) ? Number(BigInt(`0x${identity}`) % 997n) : 0;
-  const amount = ({ SUBTLE: 0.06, MEDIUM: 0.12, STRONG: 0.2 }[intensity] ?? 0.06) * (.85 + (seed % 3) * .15);
+  const amount = ({ SUBTLE: .06, MEDIUM: .12, STRONG: .2 }[intensity] ?? .06) * (.85 + (seed % 3) * .15);
   const direction = seed % 2 ? 1 : -1;
-  const frame = (at, scale, x = 0, y = 0) => ({ at, scale, x, y });
-  let camera;
-  if (preset === "PLAYFUL") camera = [frame(0, 1), frame(.12, 1 + amount), frame(.22, 1 + amount * .6), frame(.58, 1 + amount * .6), frame(.7, 1 + amount * 1.2), frame(1, 1 + amount * .8)];
-  else if (preset === "DRAMATIC") camera = [frame(0, 1), frame(.7, 1 + amount * .4), frame(1, 1 + amount * 1.5)];
-  else if (preset === "CALM") camera = [frame(0, 1 + amount, -direction * amount * .2), frame(1, 1 + amount, direction * amount * .2)];
-  else if (preset === "EXPLAINER") camera = [frame(0, 1), frame(.18, 1 + amount), frame(.75, 1 + amount), frame(1, 1)];
-  else return null;
+  const camera = cameraFrames[preset].map(([at, zoom, x]) => ({ at, scale: 1 + amount * zoom, x: x === 0 ? 0 : direction * amount * x, y: 0 }));
   const particles = [];
-  if (accents && preset !== "EXPLAINER") {
-    const colors = { PLAYFUL: ["#facc15", "#38bdf8", "#f472b6"], DRAMATIC: ["#fbbf24"], CALM: ["#ffffff"] }[preset];
+  if (accents && particleStyles[preset]) {
+    const [colors, travel, size, opacity] = particleStyles[preset];
     for (let i = 0; i < 12; i++) {
       const x = ((seed + i * 83) % 900 + 50) / 1000;
       const y = ((seed * 7 + i * 137) % 900 + 50) / 1000;
-      particles.push({ x, y, to_x: x + direction * .025, to_y: y + (preset === "PLAYFUL" ? .08 : -.05), size: (preset === "PLAYFUL" ? .005 : .0025) * (1 + i % 3 * .3), color: colors[i % colors.length], opacity: preset === "PLAYFUL" ? .65 : .35 });
+      particles.push({ x, y, to_x: x + direction * .025, to_y: y + travel, size: size * (1 + i % 3 * .3), color: colors[i % colors.length], opacity });
     }
   }
   return { preset, camera, particles };
@@ -37,26 +45,27 @@ export function animationProgress(time, duration, fps = 24) {
   return Math.min(1, Math.max(0, time * fps / last));
 }
 
-export function cameraAt(frames, progress) {
+export function keyframeAt(frames, progress) {
   const right = frames.findIndex(frame => frame.at > progress);
   if (right <= 0) return frames[right === 0 ? 0 : frames.length - 1];
   const a = frames[right - 1], b = frames[right];
   const fraction = (progress - a.at) / (b.at - a.at);
-  return Object.fromEntries(["scale", "x", "y"].map(key => [key, a[key] + (b[key] - a[key]) * fraction]));
+  return Object.fromEntries(Object.keys(a).filter(key => key !== "at").map(key => [key, a[key] + (b[key] - a[key]) * fraction]));
 }
 
+// Each point is (seconds, maximum fraction of overlay duration, value).
+const textEntrances = {
+  PLAYFUL: { scale: [[0, 0, .7], [.14, .5, 1.1], [.26, 1, 1]] },
+  DRAMATIC: { scale: [[0, 0, 1.15], [.3, 1, 1]], opacity: [[0, 0, 0], [.2, 1, 1]] },
+  CALM: { opacity: [[0, 0, 0], [.3, 1, 1]] },
+  EXPLAINER: { opacity: [[0, 0, 0], [.22, 1, 1]], dy: [[0, 0, .025], [.22, 1, 0]] },
+};
+
 export function overlayEntrance(preset, time, duration) {
-  const elapsed = Math.max(0, time);
-  const entranceDuration = { PLAYFUL: .26, DRAMATIC: .3, CALM: .3, EXPLAINER: .22 }[preset] ?? 0;
-  if (elapsed >= Math.min(entranceDuration, duration)) return { scale: 1, opacity: 1, dy: 0 };
-  const progress = seconds => Math.min(1, elapsed / Math.max(.001, Math.min(seconds, duration)));
-  if (preset === "PLAYFUL") {
-    const a = Math.min(.14, duration / 2), b = Math.min(.26, duration);
-    const scale = elapsed < a ? .7 + .4 * elapsed / Math.max(.001, a) : 1.1 - .1 * Math.min(1, (elapsed - a) / Math.max(.001, b - a));
-    return { scale, opacity: 1, dy: 0 };
+  const result = { scale: 1, opacity: 1, dy: 0 };
+  for (const [property, points] of Object.entries(textEntrances[preset] || {})) {
+    const frames = points.map(([seconds, fraction, value]) => ({ at: Math.min(seconds, duration * fraction), value }));
+    result[property] = keyframeAt(frames, Math.max(0, time)).value;
   }
-  if (preset === "DRAMATIC") return { scale: 1.15 - .15 * progress(.3), opacity: progress(.2), dy: 0 };
-  if (preset === "CALM") return { scale: 1, opacity: progress(.3), dy: 0 };
-  if (preset === "EXPLAINER") return { scale: 1, opacity: progress(.22), dy: .025 * (1 - progress(.22)) };
-  return { scale: 1, opacity: 1, dy: 0 };
+  return result;
 }
