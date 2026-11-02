@@ -1,4 +1,10 @@
+import { animationProgress, cameraAt } from "./photoAnimation";
+
 export function imageMotion(segment, time) {
+  if (segment.photo_animation?.camera?.length) {
+    const camera = cameraAt(segment.photo_animation.camera, animationProgress(time, segment.base_duration, segment.fps));
+    return { transform: `translate(${camera.x * 100}%, ${camera.y * 100}%) scale(${camera.scale})`, transformOrigin: "center" };
+  }
   const end = Math.max(0, segment.base_duration - 1 / 24);
   const progress = end ? Math.min(1, Math.max(0, time / end)) : 1;
   const amount = { SUBTLE: 0.06, MEDIUM: 0.12, STRONG: 0.20 }[segment.motion_intensity] ?? 0.06;

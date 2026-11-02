@@ -32,6 +32,21 @@ from ...utils.composer.render import Graph, make_video, render_scene_clip
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    def test_photo_presets_export_with_text_particles_and_frozen_pause(self):
+        serializer = OverlaySerializer(data={"kind": "title", "text": "Look!", "size": 8})
+        serializer.is_valid(raise_exception=True)
+        scene = self.add_still(motion_style="NONE", pause_after=.25, overlays=[serializer.validated_data])
+        self.row.settings.update(transition_default="CUT", export_fps=30)
+        self.row.save()
+        for preset in ("PLAYFUL", "DRAMATIC", "CALM", "EXPLAINER"):
+            with self.subTest(preset=preset):
+                scene.animation_preset = preset
+                scene.save()
+                make_video(self.row)
+                self.assertEqual(self.metadata()["streams"][0]["r_frame_rate"], "30/1")
+                self.assertGreater(np.abs(self.frame(.03).astype(float) - self.frame(.4)).mean(), .1)
+                np.testing.assert_allclose(self.frame(.56), self.frame(.66), atol=4)
+
     def test_export_presets_and_frame_rates_reach_the_encoder(self):
         self.add_still(motion_style="PAN_RIGHT", pause_after=0.13)
         run = Graph.run

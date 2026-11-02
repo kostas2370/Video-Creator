@@ -14,6 +14,7 @@ from ..models import (
     MotionIntensity,
     MotionStyle,
     Outro,
+    PhotoAnimation,
     TransitionStyle,
 )
 from ..schemas.scene_editing import SceneEditingPlanSerializer
@@ -372,10 +373,14 @@ class SceneTransitionSerializer(serializers.Serializer):
 
 class BulkAutoMotionSerializer(serializers.Serializer):
     motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices)
+    animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, default="NONE")
+    animation_accents = serializers.BooleanField(default=True)
 
 
 class SceneMotionSerializer(serializers.Serializer):
     motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
+    animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, default="NONE")
+    animation_accents = serializers.BooleanField(required=False)
     motion_intensity = serializers.ChoiceField(
         choices=MotionIntensity.choices, required=False
     )

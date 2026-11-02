@@ -149,6 +149,27 @@ Removed scenes can be restored from **Project extras → Recently deleted** for 
 days. Reusable scene assets remain in the media library after their project is
 deleted; assets still used by a scene cannot be deleted from the library.
 
+### Animate photo scenes
+
+Open a scene's **Animation** control to preview **Playful**, **Dramatic**, **Calm**,
+or **Explainer**. Presets combine camera movement with entrances for text overlays;
+Playful, Dramatic, and Calm also offer optional decorative particles. Adjust the
+intensity, save, and render again to include the animation in the downloaded video.
+Use **Text & logos** to add titles, labels, or an arrow and set when they appear.
+Watermarks stay static. The sample label in the animation picker is for preview only.
+
+Under **Project extras → Photo animations**, choose **Animate all photos** to apply
+a preset across existing image scenes. Video clips keep their appearance. Choose
+**Camera only** for individual zoom/pan controls (or varied Auto movement when
+applying to all photos). Existing projects keep their current appearance until a
+preset is saved. These effects reuse the existing photos and do not request AI video
+generation. Moving separate character/object cutouts and automatic animation
+planning are not included in this version.
+
+When updating an already running installation, apply the database migrations and
+restart the API and Celery workers as well as rebuilding the frontend. The API must
+load the new scene fields before animation settings can be saved.
+
 ## Provider configuration
 
 Both Docker and manual installations read [`backend/.env`](backend/.env_example).

@@ -1,14 +1,17 @@
 """Compose timed scene logos and text over the rendered picture."""
 
+import math
 from pathlib import Path
 
 from django.conf import settings
 
 from apps.videomanagement.exceptions import RenderFailedException
+from apps.videomanagement.export_settings import export_settings
 
 from ..file_utils import stored_file_exists
 from ..fonts import subtitles_filter
 from ..overlay_text import overlay_text_layout
+from ..photo_animation import animation_plan
 from .ass import ass_color, ass_event, escape_ass_text, write_document
 
 
@@ -63,7 +66,7 @@ def text_style(item, name, font, font_size, alignment):
     }
 
 
-def text_overlay(item, name, size, start, end):
+def text_overlay(item, name, size, start, end, preset="NONE"):
     font = item.get("font") or settings.SUBTITLE_FONT
     wrapped, fitted_size = overlay_text_layout(
         escape_ass_text(item["text"]), item["size"], font, size
@@ -71,13 +74,51 @@ def text_overlay(item, name, size, start, end):
     alignment, x, y = placement(item["position"], *size)
     style = text_style(item, name, font, size[0] * fitted_size / 100, alignment)
     safe = wrapped.replace("\n", "\\N")
-    text = f"{{\\an{alignment}\\pos({x},{y})}}{safe}"
+    tags = f"\\an{alignment}\\pos({x},{y})"
+    duration = (end - start) * 1000
+    if item.get("kind") == "watermark":
+        preset = "NONE"
+    if preset == "PLAYFUL":
+        first, last = min(140, duration / 2), min(260, duration)
+        tags += f"\\fscx70\\fscy70\\t(0,{first:g},\\fscx110\\fscy110)\\t({first:g},{last:g},\\fscx100\\fscy100)"
+    elif preset == "DRAMATIC":
+        tags += f"\\fad({min(200, duration):g},0)\\fscx115\\fscy115\\t(0,{min(300, duration):g},\\fscx100\\fscy100)"
+    elif preset == "CALM":
+        tags += f"\\fad({min(300, duration):g},0)"
+    elif preset == "EXPLAINER":
+        entrance = min(220, duration)
+        tags = f"\\an{alignment}\\move({x},{y + size[1] * .025},{x},{y},0,{entrance:g})\\fad({entrance:g},0)"
+    text = f"{{{tags}}}{safe}"
     return style, ass_event(start, end, text, name)
+
+
+def particle_overlays(segment, size, plan):
+    """Vector accents share the preview's plan and hold still during scene pauses."""
+    styles, events = [], []
+    width, height = size
+    # Match the last rendered camera frame, including 30fps exports.
+    fps = export_settings(segment.content.video.settings or {})["fps"]
+    travel = max(1, math.ceil(segment.base_duration * fps) - 1) / fps
+    for i, particle in enumerate(plan["particles"]):
+        name = f"Accent{segment.index}_{i}"
+        styles.append({"Name": name, "PrimaryColour": ass_color(particle["color"], particle["opacity"]), "Outline": 0, "Shadow": 0, "Alignment": 7})
+        x, y = particle["x"] * width, particle["y"] * height
+        tx, ty = particle["to_x"] * width, particle["to_y"] * height
+        edge = particle["size"] * width
+        shape = f"m 0 0 l {edge:g} 0 {edge:g} {edge:g} 0 {edge:g}"
+        tags = f"\\an7\\bord0\\shad0\\move({x},{y},{tx},{ty},0,{travel * 1000:g})\\p1"
+        events.append(ass_event(segment.start, segment.start + segment.duration, f"{{{tags}}}{shape}", name))
+    return styles, events
 
 
 def apply_overlays(graph, stream, segments, size, directory):
     styles, events = [], []
     for segment in segments:
+        plan = animation_plan(segment.content) if segment.visual_type == "image" else None
+        if plan:
+            accents, drawings = particle_overlays(segment, size, plan)
+            styles.extend(accents)
+            events.extend(drawings)
         for item in getattr(segment.content, "overlays", []):
             start = min(segment.duration, item["start"])
             end = min(
@@ -93,7 +134,8 @@ def apply_overlays(graph, stream, segments, size, directory):
                 )
             else:
                 style, event = text_overlay(
-                    item, f"Overlay{len(styles)}", size, start, end
+                    item, f"Overlay{len(styles)}", size, start, end,
+                    plan["preset"] if plan else "NONE",
                 )
                 styles.append(style)
                 events.append(event)

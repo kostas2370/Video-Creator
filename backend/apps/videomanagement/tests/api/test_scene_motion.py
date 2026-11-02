@@ -30,6 +30,24 @@ class SceneMotionTests(ApiTestCase):
         self.assertEqual(response.data["motion_style"], "PAN_LEFT")
         self.scene_queue.assert_not_called()
 
+    def test_saves_and_removes_photo_animation_without_generating(self):
+        for preset in ("PLAYFUL", "DRAMATIC", "CALM", "EXPLAINER", "NONE"):
+            response = self.client.patch(self.url, {
+                "motion_style": "NONE", "animation_preset": preset,
+                "animation_accents": False,
+            }, format="json")
+            self.assertEqual(response.status_code, 200)
+            self.scene.refresh_from_db()
+            self.assertEqual(self.scene.animation_preset, preset)
+            self.assertFalse(self.scene.animation_accents)
+        self.scene_queue.assert_not_called()
+
+    def test_rejects_unknown_preset(self):
+        response = self.client.patch(self.url, {
+            "motion_style": "NONE", "animation_preset": "MAGIC",
+        }, format="json")
+        self.assertEqual(response.status_code, 400)
+
     def test_invalid_choices_do_not_change_scene(self):
         for changes in (
             {"motion_style": "SPIN"},
@@ -98,6 +116,23 @@ class BulkAutoMotionTests(ApiTestCase):
         self.empty.refresh_from_db()
         self.assertEqual(self.clip.motion_style, "PAN_UP")
         self.assertEqual(self.empty.motion_style, "NONE")
+        self.scene_queue.assert_not_called()
+
+    def test_applies_photo_presets_only_to_images_and_can_remove_them(self):
+        for preset in ("PLAYFUL", "NONE"):
+            response = self.client.patch(self.url, {
+                "motion_intensity": "MEDIUM", "animation_preset": preset,
+                "animation_accents": False,
+            }, format="json")
+            self.assertEqual(response.status_code, 200)
+            for row in self.images:
+                row.refresh_from_db()
+                self.assertEqual(row.animation_preset, preset)
+                self.assertFalse(row.animation_accents)
+            self.clip.refresh_from_db()
+            self.empty.refresh_from_db()
+            self.assertEqual(self.clip.animation_preset, "NONE")
+            self.assertEqual(self.empty.animation_preset, "NONE")
         self.scene_queue.assert_not_called()
 
     def test_invalid_intensity_changes_nothing(self):

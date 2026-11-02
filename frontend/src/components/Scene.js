@@ -27,7 +27,7 @@ const formatFrameClasses = {
   SQUARE: "mx-auto aspect-square w-full max-w-[420px]",
 };
 
-export const Scene = ({ generationMode = "STANDARD", textDraft, onTextDraftChange, onTextSave, onTextRewrite, manual, scene, setUpdated, onRemoveScene, video_format = "LANDSCAPE", index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
+export const Scene = ({ generationMode = "STANDARD", textDraft, onTextDraftChange, onTextSave, onTextRewrite, manual, scene, setUpdated, onRemoveScene, video_format = "LANDSCAPE", exportFps = 24, index = 0, reorderHandle, onTiming, timingDisabled, timingSaving, onMotion, motionDisabled, motionSaving, nextScene, transitionControl }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteSceneModal, setShowDeleteSceneModal] = useState(false);
 
@@ -129,7 +129,7 @@ export const Scene = ({ generationMode = "STANDARD", textDraft, onTextDraftChang
         <RememberedDetails videoId={scene.video} panel="adjustScene" className="border-t border-gray-100 px-4 py-4 sm:px-5 dark:border-gray-700">
           <summary className="cursor-pointer text-sm font-semibold">Adjust scene <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Overlays, captions &amp; motion</span></summary>
           <div className="mt-4 space-y-5">
-            <div aria-label="Scene editing tools" className="flex flex-wrap items-center gap-2"><SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} /><SceneCaptions scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />{onMotion && <SceneMotion scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}</div>
+            <div aria-label="Scene editing tools" className="flex flex-wrap items-center gap-2"><SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} /><SceneCaptions scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />{onMotion && <SceneMotion fps={exportFps} scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}</div>
           </div>
         </RememberedDetails>
       </article>

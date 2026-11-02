@@ -69,11 +69,12 @@ def reorder_scenes(video, scene_ids, expected_scene_ids=None):
     return locked_video
 
 
-def apply_auto_motion(video, intensity):
+def apply_auto_motion(video, intensity, animation_preset="NONE", animation_accents=True):
     with editable_video(video.pk) as locked_video:
         scenes = (
             locked_video.scenes.exclude(
-                motion_style=MotionStyle.AUTO, motion_intensity=intensity
+                motion_style=MotionStyle.AUTO, motion_intensity=intensity,
+                animation_preset=animation_preset, animation_accents=animation_accents,
             )
             .select_for_update()
             .with_media()
@@ -87,6 +88,8 @@ def apply_auto_motion(video, intensity):
             locked_video.scenes.filter(pk__in=scene_ids).update(
                 motion_style=MotionStyle.AUTO,
                 motion_intensity=intensity,
+                animation_preset=animation_preset,
+                animation_accents=animation_accents,
             )
             changed(locked_video, invalidate_avatar=False)
     return locked_video
@@ -97,7 +100,9 @@ def update_scene_transition(scene, **changes):
 
 
 def update_scene_motion(scene, **changes):
-    return _update_playback(scene, ("motion_style", "motion_intensity"), changes)
+    return _update_playback(
+        scene, ("motion_style", "motion_intensity", "animation_preset", "animation_accents"), changes
+    )
 
 
 def update_scene_timing(scene, **changes):

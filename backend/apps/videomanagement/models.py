@@ -92,6 +92,14 @@ class MotionStyle(models.TextChoices):
     PAN_DOWN = "PAN_DOWN", "Pan Down"
 
 
+class PhotoAnimation(models.TextChoices):
+    NONE = "NONE", "None"
+    PLAYFUL = "PLAYFUL", "Playful"
+    DRAMATIC = "DRAMATIC", "Dramatic"
+    CALM = "CALM", "Calm"
+    EXPLAINER = "EXPLAINER", "Explainer"
+
+
 class MotionIntensity(models.TextChoices):
     SUBTLE = "SUBTLE", "Subtle"
     MEDIUM = "MEDIUM", "Medium"
@@ -264,6 +272,10 @@ class Scene(UUIDModel):
     motion_style = models.CharField(
         max_length=10, choices=MotionStyle.choices, default=MotionStyle.NONE
     )
+    animation_preset = models.CharField(
+        max_length=10, choices=PhotoAnimation.choices, default=PhotoAnimation.NONE
+    )
+    animation_accents = models.BooleanField(default=True)
     motion_intensity = models.CharField(
         max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
     )
