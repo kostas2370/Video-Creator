@@ -91,26 +91,6 @@ Organise the scenario into scenes. Each scene is made up of sentences. For every
 sentence, write {parts}.
 """
 
-_SHAPE = """
-Answer with JSON only — no prose, no markdown, no code fences — in exactly this shape:
-{{
-  "title": "<short title for the video>",
-  "target_audience": "<who the video is for>",
-  "topic": "<the topic in one line>",
-{continuity_field}  "scenes": [
-    {{
-      "scene": "<short label for the scene>",
-      "sentences": [
-        {{{fields}
-        }}
-      ]
-    }}
-  ]
-}}
-"""
-
-_NARRATION_FIELD = '\n          "sentence": "<the narration to be spoken>",'
-_STILL_FIELD = '\n          "image_description": "{}"'
 _SHOT = "<the shot to film: subject, action, setting, camera move>"
 _IMAGE = "<the image to show while it is spoken>"
 
@@ -164,24 +144,35 @@ def _script_structure(brief, narration, ai_scene_editing=False):
     parts = f"the narration and {brief.description}"
     if not narration:
         parts = f"only {brief.description} — there is no narration, so write no spoken lines"
-    fields = (_NARRATION_FIELD if narration else "") + _STILL_FIELD.format(brief.placeholder)
+    shot = {"image_description": brief.placeholder}
+    if narration:
+        shot = {"sentence": "<the narration to be spoken>", **shot}
     if brief.generated or ai_scene_editing:
-        fields += (',\n          "shot_plan": {"shot_size":"MEDIUM", "camera_movement":"STATIC", '
-                   '"subject_action":"<visible subject action>", "target_duration":5'
-                   + (', "role":"EXPLANATION", "visual_focus":"<what the viewer should notice>"' if ai_scene_editing else '') + '}')
+        shot["shot_plan"] = {
+            "shot_size": "MEDIUM", "camera_movement": "STATIC",
+            "subject_action": "<visible subject action>", "target_duration": 5,
+        }
     if ai_scene_editing:
-        fields += (',\n          "editing": {"motion_style":"NONE", "motion_intensity":"SUBTLE", '
-                   '"transition_after":"CUT", "transition_duration":0.2, "pause_after":0, '
-                   '"animation_preset":"NONE", "animation_accents":false, '
-                   '"overlays":[{"text":"<short meaningful label>", "position":"top-center", '
-                   '"start_fraction":0.1, "end_fraction":0.6}]}')
-    continuity_field = (
-        '  "visual_continuity": "<shared character and setting description>",\n'
-        if brief.generated else ""
-    )
-    return _STILL_BRIEF.format(parts=parts) + _SHAPE.format(
-        fields=fields, continuity_field=continuity_field,
-    )
+        shot["shot_plan"].update(
+            role="EXPLANATION", visual_focus="<what the viewer should notice>"
+        )
+        shot["editing"] = {
+            "motion_style": "NONE", "motion_intensity": "SUBTLE",
+            "transition_after": "CUT", "transition_duration": .2, "pause_after": 0,
+            "animation_preset": "NONE", "animation_accents": False,
+            "overlays": [{"text": "<short meaningful label>", "position": "top-center",
+                          "start_fraction": .1, "end_fraction": .6}],
+        }
+    shape = {
+        "title": "<short title for the video>",
+        "target_audience": "<who the video is for>", "topic": "<the topic in one line>",
+    }
+    if brief.generated:
+        shape["visual_continuity"] = "<shared character and setting description>"
+    shape["scenes"] = [{"scene": "<short label for the scene>", "sentences": [shot]}]
+    return (_STILL_BRIEF.format(parts=parts)
+            + "\nAnswer with JSON only — no prose, no markdown, no code fences — in exactly this shape:\n"
+            + json.dumps(shape, indent=2) + "\n")
 
 
 def _scene_editing_instructions(visual_type):

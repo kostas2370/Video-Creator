@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from apps.videomanagement.models import MotionIntensity, MotionStyle, PhotoAnimation, TransitionStyle
 from apps.videomanagement.serializers.fields import FiniteFloat
+from apps.videomanagement.serializers.motion import MotionSettingsSerializer
 
 
 class PlannedOverlaySerializer(serializers.Serializer):
@@ -23,14 +24,13 @@ class PlannedOverlaySerializer(serializers.Serializer):
         return attrs
 
 
-class SceneEditingPlanSerializer(serializers.Serializer):
+class SceneEditingPlanSerializer(MotionSettingsSerializer):
     motion_style = serializers.ChoiceField(choices=MotionStyle.choices)
     motion_intensity = serializers.ChoiceField(choices=MotionIntensity.choices)
     transition_after = serializers.ChoiceField(choices=TransitionStyle.choices)
     transition_duration = FiniteFloat(min_value=0.1, max_value=0.6)
     pause_after = FiniteFloat(min_value=0, max_value=0.8)
     animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, required=False)
-    animation_accents = serializers.BooleanField(required=False)
     overlays = PlannedOverlaySerializer(many=True, required=False, max_length=2)
 
     def validate(self, attrs):
