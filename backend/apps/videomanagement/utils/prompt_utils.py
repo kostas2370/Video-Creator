@@ -165,12 +165,16 @@ def _script_structure(brief, narration, ai_scene_editing=False):
     if not narration:
         parts = f"only {brief.description} — there is no narration, so write no spoken lines"
     fields = (_NARRATION_FIELD if narration else "") + _STILL_FIELD.format(brief.placeholder)
-    if brief.generated:
+    if brief.generated or ai_scene_editing:
         fields += (',\n          "shot_plan": {"shot_size":"MEDIUM", "camera_movement":"STATIC", '
-                   '"subject_action":"<visible subject action>", "target_duration":5}')
+                   '"subject_action":"<visible subject action>", "target_duration":5'
+                   + (', "role":"EXPLANATION", "visual_focus":"<what the viewer should notice>"' if ai_scene_editing else '') + '}')
     if ai_scene_editing:
         fields += (',\n          "editing": {"motion_style":"NONE", "motion_intensity":"SUBTLE", '
-                   '"transition_after":"CUT", "transition_duration":0.2, "pause_after":0}')
+                   '"transition_after":"CUT", "transition_duration":0.2, "pause_after":0, '
+                   '"animation_preset":"NONE", "animation_accents":false, '
+                   '"overlays":[{"text":"<short meaningful label>", "position":"top-center", '
+                   '"start_fraction":0.1, "end_fraction":0.6}]}')
     continuity_field = (
         '  "visual_continuity": "<shared character and setting description>",\n'
         if brief.generated else ""
@@ -182,6 +186,16 @@ def _script_structure(brief, narration, ai_scene_editing=False):
 
 def _scene_editing_instructions(visual_type):
     instructions = (
+        "Plan the whole visual story before choosing edits. Open with a clear visual question or "
+        "surprising situation, build through explanation and evidence, and end with a payoff. "
+        "Each shot_plan needs a role: HOOK, CONTEXT, EXPLANATION, COMPARISON, REACTION, REVEAL, or PAYOFF; "
+        "and visual_focus: what viewers should notice, at most 200 characters. "
+        "Vary WIDE, MEDIUM, CLOSE_UP, and DETAIL shots deliberately; avoid repeated framing "
+        "when a detail, reaction, or comparison would explain the next thought better. "
+        "Keep one main idea per shot and make the image show the meaning of the narration. "
+        "For a comparison, describe both subjects clearly in one readable composition. "
+        "Never add unsupported facts or change the script's meaning just to make a visual exciting. "
+        "Use the same palette, medium, and recurring subject details across the video. "
         "Return an editing object on every sentences entry using only these settings. "
         "motion_style: NONE, AUTO, ZOOM_IN, ZOOM_OUT, PAN_LEFT, PAN_RIGHT, PAN_UP, PAN_DOWN. "
         "motion_intensity: SUBTLE, MEDIUM, or STRONG; prefer SUBTLE and avoid STRONG unless "
@@ -191,11 +205,23 @@ def _scene_editing_instructions(visual_type):
         "Prefer cuts for momentum, and use short fades or dissolves only for meaningful "
         "changes in time or mood. Use zero pause by default, with a short pause for an "
         "important reveal or final takeaway. Avoid repetitive motion. "
+        "animation_preset: NONE, PLAYFUL, DRAMATIC, CALM, or EXPLAINER. "
+        "Prefer EXPLAINER for explanations and comparisons, DRAMATIC for a reveal, CALM for "
+        "context, and PLAYFUL only for a lighthearted reaction or punchline. Use NONE where "
+        "a plain shot communicates best. Avoid repeating the same effect throughout the video. "
+        "animation_accents: false by default; use decorative particles only when they fit the tone. "
+        "overlays: an array of zero, one, or two short labels. Use an empty array when text adds "
+        "nothing. Each label has text (at most 80 characters, ideally 2–6 words), position "
+        "(top-left, top-center, top-right, or middle-center), start_fraction, and end_fraction "
+        "(0–1 fractions of the finished scene, end strictly after start). Labels must not overlap "
+        "in time. Place a label near the corresponding thought, number, comparison, or reveal; "
+        "do not duplicate the full narration or invent a claim. Keep the bottom clear for captions. "
+        "Timings are planning estimates which users can review before generation. "
         "These are editor settings; keep them out of narration and visual descriptions. "
         "For the final shot, use CUT and transition_duration 0.1; it has no following shot. "
     )
     if visual_type == VisualType.VIDEO:
-        return instructions + "Use motion_style NONE for every shot; camera movement comes from the generated video."
+        return instructions + "Use motion_style NONE and animation_preset NONE for every shot; camera movement comes from the generated video."
     return instructions + "For still images, use subtle zooms or pans selectively and keep some shots still."
 
 
@@ -203,6 +229,8 @@ def with_shot_plan(prompt: str, plan: dict, *, video=False) -> str:
     directions = []
     if plan.get("shot_size"):
         directions.append("Shot size: " + plan["shot_size"].lower().replace("_", " "))
+    if plan.get("visual_focus"):
+        directions.append("Visual focus: " + plan["visual_focus"])
     if plan.get("subject_action"):
         directions.append("Subject action: " + plan["subject_action"])
     if video and plan.get("camera_movement"):
