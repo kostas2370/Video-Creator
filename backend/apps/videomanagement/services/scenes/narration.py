@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 from apps.videomanagement.integrations.tts import ApiSyn, save
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, Video
+from apps.videomanagement.serializers.overlays import OverlaySerializer
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.schemas.shot_planning import STILL_MOTION, ShotPlanSerializer
 from apps.videomanagement.services.captions.alignment import align_scene_narration
@@ -157,6 +158,11 @@ def ensure_scene_rows(video: Video):
                 plan.is_valid(raise_exception=True)
                 editing = dict(plan.validated_data)
             planned_overlays = editing.pop("overlays", [])
+            diagram = editing.pop("diagram", None)
+            if diagram:
+                overlay = OverlaySerializer(data={"kind": "diagram", "diagram": diagram})
+                overlay.is_valid(raise_exception=True)
+                editing["overlays"] = [dict(overlay.validated_data)]
             shot_plan = {}
             if (video.mode == "AI" or choices.get("ai_scene_editing")) and line.shot_plan is not None:
                 plan = ShotPlanSerializer(data=line.shot_plan)

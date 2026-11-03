@@ -13,6 +13,7 @@ from ..fonts import subtitles_filter
 from ..overlay_text import overlay_text_layout
 from ..photo_animation import animation_plan
 from .ass import ass_color, ass_event, escape_ass_text, write_document
+from .diagrams import diagram_overlays
 
 
 # ASS templates use bounded entrance times, matching the preview's keyframes.
@@ -135,7 +136,13 @@ def apply_overlays(graph, stream, segments, size, directory):
             if end <= start:
                 continue
             start, end = start + segment.start, end + segment.start
-            if item["logo"]:
+            if item["kind"] == "diagram":
+                diagram_styles, diagram_events = diagram_overlays(
+                    item, f"Diagram{len(styles)}", size, start, end,
+                )
+                styles.extend(diagram_styles)
+                events.extend(diagram_events)
+            elif item["logo"]:
                 stream = add_logo(
                     graph, stream, segment.content, item, size, start, end
                 )

@@ -5,6 +5,7 @@ from rest_framework import serializers
 from apps.videomanagement.utils.captions.styles import FONTS
 
 from .fields import validate_finite_numbers, validate_image_upload
+from .diagrams import DiagramSerializer
 
 POSITIONS = (
     "top-left",
@@ -20,7 +21,8 @@ POSITIONS = (
 
 
 class OverlaySerializer(serializers.Serializer):
-    kind = serializers.ChoiceField(choices=("title", "lower-third", "watermark", "cta", "arrow"))
+    kind = serializers.ChoiceField(choices=("title", "lower-third", "watermark", "cta", "arrow", "diagram"))
+    diagram = DiagramSerializer(required=False)
     font = serializers.ChoiceField(choices=FONTS, required=False)
     text = serializers.CharField(max_length=200, allow_blank=True, default="")
     logo = serializers.BooleanField(default=False)
@@ -43,7 +45,9 @@ class OverlaySerializer(serializers.Serializer):
         )
         if data["end"] is not None and data["end"] <= data["start"]:
             raise serializers.ValidationError("The end must be after the start.")
-        if not data["logo"] and not data["text"].strip():
+        if data["kind"] == "diagram" and "diagram" not in data:
+            raise serializers.ValidationError("Choose a diagram and enter its items.")
+        if data["kind"] != "diagram" and not data["logo"] and not data["text"].strip():
             raise serializers.ValidationError(
                 "Enter overlay text or select a watermark logo."
             )
@@ -62,6 +66,8 @@ class SceneOverlaysSerializer(serializers.Serializer):
             raise serializers.ValidationError("Use at most eight overlays per scene.")
         serializer = OverlaySerializer(data=value, many=True)
         serializer.is_valid(raise_exception=True)
+        if sum(item["kind"] == "diagram" for item in serializer.validated_data) > 1:
+            raise serializers.ValidationError("Use one educational diagram per scene.")
         return serializer.validated_data
 
     def validate_overlay_logo(self, value):

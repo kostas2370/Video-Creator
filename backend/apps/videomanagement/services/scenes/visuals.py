@@ -1,10 +1,12 @@
 import hashlib
 import json
 import logging
+from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from django.core.files import File
+from PIL import Image
 from django.db import close_old_connections
 
 from apps.usage.services import video_usage
@@ -23,6 +25,7 @@ from apps.videomanagement.models import (
 )
 from apps.videomanagement.services.scenes.narration import ensure_scene_rows
 from apps.videomanagement.utils.audio_editing import duration_override
+from apps.videomanagement.utils.diagrams import full_scene_diagram
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.frames import still_from_video
 from apps.videomanagement.utils.prompt_utils import (
@@ -274,6 +277,18 @@ def create_image_scene(
         logger.error("No scene for %r; skipping its visual", text[:60])
         return None
 
+    if full_scene_diagram(scene):
+        # The diagram is the picture; never pay a provider for a hidden background.
+        data = BytesIO()
+        Image.new("RGB", (64, 64), "#0f172a").save(data, format="PNG")
+        data.seek(0)
+        saved = scene.scene_images.filter(asset__isnull=True).first() or SceneImage(scene=scene)
+        saved.prompt = image
+        saved.with_audio = False
+        saved.file = File(data, name="diagram-background.png")
+        saved.save()
+        return saved.file.path
+
     try:
         generate = ImageProviderRegistry.resolve(mode, provider)
         visual_prompt = planned_visual_prompt(scene, image, mode, provider)
@@ -450,6 +465,9 @@ def create_image_scenes(
             )
         if (video.settings or {}).get("character_references"):
             reference = uploaded_reference(video, provider)
+        elif full_scene_diagram(scene):
+            # A graphic backdrop is never a character or clip continuation anchor.
+            continue
         elif is_video:
             # A failed shot breaks the chain; never continue from a stale frame.
             reference = continuation_frame(video, line.text, produced, scene=scene)
@@ -479,7 +497,8 @@ def scene_reference(scene: Scene, video: Video, provider):
         for image in SceneImage.objects.filter(
             scene__video=video, scene__archived_at__isnull=True
         ).order_by("scene__position", "created_at"):
-            if stored_file_exists(image.file) and not check_if_video(image.file.path):
+            if (not full_scene_diagram(image.scene) and stored_file_exists(image.file)
+                    and not check_if_video(image.file.path)):
                 return image.file.path
     elif ImageProviderRegistry.is_video(provider, user=video.created_by):
         previous = (
@@ -488,6 +507,8 @@ def scene_reference(scene: Scene, video: Video, provider):
             .first()
         )
         if previous is None:
+            return uploaded
+        if full_scene_diagram(previous):
             return uploaded
         return continuation_frame(
             video,

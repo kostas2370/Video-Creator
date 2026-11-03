@@ -1,3 +1,5 @@
+import { DiagramFields } from "./DiagramFields";
+import { newDiagram } from "../utils/diagrams";
 import { FontPicker } from "./FontPicker";
 import { editorToolButton } from "./ui/editorStyles";
 import { useEffect, useRef, useState } from "react";
@@ -8,8 +10,8 @@ import { updateSceneOverlays } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { isVideo } from "../utils/media";
 
-const names = { title: "Title", "lower-third": "Lower third", watermark: "Watermark", cta: "Call to action", arrow: "Arrow" };
-const preset = kind => ({ kind, font: "DejaVu Sans", text: { title: "Your title", "lower-third": "Name · Role", watermark: "Your brand", cta: "Learn more", arrow: "↗" }[kind], logo: false, position: { title: "middle-center", "lower-third": "bottom-left", watermark: "top-right", cta: "bottom-center", arrow: "middle-center" }[kind], start: 0, end: null, size: kind === "watermark" ? 2 : kind === "arrow" ? 8 : 4, width: 20, color: "#ffffff", background: kind !== "watermark" && kind !== "arrow", opacity: kind === "watermark" ? 0.7 : 1 });
+const names = { diagram: "Educational animation", title: "Title", "lower-third": "Lower third", watermark: "Watermark", cta: "Call to action", arrow: "Arrow" };
+const preset = kind => ({ kind, ...(kind === "diagram" ? { diagram: newDiagram("comparison") } : {}), font: "DejaVu Sans", text: { title: "Your title", "lower-third": "Name · Role", watermark: "Your brand", cta: "Learn more", arrow: "↗", diagram: "" }[kind], logo: false, position: { title: "middle-center", "lower-third": "bottom-left", watermark: "top-right", cta: "bottom-center", arrow: "middle-center", diagram: "middle-center" }[kind], start: 0, end: null, size: kind === "watermark" ? 2 : kind === "arrow" ? 8 : 4, width: 20, color: "#ffffff", background: kind !== "watermark" && kind !== "arrow", opacity: kind === "watermark" ? 0.7 : 1 });
 
 export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) {
   const [open, setOpen] = useState(false);
@@ -24,11 +26,11 @@ export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) 
       aria-label={`${scene.overlays?.length ? "Edit" : "Add"} text and logo overlays for scene ${index + 1}`}
       aria-haspopup="dialog"
       aria-expanded={open}
-      title="Add titles, lower thirds, watermarks and calls to action"
+      title="Add educational animations, text and logos"
       className={editorToolButton}
     >
       <HiOutlineRectangleStack aria-hidden="true" className="h-5 w-5 shrink-0" />
-      <span>Text & logos</span>
+      <span>Text & diagrams</span>
       {scene.overlays?.length > 0 && <span aria-hidden="true" className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-200 px-1 text-xs text-blue-800 dark:bg-blue-800 dark:text-blue-100">{scene.overlays.length}</span>}
     </button>
     {open && <OverlayEditor scene={scene} index={index} disabled={disabled} onSaved={onSaved} onClose={close} videoFormat={videoFormat} />}
@@ -55,7 +57,8 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
   const add = kind => { setItems(current => [...current, preset(kind)]); setSelected(items.length); setTime(0); };
   const save = async () => {
     if (busy || disabled) return;
-    if (items.some(row => !row.logo && !row.text.trim())) { setError("Enter text for every text overlay."); return; }
+    if (items.some(row => row.kind !== "diagram" && !row.logo && !row.text.trim())) { setError("Enter text for every text overlay."); return; }
+    if (items.some(row => row.kind === "diagram" && row.diagram.items.some(part => !part.label.trim()))) { setError("Enter a label for every diagram item."); return; }
     if (items.some(row => row.logo) && !logo) { setError("Upload a logo for the watermark."); return; }
     if (items.some(row => !Number.isFinite(row.start) || row.start < 0 || (row.end != null && (!Number.isFinite(row.end) || row.end <= row.start)))) { setError("Each overlay needs a start of zero or later and a positive duration."); return; }
     setBusy(true); setError("");
@@ -70,7 +73,7 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
   };
   const source = scene.scene_image?.file;
   const media = source && (/^https?:\/\//i.test(source) ? source : `${API_HOST}${source}`);
-  return <EditorDialog open onClose={onClose} title="Scene overlays" description={`Scene ${index + 1} · Titles, lower thirds, watermarks and calls to action.`} busy={busy} maxWidth="max-w-5xl" footer={<div className="flex justify-end gap-3"><button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm text-gray-500 dark:text-gray-300">Cancel</button><button type="button" disabled={busy || disabled} onClick={save} className={editorButton}>{busy ? "Saving…" : "Save overlays"}</button></div>}>
+  return <EditorDialog open onClose={onClose} title="Scene overlays" description={`Scene ${index + 1} · Animated diagrams, text and logos.`} busy={busy} maxWidth="max-w-5xl" footer={<div className="flex justify-end gap-3"><button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm text-gray-500 dark:text-gray-300">Cancel</button><button type="button" disabled={busy || disabled} onClick={save} className={editorButton}>{busy ? "Saving…" : "Save overlays"}</button></div>}>
     <div className="grid items-start gap-6 md:grid-cols-2">
       <div className="md:sticky md:top-0">
         <div className="relative mx-auto w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: videoFormat === "PORTRAIT" ? "9 / 16" : videoFormat === "SQUARE" ? "1" : "16 / 9", maxWidth: videoFormat === "PORTRAIT" ? 240 : undefined }}>
@@ -83,17 +86,22 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
       </div>
       <fieldset disabled={busy || disabled} className="min-w-0">
         <legend className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">Add an overlay</legend>
-        <div className="flex flex-wrap gap-2">{Object.entries(names).map(([kind, label]) => <button type="button" key={kind} disabled={items.length >= 8} onClick={() => add(kind)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-blue-600 disabled:opacity-40 dark:border-gray-600 dark:text-blue-300">+ {label}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{Object.entries(names).map(([kind, label]) => <button type="button" key={kind} disabled={items.length >= 8 || (kind === "diagram" && items.some(row => row.kind === "diagram"))} onClick={() => add(kind)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-blue-600 disabled:opacity-40 dark:border-gray-600 dark:text-blue-300">+ {label}</button>)}</div>
         <p className="mt-2 text-xs text-gray-500">Up to eight overlays per scene.</p>
         {items.length > 0 && <label className="mt-4 block text-sm text-gray-700 dark:text-gray-200">Editing<select className={`${editorInput} mt-1`} value={selected} onChange={e => { setSelected(Number(e.target.value)); setTime(Math.min(items[Number(e.target.value)].start, duration)); }}>{items.map((row, i) => <option key={i} value={i}>{i + 1}. {names[row.kind]} · {row.logo ? "Logo" : row.text.slice(0, 25)}</option>)}</select></label>}
         {item ? <div className="mt-4 space-y-4">
+          {item.kind === "diagram" && <DiagramFields value={item.diagram} onChange={diagram => update({ diagram })} />}
+          {item.kind !== "diagram" && <>
           {item.kind === "watermark" && <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"><input type="checkbox" checked={item.logo} onChange={e => update({ logo: e.target.checked })} />Use an image logo</label>}
           {item.logo ? <label className="block text-sm text-gray-700 dark:text-gray-200">Watermark logo<input type="file" accept="image/png,image/jpeg,image/webp" className="mt-2 block w-full text-sm" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 10 * 1024 * 1024) { setError("Use a logo smaller than 10 MB."); e.target.value = ""; } else { setLogoFile(file || null); setError(""); } }} /><span className="mt-1 block text-xs text-gray-500">PNG, JPEG or WebP · 10 MB maximum. Shared by logo watermarks in this scene.</span></label> : <label className="block text-sm text-gray-700 dark:text-gray-200">Text<textarea rows="3" maxLength="200" value={item.text} onChange={e => update({ text: e.target.value })} className={`${editorInput} mt-1`} /></label>}
           {!item.logo && <FontPicker value={item.font} onChange={font => update({ font })} />}
           <label className="block text-sm text-gray-700 dark:text-gray-200">Position<select value={item.position} onChange={e => update({ position: e.target.value })} className={`${editorInput} mt-1`}>{overlayPositions.map(position => <option key={position} value={position}>{position.replace("middle", "center").replace("-", " ")}</option>)}</select></label>
+          </>}
           <div className="grid grid-cols-2 gap-3"><label className="block text-sm text-gray-700 dark:text-gray-200">Start (seconds)<input type="number" min="0" max="86400" step="0.1" value={Number.isFinite(item.start) ? item.start : ""} onChange={e => { const start = e.target.value === "" ? NaN : Number(e.target.value); update({ start, end: item.end != null && Number.isFinite(start) && Number.isFinite(item.start) ? start + item.end - item.start : item.end }); }} className={`${editorInput} mt-1`} /></label><label className="block text-sm text-gray-700 dark:text-gray-200">Duration (seconds)<input type="number" min="0.1" max="86400" step="0.1" placeholder="To scene end" value={item.end == null ? "" : Math.round((item.end - item.start) * 100) / 100} onChange={e => update({ end: e.target.value === "" ? null : item.start + Number(e.target.value) })} className={`${editorInput} mt-1`} /></label></div>
+          {item.kind !== "diagram" && <>
           <label className="block text-sm text-gray-700 dark:text-gray-200">{item.logo ? "Logo width" : "Text size"} · {item.logo ? item.width : item.size}% of frame width<input type="range" min={item.logo ? 5 : 2} max={item.logo ? 50 : 8} step={item.logo ? 1 : 0.25} value={item.logo ? item.width : item.size} onChange={e => update({ [item.logo ? "width" : "size"]: Number(e.target.value) })} className="mt-2 w-full accent-blue-600" /></label>
           {!item.logo && <div className="flex flex-wrap items-center gap-4"><label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">Text color<input type="color" value={item.color} onChange={e => update({ color: e.target.value })} /></label><label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200"><input type="checkbox" checked={item.background} onChange={e => update({ background: e.target.checked })} />Black background</label></div>}
+          </>}
           <label className="block text-sm text-gray-700 dark:text-gray-200">Opacity · {Math.round(item.opacity * 100)}%<input type="range" min="0.1" max="1" step="0.05" value={item.opacity} onChange={e => update({ opacity: Number(e.target.value) })} className="mt-2 w-full accent-blue-600" /></label>
           <button type="button" onClick={() => { setItems(current => current.filter((_, i) => i !== selected)); setSelected(0); }} className="text-sm font-medium text-red-600 dark:text-red-400">Remove overlay</button>
         </div> : <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">Choose a preset to add your first overlay.</p>}

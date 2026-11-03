@@ -160,8 +160,7 @@ def _script_structure(brief, narration, ai_scene_editing=False):
             "motion_style": "NONE", "motion_intensity": "SUBTLE",
             "transition_after": "CUT", "transition_duration": .2, "pause_after": 0,
             "animation_preset": "NONE", "animation_accents": False,
-            "overlays": [{"text": "<short meaningful label>", "position": "top-center",
-                          "start_fraction": .1, "end_fraction": .6}],
+            "overlays": [], "diagram": None,
         }
     shape = {
         "title": "<short title for the video>",
@@ -201,12 +200,27 @@ def _scene_editing_instructions(visual_type):
         "context, and PLAYFUL only for a lighthearted reaction or punchline. Use NONE where "
         "a plain shot communicates best. Avoid repeating the same effect throughout the video. "
         "animation_accents: false by default; use decorative particles only when they fit the tone. "
-        "overlays: an array of zero, one, or two short labels. Use an empty array when text adds "
-        "nothing. Each label has text (at most 80 characters, ideally 2–6 words), position "
+        "overlays: default to an empty array. Leave most scenes unlabeled. Add a label only when "
+        "it materially clarifies a key number, comparison, or reveal that the visuals and captions "
+        "do not already communicate clearly. Do not label every scene, repeat captions, or add "
+        "text just to decorate a shot. When needed, use one short label; two is the maximum, "
+        "not a target. Each label has text (at most 80 characters, ideally 2–6 words), position "
         "(top-left, top-center, top-right, or middle-center), start_fraction, and end_fraction "
         "(0–1 fractions of the finished scene, end strictly after start). Labels must not overlap "
         "in time. Place a label near the corresponding thought, number, comparison, or reveal; "
         "do not duplicate the full narration or invent a claim. Keep the bottom clear for captions. "
+        "diagram: null by default. For educational scenes where a structured visual explains "
+        "more clearly than a photograph, you may instead use an animated diagram object with "
+        "template, title, and items fields. Each items entry has label and detail text fields. "
+        "Templates: comparison for exactly two subjects or alternatives; timeline for 2–4 "
+        "chronological events (put the date or time in each label); steps for 2–4 ordered stages "
+        "of a process. Title maximum 60 characters, item label maximum 40, detail maximum 90. "
+        "The cards appear sequentially over the scene; use a diagram only when its items fit "
+        "this scene's narration and duration. Keep descriptions concise enough to read. "
+        "Do not invent dates, measurements, facts, or intermediate stages. Keep overlays empty "
+        "when a diagram is selected. A diagram replaces the visible photo with a dark graphic "
+        "background; keep diagram null when the subject itself needs to be seen. Use these "
+        "selectively, never on every scene. They do not require generated video. "
         "Timings are planning estimates which users can review before generation. "
         "These are editor settings; keep them out of narration and visual descriptions. "
         "For the final shot, use CUT and transition_duration 0.1; it has no following shot. "

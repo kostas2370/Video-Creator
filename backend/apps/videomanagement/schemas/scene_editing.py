@@ -5,6 +5,7 @@ from rest_framework import serializers
 from apps.videomanagement.models import MotionIntensity, MotionStyle, PhotoAnimation, TransitionStyle
 from apps.videomanagement.serializers.fields import FiniteFloat
 from apps.videomanagement.serializers.motion import MotionSettingsSerializer
+from apps.videomanagement.serializers.diagrams import DiagramSerializer
 
 
 class PlannedOverlaySerializer(serializers.Serializer):
@@ -32,6 +33,7 @@ class SceneEditingPlanSerializer(MotionSettingsSerializer):
     pause_after = FiniteFloat(min_value=0, max_value=0.8)
     animation_preset = serializers.ChoiceField(choices=PhotoAnimation.choices, required=False)
     overlays = PlannedOverlaySerializer(many=True, required=False, max_length=2)
+    diagram = DiagramSerializer(required=False, allow_null=True)
 
     def validate(self, attrs):
         if self.context.get("video_provider") and attrs["motion_style"] != MotionStyle.NONE:
@@ -39,6 +41,8 @@ class SceneEditingPlanSerializer(MotionSettingsSerializer):
         if self.context.get("video_provider") and attrs.get("animation_preset", "NONE") != "NONE":
             raise serializers.ValidationError("Use NONE photo animation for video providers.")
         overlays = sorted(attrs.get("overlays", []), key=lambda item: item["start_fraction"])
+        if attrs.get("diagram") and overlays:
+            raise serializers.ValidationError("Keep labels empty when using an educational diagram.")
         if any(left["end_fraction"] > right["start_fraction"] for left, right in zip(overlays, overlays[1:])):
             raise serializers.ValidationError("Show one planned label at a time.")
         return attrs
