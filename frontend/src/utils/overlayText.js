@@ -13,17 +13,17 @@ export function overlayTextMeasure(font) {
   };
 }
 
-export function wrapOverlayText(text, size, measure) {
+export function wrapOverlayText(text, size, measure, maxWidth = TEXT_WIDTH) {
   const paragraphs = [];
   for (const paragraph of text.split("\n")) {
     const lines = [];
     let current = "";
     for (const word of paragraph.match(/\S+/gu) || []) {
       const candidate = current ? `${current} ${word}` : word;
-      if (measure(candidate) * size <= TEXT_WIDTH) { current = candidate; continue; }
+      if (measure(candidate) * size <= maxWidth) { current = candidate; continue; }
       if (current) { lines.push(current); current = ""; }
       for (const character of word) {
-        if (current && measure(current + character) * size > TEXT_WIDTH) { lines.push(current); current = ""; }
+        if (current && measure(current + character) * size > maxWidth) { lines.push(current); current = ""; }
         current += character;
       }
     }

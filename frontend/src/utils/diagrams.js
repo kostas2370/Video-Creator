@@ -1,16 +1,17 @@
 // Keep geometry in step with utils/diagrams.py; shared fixtures cover every template.
-export const diagramTemplates = { comparison: "Comparison", timeline: "Timeline", steps: "Step by step" };
-const templates = {
-  comparison: { inset: .12, markers: false, rail: false },
-  timeline: { inset: .22, markers: true, rail: true },
-  steps: { inset: .22, markers: true, rail: false },
+import { wrapOverlayText } from "./overlayText";
+
+export const diagramTemplates = {
+  comparison: { label: "Comparison", inset: .12, markers: false, rail: false, maxItems: 2 },
+  timeline: { label: "Timeline", inset: .22, markers: true, rail: true, maxItems: 4 },
+  steps: { label: "Step by step", inset: .22, markers: true, rail: false, maxItems: 4 },
 };
 const wideGlyphs = new Set([..."WMwm@%"]);
 const colors = ["#38bdf8", "#fbbf24", "#a78bfa", "#34d399"];
 export const newDiagram = template => ({ template, title: "", items: [{ label: "", detail: "" }, { label: "", detail: "" }] });
 
 export function diagramPlan(diagram, [width, height], duration) {
-  const config = templates[diagram.template];
+  const config = diagramTemplates[diagram.template];
   const items = diagram.items;
   const rowHeight = height * .51 / items.length;
   const reveal = Math.min(.35, duration * .08);
@@ -18,18 +19,9 @@ export function diagramPlan(diagram, [width, height], duration) {
   const rect = (x, y, w, h, color, start = 0, grow = false) => elements.push({ kind: "rect", x, y, width: w, height: h, color, start, grow, reveal });
   const text = (value, x, y, maxWidth, fontSize, maxHeight, color, start = 0) => {
     const columns = Math.max(1, Math.floor(maxWidth / (fontSize * .7)));
-    const lines = [];
-    let line = "";
-    for (let word of value.match(/\S+/gu) || []) {
-      const candidate = line ? `${line} ${word}` : word;
-      if ([...candidate].length <= columns) { line = candidate; continue; }
-      if (line) lines.push(line);
-      let characters = [...word];
-      while (characters.length > columns) { lines.push(characters.slice(0, columns).join("")); characters = characters.slice(columns); }
-      line = characters.join("");
-    }
-    lines.push(line);
-    elements.push({ kind: "text", x, y, text: lines.join("\n"), size: Math.min(fontSize, maxHeight / (lines.length * 1.3), maxWidth / (Math.max(1, ...lines.map(value => [...value].reduce((sum, char) => sum + (wideGlyphs.has(char) || char.codePointAt(0) >= 0x2e80 ? 1.05 : .65), 0))))), color, start, reveal });
+    const wrapped = wrapOverlayText(value.replace(/\s+/gu, " ").trim(), 1, text => [...text].length, columns);
+    const lines = wrapped.split("\n");
+    elements.push({ kind: "text", x, y, text: wrapped, size: Math.min(fontSize, maxHeight / (lines.length * 1.3), maxWidth / (Math.max(1, ...lines.map(value => [...value].reduce((sum, char) => sum + (wideGlyphs.has(char) || char.codePointAt(0) >= 0x2e80 ? 1.05 : .65), 0))))), color, start, reveal });
   };
   rect(0, 0, width, height, "#0f172a");
   text(diagram.title || "", width * .1, height * .11, width * .8, Math.min(width * .065, height * .065), height * .12, "#ffffff");

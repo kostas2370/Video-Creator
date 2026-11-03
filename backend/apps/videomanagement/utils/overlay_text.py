@@ -18,20 +18,20 @@ def overlay_font(family):
     return ImageFont.truetype(path, 1000)
 
 
-def wrap_text(text, size, measure):
+def wrap_text(text, size, measure, max_width=TEXT_WIDTH):
     paragraphs = []
     for paragraph in text.split("\n"):
         lines, current = [], ""
         for word in re.findall(r"\S+", paragraph):
             candidate = f"{current} {word}" if current else word
-            if measure(candidate) * size <= TEXT_WIDTH:
+            if measure(candidate) * size <= max_width:
                 current = candidate
                 continue
             if current:
                 lines.append(current)
                 current = ""
             for character in word:
-                if current and measure(current + character) * size > TEXT_WIDTH:
+                if current and measure(current + character) * size > max_width:
                     lines.append(current)
                     current = ""
                 current += character

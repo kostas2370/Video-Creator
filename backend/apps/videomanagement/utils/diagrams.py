@@ -2,6 +2,8 @@
 
 import math
 
+from .overlay_text import wrap_text
+
 TEMPLATES = {
     "comparison": {"inset": .12, "markers": False, "rail": False},
     "timeline": {"inset": .22, "markers": True, "rail": True},
@@ -33,20 +35,9 @@ def diagram_plan(diagram, size, duration):
     def text(value, x, y, max_width, font_size, max_height, color, start=0):
         # Conservative character widths also handle long words without clipping.
         columns = max(1, math.floor(max_width / (font_size * .7)))
-        lines, line = [], ""
-        for word in value.split():
-            candidate = f"{line} {word}" if line else word
-            if len(candidate) <= columns:
-                line = candidate
-                continue
-            if line:
-                lines.append(line)
-            while len(word) > columns:
-                lines.append(word[:columns])
-                word = word[columns:]
-            line = word
-        lines.append(line)
-        elements.append(dict(kind="text", x=x, y=y, text="\n".join(lines),
+        wrapped = wrap_text(" ".join(value.split()), 1, len, max_width=columns)
+        lines = wrapped.split("\n")
+        elements.append(dict(kind="text", x=x, y=y, text=wrapped,
                              size=min(font_size, max_height / (len(lines) * 1.3),
                                       max_width / max(1, max(sum(1.05 if char in WIDE_GLYPHS or ord(char) >= 0x2e80 else .65 for char in line) for line in lines))),
                              color=color, start=start, reveal=reveal))

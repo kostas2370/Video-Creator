@@ -10,8 +10,23 @@ import { updateSceneOverlays } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { isVideo } from "../utils/media";
 
-const names = { diagram: "Educational animation", title: "Title", "lower-third": "Lower third", watermark: "Watermark", cta: "Call to action", arrow: "Arrow" };
-const preset = kind => ({ kind, ...(kind === "diagram" ? { diagram: newDiagram("comparison") } : {}), font: "DejaVu Sans", text: { title: "Your title", "lower-third": "Name · Role", watermark: "Your brand", cta: "Learn more", arrow: "↗", diagram: "" }[kind], logo: false, position: { title: "middle-center", "lower-third": "bottom-left", watermark: "top-right", cta: "bottom-center", arrow: "middle-center", diagram: "middle-center" }[kind], start: 0, end: null, size: kind === "watermark" ? 2 : kind === "arrow" ? 8 : 4, width: 20, color: "#ffffff", background: kind !== "watermark" && kind !== "arrow", opacity: kind === "watermark" ? 0.7 : 1 });
+const presets = {
+  diagram: { label: "Educational animation", text: "" },
+  title: { label: "Title", text: "Your title" },
+  "lower-third": { label: "Lower third", text: "Name · Role", position: "bottom-left" },
+  watermark: { label: "Watermark", text: "Your brand", position: "top-right", size: 2, background: false, opacity: .7 },
+  cta: { label: "Call to action", text: "Learn more", position: "bottom-center" },
+  arrow: { label: "Arrow", text: "↗", size: 8, background: false },
+};
+const names = Object.fromEntries(Object.entries(presets).map(([kind, { label }]) => [kind, label]));
+const preset = kind => {
+  const { label, ...settings } = presets[kind];
+  return {
+    kind, font: "DejaVu Sans", logo: false, position: "middle-center", start: 0, end: null,
+    size: 4, width: 20, color: "#ffffff", background: true, opacity: 1, ...settings,
+    ...(kind === "diagram" ? { diagram: newDiagram("comparison") } : {}),
+  };
+};
 
 export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) {
   const [open, setOpen] = useState(false);
