@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.test import SimpleTestCase
+from pytubefix.exceptions import BotDetection
 
 from apps.common.youtube import SourceImportError, download_youtube_video
 
@@ -56,3 +57,15 @@ class SharedYouTubeDownloadTests(SimpleTestCase):
         stream.download.return_value = None
         with self.assertRaisesMessage(SourceImportError, "did not finish"):
             download_youtube_video("https://youtu.be/abcdefghijk", "/unused")
+
+    @patch("apps.common.youtube.YouTube")
+    def test_bot_detection_is_reported_as_an_actionable_import_error(self, youtube):
+        for audio_only in (True, False):
+            with self.subTest(audio_only=audio_only):
+                type(youtube.return_value).streams = PropertyMock(
+                    side_effect=BotDetection(video_id="abcdefghijk")
+                )
+                with self.assertRaisesMessage(SourceImportError, "YouTube is blocking downloads"):
+                    download_youtube_video(
+                        "https://youtu.be/abcdefghijk", "/unused", audio_only=audio_only
+                    )
