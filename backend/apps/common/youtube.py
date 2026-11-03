@@ -6,6 +6,7 @@ from uuid import uuid4
 from urllib.parse import parse_qs, urlsplit
 
 from pytubefix import YouTube
+from pytubefix.exceptions import BotDetection
 from rest_framework.exceptions import ValidationError
 
 from apps.common.media import run_ffmpeg
@@ -93,18 +94,23 @@ def download_streams(streams, directory):
 
 def download_youtube_video(url, directory, *, audio_only=False):
     """Download a YouTube video or its audio and return the path and title."""
-    video = YouTube(url)
-    if audio_only:
-        stream = (
-            video.streams.filter(only_audio=True, file_extension="mp4")
-            .order_by("abr")
-            .desc()
-            .first()
-        )
-    else:
-        stream = video.streams.get_highest_resolution()
-    if stream is None:
+    try:
+        video = YouTube(url)
+        if audio_only:
+            stream = (
+                video.streams.filter(only_audio=True, file_extension="mp4")
+                .order_by("abr")
+                .desc()
+                .first()
+            )
+        else:
+            stream = video.streams.get_highest_resolution()
+        if stream is None:
+            raise SourceImportError(
+                "No compatible media is available. Upload a file instead."
+            )
+        return download_streams([stream], directory), str(video.title)
+    except BotDetection as exc:
         raise SourceImportError(
-            "No compatible media is available. Upload a file instead."
-        )
-    return download_streams([stream], directory), str(video.title)
+            "YouTube is blocking downloads from this server. Upload an audio or video file instead."
+        ) from exc
