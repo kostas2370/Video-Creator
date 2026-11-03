@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { diagramPlan } from "./diagrams";
+import { diagramElementState, diagramPlan } from "./diagrams";
 import fixtures from "../../../backend/apps/videomanagement/tests/composer/diagram_fixtures.json";
 
 it("matches export layout and timing for every template and aspect ratio", () => {
@@ -13,4 +13,18 @@ it("matches export layout and timing for every template and aspect ratio", () =>
       }
     });
   }
+});
+
+it("moves flow markers in the arrow direction and repeats deterministically when seeking", () => {
+  const diagram = { template: "flow", items: [{ label: "Source" }, { label: "Destination" }] };
+  const plan = diagramPlan(diagram, [1080, 1920], 6);
+  const marker = plan.find(element => element.motion);
+  const period = marker.motion.period;
+  const early = diagramElementState(marker, period * .25);
+  const late = diagramElementState(marker, period * .75);
+  expect(late.y).toBeGreaterThan(early.y);
+  expect(late.y).toBeLessThan(marker.motion.to_y);
+  expect(diagramElementState(marker, period * 1.25).y).toBeCloseTo(early.y, 8);
+  expect(diagramElementState(marker, 0).y).toBe(marker.y);
+  expect(plan.filter(element => element.kind === "text").every(element => element.start === 0)).toBe(true);
 });

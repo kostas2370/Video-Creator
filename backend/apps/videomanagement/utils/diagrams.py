@@ -8,6 +8,7 @@ TEMPLATES = {
     "comparison": {"inset": .12, "markers": False, "rail": False},
     "timeline": {"inset": .22, "markers": True, "rail": True},
     "steps": {"inset": .22, "markers": True, "rail": False},
+    "flow": {"inset": .22, "markers": True, "rail": False, "flow": True},
 }
 WIDE_GLYPHS = set("WMwm@%")
 COLORS = ("#38bdf8", "#fbbf24", "#a78bfa", "#34d399")
@@ -50,7 +51,7 @@ def diagram_plan(diagram, size, duration):
              row_height * (len(items) - 1), "#475569")
     for index, item in enumerate(items):
         y = height * .27 + index * row_height
-        start = duration * .65 * index / max(1, len(items) - 1)
+        start = 0 if config.get("flow") else duration * .65 * index / max(1, len(items) - 1)
         color = COLORS[index]
         x = width * config["inset"]
         card_width = width * (.9 - config["inset"])
@@ -67,4 +68,16 @@ def diagram_plan(diagram, size, duration):
             rect(width * .137 - edge / 2, y, edge, edge, color, start)
             text(str(index + 1), width * .137 - edge * .22, y + edge * .08,
                  edge * .6, edge * .6, edge, "#0f172a", start)
+            if config.get("flow") and index < len(items) - 1:
+                top = y + edge + height * .008
+                bottom = y + row_height - height * .012
+                head = min(width * .035, row_height * .1)
+                center = width * .137
+                rect(center - width * .003, top, width * .006, bottom - top - head, color)
+                elements.append(dict(kind="arrow", x=center - head / 2, y=bottom - head,
+                                     width=head, height=head, color=color, start=0, reveal=reveal))
+                period = max(.001, min(1.4, duration * .24))
+                dot = min(width * .018, head * .65)
+                rect(center - dot / 2, top, dot, dot, "#ffffff", index * period / 3)
+                elements[-1]["motion"] = {"to_y": bottom - head - dot, "period": period}
     return elements

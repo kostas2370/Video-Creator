@@ -17,7 +17,7 @@ export function DiagramFields({ value, onChange, optional = false }) {
         {Object.entries(diagramTemplates).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
       </select>
     </label>
-    <p className="text-xs text-gray-500 dark:text-gray-400">Reveals information over the scene using shapes and text. Uses no video-generation credits. Timing is spread across the scene, not synchronized to individual words.</p>
+    <p className="text-xs text-gray-500 dark:text-gray-400">{diagramTemplates[value?.template]?.description || "Reveals information over the scene using shapes and text."} Uses no video-generation credits. Timing is spread across the scene, not synchronized to individual words.</p>
     {value && <>
       <label className="block text-sm">Diagram heading<input className={input} maxLength={60} value={value.title} onChange={event => update({ title: event.target.value })} /></label>
       {value.items.map((item, index) => <div key={index} className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-600">

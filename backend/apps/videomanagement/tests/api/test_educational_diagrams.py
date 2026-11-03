@@ -32,14 +32,15 @@ class EducationalDiagramTests(ApiTestCase):
         self.addCleanup(override.disable)
 
     def test_ai_plan_creates_editable_diagram_without_paid_visuals(self):
-        script = storyboard({**PLAN, "diagram": DIAGRAM, "overlays": []})
+        diagram = {**DIAGRAM, "template": "flow"}
+        script = storyboard({**PLAN, "diagram": diagram, "overlays": []})
         serializer = StoryboardSerializer(data=script)
         self.assertTrue(serializer.is_valid(), serializer.errors)
         video = self.video_for(mode="AI", status="READY", gpt_answer=script,
                                settings={"ai_scene_editing": True, "narration": False})
         _, rows = ensure_scene_rows(video)
         row = rows[0]
-        self.assertEqual(row.overlays[0]["diagram"], DIAGRAM)
+        self.assertEqual(row.overlays[0]["diagram"], diagram)
         with patch("apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve") as provider:
             path = create_image_scene(video, "An explanation", row.text, self.directory, scene=row, mode="AI", provider="runway")
         provider.assert_not_called()

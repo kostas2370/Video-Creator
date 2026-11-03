@@ -5,7 +5,7 @@ from django.test import SimpleTestCase
 
 from apps.videomanagement.serializers.overlays import OverlaySerializer, SceneOverlaysSerializer
 from apps.videomanagement.utils.diagrams import diagram_plan
-from apps.videomanagement.utils.composer.diagrams import diagram_overlays
+from apps.videomanagement.utils.composer.diagrams import diagram_overlays, element_positions
 
 
 class DiagramRenderTests(SimpleTestCase):
@@ -46,3 +46,25 @@ class DiagramRenderTests(SimpleTestCase):
         ):
             self.assertFalse(OverlaySerializer(data={"kind": "diagram", "diagram": diagram}).is_valid(), diagram)
         self.assertFalse(SceneOverlaysSerializer(data={"overlays": [item, item]}).is_valid())
+
+    def test_flow_keeps_stages_visible_and_moves_between_them(self):
+        for count in (2, 3, 4):
+            diagram = {"template": "flow", "items": [{"label": str(i)} for i in range(count)]}
+            for duration in (.6, 6):
+                plan = diagram_plan(diagram, (1080, 1920), duration)
+                self.assertEqual(sum(item["kind"] == "arrow" for item in plan), count - 1)
+                moving = [item for item in plan if item.get("motion")]
+                self.assertEqual(len(moving), count - 1)
+                self.assertTrue(all(item["start"] == 0 for item in plan if item["kind"] == "text"))
+                for marker in moving:
+                    self.assertGreater(marker["motion"]["to_y"], marker["y"])
+                    self.assertLess(marker["motion"]["to_y"] + marker["height"], 1920 * .8)
+
+    def test_flow_cycles_clip_at_the_scene_end_without_speeding_up(self):
+        marker = {"x": 10, "y": 20, "start": .2, "motion": {"to_y": 120, "period": 1.4}}
+        events = list(element_positions(marker, 10, 13.5))
+        self.assertEqual(len(events), 3)
+        self.assertAlmostEqual(events[0][0], 10.2)
+        self.assertAlmostEqual(events[-1][0], 13)
+        self.assertEqual(events[-1][1], 13.5)
+        self.assertTrue(all(position == r"\move(10,20,10,120,0,1400)" for _, _, position in events))

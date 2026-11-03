@@ -57,6 +57,7 @@ it("saves a manually added diagram through the existing scene controls", async (
   render(<SceneOverlays scene={{ id: "scene-1", overlays: [], timing: { duration: 6 } }} index={0} onSaved={saved} videoFormat="PORTRAIT" />);
   fireEvent.click(screen.getByRole("button", { name: "Add text and logo overlays for scene 1" }));
   fireEvent.click(screen.getByRole("button", { name: "+ Educational animation" }));
+  fireEvent.change(screen.getByLabelText("Educational animation"), { target: { value: "flow" } });
   fireEvent.change(screen.getByLabelText("Item 1"), { target: { value: "Before" } });
   fireEvent.change(screen.getByLabelText("Item 2"), { target: { value: "After" } });
   fireEvent.click(screen.getByRole("button", { name: "Save overlays" }));
@@ -64,5 +65,6 @@ it("saves a manually added diagram through the existing scene controls", async (
   const [id, payload] = updateSceneOverlays.mock.calls[0];
   expect(id).toBe("scene-1");
   expect(payload.overlays[0].kind).toBe("diagram");
+  expect(payload.overlays[0].diagram.template).toBe("flow");
   expect(payload.overlays[0].diagram.items.map(item => item.label)).toEqual(["Before", "After"]);
 });
