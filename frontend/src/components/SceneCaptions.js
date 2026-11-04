@@ -1,3 +1,4 @@
+import { videoFrameSize } from "../utils/videoFormats";
 import { editorToolButton } from "./ui/editorStyles";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HiOutlineChatBubbleBottomCenterText } from "react-icons/hi2";
@@ -36,7 +37,7 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
   const saving = useRef(false);
   const groups = useMemo(() => captionGroups(words, data?.config || data?.style || "CLASSIC"), [words, data?.style, data?.config]);
   const cue = useMemo(() => captionAt(groups, time, data?.config || data?.style || "CLASSIC"), [groups, time, data?.style, data?.config]);
-  const size = videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080];
+  const size = videoFrameSize(videoFormat);
   const locked = loading || busy || disabled;
   const close = () => { if (!saving.current && (!dirty || window.confirm("Discard unsaved caption changes?"))) onClose(); };
   useEffect(() => {

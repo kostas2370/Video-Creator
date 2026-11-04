@@ -1,3 +1,4 @@
+import { videoFrameSize } from "../utils/videoFormats";
 import { FontPicker } from "./FontPicker";
 import { captionWithFont } from "../utils/fonts";
 import { useEffect, useMemo, useState } from "react";
@@ -22,7 +23,7 @@ export function CaptionStyleEditor({ preset, config, onChange, videoFormat }) {
   const custom = useMemo(() => ({ ...catalog?.custom_defaults, ...config }), [catalog, config]);
   const resolved = preset === "CUSTOM" ? custom : catalog?.presets[preset];
   const edit = (field, value) => onChange("CUSTOM", { ...config, [field]: value });
-  const size = videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080];
+  const size = videoFrameSize(videoFormat);
   if (error) return <p role="alert" className="text-sm text-red-600">{error} <button type="button" onClick={() => setRetry(value => value + 1)} className="underline">Retry</button></p>;
   if (!catalog) return <p role="status" className="text-sm text-gray-500">Loading caption styles…</p>;
   return <div className="space-y-4">

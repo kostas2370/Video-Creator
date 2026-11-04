@@ -1,3 +1,4 @@
+import { videoFrameSize } from "../utils/videoFormats";
 import { useState } from "react";
 import { OverlayLayer } from "./OverlayLayer";
 
@@ -6,7 +7,7 @@ export function SceneDiagramPreview({ scene, videoFormat, controls = false }) {
   const duration = scene.timing?.duration || 5;
   const end = Math.max(0, duration - .01);
   const [time, setTime] = useState(null);
-  const frameSize = videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080];
+  const frameSize = videoFrameSize(videoFormat);
   return <div className={controls ? "" : "relative flex h-full w-full items-center justify-center"}>
     <div className={`relative overflow-hidden rounded-xl bg-[#0f172a] ${controls ? "mx-auto max-h-[420px] max-w-full" : "h-full max-w-full"}`} style={controls ? { aspectRatio: `${frameSize[0]} / ${frameSize[1]}`, width: videoFormat === "PORTRAIT" ? 236 : videoFormat === "SQUARE" ? 420 : "100%" } : { aspectRatio: `${frameSize[0]} / ${frameSize[1]}` }}>
       <OverlayLayer overlays={scene.overlays} logo={scene.overlay_logo} time={Math.min(time ?? end, end)} duration={duration} frameSize={frameSize} />

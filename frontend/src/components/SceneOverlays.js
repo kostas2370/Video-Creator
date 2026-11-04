@@ -1,3 +1,4 @@
+import { videoFrameSize } from "../utils/videoFormats";
 import { DiagramFields } from "./DiagramFields";
 import { newDiagram } from "../utils/diagrams";
 import { FontPicker } from "./FontPicker";
@@ -61,6 +62,7 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const duration = scene.timing?.duration || 5;
+  const size = videoFrameSize(videoFormat);
   const item = items[selected];
   useEffect(() => {
     if (!logoFile) { setLogoUrl(null); return; }
@@ -91,9 +93,9 @@ function OverlayEditor({ scene, index, disabled, onSaved, onClose, videoFormat }
   return <EditorDialog open onClose={onClose} title="Scene overlays" description={`Scene ${index + 1} · Animated diagrams, text and logos.`} busy={busy} maxWidth="max-w-5xl" footer={<div className="flex justify-end gap-3"><button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm text-gray-500 dark:text-gray-300">Cancel</button><button type="button" disabled={busy || disabled} onClick={save} className={editorButton}>{busy ? "Saving…" : "Save overlays"}</button></div>}>
     <div className="grid items-start gap-6 md:grid-cols-2">
       <div className="md:sticky md:top-0">
-        <div className="relative mx-auto w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: videoFormat === "PORTRAIT" ? "9 / 16" : videoFormat === "SQUARE" ? "1" : "16 / 9", maxWidth: videoFormat === "PORTRAIT" ? 240 : undefined }}>
+        <div className="relative mx-auto w-full overflow-hidden rounded-xl bg-black" style={{ aspectRatio: `${size[0]} / ${size[1]}`, maxWidth: videoFormat === "PORTRAIT" ? 240 : undefined }}>
           {media && (isVideo(source) ? <OverlayVideo source={media} time={time} /> : <img src={media} alt={`Scene ${index + 1}`} className="absolute inset-0 h-full w-full object-cover" />)}
-          <OverlayLayer frameSize={videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080]} overlays={items} logo={logo} time={time} duration={duration} animationPreset={scene.animation_preset} />
+          <OverlayLayer frameSize={size} overlays={items} logo={logo} time={time} duration={duration} animationPreset={scene.animation_preset} />
         </div>
         <label className="mt-4 block text-sm text-gray-600 dark:text-gray-300">Preview time · {time.toFixed(1)}s / {duration.toFixed(1)}s<input aria-label="Overlay preview time" type="range" min="0" max={duration} step="0.05" value={time} onChange={e => setTime(Number(e.target.value))} className="mt-2 w-full accent-blue-600" /></label>
         <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Timing starts at the beginning of this scene and includes its pause. Overlays stop at the scene boundary. Save to update the full preview, then render to export. Text appearance can vary slightly in the export.</p>

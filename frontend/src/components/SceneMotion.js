@@ -1,3 +1,4 @@
+import { videoFrameSize } from "../utils/videoFormats";
 import { hasFullSceneDiagram } from "../utils/diagrams";
 import { editorToolButton } from "./ui/editorStyles";
 import { useEffect, useRef, useState } from "react";
@@ -82,7 +83,7 @@ function MotionEditor({ scene, index, disabled, saving, onChange, videoFormat, f
       <div>
         <div className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${frameClass}`}>
           {imageFailed ? <p role="status" className="flex h-full items-center justify-center p-4 text-center text-sm text-gray-500">Could not load the preview image.</p> : <img alt={`Scene ${index + 1} motion preview`} src={source} onError={() => setImageFailed(true)} style={imageMotion({ motion_style: resolved, motion_intensity: intensity, base_duration: duration, fps, photo_animation: plan }, time)} className="absolute inset-0 h-full w-full object-cover" />}
-          {!imageFailed && <><PhotoAnimationLayer plan={plan} time={time} duration={duration} fps={fps} /><OverlayLayer overlays={scene.overlays?.length ? scene.overlays : preset !== "NONE" ? [{ text: "Your visual story", size: 6, color: "#ffffff", background: true, opacity: 1, position: "middle-center", start: 0, end: null }] : []} logo={scene.overlay_logo} time={time} duration={duration + pause} frameSize={videoFormat === "PORTRAIT" ? [1080, 1920] : videoFormat === "SQUARE" ? [1080, 1080] : [1920, 1080]} animationPreset={preset} /></>}
+          {!imageFailed && <><PhotoAnimationLayer plan={plan} time={time} duration={duration} fps={fps} /><OverlayLayer overlays={scene.overlays?.length ? scene.overlays : preset !== "NONE" ? [{ text: "Your visual story", size: 6, color: "#ffffff", background: true, opacity: 1, position: "middle-center", start: 0, end: null }] : []} logo={scene.overlay_logo} time={time} duration={duration + pause} frameSize={videoFrameSize(videoFormat)} animationPreset={preset} /></>}
         </div>
         <div className="mt-3 flex items-center justify-between gap-2">
           <p className="text-xs text-gray-500 dark:text-gray-400">{stopped ? "Still image" : !playing ? "Preview paused" : time >= duration && pause > 0 ? "Holding final frame" : "Looping preview"}</p>

@@ -8,6 +8,7 @@ import wave
 from pathlib import Path
 from unittest import skipUnless
 from unittest.mock import patch
+from uuid import UUID
 
 import numpy as np
 from django.conf import settings
@@ -59,7 +60,9 @@ class FFmpegRenderTests(TestCase):
     def test_photo_presets_export_with_text_particles_and_frozen_pause(self):
         serializer = OverlaySerializer(data={"kind": "title", "text": "Look!", "size": 8})
         serializer.is_valid(raise_exception=True)
-        scene = self.add_still(motion_style="NONE", pause_after=.25, overlays=[serializer.validated_data])
+        # Camera movement and particles depend on the scene UUID. Keep the
+        # rendered fixture deterministic for the codec pixel comparison.
+        scene = self.add_still(id=UUID(int=1), motion_style="NONE", pause_after=.25, overlays=[serializer.validated_data])
         self.row.settings.update(transition_default="CUT", export_fps=30)
         self.row.save()
         for preset in ("PLAYFUL", "DRAMATIC", "CALM", "EXPLAINER"):
