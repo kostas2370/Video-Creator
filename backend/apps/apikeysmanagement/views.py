@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.filters import OwnerFilterBackend
+
 from .models import ApiKeys, UserCustomTTSProvider, UserCustomVisualProvider
 from .serializers import (
     ApiKeysSerializer,
@@ -22,10 +24,9 @@ class ApiKeysView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class CustomProviderViewSet(viewsets.ModelViewSet):
+    filter_backends = [OwnerFilterBackend]
+    owner_field = "user"
     permission_classes = [IsAuthenticated]
-
-    def filter_queryset(self, queryset):
-        return super().filter_queryset(queryset.filter(user=self.request.user))
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

@@ -13,6 +13,8 @@ from rest_framework_simplejwt import tokens
 from rest_framework_simplejwt import views as jwt_views
 from rest_framework_simplejwt.exceptions import TokenError
 
+from apps.common.filters import OwnerFilterBackend
+
 from .models import Login, Notification
 from .serializers import (
     ContactSerializer,
@@ -173,11 +175,10 @@ class NotificationView(
 ):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
+    filter_backends = [OwnerFilterBackend]
+    owner_field = "user"
     permission_classes = [IsAuthenticated]
     pagination_class = None
-
-    def filter_queryset(self, queryset):
-        return super().filter_queryset(queryset.filter(user=self.request.user))
 
     def list(self, request, *args, **kwargs):
         notifications = self.filter_queryset(self.get_queryset())

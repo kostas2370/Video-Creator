@@ -6,6 +6,7 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.filters import OwnerFilterBackend, OwnerOrSuperuserFilterBackend
 from apps.videomanagement.models import (
     Avatar,
     Intro,
@@ -50,18 +51,18 @@ class SceneImageView(viewsets.GenericViewSet):
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [
+        OwnerOrSuperuserFilterBackend,
+        DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter,
+    ]
     search_fields = ["title"]
     pagination_class = AssetResultsPagination
     ordering = ("id",)
     serializer_class = TemplatePromptsSerializer
-    queryset = TemplatePrompt.objects.all()
+    queryset = TemplatePrompt.objects.order_by("id")
     permission_classes = [IsAuthenticated, IsOwnerPermission]
-
-    def filter_queryset(self, queryset):
-        if not self.request.user.is_superuser:
-            queryset = queryset.filter(created_by=self.request.user)
-        return super().filter_queryset(queryset.order_by("id"))
 
 
 class VoiceView(
@@ -125,60 +126,44 @@ class VoiceView(
 
 
 class AvatarView(viewsets.ModelViewSet):
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [
+        OwnerFilterBackend,
+        DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter,
+    ]
     search_fields = ["name"]
 
     pagination_class = AssetResultsPagination
     ordering = ("id",)
     serializer_class = AvatarSerializer
-    queryset = Avatar.objects.all()
+    queryset = Avatar.objects.select_related("voice").order_by("id")
     permission_classes = [IsAuthenticated, IsOwnerPermission]
 
-    def filter_queryset(self, queryset):
-        queryset = (
-            queryset.filter(created_by=self.request.user)
-            .order_by("id")
-            .select_related("voice")
-        )
-        return super().filter_queryset(queryset)
 
-
-class IntroView(viewsets.ModelViewSet):
+class LimitedClipView(viewsets.ModelViewSet):
     pagination_class = AssetResultsPagination
     ordering = ("id",)
+    permission_classes = [IsAuthenticated, IsOwnerPermission]
+    filter_backends = [
+        OwnerOrSuperuserFilterBackend,
+        DjangoFilterBackend,
+        SearchFilter,
+        OrderingFilter,
+    ]
+    search_fields = ["name"]
+
+    def perform_create(self, serializer):
+        serializer.instance = save_limited_clip(
+            serializer.Meta.model, self.request.user, **serializer.validated_data
+        )
+
+
+class IntroView(LimitedClipView):
     serializer_class = IntroSerializer
-    queryset = Intro.objects.all()
-    permission_classes = [IsAuthenticated, IsOwnerPermission]
-
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["name"]
-
-    def filter_queryset(self, queryset):
-        if not self.request.user.is_superuser:
-            queryset = queryset.filter(created_by=self.request.user)
-        return super().filter_queryset(queryset.order_by("id"))
-
-    def perform_create(self, serializer):
-        serializer.instance = save_limited_clip(
-            serializer.Meta.model, self.request.user, **serializer.validated_data
-        )
+    queryset = Intro.objects.order_by("id")
 
 
-class OutroView(viewsets.ModelViewSet):
-    pagination_class = AssetResultsPagination
-    ordering = ("id",)
+class OutroView(LimitedClipView):
     serializer_class = OutroSerializer
-    queryset = Outro.objects.all()
-    permission_classes = [IsAuthenticated, IsOwnerPermission]
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["name"]
-
-    def filter_queryset(self, queryset):
-        if not self.request.user.is_superuser:
-            queryset = queryset.filter(created_by=self.request.user)
-        return super().filter_queryset(queryset.order_by("id"))
-
-    def perform_create(self, serializer):
-        serializer.instance = save_limited_clip(
-            serializer.Meta.model, self.request.user, **serializer.validated_data
-        )
+    queryset = Outro.objects.order_by("id")

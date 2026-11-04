@@ -9,6 +9,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.filters import OwnerFilterBackend
 from apps.videomanagement.filters import MediaAssetFilter
 from apps.videomanagement.services.media.library import (
     delete_media_asset,
@@ -23,16 +24,13 @@ from ..utils.file_utils import stored_file_exists
 
 
 class MediaAssetView(viewsets.ModelViewSet):
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [OwnerFilterBackend, DjangoFilterBackend]
     filterset_class = MediaAssetFilter
     queryset = MediaAsset.objects.all()
     serializer_class = MediaAssetSerializer
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = AssetResultsPagination
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
-
-    def filter_queryset(self, queryset):
-        return super().filter_queryset(queryset.filter(created_by=self.request.user))
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

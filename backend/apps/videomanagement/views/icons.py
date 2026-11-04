@@ -1,8 +1,9 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from apps.videomanagement.paginator import AssetResultsPagination
+from apps.common.filters import OwnerFilterBackend
 from apps.videomanagement.models import Icon
+from apps.videomanagement.paginator import AssetResultsPagination
 from apps.videomanagement.serializers.icons import IconDetailSerializer, IconSerializer
 from apps.videomanagement.services.media.icons import search_icons
 
@@ -28,12 +29,10 @@ class IconListView(generics.ListCreateAPIView):
 
 class IconDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Icon.objects.all()
+    filter_backends = [OwnerFilterBackend]
     permission_classes = [IsAuthenticated]
     serializer_class = IconDetailSerializer
     http_method_names = ["get", "patch", "delete", "head", "options"]
-
-    def filter_queryset(self, queryset):
-        return super().filter_queryset(queryset.filter(created_by=self.request.user))
 
     def perform_destroy(self, instance):
         artwork = instance.file
