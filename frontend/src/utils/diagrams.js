@@ -1,6 +1,9 @@
 // Keep geometry in step with utils/diagrams.py; shared fixtures cover every template.
 import { wrapOverlayText } from "./overlayText";
 
+export const hasFullSceneDiagram = scene => (scene.overlays || []).some(item =>
+  item.kind === "diagram" && (item.start ?? 0) === 0 && item.end == null && (item.opacity ?? 1) === 1);
+
 export const diagramTemplates = {
   comparison: { label: "Comparison", inset: .12, markers: false, rail: false, maxItems: 2 },
   timeline: { label: "Timeline", inset: .22, markers: true, rail: true, maxItems: 4 },

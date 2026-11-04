@@ -11,7 +11,7 @@ import { API_HOST } from "../endpoints";
 import { isVideo } from "../utils/media";
 
 const presets = {
-  diagram: { label: "Educational animation", text: "" },
+  diagram: { label: "Text diagram", text: "" },
   title: { label: "Title", text: "Your title" },
   "lower-third": { label: "Lower third", text: "Name · Role", position: "bottom-left" },
   watermark: { label: "Watermark", text: "Your brand", position: "top-right", size: 2, background: false, opacity: .7 },
@@ -28,7 +28,7 @@ const preset = kind => {
   };
 };
 
-export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) {
+export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat, label }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
   const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
@@ -38,14 +38,14 @@ export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat }) 
       type="button"
       disabled={disabled}
       onClick={() => setOpen(true)}
-      aria-label={`${scene.overlays?.length ? "Edit" : "Add"} text and logo overlays for scene ${index + 1}`}
+      aria-label={label ? `${label} for scene ${index + 1}` : `${scene.overlays?.length ? "Edit" : "Add"} text and logo overlays for scene ${index + 1}`}
       aria-haspopup="dialog"
       aria-expanded={open}
       title="Add educational animations, text and logos"
       className={editorToolButton}
     >
       <HiOutlineRectangleStack aria-hidden="true" className="h-5 w-5 shrink-0" />
-      <span>Text & diagrams</span>
+      <span>{label || "Text & diagrams"}</span>
       {scene.overlays?.length > 0 && <span aria-hidden="true" className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-200 px-1 text-xs text-blue-800 dark:bg-blue-800 dark:text-blue-100">{scene.overlays.length}</span>}
     </button>
     {open && <OverlayEditor scene={scene} index={index} disabled={disabled} onSaved={onSaved} onClose={close} videoFormat={videoFormat} />}

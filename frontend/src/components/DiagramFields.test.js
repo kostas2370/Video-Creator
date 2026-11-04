@@ -56,7 +56,7 @@ it("saves a manually added diagram through the existing scene controls", async (
   const saved = vi.fn();
   render(<SceneOverlays scene={{ id: "scene-1", overlays: [], timing: { duration: 6 } }} index={0} onSaved={saved} videoFormat="PORTRAIT" />);
   fireEvent.click(screen.getByRole("button", { name: "Add text and logo overlays for scene 1" }));
-  fireEvent.click(screen.getByRole("button", { name: "+ Educational animation" }));
+  fireEvent.click(screen.getByRole("button", { name: "+ Text diagram" }));
   fireEvent.change(screen.getByLabelText("Educational animation"), { target: { value: "flow" } });
   fireEvent.change(screen.getByLabelText("Item 1"), { target: { value: "Before" } });
   fireEvent.change(screen.getByLabelText("Item 2"), { target: { value: "After" } });
