@@ -140,6 +140,48 @@ class IconCatalogTests(ApiTestCase):
         item.is_valid(raise_exception=True)
         self.assertEqual(item.validated_data["icon"], "")
 
+    def test_assets_filter_and_owner_metadata(self):
+        self.download()
+        uploaded = self.upload().data
+        self.assertTrue(uploaded["is_owner"])
+        all_icons = self.client.get(reverse("icons")).data["results"]
+        self.assertEqual({row["key"] for row in all_icons if not row["is_owner"]}, {"lucide:cloud", "lucide:droplet"})
+        for params in ({"mine": "true"}, {"mine": "true", "search": "engine"}):
+            result = self.client.get(reverse("icons"), params).data
+            self.assertEqual([row["key"] for row in result["results"]], [uploaded["key"]])
+        self.client.force_authenticate(user.make())
+        self.assertEqual(self.client.get(reverse("icons"), {"mine": "true"}).data["count"], 0)
+
+    def test_owner_can_rename_and_delete_uploaded_icon_and_artwork(self):
+        key = self.upload().data["key"]
+        icon = Icon.objects.get(pk=key)
+        artwork = icon.file.name
+        url = reverse("icon-detail", args=[key])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        result = self.client.patch(url, {"name": "My motor", "description": "Vehicle engine", "key": "fake", "collection": "lucide", "file": "replacement.svg", "is_owner": False}, format="json")
+        self.assertEqual(result.status_code, 200, result.data)
+        icon.refresh_from_db()
+        self.assertEqual((icon.name, icon.description, icon.collection, icon.file.name), ("My motor", "Vehicle engine", "custom", artwork))
+        self.assertTrue(result.data["is_owner"])
+        self.assertEqual(self.client.patch(url, {"name": " "}, format="json").status_code, 400)
+        self.assertEqual(self.client.patch(url, {"description": "x" * 501}, format="json").status_code, 400)
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertFalse(Icon.objects.filter(pk=key).exists())
+        self.assertFalse(icon.file.storage.exists(artwork))
+
+    def test_management_endpoints_never_modify_shared_or_another_users_icons(self):
+        self.download()
+        key = self.upload().data["key"]
+        self.client.force_authenticate(user.make())
+        for identifier in (key, "lucide:cloud"):
+            url = reverse("icon-detail", args=[identifier])
+            self.assertEqual(self.client.get(url).status_code, 404)
+            self.assertEqual(self.client.patch(url, {"name": "Changed"}, format="json").status_code, 404)
+            self.assertEqual(self.client.delete(url).status_code, 404)
+        self.assertEqual(Icon.objects.count(), 3)
+        self.client.force_authenticate(None)
+        self.assertIn(self.client.patch(reverse("icon-detail", args=[key]), {"name": "Changed"}).status_code, (401, 403))
+
     def test_uploaded_icon_survives_scene_save_storyboard_application_and_preview(self):
         key = self.upload().data["key"]
         diagram = {"template": "graph", "items": [{"label": "Engine", "icon": key}, {"label": "Power"}]}

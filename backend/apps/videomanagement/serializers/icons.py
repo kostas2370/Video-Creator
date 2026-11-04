@@ -13,10 +13,14 @@ from .fields import validate_image_upload
 class IconSerializer(serializers.ModelSerializer):
     file = serializers.ImageField()
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    is_owner = serializers.SerializerMethodField()
+
+    def get_is_owner(self, icon) -> bool:
+        return icon.created_by_id == self.context["request"].user.pk
 
     class Meta:
         model = Icon
-        fields = ("key", "collection", "name", "description", "file", "license", "license_url", "attribution")
+        fields = ("key", "collection", "name", "description", "file", "license", "license_url", "attribution", "is_owner")
         read_only_fields = ("key", "collection", "license", "license_url", "attribution")
 
     def validate_file(self, upload):
@@ -48,3 +52,7 @@ class IconSerializer(serializers.ModelSerializer):
             icon.file.delete(save=False)
             raise
         return icon
+
+
+class IconDetailSerializer(IconSerializer):
+    file = serializers.ImageField(read_only=True)

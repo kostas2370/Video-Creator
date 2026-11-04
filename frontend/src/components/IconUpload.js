@@ -8,6 +8,7 @@ export function IconUpload({ index, onUploaded }) {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const suffix = index == null ? "" : ` for item ${index + 1}`;
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const upload = async () => {
@@ -27,15 +28,15 @@ export function IconUpload({ index, onUploaded }) {
     <summary className="cursor-pointer text-sm font-medium">Upload your own icon</summary>
     <fieldset disabled={busy} className="mt-3 space-y-3" onKeyDown={event => { if (event.key === "Enter" && event.target.type === "text") { event.preventDefault(); upload(); } }}>
       <p className="text-xs text-gray-500 dark:text-gray-400">PNG, JPEG or WebP · Up to 10 MB and 4 million pixels. Transparent PNG works best. Saved to your icon library for reuse.</p>
-      <label className="block text-sm">Icon name for item {index + 1}<input className={editorInput} maxLength={160} value={name} onChange={event => setName(event.target.value)} /></label>
-      <label className="block text-sm">Description for item {index + 1}<input className={editorInput} maxLength={500} placeholder="What the icon represents (optional)" value={description} onChange={event => setDescription(event.target.value)} /></label>
-      <label className="block text-sm">Icon file for item {index + 1}<input className={editorInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => {
+      <label className="block text-sm">Icon name{suffix}<input className={editorInput} maxLength={160} value={name} onChange={event => setName(event.target.value)} /></label>
+      <label className="block text-sm">Description{suffix}<input className={editorInput} maxLength={500} placeholder="What the icon represents (optional)" value={description} onChange={event => setDescription(event.target.value)} /></label>
+      <label className="block text-sm">Icon file{suffix}<input className={editorInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={event => {
         const selected = event.target.files?.[0];
         setError("");
         if (selected?.size > 10 * 1024 * 1024) { setFile(null); setError("Use an icon smaller than 10 MB."); event.target.value = ""; }
         else setFile(selected || null);
       }} /></label>
-      <button type="button" disabled={busy || !file || !name.trim()} onClick={upload} className={editorButton}>{busy ? "Uploading…" : "Upload and use icon"}</button>
+      <button type="button" disabled={busy || !file || !name.trim()} onClick={upload} className={editorButton}>{busy ? "Uploading…" : index == null ? "Upload icon" : "Upload and use icon"}</button>
     </fieldset>
     {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
   </details>;

@@ -1,4 +1,5 @@
 import { MediaLibrary } from "../components/MediaLibrary";
+import { IconAssets } from "../components/IconAssets";
 import { UseLibraryMedia } from "../components/UseLibraryMedia";
 import { AssetPagination } from "../components/ui/AssetPagination";
 import React, { useEffect, useState } from "react";
@@ -38,17 +39,18 @@ function AssetCollection({ name, getItems, createItem, deleteItem, active }) {
 export const AssetPage = () => {
   const [tab, setTab] = useState("Media");
   const [selectedMedia, setSelectedMedia] = useState(null);
-  const tabs = ["Media", "Intro", "Outro"];
+  const tabs = ["Media", "Icon", "Intro", "Outro"];
   const moveTab = (event, index) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length;
     setTab(tabs[next]); document.getElementById(`${tabs[next]}-tab`)?.focus();
   };
-  return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6"><header className="mb-8"><p className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">Your media library</p><h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">My assets</h1><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Find and reuse your images, clips, and music. Organize media with tags, and keep intros and outros ready.</p></header>
+  return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6"><header className="mb-8"><p className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">Your media library</p><h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">My assets</h1><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Find and reuse your images, clips, music, and icons. Organize media with tags, and keep intros and outros ready.</p></header>
     <div className="mb-5 flex w-full max-w-full sm:w-fit gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" role="tablist" aria-label="Asset type">{tabs.map((name,index) => <button type="button" key={name} role="tab" id={`${name}-tab`} aria-controls={`${name}-panel`} aria-selected={tab === name} tabIndex={tab === name ? 0 : -1} onKeyDown={e => moveTab(e,index)} onClick={() => setTab(name)} className={`flex-1 whitespace-nowrap rounded-lg px-3 py-2.5 text-xs font-semibold sm:px-5 sm:text-sm ${tab === name ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-500 dark:text-gray-400"}`}>{name === "Media" ? "Media library" : `${name}s`}</button>)}</div>
     {selectedMedia && <UseLibraryMedia asset={selectedMedia} onClose={() => setSelectedMedia(null)} />}
     {tab === "Media" && <section role="tabpanel" id="Media-panel" aria-labelledby="Media-tab"><MediaLibrary onSelect={setSelectedMedia} /></section>}
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"><AssetCollection name="Intro" getItems={getIntro} createItem={createIntro} deleteItem={deleteIntro} active={tab === "Intro"} /><AssetCollection name="Outro" getItems={getOutro} createItem={createOutro} deleteItem={deleteOutro} active={tab === "Outro"} /></div>
+    {tab === "Icon" && <IconAssets />}
+    <div hidden={tab !== "Intro" && tab !== "Outro"} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"><AssetCollection name="Intro" getItems={getIntro} createItem={createIntro} deleteItem={deleteIntro} active={tab === "Intro"} /><AssetCollection name="Outro" getItems={getOutro} createItem={createOutro} deleteItem={deleteOutro} active={tab === "Outro"} /></div>
   </main>;
 };

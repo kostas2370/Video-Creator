@@ -30,7 +30,7 @@ search: synonyms and abstract concepts may be missed. GPT may omit an icon;
 unknown, disabled or missing artwork is omitted during validation.
 
 The authenticated `/api/icons/` endpoint supports paginated `search`, exact
-`keys` lookups and multipart uploads with `name`, optional `description` and `file`.
+`keys` lookups, a `mine=true` filter, and multipart uploads with `name`, optional `description` and `file`.
 Users see the shared catalog and their own uploads. Ownership is applied to search,
 GPT shortlists, diagram validation and rendering. Each diagram item has a searchable picker for replacing or removing
 its icon. Preview and export use the same local artwork and layout. The render
@@ -57,3 +57,11 @@ the downloaded catalog continues to use its upstream SVG artwork. Apply migratio
 Lucide uses ISC and Material Design Icons uses Apache 2.0. The downloader retains
 each collection's license notice and records its license URL and author in the
 table/API. Keep those notices with distributed artwork.
+
+In **Assets → Icons**, browse the shared catalog, filter **My icons**, and upload
+new artwork without opening a diagram. Click an icon for a larger preview and
+license information. Owners can rename their uploads, edit descriptions, and
+delete them through `/api/icons/<key>/` (`PATCH` / `DELETE`). Shared icons and
+other users’ uploads cannot be modified. Deleting an upload removes its artwork
+and makes it unavailable in existing diagrams; already rendered exports are
+unchanged. The Assets tab and diagram picker share the same catalog browser.
