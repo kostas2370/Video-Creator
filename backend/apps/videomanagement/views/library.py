@@ -31,10 +31,8 @@ class MediaAssetView(viewsets.ModelViewSet):
     pagination_class = AssetResultsPagination
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return MediaAsset.objects.none()
-        return MediaAsset.objects.filter(created_by=self.request.user)
+    def filter_queryset(self, queryset):
+        return super().filter_queryset(queryset.filter(created_by=self.request.user))
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

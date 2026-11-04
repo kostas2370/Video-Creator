@@ -48,13 +48,12 @@ from .throttling import ClipProcessingThrottle
 class ClipProjectView(
     mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
+    queryset = ClipProject.objects.all()
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return ClipProject.objects.none()
-        rows = ClipProject.objects.filter(created_by=self.request.user).defer(
+    def filter_queryset(self, queryset):
+        rows = queryset.filter(created_by=self.request.user).defer(
             "transcript_parts"
         )
         if self.action == "list":
@@ -66,7 +65,7 @@ class ClipProjectView(
                 rows = rows.filter(status__in=PROJECT_BUSY)
             elif status:
                 rows = rows.filter(status=status)
-            return (
+            rows = (
                 rows.defer("words")
                 .annotate(
                     clip_total=Count("clips"),
@@ -76,9 +75,9 @@ class ClipProjectView(
                 )
                 .order_by("-created_at", "-id")
             )
-        if self.action == "retrieve":
-            return rows.prefetch_related("clips")
-        return rows
+        elif self.action == "retrieve":
+            rows = rows.prefetch_related("clips")
+        return super().filter_queryset(rows)
 
     def get_serializer_class(self):
         if self.action in {"clips", "clip", "export"}:
@@ -175,7 +174,7 @@ class ClipProjectView(
     @action(detail=True, methods=["get"])
     def progress(self, request, pk=None):
         project = get_object_or_404(
-            self.get_queryset()
+            self.filter_queryset(self.get_queryset())
             .annotate(
                 has_transcript=Case(
                     When(words=[], then=Value(False)),

@@ -76,20 +76,12 @@ class SceneView(viewsets.GenericViewSet):
         IsOwnerPermission,
     ]
 
-    def get_queryset(self):
+    def filter_queryset(self, queryset):
         if self.action == "restore":
-            return Scene.all_objects.select_related("video")
-        return super().get_queryset().select_related("video")
+            queryset = Scene.all_objects.all()
+        return super().filter_queryset(queryset.select_related("video"))
 
     def get_serializer_class(self):
-        if self.action == "partial_update" and not getattr(
-            self, "swagger_fake_view", False
-        ):
-            video = self.get_object().video
-            if video.video_type == VideoType.MANUAL and not (video.settings or {}).get(
-                "narration", False
-            ):
-                return ManualTextSerializer
         return {
             "archive": SceneOrderSerializer,
             "restore": RestoreSceneSerializer,
@@ -205,7 +197,15 @@ class SceneView(viewsets.GenericViewSet):
     )
     def partial_update(self, request, pk=None):
         scene = self.get_object()
-        serializer = self.get_serializer(data=request.data)
+        serializer_class = (
+            ManualTextSerializer
+            if scene.video.video_type == VideoType.MANUAL
+            and not (scene.video.settings or {}).get("narration", False)
+            else SceneUpdateSerializer
+        )
+        serializer = serializer_class(
+            data=request.data, context=self.get_serializer_context()
+        )
         serializer.is_valid(raise_exception=True)
         scene, operation = edit_scene_text(scene, serializer.validated_data["text"])
         if operation is not None:

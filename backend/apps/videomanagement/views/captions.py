@@ -32,11 +32,11 @@ class CaptionProjectView(
     pagination_class = StandardResultsSetPagination
     queryset = CaptionProject.objects.all()
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return CaptionProject.objects.none()
-        queryset = super().get_queryset().filter(created_by=self.request.user)
-        return queryset.defer("words", "style") if self.action == "list" else queryset
+    def filter_queryset(self, queryset):
+        queryset = queryset.filter(created_by=self.request.user)
+        if self.action == "list":
+            queryset = queryset.defer("words", "style")
+        return super().filter_queryset(queryset)
 
     def get_serializer_class(self):
         return (

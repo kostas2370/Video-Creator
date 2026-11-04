@@ -24,10 +24,8 @@ class ApiKeysView(generics.RetrieveUpdateDestroyAPIView):
 class CustomProviderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return super().get_queryset().none()
-        return super().get_queryset().filter(user=self.request.user)
+    def filter_queryset(self, queryset):
+        return super().filter_queryset(queryset.filter(user=self.request.user))
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

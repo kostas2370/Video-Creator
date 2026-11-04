@@ -13,8 +13,9 @@ STOP_WORDS = set("the and for are was were has had not but can could more than t
 COMMON_ICONS = ("lucide:droplet", "lucide:cloud", "lucide:sun", "lucide:zap", "lucide:leaf", "lucide:heart", "lucide:cpu", "lucide:factory", "lucide:truck", "lucide:package", "lucide:network", "lucide:circle")
 
 
-def search_icons(query="", *, keys=None, user=None):
-    icons = Icon.objects.filter(Q(created_by__isnull=True) | Q(created_by=user), enabled=True).exclude(file="")
+def search_icons(query="", *, keys=None, user=None, queryset=None):
+    icons = Icon.objects.all() if queryset is None else queryset
+    icons = icons.filter(Q(created_by__isnull=True) | Q(created_by=user), enabled=True).exclude(file="")
     if keys is not None:
         return icons.filter(key__in=keys)
     words = list(dict.fromkeys(word.rstrip("s") for word in re.findall(r"[^\W\d_]{3,}", query.lower()) if word not in STOP_WORDS))[:20]

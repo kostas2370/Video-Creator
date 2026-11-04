@@ -171,17 +171,16 @@ def logout_view(request):
 class NotificationView(
     mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
+    queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return Notification.objects.none()
-        return Notification.objects.filter(user=self.request.user)
+    def filter_queryset(self, queryset):
+        return super().filter_queryset(queryset.filter(user=self.request.user))
 
     def list(self, request, *args, **kwargs):
-        notifications = self.get_queryset()
+        notifications = self.filter_queryset(self.get_queryset())
 
         return Response(
             {

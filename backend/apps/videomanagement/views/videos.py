@@ -94,6 +94,7 @@ class VideoView(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
+    queryset = Video.objects.all()
     serializer_class = VideoSerializer
     serializer_classes = {
         "manual": ManualVideoSerializer,
@@ -173,11 +174,9 @@ class VideoView(
         video = set_music(video, upload)
         return Response(self.serialize_video_detail(video))
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return Video.objects.none()
+    def filter_queryset(self, queryset):
         queryset = (
-            Video.objects.for_user(self.request.user)
+            queryset.for_user(self.request.user)
             .order_by("-updated_at", "-id")
             .select_related("music", "prompt")
         )
@@ -197,7 +196,7 @@ class VideoView(
         if self.action in ("retrieve", "preview"):
             queryset = queryset.with_editor_media()
 
-        return queryset
+        return super().filter_queryset(queryset)
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.serializer_class)
@@ -224,7 +223,9 @@ class VideoView(
     def serialize_video_detail(self, video):
         # Reload after editing: services may return a locked instance, and
         # relations fetched before an edit may no longer describe its output.
-        video = load_video_detail(video.pk, queryset=self.get_queryset())
+        video = load_video_detail(
+            video.pk, queryset=self.filter_queryset(self.get_queryset())
+        )
         return VideoNestedSerializer(video).data
 
     def perform_destroy(self, instance):
