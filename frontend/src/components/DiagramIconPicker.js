@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { getIcons } from "../api/apiService";
 import { useDebounce } from "../hooks/useDebounce";
 import { useIconFiles } from "../hooks/useIconFiles";
+import { IconUpload } from "./IconUpload";
+import { AssetPagination } from "./ui/AssetPagination";
 
 export function DiagramIconPicker({ value = "", onChange, index }) {
   const [open, setOpen] = useState(false);
@@ -34,6 +36,7 @@ export function DiagramIconPicker({ value = "", onChange, index }) {
     {open && <div className="mt-2 space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-600">
       <label className="block text-sm">Search icons for item {index + 1}<input value={search} placeholder="Water, battery, heart…" onChange={event => { setSearch(event.target.value); setPage(1); }} className="mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-gray-600 dark:bg-gray-900" /></label>
       <button type="button" onClick={() => choose("")} className="text-sm text-blue-600 dark:text-blue-300">No icon</button>
+      <IconUpload index={index} onUploaded={icon => choose(icon.key)} />
       {loading ? <p role="status" className="text-sm text-gray-500">Loading icons…</p> : error ? <div role="alert" className="text-sm text-red-600">{error} <button type="button" onClick={() => setRetry(value => value + 1)} className="underline">Retry</button></div> : <>
         <div role="group" aria-label={`Available icons for item ${index + 1}`} className="grid max-h-60 grid-cols-3 gap-2 overflow-y-auto">
           {results?.results.map(icon => <button key={icon.key} type="button" title={icon.description} aria-pressed={value === icon.key} aria-label={`${icon.name} (${icon.collection})`} onClick={() => choose(icon.key)} className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 p-2 text-xs hover:bg-blue-50 dark:border-gray-600 dark:hover:bg-gray-700">
@@ -41,7 +44,7 @@ export function DiagramIconPicker({ value = "", onChange, index }) {
           </button>)}
         </div>
         {results?.count === 0 && <p className="text-sm text-gray-500">No icons found. Try another search.</p>}
-        {results && <div className="flex items-center justify-between text-xs"><button type="button" disabled={!results.previous} onClick={() => setPage(results.previous)}>Previous icons</button><span>{results.count.toLocaleString()} icons · Page {results.current}</span><button type="button" disabled={!results.next} onClick={() => setPage(results.next)}>Next icons</button></div>}
+        <AssetPagination pagination={results} loading={loading} onPage={setPage} />
       </>}
     </div>}
   </div>;

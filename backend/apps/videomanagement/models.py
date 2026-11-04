@@ -56,6 +56,7 @@ class Icon(models.Model):
     """Shared, downloaded artwork. The source key is also the ID used in storyboards."""
 
     key = models.CharField(max_length=120, primary_key=True)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
     collection = models.CharField(max_length=40, db_index=True)
     name = models.CharField(max_length=160)
     description = models.TextField(blank=True)

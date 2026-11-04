@@ -153,14 +153,14 @@ def ensure_scene_rows(video: Video):
             editing = {}
             if choices.get("ai_scene_editing") and line.editing is not None:
                 plan = SceneEditingPlanSerializer(
-                    data=line.editing, context={"video_provider": video_provider}
+                    data=line.editing, context={"video_provider": video_provider, "user": video.created_by_id}
                 )
                 plan.is_valid(raise_exception=True)
                 editing = dict(plan.validated_data)
             planned_overlays = editing.pop("overlays", [])
             diagram = editing.pop("diagram", None)
             if diagram:
-                overlay = OverlaySerializer(data={"kind": "diagram", "diagram": diagram})
+                overlay = OverlaySerializer(data={"kind": "diagram", "diagram": diagram}, context={"user": video.created_by_id})
                 overlay.is_valid(raise_exception=True)
                 editing["overlays"] = [dict(overlay.validated_data)]
             shot_plan = {}

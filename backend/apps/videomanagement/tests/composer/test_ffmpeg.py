@@ -16,6 +16,7 @@ from PIL import Image
 
 from apps.videomanagement.exceptions import RenderFailedException
 from apps.videomanagement.utils.frames import still_from_video
+from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import (
     avatar,
@@ -27,11 +28,34 @@ from ...baker_recipes import (
     video,
 )
 from ...serializers.overlays import OverlaySerializer
+from ...models import Icon
+from ...utils.diagrams import diagram_plan
 from ...utils.composer.render import Graph, make_video, render_scene_clip
 
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    def test_uploaded_icon_renders_in_colour_only_for_its_video_owner(self):
+        self.row.created_by = user.make()
+        self.row.save()
+        Image.new("RGBA", (256, 256), "red").save(self.root / "icon.png")
+        icon = Icon.objects.create(key="custom:test", collection="custom", name="My icon", file="icon.png", created_by=self.row.created_by)
+        overlay = OverlaySerializer(data={"kind": "diagram", "diagram": {
+            "template": "graph", "items": [{"label": "Source", "icon": icon.key}, {"label": "Destination"}],
+        }}, context={"user": self.row.created_by})
+        overlay.is_valid(raise_exception=True)
+        self.add_still(overlays=[overlay.validated_data])
+        make_video(self.row)
+        element = next(item for item in diagram_plan(overlay.validated_data["diagram"], (160, 90), .5) if item["kind"] == "icon")
+        x, y = round(element["x"] + element["width"] / 2), round(element["y"] + element["height"] / 2)
+        pixel = self.frame(.3)[y, x]
+        self.assertGreater(pixel[0], 200)
+        self.assertLess(pixel[1], 40)
+        icon.created_by = user.make()
+        icon.save()
+        make_video(self.row)
+        self.assertLess(self.frame(.3)[y, x, 0], 60)
+
     def test_photo_presets_export_with_text_particles_and_frozen_pause(self):
         serializer = OverlaySerializer(data={"kind": "title", "text": "Look!", "size": 8})
         serializer.is_valid(raise_exception=True)

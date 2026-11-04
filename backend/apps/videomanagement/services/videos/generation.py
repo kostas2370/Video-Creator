@@ -214,7 +214,7 @@ def generate_video(
         style=style,
         narration=narration,
         ai_scene_editing=ai_scene_editing,
-        diagram_icons=icon_candidates(message) if ai_scene_editing else (),
+        diagram_icons=icon_candidates(message, user=video.created_by_id) if ai_scene_editing else (),
         visual_continuity=visual_continuity,
         reference_role=reference_role if has_reference else None,
     )

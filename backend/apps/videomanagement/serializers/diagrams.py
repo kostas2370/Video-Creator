@@ -15,7 +15,8 @@ class DiagramItemSerializer(serializers.Serializer):
             return ""
         known = self.context.setdefault("diagram_icon_ids", {})
         if value not in known:
-            known[value] = value in available_icon_files([value])
+            user = self.context.get("user") or getattr(self.context.get("request"), "user", None)
+            known[value] = value in available_icon_files([value], user=user)
         return value if known[value] else ""
 
 

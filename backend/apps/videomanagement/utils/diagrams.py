@@ -59,7 +59,7 @@ def motion_segments(element):
             offset += duration
 
 
-def graph_plan(diagram, size, duration, elements, rect, text):
+def graph_plan(diagram, size, duration, elements, rect, text, place_icon):
     """Icon nodes and routed arrows, without the card presentation of other templates."""
     width, height = size
     connections = graph_connections(diagram)
@@ -115,8 +115,7 @@ def graph_plan(diagram, size, duration, elements, rect, text):
     for index, item in enumerate(diagram["items"]):
         x, y, edge, cell_height = positions[index]
         if item.get("icon"):
-            elements.append(dict(kind="icon", icon=item["icon"], x=x-edge/2, y=y-edge/2,
-                                 width=edge, height=edge, start=0, reveal=reveal))
+            place_icon(item["icon"], x-edge/2, y-edge/2, edge)
         else:
             rect(x-edge/2, y-edge/2, edge, edge, COLORS[index])
         text(item["label"], x-node_width/2, y+edge/2+cell_height*.05, node_width,
@@ -148,6 +147,10 @@ def diagram_plan(diagram, size, duration):
         elements.append(dict(kind="rect", x=x, y=y, width=w, height=h,
                              color=color, start=start, grow=grow, reveal=reveal))
 
+    def place_icon(identifier, x, y, edge, start=0):
+        elements.append(dict(kind="icon", icon=identifier, x=x, y=y, width=edge,
+                             height=edge, start=start, reveal=reveal))
+
     def text(value, x, y, max_width, font_size, max_height, color, start=0):
         # Conservative character widths also handle long words without clipping.
         columns = max(1, math.floor(max_width / (font_size * .7)))
@@ -162,7 +165,7 @@ def diagram_plan(diagram, size, duration):
     text(diagram.get("title", ""), width * .1, height * .11, width * .8,
          min(width * .065, height * .065), height * .12, "#ffffff")
     if config.get("graph"):
-        return graph_plan(diagram, size, duration, elements, rect, text)
+        return graph_plan(diagram, size, duration, elements, rect, text, place_icon)
     if config["rail"]:
         rect(width * .135, height * .29, width * .004,
              row_height * (len(items) - 1), "#475569")
@@ -180,9 +183,7 @@ def diagram_plan(diagram, size, duration):
         icon_edge = min(width * .075, row_height * .25) if icon else 0
         label_width = card_width * .92 - (icon_edge + width * .02 if icon else 0)
         if icon:
-            elements.append(dict(kind="icon", icon=icon, x=x + card_width * .92 - icon_edge,
-                                 y=y + row_height * .08, width=icon_edge, height=icon_edge,
-                                 start=start, reveal=reveal))
+            place_icon(icon, x + card_width * .92 - icon_edge, y + row_height * .08, icon_edge, start)
         text(item["label"], x, y + row_height * .08, label_width,
              font, row_height * .28, color, start)
         text(item.get("detail", ""), x, y + row_height * .38, card_width * .92,

@@ -35,7 +35,7 @@ export function graphLevels(count, connections) {
   return levels;
 }
 
-function graphPlan(diagram, [width, height], duration, elements, rect, text) {
+function graphPlan(diagram, [width, height], duration, elements, rect, text, placeIcon) {
   const connections = graphConnections(diagram);
   const levels = graphLevels(diagram.items.length, connections);
   const columns = Math.max(...levels) + 1;
@@ -85,7 +85,7 @@ function graphPlan(diagram, [width, height], duration, elements, rect, text) {
   });
   diagram.items.forEach((item, index) => {
     const [x,y,edge,cellHeight] = positions[index];
-    if (item.icon) elements.push({ kind: "icon", icon: item.icon, x:x-edge/2, y:y-edge/2, width:edge, height:edge, start:0, reveal });
+    if (item.icon) placeIcon(item.icon, x-edge/2, y-edge/2, edge);
     else rect(x-edge/2,y-edge/2,edge,edge,colors[index]);
     text(item.label,x-nodeWidth/2,y+edge/2+cellHeight*.05,nodeWidth,Math.min(width*.042,nodeWidth*.22,cellHeight*.17),cellHeight*.25,colors[index]);
     elements.at(-1).centered = nodeWidth;
@@ -104,6 +104,7 @@ export function diagramPlan(diagram, [width, height], duration) {
   const reveal = Math.min(.35, duration * .08);
   const elements = [];
   const rect = (x, y, w, h, color, start = 0, grow = false) => elements.push({ kind: "rect", x, y, width: w, height: h, color, start, grow, reveal });
+  const placeIcon = (icon, x, y, edge, start = 0) => elements.push({ kind: "icon", icon, x, y, width: edge, height: edge, start, reveal });
   const text = (value, x, y, maxWidth, fontSize, maxHeight, color, start = 0) => {
     const columns = Math.max(1, Math.floor(maxWidth / (fontSize * .7)));
     const wrapped = wrapOverlayText(value.replace(/\s+/gu, " ").trim(), 1, text => [...text].length, columns);
@@ -112,7 +113,7 @@ export function diagramPlan(diagram, [width, height], duration) {
   };
   rect(0, 0, width, height, "#0f172a");
   text(diagram.title || "", width * .1, height * .11, width * .8, Math.min(width * .065, height * .065), height * .12, "#ffffff");
-  if (config.graph) return graphPlan(diagram, [width, height], duration, elements, rect, text);
+  if (config.graph) return graphPlan(diagram, [width, height], duration, elements, rect, text, placeIcon);
   if (config.rail) rect(width * .135, height * .29, width * .004, rowHeight * (items.length - 1), "#475569");
   items.forEach((item, index) => {
     const y = height * .27 + index * rowHeight;
@@ -126,7 +127,7 @@ export function diagramPlan(diagram, [width, height], duration) {
     const icon = item.icon;
     const iconEdge = icon ? Math.min(width * .075, rowHeight * .25) : 0;
     const labelWidth = cardWidth * .92 - (icon ? iconEdge + width * .02 : 0);
-    if (icon) elements.push({ kind: "icon", icon, x: x + cardWidth * .92 - iconEdge, y: y + rowHeight * .08, width: iconEdge, height: iconEdge, start, reveal });
+    if (icon) placeIcon(icon, x + cardWidth * .92 - iconEdge, y + rowHeight * .08, iconEdge, start);
     text(item.label, x, y + rowHeight * .08, labelWidth, font, rowHeight * .28, color, start);
     text(item.detail || "", x, y + rowHeight * .38, cardWidth * .92, font * .8, rowHeight * .35, "#ffffff", start);
     if (config.markers) {

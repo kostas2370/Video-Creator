@@ -64,7 +64,7 @@ class SceneOverlaysSerializer(serializers.Serializer):
     def validate_overlays(self, value):
         if not isinstance(value, list) or len(value) > 8:
             raise serializers.ValidationError("Use at most eight overlays per scene.")
-        serializer = OverlaySerializer(data=value, many=True)
+        serializer = OverlaySerializer(data=value, many=True, context=self.context)
         serializer.is_valid(raise_exception=True)
         if sum(item["kind"] == "diagram" for item in serializer.validated_data) > 1:
             raise serializers.ValidationError("Use one educational diagram per scene.")

@@ -28,8 +28,10 @@ makes no separate icon-search API call. This is keyword search, not semantic
 search: synonyms and abstract concepts may be missed. GPT may omit an icon;
 unknown, disabled or missing artwork is omitted during validation.
 
-The authenticated `/api/icons/` endpoint supports paginated `search` and exact
-`keys` lookups. Each diagram item has a searchable picker for replacing or removing
+The authenticated `/api/icons/` endpoint supports paginated `search`, exact
+`keys` lookups and multipart uploads with `name`, optional `description` and `file`.
+Users see the shared catalog and their own uploads. Ownership is applied to search,
+GPT shortlists, diagram validation and rendering. Each diagram item has a searchable picker for replacing or removing
 its icon. Preview and export use the same local artwork and layout. The render
 image's FFmpeg includes the librsvg decoder used for these SVG inputs.
 
@@ -42,6 +44,14 @@ self-connections, duplicate arrows and loops. Cyclic graphs are not supported.
 Nodes are laid out automatically in columns. Arrows route around skipped columns;
 moving markers follow the routed paths at constant speed in preview and export.
 Keep portrait graphs to 2–4 nodes and short labels when possible for readability.
+
+Open **Upload your own icon** in the picker to add a still PNG, JPEG or WebP
+(10 MB and 4 million pixels maximum). Uploaded icons are converted to 256×256 PNG
+with transparent padding, preserving aspect ratio and colours. Give each upload a
+meaningful name/description so it can be found in searches and GPT shortlists.
+Uploads are reusable across the owner's videos. Raw SVG uploads are not accepted;
+the downloaded catalog continues to use its validated SVG artwork. Apply migration
+0056 when upgrading an existing icon catalog.
 
 Lucide uses ISC and Material Design Icons uses Apache 2.0. The downloader retains
 each collection's license notice and records its license URL and author in the

@@ -45,6 +45,6 @@ admin.site.register(Avatar)
 
 @admin.register(Icon)
 class IconAdmin(admin.ModelAdmin):
-    list_display = ("key", "name", "collection", "enabled")
+    list_display = ("key", "name", "collection", "created_by", "enabled")
     search_fields = ("key", "name", "description")
     list_filter = ("collection", "enabled")

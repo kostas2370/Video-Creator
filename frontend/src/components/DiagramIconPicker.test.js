@@ -2,11 +2,11 @@
 import React, { useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { getIcons } from "../api/apiService";
+import { getIcons, uploadIcon } from "../api/apiService";
 import { DiagramIconPicker } from "./DiagramIconPicker";
 import { DiagramLayer } from "./DiagramLayer";
 
-vi.mock("../api/apiService", () => ({ getIcons: vi.fn() }));
+vi.mock("../api/apiService", () => ({ getIcons: vi.fn(), uploadIcon: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const droplet = { key: "lucide:droplet", name: "Droplet", collection: "lucide", file: "/media/droplet.svg", description: "Water" };
 const reply = (results = [droplet], extra = {}) => ({ ok: true, data: { results, current: 1, count: results.length, next: null, previous: null, ...extra } });
@@ -34,8 +34,42 @@ it("pages through the full catalog and retries failed loads", async () => {
   expect(await screen.findByRole("alert")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByRole("button", { name: "Droplet (lucide)" });
-  fireEvent.click(screen.getByRole("button", { name: "Next icons" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
   await waitFor(() => expect(getIcons).toHaveBeenLastCalledWith({ search: "", page: 2 }));
+});
+
+it("uploads and selects a reusable icon without submitting the storyboard form", async () => {
+  const custom = { ...droplet, key: "custom:one", name: "My engine", collection: "custom" };
+  getIcons.mockResolvedValue(reply());
+  uploadIcon.mockResolvedValue({ ok: true, data: custom });
+  const changed = vi.fn(), submit = vi.fn(event => event.preventDefault());
+  render(<form onSubmit={submit}><DiagramIconPicker index={0} onChange={changed} /></form>);
+  fireEvent.click(screen.getByRole("button", { name: "Icon for item 1: None" }));
+  fireEvent.click(screen.getByText("Upload your own icon"));
+  fireEvent.change(screen.getByLabelText("Icon name for item 1"), { target: { value: "My engine" } });
+  const file = new File(["image"], "engine.png", { type: "image/png" });
+  fireEvent.change(screen.getByLabelText("Icon file for item 1"), { target: { files: [file] } });
+  fireEvent.click(screen.getByRole("button", { name: "Upload and use icon" }));
+  await waitFor(() => expect(changed).toHaveBeenCalledWith(custom.key));
+  expect(uploadIcon.mock.calls[0][0].get("file")).toBe(file);
+  expect(uploadIcon.mock.calls[0][0].get("name")).toBe("My engine");
+  expect(submit).not.toHaveBeenCalled();
+});
+
+it("keeps upload fields after failure and lets the user retry", async () => {
+  getIcons.mockResolvedValue(reply());
+  uploadIcon.mockResolvedValueOnce({ ok: false, message: "Please retry" }).mockResolvedValue({ ok: true, data: { key: "custom:retry" } });
+  const changed = vi.fn();
+  render(<DiagramIconPicker index={0} onChange={changed} />);
+  fireEvent.click(screen.getByRole("button", { name: "Icon for item 1: None" }));
+  fireEvent.click(screen.getByText("Upload your own icon"));
+  fireEvent.change(screen.getByLabelText("Icon name for item 1"), { target: { value: "Engine" } });
+  fireEvent.change(screen.getByLabelText("Icon file for item 1"), { target: { files: [new File(["image"], "engine.webp", { type: "image/webp" })] } });
+  fireEvent.click(screen.getByRole("button", { name: "Upload and use icon" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("Please retry");
+  expect(screen.getByLabelText("Icon name for item 1").value).toBe("Engine");
+  fireEvent.click(screen.getByRole("button", { name: "Upload and use icon" }));
+  await waitFor(() => expect(changed).toHaveBeenCalledWith("custom:retry"));
 });
 
 it("previews only installed artwork and hides unrevealed icons", async () => {

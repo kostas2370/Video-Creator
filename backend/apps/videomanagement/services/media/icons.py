@@ -13,8 +13,8 @@ STOP_WORDS = set("the and for are was were has had not but can could more than t
 COMMON_ICONS = ("lucide:droplet", "lucide:cloud", "lucide:sun", "lucide:zap", "lucide:leaf", "lucide:heart", "lucide:cpu", "lucide:factory", "lucide:truck", "lucide:package", "lucide:network", "lucide:circle")
 
 
-def search_icons(query="", *, keys=None):
-    icons = Icon.objects.filter(enabled=True).exclude(file="")
+def search_icons(query="", *, keys=None, user=None):
+    icons = Icon.objects.filter(Q(created_by__isnull=True) | Q(created_by=user), enabled=True).exclude(file="")
     if keys is not None:
         return icons.filter(key__in=keys)
     words = list(dict.fromkeys(word.rstrip("s") for word in re.findall(r"[^\W\d_]{3,}", query.lower()) if word not in STOP_WORDS))[:20]
@@ -33,16 +33,16 @@ def search_icons(query="", *, keys=None):
     return icons.filter(reduce(or_, matches)).annotate(relevance=score).order_by("-relevance", "collection", "name", "key")
 
 
-def icon_candidates(query, limit=60):
+def icon_candidates(query, limit=60, *, user=None):
     """Send a bounded relevant shortlist, never the whole catalog, to the language model."""
     if limit <= 0:
         return []
-    ranked = list(search_icons(query)[:max(1, limit - len(COMMON_ICONS))])
-    common = list(search_icons(keys=COMMON_ICONS))
+    ranked = list(search_icons(query, user=user)[:max(1, limit - len(COMMON_ICONS))])
+    common = list(search_icons(keys=COMMON_ICONS, user=user))
     found = {icon.key: icon for icon in [*ranked, *common] if stored_file_exists(icon.file)}
     return [{"id": icon.key, "name": icon.name, "description": icon.description[:180]}
             for icon in list(found.values())[:limit]]
 
 
-def available_icon_files(keys):
-    return {icon.key: icon.file for icon in search_icons(keys=keys) if stored_file_exists(icon.file)}
+def available_icon_files(keys, *, user=None):
+    return {icon.key: icon.file for icon in search_icons(keys=keys, user=user) if stored_file_exists(icon.file)}

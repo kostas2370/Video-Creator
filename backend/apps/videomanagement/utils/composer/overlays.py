@@ -1,6 +1,7 @@
 """Compose timed scene logos and text over the rendered picture."""
 
 import math
+from collections import defaultdict
 from pathlib import Path
 
 from django.conf import settings
@@ -140,7 +141,8 @@ def apply_overlays(graph, stream, segments, size, directory):
                 diagram_styles, diagram_events = diagram_overlays(
                     item, f"Diagram{len(styles)}", size, start, end, elements=elements,
                 )
-                icons.extend((element, start, end, item["opacity"]) for element in elements if element["kind"] == "icon")
+                owner = getattr(getattr(segment.content, "video", None), "created_by_id", None)
+                icons.extend((element, start, end, item["opacity"], owner) for element in elements if element["kind"] == "icon")
                 styles.extend(diagram_styles)
                 events.extend(diagram_events)
             elif item["logo"]:
@@ -157,9 +159,12 @@ def apply_overlays(graph, stream, segments, size, directory):
     if styles:
         write_document(Path(directory, "overlays.ass"), size, styles, events)
         stream = graph.filter([stream], subtitles_filter("overlays.ass", directory))
-    files = available_icon_files({element["icon"] for element, _, _, _ in icons}) if icons else {}
-    for element, start, end, opacity in icons:
-        field = files.get(element["icon"])
+    keys = defaultdict(set)
+    for element, _, _, _, owner in icons:
+        keys[owner].add(element["icon"])
+    files = {owner: available_icon_files(ids, user=owner) for owner, ids in keys.items()}
+    for element, start, end, opacity, owner in icons:
+        field = files[owner].get(element["icon"])
         if field:
             stream = image_overlay(
                 graph, stream, field.path,
