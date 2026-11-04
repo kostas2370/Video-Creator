@@ -14,6 +14,9 @@ from ..overlay_text import overlay_text_layout
 from ..photo_animation import animation_plan
 from .ass import ass_color, ass_event, escape_ass_text, write_document
 from .diagrams import diagram_overlays
+from .images import image_overlay
+from apps.videomanagement.services.media.icons import available_icon_files
+from ..diagrams import diagram_plan
 
 
 # ASS templates use bounded entrance times, matching the preview's keyframes.
@@ -46,18 +49,14 @@ def add_logo(graph, stream, scene, item, size, start, end):
             "A watermark logo is missing. Upload it again before rendering."
         )
     alignment, x, y = placement(item["position"], *size)
-    index = graph.input(field.path, ("-loop", "1", "-framerate", "24"))
     width = max(2, round(size[0] * item["width"] / 100))
-    logo = graph.filter(
-        [f"{index}:v"],
-        f"scale={width}:{int(size[1] * 0.5)}:force_original_aspect_ratio=decrease,format=rgba,colorchannelmixer=aa={item['opacity']}",
-    )
     column, row = (alignment - 1) % 3, (alignment - 1) // 3
     lx = f"{x}-overlay_w*{(0, 0.5, 1)[column]}"
     ly = f"{y}-overlay_h*{(1, 0.5, 0)[row]}"
-    return graph.filter(
-        [stream, logo],
-        f"overlay=x={lx}:y={ly}:enable='gte(t,{start})*lt(t,{end})':eof_action=pass:shortest=0",
+    return image_overlay(
+        graph, stream, field.path,
+        scale=f"scale={width}:{int(size[1] * 0.5)}:force_original_aspect_ratio=decrease",
+        position=(lx, ly), timing=(start, end), opacity=item["opacity"],
     )
 
 
@@ -120,7 +119,7 @@ def particle_overlays(segment, size, plan):
 
 
 def apply_overlays(graph, stream, segments, size, directory):
-    styles, events = [], []
+    styles, events, icons = [], [], []
     for segment in segments:
         plan = animation_plan(segment.content) if segment.visual_type == "image" else None
         if plan:
@@ -137,9 +136,11 @@ def apply_overlays(graph, stream, segments, size, directory):
                 continue
             start, end = start + segment.start, end + segment.start
             if item["kind"] == "diagram":
+                elements = diagram_plan(item["diagram"], size, end - start)
                 diagram_styles, diagram_events = diagram_overlays(
-                    item, f"Diagram{len(styles)}", size, start, end,
+                    item, f"Diagram{len(styles)}", size, start, end, elements=elements,
                 )
+                icons.extend((element, start, end, item["opacity"]) for element in elements if element["kind"] == "icon")
                 styles.extend(diagram_styles)
                 events.extend(diagram_events)
             elif item["logo"]:
@@ -156,4 +157,14 @@ def apply_overlays(graph, stream, segments, size, directory):
     if styles:
         write_document(Path(directory, "overlays.ass"), size, styles, events)
         stream = graph.filter([stream], subtitles_filter("overlays.ass", directory))
+    files = available_icon_files({element["icon"] for element, _, _, _ in icons}) if icons else {}
+    for element, start, end, opacity in icons:
+        field = files.get(element["icon"])
+        if field:
+            stream = image_overlay(
+                graph, stream, field.path,
+                scale=f"scale={round(element['width'])}:{round(element['height'])}",
+                position=(element["x"], element["y"]),
+                timing=(start + element["start"], end), opacity=opacity,
+            )
     return stream

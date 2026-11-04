@@ -68,3 +68,25 @@ it("saves a manually added diagram through the existing scene controls", async (
   expect(payload.overlays[0].diagram.template).toBe("flow");
   expect(payload.overlays[0].diagram.items.map(item => item.label)).toEqual(["Before", "After"]);
 });
+
+it("edits horizontal branches and preserves targets when removing a node", () => {
+  function Editor() {
+    const [value, setValue] = useState({ template: "graph", title: "Loans", items: [{ label: "Bank", detail: "" }, { label: "House", detail: "" }] });
+    return <><DiagramFields value={value} onChange={setValue} /><output data-testid="graph-value">{JSON.stringify(value)}</output></>;
+  }
+  render(<Editor />);
+  fireEvent.click(screen.getByRole("button", { name: "Add item" }));
+  fireEvent.change(screen.getByLabelText("Item 3"), { target: { value: "Business" } });
+  fireEvent.change(screen.getByLabelText("From for arrow 2"), { target: { value: "0" } });
+  fireEvent.change(screen.getByLabelText("Label for arrow 2"), { target: { value: "Loan" } });
+  let graph = JSON.parse(screen.getByTestId("graph-value").textContent);
+  expect(graph.connections).toEqual([{ source: 0, target: 1, label: "" }, { source: 0, target: 2, label: "Loan" }]);
+  // A return arrow from House to Bank would create a loop.
+  expect([...screen.getByLabelText("From for arrow 1").options].map(option => option.value)).not.toContain("1");
+  fireEvent.click(screen.getByRole("button", { name: "Remove item 2" }));
+  graph = JSON.parse(screen.getByTestId("graph-value").textContent);
+  expect(graph.items.map(item => item.label)).toEqual(["Bank", "Business"]);
+  expect(graph.connections).toEqual([{ source: 0, target: 1, label: "Loan" }]);
+  fireEvent.change(screen.getByLabelText("Educational animation"), { target: { value: "flow" } });
+  expect(JSON.parse(screen.getByTestId("graph-value").textContent).connections).toBeUndefined();
+});

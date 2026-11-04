@@ -4,7 +4,7 @@ from pathlib import Path
 from django.test import SimpleTestCase
 
 from apps.videomanagement.serializers.overlays import OverlaySerializer, SceneOverlaysSerializer
-from apps.videomanagement.utils.diagrams import diagram_plan
+from apps.videomanagement.utils.diagrams import diagram_plan, graph_levels
 from apps.videomanagement.utils.composer.diagrams import diagram_overlays, element_positions
 
 
@@ -68,3 +68,42 @@ class DiagramRenderTests(SimpleTestCase):
         self.assertAlmostEqual(events[-1][0], 13)
         self.assertEqual(events[-1][1], 13.5)
         self.assertTrue(all(position == r"\move(10,20,10,120,0,1400)" for _, _, position in events))
+
+    def test_graph_validates_branches_merges_and_rejects_invalid_connections(self):
+        items = [{"label": name} for name in ("Bank", "Home", "Business", "Economy")]
+        connections = [{"source": a, "target": b} for a, b in ((0, 1), (0, 2), (1, 3), (2, 3))]
+        graph = {"template": "graph", "items": items, "connections": connections}
+        serializer = OverlaySerializer(data={"kind": "diagram", "diagram": graph})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(graph_levels(4, connections), [0, 1, 1, 2])
+        for changes in (
+            [{"source": 0, "target": 0}], [{"source": 0, "target": 4}],
+            [{"source": 0, "target": 1}, {"source": 1, "target": 0}],
+            [{"source": 0, "target": 1}] * 2,
+        ):
+            serializer = OverlaySerializer(data={"kind": "diagram", "diagram": {**graph, "connections": changes}})
+            self.assertFalse(serializer.is_valid(), changes)
+        for count in (2, 6):
+            serializer = OverlaySerializer(data={"kind": "diagram", "diagram": {"template": "graph", "items": [{"label": "Node"}] * count}})
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_graph_moves_markers_through_each_leg_and_clips_partial_cycles(self):
+        element = {"x": 0, "y": 0, "start": 0, "motion": {"path": [[0, 0], [100, 0], [100, 100]], "period": 2}}
+        events = list(element_positions(element, 10, 12.5))
+        self.assertEqual(events, [
+            (10, 11, r"\move(0,0,100,0,0,1000)"),
+            (11, 12, r"\move(100,0,100,100,0,1000)"),
+            (12, 12.5, r"\move(0,0,100,0,0,1000)"),
+        ])
+
+    def test_graph_export_draws_routed_arrows_and_centered_node_labels(self):
+        serializer = OverlaySerializer(data={"kind": "diagram", "diagram": {
+            "template": "graph", "items": [{"label": name} for name in ("Bank", "House", "Business")],
+            "connections": [{"source": 0, "target": 1}, {"source": 0, "target": 2}],
+        }})
+        serializer.is_valid(raise_exception=True)
+        _, events = diagram_overlays(serializer.validated_data, "Graph", (1080, 1920), 10, 16)
+        drawings = "\n".join(events)
+        self.assertIn(r"\p1}m", drawings)
+        self.assertIn(r"\an8\pos", drawings)
+        self.assertIn(r"\move", drawings)

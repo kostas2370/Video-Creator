@@ -1,4 +1,6 @@
-import { diagramTemplates, newDiagram } from "../utils/diagrams";
+import { DiagramIconPicker } from "./DiagramIconPicker";
+import { DiagramConnections } from "./DiagramConnections";
+import { diagramTemplates, graphConnections, newDiagram } from "../utils/diagrams";
 
 const input = "mt-1 w-full rounded-lg border border-gray-300 bg-white p-2 text-sm dark:border-gray-600 dark:bg-gray-900";
 
@@ -8,7 +10,16 @@ export function DiagramFields({ value, onChange, optional = false }) {
   const selectTemplate = template => {
     if (!template) { onChange(null); return; }
     const current = value || newDiagram(template);
-    onChange({ ...current, template, items: current.items.slice(0, diagramTemplates[template].maxItems) });
+    const { connections, ...fields } = current;
+    onChange({ ...fields, template, items: current.items.slice(0, diagramTemplates[template].maxItems), ...(template === "graph" && connections ? { connections } : {}) });
+  };
+  const removeItem = index => {
+    const connections = value.template === "graph" ? graphConnections(value).filter(edge => edge.source !== index && edge.target !== index).map(edge => ({ ...edge, source: edge.source > index ? edge.source - 1 : edge.source, target: edge.target > index ? edge.target - 1 : edge.target })) : null;
+    update({ items: value.items.filter((_, i) => i !== index), ...(connections ? { connections } : {}) });
+  };
+  const addItem = () => {
+    const connections = value.template === "graph" ? graphConnections(value) : null;
+    update({ items: [...value.items, { label: "", detail: "" }], ...(connections ? { connections: connections.length < 8 ? [...connections, { source: value.items.length - 1, target: value.items.length, label: "" }] : connections } : {}) });
   };
   return <div className="space-y-3">
     <label className="block text-sm font-medium">Educational animation
@@ -22,10 +33,12 @@ export function DiagramFields({ value, onChange, optional = false }) {
       <label className="block text-sm">Diagram heading<input className={input} maxLength={60} value={value.title} onChange={event => update({ title: event.target.value })} /></label>
       {value.items.map((item, index) => <div key={index} className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-600">
         <label className="block text-sm">Item {index + 1}<input required className={input} maxLength={40} value={item.label} onChange={event => updateItem(index, { label: event.target.value })} /></label>
+        <DiagramIconPicker value={item.icon} index={index} onChange={icon => updateItem(index, { icon })} />
         <label className="block text-sm">Detail {index + 1}<textarea className={input} rows={2} maxLength={90} value={item.detail} onChange={event => updateItem(index, { detail: event.target.value })} /></label>
-        {value.items.length > 2 && <button type="button" className="text-xs text-red-600" onClick={() => update({ items: value.items.filter((_, i) => i !== index) })}>Remove item {index + 1}</button>}
+        {value.items.length > 2 && <button type="button" className="text-xs text-red-600" onClick={() => removeItem(index)}>Remove item {index + 1}</button>}
       </div>)}
-      {value.items.length < diagramTemplates[value.template].maxItems && <button type="button" className="text-sm text-blue-600 dark:text-blue-300" onClick={() => update({ items: [...value.items, { label: "", detail: "" }] })}>Add item</button>}
+      {value.items.length < diagramTemplates[value.template].maxItems && <button type="button" className="text-sm text-blue-600 dark:text-blue-300" onClick={addItem}>Add item</button>}
+      {value.template === "graph" && <DiagramConnections diagram={value} onChange={connections => update({ connections })} />}
     </>}
   </div>;
 }

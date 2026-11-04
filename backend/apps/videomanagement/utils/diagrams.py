@@ -5,13 +5,128 @@ import math
 from .overlay_text import wrap_text
 
 TEMPLATES = {
-    "comparison": {"inset": .12, "markers": False, "rail": False},
-    "timeline": {"inset": .22, "markers": True, "rail": True},
-    "steps": {"inset": .22, "markers": True, "rail": False},
-    "flow": {"inset": .22, "markers": True, "rail": False, "flow": True},
+    "comparison": {"inset": .12, "markers": False, "rail": False, "max_items": 2},
+    "timeline": {"inset": .22, "markers": True, "rail": True, "max_items": 4},
+    "steps": {"inset": .22, "markers": True, "rail": False, "max_items": 4},
+    "flow": {"inset": .22, "markers": True, "rail": False, "flow": True, "max_items": 4},
+    "graph": {"graph": True, "max_items": 6},
 }
 WIDE_GLYPHS = set("WMwm@%")
-COLORS = ("#38bdf8", "#fbbf24", "#a78bfa", "#34d399")
+COLORS = ("#38bdf8", "#fbbf24", "#a78bfa", "#34d399", "#fb7185", "#fb923c")
+
+
+def graph_connections(diagram):
+    return diagram.get("connections", [dict(source=i, target=i + 1, label="") for i in range(len(diagram["items"]) - 1)])
+
+
+def graph_levels(count, connections):
+    """Topological columns keep branches and merges ordered independently of item indices."""
+    levels, incoming, outgoing = [0] * count, [0] * count, [[] for _ in range(count)]
+    for edge in connections:
+        source, target = edge["source"], edge["target"]
+        if source == target or not (0 <= source < count and 0 <= target < count):
+            raise ValueError("Connections must join two different existing items.")
+        incoming[target] += 1
+        outgoing[source].append(target)
+    queue = [i for i, degree in enumerate(incoming) if degree == 0]
+    processed = 0
+    while queue:
+        source = queue.pop(0)
+        processed += 1
+        for target in outgoing[source]:
+            levels[target] = max(levels[target], levels[source] + 1)
+            incoming[target] -= 1
+            if incoming[target] == 0:
+                queue.append(target)
+    if processed != count:
+        raise ValueError("Connections must not form a loop. Use branches or merges instead.")
+    return levels
+
+
+def motion_segments(element):
+    """Return constant-speed legs for a moving marker, including routed graph connections."""
+    motion = element["motion"]
+    points = motion.get("path")
+    if points is None:
+        points = [(element["x"], element["y"]), (motion.get("to_x", element["x"]), motion["to_y"])]
+    lengths = [math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(points, points[1:])]
+    total = sum(lengths) or 1
+    offset = 0
+    for a, b, length in zip(points, points[1:], lengths):
+        if length:
+            duration = motion["period"] * length / total
+            yield a, b, offset, duration
+            offset += duration
+
+
+def graph_plan(diagram, size, duration, elements, rect, text):
+    """Icon nodes and routed arrows, without the card presentation of other templates."""
+    width, height = size
+    connections = graph_connections(diagram)
+    levels = graph_levels(len(diagram["items"]), connections)
+    columns = max(levels) + 1
+    node_width = min(width * .24, width * .76 / columns)
+    groups = [[i for i, level in enumerate(levels) if level == column] for column in range(columns)]
+    positions = {}
+    for column, group in enumerate(groups):
+        for row, index in enumerate(group):
+            x = width * (.16 + .68 * column / max(1, columns - 1)) if columns > 1 else width * .5
+            cell_height = height * .43 / len(group)
+            y = height * .31 + cell_height * (row + .25)
+            edge = min(node_width * .6, height * .12, cell_height * .32)
+            positions[index] = (x, y, edge, cell_height)
+    reveal = min(.35, duration * .08)
+    period = max(.001, min(1.8, duration * .4))
+
+    def polygon(points, color):
+        left, top = min(x for x, _ in points), min(y for _, y in points)
+        elements.append(dict(kind="polygon", x=left, y=top,
+                             width=max(x for x, _ in points) - left, height=max(y for _, y in points) - top,
+                             points=[[x - left, y - top] for x, y in points], color=color, start=0, reveal=reveal))
+
+    for index, connection in enumerate(connections):
+        source, target = connection["source"], connection["target"]
+        sx, sy, se, _ = positions[source]
+        tx, ty, te, _ = positions[target]
+        x1, x2 = sx + se / 2 + width * .012, tx - te / 2 - width * .02
+        head = min(width * .022, max(1, x2 - x1) * .2)
+        color = COLORS[source]
+        mid = (x1 + x2) / 2
+        points = [[x1, sy], [mid, sy], [mid, ty], [x2 - head, ty]]
+        if levels[target] - levels[source] > 1:
+            lane = height * (.26 - index * .002)
+            points = [[x1, sy], [x1 + width * .012, sy], [x1 + width * .012, lane],
+                      [x2 - head - width * .012, lane], [x2 - head - width * .012, ty], [x2 - head, ty]]
+        thickness = max(2, width * .004)
+        for a, b in zip(points, points[1:]):
+            distance = math.hypot(b[0] - a[0], b[1] - a[1])
+            if not distance:
+                continue
+            dx, dy = -(b[1] - a[1]) / distance * thickness / 2, (b[0] - a[0]) / distance * thickness / 2
+            polygon([[a[0]+dx, a[1]+dy], [b[0]+dx, b[1]+dy], [b[0]-dx, b[1]-dy], [a[0]-dx, a[1]-dy]], color)
+        polygon([[x2-head, ty-head/2], [x2, ty], [x2-head, ty+head/2]], color)
+        dot = min(width * .012, head * .65)
+        path = [[x - dot / 2, y - dot / 2] for x, y in points]
+        rect(*path[0], dot, dot, "#ffffff")
+        elements[-1]["motion"] = {"path": path, "period": period}
+        if connection.get("label"):
+            text(connection["label"], x1, min(sy, ty) - height * .05, max(width * .06, x2 - x1),
+                 width * .026, height * .04, "#cbd5e1")
+    for index, item in enumerate(diagram["items"]):
+        x, y, edge, cell_height = positions[index]
+        if item.get("icon"):
+            elements.append(dict(kind="icon", icon=item["icon"], x=x-edge/2, y=y-edge/2,
+                                 width=edge, height=edge, start=0, reveal=reveal))
+        else:
+            rect(x-edge/2, y-edge/2, edge, edge, COLORS[index])
+        text(item["label"], x-node_width/2, y+edge/2+cell_height*.05, node_width,
+             min(width*.042, node_width*.22, cell_height*.17), cell_height*.25, COLORS[index])
+        elements[-1]["centered"] = node_width
+        if item.get("detail"):
+            text(item["detail"], x-node_width/2, y+edge/2+cell_height*.33, node_width,
+                 min(width*.029, node_width*.17, cell_height*.13), cell_height*.25, "#ffffff")
+            elements[-1]["centered"] = node_width
+    return elements
 
 
 def full_scene_diagram(scene):
@@ -46,6 +161,8 @@ def diagram_plan(diagram, size, duration):
     rect(0, 0, width, height, "#0f172a")
     text(diagram.get("title", ""), width * .1, height * .11, width * .8,
          min(width * .065, height * .065), height * .12, "#ffffff")
+    if config.get("graph"):
+        return graph_plan(diagram, size, duration, elements, rect, text)
     if config["rail"]:
         rect(width * .135, height * .29, width * .004,
              row_height * (len(items) - 1), "#475569")
@@ -59,7 +176,14 @@ def diagram_plan(diagram, size, duration):
              row_height * .87, "#1e293b", start)
         rect(x, y, card_width * .92, max(2, height * .004), color, start, True)
         font = min(width * .055, row_height * .23)
-        text(item["label"], x, y + row_height * .08, card_width * .92,
+        icon = item.get("icon")
+        icon_edge = min(width * .075, row_height * .25) if icon else 0
+        label_width = card_width * .92 - (icon_edge + width * .02 if icon else 0)
+        if icon:
+            elements.append(dict(kind="icon", icon=icon, x=x + card_width * .92 - icon_edge,
+                                 y=y + row_height * .08, width=icon_edge, height=icon_edge,
+                                 start=start, reveal=reveal))
+        text(item["label"], x, y + row_height * .08, label_width,
              font, row_height * .28, color, start)
         text(item.get("detail", ""), x, y + row_height * .38, card_width * .92,
              font * .8, row_height * .35, "#ffffff", start)

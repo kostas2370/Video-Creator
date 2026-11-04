@@ -174,7 +174,7 @@ def _script_structure(brief, narration, ai_scene_editing=False):
             + json.dumps(shape, indent=2) + "\n")
 
 
-def _scene_editing_instructions(visual_type):
+def _scene_editing_instructions(visual_type, diagram_icons=()):
     instructions = (
         "Plan the whole visual story before choosing edits. Open with a clear visual question or "
         "surprising situation, build through explanation and evidence, and end with a payoff. "
@@ -217,6 +217,13 @@ def _scene_editing_instructions(visual_type):
         "of a process; flow for 2–4 connected stages showing transfer of water, energy, signals, "
         "or material. Flow shows all stages together with directional arrows and moving markers; "
         "use it only for a real directed connection, not merely a chronological list. "
+        "Use graph for 2–6 icon nodes linked horizontally with arrows, including branches and "
+        "merges. Graph has no cards. Prefer 2–4 nodes on portrait video; keep node labels very "
+        "short and detail empty unless it is essential. A graph may include connections: an "
+        "array of at most 8 arrows, each with source and target (zero-based indices into items) "
+        "and an optional label of at most 30 characters. For example, source 0 to targets 1 "
+        "and 2 creates a branch. No self-connections, duplicate arrows, or loops. Omitting "
+        "connections creates a simple horizontal chain; an empty array means no arrows. "
         "Title maximum 60 characters, item label maximum 40, detail maximum 90. "
         "Other diagram cards appear sequentially over the scene; use a diagram only when its items fit "
         "this scene's narration and duration. Keep descriptions concise enough to read. "
@@ -227,6 +234,14 @@ def _scene_editing_instructions(visual_type):
         "Timings are planning estimates which users can review before generation. "
         "These are editor settings; keep them out of narration and visual descriptions. "
         "For the final shot, use CUT and transition_duration 0.1; it has no following shot. "
+    )
+    instructions += (
+        "Each diagram item may optionally include icon: an ID from the available catalog below, "
+        "or an empty string for no icon. Choose icons by meaning, not decoration. Never invent "
+        "an ID or a URL; leave icon empty when nothing fits. The list is a topic-based shortlist "
+        "from the installed library, not every icon that exists.\nAVAILABLE DIAGRAM ICONS:\n"
+        + ("\n".join(f"- {icon['id']}: {icon['name']} — {icon['description']}" for icon in diagram_icons)
+           if diagram_icons else "No icons are installed for this request; omit icon fields.") + "\n"
     )
     if visual_type == VisualType.VIDEO:
         return instructions + "Use motion_style NONE and animation_preset NONE for every shot; camera movement comes from the generated video."
@@ -278,6 +293,7 @@ def build_script_prompt(
     ai_scene_editing: bool = False,
     visual_continuity: str = "",
     reference_role: str = None,
+    diagram_icons=(),
 ) -> str:
     """Build the complete script request from video settings and a creative brief."""
     visual_type = resolve_visual_type(image_mode, video)
@@ -346,7 +362,7 @@ def build_script_prompt(
             "reviewable before media generation."
         )
     if ai_scene_editing:
-        output += "\nAI SCENE EDITING:\n" + _scene_editing_instructions(visual_type)
+        output += "\nAI SCENE EDITING:\n" + _scene_editing_instructions(visual_type, diagram_icons)
     if narration:
         output += " Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph."
     else:

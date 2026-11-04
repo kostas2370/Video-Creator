@@ -28,3 +28,10 @@ it("moves flow markers in the arrow direction and repeats deterministically when
   expect(diagramElementState(marker, 0).y).toBe(marker.y);
   expect(plan.filter(element => element.kind === "text").every(element => element.start === 0)).toBe(true);
 });
+
+it("moves graph markers along routed horizontal and vertical legs when seeking", () => {
+  const marker = { x: 0, y: 0, start: 0, reveal: .3, motion: { path: [[0, 0], [100, 0], [100, 100]], period: 2 } };
+  expect(diagramElementState(marker, .5)).toMatchObject({ x: 50, y: 0 });
+  expect(diagramElementState(marker, 1.5)).toMatchObject({ x: 100, y: 50 });
+  expect(diagramElementState(marker, 2.5)).toMatchObject({ x: 50, y: 0 });
+});

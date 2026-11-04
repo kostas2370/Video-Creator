@@ -16,6 +16,7 @@ from apps.videomanagement.views.videos import VideoView
 from .event_stream import event_updates
 from .views.captions import CaptionProjectView
 from .views.library import MediaAssetView
+from .views.icons import IconListView
 
 router = routers.DefaultRouter()
 
@@ -33,6 +34,7 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
+    path("icons/", IconListView.as_view(), name="icons"),
     path("generation-models/", GenerationModelsView.as_view(), name="generation_models"),
     path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),

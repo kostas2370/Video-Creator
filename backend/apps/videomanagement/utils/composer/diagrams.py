@@ -2,7 +2,7 @@
 
 import math
 
-from ..diagrams import diagram_plan
+from ..diagrams import diagram_plan, motion_segments
 from .ass import ass_color, ass_event, escape_ass_text
 
 SHAPES = {
@@ -22,15 +22,20 @@ def element_positions(element, start, end):
         return
     period = motion["period"]
     for cycle in range(max(0, math.ceil((end - begin) / period))):
-        event_start = begin + cycle * period
-        yield event_start, min(end, event_start + period), (
-            f"\\move({x:g},{y:g},{x:g},{motion['to_y']:g},0,{period * 1000:g})"
-        )
+        for a, b, offset, duration in motion_segments(element):
+            event_start = begin + cycle * period + offset
+            if event_start < end:
+                yield event_start, min(end, event_start + duration), (
+                    f"\\move({a[0]:g},{a[1]:g},{b[0]:g},{b[1]:g},0,{duration * 1000:g})"
+                )
 
 
-def diagram_overlays(item, name, size, start, end):
+def diagram_overlays(item, name, size, start, end, *, elements=None):
     styles, events = [], []
-    for index, element in enumerate(diagram_plan(item["diagram"], size, end - start)):
+    elements = elements if elements is not None else diagram_plan(item["diagram"], size, end - start)
+    for index, element in enumerate(elements):
+        if element["kind"] == "icon":
+            continue
         event_start = start + element["start"]
         if event_start >= end:
             continue
@@ -41,15 +46,21 @@ def diagram_overlays(item, name, size, start, end):
                        "Outline": 0, "Shadow": 0, "Alignment": 7})
         fade = element["reveal"] * 1000
         tags = r"\bord0\shad0"
-        if element["kind"] in SHAPES:
+        if element["kind"] in SHAPES or element["kind"] == "polygon":
             if element.get("grow"):
                 tags += f"\\fscx0\\t(0,{fade:g},\\fscx100)"
             w, h = element["width"], element["height"]
-            content = SHAPES[element["kind"]].format(w=w, h=h, half=w / 2)
+            if element["kind"] == "polygon":
+                points = element["points"]
+                content = f"m {points[0][0]:g} {points[0][1]:g} l " + " ".join(f"{px:g} {py:g}" for px, py in points[1:])
+            else:
+                content = SHAPES[element["kind"]].format(w=w, h=h, half=w / 2)
             tags += "\\p1"
         else:
             tags += f"\\fad({fade:g},0)"
             content = escape_ass_text(element["text"]).replace("\n", r"\N")
-        for event_start, event_end, position in element_positions(element, start, end):
-            events.append(ass_event(event_start, event_end, f"{{\\an7{position}{tags}}}{content}", style_name))
+        alignment = 8 if element.get("centered") else 7
+        position_element = {**element, "x": element["x"] + element.get("centered", 0) / 2}
+        for event_start, event_end, position in element_positions(position_element, start, end):
+            events.append(ass_event(event_start, event_end, f"{{\\an{alignment}{position}{tags}}}{content}", style_name))
     return styles, events

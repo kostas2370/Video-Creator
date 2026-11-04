@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Avatar,
+    Icon,
     Intro,
     Music,
     Outro,
@@ -40,3 +41,10 @@ admin.site.register(VoiceModel)
 admin.site.register(Intro)
 admin.site.register(Outro)
 admin.site.register(Avatar)
+
+
+@admin.register(Icon)
+class IconAdmin(admin.ModelAdmin):
+    list_display = ("key", "name", "collection", "enabled")
+    search_fields = ("key", "name", "description")
+    list_filter = ("collection", "enabled")
