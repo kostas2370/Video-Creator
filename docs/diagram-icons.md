@@ -8,8 +8,9 @@ python manage.py download_icons
 ```
 
 The command downloads the complete Lucide and Material Design Icons collections
-from Iconify's icon-sets repository. It imports concrete SVG paths, skips aliases,
-hidden icons and unsupported markup, and stores metadata in the `Icon` table.
+from Iconify's icon-sets repository. It trusts those fixed upstream collections,
+wraps their concrete icon bodies as SVG, skips aliases and hidden icons, and stores
+metadata in the `Icon` table.
 Use `--collections lucide` to install one collection, or `--limit 20` for a small
 trial. Running it again updates metadata without duplicating icons or re-enabling
 icons an administrator disabled.
@@ -50,7 +51,7 @@ Open **Upload your own icon** in the picker to add a still PNG, JPEG or WebP
 with transparent padding, preserving aspect ratio and colours. Give each upload a
 meaningful name/description so it can be found in searches and GPT shortlists.
 Uploads are reusable across the owner's videos. Raw SVG uploads are not accepted;
-the downloaded catalog continues to use its validated SVG artwork. Apply migration
+the downloaded catalog continues to use its upstream SVG artwork. Apply migration
 0056 when upgrading an existing icon catalog.
 
 Lucide uses ISC and Material Design Icons uses Apache 2.0. The downloader retains

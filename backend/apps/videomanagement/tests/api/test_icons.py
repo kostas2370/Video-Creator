@@ -11,7 +11,6 @@ from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
 
-from apps.videomanagement.management.commands.download_icons import svg_artwork
 from apps.videomanagement.models import Icon
 from apps.videomanagement.serializers.diagrams import DiagramItemSerializer
 from apps.videomanagement.services.media.icons import icon_candidates, available_icon_files
@@ -27,7 +26,7 @@ COLLECTION = {
     "icons": {
         "droplet": {"body": '<path d="M12 2 L20 20 L4 20 Z" fill="currentColor"/>'},
         "cloud": {"body": '<path d="M2 12 L22 12" stroke="currentColor"/>'},
-        "unsafe": {"body": '<image href="https://example.com/image.svg"/>'},
+        "hidden": {"body": '<path d="M0 0"/>', "hidden": True},
     },
     "categories": {"Weather": ["droplet", "cloud"]},
 }
@@ -46,7 +45,7 @@ class IconCatalogTests(ApiTestCase):
         with patch("apps.videomanagement.management.commands.download_icons.download", side_effect=[json.dumps(COLLECTION).encode(), b"ISC license notice"]):
             call_command("download_icons", collections=["lucide"], stdout=io.StringIO())
 
-    def test_import_is_repeatable_keeps_licenses_and_rejects_active_svg(self):
+    def test_import_is_repeatable_keeps_licenses_and_skips_hidden_icons(self):
         self.download()
         self.assertEqual(Icon.objects.count(), 2)
         icon = Icon.objects.get(pk="lucide:droplet")
@@ -63,9 +62,6 @@ class IconCatalogTests(ApiTestCase):
         self.assertEqual(Icon.objects.count(), 2)
         self.assertEqual(icon.file.name, filename)
         self.assertFalse(icon.enabled)
-        for body in ('<script>alert(1)</script>', '<path onclick="alert(1)"/>', '<path fill="url(https://example.com/x)"/>'):
-            with self.subTest(body=body), self.assertRaises(ValueError):
-                svg_artwork({"body": body}, COLLECTION)
 
     def test_authenticated_search_pagination_and_exact_id_lookup(self):
         self.download()
