@@ -354,7 +354,7 @@ class VideoUpdateViewTests(ApiTestCase):
             with self.subTest(field=field):
                 asset = recipe.make(created_by=user.make())
                 with patch(
-                    "apps.videomanagement.services.videos.settings.update_scene"
+                    "apps.videomanagement.tasks.regenerate_narration_task.delay"
                 ) as regenerate:
                     response = self.client.patch(
                         reverse("video-detail", args=[row.id]),

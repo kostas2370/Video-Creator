@@ -9,6 +9,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files import File
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
@@ -19,6 +20,9 @@ from apps.videomanagement.services.media.archive import archive_generated_cover
 from apps.videomanagement.services.scenes import generation as scene_generation
 from apps.videomanagement.services.scenes import visuals as scenes
 from apps.videomanagement.services.scenes.jobs import scene_job
+from apps.videomanagement.services.scenes.narration import (
+    update_scene as regenerate_scene_narration,
+)
 from apps.videomanagement.services.scenes.starting_images import (
     animate_starting_image,
     requires_starting_image,
@@ -93,6 +97,32 @@ def generate_scene_image_task(scene_id, image_description, previous_status):
                 scene.save(update_fields=["starting_image_context"])
             raise
         return {"Message": "Image Scene was added successfully"}
+
+
+@shared_task(soft_time_limit=1150, time_limit=1200)
+def regenerate_narration_task(video_id, previous_status):
+    # Wait for the settings transaction before reading its selected voice.
+    with transaction.atomic():
+        video = Video.objects.select_for_update().get(pk=video_id)
+        if video.status != VideoStatus.GENERATION:
+            return
+    try:
+        if not video.created_by.is_active:
+            raise ValueError("Account is inactive")
+        for scene in video.scenes.all():
+            regenerate_scene_narration(scene)
+    except Exception:
+        _mark_failed(video_id)
+        raise
+    else:
+        Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(
+            status=VideoStatus.READY
+            if previous_status == VideoStatus.FAILED
+            else previous_status,
+            updated_at=timezone.now(),
+        )
+    finally:
+        publish_update(f"video.{video_id}", video_id=video_id)
 
 
 VOICE_IMPORTS = {

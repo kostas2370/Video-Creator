@@ -2,12 +2,15 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 
-from apps.videomanagement.exceptions import VideoEditConflict
-
-from apps.videomanagement.models import Avatar, Intro, Outro, Video
+from apps.videomanagement import tasks
+from apps.videomanagement.events import publish_update
+from apps.videomanagement.exceptions import (
+    GenerationQueueUnavailable,
+    VideoEditConflict,
+)
+from apps.videomanagement.models import Avatar, Intro, Outro, Video, VideoStatus
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.scenes.editing import changed, editable_video
-from apps.videomanagement.services.scenes.narration import update_scene
 
 
 def video_update(video: Video, **changes) -> Video:
@@ -21,6 +24,7 @@ def video_update(video: Video, **changes) -> Video:
         "intro_transition_duration",
         "intro",
         "voice_id",
+        "avatar",
         "caption_style",
         "caption_config",
     } & changes.keys():
@@ -73,9 +77,26 @@ def _apply_video_changes(video, changes):
     for field, value in updates.items():
         setattr(video, field, value)
     video.save(update_fields=[*updates, "updated_at"])
-    if voice_changed and (video.settings or {}).get("narration", True):
-        for scene in video.scenes.all():
-            update_scene(scene)
+    retry_narration = selected_voice is not None and video.status == VideoStatus.FAILED
+    if (
+        (voice_changed or retry_narration)
+        and (video.settings or {}).get("narration", True)
+        and video.scenes.exists()
+    ):
+        previous_status = video.status
+        video.status = VideoStatus.GENERATION
+        video.save(update_fields=["status", "updated_at"])
+        try:
+            # The worker locks this row before reading the committed settings.
+            tasks.regenerate_narration_task.delay(str(video.pk), previous_status)
+        except Exception as exc:
+            raise GenerationQueueUnavailable(
+                "Could not queue narration. Your settings were not changed. Please try again."
+            ) from exc
+        video.narration_queued = True
+        transaction.on_commit(
+            lambda: publish_update(f"video.{video.pk}", video_id=video.pk)
+        )
     return video
 
 

@@ -122,11 +122,11 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
         intro_transition: introTransition,
         intro_transition_duration: introTransitionDuration === "" ? null : Number(introTransitionDuration),
       };
-      if (!avatar && voice && String(voice) !== String(info?.voice_model ?? "")) changes.voice_id = voice;
+      if (!avatar && voice) changes.voice_id = voice;
       if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
-      const { data: response } = await updateVideo(info.id, changes);
+      const { data: response, status } = await updateVideo(info.id, changes);
       if (response) {
-        toast.success("Video settings saved");
+        toast.success(status === 202 ? "Settings saved. Narration is regenerating in the background." : "Video settings saved");
         onSaved?.();
         setShowModal(false);
       }

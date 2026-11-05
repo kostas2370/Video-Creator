@@ -276,7 +276,7 @@ class VideoView(
         request_body=VideoUpdateSerializer,
         operation_description="This API updates the attributes of the video. If you add a new avatar"
         " it will delete previous audio files and will regenerate them with "
-        "new audios",
+        "new audios in the background",
     )
     def partial_update(self, request, pk):
         video = self.get_object()
@@ -288,7 +288,8 @@ class VideoView(
             {
                 "message": "Updated Success",
                 "video": self.serialize_video_detail(outcome),
-            }
+            },
+            status=202 if getattr(outcome, "narration_queued", False) else 200,
         )
 
     @action(detail=True, methods=["PATCH"])
