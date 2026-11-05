@@ -40,8 +40,6 @@ def scene_job(scene_id, previous_status):
         if not active:
             raise ValidationError("This scene job stopped. Please try again.")
         try:
-            if not scene.video.created_by.is_active:
-                raise ValueError("Account is inactive")
             yield scene
         finally:
             restore_video(scene.video_id, previous_status)

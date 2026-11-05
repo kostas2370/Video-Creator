@@ -44,8 +44,6 @@ def generate_cover_task(video_id, user_id, choices):
     video = Video.objects.select_related("created_by", "prompt").get(
         pk=video_id, created_by_id=user_id
     )
-    if not video.created_by.is_active:
-        raise ValueError("Account is inactive")
     image = covers.generate_cover_image(video, video.created_by, choices)
     asset = archive_generated_cover(video, image)
     return {"asset_id": str(asset.pk)}
@@ -111,8 +109,6 @@ def regenerate_narration_task(video_id, previous_status):
             if video.status != VideoStatus.GENERATION:
                 return
         try:
-            if not video.created_by.is_active:
-                raise ValueError("Account is inactive")
             for scene in video.scenes.all():
                 regenerate_scene_narration(scene)
         except Exception:
