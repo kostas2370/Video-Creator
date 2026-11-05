@@ -22,8 +22,8 @@ from apps.series.services.episodes import (
     retry_episode,
     update_episode_memory,
 )
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.paginator import AssetResultsPagination
-from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.throttling import GenerateRateThrottle
 
@@ -92,7 +92,9 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer = CastDraftRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
-            queue_draft(request.user, draft_handlers.cast, **serializer.validated_data),
+            queue_draft(
+                request.user, draft_tasks.draft_cast_task, **serializer.validated_data
+            ),
             status=202,
             headers={"Cache-Control": "no-store"},
         )
@@ -103,7 +105,9 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         return Response(
             queue_draft(
-                request.user, draft_handlers.character, **serializer.validated_data
+                request.user,
+                draft_tasks.draft_character_task,
+                **serializer.validated_data,
             ),
             status=202,
             headers={"Cache-Control": "no-store"},
@@ -193,7 +197,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
         return Response(
             queue_draft(
                 request.user,
-                draft_handlers.memory,
+                draft_tasks.draft_memory_task,
                 episode_id=str(episode.pk),
                 **serializer.validated_data,
             ),

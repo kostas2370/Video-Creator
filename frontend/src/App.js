@@ -1,4 +1,3 @@
-import { useBackgroundJobSession } from "./components/ui/BackgroundJobActivity";
 import React, { lazy, Suspense } from "react";
 import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
@@ -45,7 +44,6 @@ function RequireAuth() {
 }
 
 function App() {
-  useBackgroundJobSession();
   const location = useLocation();
   const { access_token } = useAuth();
   const { theme, toggleTheme } = useTheme();

@@ -3,12 +3,12 @@ from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.serializers.tags import (
     GenerateVideoTagsSerializer,
     SaveVideoDetailsSerializer,
     SaveVideoTagsSerializer,
 )
-from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.services.videos.tags import (
     save_details,
@@ -34,7 +34,9 @@ class VideoTagsMixin:
     def draft_tags(self, request, pk=None):
         video = self.get_object()
         return Response(
-            queue_draft(request.user, draft_handlers.tags, video_id=str(video.pk)),
+            queue_draft(
+                request.user, draft_tasks.draft_tags_task, video_id=str(video.pk)
+            ),
             status=202,
             headers={"Cache-Control": "no-store"},
         )
@@ -48,7 +50,7 @@ class VideoTagsMixin:
         return Response(
             queue_draft(
                 request.user,
-                draft_handlers.description,
+                draft_tasks.draft_description_task,
                 video_id=str(video.pk),
                 mode=serializer.validated_data["mode"],
             ),
@@ -74,7 +76,7 @@ class VideoTagsMixin:
         return Response(
             queue_draft(
                 request.user,
-                draft_handlers.save_tags,
+                draft_tasks.generate_tags_task,
                 video_id=str(video.pk),
                 choices=dict(serializer.validated_data),
             ),

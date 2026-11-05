@@ -1,12 +1,8 @@
 """Recoverable, owner-bound AI drafts using the existing Celery result backend."""
 
-from uuid import uuid4
-
 from celery.result import AsyncResult
 from django.core import signing
 from rest_framework.exceptions import APIException, NotFound
-
-from .draft_handlers import get_handler
 
 SALT = "ai-draft-job-v1"
 MAX_AGE = 86400
@@ -17,20 +13,12 @@ class DraftQueueUnavailable(APIException):
     default_detail = "Could not queue the draft. Please try again."
 
 
-def queue_draft(user, handler, **values):
-    from apps.videomanagement.tasks import draft_ai_task
-
-    operation = handler.__name__
-    if get_handler(operation) is not handler:
-        raise ValueError("Unregistered draft handler")
-    task_id = str(uuid4())
+def queue_draft(user, task, **values):
     try:
-        draft_ai_task.apply_async(
-            args=(str(user.pk), operation, values), task_id=task_id
-        )
+        job = task.delay(str(user.pk), **values)
     except Exception as exc:
         raise DraftQueueUnavailable() from exc
-    return {"id": signing.dumps([str(user.pk), task_id], salt=SALT), "status": "QUEUED"}
+    return {"id": signing.dumps([str(user.pk), job.id], salt=SALT), "status": "QUEUED"}
 
 
 def draft_result(user, token):
@@ -43,13 +31,7 @@ def draft_result(user, token):
     job = AsyncResult(task_id)
     state = job.state
     if state == "SUCCESS":
-        result = job.result
-        if result.get("ok"):
-            return {"status": "SUCCEEDED", "result": result["data"]}
-        return {
-            "status": "FAILED",
-            "error": result.get("message", "Could not generate this draft."),
-        }
+        return {"status": "SUCCEEDED", "result": job.result}
     if state in ("FAILURE", "REVOKED"):
         return {
             "status": "FAILED",

@@ -15,8 +15,8 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.paginator import StandardResultsSetPagination
-from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
@@ -166,7 +166,7 @@ class ClipProjectView(
         if request.method == "POST":
             return Response(
                 queue_draft(
-                    request.user, draft_handlers.hashtags, clip_id=str(clip.pk)
+                    request.user, draft_tasks.draft_hashtags_task, clip_id=str(clip.pk)
                 ),
                 status=202,
                 headers={"Cache-Control": "no-store"},
@@ -223,7 +223,7 @@ class ClipProjectView(
         return Response(
             queue_draft(
                 request.user,
-                draft_handlers.clip_search,
+                draft_tasks.search_transcript_task,
                 project_id=str(project.pk),
                 prompt=serializer.validated_data["prompt"],
             ),

@@ -80,7 +80,7 @@ export function StoryVideo() {
     </header>
     <form onSubmit={create} className="grid items-start gap-8 lg:grid-cols-[1fr_300px]">
       <fieldset disabled={busy} className="min-w-0 space-y-6 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        {generating && <p role="status" className="text-sm text-blue-600 dark:text-blue-300">Your story is being drafted in the background. You can keep setting up your video or find the result in Generation activity.</p>}
+        {generating && <p role="status" className="text-sm text-blue-600 dark:text-blue-300">Your story is being drafted in the background. You can keep setting up your video while you wait.</p>}
         {storyDraft && <section aria-label="Generated story draft" className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950"><h2 className="text-sm font-semibold">{storyDraft.title}</h2><p className="whitespace-pre-wrap text-sm leading-relaxed">{storyDraft.story}</p><button type="button" onClick={() => { setStory(storyDraft.story); setTitle(current => current.trim() ? current : storyDraft.title); setStoryDraft(null); }} className="min-h-11 text-sm font-semibold text-blue-600 dark:text-blue-300">Use this story</button></section>}
         <label className="block text-sm font-semibold" htmlFor="story-title">Video title<input id="story-title" required maxLength={50} value={title} onChange={event => setTitle(event.target.value)} className={`${editorInput} mt-2`} placeholder="The message I should have ignored" /></label>
         <div>

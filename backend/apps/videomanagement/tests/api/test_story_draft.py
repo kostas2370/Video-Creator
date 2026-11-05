@@ -22,13 +22,13 @@ class StoryDraftTests(ApiTestCase):
             "apps.videomanagement.services.videos.story.get_update_sentence",
             return_value=json.dumps(draft),
         ) as generate:
-            response = self.complete_draft(
-                self.client.post(
-                    self.url, {"prompt": "A mysterious text message"}, format="json"
-                )
+            response = self.client.post(
+                self.url, {"prompt": "A mysterious text message"}, format="json"
             )
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data, draft)
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual(draft_result, draft)
         self.assertEqual(generate.call_args.kwargs["user"], self.user)
         self.assertIn("A mysterious text message", generate.call_args.args[0])
         self.assertFalse(Video.objects.exists())
@@ -40,13 +40,13 @@ class StoryDraftTests(ApiTestCase):
             "apps.videomanagement.services.videos.story.get_update_sentence",
             return_value="```json\n" + json.dumps(draft) + "\n```",
         ):
-            response = self.complete_draft(
-                self.client.post(
-                    self.url, {"prompt": "Μια ελληνική ιστορία"}, format="json"
-                )
+            response = self.client.post(
+                self.url, {"prompt": "Μια ελληνική ιστορία"}, format="json"
             )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, draft)
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual(draft_result, draft)
 
     def test_invalid_input_is_rejected_before_the_model_call(self):
         with patch(
@@ -54,8 +54,8 @@ class StoryDraftTests(ApiTestCase):
         ) as generate:
             for prompt in ("", " ", "a" * 2001):
                 self.assertEqual(
-                    self.complete_draft(
-                        self.client.post(self.url, {"prompt": prompt}, format="json")
+                    self.client.post(
+                        self.url, {"prompt": prompt}, format="json"
                     ).status_code,
                     400,
                 )
@@ -75,11 +75,14 @@ class StoryDraftTests(ApiTestCase):
                     return_value=reply,
                 ),
             ):
-                response = self.complete_draft(
-                    self.client.post(self.url, {"prompt": "A mystery"}, format="json")
+                response = self.client.post(
+                    self.url, {"prompt": "A mystery"}, format="json"
                 )
-                self.assertEqual(response.status_code, 500)
-                self.assertIn("invalid story draft", str(response.data))
+                self.assertEqual(response.status_code, 202, response.data)
+                with self.assertRaises(APIException) as failure:
+                    self.run_draft_task()
+
+                self.assertIn("invalid story draft", str(failure.exception.detail))
         self.assertFalse(Video.objects.exists())
 
     def test_provider_failure_and_unauthenticated_requests(self):
@@ -87,18 +90,21 @@ class StoryDraftTests(ApiTestCase):
             "apps.videomanagement.services.videos.story.get_update_sentence",
             side_effect=APIException("Text provider unavailable"),
         ):
-            response = self.complete_draft(
-                self.client.post(self.url, {"prompt": "A mystery"}, format="json")
+            response = self.client.post(
+                self.url, {"prompt": "A mystery"}, format="json"
             )
-        self.assertEqual(response.status_code, 500)
-        self.assertIn("Text provider unavailable", str(response.data))
+            self.assertEqual(response.status_code, 202, response.data)
+            with self.assertRaises(APIException) as failure:
+                self.run_draft_task()
+
+        self.assertIn("Text provider unavailable", str(failure.exception.detail))
         self.client.force_authenticate(None)
         with patch(
             "apps.videomanagement.services.videos.story.get_update_sentence"
         ) as generate:
             self.assertIn(
-                self.complete_draft(
-                    self.client.post(self.url, {"prompt": "A mystery"}, format="json")
+                self.client.post(
+                    self.url, {"prompt": "A mystery"}, format="json"
                 ).status_code,
                 (401, 403),
             )

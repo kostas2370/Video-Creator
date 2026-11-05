@@ -8,6 +8,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.models import Scene, SceneImage, VideoType
 from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schema import SceneImageUploadSchema
@@ -36,7 +37,6 @@ from apps.videomanagement.serializers.requests import (
     StartingImageSerializer,
 )
 from apps.videomanagement.serializers.scene_captions import SceneCaptionsSerializer
-from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.captions.scenes import (
     scene_caption_data,
     update_scene_captions,
@@ -228,7 +228,7 @@ class SceneView(viewsets.GenericViewSet):
         return Response(
             queue_draft(
                 request.user,
-                draft_handlers.rewrite,
+                draft_tasks.rewrite_scene_task,
                 scene_id=str(scene.pk),
                 instructions=serializer.validated_data["text"],
             ),

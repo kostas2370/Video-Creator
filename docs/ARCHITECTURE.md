@@ -722,23 +722,18 @@ pagination, so every workspace page can link to the pending review/preparation.
 
 ### Background AI drafts
 
-Story and scene drafts, scene rewrites,
-cast and character descriptions, episode memories, discovery tags, YouTube descriptions,
-clip hashtags, and transcript clip suggestions always use background jobs. Endpoints
-validate input and ownership, return HTTP 202 with a signed job token, and dispatch `draft_ai_task` through
-Celery. A decorated handler registers its own name for dispatch; there is no separate
-operation allowlist or synchronous fallback.
+Story and scene drafts, scene rewrites, cast and character descriptions, episode memories,
+tags, YouTube descriptions, clip hashtags, and transcript clip suggestions queue their own
+Celery tasks and return HTTP 202 with a signed job token. Tasks are defined in
+`apps.videomanagement.draft_tasks`, loaded by `CELERY_IMPORTS`, and return the provider's
+result directly. There is no operation registry or synchronous fallback.
 
 `GET /api/draft-jobs/?job=TOKEN` returns queued, running, succeeded, or failed status.
-Tokens are bound to the authenticated owner and expire after 24 hours. Workers recheck
-ownership and active accounts before invoking providers. Results use the existing Celery
-result backend; no schema migration is required. Deploy the web and Celery code before
-the frontend so workers recognize the new task.
+Tokens are owner-bound and expire after 24 hours. Tasks reload active users and owned
+resources before calling providers. The frontend polls for the result while the form is
+open or retained on the current page. Navigation or reload does not restore draft results;
+there is no activity panel or browser job storage. Closing a dialog does not cancel work.
 
-The browser stores outstanding job tokens and draft results per account for 24 hours.
-Generation activity in the navigation follows jobs across pages and restores them after
-reload. Lost connections retry status checks, never the generation submission. Closing a
-form does not cancel its job. Recovered drafts can be reviewed and copied; they are not
-automatically applied to newer edits. Browser storage failures show a warning to keep the
-page open. Asset-changing scene jobs retain the video edit lock, while review-only scene
-rewrites leave the rest of the editor available.
+Asset-changing scene jobs retain the video edit lock; review-only scene rewrites leave the
+rest of the editor available. Deploy the web and Celery workers together so workers load
+the new tasks. No database migration is required.

@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
+from rest_framework.exceptions import APIException
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
 
@@ -51,25 +52,25 @@ class CharacterSetupTests(ApiTestCase):
                 "apps.series.tasks.generate_character_reference_task.delay"
             ) as images,
         ):
-            response = self.complete_draft(
-                self.client.post(
-                    reverse("series-character-description"),
-                    {
-                        "premise": "Fox mysteries",
-                        "visual_style": "Watercolor",
-                        "story_format": "ANIMATED_STORY",
-                        "name": "Milo",
-                        "idea": "A shy detective",
-                        "appearance": "Orange fox",
-                        "cast_names": ["Milo", "Rin"],
-                    },
-                    format="json",
-                )
+            response = self.client.post(
+                reverse("series-character-description"),
+                {
+                    "premise": "Fox mysteries",
+                    "visual_style": "Watercolor",
+                    "story_format": "ANIMATED_STORY",
+                    "name": "Milo",
+                    "idea": "A shy detective",
+                    "appearance": "Orange fox",
+                    "cast_names": ["Milo", "Rin"],
+                },
+                format="json",
             )
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["character"]["name"], "Milo")
-        self.assertEqual(response.data["character"]["personality"], "Shy detective")
-        self.assertNotIn("id", response.data["character"])
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual(draft_result["character"]["name"], "Milo")
+        self.assertEqual(draft_result["character"]["personality"], "Shy detective")
+        self.assertNotIn("id", draft_result["character"])
         self.assertIn("A shy detective", ai.call_args.args[0])
         series.refresh_from_db()
         self.assertEqual(serialize_cast(series), original)
@@ -77,19 +78,18 @@ class CharacterSetupTests(ApiTestCase):
 
     def test_character_description_rejects_invalid_input_before_calling_ai(self):
         with patch("apps.series.services.characters.get_update_sentence") as ai:
-            response = self.complete_draft(
-                self.client.post(
-                    reverse("series-character-description"),
-                    {
-                        "premise": "Mystery",
-                        "visual_style": "3D",
-                        "story_format": "GENERAL",
-                        "count": 2,
-                    },
-                    format="json",
-                )
+            response = self.client.post(
+                reverse("series-character-description"),
+                {
+                    "premise": "Mystery",
+                    "visual_style": "3D",
+                    "story_format": "GENERAL",
+                    "count": 2,
+                },
+                format="json",
             )
-        self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.status_code, 400, response.data)
+
         ai.assert_not_called()
 
     def setUp(self):
@@ -165,24 +165,22 @@ class CharacterSetupTests(ApiTestCase):
                 "apps.series.tasks.generate_character_reference_task.delay"
             ) as images,
         ):
-            response = self.complete_draft(
-                self.client.post(
-                    reverse("series-cast-draft"),
-                    {
-                        "premise": "Rivals become friends",
-                        "visual_style": "3D animation",
-                        "story_format": "ANIMATED_STORY",
-                        "count": 2,
-                    },
-                    format="json",
-                )
+            response = self.client.post(
+                reverse("series-cast-draft"),
+                {
+                    "premise": "Rivals become friends",
+                    "visual_style": "3D animation",
+                    "story_format": "ANIMATED_STORY",
+                    "count": 2,
+                },
+                format="json",
             )
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(
-            [row["name"] for row in response.data["cast"]], ["Milo", "Rin"]
-        )
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual([row["name"] for row in draft_result["cast"]], ["Milo", "Rin"])
         self.assertNotEqual(
-            response.data["cast"][0]["id"], response.data["cast"][1]["id"]
+            draft_result["cast"][0]["id"], draft_result["cast"][1]["id"]
         )
         self.assertIn("Rivals become friends", ai.call_args.args[0])
         self.assertFalse(VideoSeries.objects.exists())
@@ -195,19 +193,20 @@ class CharacterSetupTests(ApiTestCase):
             "apps.series.services.characters.get_update_sentence",
             return_value='{"cast": []}',
         ):
-            response = self.complete_draft(
-                self.client.post(
-                    reverse("series-cast-draft"),
-                    {
-                        "premise": "Rivals",
-                        "visual_style": "3D",
-                        "story_format": "SERIAL_DRAMA",
-                        "count": 2,
-                    },
-                    format="json",
-                )
+            response = self.client.post(
+                reverse("series-cast-draft"),
+                {
+                    "premise": "Rivals",
+                    "visual_style": "3D",
+                    "story_format": "SERIAL_DRAMA",
+                    "count": 2,
+                },
+                format="json",
             )
-        self.assertEqual(response.status_code, 500)
+            self.assertEqual(response.status_code, 202, response.data)
+            with self.assertRaises(APIException):
+                self.run_draft_task()
+
         series.refresh_from_db()
         self.assertEqual(serialize_cast(series)[0]["name"], "Milo")
 

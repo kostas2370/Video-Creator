@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.urls import reverse
+from rest_framework.exceptions import APIException
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import scene
@@ -13,12 +14,10 @@ SERVICE = "apps.videomanagement.services.videos.youtube_metadata"
 
 class YouTubeDescriptionTests(ApiTestCase):
     def draft(self, video, mode="generate"):
-        return self.complete_draft(
-            self.client.post(
-                reverse("video-youtube-description", args=[video.pk]),
-                {"mode": mode},
-                format="json",
-            )
+        return self.client.post(
+            reverse("video-youtube-description", args=[video.pk]),
+            {"mode": mode},
+            format="json",
         )
 
     def test_generation_uses_edited_script_and_does_not_change_export(self):
@@ -30,7 +29,9 @@ class YouTubeDescriptionTests(ApiTestCase):
             return_value="Learn about whale migration.",
         ) as generate:
             response = self.draft(video)
-        self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.status_code, 202, response.data)
+            self.run_draft_task()
+
         self.assertIn("Whales migrate", generate.call_args.args[0])
         self.assertEqual(generate.call_args.kwargs["user"], self.user)
         video.refresh_from_db()
@@ -43,8 +44,10 @@ class YouTubeDescriptionTests(ApiTestCase):
         scene.make(video=video, text="An edited scene.")
         with patch(f"{SERVICE}.get_update_sentence") as generate:
             response = self.draft(video, "template")
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertIn("An edited scene.", response.data["description"])
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertIn("An edited scene.", draft_result["description"])
         generate.assert_not_called()
 
     def test_chapters_use_timeline_offsets_and_merge_short_sections(self):
@@ -67,9 +70,11 @@ class YouTubeDescriptionTests(ApiTestCase):
         )
         with patch(f"{SERVICE}.preview_timeline", return_value=timeline):
             response = self.draft(video, "timestamps")
-        self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
         self.assertEqual(
-            response.data["description"],
+            draft_result["description"],
             "Chapters\n00:00 Intro\n00:12 Whales\n00:30 Reefs",
         )
 
@@ -79,14 +84,18 @@ class YouTubeDescriptionTests(ApiTestCase):
             f"{SERVICE}.preview_timeline",
             return_value=SimpleNamespace(duration=8, segments=[]),
         ):
-            self.assertEqual(self.draft(video, "timestamps").status_code, 400)
+            self.assertEqual(self.draft(video, "timestamps").status_code, 202)
+            with self.assertRaises(APIException):
+                self.run_draft_task()
 
     def test_rejects_empty_or_oversized_ai_output(self):
         video = self.video_for()
         scene.make(video=video, text="Whales migrate.")
         for reply in ("", "🐳" * 1200, "<invalid>"):
             with patch(f"{SERVICE}.get_update_sentence", return_value=reply):
-                self.assertEqual(self.draft(video).status_code, 500)
+                self.assertEqual(self.draft(video).status_code, 202)
+                with self.assertRaises(APIException):
+                    self.run_draft_task()
 
     def test_other_users_video_is_not_accessible(self):
         self.assertEqual(self.draft(self.video_for(owner=user.make())).status_code, 404)

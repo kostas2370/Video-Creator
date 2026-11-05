@@ -2,76 +2,107 @@ from unittest.mock import Mock, patch
 
 from django.core import signing
 from django.urls import reverse
+from model_bakery import baker
 from rest_framework.exceptions import ValidationError
 
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.services.draft_handlers import get_handler, register
+from apps.videomanagement import draft_tasks
+from apps.videomanagement.baker_recipes import scene
+from apps.videomanagement.models import Video
 from apps.videomanagement.services.draft_jobs import SALT
-from apps.videomanagement.tasks import draft_ai_task
 
 from .base import ApiTestCase
 
 
 class DraftJobTests(ApiTestCase):
-    def queue(self, route="video-draft-story", data=None, args=None):
+    def queue(self, data=None):
         return self.client.post(
-            reverse(route, args=args),
-            data or {"prompt": "A mystery at the lighthouse"},
+            reverse("video-draft-story"),
+            data if data is not None else {"prompt": "A mystery"},
             format="json",
         )
 
-    @patch.object(draft_ai_task, "apply_async")
-    def test_story_queues_without_holding_request_for_provider(self, queue):
+    def test_story_returns_an_async_task_without_running_the_provider(self):
         with patch(
             "apps.videomanagement.services.videos.story.draft_story"
         ) as provider:
             response = self.queue()
-        self.assertEqual(response.status_code, 202, response.data)
+        self.assertEqual(response.status_code, 202)
         provider.assert_not_called()
-        self.assertNotIn("Preference-Applied", response)
+        self.assertIs(self.draft_queue.call_args.args[0], draft_tasks.draft_story_task)
         owner, task_id = signing.loads(response.data["id"], salt=SALT)
         self.assertEqual(owner, str(self.user.pk))
-        self.assertEqual(queue.call_args.kwargs["task_id"], task_id)
-        self.assertEqual(
-            queue.call_args.kwargs["args"],
-            (str(self.user.pk), "story", {"prompt": "A mystery at the lighthouse"}),
-        )
+        self.assertEqual(task_id, self.draft_queue.return_value.id)
 
-    @patch.object(draft_ai_task, "apply_async")
-    def test_invalid_input_and_other_users_resources_are_never_queued(self, queue):
-        self.assertEqual(self.queue(data={"prompt": ""}).status_code, 400)
+    def test_invalid_input_and_other_users_resources_do_not_queue(self):
+        self.assertEqual(self.queue({"prompt": ""}).status_code, 400)
         other = self.video_for(owner=user.make())
         self.assertEqual(
-            self.queue("video-draft-tags", args=[other.pk], data={}).status_code, 404
+            self.client.post(
+                reverse("video-draft-tags", args=[other.pk]), {}, format="json"
+            ).status_code,
+            404,
         )
-        queue.assert_not_called()
+        self.draft_queue.assert_not_called()
 
-    @patch.object(draft_ai_task, "apply_async")
-    def test_video_and_series_drafts_use_the_job_contract(self, queue):
-        video = self.video_for()
+    def test_endpoints_queue_their_own_celery_tasks(self):
+        video = self.video_for(status="COMPLETED")
+        line = scene.make(video=video)
+        series = baker.make("series.VideoSeries", created_by=self.user)
+        episode = baker.make(
+            "series.SeriesEpisode", series=series, video=self.video_for()
+        )
+        project = baker.make(
+            "clips.ClipProject",
+            created_by=self.user,
+            words=[{"word": "Hello", "start": 0, "end": 1}],
+        )
+        clip = baker.make("clips.Clip", project=project, start=0, end=15)
         cases = [
-            ("video-draft-scene", [video.pk], {"prompt": "An opening scene"}, "scene"),
-            ("video-draft-tags", [video.pk], {}, "tags"),
             (
-                "video-youtube-description",
-                [video.pk],
-                {"mode": "generate"},
-                "description",
+                "post",
+                reverse("video-draft-scene", args=[video.pk]),
+                {"prompt": "An opening"},
+                draft_tasks.draft_scene_task,
             ),
             (
-                "series-cast-draft",
-                None,
+                "post",
+                reverse("video-draft-tags", args=[video.pk]),
+                {},
+                draft_tasks.draft_tags_task,
+            ),
+            (
+                "post",
+                reverse("video-generate-tags", args=[video.pk]),
+                {"previous_tags": {}},
+                draft_tasks.generate_tags_task,
+            ),
+            (
+                "post",
+                reverse("video-youtube-description", args=[video.pk]),
+                {"mode": "generate"},
+                draft_tasks.draft_description_task,
+            ),
+            (
+                "patch",
+                reverse("scene-generate", args=[line.pk]),
+                {"text": "Make it shorter"},
+                draft_tasks.rewrite_scene_task,
+            ),
+            (
+                "post",
+                reverse("series-cast-draft"),
                 {
                     "premise": "Fox mysteries",
                     "visual_style": "Watercolor",
                     "story_format": "ANIMATED_STORY",
                     "count": 2,
                 },
-                "cast",
+                draft_tasks.draft_cast_task,
             ),
             (
-                "series-character-description",
-                None,
+                "post",
+                reverse("series-character-description"),
                 {
                     "premise": "Fox mysteries",
                     "visual_style": "Watercolor",
@@ -79,38 +110,57 @@ class DraftJobTests(ApiTestCase):
                     "name": "Milo",
                     "idea": "A detective",
                 },
-                "character",
+                draft_tasks.draft_character_task,
+            ),
+            (
+                "post",
+                reverse(
+                    "series-draft-memory",
+                    kwargs={"pk": series.pk, "episode_id": episode.pk},
+                ),
+                {"summary": "A correction"},
+                draft_tasks.draft_memory_task,
+            ),
+            (
+                "post",
+                reverse(
+                    "clipproject-hashtags",
+                    kwargs={"pk": project.pk, "clip_id": clip.pk},
+                ),
+                {},
+                draft_tasks.draft_hashtags_task,
+            ),
+            (
+                "post",
+                reverse("clipproject-search-transcript", args=[project.pk]),
+                {"prompt": "Find the introduction"},
+                draft_tasks.search_transcript_task,
             ),
         ]
-        for route, args, values, operation in cases:
-            with self.subTest(operation=operation):
-                response = self.queue(route, values, args)
+        for method, url, values, task in cases:
+            with self.subTest(task=task.name):
+                response = getattr(self.client, method)(url, values, format="json")
                 self.assertEqual(response.status_code, 202, response.data)
-                self.assertEqual(queue.call_args.kwargs["args"][1], operation)
+                self.assertIs(self.draft_queue.call_args.args[0], task)
+        video.refresh_from_db()
+        self.assertEqual(video.status, "COMPLETED")
 
-    @patch.object(
-        draft_ai_task, "apply_async", side_effect=RuntimeError("private broker error")
-    )
-    def test_queue_failure_is_actionable_and_hides_internal_details(self, queue):
+    def test_queue_failure_returns_503_without_exposing_broker_details(self):
+        self.draft_queue.side_effect = RuntimeError("private broker details")
         response = self.queue()
         self.assertEqual(response.status_code, 503)
         self.assertNotIn("private broker", str(response.data))
 
-    @patch.object(draft_ai_task, "apply_async")
-    def test_polling_is_owner_bound_and_keeps_results_private(self, queue):
+    def test_status_requires_owner_and_signed_token(self):
         token = self.queue().data["id"]
         url = reverse("draft-job")
         with patch(
             "apps.videomanagement.services.draft_jobs.AsyncResult",
-            return_value=Mock(
-                state="SUCCESS",
-                result={"ok": True, "data": {"story": "Reviewed result"}},
-            ),
+            return_value=Mock(state="SUCCESS", result={"story": "A draft"}),
         ) as backend:
             response = self.client.get(url, {"job": token})
             self.assertEqual(
-                response.data,
-                {"status": "SUCCEEDED", "result": {"story": "Reviewed result"}},
+                response.data, {"status": "SUCCEEDED", "result": {"story": "A draft"}}
             )
             self.assertEqual(response["Cache-Control"], "no-store")
             self.client.force_authenticate(user.make())
@@ -120,8 +170,7 @@ class DraftJobTests(ApiTestCase):
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(url, {"job": token}).status_code, (401, 403))
 
-    @patch.object(draft_ai_task, "apply_async")
-    def test_states_failure_and_expiry_are_recoverable(self, queue):
+    def test_pending_failure_and_expired_tasks(self):
         token = self.queue().data["id"]
         for state, expected in [
             ("PENDING", "QUEUED"),
@@ -134,7 +183,7 @@ class DraftJobTests(ApiTestCase):
                 patch(
                     "apps.videomanagement.services.draft_jobs.AsyncResult",
                     return_value=Mock(
-                        state=state, result=RuntimeError("private provider error")
+                        state=state, result=RuntimeError("private provider details")
                     ),
                 ),
             ):
@@ -149,111 +198,29 @@ class DraftJobTests(ApiTestCase):
                 self.client.get(reverse("draft-job"), {"job": token}).status_code, 404
             )
 
-    def test_worker_executes_the_draft_and_preserves_validation_errors(self):
+    def test_worker_returns_provider_result_and_propagates_failure(self):
         with patch(
             "apps.videomanagement.services.videos.story.draft_story",
             return_value={"story": "A draft"},
-        ) as provider:
-            self.assertEqual(
-                draft_ai_task.run(str(self.user.pk), "story", {"prompt": "Mystery"}),
-                {"ok": True, "data": {"story": "A draft"}},
-            )
-            provider.assert_called_once_with(self.user, prompt="Mystery")
-        with patch(
-            "apps.videomanagement.services.videos.story.draft_story",
-            side_effect=ValidationError("The script changed. Review it first."),
         ):
             self.assertEqual(
-                draft_ai_task.run(str(self.user.pk), "story", {"prompt": "Mystery"}),
-                {"ok": False, "message": "The script changed. Review it first."},
+                draft_tasks.draft_story_task.run(str(self.user.pk), prompt="Mystery"),
+                {"story": "A draft"},
             )
+        with patch(
+            "apps.videomanagement.services.videos.story.draft_story",
+            side_effect=ValidationError("The script changed"),
+        ):
+            with self.assertRaises(ValidationError):
+                draft_tasks.draft_story_task.run(str(self.user.pk), prompt="Mystery")
 
     def test_worker_rechecks_resource_ownership(self):
         video = self.video_for(owner=user.make())
         with patch(
             "apps.videomanagement.services.videos.tags.generate_tags"
         ) as provider:
-            from apps.videomanagement.models import Video
-
             with self.assertRaises(Video.DoesNotExist):
-                get_handler("tags")(self.user, video_id=str(video.pk))
+                draft_tasks.draft_tags_task.run(
+                    str(self.user.pk), video_id=str(video.pk)
+                )
             provider.assert_not_called()
-
-    @patch.object(draft_ai_task, "apply_async")
-    def test_async_rewrite_does_not_lock_or_modify_the_video(self, queue):
-        from apps.videomanagement.baker_recipes import scene
-
-        video = self.video_for(status="COMPLETED")
-        original = scene.make(video=video, text="Original text")
-        response = self.client.patch(
-            reverse("scene-generate", args=[original.pk]),
-            {"text": "Make it shorter"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, 202, response.data)
-        self.assertEqual(queue.call_args.kwargs["args"][1], "rewrite")
-        self.scene_queue.assert_not_called()
-        video.refresh_from_db()
-        original.refresh_from_db()
-        self.assertEqual(video.status, "COMPLETED")
-        self.assertEqual(original.text, "Original text")
-
-    @patch.object(draft_ai_task, "apply_async")
-    def test_memory_hashtags_and_transcript_search_are_queued(self, queue):
-        from model_bakery import baker
-
-        series = baker.make("series.VideoSeries", created_by=self.user)
-        episode = baker.make(
-            "series.SeriesEpisode", series=series, video=self.video_for()
-        )
-        project = baker.make(
-            "clips.ClipProject",
-            created_by=self.user,
-            words=[{"word": "Hello", "start": 0, "end": 1}],
-        )
-        clip = baker.make("clips.Clip", project=project, start=0, end=15)
-        cases = [
-            (
-                reverse(
-                    "series-draft-memory",
-                    kwargs={"pk": series.pk, "episode_id": episode.pk},
-                ),
-                {"summary": "A correction"},
-                "memory",
-            ),
-            (
-                reverse(
-                    "clipproject-hashtags",
-                    kwargs={"pk": project.pk, "clip_id": clip.pk},
-                ),
-                {},
-                "hashtags",
-            ),
-            (
-                reverse("clipproject-search-transcript", args=[project.pk]),
-                {"prompt": "Find the introduction"},
-                "clip_search",
-            ),
-        ]
-        for url, values, operation in cases:
-            with self.subTest(operation=operation):
-                response = self.client.post(url, values, format="json")
-                self.assertEqual(response.status_code, 202, response.data)
-                self.assertEqual(queue.call_args.kwargs["args"][1], operation)
-
-    def test_decorated_handlers_register_without_a_separate_operation_list(self):
-        @register
-        def test_registered_draft(user, *, text):
-            return {"text": text}
-
-        self.assertIs(
-            get_handler(test_registered_draft.__name__), test_registered_draft
-        )
-        self.assertEqual(
-            get_handler("test_registered_draft")(self.user, text="A draft"),
-            {"text": "A draft"},
-        )
-        with self.assertRaisesRegex(ValueError, "already registered"):
-            register(test_registered_draft)
-        with self.assertRaisesRegex(ValueError, "Unknown draft handler"):
-            get_handler("arbitrary.module.function")

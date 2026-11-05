@@ -13,6 +13,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.filters import VideoFilter
 from apps.videomanagement.models import SceneImage, Video, VideoStatus, VideoType
 from apps.videomanagement.paginator import StandardResultsSetPagination
@@ -42,7 +43,6 @@ from apps.videomanagement.serializers.requests import (
     VideoNotesSerializer,
     VideoUpdateSerializer,
 )
-from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.captions.subtitles import export_subtitles
 from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.services.media.music import set_music, set_music_from_youtube
@@ -148,7 +148,7 @@ class VideoView(
         serializer.is_valid(raise_exception=True)
         return Response(
             queue_draft(
-                request.user, draft_handlers.story, **serializer.validated_data
+                request.user, draft_tasks.draft_story_task, **serializer.validated_data
             ),
             status=202,
             headers={"Cache-Control": "no-store"},
@@ -432,7 +432,7 @@ class VideoView(
         return Response(
             queue_draft(
                 request.user,
-                draft_handlers.scene,
+                draft_tasks.draft_scene_task,
                 video_id=str(video.pk),
                 choices=dict(serializer.validated_data),
             ),

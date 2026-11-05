@@ -615,13 +615,13 @@ class SceneDraftApiTests(ApiTestCase):
             "apps.videomanagement.services.scenes.generation.draft_scene",
             return_value=draft,
         ) as generate:
-            response = self.complete_draft(
-                self.client.post(
-                    self.url, {"prompt": "Continue", "use_context": True}, format="json"
-                )
+            response = self.client.post(
+                self.url, {"prompt": "Continue", "use_context": True}, format="json"
             )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, draft)
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual(draft_result, draft)
         self.assertTrue(generate.call_args.kwargs["use_context"])
         self.assertFalse(self.video.scenes.exists())
 
@@ -638,10 +638,9 @@ class SceneDraftApiTests(ApiTestCase):
                     "apps.videomanagement.services.scenes.generation.draft_scene"
                 ) as generate,
             ):
-                response = self.complete_draft(
-                    self.client.post(self.url, data, format="json")
-                )
-            self.assertEqual(response.status_code, 400)
+                response = self.client.post(self.url, data, format="json")
+                self.assertEqual(response.status_code, 400, response.data)
+
             generate.assert_not_called()
 
     def test_other_users_cannot_request_scenario_context(self):
@@ -649,12 +648,10 @@ class SceneDraftApiTests(ApiTestCase):
         with patch(
             "apps.videomanagement.services.scenes.generation.draft_scene"
         ) as generate:
-            response = self.complete_draft(
-                self.client.post(
-                    reverse("video-draft-scene", args=[other.pk]),
-                    {"prompt": "Next", "use_context": True},
-                    format="json",
-                )
+            response = self.client.post(
+                reverse("video-draft-scene", args=[other.pk]),
+                {"prompt": "Next", "use_context": True},
+                format="json",
             )
         self.assertEqual(response.status_code, 404)
         generate.assert_not_called()
@@ -664,18 +661,16 @@ class SceneDraftApiTests(ApiTestCase):
             "apps.videomanagement.services.scenes.generation.draft_scene",
             side_effect=APIException("Unavailable"),
         ):
-            response = self.complete_draft(
-                self.client.post(self.url, {"prompt": "Next"}, format="json")
-            )
-        self.assertEqual(response.status_code, 500)
+            response = self.client.post(self.url, {"prompt": "Next"}, format="json")
+            self.assertEqual(response.status_code, 202, response.data)
+            with self.assertRaises(APIException):
+                self.run_draft_task()
 
     def test_anonymous_users_cannot_request_a_draft(self):
         self.client.force_authenticate(None)
         with patch(
             "apps.videomanagement.services.scenes.generation.draft_scene"
         ) as generate:
-            response = self.complete_draft(
-                self.client.post(self.url, {"prompt": "Next"}, format="json")
-            )
+            response = self.client.post(self.url, {"prompt": "Next"}, format="json")
         self.assertEqual(response.status_code, 401)
         generate.assert_not_called()
