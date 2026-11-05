@@ -15,7 +15,7 @@ class SceneJobTests(ApiTestCase):
         super().setUp()
         self.video = self.video_for(status="COMPLETED")
         self.scene = scene.make(video=self.video)
-        self.url = reverse("scene-generate", args=[self.scene.pk])
+        self.url = reverse("scene-detail", args=[self.scene.pk])
 
     def queue(self):
         response = self.client.patch(self.url, {"text": "Rewrite this"}, format="json")
@@ -26,9 +26,13 @@ class SceneJobTests(ApiTestCase):
         return self.run_scene_job()
 
     def test_requests_queue_once_without_running_providers(self):
-        with patch("apps.videomanagement.services.scenes.generation.generate_scene") as provider:
+        with patch(
+            "apps.videomanagement.services.scenes.generation.update_scene"
+        ) as provider:
             token = self.queue()
-            self.assertEqual(self.client.patch(self.url, {"text": "Again"}).status_code, 409)
+            self.assertEqual(
+                self.client.patch(self.url, {"text": "Again"}).status_code, 409
+            )
             provider.assert_not_called()
         self.scene_queue.assert_called_once()
         scene_id, task_id = signing.loads(token, salt=JOB_SALT)
@@ -39,16 +43,35 @@ class SceneJobTests(ApiTestCase):
 
     def test_worker_returns_rewrite_and_restores_previous_video_status(self):
         self.queue()
-        with patch("apps.videomanagement.services.scenes.generation.generate_scene", return_value="A rewrite"):
-            self.assertEqual(self.run_job(), {"text": "A rewrite"})
+        with patch(
+            "apps.videomanagement.services.scenes.generation.update_scene",
+            return_value="A rewrite",
+        ):
+            self.assertEqual(self.run_job()["text"], "A rewrite")
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "COMPLETED")
 
     def test_polling_uses_celery_results_and_hides_provider_errors(self):
         token = self.queue()
         url = reverse("scene-operation", args=[self.scene.pk])
-        for state, expected in (("PENDING", "QUEUED"), ("STARTED", "RUNNING"), ("SUCCESS", "SUCCEEDED"), ("FAILURE", "FAILED")):
-            with self.subTest(state=state), patch("apps.videomanagement.services.scenes.jobs.AsyncResult", return_value=Mock(state=state, result={"text": "A rewrite"} if state == "SUCCESS" else RuntimeError("private provider detail"))):
+        for state, expected in (
+            ("PENDING", "QUEUED"),
+            ("STARTED", "RUNNING"),
+            ("SUCCESS", "SUCCEEDED"),
+            ("FAILURE", "FAILED"),
+        ):
+            with (
+                self.subTest(state=state),
+                patch(
+                    "apps.videomanagement.services.scenes.jobs.AsyncResult",
+                    return_value=Mock(
+                        state=state,
+                        result={"text": "A rewrite"}
+                        if state == "SUCCESS"
+                        else RuntimeError("private provider detail"),
+                    ),
+                ),
+            ):
                 response = self.client.get(url, {"job": token})
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.data["status"], expected)
@@ -66,7 +89,10 @@ class SceneJobTests(ApiTestCase):
 
     def test_worker_failure_restores_video(self):
         self.queue()
-        with patch("apps.videomanagement.services.scenes.generation.generate_scene", side_effect=RuntimeError("Provider unavailable")):
+        with patch(
+            "apps.videomanagement.services.scenes.generation.update_scene",
+            side_effect=RuntimeError("Provider unavailable"),
+        ):
             with self.assertRaises(RuntimeError):
                 self.run_job()
         self.video.refresh_from_db()
@@ -76,10 +102,19 @@ class SceneJobTests(ApiTestCase):
         token = self.queue()
         url = reverse("scene-operation", args=[self.scene.pk])
         other_scene = scene.make(video=self.video)
-        with patch("apps.videomanagement.services.scenes.jobs.AsyncResult") as result_backend:
-            self.assertEqual(self.client.get(reverse("scene-operation", args=[other_scene.pk]), {"job": token}).status_code, 404)
+        with patch(
+            "apps.videomanagement.services.scenes.jobs.AsyncResult"
+        ) as result_backend:
+            self.assertEqual(
+                self.client.get(
+                    reverse("scene-operation", args=[other_scene.pk]), {"job": token}
+                ).status_code,
+                404,
+            )
             self.assertEqual(self.client.get(url, {"job": "invalid"}).status_code, 404)
-            self.assertEqual(self.client.get(url, {"job": token + "tampered"}).status_code, 404)
+            self.assertEqual(
+                self.client.get(url, {"job": token + "tampered"}).status_code, 404
+            )
             self.assertEqual(self.client.get(url).status_code, 400)
             self.client.force_authenticate(user.make())
             self.assertEqual(self.client.get(url, {"job": token}).status_code, 403)
@@ -90,17 +125,46 @@ class SceneJobTests(ApiTestCase):
     def test_scene_media_changes_and_deletion_are_blocked_while_queued(self):
         image = scene_image.make(scene=self.scene)
         self.queue()
-        self.assertEqual(self.client.delete(reverse("video-detail", args=[self.video.pk])).status_code, 409)
-        self.assertEqual(self.client.delete(reverse("scene-detail", args=[self.scene.pk])).status_code, 409)
-        self.assertEqual(self.client.delete(reverse("sceneimage-detail", args=[image.pk])).status_code, 409)
-        self.assertEqual(self.client.post(reverse("scene-change-image-scene", args=[self.scene.pk]), {"with_audio": True}, QUERY_STRING=f"scene_image={image.pk}").status_code, 409)
+        self.assertEqual(
+            self.client.delete(
+                reverse("video-detail", args=[self.video.pk])
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            self.client.delete(
+                reverse("scene-detail", args=[self.scene.pk])
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            self.client.delete(
+                reverse("sceneimage-detail", args=[image.pk])
+            ).status_code,
+            409,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("scene-change-image-scene", args=[self.scene.pk]),
+                {"with_audio": True},
+                QUERY_STRING=f"scene_image={image.pk}",
+            ).status_code,
+            409,
+        )
 
     def test_visual_provider_failure_keeps_existing_media(self):
         image = scene_image.make(scene=self.scene)
         original_file, original_prompt = image.file.name, image.prompt
-        response = self.client.post(reverse("scene-generate-image-scene", args=[self.scene.pk]), {"image_description": "New visual"}, format="json")
+        response = self.client.post(
+            reverse("scene-generate-image-scene", args=[self.scene.pk]),
+            {"image_description": "New visual"},
+            format="json",
+        )
         self.assertEqual(response.status_code, 202)
-        with patch("apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve", return_value=lambda *args, **kwargs: None):
+        with patch(
+            "apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve",
+            return_value=lambda *args, **kwargs: None,
+        ):
             with self.assertRaises(RuntimeError):
                 self.run_job()
         image.refresh_from_db()
@@ -110,9 +174,15 @@ class SceneJobTests(ApiTestCase):
     def test_silent_dialogue_updates_save_without_calling_a_voice_provider(self):
         self.video.settings = {"narration": False}
         self.video.save(update_fields=["settings"])
-        response = self.client.patch(reverse("scene-detail", args=[self.scene.pk]), {"text": "New dialogue"}, format="json")
+        response = self.client.patch(
+            reverse("scene-detail", args=[self.scene.pk]),
+            {"text": "New dialogue"},
+            format="json",
+        )
         self.assertEqual(response.status_code, 202)
-        with patch("apps.videomanagement.services.scenes.generation.update") as provider:
+        with patch(
+            "apps.videomanagement.services.scenes.generation.update"
+        ) as provider:
             self.run_job()
         provider.assert_not_called()
         self.scene.refresh_from_db()

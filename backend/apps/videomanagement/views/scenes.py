@@ -1,4 +1,3 @@
-from apps.videomanagement.services.draft_jobs import draft_response
 from django.shortcuts import get_object_or_404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -12,6 +11,7 @@ from rest_framework.response import Response
 from apps.videomanagement.models import Scene, SceneImage, VideoType
 from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schema import SceneImageUploadSchema
+from apps.videomanagement.schemas.drafts import DraftJobSerializer
 from apps.videomanagement.serializers.audio import (
     SceneAudioSerializer,
     VoiceoverUploadSerializer,
@@ -24,7 +24,6 @@ from apps.videomanagement.serializers.overlays import SceneOverlaysSerializer
 from apps.videomanagement.serializers.requests import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
-    StartingImageSerializer,
     ManualTextSerializer,
     RestoreSceneSerializer,
     SceneImageQuerySerializer,
@@ -34,12 +33,15 @@ from apps.videomanagement.serializers.requests import (
     SceneTimingSerializer,
     SceneTransitionSerializer,
     SceneUpdateSerializer,
+    StartingImageSerializer,
 )
 from apps.videomanagement.serializers.scene_captions import SceneCaptionsSerializer
+from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.captions.scenes import (
     scene_caption_data,
     update_scene_captions,
 )
+from apps.videomanagement.services.draft_jobs import draft_response
 from apps.videomanagement.services.scenes.audio import (
     audio_waveform,
     save_voiceover,
@@ -66,7 +68,7 @@ from apps.videomanagement.services.scenes.starting_images import (
     starting_image_status,
 )
 from apps.videomanagement.services.videos.details import load_video_detail
-from apps.videomanagement.tasks import generate_scene_image_task, rewrite_scene_task
+from apps.videomanagement.tasks import generate_scene_image_task
 
 
 class SceneView(viewsets.GenericViewSet):
@@ -215,31 +217,20 @@ class SceneView(viewsets.GenericViewSet):
 
     @swagger_auto_schema(
         request_body=SceneUpdateSerializer,
-        operation_description="This API sends the dialogue into gpt and changes it depending on the "
-        "prompt user sends of th of a scene and regenerates their dialogue "
-        "with the new text",
+        operation_description="Queue a scene rewrite for review without changing the saved script.",
+        responses={202: DraftJobSerializer},
     )
     @action(detail=True, methods=["patch"])
     def generate(self, request, pk):
         scene = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        if "respond-async" in request.headers.get("Prefer", ""):
-            return draft_response(
-                request,
-                "rewrite",
-                {
-                    "scene_id": str(scene.pk),
-                    "instructions": serializer.validated_data["text"],
-                },
-                lambda: {},
-            )
-        operation = queue_scene_job(
-            scene,
-            rewrite_scene_task,
-            serializer.validated_data["text"],
+        return draft_response(
+            request.user,
+            draft_handlers.rewrite,
+            scene_id=str(scene.pk),
+            instructions=serializer.validated_data["text"],
         )
-        return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(
         operation_description="Updates a scene image, or creates one when scene_image is omitted. "

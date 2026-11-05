@@ -20,10 +20,12 @@ MODEL = "apps.videomanagement.services.videos.tags.get_update_sentence"
 
 class VideoTagsTests(ApiTestCase):
     def generate(self, video, previous=None):
-        return self.client.post(
-            reverse("video-generate-tags", args=[video.pk]),
-            {"previous_tags": previous or {}},
-            format="json",
+        return self.complete_draft(
+            self.client.post(
+                reverse("video-generate-tags", args=[video.pk]),
+                {"previous_tags": previous or {}},
+                format="json",
+            )
         )
 
     def save_tags(self, video, tags, previous=None):

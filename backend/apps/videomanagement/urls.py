@@ -1,4 +1,3 @@
-from .views.draft_jobs import DraftJobView
 from django.urls import path
 from rest_framework import routers
 
@@ -16,8 +15,9 @@ from apps.videomanagement.views.videos import VideoView
 
 from .event_stream import event_updates
 from .views.captions import CaptionProjectView
-from .views.library import MediaAssetView
+from .views.draft_jobs import DraftJobView
 from .views.icons import IconDetailView, IconListView
+from .views.library import MediaAssetView
 
 router = routers.DefaultRouter()
 

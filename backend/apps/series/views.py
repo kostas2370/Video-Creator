@@ -1,4 +1,3 @@
-from apps.videomanagement.services.draft_jobs import draft_response
 from django.db.models import Count, OuterRef, Subquery
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -16,17 +15,16 @@ from apps.series.serializers import (
     VideoSeriesSerializer,
 )
 from apps.series.services.characters import (
-    draft_cast,
-    draft_character_description,
     request_character_image,
 )
 from apps.series.services.episodes import (
     draft_episode,
-    draft_episode_memory,
     retry_episode,
     update_episode_memory,
 )
 from apps.videomanagement.paginator import AssetResultsPagination
+from apps.videomanagement.services import draft_handlers
+from apps.videomanagement.services.draft_jobs import draft_response
 from apps.videomanagement.throttling import GenerateRateThrottle
 
 from .serializers import (
@@ -94,10 +92,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer = CastDraftRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return draft_response(
-            request,
-            "cast",
-            dict(serializer.validated_data),
-            lambda: {"cast": draft_cast(request.user, dict(serializer.validated_data))},
+            request.user, draft_handlers.cast, **serializer.validated_data
         )
 
     @action(detail=False, methods=["post"])
@@ -105,14 +100,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer = CharacterDescriptionRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return draft_response(
-            request,
-            "character",
-            dict(serializer.validated_data),
-            lambda: {
-                "character": draft_character_description(
-                    request.user, serializer.validated_data
-                )
-            },
+            request.user, draft_handlers.character, **serializer.validated_data
         )
 
     @action(detail=False, methods=["get", "post"])
@@ -197,10 +185,8 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer = EpisodeMemoryDraftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return draft_response(
-            request,
-            "memory",
-            {"episode_id": str(episode.pk), **dict(serializer.validated_data)},
-            lambda: draft_episode_memory(
-                episode, owner=request.user, **serializer.validated_data
-            ),
+            request.user,
+            draft_handlers.memory,
+            episode_id=str(episode.pk),
+            **serializer.validated_data,
         )

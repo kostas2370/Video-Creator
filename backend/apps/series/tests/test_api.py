@@ -831,10 +831,12 @@ class SeriesTests(ApiTestCase):
     ):
         episode = self.episode(summary="Manual facts")
         scene.make(video=episode.video, text="Milo found a lantern")
-        response = self.client.post(
-            self.url("draft-memory", episode=episode),
-            {"summary": "The lantern was blue"},
-            format="json",
+        response = self.complete_draft(
+            self.client.post(
+                self.url("draft-memory", episode=episode),
+                {"summary": "The lantern was blue"},
+                format="json",
+            )
         )
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["summary"], "Milo found a blue lantern.")
@@ -852,8 +854,10 @@ class SeriesTests(ApiTestCase):
     def test_invalid_memory_draft_preserves_saved_memory(self, ai):
         episode = self.episode()
         scene.make(video=episode.video)
-        response = self.client.post(
-            self.url("draft-memory", episode=episode), {}, format="json"
+        response = self.complete_draft(
+            self.client.post(
+                self.url("draft-memory", episode=episode), {}, format="json"
+            )
         )
         self.assertEqual(response.status_code, 500)
         episode.refresh_from_db()
@@ -870,8 +874,10 @@ class SeriesTests(ApiTestCase):
             return "Before summary"
 
         ai.side_effect = change_script
-        response = self.client.post(
-            self.url("draft-memory", episode=episode), {}, format="json"
+        response = self.complete_draft(
+            self.client.post(
+                self.url("draft-memory", episode=episode), {}, format="json"
+            )
         )
         self.assertEqual(response.status_code, 409)
         episode.refresh_from_db()
@@ -926,13 +932,19 @@ class SeriesTests(ApiTestCase):
         other = VideoSeries.objects.create(
             created_by=user.make(), title="Other", premise="Private", visual_style="Ink"
         )
-        response = self.client.post(
-            self.url("draft-memory", series=other, episode=episode), {}, format="json"
+        response = self.complete_draft(
+            self.client.post(
+                self.url("draft-memory", series=other, episode=episode),
+                {},
+                format="json",
+            )
         )
         self.assertEqual(response.status_code, 404)
         episode.video.delete()
-        response = self.client.post(
-            self.url("draft-memory", episode=episode), {}, format="json"
+        response = self.complete_draft(
+            self.client.post(
+                self.url("draft-memory", episode=episode), {}, format="json"
+            )
         )
         self.assertEqual(response.status_code, 400)
         ai.assert_not_called()

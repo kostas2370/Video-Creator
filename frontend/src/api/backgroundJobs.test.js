@@ -13,7 +13,7 @@ it("queues once, follows progress and returns a reviewable result", async () => 
   expect(second).toBe(first);
   await Promise.resolve();
   expect(request).toHaveBeenCalledTimes(1);
-  expect(request).toHaveBeenCalledWith(expect.objectContaining({ headers: { Prefer: "respond-async" } }));
+  expect(request).toHaveBeenCalledWith(expect.objectContaining({ method: "post", url: "videos/draft_story/" }));
   expect(getBackgroundJobs()[0]).toMatchObject({ label: "Story draft", status: "QUEUED" });
   request.mockResolvedValueOnce({ ok: true, data: { status: "SUCCEEDED", result: { story: "A new story" } } });
   await pollBackgroundJobs();

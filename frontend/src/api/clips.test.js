@@ -20,7 +20,7 @@ it("routes clip edits and exports through their owning project", () => {
 it("keeps hashtag drafting separate from saving with conflict protection", async () => {
   const { draftClipHashtags, saveClipHashtags } = await import("./apiService");
   draftClipHashtags("p", "c");
-  expect(request).toHaveBeenLastCalledWith({ method: "post", url: "clips/p/clips/c/hashtags/", data: {}, headers: { Prefer: "respond-async" }, notifyError: false });
+  expect(request).toHaveBeenLastCalledWith({ method: "post", url: "clips/p/clips/c/hashtags/", data: {}, notifyError: false });
   saveClipHashtags("p", "c", ["Topic"], ["Previous"]);
   expect(request).toHaveBeenLastCalledWith({ method: "patch", url: "clips/p/clips/c/hashtags/", data: { hashtags: ["Topic"], previous_hashtags: ["Previous"] }, notifyError: false });
 });

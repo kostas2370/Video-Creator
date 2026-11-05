@@ -39,11 +39,12 @@ from apps.clips.transcripts import reuse_transcript, source_key
 from apps.clips.youtube import download_youtube, youtube_url
 from apps.common.media import run_ffmpeg
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.utils.timing import video_metadata
 from apps.videomanagement.services.captions.local_whisper import TranscriptionError
+from apps.videomanagement.tests.draft_jobs import DraftJobTestMixin
+from apps.videomanagement.utils.timing import video_metadata
 
 
-class ClipsTests(TestCase):
+class ClipsTests(DraftJobTestMixin, TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -85,6 +86,7 @@ class ClipsTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
+        self.mock_draft_jobs()
         self.user = user.make()
         self.client = APIClient()
         self.client.force_authenticate(self.user)
@@ -824,7 +826,9 @@ class ClipsTests(TestCase):
             "apps.clips.hashtags.get_update_sentence",
             return_value='{"hashtags": ["#Interview", "interview", "Discussion"]}',
         ) as generate:
-            response = self.client.post(self.hashtags_url(clip), {}, format="json")
+            response = self.complete_draft(
+                self.client.post(self.hashtags_url(clip), {}, format="json")
+            )
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["hashtags"], ["Interview", "Discussion"])
         self.assertIn("Word1", generate.call_args.args[0])
@@ -901,7 +905,9 @@ class ClipsTests(TestCase):
             "apps.clips.hashtags.get_update_sentence",
             return_value='{"hashtags": ["invalid!"]}',
         ):
-            response = self.client.post(self.hashtags_url(clip), {}, format="json")
+            response = self.complete_draft(
+                self.client.post(self.hashtags_url(clip), {}, format="json")
+            )
         self.assertEqual(response.status_code, 500)
         clip.refresh_from_db()
         self.assertEqual(clip.hashtags, ["Saved"])
@@ -912,8 +918,8 @@ class ClipsTests(TestCase):
         self.client.force_authenticate(user.make())
         with patch("apps.clips.hashtags.get_update_sentence") as generate:
             self.assertEqual(
-                self.client.post(
-                    self.hashtags_url(clip), {}, format="json"
+                self.complete_draft(
+                    self.client.post(self.hashtags_url(clip), {}, format="json")
                 ).status_code,
                 404,
             )
@@ -1004,11 +1010,13 @@ class ClipsTests(TestCase):
         self.assertEqual(retry.data["selection_mode"], "fast")
         project.words, project.status, project.duration = self.words, "READY", 20
         project.save()
-        with patch("apps.clips.views.suggest_clips", return_value=[]) as suggest:
-            search = self.client.post(
-                reverse("clipproject-search-transcript", args=[project.pk]),
-                {"prompt": "Find practical advice"},
-                format="json",
+        with patch("apps.clips.highlights.suggest_clips", return_value=[]) as suggest:
+            search = self.complete_draft(
+                self.client.post(
+                    reverse("clipproject-search-transcript", args=[project.pk]),
+                    {"prompt": "Find practical advice"},
+                    format="json",
+                )
             )
         self.assertEqual(search.status_code, 200, search.data)
         searched = suggest.call_args.args[0]
@@ -1047,7 +1055,9 @@ class ClipsTests(TestCase):
                 '{"hashtags": ["Discussion", "HarryPotter"]}',
             ],
         ) as generate:
-            response = self.client.post(self.hashtags_url(clip), {}, format="json")
+            response = self.complete_draft(
+                self.client.post(self.hashtags_url(clip), {}, format="json")
+            )
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["hashtags"], ["Discussion", "HarryPotter"])
         self.assertEqual(generate.call_count, 2)
@@ -1056,7 +1066,9 @@ class ClipsTests(TestCase):
             "apps.clips.hashtags.get_update_sentence",
             return_value='{"hashtags": ["Συζήτηση"]}',
         ) as generate:
-            response = self.client.post(self.hashtags_url(clip), {}, format="json")
+            response = self.complete_draft(
+                self.client.post(self.hashtags_url(clip), {}, format="json")
+            )
         self.assertEqual(response.status_code, 500)
         self.assertEqual(generate.call_count, 2)
         response = self.client.patch(
@@ -1079,7 +1091,9 @@ class ClipsTests(TestCase):
             "apps.clips.hashtags.get_update_sentence",
             return_value='{"hashtags": ["HarryPotter", "HermioneGranger", "WizardingWorld"]}',
         ) as generate:
-            response = self.client.post(self.hashtags_url(clip), {}, format="json")
+            response = self.complete_draft(
+                self.client.post(self.hashtags_url(clip), {}, format="json")
+            )
         self.assertEqual(response.status_code, 200)
         self.assertIn("HarryPotter", response.data["hashtags"])
         prompt = generate.call_args.args[0]
@@ -1546,8 +1560,12 @@ class ClipsTests(TestCase):
                 }
             ),
         ) as provider:
-            response = self.client.post(
-                url, {"prompt": "Find advice for starting a business"}, format="json"
+            response = self.complete_draft(
+                self.client.post(
+                    url,
+                    {"prompt": "Find advice for starting a business"},
+                    format="json",
+                )
             )
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data["clips"][0]["start"], 0)
@@ -1559,7 +1577,10 @@ class ClipsTests(TestCase):
         self.assertFalse(project.clips.exists())
         self.client.force_authenticate(user.make())
         self.assertEqual(
-            self.client.post(url, {"prompt": "advice"}, format="json").status_code, 404
+            self.complete_draft(
+                self.client.post(url, {"prompt": "advice"}, format="json")
+            ).status_code,
+            404,
         )
 
     def test_ai_transcript_search_validates_query_and_requires_saved_words(self):
@@ -1568,15 +1589,17 @@ class ClipsTests(TestCase):
         with patch("apps.clips.highlights.get_update_sentence") as provider:
             for prompt in ("", " ", "x" * 2001):
                 self.assertEqual(
-                    self.client.post(
-                        url, {"prompt": prompt}, format="json"
+                    self.complete_draft(
+                        self.client.post(url, {"prompt": prompt}, format="json")
                     ).status_code,
                     400,
                 )
             project.words = []
             project.save()
             self.assertEqual(
-                self.client.post(url, {"prompt": "advice"}, format="json").status_code,
+                self.complete_draft(
+                    self.client.post(url, {"prompt": "advice"}, format="json")
+                ).status_code,
                 400,
             )
         provider.assert_not_called()

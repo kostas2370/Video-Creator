@@ -1,4 +1,3 @@
-from apps.videomanagement.services.draft_jobs import draft_response
 from django.db.models import (
     BooleanField,
     Case,
@@ -17,11 +16,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.videomanagement.paginator import StandardResultsSetPagination
+from apps.videomanagement.services import draft_handlers
+from apps.videomanagement.services.draft_jobs import draft_response
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
 from .choices import PROJECT_BUSY, ClipStatus
-from .hashtags import draft_hashtags, save_hashtags
-from .highlights import suggest_clips
+from .hashtags import save_hashtags
 from .models import Clip, ClipProject
 from .protected_media import media_response
 from .serializers import (
@@ -165,10 +165,7 @@ class ClipProjectView(
         clip = get_object_or_404(self.get_object().clips, pk=clip_id)
         if request.method == "POST":
             return draft_response(
-                request,
-                "hashtags",
-                {"clip_id": str(clip.pk)},
-                lambda: {"hashtags": draft_hashtags(clip, request.user)},
+                request.user, draft_handlers.hashtags, clip_id=str(clip.pk)
             )
         serializer = SaveHashtagsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -220,13 +217,10 @@ class ClipProjectView(
         project.extraction_prompt = serializer.validated_data["prompt"]
         project.clip_count = 3
         return draft_response(
-            request,
-            "clip_search",
-            {
-                "project_id": str(project.pk),
-                "prompt": serializer.validated_data["prompt"],
-            },
-            lambda: {"clips": suggest_clips(project)},
+            request.user,
+            draft_handlers.clip_search,
+            project_id=str(project.pk),
+            prompt=serializer.validated_data["prompt"],
         )
 
     @action(detail=True, methods=["get"])

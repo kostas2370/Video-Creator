@@ -163,17 +163,17 @@ A `202` means work was queued, not that generation or encoding has completed.
 | `PATCH /api/videos/{id}/` | Update title, avatar, intro, outro, and settings; an avatar voice change regenerates narration synchronously |
 | `PATCH /api/videos/{id}/render_video/` | Claim `READY` or `COMPLETED` as `RENDERING`, enqueue encoding; return `202` |
 | `PATCH /api/videos/{id}/resume/` | Claim `FAILED` or `READY` as `GENERATION` when a script and directory exist; return `202` |
-| `POST /api/videos/{id}/add_scene/` | Add a scene and its media synchronously |
-| `PATCH /api/scenes/{id}/` | Save dialogue and attempt narration synchronously; also return `narration_status` |
-| `PATCH /api/scenes/{id}/generate/` | Return an AI rewrite for review; saving it is a separate request |
+| `POST /api/videos/{id}/add_scene/` | Queue scene creation and media work; return `202` |
+| `PATCH /api/scenes/{id}/` | Queue dialogue and narration updates; silent manual text updates return immediately |
+| `PATCH /api/scenes/{id}/generate/` | Queue an AI rewrite for review; return `202`; saving is a separate request |
 | `POST /api/scenes/{id}/change_image_scene/` | Upload a visual or update an existing visual belonging to that scene |
-| `POST /api/scenes/{id}/generate_image_scene/` | Generate a visual synchronously for an authorized scene |
+| `POST /api/scenes/{id}/generate_image_scene/` | Queue a visual for an authorized scene; return `202` |
 
 Generate and resume are throttled at two requests per hour, and render at one per day,
 with a separate three-per-hour limit for failed export retries and an explicit superuser exemption; see [throttling.py](../backend/apps/videomanagement/throttling.py).
 
-Scene edits and uploads do **not** follow the background-task contract. Provider
-calls in these routes still run inside the request.
+Generation-backed scene edits follow the background-task contract. Direct uploads
+and metadata-only changes complete in the request without invoking AI providers.
 
 ## Generation pipeline
 
@@ -722,11 +722,12 @@ pagination, so every workspace page can link to the pending review/preparation.
 
 ### Background AI drafts
 
-The web app sends `Prefer: respond-async` for story and scene drafts, scene rewrites,
+Story and scene drafts, scene rewrites,
 cast and character descriptions, episode memories, discovery tags, YouTube descriptions,
-clip hashtags, and transcript clip suggestions. The existing endpoints validate input and
-ownership, return HTTP 202 with a signed job token, and dispatch `draft_ai_task` through
-Celery. Older clients without the preference retain their existing response contract.
+clip hashtags, and transcript clip suggestions always use background jobs. Endpoints
+validate input and ownership, return HTTP 202 with a signed job token, and dispatch `draft_ai_task` through
+Celery. A decorated handler registers its own name for dispatch; there is no separate
+operation allowlist or synchronous fallback.
 
 `GET /api/draft-jobs/?job=TOKEN` returns queued, running, succeeded, or failed status.
 Tokens are bound to the authenticated owner and expire after 24 hours. Workers recheck

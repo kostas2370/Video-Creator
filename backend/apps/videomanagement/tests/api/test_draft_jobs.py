@@ -5,8 +5,10 @@ from django.urls import reverse
 from rest_framework.exceptions import ValidationError
 
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.services.draft_jobs import SALT, run_draft
+from apps.videomanagement.services.draft_handlers import get_handler, register
+from apps.videomanagement.services.draft_jobs import SALT
 from apps.videomanagement.tasks import draft_ai_task
+
 from .base import ApiTestCase
 
 
@@ -16,16 +18,17 @@ class DraftJobTests(ApiTestCase):
             reverse(route, args=args),
             data or {"prompt": "A mystery at the lighthouse"},
             format="json",
-            HTTP_PREFER="respond-async",
         )
 
     @patch.object(draft_ai_task, "apply_async")
     def test_story_queues_without_holding_request_for_provider(self, queue):
-        with patch("apps.videomanagement.views.videos.draft_story") as provider:
+        with patch(
+            "apps.videomanagement.services.videos.story.draft_story"
+        ) as provider:
             response = self.queue()
         self.assertEqual(response.status_code, 202, response.data)
         provider.assert_not_called()
-        self.assertEqual(response["Preference-Applied"], "respond-async")
+        self.assertNotIn("Preference-Applied", response)
         owner, task_id = signing.loads(response.data["id"], salt=SALT)
         self.assertEqual(owner, str(self.user.pk))
         self.assertEqual(queue.call_args.kwargs["task_id"], task_id)
@@ -157,11 +160,11 @@ class DraftJobTests(ApiTestCase):
             )
             provider.assert_called_once_with(self.user, prompt="Mystery")
         with patch(
-            "apps.videomanagement.services.draft_jobs.run_draft",
+            "apps.videomanagement.services.videos.story.draft_story",
             side_effect=ValidationError("The script changed. Review it first."),
         ):
             self.assertEqual(
-                draft_ai_task.run(str(self.user.pk), "story", {}),
+                draft_ai_task.run(str(self.user.pk), "story", {"prompt": "Mystery"}),
                 {"ok": False, "message": "The script changed. Review it first."},
             )
 
@@ -173,7 +176,7 @@ class DraftJobTests(ApiTestCase):
             from apps.videomanagement.models import Video
 
             with self.assertRaises(Video.DoesNotExist):
-                run_draft(self.user, "tags", {"video_id": str(video.pk)})
+                get_handler("tags")(self.user, video_id=str(video.pk))
             provider.assert_not_called()
 
     @patch.object(draft_ai_task, "apply_async")
@@ -186,7 +189,6 @@ class DraftJobTests(ApiTestCase):
             reverse("scene-generate", args=[original.pk]),
             {"text": "Make it shorter"},
             format="json",
-            HTTP_PREFER="respond-async",
         )
         self.assertEqual(response.status_code, 202, response.data)
         self.assertEqual(queue.call_args.kwargs["args"][1], "rewrite")
@@ -235,8 +237,23 @@ class DraftJobTests(ApiTestCase):
         ]
         for url, values, operation in cases:
             with self.subTest(operation=operation):
-                response = self.client.post(
-                    url, values, format="json", HTTP_PREFER="respond-async"
-                )
+                response = self.client.post(url, values, format="json")
                 self.assertEqual(response.status_code, 202, response.data)
                 self.assertEqual(queue.call_args.kwargs["args"][1], operation)
+
+    def test_decorated_handlers_register_without_a_separate_operation_list(self):
+        @register
+        def test_registered_draft(user, *, text):
+            return {"text": text}
+
+        self.assertIs(
+            get_handler(test_registered_draft.__name__), test_registered_draft
+        )
+        self.assertEqual(
+            get_handler("test_registered_draft")(self.user, text="A draft"),
+            {"text": "A draft"},
+        )
+        with self.assertRaisesRegex(ValueError, "already registered"):
+            register(test_registered_draft)
+        with self.assertRaisesRegex(ValueError, "Unknown draft handler"):
+            get_handler("arbitrary.module.function")

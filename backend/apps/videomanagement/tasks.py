@@ -11,8 +11,6 @@ from django.core.files import File
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
-from video_creator.observability import current_request_id
-
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations import tts as tts_utils
 from apps.videomanagement.services.captions.projects import process_caption_project
@@ -26,6 +24,7 @@ from apps.videomanagement.services.scenes.starting_images import (
     requires_starting_image,
 )
 from apps.videomanagement.services.videos import generation as video_generation
+from video_creator.observability import current_request_id
 
 from .events import publish_update
 from .models import SceneImage, Video, VideoStatus, VoiceModel, VoiceModelType
@@ -61,13 +60,6 @@ def update_scene_task(scene_id, text, previous_status):
             "text": text,
             "narration_status": SceneSerializer(scene).data["narration_status"],
         }
-
-
-@shared_task
-def rewrite_scene_task(scene_id, instructions, previous_status):
-    """Return a dialogue draft for the user to review."""
-    with scene_job(scene_id, previous_status) as scene:
-        return {"text": scene_generation.generate_scene(instructions, scene)}
 
 
 @shared_task
@@ -349,11 +341,12 @@ def purge_deleted_scenes():
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def draft_ai_task(user_id, operation, values):
     from rest_framework.exceptions import APIException
-    from apps.videomanagement.services.draft_jobs import run_draft
+
+    from apps.videomanagement.services.draft_handlers import get_handler
 
     user = get_user_model().objects.get(pk=user_id, is_active=True)
     try:
-        return {"ok": True, "data": run_draft(user, operation, values)}
+        return {"ok": True, "data": get_handler(operation)(user, **values)}
     except APIException as exc:
         # Preserve useful validation/conflict messages without exposing provider exceptions.
         def message(detail):

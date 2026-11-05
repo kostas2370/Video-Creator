@@ -1,6 +1,5 @@
 import { request } from "./request";
 import { followBackgroundJob, runBackgroundDraft } from "./backgroundJobs";
-import { toast } from "react-toastify";
 import { axiosInstance } from "./axiosPrivate";
 import { LOGIN_URL, REGISTER_URL, REFRESH_URL, PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL, PASSWORD_RESET_VALIDATE_URL } from "../endpoints";
 
@@ -78,13 +77,9 @@ export const createScene = (id, data) => post(action("videos", id, "add_scene"),
 export const draftScene = (id, data) => runBackgroundDraft(action("videos", id, "draft_scene"), data, "Scene draft");
 export const createTemplate = data => post("templates/", data, callerHandlesErrors);
 
-const sceneOperation = async (id, send) => {
-  const queued = await send();
-  if (!queued.ok || queued.status !== 202) return queued;
-  const result = await followBackgroundJob(queued, { label: "Scene update", pollUrl: action("scenes", id, "operation") });
-  if (!result.ok) toast.error(result.message || "Could not finish the scene operation.");
-  return result;
-};
+const sceneOperation = async (id, send) => followBackgroundJob(await send(), {
+  label: "Scene update", pollUrl: action("scenes", id, "operation"),
+});
 
 export const getSceneWaveform = id => request({ url: action("scenes", id, "waveform"), ...callerHandlesErrors });
 export const updateSceneAudio = (id, data) => patch(action("scenes", id, "audio"), data, callerHandlesErrors);

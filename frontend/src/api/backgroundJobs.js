@@ -86,7 +86,7 @@ export function runBackgroundDraft(url, data, label, method = "post") {
   const active = jobs.find(job => job.key === key && ["QUEUED", "RUNNING"].includes(job.status));
   if (active) return followBackgroundJob({ ok: true, status: 202, data: { id: active.id } }, { label, key });
   const account = owner;
-  const promise = request({ method, url, data, headers: { Prefer: "respond-async" }, notifyError: false }).then(response => {
+  const promise = request({ method, url, data, notifyError: false }).then(response => {
     if (owner !== account) return { ok: false, message: "Account changed. Reopen the project to check its progress." };
     if (!response.ok) toast.error(response.message || "Could not queue the draft. Please try again.");
     return followBackgroundJob(response, { label, key });

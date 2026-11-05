@@ -1,4 +1,3 @@
-from apps.videomanagement.services.draft_jobs import draft_response
 import logging
 
 from django.db.models import OuterRef, Subquery
@@ -18,7 +17,7 @@ from apps.videomanagement.filters import VideoFilter
 from apps.videomanagement.models import SceneImage, Video, VideoStatus, VideoType
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.permissions import IsOwnerPermission
-from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
+from apps.videomanagement.schemas.drafts import DraftJobSerializer
 from apps.videomanagement.serializers.audio import (
     MusicAudioSerializer,
     MusicUploadSerializer,
@@ -43,13 +42,14 @@ from apps.videomanagement.serializers.requests import (
     VideoNotesSerializer,
     VideoUpdateSerializer,
 )
+from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.captions.subtitles import export_subtitles
+from apps.videomanagement.services.draft_jobs import draft_response
 from apps.videomanagement.services.media.music import set_music, set_music_from_youtube
 from apps.videomanagement.services.scenes.editing import (
     apply_auto_motion,
     reorder_scenes,
 )
-from apps.videomanagement.services.scenes.generation import draft_scene
 from apps.videomanagement.services.scenes.recovery import (
     SCENE_RETENTION,
     recoverable_scenes,
@@ -71,7 +71,7 @@ from apps.videomanagement.services.videos.settings import (
     update_music_settings,
     video_update,
 )
-from apps.videomanagement.services.videos.story import create_story_project, draft_story
+from apps.videomanagement.services.videos.story import create_story_project
 from apps.videomanagement.throttling import (
     RenderRateThrottle,
     RenderRetryRateThrottle,
@@ -140,17 +140,14 @@ class VideoView(
         return Response(VideoNestedSerializer(video).data, status=201)
 
     @swagger_auto_schema(
-        request_body=StoryDraftSerializer, responses={200: StoryDraftResultSerializer}
+        request_body=StoryDraftSerializer, responses={202: DraftJobSerializer}
     )
     @action(detail=False, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
     def draft_story(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return draft_response(
-            request,
-            "story",
-            dict(serializer.validated_data),
-            lambda: draft_story(request.user, **serializer.validated_data),
+            request.user, draft_handlers.story, **serializer.validated_data
         )
 
     @swagger_auto_schema(request_body=StoryVideoSerializer)
@@ -429,8 +426,8 @@ class VideoView(
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return draft_response(
-            request,
-            "scene",
-            {"video_id": str(video.pk), "choices": dict(serializer.validated_data)},
-            lambda: draft_scene(video, **serializer.validated_data),
+            request.user,
+            draft_handlers.scene,
+            video_id=str(video.pk),
+            choices=dict(serializer.validated_data),
         )
