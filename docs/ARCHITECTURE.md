@@ -719,3 +719,25 @@ story quality still require representative real-provider trials.
 
 The series profile exposes its active episode using subqueries independent of episode
 pagination, so every workspace page can link to the pending review/preparation.
+
+### Background AI drafts
+
+The web app sends `Prefer: respond-async` for story and scene drafts, scene rewrites,
+cast and character descriptions, episode memories, discovery tags, YouTube descriptions,
+clip hashtags, and transcript clip suggestions. The existing endpoints validate input and
+ownership, return HTTP 202 with a signed job token, and dispatch `draft_ai_task` through
+Celery. Older clients without the preference retain their existing response contract.
+
+`GET /api/draft-jobs/?job=TOKEN` returns queued, running, succeeded, or failed status.
+Tokens are bound to the authenticated owner and expire after 24 hours. Workers recheck
+ownership and active accounts before invoking providers. Results use the existing Celery
+result backend; no schema migration is required. Deploy the web and Celery code before
+the frontend so workers recognize the new task.
+
+The browser stores outstanding job tokens and draft results per account for 24 hours.
+Generation activity in the navigation follows jobs across pages and restores them after
+reload. Lost connections retry status checks, never the generation submission. Closing a
+form does not cancel its job. Recovered drafts can be reviewed and copied; they are not
+automatically applied to newer edits. Browser storage failures show a warning to keep the
+page open. Asset-changing scene jobs retain the video edit lock, while review-only scene
+rewrites leave the rest of the editor available.

@@ -1,3 +1,4 @@
+import { BackgroundJobActivity } from "./BackgroundJobActivity";
 import React, { useEffect, useState } from "react";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -71,6 +72,7 @@ function Navbar({ theme, toggleTheme }) {
         </nav>
         <div className="flex shrink-0 items-center gap-1">
           <button type="button" onClick={toggleTheme} aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} className={iconButton}>{theme === "dark" ? <RiSunLine className="h-5 w-5" /> : <RiMoonLine className="h-5 w-5" />}</button>
+          <BackgroundJobActivity />
           <NotificationBell />
           <Menu as="div" className="relative">
             <MenuButton aria-label="Account menu" className={`${iconButton} flex items-center gap-1`}><HiOutlineUserCircle className="h-6 w-6" /><HiOutlineChevronDown className="hidden h-3 w-3 sm:block" /></MenuButton>

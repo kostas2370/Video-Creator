@@ -1,5 +1,5 @@
 import { request } from "./request";
-import { waitForSceneOperation } from "./sceneOperation";
+import { followBackgroundJob, runBackgroundDraft } from "./backgroundJobs";
 import { toast } from "react-toastify";
 import { axiosInstance } from "./axiosPrivate";
 import { LOGIN_URL, REGISTER_URL, REFRESH_URL, PASSWORD_RESET_URL, PASSWORD_RESET_CONFIRM_URL, PASSWORD_RESET_VALIDATE_URL } from "../endpoints";
@@ -57,7 +57,7 @@ export const createIntro = data => post("intros/", data);
 export const createOutro = data => post("outros/", data);
 export const createAvatar = data => post("avatars/", data);
 export const createStoryVideo = data => post("videos/story/", data, callerHandlesErrors);
-export const draftStory = data => post("videos/draft_story/", data, callerHandlesErrors);
+export const draftStory = data => runBackgroundDraft("videos/draft_story/", data, "Story draft");
 export const getCaptionProjects = params => request({ url: "captions/", params, ...callerHandlesErrors });
 export const getCaptionProject = id => request({ url: detail("captions", id), ...callerHandlesErrors });
 export const createCaptionProject = data => post("captions/", data, callerHandlesErrors);
@@ -75,13 +75,13 @@ export const getDeletedScenes = (id, page = 1) => request({ url: action("videos"
 export const archiveScene = (id, sceneIds) => post(action("scenes", id, "archive"), { scene_ids: sceneIds }, callerHandlesErrors);
 export const restoreScene = (id, sceneIds, expectedSceneIds) => post(action("scenes", id, "restore"), { ...(sceneIds ? { scene_ids: sceneIds } : {}), expected_scene_ids: expectedSceneIds }, callerHandlesErrors);
 export const createScene = (id, data) => post(action("videos", id, "add_scene"), data);
-export const draftScene = (id, data) => post(action("videos", id, "draft_scene"), data, callerHandlesErrors);
+export const draftScene = (id, data) => runBackgroundDraft(action("videos", id, "draft_scene"), data, "Scene draft");
 export const createTemplate = data => post("templates/", data, callerHandlesErrors);
 
 const sceneOperation = async (id, send) => {
   const queued = await send();
   if (!queued.ok || queued.status !== 202) return queued;
-  const result = await waitForSceneOperation(() => request({ url: action("scenes", id, "operation"), params: { job: queued.data.id }, notifyError: false }));
+  const result = await followBackgroundJob(queued, { label: "Scene update", pollUrl: action("scenes", id, "operation") });
   if (!result.ok) toast.error(result.message || "Could not finish the scene operation.");
   return result;
 };
@@ -98,11 +98,11 @@ export const updateSceneMotion = (id, changes) => patch(action("scenes", id, "mo
 export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);
 export const updateScene = (id, data) => sceneOperation(id, () => patch(detail("scenes", id), data));
-export const generateVideoTags = (id, previousTags) => post(action("videos", id, "generate_tags"), { previous_tags: previousTags }, callerHandlesErrors);
+export const generateVideoTags = (id, previousTags) => runBackgroundDraft(action("videos", id, "generate_tags"), { previous_tags: previousTags }, "Video tags");
 export const saveVideoTags = (id, tags, previousTags) => patch(action("videos", id, "tags"), { tags, previous_tags: previousTags }, callerHandlesErrors);
 export const saveVideoNotes = (id, notes, previousNotes) => patch(`${detail("videos", id)}notes/`, { notes, previous_notes: previousNotes }, callerHandlesErrors);
 export const updateVideo = (id, data) => patch(detail("videos", id), data);
-export const generateScene = (id, data) => sceneOperation(id, () => patch(action("scenes", id, "generate"), data));
+export const generateScene = (id, data) => runBackgroundDraft(action("scenes", id, "generate"), data, "Scene rewrite", "patch");
 export const updateStartingImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "starting_image"), data, callerHandlesErrors));
 export const generateSceneImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "generate_image_scene"), data));
 export const updateSceneImage = (id, imageId, data) => request({ method: "post", url: action("scenes", id, "change_image_scene"), data, params: { scene_image: imageId || undefined } });
@@ -159,16 +159,16 @@ export const getPublishJobs = video => request({ url: "publishing/jobs/", params
 export const publishVideo = data => post("publishing/jobs/", data, callerHandlesErrors);
 export const refreshPublishStatus = id => post(`publishing/jobs/${id}/refresh/`, {}, callerHandlesErrors);
 
-export const draftYouTubeDescription = (id, mode) => post(action("videos", id, "youtube_description"), { mode }, callerHandlesErrors);
+export const draftYouTubeDescription = (id, mode) => runBackgroundDraft(action("videos", id, "youtube_description"), { mode }, "YouTube description");
 
 export const saveVideoDetails = (id, details, previousDetails) => patch(action("videos", id, "details"), { ...details, previous_details: previousDetails }, callerHandlesErrors);
-export const draftVideoTags = id => post(action("videos", id, "draft_tags"), {}, callerHandlesErrors);
+export const draftVideoTags = id => runBackgroundDraft(action("videos", id, "draft_tags"), {}, "Video tags");
 
 export const getSeries = (search, page = 1) => request({ url: "series/", params: { search: search || undefined, page }, ...callerHandlesErrors });
 export const getSeriesProfile = id => request({ url: detail("series", id), ...callerHandlesErrors });
 export const createSeries = data => post("series/", data, callerHandlesErrors);
-export const draftSeriesCast = data => post("series/cast_draft/", data, callerHandlesErrors);
-export const draftCharacterDescription = data => post("series/character_description/", data, callerHandlesErrors);
+export const draftSeriesCast = data => runBackgroundDraft("series/cast_draft/", data, "Cast draft");
+export const draftCharacterDescription = data => runBackgroundDraft("series/character_description/", data, "Character description");
 export const createCharacterReference = data => post("series/character_references/", data, callerHandlesErrors);
 export const getCharacterReference = id => request({ url: "series/character_references/", params: { id }, ...callerHandlesErrors });
 export const updateSeries = (id, data) => patch(detail("series", id), data, callerHandlesErrors);
@@ -178,7 +178,7 @@ export const draftSeriesEpisode = (id, idea) => post(action("series", id, "episo
 export const saveEpisodeMemory = (seriesId, episodeId, summary, previousSummary, scriptHash) => patch(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/`, { summary, script_hash: scriptHash, previous_summary: previousSummary }, callerHandlesErrors);
 export const retrySeriesEpisode = (seriesId, episodeId) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/retry/`, {}, callerHandlesErrors);
 
-export const draftEpisodeMemory = (seriesId, episodeId, summary) => post(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/draft_memory/`, { summary }, callerHandlesErrors);
+export const draftEpisodeMemory = (seriesId, episodeId, summary) => runBackgroundDraft(`${action("series", seriesId, "episodes")}${encodeURIComponent(episodeId)}/draft_memory/`, { summary }, "Episode memory");
 
 export const getClipProjects = (page = 1, filters = {}) => request({ url: "clips/", params: { page, ...filters }, ...callerHandlesErrors });
 export const getClipProject = id => request({ url: detail("clips", id), ...callerHandlesErrors });
@@ -191,9 +191,9 @@ export const deleteClip = (id, clipId) => remove(`${action("clips", id, "clips")
 export const exportClips = (id, clipIds) => post(action("clips", id, "export"), { clip_ids: clipIds }, callerHandlesErrors);
 export const downloadClip = (id, clipId) => request({ url: `${action("clips", id, "clips")}${encodeURIComponent(clipId)}/download/`, responseType: "blob", ...callerHandlesErrors });
 
-export const draftClipHashtags = (id, clipId) => post(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, {}, callerHandlesErrors);
+export const draftClipHashtags = (id, clipId) => runBackgroundDraft(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, {}, "Clip hashtags");
 export const saveClipHashtags = (id, clipId, hashtags, previousHashtags) => patch(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, { hashtags, previous_hashtags: previousHashtags }, callerHandlesErrors);
 export const getClipProjectProgress = id => request({ url: action("clips", id, "progress"), ...callerHandlesErrors });
 export const getClip = (id, clipId) => request({ url: `${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, ...callerHandlesErrors });
 
-export const searchClipTranscript = (id, prompt) => post(action("clips", id, "search-transcript"), { prompt }, callerHandlesErrors);
+export const searchClipTranscript = (id, prompt) => runBackgroundDraft(action("clips", id, "search-transcript"), { prompt }, "Transcript clip suggestions");

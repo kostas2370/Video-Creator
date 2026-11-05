@@ -97,7 +97,7 @@ export function VideoDetails({ video, open, onOpenChange, onSaved }) {
 
   return <>
     <button type="button" aria-haspopup="dialog" onClick={() => onOpenChange(true)} className={toolbarAction}><HiOutlineDocumentText aria-hidden="true" className="h-4 w-4" />Video details{dirty && <span aria-label="Unsaved changes" className="h-1.5 w-1.5 rounded-full bg-amber-500" />}</button>
-    <EditorDialog open={open} onClose={() => onOpenChange(false)} busy={!!busy} title="Video details" description="Prepare your title, description, and discovery tags in one place." maxWidth="max-w-3xl" footer={<div className="space-y-3">
+    <EditorDialog open={open} onClose={() => onOpenChange(false)} busy={!!busy} allowBackgroundClose={!!busy && busy !== "save"} title="Video details" description="Prepare your title, description, and discovery tags in one place." maxWidth="max-w-3xl" footer={<div className="space-y-3">
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {message && !error && <p role="status" className="text-sm text-blue-700 dark:text-blue-300">{message}</p>}
       {conflict && <button type="button" onClick={() => { setBaseline(conflict); setDraft(draftOf(conflict)); onSaved(conflict); setConflict(null); setError(""); setDescriptionRevision(null); }} className="text-sm font-semibold text-blue-600">Discard draft and load saved details</button>}

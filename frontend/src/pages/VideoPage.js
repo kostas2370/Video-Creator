@@ -103,7 +103,7 @@ export const Video = () => {
       const response = await save();
       if (!response.ok) throw new Error(response.message || fallbackMessage);
       if (replaceVideo) setVideoInfo(response.data);
-      else if (["timing", "motion", "text"].includes(pending.type)) setVideoInfo(current => ({ ...current, scenes: current.scenes.map(scene => scene.id === pending.sceneId ? response.data : scene) }));
+      else if (["timing", "motion", "text"].includes(pending.type)) setVideoInfo(current => ({ ...current, scenes: current.scenes.map(scene => scene.id === pending.sceneId ? { ...scene, ...response.data } : scene) }));
       return true;
     } catch (error) {
       setVideoInfo(previous);
@@ -198,16 +198,9 @@ export const Video = () => {
     }, "Could not save scene text. Please try again.",
   );
   const onTextRewrite = async (scene, instructions) => {
-    let text;
-    const ok = await saveSceneChange(
-      { type: "rewrite", sceneId: scene.id }, current => current,
-      async () => {
-        const response = await generateScene(scene.id, { text: instructions });
-        text = response.data?.text;
-        return response;
-      }, "Could not create a rewrite. Please try again.",
-    );
-    return ok ? text : null;
+    const response = await generateScene(scene.id, { text: instructions });
+    if (!response.ok) { toast.error(response.message || "Could not create a rewrite. Please try again."); return null; }
+    return response.data?.text ?? null;
   };
   const onTiming = (scene, changes) => saveSceneChange(
     { type: "timing", sceneId: scene.id },

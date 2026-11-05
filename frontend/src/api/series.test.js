@@ -3,7 +3,7 @@ vi.mock("./request", () => ({ request: vi.fn() }));
 import { request } from "./request";
 import { draftSeriesEpisode, saveEpisodeMemory, draftEpisodeMemory, retrySeriesEpisode } from "./apiService";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); request.mockResolvedValue({ ok: true, status: 200, data: {} }); });
 it("uses separate endpoints for episode drafting, memory and recovery", () => {
   draftSeriesEpisode("series-1", "A new discovery");
   expect(request).toHaveBeenLastCalledWith({ method: "post", url: "series/series-1/episodes/", data: { idea: "A new discovery" }, notifyError: false });
@@ -15,7 +15,7 @@ it("uses separate endpoints for episode drafting, memory and recovery", () => {
 
 it("drafts memory without saving and sends the reviewed script on explicit save", () => {
   draftEpisodeMemory("series-1", "episode-2", "My correction");
-  expect(request).toHaveBeenLastCalledWith({ method: "post", url: "series/series-1/episodes/episode-2/draft_memory/", data: { summary: "My correction" }, notifyError: false });
+  expect(request).toHaveBeenLastCalledWith({ method: "post", url: "series/series-1/episodes/episode-2/draft_memory/", data: { summary: "My correction" }, headers: { Prefer: "respond-async" }, notifyError: false });
   saveEpisodeMemory("series-1", "episode-2", "Updated", "Saved", "script-fingerprint");
   expect(request).toHaveBeenLastCalledWith({ method: "patch", url: "series/series-1/episodes/episode-2/", data: { summary: "Updated", previous_summary: "Saved", script_hash: "script-fingerprint" }, notifyError: false });
 });

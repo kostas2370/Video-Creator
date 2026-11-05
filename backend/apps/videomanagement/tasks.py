@@ -344,3 +344,29 @@ def purge_deleted_scenes():
         # Drain large backlogs in short jobs rather than leaving them until tomorrow.
         purge_deleted_scenes.apply_async(countdown=30)
     return result
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def draft_ai_task(user_id, operation, values):
+    from rest_framework.exceptions import APIException
+    from apps.videomanagement.services.draft_jobs import run_draft
+
+    user = get_user_model().objects.get(pk=user_id, is_active=True)
+    try:
+        return {"ok": True, "data": run_draft(user, operation, values)}
+    except APIException as exc:
+        # Preserve useful validation/conflict messages without exposing provider exceptions.
+        def message(detail):
+            if isinstance(detail, (list, tuple)):
+                return (
+                    message(detail[0]) if detail else "Could not complete this draft."
+                )
+            if isinstance(detail, dict):
+                return (
+                    message(next(iter(detail.values())))
+                    if detail
+                    else "Could not complete this draft."
+                )
+            return str(detail)
+
+        return {"ok": False, "message": message(exc.detail)}

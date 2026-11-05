@@ -1,3 +1,4 @@
+from apps.videomanagement.services.draft_jobs import draft_response
 from django.shortcuts import get_object_or_404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -223,6 +224,16 @@ class SceneView(viewsets.GenericViewSet):
         scene = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        if "respond-async" in request.headers.get("Prefer", ""):
+            return draft_response(
+                request,
+                "rewrite",
+                {
+                    "scene_id": str(scene.pk),
+                    "instructions": serializer.validated_data["text"],
+                },
+                lambda: {},
+            )
         operation = queue_scene_job(
             scene,
             rewrite_scene_task,

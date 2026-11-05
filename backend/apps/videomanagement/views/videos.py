@@ -1,3 +1,4 @@
+from apps.videomanagement.services.draft_jobs import draft_response
 import logging
 
 from django.db.models import OuterRef, Subquery
@@ -145,7 +146,12 @@ class VideoView(
     def draft_story(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(draft_story(request.user, **serializer.validated_data))
+        return draft_response(
+            request,
+            "story",
+            dict(serializer.validated_data),
+            lambda: draft_story(request.user, **serializer.validated_data),
+        )
 
     @swagger_auto_schema(request_body=StoryVideoSerializer)
     @action(detail=False, methods=["POST"])
@@ -381,7 +387,8 @@ class VideoView(
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = apply_auto_motion(
-            owned_video, serializer.validated_data["motion_intensity"],
+            owned_video,
+            serializer.validated_data["motion_intensity"],
             serializer.validated_data["animation_preset"],
             serializer.validated_data["animation_accents"],
         )
@@ -421,5 +428,9 @@ class VideoView(
         video = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        draft = draft_scene(video, **serializer.validated_data)
-        return Response(draft)
+        return draft_response(
+            request,
+            "scene",
+            {"video_id": str(video.pk), "choices": dict(serializer.validated_data)},
+            lambda: draft_scene(video, **serializer.validated_data),
+        )

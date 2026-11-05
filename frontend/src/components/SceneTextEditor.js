@@ -1,11 +1,13 @@
 import { GenerationCost } from "./GenerationCost";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { editorButton, editorInput } from "./ui/EditorDialog";
 
 export function SceneTextEditor({ scene, index, manual, draft, onDraftChange, onSave, onRewrite, disabled }) {
   const [busy, setBusy] = useState(""), [error, setError] = useState("");
   const [prompt, setPrompt] = useState("");
   const running = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const saved = scene.text || "";
   const text = draft?.text ?? saved;
   const changed = text !== saved;
@@ -29,7 +31,7 @@ export function SceneTextEditor({ scene, index, manual, draft, onDraftChange, on
         const rewritten = await onRewrite(scene, prompt);
         if (typeof rewritten !== "string") throw new Error("Could not create a rewrite. Please try again.");
         if (rewritten.length > 2000) throw new Error("The rewrite is too long. Ask for a version under 2,000 characters.");
-        onDraftChange(scene.id, { before: saved, text: rewritten });
+        if (mounted.current) onDraftChange(scene.id, { before: saved, text: rewritten });
       }
     } catch (reason) { setError(reason.message); }
     finally { running.current = false; setBusy(""); }

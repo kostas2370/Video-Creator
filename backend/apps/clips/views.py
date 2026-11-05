@@ -1,3 +1,4 @@
+from apps.videomanagement.services.draft_jobs import draft_response
 from django.db.models import (
     BooleanField,
     Case,
@@ -53,9 +54,7 @@ class ClipProjectView(
     pagination_class = StandardResultsSetPagination
 
     def filter_queryset(self, queryset):
-        rows = queryset.filter(created_by=self.request.user).defer(
-            "transcript_parts"
-        )
+        rows = queryset.filter(created_by=self.request.user).defer("transcript_parts")
         if self.action == "list":
             search = self.request.query_params.get("search", "").strip()[:200]
             status = self.request.query_params.get("status", "")
@@ -165,7 +164,12 @@ class ClipProjectView(
     def hashtags(self, request, pk=None, clip_id=None):
         clip = get_object_or_404(self.get_object().clips, pk=clip_id)
         if request.method == "POST":
-            return Response({"hashtags": draft_hashtags(clip, request.user)})
+            return draft_response(
+                request,
+                "hashtags",
+                {"clip_id": str(clip.pk)},
+                lambda: {"hashtags": draft_hashtags(clip, request.user)},
+            )
         serializer = SaveHashtagsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         clip = save_hashtags(clip, **serializer.validated_data)
@@ -215,7 +219,15 @@ class ClipProjectView(
             raise ValidationError("Wait for the transcript before searching for clips.")
         project.extraction_prompt = serializer.validated_data["prompt"]
         project.clip_count = 3
-        return Response({"clips": suggest_clips(project)})
+        return draft_response(
+            request,
+            "clip_search",
+            {
+                "project_id": str(project.pk),
+                "prompt": serializer.validated_data["prompt"],
+            },
+            lambda: {"clips": suggest_clips(project)},
+        )
 
     @action(detail=True, methods=["get"])
     def source(self, request, pk=None):
