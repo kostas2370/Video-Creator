@@ -5,7 +5,7 @@ from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import superuser, user
 
-from ...baker_recipes import avatar, intro, voice_model
+from ...baker_recipes import avatar, intro, outro, template_prompt, voice_model
 from ...serializers.models import AvatarSerializer
 from .base import ApiTestCase
 
@@ -28,6 +28,22 @@ class LibraryViewTests(ApiTestCase):
         self.client.force_authenticate(superuser.make())
 
         self.assertEqual(len(self.client.get(reverse("intro-list")).data["results"]), 2)
+
+    def test_superuser_access_keeps_each_librarys_existing_ownership_policy(self):
+        admin = superuser.make()
+        self.client.force_authenticate(admin)
+        for resource, recipe, shared in (
+            ("avatar", avatar, False),
+            ("intro", intro, True),
+            ("outro", outro, True),
+            ("templateprompt", template_prompt, True),
+        ):
+            with self.subTest(resource=resource):
+                mine = recipe.make(created_by=admin)
+                foreign = recipe.make(created_by=self.user)
+                rows = self.client.get(reverse(resource + "-list")).data["results"]
+                expected = {str(mine.pk), str(foreign.pk)} if shared else {str(mine.pk)}
+                self.assertEqual({row["id"] for row in rows}, expected)
 
     def test_each_owner_sees_only_their_own_avatars(self):
         mine = avatar.make(created_by=self.user)

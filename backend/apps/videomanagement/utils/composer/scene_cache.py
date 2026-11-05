@@ -12,12 +12,13 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 
+from ..diagrams import diagram_icon_keys
 from ..motion import resolved_motion
 from ..photo_animation import animation_plan
 
 logger = logging.getLogger(__name__)
 # Bump when the intermediate scene filters or encoding settings change.
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 
 def file_identity(path, *, contents=False):
@@ -91,22 +92,28 @@ class SceneClipCache:
         if self.enabled:
             self.prune()
 
-    def key(self, segment, size, fps, previous=None, *, sources=None):
+    def key(self, segment, size, fps, previous=None, *, sources=None, assets=None):
+        sources = sources or SourceFingerprints()
         field = segment.image.file if segment.image else None
         try:
-            source = (
-                (
-                    sources.identity(field.path)
-                    if sources is not None
-                    else file_identity(field.path, contents=True)
-                )
-                if field
-                else None
-            )
+            source = sources.identity(field.path) if field else None
         except (ValueError, SuspiciousFileOperation):
             source = None
+        assets = assets or {}
+        overlays = getattr(segment.content, "overlays", [])
+        logo = getattr(segment.content, "overlay_logo", None)
+        icons = assets.get("icons", {})
+        avatar = assets.get("avatar")
         value = {
             "version": CACHE_VERSION,
+            "overlays": overlays,
+            "overlay_font": settings.SUBTITLE_FONT,
+            "logo": sources.identity(logo.path) if logo and any(item.get("logo") for item in overlays) else None,
+            "icons": {key: sources.identity(icons[key].path) if key in icons else None
+                      for key in sorted(diagram_icon_keys(overlays))},
+            "avatar": sources.identity(avatar) if avatar else None,
+            "avatar_start": segment.start if avatar else None,
+            "avatar_position": (segment.content.video.settings or {}).get("avatar_position", "right,top") if avatar else None,
             "encoder": self.encoder,
             "source": source,
             "size": size,

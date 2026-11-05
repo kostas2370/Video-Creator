@@ -13,6 +13,8 @@ from rest_framework_simplejwt import tokens
 from rest_framework_simplejwt import views as jwt_views
 from rest_framework_simplejwt.exceptions import TokenError
 
+from apps.common.filters import OwnerFilterBackend
+
 from .models import Login, Notification
 from .serializers import (
     ContactSerializer,
@@ -171,17 +173,15 @@ def logout_view(request):
 class NotificationView(
     mixins.ListModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
+    queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
+    filter_backends = [OwnerFilterBackend]
+    owner_field = "user"
     permission_classes = [IsAuthenticated]
     pagination_class = None
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return Notification.objects.none()
-        return Notification.objects.filter(user=self.request.user)
-
     def list(self, request, *args, **kwargs):
-        notifications = self.get_queryset()
+        notifications = self.filter_queryset(self.get_queryset())
 
         return Response(
             {

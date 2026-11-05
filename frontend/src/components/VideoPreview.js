@@ -75,11 +75,13 @@ function Track({ source, video = false, time, duration, playing, muted, onFailur
   return video ? <video {...props} playsInline className="absolute inset-0 h-full w-full object-cover" /> : <audio {...props} />;
 }
 
-function Visual({ segment, time, playing, muted, onFailure, onBlocked, opacity = 1, onBuffering, stalled, seekVersion }) {
-  if (!segment?.visual) return <div className="absolute inset-0 flex items-center justify-center bg-black px-5 text-center text-sm text-gray-400">No visual available</div>;
+export function Visual({ segment, size, time, playing, muted, onFailure, onBlocked, opacity = 1, onBuffering, stalled, seekVersion }) {
+  const overlayTime = Math.min(time, Math.max(0, segment.duration - 0.000001));
   return <div className="absolute inset-0" style={{ opacity }}>
-    {segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={segment.loop_visual ? segment.base_duration : Math.min(segment.visual_duration ?? segment.base_duration, segment.base_duration)} loop={!!segment.loop_visual} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
+    {!segment.visual ? <div className="absolute inset-0 bg-black" /> : segment.visual_type === "video" ? <Track source={segment.visual} video time={time} duration={segment.loop_visual ? segment.base_duration : Math.min(segment.visual_duration ?? segment.base_duration, segment.base_duration)} loop={!!segment.loop_visual} playing={playing} muted={muted || !segment.clip_audio} onFailure={onFailure} onBlocked={onBlocked} onBuffering={onBuffering} stalled={stalled} seekVersion={seekVersion} />
       : <img style={imageMotion(segment, time)} src={mediaUrl(segment.visual)} alt={segment.label} onError={onFailure} className="absolute inset-0 h-full w-full object-cover" />}
+    <PhotoAnimationLayer plan={segment.photo_animation} time={overlayTime} duration={segment.base_duration} fps={segment.fps} />
+    <OverlayLayer frameSize={size} overlays={segment.overlays} logo={segment.overlay_logo} time={overlayTime} duration={segment.duration} animationPreset={segment.photo_animation?.preset} />
   </div>;
 }
 
@@ -210,12 +212,10 @@ function VideoPreview({ video, disabled = false }) {
       {manifest && <>
         <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-xl bg-black" style={{ maxWidth: manifest.size[0] < manifest.size[1] ? 280 : manifest.size[0] === manifest.size[1] ? 420 : undefined }}>
           <div role="img" aria-label={`${active?.label || "Video"} preview`} className="relative isolate w-full overflow-hidden bg-black" style={{ aspectRatio: `${manifest.size[0]} / ${manifest.size[1]}` }}>
-            {active && <Visual key={active.id} segment={active} time={local} playing={playing} muted={muted} opacity={time === 0 && !playing ? 1 : Math.max(0, opacity)} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
-            {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
+            {active && <Visual key={active.id} segment={active} size={manifest.size} time={local} playing={playing} muted={muted} opacity={time === 0 && !playing ? 1 : Math.max(0, opacity)} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
+            {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} size={manifest.size} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {(manifest.audio_tracks || []).filter(track => time >= track.start - 0.5 && time <= track.start + track.duration + 0.1).map(track => <Track key={`voice-${track.id}`} source={track.source} time={time - track.start} trimStart={track.trim_start} duration={track.duration} volume={voiceGain(time - track.start, track)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />)}
             {manifest.music && <Track key={`music-${manifest.music.source}`} source={manifest.music.source} loop time={time - manifest.music.start} duration={manifest.music.duration} volume={musicGain(time - manifest.music.start, manifest.music.duration, manifest.music.settings, musicSpeech)} playing={playing} muted={muted} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
-            {active && <PhotoAnimationLayer plan={active.photo_animation} time={local} duration={active.base_duration} fps={active.fps} />}
-            {active && <OverlayLayer frameSize={manifest.size} overlays={active.overlays} logo={active.overlay_logo} time={local} duration={active.duration} animationPreset={active.photo_animation?.preset} />}
             <CaptionLayer cue={cue} style={manifest.caption_style} size={manifest.size} config={manifest.caption_config} />
           </div>
         </div>

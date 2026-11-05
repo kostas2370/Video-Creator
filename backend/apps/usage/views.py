@@ -24,19 +24,15 @@ from apps.videomanagement.models import Video
 
 
 class UsageView(GenericAPIView):
+    queryset = AIUsage.objects.all()
     permission_classes = [IsAuthenticated]
     serializer_class = UsageSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = UsageFilter
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return AIUsage.objects.none()
-        return AIUsage.objects.filter(user=self.request.user)
-
     @swagger_auto_schema(responses={200: UsageSerializer})
     def get(self, request):
-        all_usage = self.get_queryset()
+        all_usage = self.get_queryset().filter(user=request.user)
         summary = self.filter_queryset(all_usage).summary()
         summary.update(
             period=request.query_params.get("period", "30"),

@@ -51,14 +51,12 @@ class VideoSeriesView(viewsets.ModelViewSet):
     search_fields = ["title", "premise"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
-    def get_queryset(self):
-        if getattr(self, "swagger_fake_view", False):
-            return VideoSeries.objects.none()
+    def filter_queryset(self, queryset):
         active = SeriesEpisode.objects.filter(
             series_id=OuterRef("pk"), video__status__in=("GENERATION", "REVIEW")
         ).order_by("-number")
-        return (
-            VideoSeries.objects.filter(created_by=self.request.user)
+        queryset = (
+            queryset.filter(created_by=self.request.user)
             .annotate(
                 episode_count=Count("episodes"),
                 active_episode_id=Subquery(active.values("id")[:1]),
@@ -68,6 +66,8 @@ class VideoSeriesView(viewsets.ModelViewSet):
             .prefetch_related("cast_members")
             .order_by("-updated_at", "id")
         )
+
+        return super().filter_queryset(queryset)
 
     def get_episode(self, episode_id):
         return get_object_or_404(
