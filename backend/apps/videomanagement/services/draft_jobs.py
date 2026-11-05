@@ -1,11 +1,15 @@
-"""Recoverable, owner-bound AI drafts using the existing Celery result backend."""
+"""Queue and inspect owner-bound Celery writing tasks."""
 
+from billiard.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
 from celery.result import AsyncResult
 from django.core import signing
-from rest_framework.exceptions import APIException, NotFound
+from rest_framework.exceptions import APIException, NotFound, ValidationError
+
+from apps.videomanagement.exceptions import VideoEditConflict
 
 SALT = "ai-draft-job-v1"
 MAX_AGE = 86400
+DEFAULT_TASK_ERROR = "Could not generate this draft. Please try again."
 
 
 class DraftQueueUnavailable(APIException):
@@ -21,6 +25,33 @@ def queue_draft(user, task, **values):
     return {"id": signing.dumps([str(user.pk), job.id], salt=SALT), "status": "QUEUED"}
 
 
+def _validation_message(detail):
+    if not detail:
+        return DEFAULT_TASK_ERROR
+    if isinstance(detail, dict):
+        if "detail" in detail:
+            return _validation_message(detail["detail"])
+        field, value = next(iter(detail.items()))
+        message = _validation_message(value)
+        return (
+            message
+            if field == "non_field_errors"
+            else f"{str(field).replace('_', ' ')}: {message}"
+        )
+    if isinstance(detail, (list, tuple)):
+        return _validation_message(detail[0])
+    return str(detail)
+
+
+def _task_error(error):
+    if isinstance(error, (ValidationError, VideoEditConflict)):
+        return _validation_message(error.detail)
+    if isinstance(error, (SoftTimeLimitExceeded, TimeLimitExceeded)):
+        return "Generation took too long. Please try again."
+    # Provider exceptions can contain credentials, URLs or internal response data.
+    return DEFAULT_TASK_ERROR
+
+
 def draft_result(user, token):
     try:
         owner_id, task_id = signing.loads(token, salt=SALT, max_age=MAX_AGE)
@@ -32,9 +63,11 @@ def draft_result(user, token):
     state = job.state
     if state == "SUCCESS":
         return {"status": "SUCCEEDED", "result": job.result}
-    if state in ("FAILURE", "REVOKED"):
+    if state == "FAILURE":
+        return {"status": "FAILED", "error": _task_error(job.result)}
+    if state == "REVOKED":
         return {
             "status": "FAILED",
-            "error": "Could not generate this draft. Please try again.",
+            "error": "Generation was cancelled or expired. Please try again.",
         }
     return {"status": "RUNNING" if state == "STARTED" else "QUEUED"}

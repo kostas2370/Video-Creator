@@ -1,13 +1,17 @@
+import json
 from unittest.mock import Mock, patch
 
+from billiard.exceptions import SoftTimeLimitExceeded, TimeLimitExceeded
+from celery import current_app
 from django.core import signing
 from django.urls import reverse
 from model_bakery import baker
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement import draft_tasks
 from apps.videomanagement.baker_recipes import scene
+from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import Video
 from apps.videomanagement.services.draft_jobs import SALT
 
@@ -224,3 +228,80 @@ class DraftJobTests(ApiTestCase):
                     str(self.user.pk), video_id=str(video.pk)
                 )
             provider.assert_not_called()
+
+    def test_task_errors_survive_celery_serialization_without_leaking_provider_details(
+        self,
+    ):
+        token = self.queue().data["id"]
+        cases = [
+            (
+                ValidationError("Add a script before generating."),
+                "Add a script before generating.",
+            ),
+            (
+                ValidationError(
+                    {"cast": [{"appearance": ["Describe the character."]}]}
+                ),
+                "cast: appearance: Describe the character.",
+            ),
+            (
+                ValidationError({"non_field_errors": ["Review the current script."]}),
+                "Review the current script.",
+            ),
+            (
+                VideoEditConflict(
+                    {
+                        "detail": "The script changed. Refresh and try again.",
+                        "tags": ["private metadata"],
+                    }
+                ),
+                "The script changed. Refresh and try again.",
+            ),
+            (
+                SoftTimeLimitExceeded("private worker details"),
+                "Generation took too long. Please try again.",
+            ),
+            (
+                TimeLimitExceeded("private worker details"),
+                "Generation took too long. Please try again.",
+            ),
+            (
+                APIException("private provider credential"),
+                "Could not generate this draft. Please try again.",
+            ),
+            (
+                RuntimeError("private provider URL"),
+                "Could not generate this draft. Please try again.",
+            ),
+        ]
+        backend = current_app.backend
+        for error, expected in cases:
+            with self.subTest(error=type(error).__name__):
+                # Exercise Celery's actual JSON exception round trip, not just a mock exception.
+                serialized = json.loads(
+                    json.dumps(backend.encode_result(error, "FAILURE"))
+                )
+                restored = backend.exception_to_python(serialized)
+                with patch(
+                    "apps.videomanagement.services.draft_jobs.AsyncResult",
+                    return_value=Mock(state="FAILURE", result=restored),
+                ):
+                    response = self.client.get(reverse("draft-job"), {"job": token})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data, {"status": "FAILED", "error": expected})
+                self.assertNotIn("private", str(response.data))
+
+    def test_revoked_task_has_an_actionable_message(self):
+        token = self.queue().data["id"]
+        with patch(
+            "apps.videomanagement.services.draft_jobs.AsyncResult",
+            return_value=Mock(state="REVOKED", result=RuntimeError("private details")),
+        ):
+            response = self.client.get(reverse("draft-job"), {"job": token})
+        self.assertEqual(
+            response.data,
+            {
+                "status": "FAILED",
+                "error": "Generation was cancelled or expired. Please try again.",
+            },
+        )
