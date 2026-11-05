@@ -1,7 +1,6 @@
 """Compose timed scene logos and text over the rendered picture."""
 
 import math
-from collections import defaultdict
 from pathlib import Path
 
 from django.conf import settings
@@ -9,6 +8,7 @@ from django.conf import settings
 from apps.videomanagement.exceptions import RenderFailedException
 from apps.videomanagement.export_settings import export_settings
 
+from ..diagrams import diagram_plan
 from ..file_utils import stored_file_exists
 from ..fonts import subtitles_filter
 from ..overlay_text import overlay_text_layout
@@ -16,8 +16,6 @@ from ..photo_animation import animation_plan
 from .ass import ass_color, ass_event, escape_ass_text, write_document
 from .diagrams import diagram_overlays
 from .images import image_overlay
-from apps.videomanagement.services.media.icons import available_icon_files
-from ..diagrams import diagram_plan
 
 
 # ASS templates use bounded entrance times, matching the preview's keyframes.
@@ -115,67 +113,22 @@ def particle_overlays(segment, size, plan):
         edge = particle["size"] * width
         shape = f"m 0 0 l {edge:g} 0 {edge:g} {edge:g} 0 {edge:g}"
         tags = f"\\an7\\bord0\\shad0\\move({x},{y},{tx},{ty},0,{travel * 1000:g})\\p1"
-        events.append(ass_event(segment.start, segment.start + segment.duration, f"{{{tags}}}{shape}", name))
+        events.append(ass_event(0, segment.duration, f"{{{tags}}}{shape}", name))
     return styles, events
 
 
-def collect_overlays(graph, stream, segments, size):
-    """Collect timed vector drawings and icon placements, applying logo layers."""
-    styles, events, icons = [], [], []
-    for segment in segments:
-        plan = animation_plan(segment.content) if segment.visual_type == "image" else None
-        if plan:
-            accents, drawings = particle_overlays(segment, size, plan)
-            styles.extend(accents)
-            events.extend(drawings)
-        for item in getattr(segment.content, "overlays", []):
-            start = min(segment.duration, item["start"])
-            end = min(
-                segment.duration,
-                item["end"] if item["end"] is not None else segment.duration,
-            )
-            if end <= start:
-                continue
-            start, end = start + segment.start, end + segment.start
-            if item["kind"] == "diagram":
-                elements = diagram_plan(item["diagram"], size, end - start)
-                diagram_styles, diagram_events = diagram_overlays(
-                    item, f"Diagram{len(styles)}", size, start, end, elements=elements,
-                )
-                owner = getattr(getattr(segment.content, "video", None), "created_by_id", None)
-                icons.extend((element, start, end, item["opacity"], owner) for element in elements if element["kind"] == "icon")
-                styles.extend(diagram_styles)
-                events.extend(diagram_events)
-            elif item["logo"]:
-                stream = add_logo(
-                    graph, stream, segment.content, item, size, start, end
-                )
-            else:
-                style, event = text_overlay(
-                    item, f"Overlay{len(styles)}", size, start, end,
-                    plan["preset"] if plan else "NONE",
-                )
-                styles.append(style)
-                events.append(event)
-    return stream, styles, events, icons
-
-
-def render_drawings(graph, stream, styles, events, size, directory):
+def render_drawings(graph, stream, styles, events, size, directory, name):
     if not styles:
         return stream
-    write_document(Path(directory, "overlays.ass"), size, styles, events)
-    return graph.filter([stream], subtitles_filter("overlays.ass", directory))
+    filename = f"{name}.ass"
+    write_document(Path(directory, filename), size, styles, events)
+    return graph.filter([stream], subtitles_filter(filename, directory))
 
 
-def add_diagram_icons(graph, stream, icons):
-    """Resolve artwork once per owner and place each timed icon."""
-    keys = defaultdict(set)
-    for element, _, _, _, owner in icons:
-        keys[owner].add(element["icon"])
-    files = {owner: available_icon_files(ids, user=owner) for owner, ids in keys.items()}
-    for element, start, end, opacity, owner in icons:
-        field = files[owner].get(element["icon"])
-        if field:
+def add_diagram_icons(graph, stream, elements, files, start, end, opacity):
+    for element in elements:
+        field = files.get(element.get("icon"))
+        if element["kind"] == "icon" and field:
             stream = image_overlay(
                 graph, stream, field.path,
                 scale=f"scale={round(element['width'])}:{round(element['height'])}",
@@ -185,7 +138,31 @@ def add_diagram_icons(graph, stream, icons):
     return stream
 
 
-def apply_overlays(graph, stream, segments, size, directory):
-    stream, styles, events, icons = collect_overlays(graph, stream, segments, size)
-    stream = render_drawings(graph, stream, styles, events, size, directory)
-    return add_diagram_icons(graph, stream, icons)
+def apply_overlays(graph, stream, segment, size, directory, icons):
+    """Compose scene-local layers in the same order as the browser preview."""
+    scene = segment.content
+    plan = animation_plan(scene) if segment.visual_type == "image" else None
+    name = f"overlay-{segment.index}"
+    if plan:
+        styles, events = particle_overlays(segment, size, plan)
+        stream = render_drawings(graph, stream, styles, events, size, directory, name)
+    items = sorted(getattr(scene, "overlays", []), key=lambda item: not item["logo"])
+    for index, item in enumerate(items):
+        start = min(segment.duration, item["start"])
+        end = min(segment.duration, item["end"] if item["end"] is not None else segment.duration)
+        if end <= start:
+            continue
+        if item["logo"]:
+            stream = add_logo(graph, stream, scene, item, size, start, end)
+            continue
+        elements = []
+        name = f"overlay-{segment.index}-{index}"
+        if item["kind"] == "diagram":
+            elements = diagram_plan(item["diagram"], size, end - start)
+            styles, events = diagram_overlays(item, name, size, start, end, elements=elements)
+        else:
+            style, event = text_overlay(item, name, size, start, end, plan["preset"] if plan else "NONE")
+            styles, events = [style], [event]
+        stream = render_drawings(graph, stream, styles, events, size, directory, name)
+        stream = add_diagram_icons(graph, stream, elements, icons, start, end, item["opacity"])
+    return stream

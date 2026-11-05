@@ -128,6 +128,11 @@ def graph_plan(diagram, size, duration, elements, rect, text, place_icon):
     return elements
 
 
+def diagram_icon_keys(overlays):
+    return {item["icon"] for overlay in overlays if overlay.get("kind") == "diagram"
+            for item in overlay["diagram"]["items"] if item.get("icon")}
+
+
 def full_scene_diagram(scene):
     return any(item.get("kind") == "diagram" and item.get("start", 0) == 0
                and item.get("end") is None and item.get("opacity", 1) == 1

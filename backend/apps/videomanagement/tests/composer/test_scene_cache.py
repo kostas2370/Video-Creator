@@ -104,7 +104,7 @@ class SceneClipCacheTests(SimpleTestCase):
     def test_shared_sources_are_hashed_once_per_export_and_refresh_between_exports(
         self,
     ):
-        def render_clip(segment, directory, size, output, previous_frame, fps=24):
+        def render_clip(segment, directory, size, output, previous_frame, fps=24, *, assets=None):
             output.write_bytes(Path(segment.image.file.path).read_bytes())
 
         for export, expected_renders in enumerate((1, 0, 1)):
@@ -141,12 +141,41 @@ class SceneClipCacheTests(SimpleTestCase):
         self.segment.dissolve_in = 0.3
         self.assertNotEqual(self.key(previous="before"), self.key(previous="after"))
 
-    def test_final_caption_overlay_and_audio_changes_do_not_invalidate_visuals(self):
+    def test_captions_and_audio_reuse_clips_but_overlays_invalidate_them(self):
         original = self.key()
         self.segment.content.text = "New captions"
-        self.segment.content.overlays = [{"text": "New overlay"}]
         self.segment.content.audio_settings = {"volume": 0.5}
         self.assertEqual(original, self.key())
+        self.segment.content.overlays = [{"text": "New overlay"}]
+        self.assertNotEqual(original, self.key())
+
+    def test_only_used_icons_and_logo_contents_invalidate_clips(self):
+        self.segment.content.overlays = [{"kind": "diagram", "diagram": {
+            "items": [{"icon": "custom:used"}],
+        }}]
+        used = self.root / "used.png"
+        unused = self.root / "unused.png"
+        used.write_bytes(b"red")
+        unused.write_bytes(b"blue")
+        assets = {"icons": {
+            "custom:used": SimpleNamespace(path=used),
+            "custom:unused": SimpleNamespace(path=unused),
+        }}
+        def key():
+            return self.cache.key(self.segment, (160, 90), 24, assets=assets)
+        original = key()
+        unused.write_bytes(b"green")
+        self.assertEqual(original, key())
+        used.write_bytes(b"yellow")
+        self.assertNotEqual(original, key())
+        original = key()
+        assets["icons"].pop("custom:used")
+        self.assertNotEqual(original, key())
+        self.segment.content.overlay_logo = SimpleNamespace(path=unused)
+        self.segment.content.overlays = [{"logo": True}]
+        original = key()
+        unused.write_bytes(b"new logo")
+        self.assertNotEqual(original, key())
 
     def test_expired_and_truncated_entries_are_misses(self):
         self.store()
