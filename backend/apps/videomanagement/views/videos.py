@@ -44,7 +44,7 @@ from apps.videomanagement.serializers.requests import (
 )
 from apps.videomanagement.services import draft_handlers
 from apps.videomanagement.services.captions.subtitles import export_subtitles
-from apps.videomanagement.services.draft_jobs import draft_response
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.services.media.music import set_music, set_music_from_youtube
 from apps.videomanagement.services.scenes.editing import (
     apply_auto_motion,
@@ -146,8 +146,12 @@ class VideoView(
     def draft_story(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return draft_response(
-            request.user, draft_handlers.story, **serializer.validated_data
+        return Response(
+            queue_draft(
+                request.user, draft_handlers.story, **serializer.validated_data
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @swagger_auto_schema(request_body=StoryVideoSerializer)
@@ -425,9 +429,13 @@ class VideoView(
         video = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return draft_response(
-            request.user,
-            draft_handlers.scene,
-            video_id=str(video.pk),
-            choices=dict(serializer.validated_data),
+        return Response(
+            queue_draft(
+                request.user,
+                draft_handlers.scene,
+                video_id=str(video.pk),
+                choices=dict(serializer.validated_data),
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )

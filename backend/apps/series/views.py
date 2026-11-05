@@ -24,7 +24,7 @@ from apps.series.services.episodes import (
 )
 from apps.videomanagement.paginator import AssetResultsPagination
 from apps.videomanagement.services import draft_handlers
-from apps.videomanagement.services.draft_jobs import draft_response
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.throttling import GenerateRateThrottle
 
 from .serializers import (
@@ -91,16 +91,22 @@ class VideoSeriesView(viewsets.ModelViewSet):
     def cast_draft(self, request):
         serializer = CastDraftRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return draft_response(
-            request.user, draft_handlers.cast, **serializer.validated_data
+        return Response(
+            queue_draft(request.user, draft_handlers.cast, **serializer.validated_data),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @action(detail=False, methods=["post"])
     def character_description(self, request):
         serializer = CharacterDescriptionRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return draft_response(
-            request.user, draft_handlers.character, **serializer.validated_data
+        return Response(
+            queue_draft(
+                request.user, draft_handlers.character, **serializer.validated_data
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @action(detail=False, methods=["get", "post"])
@@ -184,9 +190,13 @@ class VideoSeriesView(viewsets.ModelViewSet):
         episode = self.get_episode(episode_id)
         serializer = EpisodeMemoryDraftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return draft_response(
-            request.user,
-            draft_handlers.memory,
-            episode_id=str(episode.pk),
-            **serializer.validated_data,
+        return Response(
+            queue_draft(
+                request.user,
+                draft_handlers.memory,
+                episode_id=str(episode.pk),
+                **serializer.validated_data,
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )

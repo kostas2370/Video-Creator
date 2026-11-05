@@ -5,7 +5,6 @@ from uuid import uuid4
 from celery.result import AsyncResult
 from django.core import signing
 from rest_framework.exceptions import APIException, NotFound
-from rest_framework.response import Response
 
 from .draft_handlers import get_handler
 
@@ -13,20 +12,12 @@ SALT = "ai-draft-job-v1"
 MAX_AGE = 86400
 
 
-def draft_response(user, handler, **values):
-    return Response(
-        queue_draft(user, handler, values),
-        status=202,
-        headers={"Cache-Control": "no-store"},
-    )
-
-
 class DraftQueueUnavailable(APIException):
     status_code = 503
     default_detail = "Could not queue the draft. Please try again."
 
 
-def queue_draft(user, handler, values):
+def queue_draft(user, handler, **values):
     from apps.videomanagement.tasks import draft_ai_task
 
     operation = handler.__name__

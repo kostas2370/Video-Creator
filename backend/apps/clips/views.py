@@ -17,7 +17,7 @@ from rest_framework.response import Response
 
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.services import draft_handlers
-from apps.videomanagement.services.draft_jobs import draft_response
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
 from .choices import PROJECT_BUSY, ClipStatus
@@ -164,8 +164,12 @@ class ClipProjectView(
     def hashtags(self, request, pk=None, clip_id=None):
         clip = get_object_or_404(self.get_object().clips, pk=clip_id)
         if request.method == "POST":
-            return draft_response(
-                request.user, draft_handlers.hashtags, clip_id=str(clip.pk)
+            return Response(
+                queue_draft(
+                    request.user, draft_handlers.hashtags, clip_id=str(clip.pk)
+                ),
+                status=202,
+                headers={"Cache-Control": "no-store"},
             )
         serializer = SaveHashtagsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -216,11 +220,15 @@ class ClipProjectView(
             raise ValidationError("Wait for the transcript before searching for clips.")
         project.extraction_prompt = serializer.validated_data["prompt"]
         project.clip_count = 3
-        return draft_response(
-            request.user,
-            draft_handlers.clip_search,
-            project_id=str(project.pk),
-            prompt=serializer.validated_data["prompt"],
+        return Response(
+            queue_draft(
+                request.user,
+                draft_handlers.clip_search,
+                project_id=str(project.pk),
+                prompt=serializer.validated_data["prompt"],
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @action(detail=True, methods=["get"])

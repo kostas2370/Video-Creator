@@ -41,7 +41,7 @@ from apps.videomanagement.services.captions.scenes import (
     scene_caption_data,
     update_scene_captions,
 )
-from apps.videomanagement.services.draft_jobs import draft_response
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.services.scenes.audio import (
     audio_waveform,
     save_voiceover,
@@ -225,11 +225,15 @@ class SceneView(viewsets.GenericViewSet):
         scene = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return draft_response(
-            request.user,
-            draft_handlers.rewrite,
-            scene_id=str(scene.pk),
-            instructions=serializer.validated_data["text"],
+        return Response(
+            queue_draft(
+                request.user,
+                draft_handlers.rewrite,
+                scene_id=str(scene.pk),
+                instructions=serializer.validated_data["text"],
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @swagger_auto_schema(
