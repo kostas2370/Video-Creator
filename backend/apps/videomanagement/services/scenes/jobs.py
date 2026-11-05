@@ -15,6 +15,7 @@ from apps.videomanagement.services.scenes.editing import (
     editable_video,
     update_manual_text,
 )
+from apps.videomanagement.services.videos.recovery import video_job_heartbeat
 
 JOB_SALT = "scene-job"
 
@@ -35,12 +36,15 @@ def restore_video(video_id, previous_status):
 def scene_job(scene_id, previous_status):
     """Load the scene and restore editing when its background work ends."""
     scene = Scene.objects.select_related("video__created_by").get(pk=scene_id)
-    try:
-        if not scene.video.created_by.is_active:
-            raise ValueError("Account is inactive")
-        yield scene
-    finally:
-        restore_video(scene.video_id, previous_status)
+    with video_job_heartbeat(scene.video_id) as active:
+        if not active:
+            raise ValidationError("This scene job stopped. Please try again.")
+        try:
+            if not scene.video.created_by.is_active:
+                raise ValueError("Account is inactive")
+            yield scene
+        finally:
+            restore_video(scene.video_id, previous_status)
 
 
 def queue_scene_job(scene, task, value):

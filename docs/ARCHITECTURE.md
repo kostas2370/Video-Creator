@@ -271,7 +271,14 @@ that never obtained a script and directory cannot be resumed.
 
 Celery beat runs `reap_stalled_videos()` every 15 minutes. It marks in-flight videos
 whose `updated_at` is older than `VIDEO_TASK_STALE_AFTER` as failed; the default is
-three hours. This is a timestamp-based recovery mechanism, not a worker heartbeat.
+three hours. Generation, resume, export, scene creation/editing, and voice regeneration
+jobs refresh this timestamp every minute from a small worker heartbeat thread, even
+while the provider or encoder blocks. Heartbeat writes do not trigger editor events.
+The sweep locks and rechecks each candidate before failing it, preserving projects
+that completed or restarted during the scan. Recovery keeps saved scenes and media,
+notifies the owner/editor, and never automatically repeats paid provider calls.
+Late tasks skip projects already recovered or completed. Run web and workers from
+the same deployment so all long-running jobs emit heartbeats.
 
 ## Provider routing and credentials
 
