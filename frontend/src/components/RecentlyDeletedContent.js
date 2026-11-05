@@ -35,7 +35,7 @@ function RecoveryPagination({ result, page, restoring, onPage }) {
 }
 
 export function RecentlyDeletedContent({ loading, error, result, page, restoring, disabled, onReload, onRestore, onPage }) {
-  if (loading) return <p role="status" className="text-sm text-gray-500">Loading removed scenes…</p>;
+  if (loading && !result) return <p role="status" className="text-sm text-gray-500">Loading removed scenes…</p>;
   if (error) {
     return (
       <div role="alert" className="text-sm text-red-600 dark:text-red-300">
@@ -48,13 +48,14 @@ export function RecentlyDeletedContent({ loading, error, result, page, restoring
     return <p className="py-3 text-sm text-gray-500 dark:text-gray-400">No scenes to recover.</p>;
   }
   return (
-    <>
+    <div aria-busy={loading}>
+      {loading && <p role="status" className="sr-only">Updating removed scenes…</p>}
       <ul className="space-y-3">
         {result.results.map(scene => (
-          <RecoverySceneCard key={scene.id} scene={scene} disabled={disabled} restoring={restoring} onRestore={onRestore} />
+          <RecoverySceneCard key={scene.id} scene={scene} disabled={disabled || loading} restoring={restoring} onRestore={onRestore} />
         ))}
       </ul>
-      <RecoveryPagination result={result} page={page} restoring={restoring} onPage={onPage} />
-    </>
+      <RecoveryPagination result={result} page={page} restoring={restoring || loading} onPage={onPage} />
+    </div>
   );
 }

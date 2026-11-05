@@ -102,3 +102,31 @@ it("never turns missing cost into zero and preserves small charges", () => {
   expect(screen.getByText("Price unavailable")).toBeTruthy();
   expect(screen.getByText(/0 of 2 requests priced/)).toBeTruthy();
 });
+
+it("retains the cost breakdown while the same request refreshes in the background", async () => {
+  getCostEstimate.mockResolvedValueOnce({ ok: true, data: estimate });
+  const view = render(<GenerationCost videoId="video" refresh={1} />);
+  await tick();
+  const breakdown = screen.getByText("Cost breakdown and assumptions").closest("details");
+  breakdown.open = true;
+  getCostEstimate.mockReturnValueOnce(new Promise(() => {}));
+  view.rerender(<GenerationCost videoId="video" refresh={2} />);
+  await tick();
+  expect(screen.getByRole("status").textContent).toContain("updated");
+  expect(screen.getByText(/Estimated media cost:/)).toBeTruthy();
+  expect(screen.getByText("Cost breakdown and assumptions").closest("details")).toBe(breakdown);
+  expect(breakdown.open).toBe(true);
+});
+it("keeps recorded costs visible during a background refresh", async () => {
+  getProjectCosts.mockResolvedValueOnce({ ok: true, data: { estimate, recorded: { totals: { cost_usd: "0.32" } } } });
+  const view = render(<ProjectCosts videoId="video" refresh={1} />);
+  await act(async () => {});
+  getProjectCosts.mockReturnValueOnce(new Promise(() => {}));
+  view.rerender(<ProjectCosts videoId="video" refresh={2} />);
+  await act(async () => {});
+  expect(screen.getByText("$0.32")).toBeTruthy();
+  expect(screen.queryByText("Loading costs…")).toBeNull();
+  view.rerender(<ProjectCosts videoId="other-video" refresh={2} />);
+  expect(screen.getByText("Loading costs…")).toBeTruthy();
+  expect(screen.queryByText("$0.32")).toBeNull();
+});

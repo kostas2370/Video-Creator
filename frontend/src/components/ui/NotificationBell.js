@@ -78,7 +78,7 @@ export function NotificationBell() {
         )}
       </MenuButton>
 
-      <MenuItems
+      <MenuItems modal={false}
         anchor="bottom end"
         className="z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-gray-200 bg-white shadow-xl focus:outline-none dark:border-gray-700 dark:bg-gray-800"
       >

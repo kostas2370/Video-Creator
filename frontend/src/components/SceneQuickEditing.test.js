@@ -20,8 +20,9 @@ it("keeps drafts when switching scenes and reopening the editor", () => {
   view.unmount(); render(<Editor />);
   expect(screen.getByLabelText("Text for scene 1").value).toBe("My first draft");
 });
-it("offers timing outside the advanced section", () => {
+it("offers timing in its inspector tab", () => {
   render(<Editor />);
+  fireEvent.click(screen.getByRole("tab", { name: "Timing" }));
   expect(screen.getByRole("region", { name: "Quick scene timing" }).closest("details")).toBeNull();
   expect(screen.getByLabelText("Duration of scene 1")).toBeTruthy();
   expect(screen.getByLabelText("Pause after scene 1")).toBeTruthy();
@@ -38,4 +39,25 @@ it("keeps drafts in memory when browser storage is unavailable", () => {
   fireEvent.click(screen.getByRole("button", { name: "Edit scene 2" }));
   fireEvent.click(screen.getByRole("button", { name: "Edit scene 1" }));
   expect(screen.getByLabelText("Text for scene 1").value).toBe("Keep in memory");
+});
+
+it("keeps a script draft when switching inspector tabs", () => {
+  render(<Editor />);
+  fireEvent.change(screen.getByLabelText("Text for scene 1"), { target: { value: "Draft across tabs" } });
+  fireEvent.click(screen.getByRole("tab", { name: "Audio" }));
+  expect(screen.getByRole("heading", { name: "Scene audio" })).toBeTruthy();
+  expect(screen.queryByRole("textbox", { name: "Text for scene 1" })).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "Script" }));
+  expect(screen.getByLabelText("Text for scene 1").value).toBe("Draft across tabs");
+});
+
+it("switches scenes without forcing the page to scroll", () => {
+  const scroll = vi.fn();
+  vi.stubGlobal("scrollTo", scroll);
+  const intoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(scroll);
+  render(<Editor />);
+  fireEvent.click(screen.getByRole("button", { name: "Next scene" }));
+  expect(screen.getByLabelText("Text for scene 2")).toBeTruthy();
+  expect(intoView).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
 });

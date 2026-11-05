@@ -2,7 +2,12 @@ import React from "react";
 
 // A failed page download should leave navigation available and offer recovery.
 export class PageLoadBoundary extends React.Component {
-  state = { failed: false };
+  state = { failed: false, resetKey: this.props.resetKey };
+
+  static getDerivedStateFromProps(props, state) {
+    if (props.resetKey !== state.resetKey) return { failed: false, resetKey: props.resetKey };
+    return null;
+  }
 
   static getDerivedStateFromError() {
     return { failed: true };

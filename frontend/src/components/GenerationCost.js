@@ -47,14 +47,17 @@ export function GenerationCost({ videoId, storyboard, sceneId, operation = "all"
     const timer = setTimeout(async () => {
       try {
         const response = await (isScenario ? getScenarioCostEstimate : getCostEstimate)(JSON.parse(requestKey));
-        if (current) setResult({ key, data: response?.ok ? response.data : null });
-      } catch { if (current) setResult({ key, data: null }); }
+        if (current) setResult({ key, requestKey, data: response?.ok ? response.data : null });
+      } catch { if (current) setResult({ key, requestKey, data: null }); }
     }, 300);
     return () => { current = false; clearTimeout(timer); };
   }, [key, requestKey, videoId, active, retry, isScenario]);
   if (!active || (!videoId && !isScenario)) return null;
   return <aside aria-label="Generation cost estimate" className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-    {!result || result.key !== key ? <p role="status">Estimating generation cost…</p> : result.data ? <EstimateDetails estimate={result.data} /> : <p>Cost estimate unavailable. Generation may still incur provider charges. <button type="button" onClick={() => { setResult(null); setRetry(value => value + 1); }} className="underline">Retry estimate</button></p>}
+    {!result || result.requestKey !== requestKey ? <p role="status">Estimating generation cost…</p> : result.data ? <>
+      {result.key !== key && <p role="status" className="mb-2">Estimating updated generation cost…</p>}
+      <EstimateDetails estimate={result.data} />
+    </> : <p>Cost estimate unavailable. Generation may still incur provider charges. <button type="button" onClick={() => { setResult(null); setRetry(value => value + 1); }} className="underline">Retry estimate</button></p>}
   </aside>;
 }
 
@@ -62,7 +65,6 @@ export function ProjectCosts({ videoId, refresh }) {
   const [result, setResult] = useState(null);
   useEffect(() => {
     let current = true;
-    setResult(null);
     Promise.resolve().then(() => getProjectCosts(videoId)).then(response => { if (current) setResult({ id: videoId, data: response?.ok ? response.data : null }); }).catch(() => { if (current) setResult({ id: videoId, data: null }); });
     return () => { current = false; };
   }, [videoId, refresh]);

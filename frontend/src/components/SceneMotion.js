@@ -20,7 +20,7 @@ const optionClass = selected => `rounded-xl border px-3 py-2 text-sm font-medium
 export function SceneMotion({ scene, index, disabled, saving, onChange, videoFormat, fps = 24 }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
-  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
+  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); };
   const still = hasStillImage(scene);
   if (!still) return null;
   const presetLabel = photoPresets.find(([value]) => value === scene.animation_preset)?.[1];
@@ -105,7 +105,7 @@ export function BulkAutoMotion({ scenes, disabled, saving, onApply }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
   const count = scenes.filter(hasStillImage).length;
-  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
+  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); };
   return <>
     <button ref={trigger} type="button" disabled={disabled || !count} onClick={() => setOpen(true)} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-400 dark:hover:bg-gray-700"><span aria-hidden="true">✦</span>Animate all photos</button>
     {open && <BulkAutoEditor count={count} disabled={disabled} saving={saving} onApply={onApply} onClose={close} />}

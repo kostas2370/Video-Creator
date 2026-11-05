@@ -248,7 +248,7 @@ export const Video = () => {
 
   return (
     <>
-      <EditorDialog open={showRenderedVideo && !!renderedUrl} onClose={() => setShowRenderedVideo(false)} title="Watch export" description={videoInfo?.status === "RENDERING" ? "Your previous export is available while the new video renders." : "Watch your latest export. Export again to include any new edits."} maxWidth="max-w-4xl">
+      <EditorDialog open={showRenderedVideo && !!renderedUrl} onClose={() => setShowRenderedVideo(false)} title="Watch export" description={videoInfo?.status === "RENDERING" ? "Your previous export is available while the new video renders." : "Watch your latest export. Export again to include any new edits."} maxWidth="max-w-4xl" footer={<div className="flex justify-end"><button type="button" onClick={() => setShowRenderedVideo(false)} className="min-h-11 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold dark:border-gray-600">Done</button></div>}>
         {showRenderedVideo && renderedUrl && <>
           <video key={renderedUrl} src={renderedUrl} controls playsInline preload="metadata" aria-label="Latest rendered video" onError={() => setPlaybackError(true)} onCanPlay={() => setPlaybackError(false)} className="mx-auto max-h-[60vh] w-full rounded-xl bg-black" />
           {playbackError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">Could not play this export. Try opening the video using the link below.</p>}
@@ -281,6 +281,7 @@ export const Video = () => {
         id={videoInfo?.id}
         setItems={onSceneQueued}
         scenes={videoInfo?.scenes || []}
+        videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"}
       /></DeferredDialog>
 
       <DeferredDialog open={showRenderModal} onClose={() => setShowRenderModal(false)}><RenderModal
@@ -303,7 +304,7 @@ export const Video = () => {
         onFinished={() => setUpdated(true)}
       /></DeferredDialog>
 
-      <main className="editor-workspace mx-auto max-w-6xl px-4 py-5 sm:px-6">
+      <main className="editor-workspace mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
         {videoInfo?.settings?.series_id && <Link to={`/series/${videoInfo.settings.series_id}/`} className="mb-3 block text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-300">← {videoInfo.settings.series_title} · Episode {videoInfo.settings.episode_number}</Link>}
         <Link to="/videos/" className="text-sm font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400">← All videos</Link>
         <header className="mb-4 mt-3">
@@ -342,7 +343,7 @@ export const Video = () => {
         </div>}
 
           <section aria-label="Scenes" className="min-w-0 space-y-5">
-            <ReorderableScenes key={videoId} videoId={videoId} onTextSave={onTextSave} onTextRewrite={onTextRewrite} textBusy={["text", "rewrite"].includes(pendingSceneChange?.type)} onRemoveScene={onRemoveScene} actions={<button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40"><FaPlus aria-hidden="true" />Add scene</button>} selectedSceneId={focusedScene?.id} onSelectScene={selectScene} manual={manual && !story} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
+            <ReorderableScenes video={videoInfo} key={videoId} videoId={videoId} onTextSave={onTextSave} onTextRewrite={onTextRewrite} textBusy={["text", "rewrite"].includes(pendingSceneChange?.type)} onRemoveScene={onRemoveScene} actions={<button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40"><FaPlus aria-hidden="true" />Add scene</button>} selectedSceneId={focusedScene?.id} onSelectScene={selectScene} manual={manual && !story} scenes={videoInfo?.scenes || []} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)} saving={savingOrder} onReorder={onReorder} onTransition={onTransition} pendingTransition={pendingTransition} onTiming={onTiming} pendingTiming={pendingTiming} onMotion={onMotion} pendingMotion={pendingMotion} transitionSettings={videoInfo?.settings || {}} setUpdated={setUpdated} videoFormat={videoInfo?.settings?.video_format || "LANDSCAPE"} />
             {videoInfo && !videoInfo.scenes?.length && <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center dark:border-gray-600"><h2 className="font-semibold text-gray-900 dark:text-white">{videoInfo.status === "REVIEW" ? "Your prompts are ready" : "Your story starts here"}</h2><p className="mt-2 text-sm text-gray-500">{videoInfo.status === "REVIEW" ? "Review your storyboard and press Proceed to create these scenes." : manual ? "Add your photos or video clips. Use Audio to record a voiceover and Music to add a soundtrack." : "Add a scene to start building your video."}</p></div>}
             {!scenes.length && <button type="button" disabled={!videoInfo || sceneChangePending || renderPending || processing || videoInfo.status === "REVIEW"} onClick={() => setShowAddSceneModal(true)} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-5 text-sm font-semibold text-gray-500 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"><FaPlus />{processing ? "Processing…" : manual ? "Add media or blank scene" : "Add scene"}</button>}
           </section>

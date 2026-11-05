@@ -60,7 +60,7 @@ function App() {
         <Navbar theme={theme} toggleTheme={toggleTheme} />
       ) : null}
 
-      <PageLoadBoundary key={location.pathname}>
+      <PageLoadBoundary resetKey={location.pathname}>
         <Suspense fallback={<div role="status" className="flex min-h-[50vh] items-center justify-center px-6 text-sm text-gray-500 dark:text-gray-400">Loading page…</div>}>
           <Routes>
             <Route path="/guide/" element={<GuidePage />} />
@@ -79,18 +79,18 @@ function App() {
 
               <Route element={<RequireAuth />}>
                 <Route index element={<CreatePage />} />
-                <Route path="/clips/" element={<ClipsPage />} />
-                <Route path="/clips/:projectId/" element={<ClipsPage />} />
-                <Route path="/series/" element={<SeriesPage />} />
-                <Route path="/series/:seriesId/" element={<SeriesPage />} />
+                <Route path="/clips/" element={<ClipsPage key={location.pathname} />} />
+                <Route path="/clips/:projectId/" element={<ClipsPage key={location.pathname} />} />
+                <Route path="/series/" element={<SeriesPage key={location.pathname} />} />
+                <Route path="/series/:seriesId/" element={<SeriesPage key={location.pathname} />} />
                 <Route path="/ai/" element={<Home />} />
                 <Route path="/story/" element={<StoryVideo />} />
-                <Route path="/captions/" element={<Captions />} />
-                <Route path="/captions/:captionId/" element={<Captions />} />
+                <Route path="/captions/" element={<Captions key={location.pathname} />} />
+                <Route path="/captions/:captionId/" element={<Captions key={location.pathname} />} />
                 <Route path="/manual/" element={<ManualVideo />} />
                 <Route path="/avatars/" element={<Avatar />} />
                 <Route path="/videos/" element={<Videos />} />
-                <Route path="/videos/:videoId/" element={<Video />} />
+                <Route path="/videos/:videoId/" element={<Video key={location.pathname} />} />
                 <Route path="/assets/" element={<AssetPage />} />
                 <Route path="/api-keys/" element={<ApiKeys />} />
                 <Route path="/connections/" element={<Connections />} />

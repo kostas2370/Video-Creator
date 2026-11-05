@@ -49,3 +49,13 @@ it("shows direct project links on phones and closes the menu after navigation", 
   expect(screen.getByTestId("route").textContent).toBe("/videos");
   expect(screen.queryByRole("navigation", { name: "Mobile navigation" })).toBeNull();
 });
+
+it("opens navigation dropdowns without locking or hiding the page", async () => {
+  render(<MemoryRouter initialEntries={["/videos/"]}><Page /></MemoryRouter>);
+  await userEvent.click(screen.getByRole("button", { name: "Resources" }));
+  expect(screen.getByRole("menu")).toBeTruthy();
+  expect(document.documentElement.style.overflow).not.toBe("hidden");
+  expect(screen.getByTestId("route").closest("[inert]")).toBeNull();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("menu")).toBeNull();
+});

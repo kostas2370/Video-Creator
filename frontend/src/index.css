@@ -130,3 +130,96 @@
   background: #101827;
   border-color: #314258;
 }
+
+/* Studio workspace: canvas first, with an inspector and scene rail. */
+.studio-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+.studio-stage { padding: clamp(1rem, 2.5vw, 2rem); background: #f1f5f9; }
+.studio-canvas { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 6%), 0 12px 30px -18px rgb(15 23 42 / 45%); }
+.studio-view-button { border-radius: .5rem; padding: .5rem .75rem; font-size: .75rem; font-weight: 600; color: #64748b; }
+.studio-view-button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+.studio-view-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgb(15 23 42 / 8%); }
+.studio-inspector { background: #fff; border-top: 1px solid #e2e8f0; }
+.studio-tab-panels { min-height: 270px; }
+.dark .editor-workspace .editor-panel { background: #141e2e; border-color: #2d3b50; }
+.dark .studio-stage { background: #0d1523; }
+.dark .studio-inspector { background: #141e2e; border-color: #2d3b50; }
+.dark .studio-view-button { color: #94a3b8; }
+.dark .studio-view-active { background: #25344a; color: #f1f5f9; }
+.dark .editor-workspace .editor-strip { background: #111b2b; border-color: #2d3b50; }
+@media (min-width: 1024px) {
+  .studio-layout { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
+  .studio-inspector { border-top: 0; border-left: 1px solid #e2e8f0; }
+  .studio-stage { position: sticky; top: 8.5rem; }
+  .studio-tab-panels { min-height: 310px; }
+}
+@media (min-width: 1440px) { .studio-layout { grid-template-columns: minmax(0, 1fr) 400px; } }
+
+/* Keep page geometry stable when dialogs temporarily lock document scrolling. */
+html { scrollbar-gutter: stable; }
+.studio-stage { min-height: calc(min(42vh, 420px) + 160px); }
+@media (min-width: 1024px) {
+  /* Diagram playback controls occupy space even when the next scene is a photo. */
+  .studio-canvas { min-height: calc(min(42vh, 420px) + 70px); }
+}
+
+/* Scene creation shares the editor's slate surfaces. */
+.dark .scene-composer-dialog,
+.dark .scene-composer-dialog > header,
+.dark .scene-composer-dialog .editor-dialog-footer {
+  background: #141e2e;
+  border-color: #2d3b50;
+}
+.dark .scene-composer-dialog .scene-composer-choice {
+  background: #182438;
+  border-color: #33455f;
+}
+.dark .scene-composer-dialog .scene-composer-choice[aria-pressed="true"] {
+  background: #173357;
+  border-color: #60a5fa;
+}
+.dark .scene-composer-dialog :is(.scene-composer-card, .scene-position-picker, .scene-media-drop) {
+  background: #101b2b;
+  border-color: #33455f;
+}
+.dark .scene-composer-dialog .scene-position-neighbor {
+  background: #1e293b;
+  border-color: #33455f;
+}
+.dark .scene-composer-dialog :is(textarea, select, input:not([type="checkbox"]):not([type="radio"])) {
+  background: #0f172a;
+  border-color: #475569;
+}
+.dark .scene-composer-dialog .scene-position-trigger,
+.dark .scene-position-options {
+  background: #1e293b;
+  border-color: #475569;
+}
+.dark .scene-composer-dialog .scene-preview-surface { background: #0c1422; }
+.dark .scene-composer-dialog .scene-preview-frame { background: #111d30; }
+
+/* One dialog system for project tools, media, settings and confirmations. */
+.dark .app-dialog,
+.dark .app-dialog .editor-dialog-header,
+.dark .app-dialog .editor-dialog-footer {
+  background: #141e2e;
+  border-color: #2d3b50;
+}
+.dark .app-dialog .editor-dialog-body :is([class~="dark:bg-gray-800"], [class~="dark:bg-gray-900"], [class~="dark:bg-gray-800/40"], [class~="dark:bg-gray-800/50"], [class~="dark:bg-gray-900/40"]) {
+  background-color: #101b2b;
+  border-color: #33455f;
+}
+.dark .app-dialog :is(textarea, select, input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"])) {
+  background: #0f172a;
+  border-color: #475569;
+}
+.app-dialog :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.app-dialog .editor-dialog-footer :is(button, a) { min-height: 44px; }
+.app-dialog .editor-dialog-footer button:not([class*="bg-"]) { border: 1px solid #e2e8f0; }
+.dark .app-dialog .editor-dialog-footer button:not([class*="bg-"]) { border-color: #33455f; }
+@media (max-width: 639px) {
+  .app-dialog .editor-dialog-footer > :is(div, footer) { flex-wrap: wrap; }
+  .app-dialog .editor-dialog-body :is(video, audio, img) { max-width: 100%; }
+}

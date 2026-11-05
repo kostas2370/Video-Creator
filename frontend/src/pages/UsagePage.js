@@ -36,7 +36,7 @@ export function Usage() {
   }, [period, refresh]);
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
+    <main aria-busy={loading} className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">AI usage</h1>
@@ -51,7 +51,8 @@ export function Usage() {
         </div>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400">Tokens are reported by providers. Voice services are measured in characters; images and video also have their own units. Costs are estimates from recorded usage and saved rates, not invoices. Unknown prices and older unpriced requests are excluded; partial coverage is shown. Only requests made after tracking was enabled are included.</p>
-      {loading ? <p role="status">Loading usage…</p> : error ? <p role="alert" className="text-red-600 dark:text-red-400">{error}</p> : data && <>
+      {error && <p role="alert" className="text-red-600 dark:text-red-400">{error}</p>}
+      {loading && !data ? <p role="status">Loading usage…</p> : data && <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className={card}><p className="text-sm text-gray-500 dark:text-gray-400">Estimated cost · USD</p><p className="mt-2 text-3xl font-semibold"><RecordedCost metrics={data.totals} /></p></div>
           <div className={card}><p className="text-sm text-gray-500 dark:text-gray-400">Reported tokens</p><p className="mt-2 text-3xl font-semibold"><TokenValue row={data.totals} field="total_tokens" /></p></div>
