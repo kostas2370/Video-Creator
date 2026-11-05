@@ -134,12 +134,23 @@ def full_scene_diagram(scene):
                for item in scene.overlays or [])
 
 
+def diagram_text_layout(value, max_width, font_size, max_height):
+    """Fit wrapped labels conservatively, including wide and non-Latin glyphs."""
+    columns = max(1, math.floor(max_width / (font_size * .7)))
+    wrapped = wrap_text(" ".join(value.split()), 1, len, max_width=columns)
+    lines = wrapped.split("\n")
+    text_width = max(1, max(sum(
+        1.05 if char in WIDE_GLYPHS or ord(char) >= 0x2e80 else .65
+        for char in line
+    ) for line in lines))
+    size = min(font_size, max_height / (len(lines) * 1.3), max_width / text_width)
+    return wrapped, size
+
+
 def diagram_plan(diagram, size, duration):
-    """Lay out cards in the caption-safe region; reveal each over the scene."""
+    """Build shared primitives and delegate to the selected diagram layout."""
     width, height = size
     config = TEMPLATES[diagram["template"]]
-    items = diagram["items"]
-    row_height = height * .51 / len(items)
     reveal = min(.35, duration * .08)
     elements = []
 
@@ -152,13 +163,8 @@ def diagram_plan(diagram, size, duration):
                              height=edge, start=start, reveal=reveal))
 
     def text(value, x, y, max_width, font_size, max_height, color, start=0):
-        # Conservative character widths also handle long words without clipping.
-        columns = max(1, math.floor(max_width / (font_size * .7)))
-        wrapped = wrap_text(" ".join(value.split()), 1, len, max_width=columns)
-        lines = wrapped.split("\n")
-        elements.append(dict(kind="text", x=x, y=y, text=wrapped,
-                             size=min(font_size, max_height / (len(lines) * 1.3),
-                                      max_width / max(1, max(sum(1.05 if char in WIDE_GLYPHS or ord(char) >= 0x2e80 else .65 for char in line) for line in lines))),
+        wrapped, fitted_size = diagram_text_layout(value, max_width, font_size, max_height)
+        elements.append(dict(kind="text", x=x, y=y, text=wrapped, size=fitted_size,
                              color=color, start=start, reveal=reveal))
 
     rect(0, 0, width, height, "#0f172a")
@@ -166,6 +172,16 @@ def diagram_plan(diagram, size, duration):
          min(width * .065, height * .065), height * .12, "#ffffff")
     if config.get("graph"):
         return graph_plan(diagram, size, duration, elements, rect, text, place_icon)
+    return card_plan(diagram, size, duration, elements, rect, text, place_icon)
+
+
+def card_plan(diagram, size, duration, elements, rect, text, place_icon):
+    """Lay out comparison, timeline, step and flow cards using shared primitives."""
+    width, height = size
+    config = TEMPLATES[diagram["template"]]
+    items = diagram["items"]
+    row_height = height * .51 / len(items)
+    reveal = min(.35, duration * .08)
     if config["rail"]:
         rect(width * .135, height * .29, width * .004,
              row_height * (len(items) - 1), "#475569")

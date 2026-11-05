@@ -119,7 +119,8 @@ def particle_overlays(segment, size, plan):
     return styles, events
 
 
-def apply_overlays(graph, stream, segments, size, directory):
+def collect_overlays(graph, stream, segments, size):
+    """Collect timed vector drawings and icon placements, applying logo layers."""
     styles, events, icons = [], [], []
     for segment in segments:
         plan = animation_plan(segment.content) if segment.visual_type == "image" else None
@@ -156,9 +157,18 @@ def apply_overlays(graph, stream, segments, size, directory):
                 )
                 styles.append(style)
                 events.append(event)
-    if styles:
-        write_document(Path(directory, "overlays.ass"), size, styles, events)
-        stream = graph.filter([stream], subtitles_filter("overlays.ass", directory))
+    return stream, styles, events, icons
+
+
+def render_drawings(graph, stream, styles, events, size, directory):
+    if not styles:
+        return stream
+    write_document(Path(directory, "overlays.ass"), size, styles, events)
+    return graph.filter([stream], subtitles_filter("overlays.ass", directory))
+
+
+def add_diagram_icons(graph, stream, icons):
+    """Resolve artwork once per owner and place each timed icon."""
     keys = defaultdict(set)
     for element, _, _, _, owner in icons:
         keys[owner].add(element["icon"])
@@ -173,3 +183,9 @@ def apply_overlays(graph, stream, segments, size, directory):
                 timing=(start + element["start"], end), opacity=opacity,
             )
     return stream
+
+
+def apply_overlays(graph, stream, segments, size, directory):
+    stream, styles, events, icons = collect_overlays(graph, stream, segments, size)
+    stream = render_drawings(graph, stream, styles, events, size, directory)
+    return add_diagram_icons(graph, stream, icons)
