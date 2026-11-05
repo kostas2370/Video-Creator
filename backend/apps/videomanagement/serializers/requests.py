@@ -287,16 +287,10 @@ class ManualSceneSerializer(ScenePositionSerializer):
 
 
 class AddSceneSerializer(ScenePositionSerializer):
-    text = serializers.CharField(required=False)
+    text = serializers.CharField()
     image_description = serializers.CharField(required=False)
     is_last = serializers.BooleanField(default=False)
     with_audio = serializers.BooleanField(default=False)
-
-    def validate(self, attrs):
-        if not attrs.get("text"):
-            raise serializers.ValidationError("text field required !")
-
-        return super().validate(attrs)
 
 
 class AddScenesSerializer(ScenePositionSerializer):

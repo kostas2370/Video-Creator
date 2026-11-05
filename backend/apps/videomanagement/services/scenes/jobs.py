@@ -89,6 +89,4 @@ def edit_scene_text(scene, text):
         scene.video.settings or {}
     ).get("narration", False):
         return update_manual_text(scene, text), None
-    if not text.strip():
-        raise ValidationError("Add dialogue for this scene.")
     return scene, queue_scene_job(scene, tasks.update_scene_task, text)
