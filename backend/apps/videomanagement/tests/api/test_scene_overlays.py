@@ -3,6 +3,7 @@ import json
 import tempfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.base import ContentFile
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
@@ -10,6 +11,7 @@ from PIL import Image
 from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import scene
+from ...models import Icon
 from .base import ApiTestCase
 
 
@@ -61,6 +63,22 @@ class SceneOverlayTests(ApiTestCase):
             {"kind": "title", "text": "My title", "font": "/tmp/custom.ttf"}
         ]}, format="json")
         self.assertEqual(invalid.status_code, 400)
+
+    def test_icon_graph_connections_round_trip_through_save_and_preview(self):
+        icon = Icon(key="lucide:landmark", collection="lucide", name="Bank")
+        icon.file.save("bank.svg", ContentFile(b'<svg xmlns="http://www.w3.org/2000/svg"/>'), save=True)
+        diagram = {"template": "graph", "title": "Loans", "items": [
+            {"label": "Bank", "icon": icon.key}, {"label": "Home"}, {"label": "Business"},
+        ], "connections": [{"source": 0, "target": 1, "label": "Mortgage"}, {"source": 0, "target": 2, "label": "Loan"}]}
+        response = self.client.patch(self.url, {"overlays": [{"kind": "diagram", "diagram": diagram}]}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.scene.refresh_from_db()
+        saved = self.scene.overlays[0]["diagram"]
+        self.assertEqual(saved["connections"], diagram["connections"])
+        self.assertEqual(saved["items"][0]["icon"], icon.key)
+        preview = self.client.get(reverse("video-preview", args=[self.video.pk]))
+        self.assertEqual(preview.data["segments"][0]["overlays"][0]["diagram"], saved)
+        self.scene_queue.assert_not_called()
 
     def test_multipart_logo_and_json_settings_are_saved_together(self):
         buffer = io.BytesIO()

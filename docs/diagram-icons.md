@@ -1,0 +1,67 @@
+# Diagram icons
+
+Install the catalog after applying migrations:
+
+```sh
+python manage.py migrate
+python manage.py download_icons
+```
+
+The command downloads the complete Lucide and Material Design Icons collections
+from Iconify's icon-sets repository. It trusts those fixed upstream collections,
+wraps their concrete icon bodies as SVG, skips aliases and hidden icons, and stores
+metadata in the `Icon` table.
+Use `--collections lucide` to install one collection, or `--limit 20` for a small
+trial. Running it again updates metadata without duplicating icons or re-enabling
+icons an administrator disabled.
+
+Artwork and collection license notices are saved under
+`MEDIA_ROOT/media/icons/`, which is ignored by Git. Back up that directory with
+the database. Only the downloader, schema and application code belong in Git.
+The API and render workers must share the same media storage.
+
+With AI scene editing enabled, the backend searches installed icon names and
+descriptions (including upstream categories where provided) using the generation
+request text. It weights name matches more strongly and includes common fallback
+icons. At most 60 candidates are added to the existing script prompt. GPT chooses
+an optional ID for each diagram item; it does not receive the whole catalog and
+makes no separate icon-search API call. This is keyword search, not semantic
+search: synonyms and abstract concepts may be missed. GPT may omit an icon;
+unknown, disabled or missing artwork is omitted during validation.
+
+The authenticated `/api/icons/` endpoint supports paginated `search`, exact
+`keys` lookups, a `mine=true` filter, and multipart uploads with `name`, optional `description` and `file`.
+Users see the shared catalog and their own uploads. Ownership is applied to search,
+GPT shortlists, diagram validation and rendering. Each diagram item has a searchable picker for replacing or removing
+its icon. Preview and export use the same local artwork and layout. The render
+image's FFmpeg includes the librsvg decoder used for these SVG inputs.
+
+Choose **Icon graph** for horizontal icon-to-icon arrows, branches and merges,
+without cards. Graphs support 2–6 items and up to 8 directed connections. Each
+connection references zero-based `source` and `target` item indices and an optional
+`label`. Omitting `connections` draws a horizontal chain; an empty array draws no
+arrows. The editor preserves connection targets when removing an item and prevents
+self-connections, duplicate arrows and loops. Cyclic graphs are not supported.
+Nodes are laid out automatically in columns. Arrows route around skipped columns;
+moving markers follow the routed paths at constant speed in preview and export.
+Keep portrait graphs to 2–4 nodes and short labels when possible for readability.
+
+Open **Upload your own icon** in the picker to add a still PNG, JPEG or WebP
+(10 MB and 4 million pixels maximum). Uploaded icons are converted to 256×256 PNG
+with transparent padding, preserving aspect ratio and colours. Give each upload a
+meaningful name/description so it can be found in searches and GPT shortlists.
+Uploads are reusable across the owner's videos. Raw SVG uploads are not accepted;
+the downloaded catalog continues to use its upstream SVG artwork. Apply migration
+0056 when upgrading an existing icon catalog.
+
+Lucide uses ISC and Material Design Icons uses Apache 2.0. The downloader retains
+each collection's license notice and records its license URL and author in the
+table/API. Keep those notices with distributed artwork.
+
+In **Assets → Icons**, browse the shared catalog, filter **My icons**, and upload
+new artwork without opening a diagram. Click an icon for a larger preview and
+license information. Owners can rename their uploads, edit descriptions, and
+delete them through `/api/icons/<key>/` (`PATCH` / `DELETE`). Shared icons and
+other users’ uploads cannot be modified. Deleting an upload removes its artwork
+and makes it unavailable in existing diagrams; already rendered exports are
+unchanged. The Assets tab and diagram picker share the same catalog browser.

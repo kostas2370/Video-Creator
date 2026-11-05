@@ -1,3 +1,5 @@
+import { hasFullSceneDiagram } from "../utils/diagrams";
+import { SceneDiagramPreview } from "./SceneDiagramPreview";
 import { DeferredVideo } from "./ui/DeferredVideo";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { RiDraggable } from "react-icons/ri";
@@ -125,7 +127,7 @@ export function ReorderableScenes({ videoId, onTextSave, onTextRewrite, textBusy
             {insertion && <span aria-hidden="true" className="pointer-events-none absolute -left-2 bottom-0 top-0 w-1 rounded-full bg-blue-500" />}
             <button type="button" disabled={textBusy} aria-label={`Edit scene ${index + 1}`} aria-pressed={activeId === scene.id} onClick={() => onSelectScene?.(scene.id)} className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
               <span className="relative mb-1.5 flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-900">
-                {file ? isVideo(file) ? <DeferredVideo src={API_HOST + file} muted playsInline preload="metadata" aria-hidden="true" className="pointer-events-none h-full w-full object-cover" /> : <img src={API_HOST + file} alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" /> : <HiOutlineFilm aria-hidden="true" className="h-7 w-7 text-gray-400" />}
+                {hasFullSceneDiagram(scene) ? <SceneDiagramPreview scene={scene} videoFormat={videoFormat} /> : file ? isVideo(file) ? <DeferredVideo src={API_HOST + file} muted playsInline preload="metadata" aria-hidden="true" className="pointer-events-none h-full w-full object-cover" /> : <img src={API_HOST + file} alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" /> : <HiOutlineFilm aria-hidden="true" className="h-7 w-7 text-gray-400" />}
                 <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">{formatDuration(scene.timing?.duration)}</span>
               </span>
               <span className="block text-xs font-semibold">Scene {index + 1}{textDrafts[scene.id] && textDrafts[scene.id].text !== (scene.text || "") && <span aria-label="Unsaved text" className="ml-1 text-amber-600 dark:text-amber-300">•</span>}</span><span className="sr-only text-gray-500 dark:text-gray-400">{scene.text || "Add text or media"}</span>

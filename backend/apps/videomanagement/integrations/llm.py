@@ -37,7 +37,7 @@ def token_limit_kwarg(model: str) -> dict:
     }
 
 
-def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False, require_visual_continuity=False):
+def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False, require_visual_continuity=False, user=None):
     """Validate the structure consumed by scene and media generation."""
     def nonempty(value):
         return isinstance(value, str) and bool(value.strip())
@@ -81,7 +81,7 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
                     errors.append(f"{label} shot_plan: {shot_plan.errors}")
             if ai_scene_editing:
                 plan = SceneEditingPlanSerializer(
-                    data=entry.get("editing"), context={"video_provider": video_provider}
+                    data=entry.get("editing"), context={"video_provider": video_provider, "user": user}
                 )
                 if not plan.is_valid():
                     errors.append(f"{label} editing: {plan.errors}")
@@ -209,6 +209,7 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
             errors = script_errors(
                 data, narration, scene_count, ai_scene_editing, video_provider,
                 require_visual_continuity=require_visual_continuity,
+                user=user,
             )
             if require_episode_summary and (not isinstance(data, dict) or not isinstance(data.get("episode_summary"), str) or not data["episode_summary"].strip() or len(data["episode_summary"]) > 800):
                 errors.append("Include episode_summary: a nonempty string of at most 800 characters recording the episode's events and ending.")

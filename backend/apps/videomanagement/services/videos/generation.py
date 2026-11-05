@@ -22,6 +22,7 @@ from apps.videomanagement.models import (
     VoiceModel,
 )
 from apps.videomanagement.services.media.downloads import download_music
+from apps.videomanagement.services.media.icons import icon_candidates
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.scenes.visual_planning import apply_visual_plans
 from apps.videomanagement.services.scenes.narration import (
@@ -213,6 +214,7 @@ def generate_video(
         style=style,
         narration=narration,
         ai_scene_editing=ai_scene_editing,
+        diagram_icons=icon_candidates(message, user=video.created_by_id) if ai_scene_editing else (),
         visual_continuity=visual_continuity,
         reference_role=reference_role if has_reference else None,
     )

@@ -5,6 +5,7 @@ from apps.videomanagement.integrations.visuals.custom import CustomImageProvider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import VoiceModelType
 from apps.videomanagement.services.scenes.visuals import visual_generation_duration
+from apps.videomanagement.utils.diagrams import full_scene_diagram
 
 from .pricing import estimate_line, total_estimate
 
@@ -84,6 +85,13 @@ def media_estimate(video, storyboard=None, *, scene=None, operation="all", text=
     lines = []
     if narration and operation in ("all", "narration") and count:
         lines.append(voice_estimate(video, "".join(texts), requests=count))
+    if operation == "all":
+        if scene is None and options.get("ai_scene_editing"):
+            durations = [duration for shot, duration in zip(shots, durations)
+                         if not (shot.get("editing") or {}).get("diagram")]
+        elif scene is not None and full_scene_diagram(scene):
+            durations = []
+        count = len(durations)
     if count and operation in ("all", "visual", "animation"):
         provider = options.get("provider") or "OPENAI"
         is_video = ImageProviderRegistry.is_video(

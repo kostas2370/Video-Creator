@@ -31,6 +31,11 @@ class VisualPlanValidationTests(SimpleTestCase):
         self.assertEqual(serializer.validated_data["scenes"], script["scenes"])
         self.assertFalse(script_errors(script, ai_scene_editing=True))
 
+    def test_unlabeled_scenes_are_valid(self):
+        script = storyboard({**EDITING, "overlays": []})
+        self.assertTrue(StoryboardSerializer(data=script).is_valid())
+        self.assertFalse(script_errors(script, ai_scene_editing=True))
+
     def test_invalid_labels_and_overlapping_emphasis_are_rejected(self):
         for changes in (
             {"text": ""}, {"text": "x" * 81}, {"position": "bottom-center"},
@@ -52,7 +57,8 @@ class VisualPlanValidationTests(SimpleTestCase):
     def test_planning_instructions_are_opt_in_and_focus_reaches_image_prompts(self):
         for mode in ("AI", "WEB"):
             prompt = build_script_prompt(image_mode=mode, ai_scene_editing=True)
-            self.assertIn('"start_fraction"', prompt)
+            self.assertIn('"overlays": []', prompt)
+            self.assertIn("Leave most scenes unlabeled", prompt)
             self.assertIn("avoid repeated framing", prompt)
         self.assertNotIn('"start_fraction"', build_script_prompt())
         self.assertIn("Visual focus: The opening", with_shot_plan("A cat", {"visual_focus": "The opening"}))

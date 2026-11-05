@@ -52,6 +52,27 @@ class AbstractModel(UUIDModel):
         abstract = True
 
 
+class Icon(models.Model):
+    """Shared, downloaded artwork. The source key is also the ID used in storyboards."""
+
+    key = models.CharField(max_length=120, primary_key=True)
+    created_by = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
+    collection = models.CharField(max_length=40, db_index=True)
+    name = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    file = models.FileField(upload_to="media/icons/", max_length=255, blank=True)
+    license = models.CharField(max_length=80)
+    license_url = models.URLField(max_length=500)
+    attribution = models.CharField(max_length=250, blank=True)
+    enabled = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("collection", "name", "key")
+
+    def __str__(self):
+        return f"{self.name} ({self.key})"
+
+
 class CaptionProjectStatus(models.TextChoices):
     QUEUED = "QUEUED", "QUEUED"
     TRANSCRIBING = "TRANSCRIBING", "TRANSCRIBING"

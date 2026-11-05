@@ -11,6 +11,7 @@ from django.conf import settings
 from apps.videomanagement.exceptions import RenderFailedException
 from apps.videomanagement.export_settings import DEFAULT_EXPORT_FPS, export_settings
 from apps.videomanagement.services.captions.alignment import align_scene_narration
+from apps.videomanagement.services.media.icons import available_icon_files
 from apps.videomanagement.services.videos.preview import (
     apply_transitions,
     asset_segment,
@@ -22,6 +23,7 @@ from apps.videomanagement.utils.frames import save_video_frame
 from ...models import RENDERABLE_STATUSES, MotionStyle, TransitionStyle, VideoStatus
 from ...video_formats import output_size
 from ..audio_editing import narration_file, voice_tracks
+from ..diagrams import diagram_icon_keys
 from ..file_utils import check_if_image, stored_file_exists
 from ..fonts import subtitles_filter
 from ..motion import AMOUNTS, resolved_motion
@@ -209,7 +211,7 @@ def motion_filter(scene, duration, size, fps=FPS):
     return f"zoompan=z='{zoom}':x='{x}':y='{y}':d={math.ceil(duration * fps)}:s={width}x{height}:fps={fps}"
 
 
-def visual_stream(graph, segment, size, fps=FPS):
+def visual_stream(graph, segment, size, fps=FPS, *, directory=None, assets=None):
     field = segment.image.file if segment.image else None
     if segment.kind != "scene":
         field = segment.content.file
@@ -246,6 +248,10 @@ def visual_stream(graph, segment, size, fps=FPS):
         [stream],
         f"trim=duration={segment.base_duration},tpad=stop_mode=clone:stop_duration={segment.duration},trim=duration={segment.duration},setpts=PTS-STARTPTS,format=yuv420p",
     )
+    if segment.kind == "scene":
+        assets = assets or {}
+        stream = avatar_layer(graph, segment.content.video, stream, segment, assets.get("avatar"))
+        stream = apply_overlays(graph, stream, segment, size, directory, assets.get("icons", {}))
     fades = []
     if segment.fade_in:
         fades.append(f"fade=t=in:st=0:d={segment.fade_in}")
@@ -273,9 +279,9 @@ def quantized_scenes(segments, fps=FPS):
     return quantized
 
 
-def render_scene_clip(segment, directory, size, output, previous_frame=None, fps=FPS):
+def render_scene_clip(segment, directory, size, output, previous_frame=None, fps=FPS, *, assets=None):
     graph = Graph()
-    visual = visual_stream(graph, segment, size, fps)
+    visual = visual_stream(graph, segment, size, fps, directory=directory, assets=assets)
     if segment.dissolve_in and previous_frame:
         frame = graph.input(previous_frame, ("-loop", "1", "-framerate", str(fps)))
         frozen = graph.filter(
@@ -305,7 +311,7 @@ def render_scene_clip(segment, directory, size, output, previous_frame=None, fps
     )
 
 
-def render_scene_clips(segments, directory, size, opening=None, cache=None, fps=FPS):
+def render_scene_clips(segments, directory, size, opening=None, cache=None, fps=FPS, *, assets=None):
     sources = SourceFingerprints()
     quantized = quantized_scenes(segments, fps)
     previous_frame = None
@@ -316,12 +322,12 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None, fps=
     for index, segment in enumerate(quantized):
         output = Path(directory, f"scene-{index}.mkv")
         key = (
-            cache.key(segment, size, fps, dependency, sources=sources)
+            cache.key(segment, size, fps, dependency, sources=sources, assets=assets)
             if cache and cache.enabled
             else None
         )
         if not key or not cache.stage(key, output):
-            render_scene_clip(segment, directory, size, output, previous_frame, fps=fps)
+            render_scene_clip(segment, directory, size, output, previous_frame, fps=fps, assets=assets)
             if key:
                 cache.store(key, output)
         dependency = key
@@ -342,9 +348,9 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None, fps=
     return manifest
 
 
-def avatar_layer(graph, video, stream, duration):
+def avatar_source(video):
     if not video.avatar:
-        return stream
+        return None
     path = Path(video.dir_name, "output_avatar.mp4").resolve()
     if not path.exists():
         # SadTalker is an optional, heavyweight dependency used only for avatar renders.
@@ -353,8 +359,14 @@ def avatar_layer(graph, video, stream, duration):
         generated = create_avatar_video(video.avatar, video.dir_name)
         if not generated:
             logger.warning("Rendering video %s without unavailable avatar", video.pk)
-            return stream
+            return None
         path = Path(generated)
+    return path
+
+
+def avatar_layer(graph, video, stream, segment, path):
+    if path is None:
+        return stream
     avatar_duration = media_timing(path).get("duration")
     if not avatar_duration:
         raise RenderFailedException("Avatar timing is unavailable.")
@@ -362,7 +374,7 @@ def avatar_layer(graph, video, stream, duration):
     fade = min(0.5, avatar_duration / 2)
     avatar = graph.filter(
         [f"{index}:v"],
-        f"setpts=PTS-STARTPTS,scale=trunc(iw*1.5/2)*2:trunc(ih*1.5/2)*2,format=rgba,fade=t=in:st=0:d={fade}:alpha=1,fade=t=out:st={avatar_duration - fade}:d={fade}:alpha=1",
+        f"setpts=PTS-STARTPTS,scale=trunc(iw*1.5/2)*2:trunc(ih*1.5/2)*2,format=rgba,fade=t=in:st=0:d={fade}:alpha=1,fade=t=out:st={avatar_duration - fade}:d={fade}:alpha=1,trim=start={segment.start}:duration={segment.duration},setpts=PTS-STARTPTS",
     )
     horizontal, vertical = (
         (video.settings or {}).get("avatar_position", "right,top").split(",")
@@ -371,7 +383,7 @@ def avatar_layer(graph, video, stream, duration):
     y = {"top": "0", "center": "(H-h)/2", "bottom": "H-h"}[vertical]
     return graph.filter(
         [stream, avatar],
-        f"overlay=x={x}:y={y}:eof_action=pass:repeatlast=0,trim=duration={duration}",
+        f"overlay=x={x}:y={y}:eof_action=pass:repeatlast=0,trim=duration={segment.duration}",
     )
 
 
@@ -385,19 +397,18 @@ def final_graph(
     scene_manifest,
     opening=None,
     fps=FPS,
+    assets=None,
 ):
     graph = Graph()
     if scene_manifest is None:
         visuals = [
-            visual_stream(graph, segment, size, fps)
+            visual_stream(graph, segment, size, fps, directory=directory, assets=assets)
             for segment in quantized_scenes(segments, fps)
         ]
         visual = graph.filter(visuals, f"concat=n={len(visuals)}:v=1:a=0")
     else:
         scene_input = graph.input(scene_manifest, ("-f", "concat", "-safe", "1"))
         visual = graph.filter([f"{scene_input}:v"], "setpts=PTS-STARTPTS")
-    visual = avatar_layer(graph, video, visual, duration)
-    visual = apply_overlays(graph, visual, segments, size, directory)
     audio = audio_stream(graph, [narration_path], duration)
     if video.music:
         index = graph.input(video.music.file.path, ("-stream_loop", "-1"))
@@ -545,11 +556,16 @@ def make_video(video):
         )
         os.replace(narration, destination / "output_audio.wav")
         size = output_size(choices.get("video_format"))
+        keys = {key for segment in segments for key in diagram_icon_keys(segment.content.overlays)}
+        assets = {
+            "icons": available_icon_files(keys, user=video.created_by_id) if keys else {},
+            "avatar": avatar_source(video),
+        }
         manifest = None
         if not can_render_directly(segments):
             cache = SceneClipCache(video.pk)
             manifest = render_scene_clips(
-                segments, directory, size, opening, cache=cache, fps=fps
+                segments, directory, size, opening, cache=cache, fps=fps, assets=assets
             )
         graph, visual, audio, total = final_graph(
             video,
@@ -561,6 +577,7 @@ def make_video(video):
             manifest,
             opening,
             fps=fps,
+            assets=assets,
         )
         output = Path(directory, "output.mp4")
         graph.run(

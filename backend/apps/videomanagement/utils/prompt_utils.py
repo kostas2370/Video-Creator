@@ -160,8 +160,7 @@ def _script_structure(brief, narration, ai_scene_editing=False):
             "motion_style": "NONE", "motion_intensity": "SUBTLE",
             "transition_after": "CUT", "transition_duration": .2, "pause_after": 0,
             "animation_preset": "NONE", "animation_accents": False,
-            "overlays": [{"text": "<short meaningful label>", "position": "top-center",
-                          "start_fraction": .1, "end_fraction": .6}],
+            "overlays": [], "diagram": None,
         }
     shape = {
         "title": "<short title for the video>",
@@ -175,7 +174,7 @@ def _script_structure(brief, narration, ai_scene_editing=False):
             + json.dumps(shape, indent=2) + "\n")
 
 
-def _scene_editing_instructions(visual_type):
+def _scene_editing_instructions(visual_type, diagram_icons=()):
     instructions = (
         "Plan the whole visual story before choosing edits. Open with a clear visual question or "
         "surprising situation, build through explanation and evidence, and end with a payoff. "
@@ -201,15 +200,48 @@ def _scene_editing_instructions(visual_type):
         "context, and PLAYFUL only for a lighthearted reaction or punchline. Use NONE where "
         "a plain shot communicates best. Avoid repeating the same effect throughout the video. "
         "animation_accents: false by default; use decorative particles only when they fit the tone. "
-        "overlays: an array of zero, one, or two short labels. Use an empty array when text adds "
-        "nothing. Each label has text (at most 80 characters, ideally 2–6 words), position "
+        "overlays: default to an empty array. Leave most scenes unlabeled. Add a label only when "
+        "it materially clarifies a key number, comparison, or reveal that the visuals and captions "
+        "do not already communicate clearly. Do not label every scene, repeat captions, or add "
+        "text just to decorate a shot. When needed, use one short label; two is the maximum, "
+        "not a target. Each label has text (at most 80 characters, ideally 2–6 words), position "
         "(top-left, top-center, top-right, or middle-center), start_fraction, and end_fraction "
         "(0–1 fractions of the finished scene, end strictly after start). Labels must not overlap "
         "in time. Place a label near the corresponding thought, number, comparison, or reveal; "
         "do not duplicate the full narration or invent a claim. Keep the bottom clear for captions. "
+        "diagram: null by default. For educational scenes where a structured visual explains "
+        "more clearly than a photograph, you may instead use an animated diagram object with "
+        "template, title, and items fields. Each items entry has label and detail text fields. "
+        "Templates: comparison for exactly two subjects or alternatives; timeline for 2–4 "
+        "chronological events (put the date or time in each label); steps for 2–4 ordered stages "
+        "of a process; flow for 2–4 connected stages showing transfer of water, energy, signals, "
+        "or material. Flow shows all stages together with directional arrows and moving markers; "
+        "use it only for a real directed connection, not merely a chronological list. "
+        "Use graph for 2–6 icon nodes linked horizontally with arrows, including branches and "
+        "merges. Graph has no cards. Prefer 2–4 nodes on portrait video; keep node labels very "
+        "short and detail empty unless it is essential. A graph may include connections: an "
+        "array of at most 8 arrows, each with source and target (zero-based indices into items) "
+        "and an optional label of at most 30 characters. For example, source 0 to targets 1 "
+        "and 2 creates a branch. No self-connections, duplicate arrows, or loops. Omitting "
+        "connections creates a simple horizontal chain; an empty array means no arrows. "
+        "Title maximum 60 characters, item label maximum 40, detail maximum 90. "
+        "Other diagram cards appear sequentially over the scene; use a diagram only when its items fit "
+        "this scene's narration and duration. Keep descriptions concise enough to read. "
+        "Do not invent dates, measurements, facts, or intermediate stages. Keep overlays empty "
+        "when a diagram is selected. A diagram replaces the visible photo with a dark graphic "
+        "background; keep diagram null when the subject itself needs to be seen. Use these "
+        "selectively, never on every scene. They do not require generated video. "
         "Timings are planning estimates which users can review before generation. "
         "These are editor settings; keep them out of narration and visual descriptions. "
         "For the final shot, use CUT and transition_duration 0.1; it has no following shot. "
+    )
+    instructions += (
+        "Each diagram item may optionally include icon: an ID from the available catalog below, "
+        "or an empty string for no icon. Choose icons by meaning, not decoration. Never invent "
+        "an ID or a URL; leave icon empty when nothing fits. The list is a topic-based shortlist "
+        "from the installed library, not every icon that exists.\nAVAILABLE DIAGRAM ICONS:\n"
+        + ("\n".join(f"- {icon['id']}: {icon['name']} — {icon['description']}" for icon in diagram_icons)
+           if diagram_icons else "No icons are installed for this request; omit icon fields.") + "\n"
     )
     if visual_type == VisualType.VIDEO:
         return instructions + "Use motion_style NONE and animation_preset NONE for every shot; camera movement comes from the generated video."
@@ -261,6 +293,7 @@ def build_script_prompt(
     ai_scene_editing: bool = False,
     visual_continuity: str = "",
     reference_role: str = None,
+    diagram_icons=(),
 ) -> str:
     """Build the complete script request from video settings and a creative brief."""
     visual_type = resolve_visual_type(image_mode, video)
@@ -329,7 +362,7 @@ def build_script_prompt(
             "reviewable before media generation."
         )
     if ai_scene_editing:
-        output += "\nAI SCENE EDITING:\n" + _scene_editing_instructions(visual_type)
+        output += "\nAI SCENE EDITING:\n" + _scene_editing_instructions(visual_type, diagram_icons)
     if narration:
         output += " Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph."
     else:

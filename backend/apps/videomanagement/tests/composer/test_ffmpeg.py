@@ -8,6 +8,7 @@ import wave
 from pathlib import Path
 from unittest import skipUnless
 from unittest.mock import patch
+from uuid import UUID
 
 import numpy as np
 from django.conf import settings
@@ -16,6 +17,7 @@ from PIL import Image
 
 from apps.videomanagement.exceptions import RenderFailedException
 from apps.videomanagement.utils.frames import still_from_video
+from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import (
     avatar,
@@ -27,15 +29,122 @@ from ...baker_recipes import (
     video,
 )
 from ...serializers.overlays import OverlaySerializer
+from ...models import Icon
+from ...utils.diagrams import diagram_plan
 from ...utils.composer.render import Graph, make_video, render_scene_clip
 
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
 class FFmpegRenderTests(TestCase):
+    @override_settings(FFMPEG_DIRECT_RENDER=False)
+    def test_uploaded_icon_renders_in_colour_only_for_its_video_owner(self):
+        self.row.created_by = user.make()
+        self.row.save()
+        Image.new("RGBA", (256, 256), "red").save(self.root / "icon.png")
+        icon = Icon.objects.create(key="custom:test", collection="custom", name="My icon", file="icon.png", created_by=self.row.created_by)
+        overlay = OverlaySerializer(data={"kind": "diagram", "diagram": {
+            "template": "graph", "items": [{"label": "Source", "icon": icon.key}, {"label": "Destination"}],
+        }}, context={"user": self.row.created_by})
+        overlay.is_valid(raise_exception=True)
+        self.add_still(overlays=[overlay.validated_data])
+        make_video(self.row)
+        element = next(item for item in diagram_plan(overlay.validated_data["diagram"], (160, 90), .5) if item["kind"] == "icon")
+        x, y = round(element["x"] + element["width"] / 2), round(element["y"] + element["height"] / 2)
+        pixel = self.frame(.3)[y, x]
+        self.assertGreater(pixel[0], 200)
+        self.assertLess(pixel[1], 40)
+        icon.created_by = user.make()
+        icon.save()
+        make_video(self.row)
+        self.assertLess(self.frame(.3)[y, x, 0], 60)
+
+    def test_diagram_should_follow_scene_fade(self):
+        overlay = OverlaySerializer(
+            data={
+                "kind": "diagram",
+                "diagram": {
+                    "template": "steps",
+                    "items": [{"label": "One"}, {"label": "Two"}],
+                },
+            }
+        )
+        overlay.is_valid(raise_exception=True)
+        self.add_still(overlays=[overlay.validated_data])
+        self.row.settings.update(transition_default="FADE", transition_duration=0.2)
+        self.row.save()
+        for direct in (True, False):
+            with (
+                self.subTest(direct=direct),
+                override_settings(FFMPEG_DIRECT_RENDER=direct),
+            ):
+                make_video(self.row)
+                pixel = self.frame(0)[0, 0]
+                self.assertLess(
+                    float(pixel.mean()),
+                    3,
+                    "Diagram background should fade with the scene",
+                )
+
+    def test_later_title_should_cover_diagram_icon(self):
+        self.row.created_by = user.make()
+        self.row.save()
+        Image.new("RGBA", (256, 256), "red").save(self.root / "icon.png")
+        icon = Icon.objects.create(
+            key="custom:review",
+            collection="custom",
+            name="Review",
+            file="icon.png",
+            created_by=self.row.created_by,
+        )
+        overlay = OverlaySerializer(
+            data={
+                "kind": "diagram",
+                "diagram": {
+                    "template": "graph",
+                    "items": [
+                        {"label": "Source", "icon": icon.key},
+                        {"label": "Target"},
+                    ],
+                },
+            },
+            context={"user": self.row.created_by},
+        )
+        overlay.is_valid(raise_exception=True)
+        title = OverlaySerializer(
+            data={
+                "kind": "title",
+                "text": "MMMMMMMMMM",
+                "position": "middle-left",
+                "size": 8,
+                "color": "#00ff00",
+                "background": True,
+            }
+        )
+        title.is_valid(raise_exception=True)
+        self.add_still(overlays=[overlay.validated_data, title.validated_data])
+        make_video(self.row)
+        element = next(
+            e
+            for e in diagram_plan(overlay.validated_data["diagram"], (160, 90), 0.5)
+            if e["kind"] == "icon"
+        )
+        x, y = (
+            round(element["x"] + element["width"] / 2),
+            round(element["y"] + element["height"] / 2),
+        )
+        pixel = self.frame(0.3)[y, x]
+        self.assertLess(
+            int(pixel[0]),
+            50,
+            "Later green text/black background should cover the earlier red icon",
+        )
+
     def test_photo_presets_export_with_text_particles_and_frozen_pause(self):
         serializer = OverlaySerializer(data={"kind": "title", "text": "Look!", "size": 8})
         serializer.is_valid(raise_exception=True)
-        scene = self.add_still(motion_style="NONE", pause_after=.25, overlays=[serializer.validated_data])
+        # Camera movement and particles depend on the scene UUID. Keep the
+        # rendered fixture deterministic for the codec pixel comparison.
+        scene = self.add_still(id=UUID(int=1), motion_style="NONE", pause_after=.25, overlays=[serializer.validated_data])
         self.row.settings.update(transition_default="CUT", export_fps=30)
         self.row.save()
         for preset in ("PLAYFUL", "DRAMATIC", "CALM", "EXPLAINER"):
@@ -421,7 +530,7 @@ class FFmpegRenderTests(TestCase):
             first.overlays = [overlay.validated_data]
             first.save(update_fields=["overlays"])
             make_video(self.row)
-            build.assert_not_called()
+            self.assertEqual(build.call_count, 1)
             self.assertNotEqual(self.decoded_hash("v"), original[0])
             self.assertEqual(self.decoded_hash("a"), original[1])
 

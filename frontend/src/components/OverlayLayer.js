@@ -3,6 +3,7 @@ import { overlayLineHeight, overlayTextLayout, overlayTextMeasure } from "../uti
 import { videoFontFamily } from "../utils/fonts";
 import { API_HOST } from "../endpoints";
 import { overlayEntrance } from "../utils/photoAnimation";
+import { DiagramLayer } from "./DiagramLayer";
 
 export const overlayPositions = ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"];
 const mediaUrl = url => /^https?:\/\//i.test(url) || url?.startsWith("blob:") ? url : `${API_HOST}${url}`;
@@ -33,6 +34,7 @@ export function OverlayLayer({ overlays = [], logo, time = 0, duration = Infinit
   return <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden" style={{ containerType: "inline-size" }}>
     {[...overlays.filter(item => item.logo), ...overlays.filter(item => !item.logo)].map((item, index) => {
       if (time < item.start || time >= Math.min(duration, item.end ?? duration)) return null;
+      if (item.kind === "diagram") return <DiagramLayer key={index} item={item} time={time - item.start} duration={Math.min(duration, item.end ?? duration) - item.start} frameSize={frameSize} />;
       const [vertical, horizontal] = item.position.split("-");
       const column = { left: 0, center: 1, right: 2 }[horizontal];
       const row = { top: 0, middle: 1, bottom: 2 }[vertical];

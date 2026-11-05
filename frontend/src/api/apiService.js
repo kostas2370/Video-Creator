@@ -27,6 +27,10 @@ export const logout = () => post("logout/", undefined, callerHandlesErrors);
 
 export const getIntro = (search, page = 1) => get("intros/", { search: search || undefined, page });
 export const getOutro = (search, page = 1) => get("outros/", { search: search || undefined, page });
+export const getIcons = (params = {}) => request({ url: "icons/", params, ...callerHandlesErrors });
+export const uploadIcon = data => post("icons/", data, callerHandlesErrors);
+export const updateIcon = (key, data) => patch(detail("icons", key), data, callerHandlesErrors);
+export const deleteIcon = key => remove(detail("icons", key), callerHandlesErrors);
 export const getGenerationModels = () => get("generation-models/");
 export const getAvatars = (search, page = 1) => get("avatars/", { search: search || undefined, page });
 export const getVideos = (search, page, status, filters = {}) => get("videos/", { search: search || undefined, page: page || undefined, status: status || undefined, ...filters });

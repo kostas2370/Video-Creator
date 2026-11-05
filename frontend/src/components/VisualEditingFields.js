@@ -1,4 +1,5 @@
 import { photoPresets } from "../utils/photoAnimation";
+import { DiagramFields } from "./DiagramFields";
 
 const controlClass = "mt-2 w-full rounded-lg border border-gray-300 bg-white p-2 text-sm dark:border-gray-600 dark:bg-gray-900";
 const timingFields = [["start_fraction", "Show at (%)"], ["end_fraction", "Hide at (%)"]];
@@ -21,6 +22,7 @@ export function VisualEditingFields({ editing, onChange, disabled, photoAnimatio
         {photoPresets.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select>
     </label>}
+    <DiagramFields value={editing.diagram} optional onChange={diagram => onChange({ ...editing, diagram, overlays: diagram ? [] : overlays })} />
     <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{photoAnimations ? "Photo animations reuse your images. " : "Camera movement comes from your video clips. "}Transition: {editing.transition_after?.toLowerCase()} · Pause: {editing.pause_after}s. You can adjust these in the scene editor.</p>
     <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">Labels emphasize a question, number, or reveal. Timing is a percentage of the finished scene and is approximate, not word-synchronized. Keep labels short and show one at a time.</p>
     {overlays.map((item, index) => <div key={index} className="mt-3 rounded-lg border border-gray-200 p-3 dark:border-gray-600">
@@ -39,6 +41,6 @@ export function VisualEditingFields({ editing, onChange, disabled, photoAnimatio
       </div>
       <button type="button" onClick={() => change("overlays", overlays.filter((_, i) => i !== index))} className="mt-3 text-xs font-medium text-red-600 dark:text-red-400">Remove label {index + 1}</button>
     </div>)}
-    <button type="button" disabled={disabled || !canAddLabel} onClick={addLabel} className="mt-3 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium disabled:opacity-40 dark:border-gray-600">Add label</button>
+    <button type="button" disabled={disabled || !!editing.diagram || !canAddLabel} onClick={addLabel} className="mt-3 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium disabled:opacity-40 dark:border-gray-600">Add label</button>
   </fieldset>;
 }

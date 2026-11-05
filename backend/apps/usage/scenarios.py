@@ -4,6 +4,7 @@ from django.conf import settings
 
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.utils.prompt_utils import build_script_prompt
+from apps.videomanagement.services.media.icons import icon_candidates
 
 from .models import AIUsage
 from .pricing import estimate_line, money, total_estimate
@@ -33,6 +34,7 @@ def scenario_estimate(data, user):
         style=data.get("style", "natural"),
         narration=data.get("narration", True),
         ai_scene_editing=data.get("ai_scene_editing", False),
+        diagram_icons=icon_candidates(data["message"], user=user) if data.get("ai_scene_editing") else (),
         visual_continuity=data.get("visual_continuity", ""),
         reference_role=data.get("reference_role", "both")
         if data.get("has_reference")
