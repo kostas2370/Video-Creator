@@ -38,7 +38,9 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
             Video.objects.filter(pk=video.pk).update(
                 reference_image=video.reference_image.name
             )
-        tasks.generate_video_task.delay(video_id=video.id, **params)
+        tasks.generate_video_task.delay(
+            video_id=video.id, operation_id=str(video.operation_id), **params
+        )
     except Exception as exc:
         video.reference_image.delete(save=False)
         video.reference_image = ""
@@ -50,16 +52,26 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
 
 
 def dispatch_video_job(
-    video, failure_status, task, *,
+    video,
+    failure_status,
+    task,
+    *,
     failure_message="Could not queue processing. Your project is saved. Please try again.",
     **params,
 ):
     claimed_at, claimed_status = video.updated_at, video.status
     try:
-        task.delay(video_id=video.pk, **params)
+        task.delay(
+            video_id=video.pk,
+            operation_id=str(video.operation_id) if video.operation_id else None,
+            **params,
+        )
     except Exception as exc:
         Video.objects.filter(
-            pk=video.pk, status=claimed_status, updated_at=claimed_at
+            pk=video.pk,
+            status=claimed_status,
+            updated_at=claimed_at,
+            operation_id=video.operation_id,
         ).update(
             status=failure_status,
             updated_at=timezone.now(),
@@ -86,8 +98,18 @@ def queue_render(video, export_options=None):
             raise ValidationError("Add a scene before rendering your video.")
         previous_status = video.status
         video.settings = {**(video.settings or {}), **(export_options or {})}
+        video.operation_id = uuid4()
+        video.narration_retry_status = ""
         video.status = VideoStatus.RENDERING
-        video.save(update_fields=["settings", "status", "updated_at"])
+        video.save(
+            update_fields=[
+                "settings",
+                "status",
+                "operation_id",
+                "narration_retry_status",
+                "updated_at",
+            ]
+        )
     return dispatch_video_job(
         video, failure_status=previous_status, task=tasks.render_video_task
     )
@@ -99,6 +121,10 @@ def queue_resume(video):
         if video.video_type == VideoType.MANUAL:
             raise VideoEditConflict(
                 "Manual projects do not need AI generation. Edit your scenes and render again."
+            )
+        if video.narration_retry_status:
+            raise VideoEditConflict(
+                "Retry narration in video settings before resuming generation."
             )
         if not video.gpt_answer or not video.dir_name:
             raise VideoEditConflict(
@@ -113,8 +139,17 @@ def queue_resume(video):
                 }
             )
         previous_status = video.status
+        video.operation_id = uuid4()
+        video.narration_retry_status = ""
         video.status = VideoStatus.GENERATION
-        video.save(update_fields=["status", "updated_at"])
+        video.save(
+            update_fields=[
+                "status",
+                "operation_id",
+                "narration_retry_status",
+                "updated_at",
+            ]
+        )
     return dispatch_video_job(
         video, failure_status=previous_status, task=tasks.resume_video_task
     )
@@ -128,15 +163,24 @@ def approve_script(video, storyboard):
         params = (video.settings or {}).get("generation_params")
         if not params:
             raise VideoEditConflict("Generation settings are missing.")
-        generation_mode = storyboard.get("generation_mode", (video.settings or {}).get("generation_mode", "STANDARD"))
+        generation_mode = storyboard.get(
+            "generation_mode", (video.settings or {}).get("generation_mode", "STANDARD")
+        )
         params = {**params, "generation_mode": generation_mode}
-        video.settings = {**(video.settings or {}), "generation_mode": generation_mode, "generation_params": params}
+        video.settings = {
+            **(video.settings or {}),
+            "generation_mode": generation_mode,
+            "generation_params": params,
+        }
         if params.get("ai_scene_editing"):
             errors = script_errors(
-                storyboard, narration=params.get("narration", True),
-                scene_count=params.get("scene_count"), ai_scene_editing=True,
+                storyboard,
+                narration=params.get("narration", True),
+                scene_count=params.get("scene_count"),
+                ai_scene_editing=True,
                 video_provider=ImageProviderRegistry.is_video(
-                    params.get("provider"), user=video.created_by,
+                    params.get("provider"),
+                    user=video.created_by,
                     mode=params.get("image_mode", "WEB"),
                 ),
             )
@@ -148,19 +192,27 @@ def approve_script(video, storyboard):
             )
             params = {**params, "visual_continuity": continuity}
             video.settings = {
-                **(video.settings or {}), "visual_continuity": continuity,
+                **(video.settings or {}),
+                "visual_continuity": continuity,
                 "generation_params": params,
             }
         video.gpt_answer = dict(storyboard)
-        from apps.usage.scenarios import project_estimate
         from apps.usage.models import GenerationEstimate
+        from apps.usage.scenarios import project_estimate
 
-        GenerationEstimate.objects.update_or_create(video=video, defaults={"estimate": project_estimate(video, storyboard)})
+        GenerationEstimate.objects.update_or_create(
+            video=video, defaults={"estimate": project_estimate(video, storyboard)}
+        )
         video.title = storyboard["title"]
+        video.operation_id = uuid4()
+        video.narration_retry_status = ""
         video.status = VideoStatus.GENERATION
         video.save()
     return dispatch_video_job(
-        video, failure_status=VideoStatus.REVIEW, task=tasks.generate_video_task, **params
+        video,
+        failure_status=VideoStatus.REVIEW,
+        task=tasks.generate_video_task,
+        **params,
     )
 
 
@@ -176,8 +228,17 @@ def queue_scene_creation(video, data, upload=None):
         ):
             raise VideoEditConflict()
         previous_status = video.status
+        video.operation_id = uuid4()
+        video.narration_retry_status = ""
         video.status = VideoStatus.GENERATION
-        video.save(update_fields=["status", "updated_at"])
+        video.save(
+            update_fields=[
+                "status",
+                "operation_id",
+                "narration_retry_status",
+                "updated_at",
+            ]
+        )
     upload_path = None
     claimed_at = video.updated_at
     try:
@@ -185,10 +246,15 @@ def queue_scene_creation(video, data, upload=None):
             upload_path = default_storage.save(
                 f"media/scene_uploads/{uuid4().hex}/{Path(upload.name).name}", upload
             )
-        tasks.create_scene_task.delay(video.pk, dict(data), upload_path)
+        tasks.create_scene_task.delay(
+            video.pk, dict(data), upload_path, operation_id=str(video.operation_id)
+        )
     except Exception as exc:
         Video.objects.filter(
-            pk=video.pk, status=VideoStatus.GENERATION, updated_at=claimed_at
+            pk=video.pk,
+            status=VideoStatus.GENERATION,
+            updated_at=claimed_at,
+            operation_id=video.operation_id,
         ).update(status=previous_status, updated_at=timezone.now())
         if upload_path:
             default_storage.delete(upload_path)

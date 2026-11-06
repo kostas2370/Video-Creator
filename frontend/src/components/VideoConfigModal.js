@@ -101,29 +101,10 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     }
   };
 
-  const onSubmit = async (event) => {
-    event.preventDefault();
+  const saveSettings = async changes => {
     if (saving) return;
     setSaving(true);
     try {
-      const changes = {
-        visual_continuity: visualContinuity,
-        generation_mode: generationMode,
-        intro,
-        outro,
-        avatar,
-        subtitles,
-        caption_style: captionStyle,
-        caption_config: captionConfig,
-        platform,
-        video_format: videoFormat,
-        transition_default: transitionDefault,
-        transition_duration: transitionDuration === "" ? null : Number(transitionDuration),
-        intro_transition: introTransition,
-        intro_transition_duration: introTransitionDuration === "" ? null : Number(introTransitionDuration),
-      };
-      if (!avatar && voice) changes.voice_id = voice;
-      if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
       const { data: response, status } = await updateVideo(info.id, changes);
       if (response) {
         toast.success(status === 202 ? "Settings saved. Narration is regenerating in the background." : "Video settings saved");
@@ -135,9 +116,33 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     }
   };
 
+  const onSubmit = async event => {
+    event.preventDefault();
+    const changes = {
+      visual_continuity: visualContinuity,
+      generation_mode: generationMode,
+      intro,
+      outro,
+      avatar,
+      subtitles,
+      caption_style: captionStyle,
+      caption_config: captionConfig,
+      platform,
+      video_format: videoFormat,
+      transition_default: transitionDefault,
+      transition_duration: transitionDuration === "" ? null : Number(transitionDuration),
+      intro_transition: introTransition,
+      intro_transition_duration: introTransitionDuration === "" ? null : Number(introTransitionDuration),
+    };
+    if (!avatar && voice && String(voice) !== String(info?.voice_model ?? "")) changes.voice_id = voice;
+    if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
+    await saveSettings(changes);
+  };
+
   if (!showModal) return null;
 
   return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Video settings" description={`Customize ${info?.title || "your video"} before rendering.`} icon={RiSettings3Line} busy={saving} maxWidth="max-w-4xl" footer={<div className="flex justify-end gap-2">
+    {info?.can_retry_narration && <button type="button" disabled={saving} onClick={() => saveSettings({ retry_narration: true })} className={editorSecondaryButton}>Retry narration</button>}
     <button type="button" disabled={saving} onClick={() => setShowModal(false)} className={editorSecondaryButton}>Cancel</button>
     <button type="submit" form="video-settings-form" disabled={saving} className={editorButton}>{saving ? "Saving…" : "Save settings"}</button>
   </div>}>

@@ -55,9 +55,9 @@ def caption_project_task(project_id, token, render=False):
 
 
 @shared_task
-def update_scene_task(scene_id, text, previous_status):
+def update_scene_task(scene_id, text, previous_status, operation_id=None):
     """Save dialogue and regenerate its narration."""
-    with scene_job(scene_id, previous_status) as scene:
+    with scene_job(scene_id, previous_status, operation_id) as scene:
         text = scene_generation.update_scene(text, scene)
         return {
             "text": text,
@@ -66,9 +66,11 @@ def update_scene_task(scene_id, text, previous_status):
 
 
 @shared_task
-def generate_scene_image_task(scene_id, image_description, previous_status):
+def generate_scene_image_task(
+    scene_id, image_description, previous_status, operation_id=None
+):
     """Generate and save a replacement scene visual."""
-    with scene_job(scene_id, previous_status) as scene:
+    with scene_job(scene_id, previous_status, operation_id) as scene:
         if isinstance(image_description, dict):
             try:
                 animate_starting_image(scene, image_description["asset_id"])
@@ -99,26 +101,35 @@ def generate_scene_image_task(scene_id, image_description, previous_status):
 
 
 @shared_task(soft_time_limit=1150, time_limit=1200)
-def regenerate_narration_task(video_id, previous_status):
-    with video_job_heartbeat(video_id) as active:
+def regenerate_narration_task(video_id, previous_status, operation_id=None):
+    with video_job_heartbeat(video_id, operation_id) as active:
         if not active:
             return
         # Wait for the settings transaction before reading its selected voice.
         with transaction.atomic():
-            video = Video.objects.select_for_update().get(pk=video_id)
-            if video.status != VideoStatus.GENERATION:
+            video = (
+                Video.objects.select_for_update()
+                .filter(
+                    pk=video_id,
+                    status=VideoStatus.GENERATION,
+                    operation_id=operation_id,
+                )
+                .first()
+            )
+            if video is None:
                 return
         try:
             for scene in video.scenes.all():
                 regenerate_scene_narration(scene)
         except Exception:
-            _mark_failed(video_id)
+            _mark_failed(video_id, operation_id=operation_id)
             raise
         else:
-            Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(
-                status=VideoStatus.READY
-                if previous_status == VideoStatus.FAILED
-                else previous_status,
+            Video.objects.filter(
+                pk=video_id, status=VideoStatus.GENERATION, operation_id=operation_id
+            ).update(
+                status=previous_status,
+                narration_retry_status="",
                 updated_at=timezone.now(),
             )
         finally:
@@ -131,30 +142,34 @@ VOICE_IMPORTS = {
 }
 
 
-def _mark_failed(video_id: str | UUID, render_error=None) -> None:
-    video = Video.objects.filter(pk=video_id).first()
-    if video is None:
-        return
-
-    if render_error is None and video.status == VideoStatus.RENDERING:
-        render_error = {
-            "message": "The export stopped before it finished. Retry the export; your scenes are saved.",
-            "reference": current_request_id() or uuid4().hex,
-        }
-    if render_error:
-        logger.error(
-            "Export failed for video %s. Reference: %s",
-            video_id,
-            render_error["reference"],
+def _mark_failed(video_id: str | UUID, render_error=None, operation_id=None) -> None:
+    with transaction.atomic():
+        video = (
+            Video.objects.select_for_update()
+            .filter(pk=video_id, operation_id=operation_id)
+            .first()
         )
-    video.render_error = render_error or {}
-    video.status = VideoStatus.FAILED
-    video.save()
+        if video is None:
+            return
+        if render_error is None and video.status == VideoStatus.RENDERING:
+            render_error = {
+                "message": "The export stopped before it finished. Retry the export; your scenes are saved.",
+                "reference": current_request_id() or uuid4().hex,
+            }
+        if render_error:
+            logger.error(
+                "Export failed for video %s. Reference: %s",
+                video_id,
+                render_error["reference"],
+            )
+        video.render_error = render_error or {}
+        video.status = VideoStatus.FAILED
+        video.save(update_fields=["render_error", "status", "updated_at"])
 
 
 @shared_task(bind=True)
-def generate_video_task(self, video_id: str | UUID, **params):
-    with video_job_heartbeat(video_id) as active:
+def generate_video_task(self, video_id: str | UUID, operation_id=None, **params):
+    with video_job_heartbeat(video_id, operation_id) as active:
         if not active:
             return
         video = Video.objects.get(pk=video_id)
@@ -163,7 +178,7 @@ def generate_video_task(self, video_id: str | UUID, **params):
             video_generation.generate_video(video=video, **params)
         except Exception:
             logger.exception("Generation failed for video %s", video_id)
-            _mark_failed(video_id)
+            _mark_failed(video_id, operation_id=operation_id)
             raise
 
         logger.info("Generation finished for video %s", video_id)
@@ -171,8 +186,8 @@ def generate_video_task(self, video_id: str | UUID, **params):
 
 
 @shared_task(bind=True)
-def resume_video_task(self, video_id: str | UUID):
-    with video_job_heartbeat(video_id) as active:
+def resume_video_task(self, video_id: str | UUID, operation_id=None):
+    with video_job_heartbeat(video_id, operation_id) as active:
         if not active:
             return
         video = Video.objects.get(pk=video_id)
@@ -181,7 +196,7 @@ def resume_video_task(self, video_id: str | UUID):
             video_generation.resume_video(video)
         except Exception:
             logger.exception("Resume failed for video %s", video_id)
-            _mark_failed(video_id)
+            _mark_failed(video_id, operation_id=operation_id)
             raise
 
         logger.info("Resume finished for video %s", video_id)
@@ -189,8 +204,8 @@ def resume_video_task(self, video_id: str | UUID):
 
 
 @shared_task(bind=True)
-def render_video_task(self, video_id: str | UUID):
-    with video_job_heartbeat(video_id) as active:
+def render_video_task(self, video_id: str | UUID, operation_id=None):
+    with video_job_heartbeat(video_id, operation_id) as active:
         if not active:
             return
         video = Video.objects.get(pk=video_id)
@@ -206,6 +221,7 @@ def render_video_task(self, video_id: str | UUID):
             )
             _mark_failed(
                 video_id,
+                operation_id=operation_id,
                 render_error={
                     "message": "The export could not finish. Retry the export; your scenes and media are saved. If it fails again, share the reference with support.",
                     "reference": reference,
@@ -218,14 +234,18 @@ def render_video_task(self, video_id: str | UUID):
 
 
 @shared_task
-def create_scene_task(video_id: str | UUID, data: dict, upload_path=None):
+def create_scene_task(
+    video_id: str | UUID, data: dict, upload_path=None, operation_id=None
+):
     try:
-        with video_job_heartbeat(video_id) as active:
+        with video_job_heartbeat(video_id, operation_id) as active:
             if not active:
                 return
             try:
                 video = Video.objects.filter(
-                    pk=video_id, status=VideoStatus.GENERATION
+                    pk=video_id,
+                    status=VideoStatus.GENERATION,
+                    operation_id=operation_id,
                 ).first()
                 if video is None:
                     return
@@ -248,12 +268,14 @@ def create_scene_task(video_id: str | UUID, data: dict, upload_path=None):
                             next_position = created.position + 1
             except Exception:
                 logger.exception("Scene creation failed for video %s", video_id)
-                _mark_failed(video_id)
+                _mark_failed(video_id, operation_id=operation_id)
                 raise
             else:
-                Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(
-                    status=VideoStatus.READY
-                )
+                Video.objects.filter(
+                    pk=video_id,
+                    status=VideoStatus.GENERATION,
+                    operation_id=operation_id,
+                ).update(status=VideoStatus.READY)
                 publish_update(f"video.{video_id}", video_id=video_id)
     finally:
         if upload_path:
@@ -284,7 +306,7 @@ def reap_stalled_videos():
             )
             if video is None:
                 continue
-            _mark_failed(video_id)
+            _mark_failed(video_id, operation_id=video.operation_id)
             recovered.append(video_id)
 
     if recovered:

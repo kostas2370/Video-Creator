@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
@@ -24,6 +26,7 @@ def video_update(video: Video, **changes) -> Video:
         "intro_transition_duration",
         "intro",
         "voice_id",
+        "retry_narration",
         "avatar",
         "caption_style",
         "caption_config",
@@ -34,6 +37,13 @@ def video_update(video: Video, **changes) -> Video:
 
 
 def _apply_video_changes(video, changes):
+    retry_narration = changes.get("retry_narration", False)
+    if retry_narration and not (
+        video.status == VideoStatus.FAILED and video.narration_retry_status
+    ):
+        raise ValidationError(
+            {"retry_narration": "There is no failed narration to retry."}
+        )
     updates = {}
     for field, model in (("avatar", Avatar), ("intro", Intro), ("outro", Outro)):
         if field in changes:
@@ -77,18 +87,28 @@ def _apply_video_changes(video, changes):
     for field, value in updates.items():
         setattr(video, field, value)
     video.save(update_fields=[*updates, "updated_at"])
-    retry_narration = selected_voice is not None and video.status == VideoStatus.FAILED
     if (
         (voice_changed or retry_narration)
         and (video.settings or {}).get("narration", True)
         and video.scenes.exists()
     ):
-        previous_status = video.status
+        previous_status = video.narration_retry_status or video.status
+        video.operation_id = uuid4()
+        video.narration_retry_status = previous_status
         video.status = VideoStatus.GENERATION
-        video.save(update_fields=["status", "updated_at"])
+        video.save(
+            update_fields=[
+                "status",
+                "operation_id",
+                "narration_retry_status",
+                "updated_at",
+            ]
+        )
         try:
             # The worker locks this row before reading the committed settings.
-            tasks.regenerate_narration_task.delay(str(video.pk), previous_status)
+            tasks.regenerate_narration_task.delay(
+                str(video.pk), previous_status, operation_id=str(video.operation_id)
+            )
         except Exception as exc:
             raise GenerationQueueUnavailable(
                 "Could not queue narration. Your settings were not changed. Please try again."

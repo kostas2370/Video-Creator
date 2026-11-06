@@ -225,6 +225,7 @@ class RenderVideoSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    retry_narration = serializers.BooleanField(required=False)
     generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False)
     visual_continuity = serializers.CharField(
         required=False, allow_blank=True, max_length=3000

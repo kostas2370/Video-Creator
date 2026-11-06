@@ -1,14 +1,15 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal, Union
+from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
-from apps.usage.services import video_usage
 from rest_framework import status
 from rest_framework.exceptions import APIException
 from slugify import slugify
 
+from apps.usage.services import video_usage
 from apps.videomanagement.hooks import run_video_hooks
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.integrations.visuals import ImageProviderRegistry
@@ -24,11 +25,11 @@ from apps.videomanagement.models import (
 from apps.videomanagement.services.media.downloads import download_music
 from apps.videomanagement.services.media.icons import icon_candidates
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
-from apps.videomanagement.services.scenes.visual_planning import apply_visual_plans
 from apps.videomanagement.services.scenes.narration import (
     ensure_scene_rows,
     make_scenes_speech,
 )
+from apps.videomanagement.services.scenes.visual_planning import apply_visual_plans
 from apps.videomanagement.services.scenes.visuals import create_image_scenes
 from apps.videomanagement.utils.file_utils import generate_directory
 from apps.videomanagement.utils.prompt_utils import build_script_prompt
@@ -51,8 +52,8 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
     Video providers stay sequential: they can use narration duration and a previous
     clip's final frame as an input to the next scene.
     """
-    from apps.usage.scenarios import project_estimate
     from apps.usage.models import GenerationEstimate
+    from apps.usage.scenarios import project_estimate
 
     GenerationEstimate.objects.get_or_create(video=video, defaults={"estimate": project_estimate(video)})
     if not image_mode or ImageProviderRegistry.is_video(
@@ -103,6 +104,7 @@ def create_pending_video(
         prompt=user_prompt,
         dir_name="",
         status=VideoStatus.GENERATION,
+        operation_id=uuid4(),
         video_type=video_type,
         created_by=created_by,
         genre=genre,

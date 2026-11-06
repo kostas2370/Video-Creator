@@ -456,6 +456,8 @@ class Outro(AbstractModel):
 
 
 class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
+    operation_id = models.UUIDField(null=True, editable=False)
+    narration_retry_status = models.CharField(max_length=12, blank=True, default="", db_default="", editable=False)
     render_error = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(
         default=timezone.now, editable=False, db_index=True

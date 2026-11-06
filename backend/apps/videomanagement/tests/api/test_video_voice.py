@@ -34,7 +34,9 @@ class VideoVoiceTests(ApiTestCase):
         from apps.videomanagement.tasks import regenerate_narration_task
 
         with patch("apps.videomanagement.tasks.regenerate_scene_narration") as speech:
-            regenerate_narration_task.run(*narrate.call_args.args)
+            regenerate_narration_task.run(
+                *narrate.call_args.args, **narrate.call_args.kwargs
+            )
         self.assertEqual(speech.call_count, 2)
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "READY")
@@ -137,15 +139,76 @@ class VideoVoiceTests(ApiTestCase):
             side_effect=RuntimeError("provider unavailable"),
         ):
             with self.assertRaises(RuntimeError):
-                regenerate_narration_task.run(*queue.call_args.args)
+                regenerate_narration_task.run(
+                    *queue.call_args.args, **queue.call_args.kwargs
+                )
         self.video.refresh_from_db()
         self.assertEqual(self.video.status, "FAILED")
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as queue:
+            response = self.client.patch(self.url, {"retry_narration": True})
+        self.assertEqual(response.status_code, 202)
+        with patch("apps.videomanagement.tasks.regenerate_scene_narration"):
+            regenerate_narration_task.run(
+                *queue.call_args.args, **queue.call_args.kwargs
+            )
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.status, "READY")
+
+    def test_unrelated_settings_do_not_retry_failed_generation(self):
+        self.video.voice_model = self.voice
+        self.video.status = "FAILED"
+        self.video.save(update_fields=["voice_model", "status"])
+        scene.make(video=self.video)
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as queue:
+            response = self.client.patch(
+                self.url, {"voice_id": str(self.voice.pk), "caption_style": "TIKTOK"}
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(response.data["video"]["can_retry_narration"])
+        queue.assert_not_called()
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.status, "FAILED")
+        self.assertEqual(self.video.settings["caption_style"], "TIKTOK")
+
+    def test_explicit_retry_rejects_unrelated_project_failures(self):
+        self.video.status = "FAILED"
+        self.video.save(update_fields=["status"])
+        response = self.client.patch(
+            self.url, {"retry_narration": True, "title": "Changed"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("retry_narration", response.data)
+        self.video.refresh_from_db()
+        self.assertNotEqual(self.video.title, "Changed")
+
+    def test_changing_voice_does_not_clear_an_unrelated_generation_failure(self):
+        from apps.videomanagement.tasks import regenerate_narration_task
+
+        self.video.status = "FAILED"
+        self.video.save(update_fields=["status"])
+        scene.make(video=self.video)
         with patch(
             "apps.videomanagement.tasks.regenerate_narration_task.delay"
         ) as queue:
             response = self.client.patch(self.url, {"voice_id": str(self.voice.pk)})
         self.assertEqual(response.status_code, 202)
         with patch("apps.videomanagement.tasks.regenerate_scene_narration"):
-            regenerate_narration_task.run(*queue.call_args.args)
+            regenerate_narration_task.run(
+                *queue.call_args.args, **queue.call_args.kwargs
+            )
         self.video.refresh_from_db()
-        self.assertEqual(self.video.status, "READY")
+        self.assertEqual(self.video.status, "FAILED")
+        self.assertEqual(self.video.narration_retry_status, "")
+
+    def test_resume_cannot_skip_a_failed_voice_change(self):
+        self.video.status = "FAILED"
+        self.video.narration_retry_status = "READY"
+        self.video.save(update_fields=["status", "narration_retry_status"])
+        with patch("apps.videomanagement.tasks.resume_video_task.delay") as queue:
+            response = self.client.patch(reverse("video-resume", args=[self.video.pk]))
+        self.assertEqual(response.status_code, 409, response.data)
+        queue.assert_not_called()

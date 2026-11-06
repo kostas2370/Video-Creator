@@ -283,8 +283,17 @@ while the provider or encoder blocks. Heartbeat writes do not trigger editor eve
 The sweep locks and rechecks each candidate before failing it, preserving projects
 that completed or restarted during the scan. Recovery keeps saved scenes and media,
 notifies the owner/editor, and never automatically repeats paid provider calls.
-Late tasks skip projects already recovered or completed. Run web and workers from
-the same deployment so all long-running jobs emit heartbeats.
+Each queued operation stores a fresh `operation_id` on the video and passes it to
+the worker. Starting work, heartbeats, status restoration, and failure updates must
+match that token. Late tasks cannot use a later operation's processing state, even
+after recovery followed by another edit. Run web and workers from the same
+deployment so all long-running jobs emit heartbeats and carry operation tokens.
+
+Voice changes queue narration; unrelated settings never retry a failed operation.
+Failed narration exposes `can_retry_narration` in editor data and an explicit
+`retry_narration` settings action. Its saved prior status is restored only after a
+successful retry; other generation failures remain failed. Generic generation
+resume cannot bypass a pending narration retry.
 
 ## Provider routing and credentials
 
@@ -742,11 +751,11 @@ Celery tasks and return HTTP 202 with a signed job token. Tasks are defined in
 result directly. There is no operation registry or synchronous fallback.
 
 `GET /api/draft-jobs/?job=TOKEN` returns queued, running, succeeded, or failed status.
-Tokens are owner-bound and expire after 24 hours. Tasks reload active users and owned
+Tokens are owner-bound and expire after 24 hours. Tasks reload the requesting users and owned
 resources before calling providers. The frontend polls for the result while the form is
 open or retained on the current page. Navigation or reload does not restore draft results;
 there is no activity panel or browser job storage. Closing a dialog does not cancel work.
 
 Asset-changing scene jobs retain the video edit lock; review-only scene rewrites leave the
 rest of the editor available. Deploy the web and Celery workers together so workers load
-the new tasks. No database migration is required.
+the new tasks. Apply videomanagement migration 0057 for operation tokens, narration-retry state, and a persistent database default before starting the updated web and workers. The database default allows an older web process to insert videos during a rolling restart.

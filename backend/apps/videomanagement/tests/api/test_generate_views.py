@@ -139,10 +139,11 @@ class GenerateViewTests(ApiTestCase):
             self.assertFalse(params["narration"])
             self.assertNotIn("created_by", params)
             self.assertNotIn("reference_image", params)
+            self.assertNotIn("operation_id", params)
             self.assertTrue(Path(video.reference_image.path).is_file())
             self.assertTrue(delay.call_args.kwargs["review_script"])
             self.assertEqual(
-                {**params, "review_script": True, "video_id": video.pk},
+                {**params, "review_script": True, "video_id": video.pk, "operation_id": str(video.operation_id)},
                 delay.call_args.kwargs,
             )
 
@@ -266,6 +267,7 @@ class StoryboardApprovalTests(ApiTestCase):
     @patch("apps.videomanagement.tasks.generate_video_task.delay")
     def test_ai_editing_survives_review_and_rejects_missing_or_invalid_plans(self, delay):
         from copy import deepcopy
+
         from ..test_ai_scene_editing import PLAN
         video = self.draft()
         video.settings["ai_scene_editing"] = True
@@ -315,7 +317,7 @@ class StoryboardApprovalTests(ApiTestCase):
         self.assertEqual(video.gpt_answer, self.script)
         self.assertEqual(video.title, "Reviewed title")
         self.assertEqual(video.status, "GENERATION")
-        delay.assert_called_once_with(video_id=video.pk, message="original idea", review_script=False, generation_mode="STANDARD")
+        delay.assert_called_once_with(video_id=video.pk, operation_id=str(video.operation_id), message="original idea", review_script=False, generation_mode="STANDARD")
         self.assertEqual(self.approve(video).status_code, 409)
         delay.assert_called_once()
 

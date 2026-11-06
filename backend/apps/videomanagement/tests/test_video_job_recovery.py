@@ -138,8 +138,8 @@ class LiveVideoHeartbeatTests(TransactionTestCase):
         refresh = recovery._refresh_heartbeat
         calls = []
 
-        def record(video_id):
-            result = refresh(video_id)
+        def record(video_id, operation_id=None):
+            result = refresh(video_id, operation_id)
             calls.append(result)
             if len(calls) >= 2:
                 heartbeat.set()

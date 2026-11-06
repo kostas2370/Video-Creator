@@ -204,6 +204,11 @@ class VideoSerializer(VideoResponseSerializer):
 
 
 class VideoNestedSerializer(VideoResponseSerializer):
+    can_retry_narration = serializers.SerializerMethodField()
+
+    def get_can_retry_narration(self, obj):
+        return obj.status == "FAILED" and bool(obj.narration_retry_status)
+
     scenes = serializers.SerializerMethodField()
     extra_duration = serializers.SerializerMethodField()
 
@@ -216,7 +221,7 @@ class VideoNestedSerializer(VideoResponseSerializer):
         return sum(durations) if all(value is not None for value in durations) else None
 
     class Meta(VideoResponseSerializer.Meta):
-        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes")
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes", "can_retry_narration")
         read_only_fields = fields
 
     def get_scenes(self, obj):

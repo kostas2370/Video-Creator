@@ -60,7 +60,7 @@ class ApiTestCase(TestCase):
             return self.run_draft_task()
         queued = self.scene_queue.call_args
         task = queued.args[0]
-        return task.run(*queued.kwargs["args"])
+        return task.run(*queued.kwargs["args"], **queued.kwargs.get("kwargs", {}))
 
     def run_draft_task(self):
         queued = self.draft_queue.call_args
