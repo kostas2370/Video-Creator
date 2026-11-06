@@ -2,11 +2,16 @@ from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.common.filters import OwnerFilterBackend, OwnerOrSuperuserFilterBackend
+from apps.videomanagement.filters import (
+    AvatarFilter,
+    IntroFilter,
+    OutroFilter,
+    TemplatePromptFilter,
+    VoiceFilter,
+)
 from apps.videomanagement.models import (
     Avatar,
     Intro,
@@ -51,15 +56,9 @@ class SceneImageView(viewsets.GenericViewSet):
 
 
 class TemplatePromptView(viewsets.ModelViewSet):
-    filter_backends = [
-        OwnerOrSuperuserFilterBackend,
-        DjangoFilterBackend,
-        SearchFilter,
-        OrderingFilter,
-    ]
-    search_fields = ["title"]
+    filterset_class = TemplatePromptFilter
+    filter_backends = [DjangoFilterBackend]
     pagination_class = AssetResultsPagination
-    ordering = ("id",)
     serializer_class = TemplatePromptsSerializer
     queryset = TemplatePrompt.objects.order_by("id")
     permission_classes = [IsAuthenticated, IsOwnerPermission]
@@ -71,23 +70,12 @@ class VoiceView(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["name"]
-    filterset_fields = ["is_cloned"]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = VoiceFilter
     pagination_class = AssetResultsPagination
-    ordering = ("id",)
     serializer_class = VoiceModelSerializer
     queryset = VoiceModel.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnlyPermission]
-
-    def filter_queryset(self, queryset):
-        if self.action == "destroy":
-            queryset = queryset.filter(created_by=self.request.user)
-        elif self.action in ("preview", "refresh"):
-            queryset = queryset.filter(created_by=self.request.user, is_cloned=True)
-        else:
-            queryset = queryset.available_to(self.request.user)
-        return super().filter_queryset(queryset.order_by("id"))
 
     def get_serializer_class(self):
         return (
@@ -126,16 +114,10 @@ class VoiceView(
 
 
 class AvatarView(viewsets.ModelViewSet):
-    filter_backends = [
-        OwnerFilterBackend,
-        DjangoFilterBackend,
-        SearchFilter,
-        OrderingFilter,
-    ]
-    search_fields = ["name"]
+    filterset_class = AvatarFilter
+    filter_backends = [DjangoFilterBackend]
 
     pagination_class = AssetResultsPagination
-    ordering = ("id",)
     serializer_class = AvatarSerializer
     queryset = Avatar.objects.select_related("voice").order_by("id")
     permission_classes = [IsAuthenticated, IsOwnerPermission]
@@ -143,15 +125,8 @@ class AvatarView(viewsets.ModelViewSet):
 
 class LimitedClipView(viewsets.ModelViewSet):
     pagination_class = AssetResultsPagination
-    ordering = ("id",)
     permission_classes = [IsAuthenticated, IsOwnerPermission]
-    filter_backends = [
-        OwnerOrSuperuserFilterBackend,
-        DjangoFilterBackend,
-        SearchFilter,
-        OrderingFilter,
-    ]
-    search_fields = ["name"]
+    filter_backends = [DjangoFilterBackend]
 
     def perform_create(self, serializer):
         serializer.instance = save_limited_clip(
@@ -160,10 +135,12 @@ class LimitedClipView(viewsets.ModelViewSet):
 
 
 class IntroView(LimitedClipView):
+    filterset_class = IntroFilter
     serializer_class = IntroSerializer
     queryset = Intro.objects.order_by("id")
 
 
 class OutroView(LimitedClipView):
+    filterset_class = OutroFilter
     serializer_class = OutroSerializer
     queryset = Outro.objects.order_by("id")

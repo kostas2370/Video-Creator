@@ -81,9 +81,15 @@ video models/tasks import API-key models, and Django loads signal registration i
 `AppConfig.ready()`. Avatar rendering defers SadTalker loading so ordinary requests
 and non-avatar exports do not require or initialize the optional model runtime.
 
-The media-library FilterSet owns `search` and `kind`; ownership remains in the view
-queryset. Invalid media kinds receive a field-level 400 response. Existing simple
-video and voice filters continue to use DRF's generated FilterSets.
+API filtering lives in explicit FilterSet classes, wired through DjangoFilterBackend.
+Views declare their queryset and filterset class; FilterSets own ownership scoping,
+search, ordering, status/type selection, and action-specific query preparation.
+Common owner/user FilterSets apply access scoping even without query parameters.
+Asset search and ordering retain DRF's phrase matching and public-field allowlist.
+Video, scene, voice, media-library, caption, icon, series, clip, news, publishing,
+notification, provider, and usage endpoints use this shared approach. Object lookups
+and domain mutations remain in their services. Invalid choices retain field-level
+400 responses.
 
 ## Data model
 
@@ -163,17 +169,17 @@ A `202` means work was queued, not that generation or encoding has completed.
 | `PATCH /api/videos/{id}/` | Update title, avatar, intro, outro, and settings; an avatar voice change regenerates narration synchronously |
 | `PATCH /api/videos/{id}/render_video/` | Claim `READY` or `COMPLETED` as `RENDERING`, enqueue encoding; return `202` |
 | `PATCH /api/videos/{id}/resume/` | Claim `FAILED` or `READY` as `GENERATION` when a script and directory exist; return `202` |
-| `POST /api/videos/{id}/add_scene/` | Add a scene and its media synchronously |
-| `PATCH /api/scenes/{id}/` | Save dialogue and attempt narration synchronously; also return `narration_status` |
-| `PATCH /api/scenes/{id}/generate/` | Return an AI rewrite for review; saving it is a separate request |
+| `POST /api/videos/{id}/add_scene/` | Queue scene creation and media work; return `202` |
+| `PATCH /api/scenes/{id}/` | Queue dialogue and narration updates; silent manual text updates return immediately |
+| `PATCH /api/scenes/{id}/generate/` | Queue an AI rewrite for review; return `202`; saving is a separate request |
 | `POST /api/scenes/{id}/change_image_scene/` | Upload a visual or update an existing visual belonging to that scene |
-| `POST /api/scenes/{id}/generate_image_scene/` | Generate a visual synchronously for an authorized scene |
+| `POST /api/scenes/{id}/generate_image_scene/` | Queue a visual for an authorized scene; return `202` |
 
 Generate and resume are throttled at two requests per hour, and render at one per day,
 with a separate three-per-hour limit for failed export retries and an explicit superuser exemption; see [throttling.py](../backend/apps/videomanagement/throttling.py).
 
-Scene edits and uploads do **not** follow the background-task contract. Provider
-calls in these routes still run inside the request.
+Generation-backed scene edits follow the background-task contract. Direct uploads
+and metadata-only changes complete in the request without invoking AI providers.
 
 ## Generation pipeline
 
@@ -271,7 +277,23 @@ that never obtained a script and directory cannot be resumed.
 
 Celery beat runs `reap_stalled_videos()` every 15 minutes. It marks in-flight videos
 whose `updated_at` is older than `VIDEO_TASK_STALE_AFTER` as failed; the default is
-three hours. This is a timestamp-based recovery mechanism, not a worker heartbeat.
+three hours. Generation, resume, export, scene creation/editing, and voice regeneration
+jobs refresh this timestamp every minute from a small worker heartbeat thread, even
+while the provider or encoder blocks. Heartbeat writes do not trigger editor events.
+The sweep locks and rechecks each candidate before failing it, preserving projects
+that completed or restarted during the scan. Recovery keeps saved scenes and media,
+notifies the owner/editor, and never automatically repeats paid provider calls.
+Each queued operation stores a fresh `operation_id` on the video and passes it to
+the worker. Starting work, heartbeats, status restoration, and failure updates must
+match that token. Late tasks cannot use a later operation's processing state, even
+after recovery followed by another edit. Run web and workers from the same
+deployment so all long-running jobs emit heartbeats and carry operation tokens.
+
+Voice changes queue narration; unrelated settings never retry a failed operation.
+Failed narration exposes `can_retry_narration` in editor data and an explicit
+`retry_narration` settings action. Its saved prior status is restored only after a
+successful retry; other generation failures remain failed. Generic generation
+resume cannot bypass a pending narration retry.
 
 ## Provider routing and credentials
 
@@ -719,3 +741,21 @@ story quality still require representative real-provider trials.
 
 The series profile exposes its active episode using subqueries independent of episode
 pagination, so every workspace page can link to the pending review/preparation.
+
+### Background AI drafts
+
+Story and scene drafts, scene rewrites, cast and character descriptions, episode memories,
+tags, YouTube descriptions, clip hashtags, and transcript clip suggestions queue their own
+Celery tasks and return HTTP 202 with a signed job token. Tasks are defined in
+`apps.videomanagement.draft_tasks`, loaded by `CELERY_IMPORTS`, and return the provider's
+result directly. There is no operation registry or synchronous fallback.
+
+`GET /api/draft-jobs/?job=TOKEN` returns queued, running, succeeded, or failed status.
+Tokens are owner-bound and expire after 24 hours. Tasks reload the requesting users and owned
+resources before calling providers. The frontend polls for the result while the form is
+open or retained on the current page. Navigation or reload does not restore draft results;
+there is no activity panel or browser job storage. Closing a dialog does not cancel work.
+
+Asset-changing scene jobs retain the video edit lock; review-only scene rewrites leave the
+rest of the editor available. Deploy the web and Celery workers together so workers load
+the new tasks. Apply videomanagement migration 0057 for operation tokens, narration-retry state, and a persistent database default before starting the updated web and workers. The database default allows an older web process to insert videos during a rolling restart.

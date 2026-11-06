@@ -1,9 +1,10 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.common.filters import OwnerFilterBackend
+from apps.common.filters import UserFilterSet
 
 from .models import ApiKeys, UserCustomTTSProvider, UserCustomVisualProvider
 from .serializers import (
@@ -24,8 +25,8 @@ class ApiKeysView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class CustomProviderViewSet(viewsets.ModelViewSet):
-    filter_backends = [OwnerFilterBackend]
-    owner_field = "user"
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = UserFilterSet
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):

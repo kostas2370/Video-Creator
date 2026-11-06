@@ -3,6 +3,7 @@
 import json
 import logging
 from pathlib import Path
+from uuid import uuid4
 
 from django.core.files import File
 from django.db import transaction
@@ -318,6 +319,8 @@ def retry_episode(episode, *, owner, generation_params=None, validation_context=
             **(video.settings or {}),
             "generation_params": {**episode.generation_params, "review_script": False},
         }
+        video.operation_id = uuid4()
+        video.narration_retry_status = ""
         video.status = "GENERATION"
-        video.save(update_fields=["status", "settings", "updated_at"])
+        video.save(update_fields=["status", "settings", "operation_id", "narration_retry_status", "updated_at"])
     return _queue_episode_generation(episode)

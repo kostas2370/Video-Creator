@@ -10,6 +10,7 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
+from rest_framework.exceptions import APIException
 
 from apps.series.models import Character, SeriesEpisode, VideoSeries
 from apps.series.serializers import (
@@ -836,14 +837,16 @@ class SeriesTests(ApiTestCase):
             {"summary": "The lantern was blue"},
             format="json",
         )
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["summary"], "Milo found a blue lantern.")
+        self.assertEqual(response.status_code, 202, response.data)
+        draft_result = self.run_draft_task()
+
+        self.assertEqual(draft_result["summary"], "Milo found a blue lantern.")
         self.assertIn("The lantern was blue", ai.call_args.args[0])
         self.assertIn("Milo found a lantern", ai.call_args.args[0])
         episode.refresh_from_db()
         self.assertEqual(episode.summary, "Manual facts")
         episode.__dict__.pop("script_snapshot", None)
-        self.assertEqual(response.data["script_hash"], episode.script_hash)
+        self.assertEqual(draft_result["script_hash"], episode.script_hash)
 
     @patch(
         "apps.series.services.episodes.get_update_sentence",
@@ -855,7 +858,10 @@ class SeriesTests(ApiTestCase):
         response = self.client.post(
             self.url("draft-memory", episode=episode), {}, format="json"
         )
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 202, response.data)
+        with self.assertRaises(APIException):
+            self.run_draft_task()
+
         episode.refresh_from_db()
         self.assertEqual(episode.summary, "Milo built a lantern")
 
@@ -873,7 +879,10 @@ class SeriesTests(ApiTestCase):
         response = self.client.post(
             self.url("draft-memory", episode=episode), {}, format="json"
         )
-        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.status_code, 202, response.data)
+        with self.assertRaises(APIException):
+            self.run_draft_task()
+
         episode.refresh_from_db()
         self.assertEqual(episode.summary, "Milo built a lantern")
 
@@ -934,7 +943,10 @@ class SeriesTests(ApiTestCase):
         response = self.client.post(
             self.url("draft-memory", episode=episode), {}, format="json"
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 202, response.data)
+        with self.assertRaises(APIException):
+            self.run_draft_task()
+
         ai.assert_not_called()
 
     def test_multipart_nested_cast_preserves_the_uploaded_reference_file(self):

@@ -1,6 +1,5 @@
 import logging
 
-from django.db.models import OuterRef, Subquery
 from django.http import HttpResponse
 from django.utils.http import content_disposition_header
 from django.utils.text import slugify
@@ -8,16 +7,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.filters import VideoFilter
-from apps.videomanagement.models import SceneImage, Video, VideoStatus, VideoType
+from apps.videomanagement.models import Video, VideoStatus, VideoType
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.permissions import IsOwnerPermission
-from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
+from apps.videomanagement.schemas.drafts import DraftJobSerializer
 from apps.videomanagement.serializers.audio import (
     MusicAudioSerializer,
     MusicUploadSerializer,
@@ -43,12 +42,12 @@ from apps.videomanagement.serializers.requests import (
     VideoUpdateSerializer,
 )
 from apps.videomanagement.services.captions.subtitles import export_subtitles
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.services.media.music import set_music, set_music_from_youtube
 from apps.videomanagement.services.scenes.editing import (
     apply_auto_motion,
     reorder_scenes,
 )
-from apps.videomanagement.services.scenes.generation import draft_scene
 from apps.videomanagement.services.scenes.recovery import (
     SCENE_RETENTION,
     recoverable_scenes,
@@ -70,7 +69,7 @@ from apps.videomanagement.services.videos.settings import (
     update_music_settings,
     video_update,
 )
-from apps.videomanagement.services.videos.story import create_story_project, draft_story
+from apps.videomanagement.services.videos.story import create_story_project
 from apps.videomanagement.throttling import (
     RenderRateThrottle,
     RenderRetryRateThrottle,
@@ -114,8 +113,7 @@ class VideoView(
         "render_video": RenderVideoSerializer,
     }
     queryset = Video.objects.all()
-    filter_backends = [DjangoFilterBackend, SearchFilter]
-    search_fields = ["title", "tags__tiktok", "tags__youtube", "tags__search"]
+    filter_backends = [DjangoFilterBackend]
     filterset_class = VideoFilter
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
@@ -139,13 +137,19 @@ class VideoView(
         return Response(VideoNestedSerializer(video).data, status=201)
 
     @swagger_auto_schema(
-        request_body=StoryDraftSerializer, responses={200: StoryDraftResultSerializer}
+        request_body=StoryDraftSerializer, responses={202: DraftJobSerializer}
     )
     @action(detail=False, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
     def draft_story(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(draft_story(request.user, **serializer.validated_data))
+        return Response(
+            queue_draft(
+                request.user, draft_tasks.draft_story_task, **serializer.validated_data
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @swagger_auto_schema(request_body=StoryVideoSerializer)
     @action(detail=False, methods=["POST"])
@@ -173,30 +177,6 @@ class VideoView(
             upload = serializer.validated_data["file"]
         video = set_music(video, upload)
         return Response(self.serialize_video_detail(video))
-
-    def filter_queryset(self, queryset):
-        queryset = (
-            queryset.for_user(self.request.user)
-            .order_by("-updated_at", "-id")
-            .select_related("music", "prompt")
-        )
-        if self.action == "list":
-            queryset = queryset.listable().annotate(
-                scene_preview=Subquery(
-                    SceneImage.objects.filter(
-                        scene__video_id=OuterRef("pk"), scene__archived_at__isnull=True
-                    )
-                    .exclude(asset__file="")
-                    .exclude(asset__file__isnull=True)
-                    .order_by("scene__position", "created_at", "id")
-                    .values("asset__file")[:1]
-                )
-            )
-
-        if self.action in ("retrieve", "preview"):
-            queryset = queryset.with_editor_media()
-
-        return super().filter_queryset(queryset)
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.serializer_class)
@@ -269,7 +249,7 @@ class VideoView(
         request_body=VideoUpdateSerializer,
         operation_description="This API updates the attributes of the video. If you add a new avatar"
         " it will delete previous audio files and will regenerate them with "
-        "new audios",
+        "new audios in the background",
     )
     def partial_update(self, request, pk):
         video = self.get_object()
@@ -281,7 +261,8 @@ class VideoView(
             {
                 "message": "Updated Success",
                 "video": self.serialize_video_detail(outcome),
-            }
+            },
+            status=202 if getattr(outcome, "narration_queued", False) else 200,
         )
 
     @action(detail=True, methods=["PATCH"])
@@ -381,7 +362,8 @@ class VideoView(
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = apply_auto_motion(
-            owned_video, serializer.validated_data["motion_intensity"],
+            owned_video,
+            serializer.validated_data["motion_intensity"],
             serializer.validated_data["animation_preset"],
             serializer.validated_data["animation_accents"],
         )
@@ -421,5 +403,13 @@ class VideoView(
         video = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        draft = draft_scene(video, **serializer.validated_data)
-        return Response(draft)
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.draft_scene_task,
+                video_id=str(video.pk),
+                choices=dict(serializer.validated_data),
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )

@@ -1,9 +1,9 @@
-from pathlib import Path
 import base64
 import hashlib
 import json
 import os
 from datetime import timedelta
+from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 # Paths
@@ -14,14 +14,13 @@ SPEECH_TRANSCRIPTION_PROVIDER = os.getenv("SPEECH_TRANSCRIPTION_PROVIDER") or "o
 LOCAL_WHISPER_URL = os.getenv("LOCAL_WHISPER_URL") or "http://whisper:9000"
 AI_COST_RATES = json.loads(os.getenv("AI_COST_RATES") or "{}")
 LOCAL_WHISPER_TIMEOUT = int(os.getenv("LOCAL_WHISPER_TIMEOUT") or 1800)
-YOUTUBE_CAPTIONS_ENABLED = (os.getenv("YOUTUBE_CAPTIONS_ENABLED") or "true").lower() == "true"
+YOUTUBE_CAPTIONS_ENABLED = (
+    os.getenv("YOUTUBE_CAPTIONS_ENABLED") or "true"
+).lower() == "true"
 
 # Security
 # `or`, not a getenv default: .env_example ships this blank, and "" would override it.
-SECRET_KEY = (
-    os.getenv("SECRET_KEY")
-    or "REMOVED_EXPOSED_CREDENTIAL"
-)
+SECRET_KEY = os.getenv("SECRET_KEY") or "REMOVED_EXPOSED_CREDENTIAL"
 
 FIELD_ENCRYPTION_KEY = (
     os.getenv("FIELD_ENCRYPTION_KEY")
@@ -134,6 +133,8 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TRACK_STARTED = True
 
 # Keep CPU-heavy exports away from scene edits, generation and maintenance jobs.
+CELERY_IMPORTS = ("apps.videomanagement.draft_tasks",)
+
 CELERY_TASK_ROUTES = {
     "apps.clips.tasks.export_clip_task": {"queue": "renders"},
     "apps.videomanagement.tasks.render_video_task": {"queue": "renders"},
@@ -344,7 +345,9 @@ FFMPEG_DIRECT_RENDER = (os.getenv("FFMPEG_DIRECT_RENDER") or "true").lower() not
 FFMPEG_SCENE_CACHE_ROOT = (
     os.getenv("FFMPEG_SCENE_CACHE_ROOT") or BASE_DIR / "private-render-cache"
 )
-FFMPEG_SCENE_CACHE_BYTES = int(os.getenv("FFMPEG_SCENE_CACHE_BYTES") or 512 * 1024 * 1024)
+FFMPEG_SCENE_CACHE_BYTES = int(
+    os.getenv("FFMPEG_SCENE_CACHE_BYTES") or 512 * 1024 * 1024
+)
 FFMPEG_SCENE_CACHE_TTL = int(os.getenv("FFMPEG_SCENE_CACHE_TTL") or 24 * 60 * 60)
 
 # Creator account connections. Secrets stay on the server; register the callback URLs
@@ -357,13 +360,16 @@ SOCIAL_PUBLISHING = {
         "api_version": os.getenv("SOCIAL_META_API_VERSION", ""),
     }
     for platform, prefix in (
-        ("youtube", "SOCIAL_YOUTUBE"), ("tiktok", "SOCIAL_TIKTOK"),
+        ("youtube", "SOCIAL_YOUTUBE"),
+        ("tiktok", "SOCIAL_TIKTOK"),
         ("instagram", "SOCIAL_INSTAGRAM"),
     )
 }
 
 # Keep publishing snapshots outside the public MEDIA_ROOT.
-PUBLISHING_SNAPSHOT_ROOT = os.getenv("PUBLISHING_SNAPSHOT_ROOT") or BASE_DIR / "private-publishing"
+PUBLISHING_SNAPSHOT_ROOT = (
+    os.getenv("PUBLISHING_SNAPSHOT_ROOT") or BASE_DIR / "private-publishing"
+)
 
 # Built-in video providers use the existing service/personal key selection.
 FAL_KEY = os.getenv("FAL_KEY")

@@ -13,7 +13,7 @@ from .models import (
     Video,
     VoiceModel,
 )
-from .tasks import render_video_task
+from .services.videos.jobs import queue_render
 
 
 class VideoAdmin(admin.ModelAdmin):
@@ -22,7 +22,7 @@ class VideoAdmin(admin.ModelAdmin):
         if len(queryset) > 1:
             return "You can only render 1 video per time"
 
-        render_video_task.delay(video_id=queryset.first().pk)
+        queue_render(queryset.first())
 
         return "Queued"
 

@@ -1,10 +1,33 @@
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from django_filters import rest_framework as filters
 
-from .models import MediaAsset, Video, VideoType
+from apps.common.filters import (
+    BaseFilterSet,
+    OwnerFilterSet,
+    OwnerOrSuperuserFilterSet,
+    SearchFilterSet,
+    SearchOrderingFilterSet,
+)
+
+from .models import (
+    MediaAsset,
+    Scene,
+    SceneImage,
+    Video,
+    VideoType,
+    VoiceModel,
+)
+from .serializers.models import (
+    AvatarSerializer,
+    IntroSerializer,
+    OutroSerializer,
+    TemplatePromptsSerializer,
+    VoiceModelSerializer,
+)
+from .services.media.icons import search_icons
 
 
-class MediaAssetFilter(filters.FilterSet):
+class MediaAssetFilter(OwnerFilterSet):
     search = filters.CharFilter(method="filter_search")
     kind = filters.ChoiceFilter(
         choices=[*MediaAsset.Kind.choices, ("VISUAL", "Images and video")],
@@ -31,7 +54,8 @@ class MediaAssetFilter(filters.FilterSet):
         return queryset.filter(kind=value)
 
 
-class VideoFilter(filters.FilterSet):
+class VideoFilter(OwnerFilterSet, SearchFilterSet):
+    search_fields = ("title", "tags__tiktok", "tags__youtube", "tags__search")
     creation_mode = filters.ChoiceFilter(
         choices=[
             ("AI", "AI video"),
@@ -61,3 +85,96 @@ class VideoFilter(filters.FilterSet):
 
     def filter_ordering(self, queryset, name, value):
         return queryset.order_by(*value, "id")
+
+    def scope_queryset(self, queryset):
+        queryset = (
+            super()
+            .scope_queryset(queryset)
+            .order_by("-updated_at", "-id")
+            .select_related("music", "prompt")
+        )
+        if self.action == "list":
+            queryset = queryset.listable().annotate(
+                scene_preview=Subquery(
+                    SceneImage.objects.filter(
+                        scene__video_id=OuterRef("pk"), scene__archived_at__isnull=True
+                    )
+                    .exclude(asset__file="")
+                    .exclude(asset__file__isnull=True)
+                    .order_by("scene__position", "created_at", "id")
+                    .values("asset__file")[:1]
+                )
+            )
+
+        if self.action in ("retrieve", "preview"):
+            queryset = queryset.with_editor_media()
+
+        return queryset
+
+
+class VoiceFilter(SearchOrderingFilterSet):
+    search_fields = ("name",)
+    serializer_class = VoiceModelSerializer
+
+    class Meta:
+        model = VoiceModel
+        fields = ("is_cloned",)
+
+    def scope_queryset(self, queryset):
+        if self.action == "destroy":
+            queryset = queryset.filter(created_by=self.request.user)
+        elif self.action in ("preview", "refresh"):
+            queryset = queryset.filter(created_by=self.request.user, is_cloned=True)
+        else:
+            queryset = queryset.available_to(self.request.user)
+        return queryset.order_by("id")
+
+
+class TemplatePromptFilter(OwnerOrSuperuserFilterSet, SearchOrderingFilterSet):
+    search_fields = ("title",)
+    serializer_class = TemplatePromptsSerializer
+
+
+class AvatarFilter(OwnerFilterSet, SearchOrderingFilterSet):
+    search_fields = ("name",)
+    serializer_class = AvatarSerializer
+
+
+class IntroFilter(OwnerOrSuperuserFilterSet, SearchOrderingFilterSet):
+    search_fields = ("name",)
+    serializer_class = IntroSerializer
+
+
+class OutroFilter(OwnerOrSuperuserFilterSet, SearchOrderingFilterSet):
+    search_fields = ("name",)
+    serializer_class = OutroSerializer
+
+
+class SceneFilter(BaseFilterSet):
+    def scope_queryset(self, queryset):
+        if self.action == "restore":
+            queryset = Scene.all_objects.all()
+        return queryset.select_related("video")
+
+
+class CaptionProjectFilter(OwnerFilterSet):
+    def scope_queryset(self, queryset):
+        queryset = super().scope_queryset(queryset)
+        if self.action == "list":
+            queryset = queryset.defer("words", "style")
+        return queryset
+
+
+class IconFilter(BaseFilterSet):
+    def scope_queryset(self, queryset):
+        params = self.data or {}
+        keys = params.get("keys")
+        icons = search_icons(
+            params.get("search", "")[:300],
+            keys=keys[:3000].split(",")[:24] if keys is not None else None,
+            user=self.request.user,
+            queryset=queryset,
+        )
+        if params.get("mine") == "true":
+            icons = icons.filter(created_by=self.request.user)
+        return icons

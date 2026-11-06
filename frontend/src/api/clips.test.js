@@ -3,7 +3,7 @@ vi.mock("./request", () => ({ request: vi.fn() }));
 import { request } from "./request";
 import { createClip, saveClip, exportClips, downloadClip, retryClipProject } from "./apiService";
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); request.mockResolvedValue({ ok: true, status: 200, data: {} }); });
 it("routes clip edits and exports through their owning project", () => {
   createClip("p", { start: 10, end: 40 });
   expect(request).toHaveBeenLastCalledWith({ method: "post", url: "clips/p/clips/", data: { start: 10, end: 40 }, notifyError: false });

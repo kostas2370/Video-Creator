@@ -103,7 +103,7 @@ export const Video = () => {
       const response = await save();
       if (!response.ok) throw new Error(response.message || fallbackMessage);
       if (replaceVideo) setVideoInfo(response.data);
-      else if (["timing", "motion", "text"].includes(pending.type)) setVideoInfo(current => ({ ...current, scenes: current.scenes.map(scene => scene.id === pending.sceneId ? response.data : scene) }));
+      else if (["timing", "motion", "text"].includes(pending.type)) setVideoInfo(current => ({ ...current, scenes: current.scenes.map(scene => scene.id === pending.sceneId ? { ...scene, ...response.data } : scene) }));
       return true;
     } catch (error) {
       setVideoInfo(previous);
@@ -198,16 +198,9 @@ export const Video = () => {
     }, "Could not save scene text. Please try again.",
   );
   const onTextRewrite = async (scene, instructions) => {
-    let text;
-    const ok = await saveSceneChange(
-      { type: "rewrite", sceneId: scene.id }, current => current,
-      async () => {
-        const response = await generateScene(scene.id, { text: instructions });
-        text = response.data?.text;
-        return response;
-      }, "Could not create a rewrite. Please try again.",
-    );
-    return ok ? text : null;
+    const response = await generateScene(scene.id, { text: instructions });
+    if (!response.ok) { toast.error(response.message || "Could not create a rewrite. Please try again."); return null; }
+    return response.data?.text ?? null;
   };
   const onTiming = (scene, changes) => saveSceneChange(
     { type: "timing", sceneId: scene.id },
@@ -241,7 +234,7 @@ export const Video = () => {
   };
   const canDownloadSubtitles = ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)
     && !sceneChangePending && !renderPending && videoInfo?.scenes?.some(scene => scene.narration_status === "available" || (manual && scene.text));
-  const isResumable = !manual && videoInfo?.status === "FAILED" && !videoInfo?.render_error?.message;
+  const isResumable = !manual && videoInfo?.status === "FAILED" && !videoInfo?.render_error?.message && !videoInfo?.can_retry_narration;
   const canPreview = ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)
     && !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0;
   const missingNarration = videoInfo?.scenes?.filter(scene => scene.narration_status === "missing") || [];
@@ -315,6 +308,7 @@ export const Video = () => {
           </div>
         </header>
         <ExportFailure video={videoInfo} disabled={!isRenderable} onRetry={() => setShowRenderModal(true)} />
+        {videoInfo?.can_retry_narration && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Narration stopped before finishing. Your saved scenes are preserved. <button type="button" onClick={() => setShowConfigModal(true)} className="ml-2 font-semibold underline">Open narration retry</button></div>}
         <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
           statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
           renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}

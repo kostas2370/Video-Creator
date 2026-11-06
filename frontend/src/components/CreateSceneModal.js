@@ -1,5 +1,5 @@
 import { SceneCreationChoices, SceneMediaUpload, SceneDraftPreview } from "./SceneComposer";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createScene, draftScene } from "../api/apiService";
 import { toast } from "react-toastify";
 import { RiEditLine, RiSparklingLine, RiVolumeUpLine, RiImageLine, RiSettings3Line } from "react-icons/ri";
@@ -7,6 +7,7 @@ import { ScenePositionPicker } from "./ui/ScenePositionPicker";
 import { EditorDialog, editorInput, editorButton } from "./ui/EditorDialog";
 
 export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scenes = [], videoFormat = "LANDSCAPE" }) => {
+  const retainDraft = useRef(false);
   const [position, setPosition] = useState("");
   const [text, setText] = useState("");
   const [imageDescription, setImageDescription] = useState("");
@@ -23,7 +24,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (showModal) {
+    if (showModal && !busy && !retainDraft.current) {
       setPosition(""); setText(""); setImageDescription(""); setImage(null); setIsLast(false);
       setWithAudio(false); setMode("manual"); setPrompt(""); setUseContext(true); setError("");
       setDraftType("sentence"); setSentenceCount(1); setDrafts([]);
@@ -32,6 +33,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
 
   const generate = async () => {
     if (busy) return;
+    retainDraft.current = true;
     setBusy("draft"); setError("");
     try {
       const response = await draftScene(id, { prompt: prompt.trim(), use_context: useContext, draft_type: draftType, sentence_count: Number(sentenceCount) });
@@ -41,7 +43,6 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
       } else {
         setDrafts([]); setText(response.data.text); setImageDescription(response.data.image_description);
       }
-      toast.success("Draft ready. Review each sentence before adding it.");
     } catch { setError("Could not generate a draft. Please try again."); }
     finally { setBusy(""); }
   };
@@ -69,6 +70,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
     try {
       const response = await createScene(id, data);
       if (!response.data) { setError(response.message || "Could not add the scene. Please try again."); return; }
+      retainDraft.current = false;
       toast.success("Scenes queued. You can keep working while they are created."); setItems(true); setShowModal(false);
     } catch { setError("Could not add the scene. Please try again."); }
     finally { setBusy(""); }
@@ -82,7 +84,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
     if (position && !scenes.some(scene => String(scene.position) === position)) setPosition("");
   }, [position, scenes]);
 
-  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Add a scene" description="A new moment for your story. Write it yourself or start with an AI draft." maxWidth="max-w-5xl" panelClassName="scene-composer-dialog" busy={!!busy} footer={
+  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Add a scene" description="A new moment for your story. Write it yourself or start with an AI draft." maxWidth="max-w-5xl" panelClassName="scene-composer-dialog" busy={!!busy} allowBackgroundClose={busy === "draft"} footer={
     <footer className="flex items-center justify-between gap-3">
       <div className="hidden min-w-0 sm:block"><p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{drafts.length > 1 ? `${drafts.length} scenes` : "1 scene"}</p><p className="mt-0.5 truncate text-xs text-gray-400">{placement}</p></div>
       <div className="flex w-full justify-end gap-2 sm:w-auto">

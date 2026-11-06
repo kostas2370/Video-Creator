@@ -1,10 +1,12 @@
 from django.http import FileResponse, HttpResponse
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement.filters import CaptionProjectFilter
 from apps.videomanagement.services.captions.projects import (
     create_caption_project,
     project_cues,
@@ -31,12 +33,8 @@ class CaptionProjectView(
     serializer_class = CaptionProjectSerializer
     pagination_class = StandardResultsSetPagination
     queryset = CaptionProject.objects.all()
-
-    def filter_queryset(self, queryset):
-        queryset = queryset.filter(created_by=self.request.user)
-        if self.action == "list":
-            queryset = queryset.defer("words", "style")
-        return super().filter_queryset(queryset)
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = CaptionProjectFilter
 
     def get_serializer_class(self):
         return (

@@ -43,8 +43,10 @@ class VideoTagsTests(ApiTestCase):
         original_time, original_settings = video.updated_at, video.settings.copy()
         with patch(MODEL, return_value=json.dumps(TAGS)) as generate:
             response = self.generate(video)
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["tags"], TAGS)
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual(draft_result["tags"], TAGS)
         self.assertIn("Whales migrate", generate.call_args.args[0])
         self.assertNotIn("Old script", generate.call_args.args[0])
         self.assertEqual(generate.call_args.kwargs["user"], self.user)
@@ -67,9 +69,11 @@ class VideoTagsTests(ApiTestCase):
         }
         with patch(MODEL, return_value="```json\n" + json.dumps(tags) + "\n```"):
             response = self.generate(video)
-        self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
         self.assertEqual(
-            response.data["tags"],
+            draft_result["tags"],
             {
                 "tiktok": ["Nature", "OceanLife"],
                 "youtube": ["sea life"],
@@ -82,13 +86,15 @@ class VideoTagsTests(ApiTestCase):
         scene.make(video=video, text="Οι φάλαινες ταξιδεύουν στον ωκεανό.")
         with patch(MODEL, return_value=json.dumps(TAGS)) as generate:
             response = self.generate(video)
-        self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
         prompt = generate.call_args.args[0]
         self.assertIn("Write ALL tags in English", prompt)
         self.assertIn("viewer search intent", prompt)
         self.assertIn("long-tail searches", prompt)
         self.assertIn("Οι φάλαινες", prompt)
-        self.assertEqual(response.data["tags"], TAGS)
+        self.assertEqual(draft_result["tags"], TAGS)
 
     def test_non_english_output_is_retried_without_saving_it(self):
         video = self.video_for(tags=TAGS)
@@ -101,14 +107,19 @@ class VideoTagsTests(ApiTestCase):
             MODEL, side_effect=[json.dumps(foreign), json.dumps(TAGS)]
         ) as generate:
             response = self.generate(video, TAGS)
-        self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 202, response.data)
+            self.run_draft_task()
+
         self.assertEqual(generate.call_count, 2)
         self.assertIn("translate rather than copying", generate.call_args.args[0])
         with patch(MODEL, return_value=json.dumps(foreign)) as generate:
             response = self.generate(video, TAGS)
-        self.assertEqual(response.status_code, 500)
+            self.assertEqual(response.status_code, 202, response.data)
+            with self.assertRaises(APIException) as failure:
+                self.run_draft_task()
+
         self.assertEqual(generate.call_count, 2)
-        self.assertIn("English tags", str(response.data))
+        self.assertIn("English tags", str(failure.exception.detail))
         video.refresh_from_db()
         self.assertEqual(video.tags, TAGS)
 
@@ -151,17 +162,24 @@ class VideoTagsTests(ApiTestCase):
         ):
             with self.subTest(reply=reply), patch(MODEL, return_value=reply):
                 response = self.generate(video, TAGS)
-            self.assertEqual(response.status_code, 500)
-            self.assertIn("invalid tags", str(response.data))
+                self.assertEqual(response.status_code, 202, response.data)
+                with self.assertRaises(APIException) as failure:
+                    self.run_draft_task()
+
+            self.assertIn("invalid tags", str(failure.exception.detail))
         with patch(MODEL, side_effect=APIException("Provider unavailable")):
-            self.assertEqual(self.generate(video, TAGS).status_code, 500)
+            self.assertEqual(self.generate(video, TAGS).status_code, 202)
+            with self.assertRaises(APIException):
+                self.run_draft_task()
         video.refresh_from_db()
         self.assertEqual(video.tags, TAGS)
 
     def test_stale_saves_and_generation_cannot_replace_newer_tags(self):
         video = self.video_for(tags=TAGS)
         with patch(MODEL) as generate:
-            self.assertEqual(self.generate(video).status_code, 409)
+            self.assertEqual(self.generate(video).status_code, 202)
+            with self.assertRaises(APIException):
+                self.run_draft_task()
         generate.assert_not_called()
         empty = {"tiktok": [], "youtube": [], "search": []}
         self.assertEqual(self.save_tags(video, empty).status_code, 409)
@@ -172,7 +190,9 @@ class VideoTagsTests(ApiTestCase):
             return json.dumps(TAGS)
 
         with patch(MODEL, side_effect=other_session):
-            self.assertEqual(self.generate(video, TAGS).status_code, 409)
+            self.assertEqual(self.generate(video, TAGS).status_code, 202)
+            with self.assertRaises(APIException):
+                self.run_draft_task()
         video.refresh_from_db()
         self.assertEqual(video.tags, empty)
 
@@ -215,7 +235,8 @@ class VideoTagsTests(ApiTestCase):
             self.video_for(gpt_answer=None),
         ):
             with patch(MODEL, return_value=json.dumps(TAGS)) as generate:
-                self.assertEqual(self.generate(video).status_code, 200)
+                self.assertEqual(self.generate(video).status_code, 202)
+                self.run_draft_task()
             self.assertIn(
                 "A whale surfaces" if video.gpt_answer else video.prompt.prompt,
                 generate.call_args.args[0],
