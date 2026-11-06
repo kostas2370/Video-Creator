@@ -15,6 +15,12 @@ class AccountSerializer(serializers.ModelSerializer):
         fields = ["id", "platform", "display_name", "expires_at", "needs_reconnect"]
 
 
+
+class ConnectionsSerializer(serializers.Serializer):
+    platforms = serializers.ListField(child=serializers.DictField(), read_only=True)
+    accounts = AccountSerializer(many=True, read_only=True)
+
+
 class JobSerializer(serializers.ModelSerializer):
     class Meta:
         model = PublishJob

@@ -1,6 +1,5 @@
 import logging
 
-from django.db.models import OuterRef, Subquery
 from django.http import HttpResponse
 from django.utils.http import content_disposition_header
 from django.utils.text import slugify
@@ -8,14 +7,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.videomanagement import draft_tasks
 from apps.videomanagement.filters import VideoFilter
-from apps.videomanagement.models import SceneImage, Video, VideoStatus, VideoType
+from apps.videomanagement.models import Video, VideoStatus, VideoType
 from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schemas.drafts import DraftJobSerializer
@@ -115,8 +113,7 @@ class VideoView(
         "render_video": RenderVideoSerializer,
     }
     queryset = Video.objects.all()
-    filter_backends = [DjangoFilterBackend, SearchFilter]
-    search_fields = ["title", "tags__tiktok", "tags__youtube", "tags__search"]
+    filter_backends = [DjangoFilterBackend]
     filterset_class = VideoFilter
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
@@ -180,30 +177,6 @@ class VideoView(
             upload = serializer.validated_data["file"]
         video = set_music(video, upload)
         return Response(self.serialize_video_detail(video))
-
-    def filter_queryset(self, queryset):
-        queryset = (
-            queryset.for_user(self.request.user)
-            .order_by("-updated_at", "-id")
-            .select_related("music", "prompt")
-        )
-        if self.action == "list":
-            queryset = queryset.listable().annotate(
-                scene_preview=Subquery(
-                    SceneImage.objects.filter(
-                        scene__video_id=OuterRef("pk"), scene__archived_at__isnull=True
-                    )
-                    .exclude(asset__file="")
-                    .exclude(asset__file__isnull=True)
-                    .order_by("scene__position", "created_at", "id")
-                    .values("asset__file")[:1]
-                )
-            )
-
-        if self.action in ("retrieve", "preview"):
-            queryset = queryset.with_editor_media()
-
-        return super().filter_queryset(queryset)
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.serializer_class)

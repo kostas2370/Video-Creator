@@ -636,3 +636,28 @@ class PublishingTests(ApiTestCase):
                 response = self.client.get(url, {"token": token}, HTTP_RANGE=header)
                 self.assertEqual(response.status_code, 416)
                 self.assertEqual(response["Content-Range"], "bytes */8")
+
+    def test_job_list_filters_by_owned_video_and_excludes_other_accounts(self):
+        selected = self.new_job()
+        other_video = self.video_for(status="COMPLETED")
+        other = self.new_job()
+        PublishJob.objects.filter(pk=other.pk).update(video=other_video)
+        foreign = self.new_job()
+        foreign_user = user.make()
+        foreign_video = self.video_for(owner=foreign_user, status="COMPLETED")
+        PublishJob.objects.filter(pk=foreign.pk).update(
+            user=foreign_user, video=foreign_video
+        )
+        response = self.client.get(
+            reverse("publishing-jobs"), {"video": str(self.video.pk)}
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual([row["id"] for row in response.data], [str(selected.pk)])
+        response = self.client.get(reverse("publishing-jobs"))
+        self.assertEqual(
+            {row["id"] for row in response.data}, {str(selected.pk), str(other.pk)}
+        )
+        for value, expected in ((str(foreign_video.pk), 404), ("invalid", 400)):
+            with self.subTest(video=value):
+                response = self.client.get(reverse("publishing-jobs"), {"video": value})
+                self.assertEqual(response.status_code, expected)

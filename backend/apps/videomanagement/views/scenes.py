@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status, viewsets
@@ -9,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.videomanagement import draft_tasks
+from apps.videomanagement.filters import SceneFilter
 from apps.videomanagement.models import Scene, SceneImage, VideoType
 from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schema import SceneImageUploadSchema
@@ -74,15 +76,12 @@ from apps.videomanagement.tasks import generate_scene_image_task
 class SceneView(viewsets.GenericViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = SceneFilter
     permission_classes = [
         IsAuthenticated,
         IsOwnerPermission,
     ]
-
-    def filter_queryset(self, queryset):
-        if self.action == "restore":
-            queryset = Scene.all_objects.all()
-        return super().filter_queryset(queryset.select_related("video"))
 
     def get_serializer_class(self):
         return {

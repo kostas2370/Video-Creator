@@ -8,18 +8,18 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
 from PIL import Image, ImageOps
+from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.models import Video, VideoStatus
 from apps.videomanagement.utils.file_utils import stored_file_exists
 from apps.videomanagement.utils.timing import video_metadata
 
+from .accounts import access_token
 from .config import require_configured
+from .connections.tiktok import creator_info
 from .diagnostics import log_failure
 from .models import Platform, PublishJob, SocialAccount
-from .accounts import access_token
-from .connections.tiktok import creator_info
 from .platforms import get_publisher
 
 
@@ -114,3 +114,11 @@ def create_job(user, data):
         )
         job.refresh_from_db()
     return job
+
+
+def disconnect_account(account):
+    PublishJob.objects.filter(account=account, status=PublishJob.Status.QUEUED).update(
+        status=PublishJob.Status.FAILED,
+        error="The account was disconnected before uploading.",
+    )
+    account.delete()

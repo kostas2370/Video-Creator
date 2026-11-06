@@ -1,13 +1,12 @@
 from django.db.models import (
     BooleanField,
     Case,
-    Count,
     Prefetch,
-    Q,
     Value,
     When,
     prefetch_related_objects,
 )
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -20,7 +19,8 @@ from apps.videomanagement.paginator import StandardResultsSetPagination
 from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
-from .choices import PROJECT_BUSY, ClipStatus
+from .choices import ClipStatus
+from .filters import ClipProjectFilter
 from .hashtags import save_hashtags
 from .models import Clip, ClipProject
 from .protected_media import media_response
@@ -50,33 +50,10 @@ class ClipProjectView(
     mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
     queryset = ClipProject.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ClipProjectFilter
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
-
-    def filter_queryset(self, queryset):
-        rows = queryset.filter(created_by=self.request.user).defer("transcript_parts")
-        if self.action == "list":
-            search = self.request.query_params.get("search", "").strip()[:200]
-            status = self.request.query_params.get("status", "")
-            if search:
-                rows = rows.filter(title__icontains=search)
-            if status == "PROCESSING":
-                rows = rows.filter(status__in=PROJECT_BUSY)
-            elif status:
-                rows = rows.filter(status=status)
-            rows = (
-                rows.defer("words")
-                .annotate(
-                    clip_total=Count("clips"),
-                    export_total=Count(
-                        "clips", filter=Q(clips__status=ClipStatus.COMPLETED)
-                    ),
-                )
-                .order_by("-created_at", "-id")
-            )
-        elif self.action == "retrieve":
-            rows = rows.prefetch_related("clips")
-        return super().filter_queryset(rows)
 
     def get_serializer_class(self):
         if self.action in {"clips", "clip", "export"}:

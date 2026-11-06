@@ -82,3 +82,29 @@ class LibraryViewTests(ApiTestCase):
             context={"request": Mock(user=self.user)},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_asset_search_preserves_phrase_matching_and_owner_scoping(self):
+        mine = intro.make(created_by=self.user, name="Blue sky")
+        intro.make(created_by=self.user, name="Blue distant sky")
+        intro.make(created_by=user.make(), name="Blue sky")
+        response = self.client.get(reverse("intro-list"), {"search": '"Blue sky"'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [row["id"] for row in response.data["results"]], [str(mine.pk)]
+        )
+
+    def test_asset_ordering_preserves_public_fields_and_invalid_field_fallback(self):
+        first = intro.make(created_by=self.user, name="Alpha")
+        last = intro.make(created_by=self.user, name="Zulu")
+        for ordering, expected in (
+            ("-name", [str(last.pk), str(first.pk)]),
+            ("unknown", sorted([str(first.pk), str(last.pk)])),
+        ):
+            with self.subTest(ordering=ordering):
+                response = self.client.get(
+                    reverse("intro-list"), {"ordering": ordering}
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    [row["id"] for row in response.data["results"]], expected
+                )

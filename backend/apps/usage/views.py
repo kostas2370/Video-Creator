@@ -6,19 +6,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.usage.estimates import media_estimate
-from apps.usage.filters import UsageFilter
-from apps.usage.models import AIUsage, GenerationEstimate
+from apps.usage.filters import ProjectUsageFilter, UsageFilter
+from apps.usage.models import AIUsage
+from apps.usage.scenarios import (
+    include_scenario,
+    missing_scenario_line,
+    project_estimate,
+    recorded_scenario_line,
+    scenario_estimate,
+)
 from apps.usage.serializers import (
     CostEstimateRequestSerializer,
     ScenarioEstimateRequestSerializer,
     UsageSerializer,
-)
-from apps.usage.scenarios import (
-    scenario_estimate,
-    project_estimate,
-    include_scenario,
-    missing_scenario_line,
-    recorded_scenario_line,
 )
 from apps.videomanagement.models import Video
 
@@ -32,8 +32,8 @@ class UsageView(GenericAPIView):
 
     @swagger_auto_schema(responses={200: UsageSerializer})
     def get(self, request):
-        all_usage = self.get_queryset().filter(user=request.user)
-        summary = self.filter_queryset(all_usage).summary()
+        all_usage = UsageFilter(queryset=self.get_queryset(), request=request).queryset
+        summary = self.filter_queryset(self.get_queryset()).summary()
         summary.update(
             period=request.query_params.get("period", "30"),
             first_recorded_at=all_usage.first_recorded_at(),
@@ -82,17 +82,16 @@ class ScenarioEstimateView(GenericAPIView):
 
 
 class ProjectCostView(GenericAPIView):
+    queryset = AIUsage.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ProjectUsageFilter
     permission_classes = [IsAuthenticated]
     serializer_class = UsageSerializer
 
     def get(self, request, video_id):
         video = get_object_or_404(Video, pk=video_id, created_by=request.user)
-        saved = GenerationEstimate.objects.filter(video=video).first()
-        summary = AIUsage.objects.filter(
-            user=request.user,
-            video=video,
-            service__in=("text", "images", "tts", "video"),
-        ).summary()
+        saved = getattr(video, "generationestimate", None)
+        summary = self.filter_queryset(self.get_queryset()).summary()
         estimate = saved.estimate if saved else None
         if (
             estimate

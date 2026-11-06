@@ -81,9 +81,15 @@ video models/tasks import API-key models, and Django loads signal registration i
 `AppConfig.ready()`. Avatar rendering defers SadTalker loading so ordinary requests
 and non-avatar exports do not require or initialize the optional model runtime.
 
-The media-library FilterSet owns `search` and `kind`; ownership remains in the view
-queryset. Invalid media kinds receive a field-level 400 response. Existing simple
-video and voice filters continue to use DRF's generated FilterSets.
+API filtering lives in explicit FilterSet classes, wired through DjangoFilterBackend.
+Views declare their queryset and filterset class; FilterSets own ownership scoping,
+search, ordering, status/type selection, and action-specific query preparation.
+Common owner/user FilterSets apply access scoping even without query parameters.
+Asset search and ordering retain DRF's phrase matching and public-field allowlist.
+Video, scene, voice, media-library, caption, icon, series, clip, news, publishing,
+notification, provider, and usage endpoints use this shared approach. Object lookups
+and domain mutations remain in their services. Invalid choices retain field-level
+400 responses.
 
 ## Data model
 
