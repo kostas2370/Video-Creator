@@ -8,10 +8,9 @@ import { getIntro, getOutro, getAvatars, getVoices, updateVideo } from "../api/a
 import { defaultTransition, transitionDurations, transitionStyles } from "./SceneTransition";
 import { AssetDropBox } from "./ui/assetDropBox";
 import { toast } from "react-toastify";
-import { CloseModalButton } from "./ui/CloseModalButton";
 import { RiSettings3Line, RiMovieLine, RiUser3Line } from "react-icons/ri";
 import { CaptionStyleEditor } from "./CaptionStyleEditor";
-import { editorInput } from "./ui/EditorDialog";
+import { EditorDialog, editorInput, editorButton, editorSecondaryButton } from "./ui/EditorDialog";
 
 const positions = [
   ["left,top", "Top left"],
@@ -102,31 +101,13 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     }
   };
 
-  const onSubmit = async (event) => {
-    event.preventDefault();
+  const saveSettings = async changes => {
+    if (saving) return;
     setSaving(true);
     try {
-      const changes = {
-        visual_continuity: visualContinuity,
-        generation_mode: generationMode,
-        intro,
-        outro,
-        avatar,
-        subtitles,
-        caption_style: captionStyle,
-        caption_config: captionConfig,
-        platform,
-        video_format: videoFormat,
-        transition_default: transitionDefault,
-        transition_duration: transitionDuration === "" ? null : Number(transitionDuration),
-        intro_transition: introTransition,
-        intro_transition_duration: introTransitionDuration === "" ? null : Number(introTransitionDuration),
-      };
-      if (!avatar && voice && String(voice) !== String(info?.voice_model ?? "")) changes.voice_id = voice;
-      if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
-      const { data: response } = await updateVideo(info.id, changes);
+      const { data: response, status } = await updateVideo(info.id, changes);
       if (response) {
-        toast.success("Video settings saved");
+        toast.success(status === 202 ? "Settings saved. Narration is regenerating in the background." : "Video settings saved");
         onSaved?.();
         setShowModal(false);
       }
@@ -135,23 +116,37 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     }
   };
 
+  const onSubmit = async event => {
+    event.preventDefault();
+    const changes = {
+      visual_continuity: visualContinuity,
+      generation_mode: generationMode,
+      intro,
+      outro,
+      avatar,
+      subtitles,
+      caption_style: captionStyle,
+      caption_config: captionConfig,
+      platform,
+      video_format: videoFormat,
+      transition_default: transitionDefault,
+      transition_duration: transitionDuration === "" ? null : Number(transitionDuration),
+      intro_transition: introTransition,
+      intro_transition_duration: introTransitionDuration === "" ? null : Number(introTransitionDuration),
+    };
+    if (!avatar && voice && String(voice) !== String(info?.voice_model ?? "")) changes.voice_id = voice;
+    if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
+    await saveSettings(changes);
+  };
+
   if (!showModal) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gray-950/55 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowModal(false); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="video-settings-title" className="my-auto flex max-h-[min(92vh,900px)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl shadow-gray-950/30 dark:border-gray-700 dark:bg-gray-900">
-        <header className="relative flex items-start gap-4 border-b border-gray-100 bg-gradient-to-br from-blue-50 via-white to-indigo-50 px-5 py-5 sm:px-7 sm:py-6 dark:border-gray-800 dark:from-blue-950/50 dark:via-gray-900 dark:to-indigo-950/40">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm ring-1 ring-gray-200 dark:bg-gray-800 dark:text-blue-300 dark:ring-gray-700"><RiSettings3Line aria-hidden="true" className="h-5 w-5" /></span>
-          <div className="min-w-0 flex-1 pr-8">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">Video editor</p>
-            <h2 id="video-settings-title" className="mt-1 text-xl font-bold tracking-tight text-gray-950 dark:text-white">Video settings</h2>
-            <p className="mt-1 truncate text-sm text-gray-500 dark:text-gray-400">Customize {info?.title || "your video"} before rendering.</p>
-          </div>
-          <CloseModalButton setShowModal={setShowModal} />
-        </header>
-
-        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-7">
+  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Video settings" description={`Customize ${info?.title || "your video"} before rendering.`} icon={RiSettings3Line} busy={saving} maxWidth="max-w-4xl" footer={<div className="flex justify-end gap-2">
+    {info?.can_retry_narration && <button type="button" disabled={saving} onClick={() => saveSettings({ retry_narration: true })} className={editorSecondaryButton}>Retry narration</button>}
+    <button type="button" disabled={saving} onClick={() => setShowModal(false)} className={editorSecondaryButton}>Cancel</button>
+    <button type="submit" form="video-settings-form" disabled={saving} className={editorButton}>{saving ? "Saving…" : "Save settings"}</button>
+  </div>}>
+    <form id="video-settings-form" onSubmit={onSubmit}><fieldset disabled={saving} className="min-w-0 space-y-6">
             {(info?.mode === "AI" || info?.video_type === "MANUAL") && <GenerationModeSelect value={generationMode} onChange={setGenerationMode} disabled={saving} />}
             {(info?.mode === "AI" || info?.video_type === "MANUAL") && <VisualContinuity value={visualContinuity} onChange={setVisualContinuity} disabled={saving} />}
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
@@ -190,10 +185,10 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
               <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-blue-600 dark:text-blue-300"><RiMovieLine aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>Opening and ending</h3><p className={sectionDescription}>Add reusable clips around your scenes.</p></div></div>
               <div className="grid gap-5 sm:grid-cols-2">
-                <AssetDropBox value={intro} setValue={setIntro} setSelectedFile={setSelectedIntroFile} type="intro" items={intros} selectedFile={selectedIntroFile} />
-              <MoreAssetOptions options={introsOptions} label="intros" />
-                <AssetDropBox value={outro} setValue={setOutro} setSelectedFile={setSelectedOutroFile} type="outro" items={outros} selectedFile={selectedOutroFile} />
-              <MoreAssetOptions options={outrosOptions} label="outros" />
+                <div><AssetDropBox value={intro} setValue={setIntro} setSelectedFile={setSelectedIntroFile} type="intro" items={intros} selectedFile={selectedIntroFile} />
+              <MoreAssetOptions options={introsOptions} label="intros" /></div>
+                <div><AssetDropBox value={outro} setValue={setOutro} setSelectedFile={setSelectedOutroFile} type="outro" items={outros} selectedFile={selectedOutroFile} />
+              <MoreAssetOptions options={outrosOptions} label="outros" /></div>
               </div>
               {intro && <fieldset disabled={saving} className="mt-4 grid gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-2 dark:border-gray-700">
                 <legend className="px-2 text-sm font-semibold text-gray-700 dark:text-gray-200">After intro</legend>
@@ -215,7 +210,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
               <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>{info?.video_type === "MANUAL" ? "Captions" : "Presenter and captions"}</h3><p className={sectionDescription}>{info?.video_type === "MANUAL" ? "Show the caption text you add to your scenes." : "Choose a presenter or narration voice, and subtitle visibility."}</p></div></div>
               {info?.video_type !== "MANUAL" && <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />}
-              <MoreAssetOptions options={avatarsOptions} label="avatars" />
+              {info?.video_type !== "MANUAL" && <MoreAssetOptions options={avatarsOptions} label="avatars" />}
               {!avatar && info?.video_type !== "MANUAL" && (
                 <div className="mt-5">
                   <label htmlFor="video-voice" className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration voice</label>
@@ -249,14 +244,6 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
               </label>
               {subtitles && <div className="mt-3"><CaptionStyleEditor preset={captionStyle} config={captionConfig} videoFormat={videoFormat} onChange={(preset, config) => { setCaptionStyle(preset); setCaptionConfig(config); }} /></div>}
             </section>
-          </div>
-
-          <footer className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-7 dark:border-gray-800 dark:bg-gray-900">
-            <button type="button" disabled={saving} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:opacity-50 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Saving…" : "Save settings"}</button>
-          </footer>
-        </form>
-      </section>
-    </div>
-  );
+    </fieldset></form>
+  </EditorDialog>;
 };

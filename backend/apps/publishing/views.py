@@ -6,24 +6,38 @@ from django.core import signing
 from django.http import FileResponse, HttpResponseRedirect, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.exceptions import APIException, ValidationError
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers
+from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.generics import GenericAPIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.common.filters import UserFilterSet
 from apps.common.ranges import parse_byte_range
 from apps.videomanagement.models import Video
 
 from . import oauth
 from .config import setup_message
 from .diagnostics import log_failure
-from .models import Platform, PublishJob, SocialAccount
+from .filters import PublishJobFilter
 from .http import ProviderError
-from .serializers import AccountSerializer, JobSerializer, PublishSerializer
-from .services import account_for, create_job, posting_context
+from .models import Platform, PublishJob, SocialAccount
+from .serializers import (
+    AccountSerializer,
+    ConnectionsSerializer,
+    JobSerializer,
+    PublishSerializer,
+)
+from .services import account_for, create_job, disconnect_account, posting_context
 from .tasks import poll_job
-from .throttling import ConnectionThrottle, ContextThrottle, PublishingThrottle, StatusThrottle
+from .throttling import (
+    ConnectionThrottle,
+    ContextThrottle,
+    PublishingThrottle,
+    StatusThrottle,
+)
 
 
 class CreatorView(APIView):
@@ -38,21 +52,35 @@ class CreatorView(APIView):
         return super().handle_exception(exc)
 
 
-class ConnectionsView(CreatorView):
+class ConnectionsView(CreatorView, GenericAPIView):
+    serializer_class = ConnectionsSerializer
+    queryset = SocialAccount.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = UserFilterSet
+
     def get(self, request):
-        return Response({
-            "platforms": [{"id": key, "name": label, "configured": not setup_message(key), "setup_message": setup_message(key)} for key, label in Platform.choices],
-            "accounts": AccountSerializer(SocialAccount.objects.filter(user=request.user), many=True).data,
-        })
+        return Response(
+            {
+                "platforms": [
+                    {
+                        "id": key,
+                        "name": label,
+                        "configured": not setup_message(key),
+                        "setup_message": setup_message(key),
+                    }
+                    for key, label in Platform.choices
+                ],
+                "accounts": AccountSerializer(
+                    self.filter_queryset(self.get_queryset()), many=True
+                ).data,
+            }
+        )
 
 
 class ConnectionView(CreatorView):
     def delete(self, request, account_id):
         account = account_for(request.user, account_id)
-        PublishJob.objects.filter(account=account, status=PublishJob.Status.QUEUED).update(
-            status=PublishJob.Status.FAILED, error="The account was disconnected before uploading."
-        )
-        account.delete()
+        disconnect_account(account)
         return Response(status=204)
 
 
@@ -104,23 +132,29 @@ class ContextView(CreatorView):
         return Response(posting_context(account))
 
 
-class JobsView(CreatorView):
+class JobsView(CreatorView, GenericAPIView):
+    serializer_class = JobSerializer
+    queryset = PublishJob.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = PublishJobFilter
+
+    def get_serializer_class(self):
+        return PublishSerializer if self.request.method == "POST" else JobSerializer
+
     def get_throttles(self):
         return [PublishingThrottle()] if self.request.method == "POST" else []
 
     def get(self, request):
-        jobs = PublishJob.objects.filter(user=request.user)
-        video_id = request.query_params.get("video")
-        if video_id:
-            video_id = serializers.UUIDField().run_validation(video_id)
-            get_object_or_404(Video, pk=video_id, created_by=request.user)
-            jobs = jobs.filter(video_id=video_id)
+        jobs = self.filter_queryset(self.get_queryset())
         return Response(JobSerializer(jobs[:30], many=True).data)
 
     def post(self, request):
         serializer = PublishSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(JobSerializer(create_job(request.user, serializer.validated_data)).data, status=202)
+        return Response(
+            JobSerializer(create_job(request.user, serializer.validated_data)).data,
+            status=202,
+        )
 
 
 class RefreshView(CreatorView):

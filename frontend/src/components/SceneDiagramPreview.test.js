@@ -42,5 +42,6 @@ it("keeps photo controls for text overlays and temporary or translucent diagrams
   expect(hasStillImage({ ...scene, scene_image: photo })).toBe(false);
   render(<Scene scene={{ ...scene, scene_image: photo, overlays: [{ ...overlay, start: 1 }] }} onMotion={vi.fn()} />);
   expect(screen.getByRole("button", { name: "Edit visual" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "Style" }));
   expect(screen.getByRole("button", { name: "Edit motion for scene 1" })).toBeTruthy();
 });

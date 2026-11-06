@@ -1,3 +1,4 @@
+import { ConfirmationDialog } from "../components/ui/ConfirmationDialog";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { HiOutlineMicrophone, HiOutlineTrash, HiOutlinePlay } from "react-icons/hi2";
@@ -10,25 +11,22 @@ const secondary = "rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-me
 
 function VoiceCard({ voice, busy, onAction }) {
   const [preview, setPreview] = useState(null);
+  const [confirming, setConfirming] = useState(false);
   const url = useObjectUrl(preview);
   const listen = () => onAction(async () => {
     const result = await previewVoice(voice.id);
     if (result.ok) setPreview(result.data);
     return result;
   });
-  const remove = () => {
-    if (window.confirm(`Delete “${voice.name}” from this app and ElevenLabs? Existing audio will stay in your videos. This cannot be undone.`)) {
-      onAction(() => deleteVoice(voice.id), true);
-    }
-  };
   return <article className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+    <ConfirmationDialog open={confirming} onClose={() => setConfirming(false)} onConfirm={() => onAction(() => deleteVoice(voice.id), true)} title="Delete voice?" description={`Delete “${voice.name}” from this app and ElevenLabs? Existing audio will stay in your videos. This cannot be undone.`} confirmLabel="Delete voice" />
     <div className="flex items-start justify-between gap-3">
       <div><h2 className="font-semibold">{voice.name}</h2><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Private · {voice.clone_key_source === "service" ? "Service account" : "Your ElevenLabs account"}</p></div>
       <HiOutlineMicrophone aria-hidden="true" className="h-6 w-6 text-blue-500" />
     </div>
     <div className="mt-5 flex flex-wrap gap-2">
       <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={listen}><HiOutlinePlay aria-hidden="true" />Preview voice</button>
-      <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={remove}><HiOutlineTrash aria-hidden="true" />Delete</button>
+      <button type="button" disabled={busy} className={`${secondary} flex items-center gap-2`} onClick={() => setConfirming(true)}><HiOutlineTrash aria-hidden="true" />Delete</button>
     </div>
     {url && <audio key={url} src={url} controls autoPlay className="mt-4 w-full" aria-label={`Preview of ${voice.name}`} />}
   </article>;
@@ -40,6 +38,7 @@ export function Voices() {
   const [sample, setSample] = useState(null);
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -62,7 +61,7 @@ export function Voices() {
     setLoading(true);
     getVoices(undefined, 1, { is_cloned: true, notifyError: false }).then(result => {
       if (!current) return;
-      if (result.ok) setVoices(result.data.results);
+      if (result.ok) { setVoices(result.data.results); setLoaded(true); }
       else setError(result.message);
       setLoading(false);
     });
@@ -116,7 +115,7 @@ export function Voices() {
       {busy && <p role="status" className="mt-4 text-sm text-gray-500">Working with ElevenLabs… This can take a minute.</p>}
       {!loading && voices.length >= 3 && <p className="mt-4 text-sm">You have three custom voices. Delete one to make room for another.</p>}
     </form>
-    {loading ? <p role="status">Loading your voices…</p> : voices.length ? <div className="grid gap-5 sm:grid-cols-2">{voices.map(voice => <VoiceCard key={voice.id} voice={voice} busy={busy || recorder.recording || recorder.starting} onAction={run} />)}</div> : <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">Your usable custom voices will appear here. Only you can access them.</p>}
+    {loading && !loaded ? <p role="status">Loading your voices…</p> : voices.length ? <div className="grid gap-5 sm:grid-cols-2">{voices.map(voice => <VoiceCard key={voice.id} voice={voice} busy={busy || recorder.recording || recorder.starting} onAction={run} />)}</div> : <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-400">Your usable custom voices will appear here. Only you can access them.</p>}
     <p className="mt-6 text-xs text-gray-500 dark:text-gray-400">Creating a voice and generating previews may use your provider plan’s limits. Voices remain tied to the account and key used to create them. Deleting a voice removes it from ElevenLabs and from future voice selections; existing generated audio stays in your videos.</p>
   </main>;
 }

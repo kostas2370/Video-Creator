@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
 from django.middleware import csrf
 from django.urls import reverse
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ParseError
@@ -13,8 +14,7 @@ from rest_framework_simplejwt import tokens
 from rest_framework_simplejwt import views as jwt_views
 from rest_framework_simplejwt.exceptions import TokenError
 
-from apps.common.filters import OwnerFilterBackend
-
+from .filters import NotificationFilter
 from .models import Login, Notification
 from .serializers import (
     ContactSerializer,
@@ -175,8 +175,8 @@ class NotificationView(
 ):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
-    filter_backends = [OwnerFilterBackend]
-    owner_field = "user"
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = NotificationFilter
     permission_classes = [IsAuthenticated]
     pagination_class = None
 
@@ -185,7 +185,7 @@ class NotificationView(
 
         return Response(
             {
-                "unread": notifications.filter(read=False).count(),
+                "unread": self.filterset_class.unread_count(notifications),
                 "results": self.get_serializer(notifications[:30], many=True).data,
             }
         )

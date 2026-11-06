@@ -8,13 +8,14 @@ from rest_framework.exceptions import APIException
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import avatar, intro, outro, scene, video
 from apps.videomanagement.models import Video
-from apps.videomanagement.services.videos import settings as VideoServices
 from apps.videomanagement.services.videos.settings import video_update
 
 
 class VideoUpdateTests(TestCase):
     def test_caption_style_is_saved_without_regenerating_narration(self):
-        with patch.object(VideoServices, "update_scene") as narrate:
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as narrate:
             video_update(self.video, caption_style="TIKTOK")
         self.video.refresh_from_db()
         self.assertEqual(self.video.settings["caption_style"], "TIKTOK")
@@ -64,20 +65,25 @@ class VideoUpdateTests(TestCase):
         picked = avatar.make(created_by=self.video.created_by)
         scene.make(video=self.video, _quantity=2)
 
-        with patch.object(VideoServices, "update_scene") as resynthesise:
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as resynthesise:
             updated = video_update(self.video, title="t", avatar=str(picked.id))
 
         self.assertEqual(updated.voice_model, picked.voice)
-        self.assertEqual(resynthesise.call_count, 2)
+        resynthesise.assert_called_once()
 
     def test_leaves_the_recordings_alone_when_the_voice_is_unchanged(self):
-        picked = avatar.make(voice=self.video.voice_model, created_by=self.video.created_by)
+        picked = avatar.make(
+            voice=self.video.voice_model, created_by=self.video.created_by
+        )
 
-        with patch.object(VideoServices, "update_scene") as resynthesise:
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as resynthesise:
             video_update(self.video, title="t", avatar=str(picked.id))
 
         resynthesise.assert_not_called()
-
 
     def test_attaches_the_intro_and_outro_that_were_chosen(self):
         opening = intro.make(created_by=self.video.created_by)
@@ -110,7 +116,9 @@ class VideoUpdateTests(TestCase):
                 original_title = self.video.title
                 original_voice = self.video.voice_model_id
                 params = {"avatar": str(owned_avatar.id), field: str(foreign.id)}
-                with patch.object(VideoServices, "update_scene") as regenerate:
+                with patch(
+                    "apps.videomanagement.tasks.regenerate_narration_task.delay"
+                ) as regenerate:
                     with self.assertRaises(APIException) as error:
                         video_update(self.video, title="Changed", **params)
                 self.assertEqual(error.exception.status_code, 404)

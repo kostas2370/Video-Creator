@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { diagramElementState, diagramPlan } from "../utils/diagrams";
 import { useIconFiles } from "../hooks/useIconFiles";
 import { videoFontFamily } from "../utils/fonts";
@@ -5,8 +6,9 @@ import { videoFontFamily } from "../utils/fonts";
 export function DiagramLayer({ item, time, duration, frameSize }) {
   const [width, height] = frameSize;
   const icons = useIconFiles(item.diagram.items.map(stage => stage.icon));
+  const elements = useMemo(() => diagramPlan(item.diagram, frameSize, duration), [item.diagram, frameSize[0], frameSize[1], duration]);
   return <div className="absolute inset-0" data-testid="educational-diagram">
-    {diagramPlan(item.diagram, frameSize, duration).map((element, index) => {
+    {elements.map((element, index) => {
       const { x, y, visible, progress } = diagramElementState(element, time);
       if (!visible) return null;
       const style = { position: "absolute", left: `${x / width * 100}%`, top: `${y / height * 100}%` };

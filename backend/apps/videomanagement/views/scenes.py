@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status, viewsets
@@ -8,9 +9,12 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
+from apps.videomanagement.filters import SceneFilter
 from apps.videomanagement.models import Scene, SceneImage, VideoType
 from apps.videomanagement.permissions import IsOwnerPermission
 from apps.videomanagement.schema import SceneImageUploadSchema
+from apps.videomanagement.schemas.drafts import DraftJobSerializer
 from apps.videomanagement.serializers.audio import (
     SceneAudioSerializer,
     VoiceoverUploadSerializer,
@@ -23,7 +27,6 @@ from apps.videomanagement.serializers.overlays import SceneOverlaysSerializer
 from apps.videomanagement.serializers.requests import (
     ChangeSceneImageSerializer,
     GenerateSceneImageSerializer,
-    StartingImageSerializer,
     ManualTextSerializer,
     RestoreSceneSerializer,
     SceneImageQuerySerializer,
@@ -33,12 +36,14 @@ from apps.videomanagement.serializers.requests import (
     SceneTimingSerializer,
     SceneTransitionSerializer,
     SceneUpdateSerializer,
+    StartingImageSerializer,
 )
 from apps.videomanagement.serializers.scene_captions import SceneCaptionsSerializer
 from apps.videomanagement.services.captions.scenes import (
     scene_caption_data,
     update_scene_captions,
 )
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.services.scenes.audio import (
     audio_waveform,
     save_voiceover,
@@ -65,21 +70,18 @@ from apps.videomanagement.services.scenes.starting_images import (
     starting_image_status,
 )
 from apps.videomanagement.services.videos.details import load_video_detail
-from apps.videomanagement.tasks import generate_scene_image_task, rewrite_scene_task
+from apps.videomanagement.tasks import generate_scene_image_task
 
 
 class SceneView(viewsets.GenericViewSet):
     serializer_class = SceneSerializer
     queryset = Scene.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = SceneFilter
     permission_classes = [
         IsAuthenticated,
         IsOwnerPermission,
     ]
-
-    def filter_queryset(self, queryset):
-        if self.action == "restore":
-            queryset = Scene.all_objects.all()
-        return super().filter_queryset(queryset.select_related("video"))
 
     def get_serializer_class(self):
         return {
@@ -214,21 +216,24 @@ class SceneView(viewsets.GenericViewSet):
 
     @swagger_auto_schema(
         request_body=SceneUpdateSerializer,
-        operation_description="This API sends the dialogue into gpt and changes it depending on the "
-        "prompt user sends of th of a scene and regenerates their dialogue "
-        "with the new text",
+        operation_description="Queue a scene rewrite for review without changing the saved script.",
+        responses={202: DraftJobSerializer},
     )
     @action(detail=True, methods=["patch"])
     def generate(self, request, pk):
         scene = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        operation = queue_scene_job(
-            scene,
-            rewrite_scene_task,
-            serializer.validated_data["text"],
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.rewrite_scene_task,
+                scene_id=str(scene.pk),
+                instructions=serializer.validated_data["text"],
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
-        return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @swagger_auto_schema(
         operation_description="Updates a scene image, or creates one when scene_image is omitted. "

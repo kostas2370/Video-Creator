@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { getVideo, renderVideo } from "../api/apiService";
 import { waitForVideo } from "../api/waitForVideo";
 import { GiProcessor } from "react-icons/gi";
-import { CloseModalButton } from "./ui/CloseModalButton";
+import { EditorDialog, editorInput, editorButton, editorSecondaryButton } from "./ui/EditorDialog";
 
 export function RenderModal({
   showModal,
@@ -96,73 +96,27 @@ export function RenderModal({
     if (onFinished) onFinished(video);
   };
 
-  return (
-    <>
-      {showModal ? (
-        <>
-          <div
-            id="renderModal"
-            tabIndex="-1"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Render video confirmation"
-            className=" overflow-y-auto overflow-x-hidden fixed h-screen my-auto  flex items-center z-50 justify-center w-full inset-0 backdrop-filter backdrop-blur-md  max-h-full"
-          >
-            <div className="relative p-4 w-full max-w-md h-full md:h-auto">
-              <div className="relative p-4 text-center bg-white rounded-lg shadow dark:bg-gray-800 sm:p-5">
-                <CloseModalButton setShowModal={setShowModal} />
-
-                <GiProcessor className="text-gray-400 dark:text-gray-500 w-11 h-11 mb-3.5 mx-auto" />
-                <p className="mb-4 text-gray-500 dark:text-gray-300">
-                  Are you sure you want to render this video : {name}?
-                </p>
-                <div className="mb-4 space-y-3 text-left text-sm text-gray-700 dark:text-gray-200">
-                  <label className="block" htmlFor="export-quality">Export quality</label>
-                  <select id="export-quality" value={exportPreset} disabled={audioCheck.loading} onChange={event => setExportPreset(event.target.value)} aria-describedby="export-quality-help" className="w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-gray-600 dark:bg-gray-700">
-                    <option value="DRAFT">Draft — quick review</option>
-                    <option value="STANDARD">Standard — balanced</option>
-                    <option value="HIGH">High — best detail</option>
-                  </select>
-                  <p id="export-quality-help" className="text-xs text-gray-500 dark:text-gray-400">
-                    {exportPreset === "DRAFT" ? "Faster encoding with more compression. Useful for reviewing edits." : exportPreset === "HIGH" ? "Preserves more source detail. Encoding takes longer and files are usually larger." : "Balances detail, encoding time, and file size. Matches the previous export quality."}
-                  </p>
-                  <label className="block" htmlFor="export-fps">Frame rate</label>
-                  <select id="export-fps" value={exportFps} disabled={audioCheck.loading} onChange={event => setExportFps(Number(event.target.value))} aria-describedby="export-fps-help" className="w-full rounded-lg border border-gray-300 bg-white p-2 dark:border-gray-600 dark:bg-gray-700">
-                    <option value={24}>24 fps</option>
-                    <option value={30}>30 fps</option>
-                  </select>
-                  <p id="export-fps-help" className="text-xs text-gray-500 dark:text-gray-400">30 fps gives image motion more frames and may take longer to render. It does not add detail to source clips. Your project dimensions stay the same.</p>
-                </div>
-                {audioCheck.loading && <p role="status" className="mb-4 text-sm text-gray-500">Checking narration…</p>}
-                {audioCheck.scenes.length > 0 && <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-                  <p className="font-semibold">Missing narration in {audioCheck.scenes.length === 1 ? "scene" : "scenes"} {audioCheck.scenes.join(", ")}</p>
-                  <p className="mt-1">These scenes will render without narration. Cancel to retry audio in the editor, or continue with the available audio.</p>
-                </div>}
-                {audioCheck.failed && <p role="status" className="mb-4 text-sm text-amber-700 dark:text-amber-300">Narration could not be checked. You can still render, or cancel and review the scenes.</p>}
-                <div className="flex justify-center items-center space-x-4">
-                  <button
-                    type="button"
-                    className="py-2 px-3 text-sm font-medium text-red-500 bg-white rounded-lg border border-gray-200 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-primary-300 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600"
-                    onClick={(e) => setShowModal(false)}
-                  >
-                    No, cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={audioCheck.loading}
-                    className="py-2 px-3 text-sm font-medium text-center text-white bg-green-600 rounded-lg hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-900"
-                    onClick={(e) => RenderClick()}
-                  >
-                    {audioCheck.scenes.length ? "Render anyway" : "Yes, I'm sure"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <></>
-      )}
-    </>
-  );
+  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Export video" description="Choose the quality and frame rate for your finished video." icon={GiProcessor} maxWidth="max-w-2xl" footer={<div className="flex flex-wrap items-center justify-between gap-3">
+    <p className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400">{name}</p>
+    <div className="flex gap-2"><button type="button" onClick={() => setShowModal(false)} className={editorSecondaryButton}>Cancel</button><button type="button" disabled={audioCheck.loading} onClick={RenderClick} className={editorButton}>{audioCheck.scenes.length ? "Render anyway" : "Export video"}</button></div>
+  </div>}>
+    <div className="space-y-6">
+      <fieldset disabled={audioCheck.loading}>
+        <legend className="mb-3 text-sm font-semibold">Export quality</legend>
+        <div className="grid gap-3 sm:grid-cols-3">{[
+          ["DRAFT", "Draft", "A quick review", "Faster encoding with more compression."],
+          ["STANDARD", "Standard", "Balanced", "A balance of detail, time and file size."],
+          ["HIGH", "High", "Best detail", "More source detail; longer encoding and larger files."],
+        ].map(([value, label, detail, help]) => <label key={value} className={`cursor-pointer rounded-2xl border p-4 transition-colors focus-within:ring-2 focus-within:ring-blue-500 ${exportPreset === value ? "border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10" : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900"}`}>
+          <span className="flex items-center justify-between gap-2 text-sm font-semibold">{label}<input type="radio" name="export-quality" value={value} checked={exportPreset === value} onChange={() => setExportPreset(value)} className="accent-blue-600" /></span><span className="mt-3 block text-xs font-semibold text-blue-600 dark:text-blue-300">{detail}</span><span className="mt-2 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">{help}</span>
+        </label>)}</div>
+      </fieldset>
+      <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700"><label className="block text-sm font-semibold" htmlFor="export-fps">Frame rate</label><select id="export-fps" value={exportFps} disabled={audioCheck.loading} onChange={event => setExportFps(Number(event.target.value))} aria-describedby="export-fps-help" className={`${editorInput} mt-3`}><option value={24}>24 fps · Cinematic</option><option value={30}>30 fps · Smoother motion</option></select><p id="export-fps-help" className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">30 fps gives image motion more frames and may take longer to render. It does not add detail to source clips. Your project dimensions stay the same.</p></div>
+      <div className="min-h-6">
+        {audioCheck.loading && <p role="status" className="text-sm text-gray-500">Checking narration…</p>}
+        {audioCheck.scenes.length > 0 && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p className="font-semibold">Missing narration in {audioCheck.scenes.length === 1 ? "scene" : "scenes"} {audioCheck.scenes.join(", ")}</p><p className="mt-2 leading-relaxed">These scenes will render without narration. Cancel to retry audio in the editor, or continue with the available audio.</p></div>}
+        {audioCheck.failed && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Narration could not be checked. You can still render, or cancel and review the scenes.</p>}
+      </div>
+    </div>
+  </EditorDialog>;
 }

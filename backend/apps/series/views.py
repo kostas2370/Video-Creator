@@ -1,12 +1,11 @@
-from django.db.models import Count, OuterRef, Subquery
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.series.models import Character, SeriesEpisode, VideoSeries
+from apps.series.models import Character, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
     EpisodeMemoryDraftSerializer,
@@ -15,19 +14,19 @@ from apps.series.serializers import (
     VideoSeriesSerializer,
 )
 from apps.series.services.characters import (
-    draft_cast,
-    draft_character_description,
     request_character_image,
 )
 from apps.series.services.episodes import (
     draft_episode,
-    draft_episode_memory,
     retry_episode,
     update_episode_memory,
 )
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.paginator import AssetResultsPagination
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.throttling import GenerateRateThrottle
 
+from .filters import VideoSeriesFilter
 from .serializers import (
     CastDraftRequestSerializer,
     CharacterDescriptionRequestSerializer,
@@ -47,27 +46,9 @@ class VideoSeriesView(viewsets.ModelViewSet):
     serializer_class = VideoSeriesSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = AssetResultsPagination
-    filter_backends = [SearchFilter]
-    search_fields = ["title", "premise"]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = VideoSeriesFilter
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
-
-    def filter_queryset(self, queryset):
-        active = SeriesEpisode.objects.filter(
-            series_id=OuterRef("pk"), video__status__in=("GENERATION", "REVIEW")
-        ).order_by("-number")
-        queryset = (
-            queryset.filter(created_by=self.request.user)
-            .annotate(
-                episode_count=Count("episodes"),
-                active_episode_id=Subquery(active.values("id")[:1]),
-                active_video_id=Subquery(active.values("video_id")[:1]),
-                active_episode_number=Subquery(active.values("number")[:1]),
-            )
-            .prefetch_related("cast_members")
-            .order_by("-updated_at", "id")
-        )
-
-        return super().filter_queryset(queryset)
 
     def get_episode(self, episode_id):
         return get_object_or_404(
@@ -93,7 +74,11 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer = CastDraftRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
-            {"cast": draft_cast(request.user, dict(serializer.validated_data))}
+            queue_draft(
+                request.user, draft_tasks.draft_cast_task, **serializer.validated_data
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @action(detail=False, methods=["post"])
@@ -101,11 +86,13 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer = CharacterDescriptionRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
-            {
-                "character": draft_character_description(
-                    request.user, serializer.validated_data
-                )
-            }
+            queue_draft(
+                request.user,
+                draft_tasks.draft_character_task,
+                **serializer.validated_data,
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @action(detail=False, methods=["get", "post"])
@@ -190,7 +177,12 @@ class VideoSeriesView(viewsets.ModelViewSet):
         serializer = EpisodeMemoryDraftSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
-            draft_episode_memory(
-                episode, owner=request.user, **serializer.validated_data
-            )
+            queue_draft(
+                request.user,
+                draft_tasks.draft_memory_task,
+                episode_id=str(episode.pk),
+                **serializer.validated_data,
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )

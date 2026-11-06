@@ -1,13 +1,12 @@
 from django.db.models import (
     BooleanField,
     Case,
-    Count,
     Prefetch,
-    Q,
     Value,
     When,
     prefetch_related_objects,
 )
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -15,12 +14,14 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.paginator import StandardResultsSetPagination
+from apps.videomanagement.services.draft_jobs import queue_draft
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
-from .choices import PROJECT_BUSY, ClipStatus
-from .hashtags import draft_hashtags, save_hashtags
-from .highlights import suggest_clips
+from .choices import ClipStatus
+from .filters import ClipProjectFilter
+from .hashtags import save_hashtags
 from .models import Clip, ClipProject
 from .protected_media import media_response
 from .serializers import (
@@ -49,35 +50,10 @@ class ClipProjectView(
     mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
     queryset = ClipProject.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ClipProjectFilter
     permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
-
-    def filter_queryset(self, queryset):
-        rows = queryset.filter(created_by=self.request.user).defer(
-            "transcript_parts"
-        )
-        if self.action == "list":
-            search = self.request.query_params.get("search", "").strip()[:200]
-            status = self.request.query_params.get("status", "")
-            if search:
-                rows = rows.filter(title__icontains=search)
-            if status == "PROCESSING":
-                rows = rows.filter(status__in=PROJECT_BUSY)
-            elif status:
-                rows = rows.filter(status=status)
-            rows = (
-                rows.defer("words")
-                .annotate(
-                    clip_total=Count("clips"),
-                    export_total=Count(
-                        "clips", filter=Q(clips__status=ClipStatus.COMPLETED)
-                    ),
-                )
-                .order_by("-created_at", "-id")
-            )
-        elif self.action == "retrieve":
-            rows = rows.prefetch_related("clips")
-        return super().filter_queryset(rows)
 
     def get_serializer_class(self):
         if self.action in {"clips", "clip", "export"}:
@@ -165,7 +141,13 @@ class ClipProjectView(
     def hashtags(self, request, pk=None, clip_id=None):
         clip = get_object_or_404(self.get_object().clips, pk=clip_id)
         if request.method == "POST":
-            return Response({"hashtags": draft_hashtags(clip, request.user)})
+            return Response(
+                queue_draft(
+                    request.user, draft_tasks.draft_hashtags_task, clip_id=str(clip.pk)
+                ),
+                status=202,
+                headers={"Cache-Control": "no-store"},
+            )
         serializer = SaveHashtagsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         clip = save_hashtags(clip, **serializer.validated_data)
@@ -215,7 +197,16 @@ class ClipProjectView(
             raise ValidationError("Wait for the transcript before searching for clips.")
         project.extraction_prompt = serializer.validated_data["prompt"]
         project.clip_count = 3
-        return Response({"clips": suggest_clips(project)})
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.search_transcript_task,
+                project_id=str(project.pk),
+                prompt=serializer.validated_data["prompt"],
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @action(detail=True, methods=["get"])
     def source(self, request, pk=None):

@@ -28,7 +28,8 @@ class VideoQueueRecoveryTests(ApiTestCase):
                 ) as queue:
                     retry = self.client.patch(endpoint)
                 self.assertEqual(retry.status_code, 202, retry.data)
-                queue.assert_called_once_with(video_id=video.pk)
+                video.refresh_from_db()
+                queue.assert_called_once_with(video_id=video.pk, operation_id=str(video.operation_id))
 
     def test_resume_dispatch_failure_restores_status_and_allows_retry(self):
         for previous in (VideoStatus.FAILED, VideoStatus.READY):

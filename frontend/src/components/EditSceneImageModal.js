@@ -2,12 +2,17 @@ import { GenerationCost } from "./GenerationCost";
 import { LibraryPicker } from "./LibraryPicker";
 import { useObjectUrl } from "../hooks/useObjectUrl";
 import { isVideo } from "../utils/media";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { updateSceneImage, generateSceneImage } from "../api/apiService";
 import { toast } from "react-toastify";
 import { EditorDialog, editorInput, editorButton } from "./ui/EditorDialog";
 
 export const EditSceneImageModal = ({ showModal, setShowModal, scene_info, setUpdate }) => {
+  const visible = useRef(showModal);
+  visible.current = showModal;
+  useEffect(() => () => { visible.current = false; }, []);
+  const [error, setError] = useState("");
+  const reportError = message => { setError(message); if (!visible.current) toast.error(message); };
   const [library, setLibrary] = useState(false);
   const [file, setFile] = useState(null);
   const [withAudio, setWithAudio] = useState(false);
@@ -16,23 +21,27 @@ export const EditSceneImageModal = ({ showModal, setShowModal, scene_info, setUp
   const [mode, setMode] = useState("upload");
   const preview = useObjectUrl(file);
   useEffect(() => {
-    if (showModal) { setFile(null); setWithAudio(!!scene_info.with_audio); setDescription(scene_info.prompt || ""); setMode("upload"); }
+    if (showModal && !busy) { setError(""); setFile(null); setWithAudio(!!scene_info.with_audio); setDescription(scene_info.prompt || ""); setMode("upload"); }
   }, [showModal, scene_info.scene_id, scene_info.with_audio, scene_info.prompt]);
   const run = async () => {
+    if (busy) return;
     setBusy(mode);
+    setError("");
     try {
       const data = new FormData();
       let response;
       if (mode === "upload") {
         if (file) data.append("image", file);
         data.append("with_audio", withAudio ? 1 : 0);
-        ({ data: response } = await updateSceneImage(scene_info.scene_id, scene_info.scene_image_id, data));
+        response = await updateSceneImage(scene_info.scene_id, scene_info.scene_image_id, data);
       } else {
         data.append("image_description", description);
-        ({ data: response } = await generateSceneImage(scene_info.scene_id, data));
+        response = await generateSceneImage(scene_info.scene_id, data);
       }
-      if (response) { toast.success(mode === "generate" && scene_info.starting_image_required ? "Starting image ready for review" : "Scene visual updated successfully"); setUpdate(true); setShowModal(false); }
-    } catch { toast.error("Could not update the visual. Please try again."); }
+      if (!response?.ok) { reportError(response?.message || "Could not update the visual. Please try again."); return; }
+      if (mode === "upload") toast.success("Scene visual updated successfully");
+      setUpdate(true); setShowModal(false);
+    } catch { reportError("Could not update the visual. Please try again."); }
     finally { setBusy(""); setUpdate(true); }
   };
   const media = preview || (scene_info.scene_image_id ? scene_info.image : "");
@@ -42,8 +51,9 @@ export const EditSceneImageModal = ({ showModal, setShowModal, scene_info, setUp
     : scene_info.video_format === "SQUARE"
       ? "mx-auto aspect-square w-full max-w-[320px]"
       : "aspect-video w-full";
-  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Edit visual" description="Upload your own media or generate a visual from a description." busy={!!busy}>
+  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Edit visual" description="Upload your own media or generate a visual from a description." busy={!!busy} allowBackgroundClose={busy === "generate"} footer={<div className="flex justify-end gap-3"><button type="button" disabled={!!busy} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-300">Cancel</button><button type="button" onClick={run} disabled={!!busy || (mode === "upload" ? !file && !scene_info.scene_image_id : !description.trim())} className={editorButton}>{busy ? mode === "upload" ? "Uploading…" : "Generating…" : mode === "upload" ? "Save visual" : scene_info.starting_image_required ? "Prepare starting image" : "Generate visual"}</button></div>}>
     <LibraryPicker open={library} onClose={() => setLibrary(false)} videoId={scene_info.video_id} sceneId={scene_info.scene_id} onSaved={() => { setUpdate(true); setShowModal(false); }} sceneData={{ with_audio: withAudio }} />
+    {error && <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
     <div className="grid gap-6 sm:grid-cols-2">
       <div><p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">{preview ? "New visual preview" : "Current visual"}</p><div style={{ aspectRatio: scene_info.video_format === "PORTRAIT" ? undefined : previewAspectRatio }} className={`flex items-center justify-center overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${previewFrameClass}`}>{media ? isVideo(file || media) ? <video src={media} controls className="h-full w-full object-cover" /> : <img src={media} alt="Scene visual preview" className="h-full w-full object-cover" /> : <p className="text-sm text-gray-400">No visual yet</p>}</div></div>
       <div>
@@ -52,6 +62,6 @@ export const EditSceneImageModal = ({ showModal, setShowModal, scene_info, setUp
       </div>
     </div>
     <GenerationCost refresh={scene_info.generation_mode} videoId={scene_info.video_id} sceneId={scene_info.scene_id} operation="visual" active={showModal && mode === "generate"} />
-    <footer className="mt-6 flex justify-end gap-3"><button type="button" disabled={!!busy} onClick={() => setShowModal(false)} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-300">Cancel</button><button type="button" onClick={run} disabled={!!busy || (mode === "upload" ? !file && !scene_info.scene_image_id : !description.trim())} className={editorButton}>{busy ? mode === "upload" ? "Uploading…" : "Generating…" : mode === "upload" ? "Save visual" : scene_info.starting_image_required ? "Prepare starting image" : "Generate visual"}</button></footer>
+
   </EditorDialog>;
 };

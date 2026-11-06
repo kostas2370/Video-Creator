@@ -15,6 +15,7 @@ from apps.videomanagement.services.scenes.editing import (
     editable_video,
     update_manual_text,
 )
+from apps.videomanagement.services.videos.recovery import video_job_heartbeat
 
 JOB_SALT = "scene-job"
 
@@ -24,38 +25,50 @@ class QueueUnavailable(APIException):
     default_detail = "Could not queue the scene job. Please try again."
 
 
-def restore_video(video_id, previous_status):
-    Video.objects.filter(pk=video_id, status=VideoStatus.GENERATION).update(
-        status=previous_status, updated_at=timezone.now()
-    )
-    publish_update(f"video.{video_id}", video_id=video_id)
+def restore_video(video_id, previous_status, operation_id=None):
+    restored = Video.objects.filter(
+        pk=video_id, status=VideoStatus.GENERATION, operation_id=operation_id
+    ).update(status=previous_status, updated_at=timezone.now())
+    if restored:
+        publish_update(f"video.{video_id}", video_id=video_id)
 
 
 @contextmanager
-def scene_job(scene_id, previous_status):
+def scene_job(scene_id, previous_status, operation_id=None):
     """Load the scene and restore editing when its background work ends."""
     scene = Scene.objects.select_related("video__created_by").get(pk=scene_id)
-    try:
-        if not scene.video.created_by.is_active:
-            raise ValueError("Account is inactive")
-        yield scene
-    finally:
-        restore_video(scene.video_id, previous_status)
+    with video_job_heartbeat(scene.video_id, operation_id) as active:
+        if not active:
+            raise ValidationError("This scene job stopped. Please try again.")
+        try:
+            yield scene
+        finally:
+            restore_video(scene.video_id, previous_status, operation_id)
 
 
 def queue_scene_job(scene, task, value):
+    task_id = str(uuid4())
     with editable_video(scene.video_id) as video:
+        video.operation_id = task_id
+        video.narration_retry_status = ""
         previous_status = video.status
         video.status = VideoStatus.GENERATION
-        video.save(update_fields=["status", "updated_at"])
-    task_id = str(uuid4())
+        video.save(
+            update_fields=[
+                "status",
+                "operation_id",
+                "narration_retry_status",
+                "updated_at",
+            ]
+        )
     try:
         task.apply_async(
             args=(str(scene.pk), value, previous_status),
             task_id=task_id,
+            kwargs={"operation_id": task_id},
         )
     except Exception as exc:
-        restore_video(video.pk, previous_status)
+        restore_video(video.pk, previous_status, task_id)
         raise QueueUnavailable() from exc
     publish_update(f"video.{video.pk}", video_id=video.pk)
     # Bind the result to its scene without storing another database record.
@@ -87,6 +100,4 @@ def edit_scene_text(scene, text):
         scene.video.settings or {}
     ).get("narration", False):
         return update_manual_text(scene, text), None
-    if not text.strip():
-        raise ValidationError("Add dialogue for this scene.")
     return scene, queue_scene_job(scene, tasks.update_scene_task, text)

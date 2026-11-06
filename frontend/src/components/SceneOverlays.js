@@ -32,7 +32,7 @@ const preset = kind => {
 export function SceneOverlays({ scene, index, disabled, onSaved, videoFormat, label }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
-  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
+  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); };
   return <>
     <button
       ref={trigger}

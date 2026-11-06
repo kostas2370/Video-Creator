@@ -1,0 +1,88 @@
+// @vitest-environment happy-dom
+import React from "react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { SceneCreationModal } from "./CreateSceneModal";
+import { ManualSceneModal } from "./ManualSceneModal";
+import { createScene, draftScene } from "../api/apiService";
+vi.mock("../api/apiService", () => ({ createScene: vi.fn(), draftScene: vi.fn() }));
+vi.mock("react-toastify", () => ({ toast: { success: vi.fn() } }));
+vi.mock("./LibraryPicker", () => ({ LibraryPicker: () => null }));
+const scenes = [{ id: "first", position: 1, text: "Opening" }, { id: "second", position: 2, text: "Ending" }];
+const settings = () => ({ id: "project", showModal: true, setShowModal: vi.fn(), setItems: vi.fn(), scenes });
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:scene-preview");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+it("previews written dialogue and saves through the existing scene API", async () => {
+  createScene.mockResolvedValueOnce({ ok: true, data: { id: "new" } });
+  const props = settings();
+  render(<SceneCreationModal {...props} />);
+  fireEvent.change(screen.getByLabelText("Dialogue"), { target: { value: "A new discovery changes everything." } });
+  expect(within(screen.getByRole("region", { name: "New scene preview" })).getByText("A new discovery changes everything.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Add scene", exact: true }));
+  await waitFor(() => expect(props.setShowModal).toHaveBeenCalledWith(false));
+  const [id, data] = createScene.mock.calls[0];
+  expect(id).toBe("project");
+  expect(data.get("text")).toBe("A new discovery changes everything.");
+  expect(draftScene).not.toHaveBeenCalled();
+});
+it("reviews generated scenes before adding the batch", async () => {
+  draftScene.mockResolvedValueOnce({ data: { scenes: [{ text: "First draft", image_description: "A forest" }, { text: "Second draft", image_description: "A lake" }] } });
+  createScene.mockResolvedValueOnce({ data: { id: "queued" } });
+  render(<SceneCreationModal {...settings()} />);
+  fireEvent.click(screen.getByRole("button", { name: /Create with AI/ }));
+  fireEvent.change(screen.getByLabelText("What should happen in this scene?"), { target: { value: "Explore a hidden valley" } });
+  fireEvent.change(screen.getByLabelText("Draft length"), { target: { value: "section" } });
+  fireEvent.click(screen.getByRole("button", { name: "Generate draft" }));
+  await screen.findByRole("region", { name: "Draft sentences" });
+  expect(draftScene).toHaveBeenCalledWith("project", { prompt: "Explore a hidden valley", use_context: true, draft_type: "section", sentence_count: 3 });
+  expect(createScene).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText("Sentence", { selector: "textarea#draft-text-0" }), { target: { value: "Reviewed opening" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add 2 scenes" }));
+  await waitFor(() => expect(createScene).toHaveBeenCalled());
+  expect(createScene.mock.calls[0][1].scenes[0].text).toBe("Reviewed opening");
+});
+it("lets a blank scene retain captions while excluding a previously selected upload", async () => {
+  createScene.mockResolvedValueOnce({ ok: true, data: { id: "new" } });
+  render(<ManualSceneModal {...settings()} />);
+  expect(screen.getByRole("button", { name: "Add scene", exact: true }).disabled).toBe(true);
+  const file = new File(["image"], "photo.png", { type: "image/png" });
+  fireEvent.change(screen.getByLabelText("Upload a visual"), { target: { files: [file] } });
+  expect(await screen.findByAltText("Uploaded scene visual")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText(/Caption text/), { target: { value: "A title card" } });
+  fireEvent.click(screen.getByRole("button", { name: /Blank canvas/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Add blank scene" }));
+  await waitFor(() => expect(createScene).toHaveBeenCalled());
+  const data = createScene.mock.calls[0][1];
+  expect(data.get("text")).toBe("A title card");
+  expect(data.has("image")).toBe(false);
+  expect(data.get("with_audio")).toBe("false");
+});
+it("rejects oversized uploads and keeps scene creation available after a failed save", async () => {
+  createScene.mockResolvedValueOnce({ ok: false, message: "Please try again" });
+  render(<ManualSceneModal {...settings()} />);
+  const file = new File(["image"], "large.png", { type: "image/png" });
+  Object.defineProperty(file, "size", { value: 101 * 1024 * 1024 });
+  fireEvent.change(screen.getByLabelText("Upload a visual"), { target: { files: [file] } });
+  expect(screen.getByRole("alert").textContent).toContain("100 MB");
+  fireEvent.click(screen.getByRole("button", { name: /Blank canvas/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Add blank scene" }));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Please try again"));
+  expect(screen.getByRole("button", { name: "Add blank scene" }).disabled).toBe(false);
+});
+it("accepts dropped media and keeps the selected insertion position in the request", async () => {
+  createScene.mockResolvedValueOnce({ ok: true, data: { id: "new" } });
+  render(<ManualSceneModal {...settings()} />);
+  const dropZone = screen.getByText("Drop your image or video here").closest("label").parentElement;
+  fireEvent.drop(dropZone, { dataTransfer: { files: [new File(["image"], "dropped.png", { type: "image/png" })] } });
+  expect(await screen.findByAltText("Uploaded scene visual")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Insert position/ }));
+  fireEvent.click(await screen.findByRole("option", { name: /Before scene 2/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Add scene", exact: true }));
+  await waitFor(() => expect(createScene).toHaveBeenCalled());
+  expect(createScene.mock.calls[0][1].get("position")).toBe("2");
+  expect(createScene.mock.calls[0][1].get("image").name).toBe("dropped.png");
+});

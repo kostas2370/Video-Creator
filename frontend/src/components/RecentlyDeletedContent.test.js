@@ -8,8 +8,8 @@ const result = { results: [scene], previous: null, next: 2 };
 const render = props => renderToStaticMarkup(<RecentlyDeletedContent page={1} result={result} {...props} />);
 
 describe("scene recovery states", () => {
-  it("hides stale restore actions while refreshing or reporting an error", () => {
-    const loading = render({ loading: true });
+  it("shows initial loading and hides restore actions when reporting an error", () => {
+    const loading = render({ loading: true, result: null });
     expect(loading).toContain('role="status"');
     expect(loading).not.toContain("Restore scene");
     const failed = render({ error: "Connection lost" });
@@ -33,4 +33,11 @@ describe("scene recovery states", () => {
     expect(html).toContain("Restoring…");
     expect(html.match(/disabled=""/g)).toHaveLength(3);
   });
+});
+
+it("keeps removed scenes visible but disables actions during background refresh", () => {
+  const html = render({ loading: true });
+  expect(html).toContain("Recover this scene");
+  expect(html).toContain('aria-busy="true"');
+  expect(html.match(/disabled=""/g)).toHaveLength(3);
 });

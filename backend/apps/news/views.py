@@ -1,8 +1,9 @@
-from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 
+from .filters import NewsUpdateFilter
 from .models import NewsUpdate
 from .serializers import NewsUpdateSerializer
 
@@ -17,7 +18,6 @@ class NewsUpdateListView(ListAPIView):
     serializer_class = NewsUpdateSerializer
     pagination_class = NewsUpdatePagination
 
-    def get_queryset(self):
-        return NewsUpdate.objects.filter(
-            status=NewsUpdate.Status.PUBLISHED, published_at__lte=timezone.now()
-        )
+    queryset = NewsUpdate.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = NewsUpdateFilter

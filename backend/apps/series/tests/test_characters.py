@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 from PIL import Image
+from rest_framework.exceptions import APIException
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
 
@@ -64,10 +65,12 @@ class CharacterSetupTests(ApiTestCase):
                 },
                 format="json",
             )
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["character"]["name"], "Milo")
-        self.assertEqual(response.data["character"]["personality"], "Shy detective")
-        self.assertNotIn("id", response.data["character"])
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual(draft_result["character"]["name"], "Milo")
+        self.assertEqual(draft_result["character"]["personality"], "Shy detective")
+        self.assertNotIn("id", draft_result["character"])
         self.assertIn("A shy detective", ai.call_args.args[0])
         series.refresh_from_db()
         self.assertEqual(serialize_cast(series), original)
@@ -85,7 +88,8 @@ class CharacterSetupTests(ApiTestCase):
                 },
                 format="json",
             )
-        self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.status_code, 400, response.data)
+
         ai.assert_not_called()
 
     def setUp(self):
@@ -171,12 +175,12 @@ class CharacterSetupTests(ApiTestCase):
                 },
                 format="json",
             )
-        self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(
-            [row["name"] for row in response.data["cast"]], ["Milo", "Rin"]
-        )
+            self.assertEqual(response.status_code, 202, response.data)
+            draft_result = self.run_draft_task()
+
+        self.assertEqual([row["name"] for row in draft_result["cast"]], ["Milo", "Rin"])
         self.assertNotEqual(
-            response.data["cast"][0]["id"], response.data["cast"][1]["id"]
+            draft_result["cast"][0]["id"], draft_result["cast"][1]["id"]
         )
         self.assertIn("Rivals become friends", ai.call_args.args[0])
         self.assertFalse(VideoSeries.objects.exists())
@@ -199,7 +203,10 @@ class CharacterSetupTests(ApiTestCase):
                 },
                 format="json",
             )
-        self.assertEqual(response.status_code, 500)
+            self.assertEqual(response.status_code, 202, response.data)
+            with self.assertRaises(APIException):
+                self.run_draft_task()
+
         series.refresh_from_db()
         self.assertEqual(serialize_cast(series)[0]["name"], "Milo")
 

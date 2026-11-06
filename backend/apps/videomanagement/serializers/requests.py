@@ -225,6 +225,7 @@ class RenderVideoSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    retry_narration = serializers.BooleanField(required=False)
     generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False)
     visual_continuity = serializers.CharField(
         required=False, allow_blank=True, max_length=3000
@@ -287,16 +288,10 @@ class ManualSceneSerializer(ScenePositionSerializer):
 
 
 class AddSceneSerializer(ScenePositionSerializer):
-    text = serializers.CharField(required=False)
+    text = serializers.CharField()
     image_description = serializers.CharField(required=False)
     is_last = serializers.BooleanField(default=False)
     with_audio = serializers.BooleanField(default=False)
-
-    def validate(self, attrs):
-        if not attrs.get("text"):
-            raise serializers.ValidationError("text field required !")
-
-        return super().validate(attrs)
 
 
 class AddScenesSerializer(ScenePositionSerializer):

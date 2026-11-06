@@ -15,7 +15,7 @@ const mediaUrl = path => /^https?:\/\//i.test(path) ? path : `${API_HOST}${path}
 export function SceneCaptions({ scene, index, disabled, onSaved, videoFormat }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
-  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus()); };
+  const close = () => { setOpen(false); requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); };
   return <>
     <button ref={trigger} type="button" disabled={disabled || scene.narration_status !== "available"} onClick={() => setOpen(true)} aria-label={`Edit captions for scene ${index + 1}`} aria-haspopup="dialog" aria-expanded={open} title={scene.narration_status !== "available" ? "Add narration or a voiceover to edit timed captions" : "Correct caption words and their timing"} className={editorToolButton}>
       <HiOutlineChatBubbleBottomCenterText aria-hidden="true" className="h-5 w-5" />Captions

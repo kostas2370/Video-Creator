@@ -1,16 +1,19 @@
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import serializers
 
-from apps.videomanagement.services.videos.youtube_metadata import youtube_description
-
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.serializers.tags import (
     GenerateVideoTagsSerializer,
-    SaveVideoTagsSerializer,
     SaveVideoDetailsSerializer,
+    SaveVideoTagsSerializer,
 )
-from apps.videomanagement.services.videos.tags import generate_and_save_tags, save_tags, generate_tags, save_details
+from apps.videomanagement.services.draft_jobs import queue_draft
+from apps.videomanagement.services.videos.tags import (
+    save_details,
+    save_tags,
+)
 from apps.videomanagement.throttling import TagGenerationRateThrottle
 
 
@@ -29,7 +32,14 @@ class VideoTagsMixin:
 
     @action(detail=True, methods=["POST"], throttle_classes=[TagGenerationRateThrottle])
     def draft_tags(self, request, pk=None):
-        return Response({"tags": generate_tags(self.get_object(), request.user)})
+        video = self.get_object()
+        return Response(
+            queue_draft(
+                request.user, draft_tasks.draft_tags_task, video_id=str(video.pk)
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @swagger_auto_schema(request_body=YouTubeDescriptionSerializer)
     @action(detail=True, methods=["POST"], throttle_classes=[TagGenerationRateThrottle])
@@ -37,8 +47,16 @@ class VideoTagsMixin:
         video = self.get_object()
         serializer = YouTubeDescriptionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        description = youtube_description(video, request.user, serializer.validated_data["mode"])
-        return Response({"description": description})
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.draft_description_task,
+                video_id=str(video.pk),
+                mode=serializer.validated_data["mode"],
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @swagger_auto_schema(request_body=SaveVideoTagsSerializer)
     @action(detail=True, methods=["PATCH"])
@@ -55,7 +73,13 @@ class VideoTagsMixin:
         video = self.get_object()
         serializer = GenerateVideoTagsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        video = generate_and_save_tags(
-            video, user=request.user, **serializer.validated_data
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.generate_tags_task,
+                video_id=str(video.pk),
+                choices=dict(serializer.validated_data),
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
-        return Response({"tags": video.tags})

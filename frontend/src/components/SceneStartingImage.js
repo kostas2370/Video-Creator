@@ -44,7 +44,7 @@ export const SceneStartingImage = ({ generationMode = "STANDARD", scene, index, 
         return;
       }
       if (operation === "upload") setFile(null);
-      toast.success({ prepare: "Starting image ready for review", retry: "Video is ready", upload: "Starting image ready for review", approve: "Starting image approved", animate: "Animation is ready" }[operation]);
+      if (["upload", "approve"].includes(operation)) toast.success({ prepare: "Starting image ready for review", retry: "Video is ready", upload: "Starting image ready for review", approve: "Starting image approved", animate: "Animation is ready" }[operation]);
     } catch {
       setError("Could not finish this step. Your saved media is preserved.");
     } finally {

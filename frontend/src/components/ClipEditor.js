@@ -20,9 +20,17 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
   const [transcriptPage, setTranscriptPage] = useState(0);
   const [boundary, setBoundary] = useState("start");
   const editor = useRef(null);
-  useEffect(() => { editor.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [clip.id]);
   const player = useRef(null);
   const backdrop = useRef(null);
+  useEffect(() => {
+    player.current?.pause();
+    backdrop.current?.pause();
+    if (Number.isFinite(draft.start) && draft.start >= 0) {
+      if (player.current) player.current.currentTime = draft.start;
+      if (backdrop.current) backdrop.current.currentTime = draft.start;
+    }
+    setTime(0);
+  }, [draft.start, draft.end]);
   const duration = draft.end - draft.start;
   const groups = useMemo(() => captionGroups(draft.words, draft.style.preset), [draft.words, draft.style.preset]);
   const cue = captionAt(groups, time, draft.style.preset);
@@ -76,7 +84,7 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
           <div>
             <div className="relative mx-auto aspect-[9/16] w-full max-w-[340px] overflow-hidden rounded-xl bg-black">
               {draft.layout === "FIT" && <video ref={backdrop} src={source} muted playsInline aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl" />}
-              <video key={`${clip.id}-${draft.start}`} ref={player} src={source} playsInline preload="metadata" onLoadedMetadata={() => seek(0)} onTimeUpdate={sync} onSeeked={sync} onPlay={() => { setPlaying(true); if (backdrop.current) { backdrop.current.currentTime = player.current.currentTime; backdrop.current.play().catch(() => {}); } }} onPause={() => { setPlaying(false); backdrop.current?.pause(); }} onError={() => setError("Could not play this preview. Try reloading the project.")} className={`absolute inset-0 h-full w-full ${draft.layout === "CROP" ? "object-cover" : "object-contain"}`} style={{ objectPosition: `${draft.crop_position}% 50%` }} />
+              <video key={clip.id} ref={player} src={source} playsInline preload="metadata" onLoadedMetadata={() => seek(0)} onTimeUpdate={sync} onSeeked={sync} onPlay={() => { setPlaying(true); if (backdrop.current) { backdrop.current.currentTime = player.current.currentTime; backdrop.current.play().catch(() => {}); } }} onPause={() => { setPlaying(false); backdrop.current?.pause(); }} onError={() => setError("Could not play this preview. Try reloading the project.")} className={`absolute inset-0 h-full w-full ${draft.layout === "CROP" ? "object-cover" : "object-contain"}`} style={{ objectPosition: `${draft.crop_position}% 50%` }} />
               {draft.captions && <CaptionLayer cue={cue} style={config} size={[720, 1280]} />}
             </div>
             <div className="mt-3 flex items-center gap-3"><button type="button" disabled={!!validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0)} onClick={() => { if (playing) player.current?.pause(); else { if (time >= duration) seek(0); player.current?.play().catch(() => {}); } }} className="rounded-lg bg-gray-100 px-3 py-2 text-sm dark:bg-gray-700">{playing ? "Pause" : "Play"}</button><input aria-label="Clip preview position" type="range" min={0} max={Number.isFinite(duration) && duration > 0 ? duration : 1} step="0.05" value={Number.isFinite(duration) ? Math.min(time, Math.max(0, duration)) : 0} onChange={event => seek(Number(event.target.value))} className="min-w-0 flex-1" /><span className="text-xs tabular-nums">{formatTime(time)} / {formatTime(duration)}</span></div>

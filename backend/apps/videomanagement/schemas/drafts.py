@@ -16,3 +16,8 @@ class SceneDraftResultSerializer(serializers.Serializer):
                 if field in data and not isinstance(data[field], str):
                     raise serializers.ValidationError({field: "Expected a string."})
         return super().to_internal_value(data)
+
+
+class DraftJobSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    status = serializers.ChoiceField(choices=["QUEUED"])

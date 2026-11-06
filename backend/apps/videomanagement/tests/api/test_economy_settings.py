@@ -9,7 +9,7 @@ class EconomySettingsTests(ApiTestCase):
     def test_economy_requires_explicit_selection_and_does_not_generate_media(self):
         video = self.video_for(settings={"narration": True})
         with patch(
-            "apps.videomanagement.services.videos.settings.update_scene"
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
         ) as narrate:
             response = self.client.patch(
                 reverse("video-detail", args=[video.pk]),
