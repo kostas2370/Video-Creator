@@ -59,6 +59,7 @@ export const createStoryVideo = data => post("videos/story/", data, callerHandle
 export const draftStory = data => runBackgroundDraft("videos/draft_story/", data);
 export const generateIdeas = data => runBackgroundDraft("videos/ideas/", data);
 export const rewritePrompt = data => runBackgroundDraft("videos/rewrite_prompt/", data);
+export const reviseStoryboard = (id, data) => runBackgroundDraft(`videos/${id}/revise_storyboard/`, data);
 export const getCaptionProjects = params => request({ url: "captions/", params, ...callerHandlesErrors });
 export const getCaptionProject = id => request({ url: detail("captions", id), ...callerHandlesErrors });
 export const createCaptionProject = data => post("captions/", data, callerHandlesErrors);

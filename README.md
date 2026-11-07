@@ -145,6 +145,11 @@ cookies stay on the same site.
 2. **Review the storyboard.** Edit the dialogue and visual prompts before generating
    media. For AI visuals, refine each shot's framing, camera direction, subject action,
    and target duration. You can save a draft and return to it from **My videos**.
+   Use **Revise storyboard with AI** to describe changes to the current draft. Preview
+   the proposed storyboard, then apply or discard it. Further requests use your latest
+   edits. Each revision is a paid text request; it does not generate media or change
+   the saved project until you approve with **Proceed**. Editing the source while a
+   revision is pending prevents applying its outdated proposal.
 3. **Generate or add media.** Create visuals and narration, upload replacements, or
    select existing assets. Optional references and continuity guidance help keep
    generated scenes visually consistent. For character video shots, **Review image

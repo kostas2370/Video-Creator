@@ -15,6 +15,7 @@ from apps.videomanagement.services.videos import story as video_story
 from apps.videomanagement.services.videos.ideas import generate_ideas, rewrite_prompt
 from apps.videomanagement.services.videos import tags as video_tags
 from apps.videomanagement.services.videos import youtube_metadata
+from apps.videomanagement.services.videos.storyboard_revision import revise_storyboard
 
 
 def load_user(user_id):
@@ -39,6 +40,11 @@ def generate_ideas_task(user_id, **choices):
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def rewrite_prompt_task(user_id, **choices):
     return rewrite_prompt(load_user(user_id), **choices)
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def revise_storyboard_task(user_id, *, video_id, **choices):
+    return revise_storyboard(owned_video(load_user(user_id), video_id), **choices)
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)

@@ -7,6 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -27,6 +28,7 @@ from apps.videomanagement.serializers.models import (
     VideoSerializer,
 )
 from apps.videomanagement.serializers.preview import PreviewTimelineSerializer
+from apps.videomanagement.serializers.storyboard_revision import StoryboardRevisionSerializer
 from apps.videomanagement.serializers.requests import (
     AddSceneSerializer,
     AddScenesSerializer,
@@ -103,6 +105,7 @@ class VideoView(
         "draft_story": StoryDraftSerializer,
         "ideas": IdeaRequestSerializer,
         "rewrite_prompt": PromptRewriteRequestSerializer,
+        "revise_storyboard": StoryboardRevisionSerializer,
         "music": MusicUploadSerializer,
         "audio": MusicAudioSerializer,
         "approve_script": StoryboardSerializer,
@@ -297,6 +300,23 @@ class VideoView(
         serializer.is_valid(raise_exception=True)
         video = update_notes(video, **serializer.validated_data)
         return Response({"notes": video.notes})
+
+    @swagger_auto_schema(request_body=StoryboardRevisionSerializer, responses={202: DraftJobSerializer})
+    @action(detail=True, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
+    def revise_storyboard(self, request, pk=None):
+        video = self.get_object()
+        if video.status != VideoStatus.REVIEW:
+            raise ValidationError("This project is no longer awaiting storyboard review.")
+        serializer = self.get_serializer(
+            data=request.data,
+            context={**self.get_serializer_context(), "narration": (video.settings or {}).get("narration", True)},
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            queue_draft(request.user, draft_tasks.revise_storyboard_task, video_id=str(video.pk), **serializer.validated_data),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @action(detail=True, methods=["POST"])
     def approve_script(self, request, pk=None):
