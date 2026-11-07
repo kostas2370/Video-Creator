@@ -1,12 +1,10 @@
 import { GenerationModeSelect } from "./GenerationModeSelect";
 import { GenerationCost } from "./GenerationCost";
 import { StoryboardRevision } from "./StoryboardRevision";
+import { StoryboardScene } from "./StoryboardScene";
 import { DeleteDraftProject } from "./DeleteDraftProject";
 import { API_HOST } from "../endpoints";
 import { VisualContinuity } from "./VisualContinuity";
-import { VisualEditingFields } from "./VisualEditingFields";
-import { isBuiltinVideoProvider } from "../utils/visualProviders";
-import { ShotPlanFields } from "./ShotPlanFields";
 import React, { useEffect, useRef, useState } from "react";
 import { EditorDialog } from "./ui/EditorDialog";
 import { useNavigate } from "react-router-dom";
@@ -57,43 +55,83 @@ export function StoryboardModal({ open, video, onClose, onApproved, onDeleted })
   if (!open || !script) return null;
   const narration = video?.settings?.narration !== false;
   return (
-    <EditorDialog open={open} onClose={onClose} busy={busy} title="Review your storyboard" description="Review and edit the generated prompts below. Visuals and narration will be created after you press Proceed." maxWidth="max-w-5xl" footer={<div className="flex flex-wrap items-end justify-end gap-3">
-      <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost refresh={video.settings} videoId={video.id} storyboard={script} /></div>
-      <DeleteDraftProject id={video.id} disabled={busy} onDeleted={onDeleted} />
-      <button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 disabled:opacity-50 dark:text-gray-200">Close</button>
-      <button type="submit" form="storyboard-review" disabled={busy} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{busy ? "Starting generation…" : "Proceed"}</button>
-    </div>}>
-      <form id="storyboard-review" onSubmit={proceed} className="text-gray-700 dark:text-gray-200">
-          <StoryboardRevision key={video.id} videoId={video.id} storyboard={script} disabled={busy} onApply={setScript} />
-          {video.mode === "AI" && <GenerationModeSelect value={script.generation_mode} onChange={value => setScript(current => ({ ...current, generation_mode: value }))} disabled={busy} />}
-          <label className="block text-sm font-semibold">Video title
-            <input autoFocus required maxLength={50} value={script.title} disabled={busy} onChange={event => setScript({ ...script, title: event.target.value })} className={inputClass} />
+    <EditorDialog
+      open={open}
+      onClose={onClose}
+      busy={busy}
+      title="Review your storyboard"
+      description="Scan the story, expand a scene to edit, then create your video."
+      maxWidth="max-w-4xl"
+      footer={
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
+            <GenerationCost refresh={video.settings} videoId={video.id} storyboard={script} />
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-500 disabled:opacity-50">Close</button>
+            <button type="submit" form="storyboard-review" disabled={busy} className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50">
+              {busy ? "Starting generation…" : "Proceed"}
+            </button>
+          </div>
+        </div>
+      }
+    >
+      <form
+        id="storyboard-review"
+        onSubmit={proceed}
+        onInvalidCapture={event => {
+          let details = event.target.closest("details");
+          while (details) {
+            details.open = true;
+            details = details.parentElement.closest("details");
+          }
+        }}
+        className="space-y-5 text-gray-700 dark:text-gray-200"
+      >
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">Video title
+            <input autoFocus required maxLength={50} value={script.title} disabled={busy} onChange={event => setScript({ ...script, title: event.target.value })} className={`${inputClass} text-base font-semibold`} />
           </label>
-          {video?.reference_image && <figure className="mt-5 flex items-center gap-4 rounded-xl bg-gray-50 p-3 dark:bg-gray-900"><img src={video.reference_image.startsWith("/") ? API_HOST + video.reference_image : video.reference_image} alt="Reference used to draft this storyboard" className="h-28 w-28 rounded-lg object-contain" /><figcaption className="text-sm"><span className="font-semibold">{({ character: "Character reference", style: "Style reference", both: "Character and style reference" })[video.settings?.reference_role || "both"]}</span><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Compare the visible details with the shared description below. Your written instructions take priority.</p></figcaption></figure>}
-          {video?.mode === "AI" && <div className="mt-5"><VisualContinuity value={script.visual_continuity || ""} disabled={busy} description="Review the shared character and setting details drafted for your story. Edit or clear them before creating the visuals." onChange={value => setScript(current => ({ ...current, visual_continuity: value }))} /></div>}
+          <p className="mt-2 text-xs text-gray-500">{script.scenes.length} scenes · {narration ? "With narration" : "Visual story"} · Edit only what you want to change</p>
+        </div>
+
+        <details className="group rounded-2xl border border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/20">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+            <span>Revise storyboard with AI</span>
+            <span aria-hidden="true" className="transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="px-4 pb-1">
+            <StoryboardRevision key={video.id} videoId={video.id} storyboard={script} disabled={busy} onApply={setScript} />
+          </div>
+        </details>
+
+        <div className="space-y-3" aria-label="Storyboard scenes">
           {script.scenes.map((scene, sceneIndex) => (
-            <section key={sceneIndex} className="mt-5 rounded-2xl border border-gray-200 p-4 dark:border-gray-600">
-              <h3 className="font-semibold">Scene {sceneIndex + 1}: {scene.scene}</h3>
-              {scene.sentences.map((shot, shotIndex) => (
-                <div key={shotIndex} className="mt-4 space-y-3">
-                  {scene.sentences.length > 1 && <p className="text-xs font-semibold">Shot {shotIndex + 1}</p>}
-                  {narration && <label className="block text-sm font-medium">Narration
-                    <textarea required maxLength={2000} rows={2} disabled={busy} value={shot.sentence || ""} onChange={event => changeShot(sceneIndex, shotIndex, "sentence", event.target.value)} className={inputClass} />
-                  </label>}
-                  <label className="block text-sm font-medium">Visual prompt
-                    <textarea required maxLength={2000} rows={3} disabled={busy} value={shot.image_description || ""} onChange={event => changeShot(sceneIndex, shotIndex, "image_description", event.target.value)} className={inputClass} />
-                  </label>
-                  {(video?.mode === "AI" || video?.settings?.ai_scene_editing) && <ShotPlanFields plan={shot.shot_plan} disabled={busy} narration={narration} onChange={plan => changeShot(sceneIndex, shotIndex, "shot_plan", plan)} />}
-                  {video?.settings?.ai_scene_editing && shot.editing && <VisualEditingFields
-                    editing={shot.editing} disabled={busy}
-                    photoAnimations={video.mode === "WEB" || (video.settings?.visual_type !== "VIDEO" && !isBuiltinVideoProvider(video.settings?.provider))}
-                    onChange={value => changeShot(sceneIndex, shotIndex, "editing", value)}
-                  />}
-                </div>
-              ))}
-            </section>
+            <StoryboardScene
+              key={sceneIndex}
+              scene={scene}
+              index={sceneIndex}
+              video={video}
+              narration={narration}
+              disabled={busy}
+              onChange={(shotIndex, field, value) => changeShot(sceneIndex, shotIndex, field, value)}
+            />
           ))}
-          {error && <p role="alert" className="mt-4 text-sm text-red-600 dark:text-red-300">{error}</p>}
+        </div>
+
+        <details className="border-t border-gray-100 pt-4 dark:border-gray-700">
+          <summary className="cursor-pointer text-xs font-medium text-gray-500">Project settings &amp; character continuity</summary>
+          <div className="mt-4 space-y-4">
+            {video.mode === "AI" && <GenerationModeSelect value={script.generation_mode} onChange={value => setScript(current => ({ ...current, generation_mode: value }))} disabled={busy} />}
+            {video.reference_image && <figure className="flex items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
+              <img src={video.reference_image.startsWith("/") ? API_HOST + video.reference_image : video.reference_image} alt="Reference used to draft this storyboard" className="h-20 w-20 rounded-lg object-contain" />
+              <figcaption className="text-xs text-gray-500">Your reference for character appearance and visual style.</figcaption>
+            </figure>}
+            {video.mode === "AI" && <VisualContinuity value={script.visual_continuity || ""} disabled={busy} description="Shared details for the story. Edit or clear them before creating visuals." onChange={value => setScript(current => ({ ...current, visual_continuity: value }))} />}
+            <DeleteDraftProject id={video.id} disabled={busy} onDeleted={onDeleted} />
+          </div>
+        </details>
+        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-300">{error}</p>}
       </form>
     </EditorDialog>
   );

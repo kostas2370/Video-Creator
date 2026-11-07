@@ -17,7 +17,7 @@ import { SceneAudio } from "./SceneAudio";
 import { SceneMotion } from "./SceneMotion";
 import { SceneTiming } from "./SceneTiming";
 import { toast } from "react-toastify";
-import { SceneStartingImage } from "./SceneStartingImage";
+import { SceneStartingFrame } from "./SceneStartingFrame";
 import { SceneTextEditor } from "./SceneTextEditor";
 
 const EditSceneImageModal = lazy(() => import("./EditSceneImageModal").then(module => ({ default: module.EditSceneImageModal })));
@@ -56,7 +56,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
   const diagram = hasFullSceneDiagram(scene);
   const diagramEditor = <SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} label="Edit text diagram" />;
   const visualPrompt = scene.scene_image?.prompt;
-  const promptShownInStartingImage = scene.starting_image_required && visualPrompt?.trim() === scene.starting_image_description?.trim();
+  const promptShownInStartingFrame = scene.starting_frame_required && visualPrompt?.trim() === scene.starting_frame_description?.trim();
 
   return (
     <>
@@ -93,7 +93,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
           with_audio: scene.scene_image?.with_audio,
           video_format,
           generation_mode: generationMode,
-          starting_image_required: scene.starting_image_required,
+          starting_frame_required: scene.starting_frame_required,
         }}
         setUpdate={setUpdated}
       /></DeferredDialog>
@@ -124,7 +124,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
                 {diagram ? diagramEditor : <button type="button" disabled={timingDisabled} onClick={() => setShowEditImageModal(true)} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-white/5"><HiOutlinePencilSquare aria-hidden="true" className="h-4 w-4" />{scene.scene_image?.file ? "Edit visual" : "Add visual"}</button>}
               </div>
             </>}
-            {!diagram && (scene.starting_image_required || scene.starting_image) && <SceneStartingImage generationMode={generationMode} scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} />}
+            {!diagram && (scene.starting_frame_required || scene.starting_frame) && <SceneStartingFrame generationMode={generationMode} scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} />}
           </section>
           <aside aria-label="Scene inspector" className="studio-inspector min-w-0">
             <TabGroup selectedIndex={inspectorTab} onChange={setInspectorTab}>
@@ -142,7 +142,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
                   {diagram ? diagramEditor : <button type="button" disabled={timingDisabled} onClick={() => setShowEditImageModal(true)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">Replace or generate visual</button>}
 
 
-            {!diagram && visualPrompt && !promptShownInStartingImage && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
+            {!diagram && visualPrompt && !promptShownInStartingFrame && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
                 </TabPanel>
                 <TabPanel unmount={false}>
                   <h3 className="text-sm font-semibold">Scene audio</h3>

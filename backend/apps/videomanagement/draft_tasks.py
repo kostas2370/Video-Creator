@@ -10,7 +10,7 @@ from apps.series.models import SeriesEpisode
 from apps.series.services import characters, episodes
 from apps.videomanagement.models import Scene, Video
 from apps.videomanagement.services.scenes import generation as scene_generation
-from apps.videomanagement.services.scenes.image_review import review_starting_image
+from apps.videomanagement.services.scenes.starting_frame_review import review_starting_frame
 from apps.videomanagement.services.videos import story as video_story
 from apps.videomanagement.services.videos.ideas import generate_ideas, rewrite_prompt
 from apps.videomanagement.services.videos import tags as video_tags
@@ -63,12 +63,12 @@ def rewrite_scene_task(user_id, *, scene_id, instructions):
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
-def review_starting_image_task(user_id, *, scene_id, source_key):
+def review_starting_frame_task(user_id, *, scene_id, source_key):
     user = load_user(user_id)
     scene = Scene.objects.select_related("video__created_by", "starting_asset").get(
         pk=scene_id, video__created_by=user
     )
-    return review_starting_image(scene, source_key)
+    return review_starting_frame(scene, source_key)
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)

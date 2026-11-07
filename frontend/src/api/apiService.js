@@ -99,8 +99,8 @@ export const updateScene = (id, data) => sceneOperation(id, () => patch(detail("
 export const saveVideoNotes = (id, notes, previousNotes) => patch(`${detail("videos", id)}notes/`, { notes, previous_notes: previousNotes }, callerHandlesErrors);
 export const updateVideo = (id, data) => patch(detail("videos", id), data);
 export const generateScene = (id, data) => runBackgroundDraft(action("scenes", id, "generate"), data, "patch");
-export const updateStartingImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "starting_image"), data, callerHandlesErrors));
-export const reviewStartingImage = (id, assetId) => runBackgroundDraft(action("scenes", id, "review_starting_image"), { asset_id: assetId });
+export const updateStartingFrame = (id, data) => sceneOperation(id, () => post(action("scenes", id, "starting_frame"), data, callerHandlesErrors));
+export const reviewStartingFrame = (id, assetId) => runBackgroundDraft(action("scenes", id, "review_starting_frame"), { asset_id: assetId });
 export const generateSceneImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "generate_image_scene"), data));
 export const updateSceneImage = (id, imageId, data) => request({ method: "post", url: action("scenes", id, "change_image_scene"), data, params: { scene_image: imageId || undefined } });
 export const resumeVideo = id => patch(action("videos", id, "resume"), {}, callerHandlesErrors);

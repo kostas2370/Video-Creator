@@ -6,14 +6,14 @@ from apps.videomanagement.services.scenes.editing import changed, editable_video
 from apps.videomanagement.services.scenes.visuals import (
     planned_visual_prompt,
     generate_scene_visual,
-    store_starting_image,
+    store_starting_frame,
     starting_frame_key,
     starting_frame_matches,
 )
 from apps.videomanagement.utils.file_utils import stored_file_exists
 
 
-def requires_starting_image(video):
+def requires_starting_frame(video):
     return bool(
         (video.settings or {}).get("character_references")
         and video.mode == ImageMode.AI
@@ -25,7 +25,7 @@ def requires_starting_image(video):
     )
 
 
-def current_key(scene, description, style):
+def current_frame_key(scene, description, style):
     video = scene.video
     return starting_frame_key(
         video,
@@ -36,8 +36,8 @@ def current_key(scene, description, style):
     )
 
 
-def starting_image_current(scene):
-    context = scene.starting_image_context or {}
+def starting_frame_current(scene):
+    context = scene.starting_frame_context or {}
     video = scene.video
     return starting_frame_matches(
         video,
@@ -52,11 +52,11 @@ def starting_image_current(scene):
     )
 
 
-def starting_image_status(scene):
-    context = scene.starting_image_context or {}
+def starting_frame_status(scene):
+    context = scene.starting_frame_context or {}
     if not scene.starting_asset_id or not stored_file_exists(scene.starting_asset.file):
         return "missing"
-    if not starting_image_current(scene):
+    if not starting_frame_current(scene):
         return "needs_review"
     return (
         "approved"
@@ -65,10 +65,10 @@ def starting_image_status(scene):
     )
 
 
-def checked_scene(scene, asset_id):
-    if not requires_starting_image(scene.video):
+def validate_starting_frame_scene(scene, asset_id):
+    if not requires_starting_frame(scene.video):
         raise ValidationError(
-            "Starting-image review is available for character video shots."
+            "Starting-frame review is available for character video shots."
         )
     if not ImageProviderRegistry.supports_reference(
         (scene.video.settings or {}).get("provider")
@@ -78,53 +78,52 @@ def checked_scene(scene, asset_id):
         )
     if str(scene.starting_asset_id or "") != str(asset_id or ""):
         raise ValidationError(
-            "The starting image changed. Refresh and review it again."
+            "The starting frame changed. Refresh and review it again."
         )
-    return scene
 
 
-def save_starting_image(
+def save_starting_frame(
     scene, *, operation, asset_id=None, image=None, image_description=None
 ):
     with editable_video(scene.video_id) as video:
         scene.refresh_from_db()
         scene.video = video
-        checked_scene(scene, asset_id)
-        context = dict(scene.starting_image_context or {})
+        validate_starting_frame_scene(scene, asset_id)
+        context = dict(scene.starting_frame_context or {})
         if operation == "upload":
             description = image_description or context.get("description", "")
             if not description:
                 raise ValidationError(
-                    "Add a shot description before uploading a starting image."
+                    "Add a shot description before uploading a starting frame."
                 )
             style = (video.settings or {}).get("style", "natural")
-            store_starting_image(
+            store_starting_frame(
                 scene,
                 image,
                 description=description,
                 style=style,
-                key=current_key(scene, description, style),
+                key=current_frame_key(scene, description, style),
             )
         elif operation == "approve":
-            if starting_image_status(scene) == "missing":
-                raise ValidationError("Prepare a starting image before approving it.")
-            if not starting_image_current(scene):
+            if starting_frame_status(scene) == "missing":
+                raise ValidationError("Prepare a starting frame before approving it.")
+            if not starting_frame_current(scene):
                 raise ValidationError(
-                    "The shot settings changed. Prepare and review a new starting image."
+                    "The shot settings changed. Prepare and review a new starting frame."
                 )
             context["approved_asset"] = str(scene.starting_asset_id)
-            scene.starting_image_context = context
-            scene.save(update_fields=["starting_image_context"])
+            scene.starting_frame_context = context
+            scene.save(update_fields=["starting_frame_context"])
         changed(video, invalidate_avatar=False)
     return scene
 
 
-def animate_starting_image(scene, asset_id):
-    checked_scene(scene, asset_id)
-    if starting_image_status(scene) != "approved":
-        raise ValidationError("Approve the current starting image before animating it.")
+def animate_starting_frame(scene, asset_id):
+    validate_starting_frame_scene(scene, asset_id)
+    if starting_frame_status(scene) != "approved":
+        raise ValidationError("Approve the current starting frame before animating it.")
     video = scene.video
-    context = scene.starting_image_context
+    context = scene.starting_frame_context
     provider = (video.settings or {}).get("provider")
     target = scene.scene_images.first() or SceneImage(scene=scene)
     target.prompt = context["description"]

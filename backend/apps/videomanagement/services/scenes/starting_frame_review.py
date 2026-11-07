@@ -12,15 +12,16 @@ from apps.common.ai_json import parse_ai_json
 from apps.usage.services import video_usage
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.models import Scene, Video
-from apps.videomanagement.serializers.image_review import ImageReviewResultSerializer
-from apps.videomanagement.services.scenes.starting_images import (
-    checked_scene,
-    current_key,
-    starting_image_current,
-    starting_image_status,
+from apps.videomanagement.serializers.starting_frame_review import (
+    StartingFrameReviewResultSerializer,
+)
+from apps.videomanagement.services.scenes.starting_frames import (
+    validate_starting_frame_scene,
+    current_frame_key,
+    starting_frame_current,
 )
 from apps.videomanagement.utils.file_utils import stored_file_exists
-from apps.videomanagement.utils.prompt_utils import build_image_review_prompt
+from apps.videomanagement.utils.prompt_utils import build_starting_frame_review_prompt
 
 
 def review_model(video):
@@ -36,7 +37,7 @@ def review_model(video):
 
 
 def review_source_key(scene):
-    context = scene.starting_image_context or {}
+    context = scene.starting_frame_context or {}
     video = scene.video
     settings = video.settings or {}
     source = {
@@ -45,7 +46,7 @@ def review_source_key(scene):
         "file": scene.starting_asset.file.name if scene.starting_asset_id else "",
         "description": context.get("description", ""),
         "frame_key": context.get("key"),
-        "current_key": current_key(
+        "current_key": current_frame_key(
             scene, context.get("description", ""), context.get("style", "natural")
         ),
         "text": scene.text,
@@ -58,45 +59,52 @@ def review_source_key(scene):
 
 
 def current_saved_review(scene):
-    review = (scene.starting_image_context or {}).get("ai_review")
+    review = (scene.starting_frame_context or {}).get("ai_review")
     if (
         isinstance(review, dict)
         and review.get("source_key") == review_source_key(scene)
-        and starting_image_status(scene) != "missing"
+        and scene.starting_asset_id
+        and stored_file_exists(scene.starting_asset.file)
     ):
         return review
     return None
 
 
-def check_review_source(scene, source_key=None):
-    checked_scene(scene, scene.starting_asset_id)
-    if scene.archived_at or starting_image_status(scene) == "missing":
+def validate_review_source(scene, source_key=None, *, asset_id=None):
+    validate_starting_frame_scene(
+        scene, scene.starting_asset_id if asset_id is None else asset_id
+    )
+    if (
+        scene.archived_at
+        or not scene.starting_asset_id
+        or not stored_file_exists(scene.starting_asset.file)
+    ):
         raise ValidationError(
-            "Prepare a starting image before requesting an AI review."
+            "Prepare a starting frame before requesting an AI review."
         )
     if not stored_file_exists(scene.video.reference_image):
         raise ValidationError(
             "The character reference is missing. Restore it before reviewing."
         )
-    if not starting_image_current(scene):
+    if not starting_frame_current(scene):
         raise ValidationError(
-            "The shot settings changed. Prepare a new starting image before reviewing."
+            "The shot settings changed. Prepare a new starting frame before reviewing."
         )
     current_source_key = review_source_key(scene)
     if source_key is not None and current_source_key != source_key:
         raise ValidationError(
-            "The image or shot changed. Review the current image again."
+            "The frame or shot changed. Review the current frame again."
         )
     return current_source_key
 
 
-def comparison_image(scene):
+def review_comparison_sheet(scene):
     sheet = Image.new("RGB", (1536, 800), "white")
     draw = ImageDraw.Draw(sheet)
     for index, (label, field) in enumerate(
         [
             ("CHARACTER REFERENCE (identity only)", scene.video.reference_image),
-            ("STARTING IMAGE TO REVIEW", scene.starting_asset.file),
+            ("STARTING FRAME TO REVIEW", scene.starting_asset.file),
         ]
     ):
         left = index * 768
@@ -113,9 +121,9 @@ def comparison_image(scene):
     return output
 
 
-def review_starting_image(scene, source_key):
-    check_review_source(scene, source_key)
-    context = scene.starting_image_context or {}
+def review_starting_frame(scene, source_key):
+    validate_review_source(scene, source_key)
+    context = scene.starting_frame_context or {}
     settings = scene.video.settings or {}
     brief = {
         "shot_description": context.get("description", ""),
@@ -125,25 +133,27 @@ def review_starting_image(scene, source_key):
         "style": context.get("style", "natural"),
     }
     try:
-        reference = comparison_image(scene)
+        reference = review_comparison_sheet(scene)
     except OSError as exc:
         raise ValidationError(
             "The review images could not be read. Restore them and retry."
         ) from exc
     with reference, video_usage(scene.video):
         response = get_reply(
-            build_image_review_prompt(brief),
+            build_starting_frame_review_prompt(brief),
             reply_format="text",
             gpt_model=review_model(scene.video),
             user=scene.video.created_by,
             reference_image=reference,
         )
     try:
-        result = ImageReviewResultSerializer(data=parse_ai_json(response.getvalue()))
+        result = StartingFrameReviewResultSerializer(
+            data=parse_ai_json(response.getvalue())
+        )
         result.is_valid(raise_exception=True)
     except (ValueError, TypeError, KeyError, ValidationError) as exc:
         raise ValidationError(
-            "AI returned an invalid image review. Please try again."
+            "AI returned an invalid starting frame review. Please try again."
         ) from exc
     review = {
         **result.validated_data,
@@ -156,10 +166,11 @@ def review_starting_image(scene, source_key):
         )
         current = Scene.objects.select_for_update().get(pk=scene.pk, video=video)
         current.video = video
-        check_review_source(current, source_key)
-        current.starting_image_context = {
-            **current.starting_image_context,
+        # Recheck under the lock: a frame may change while the AI is working.
+        validate_review_source(current, source_key)
+        current.starting_frame_context = {
+            **current.starting_frame_context,
             "ai_review": review,
         }
-        current.save(update_fields=["starting_image_context"])
+        current.save(update_fields=["starting_frame_context"])
     return review

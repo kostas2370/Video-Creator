@@ -23,9 +23,9 @@ from apps.videomanagement.services.scenes.jobs import scene_job
 from apps.videomanagement.services.scenes.narration import (
     update_scene as regenerate_scene_narration,
 )
-from apps.videomanagement.services.scenes.starting_images import (
-    animate_starting_image,
-    requires_starting_image,
+from apps.videomanagement.services.scenes.starting_frames import (
+    animate_starting_frame,
+    requires_starting_frame,
 )
 from apps.videomanagement.services.videos import generation as video_generation
 from apps.videomanagement.services.videos.recovery import video_job_heartbeat
@@ -73,29 +73,29 @@ def generate_scene_image_task(
     with scene_job(scene_id, previous_status, operation_id) as scene:
         if isinstance(image_description, dict):
             try:
-                animate_starting_image(scene, image_description["asset_id"])
+                animate_starting_frame(scene, image_description["asset_id"])
             except Exception:
-                scene.starting_image_context = {
-                    **scene.starting_image_context,
-                    "animation_error": "Animation failed. Your starting image and existing clip are saved. Retry when ready.",
+                scene.starting_frame_context = {
+                    **scene.starting_frame_context,
+                    "animation_error": "Animation failed. Your starting frame and existing clip are saved. Retry when ready.",
                 }
-                scene.save(update_fields=["starting_image_context"])
+                scene.save(update_fields=["starting_frame_context"])
                 raise
-            scene.starting_image_context.pop("animation_error", None)
-            scene.save(update_fields=["starting_image_context"])
+            scene.starting_frame_context.pop("animation_error", None)
+            scene.save(update_fields=["starting_frame_context"])
             return {"Message": "Animation is ready"}
         image = scene.scene_images.first() or SceneImage.objects.create(scene=scene)
         image.prompt = image_description
         try:
             scenes.generate_new_image(image, scene.video)
         except Exception:
-            if requires_starting_image(scene.video):
+            if requires_starting_frame(scene.video):
                 scene.refresh_from_db()
-                scene.starting_image_context = {
-                    **scene.starting_image_context,
-                    "preparation_error": "Could not prepare the starting image. Your saved media is preserved. Try again.",
+                scene.starting_frame_context = {
+                    **scene.starting_frame_context,
+                    "preparation_error": "Could not prepare the starting frame. Your saved media is preserved. Try again.",
                 }
-                scene.save(update_fields=["starting_image_context"])
+                scene.save(update_fields=["starting_frame_context"])
             raise
         return {"Message": "Image Scene was added successfully"}
 

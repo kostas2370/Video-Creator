@@ -1,11 +1,11 @@
 from rest_framework import serializers
 
 
-class ImageReviewRequestSerializer(serializers.Serializer):
+class StartingFrameReviewRequestSerializer(serializers.Serializer):
     asset_id = serializers.UUIDField()
 
 
-class ImageReviewFindingSerializer(serializers.Serializer):
+class StartingFrameReviewFindingSerializer(serializers.Serializer):
     category = serializers.ChoiceField(
         choices=["character", "shot", "composition", "quality"]
     )
@@ -13,10 +13,10 @@ class ImageReviewFindingSerializer(serializers.Serializer):
     fix = serializers.CharField(max_length=500)
 
 
-class ImageReviewResultSerializer(serializers.Serializer):
+class StartingFrameReviewResultSerializer(serializers.Serializer):
     verdict = serializers.ChoiceField(choices=["ready", "needs_changes", "uncertain"])
     summary = serializers.CharField(max_length=800)
-    findings = ImageReviewFindingSerializer(many=True, max_length=6)
+    findings = StartingFrameReviewFindingSerializer(many=True, max_length=6)
     suggested_description = serializers.CharField(max_length=2000, allow_blank=True)
 
     def validate(self, attrs):

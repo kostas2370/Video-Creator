@@ -26,7 +26,7 @@ like ReelShort-style episodes. Both use the same cast and continuity workflow.
 - [x] Require approved character images before drafting a story episode. Copy a
       labeled cast sheet into each episode so later cast edits cannot affect it.
 - [x] Use the episode cast sheet for still-image generation and for generating a
-      separate starting image per video shot before animation. Reject unsupported
+      separate starting frame per video shot before animation. Reject unsupported
       providers and keep failed replacements from overwriting existing visuals.
 
 Still planned: a cross-series character library, standalone-video cast panels,
@@ -61,9 +61,9 @@ and 6–10 simple shots. These are product defaults, not model limits.
 
 ### 3. Approve images before animation
 
-- [x] Generate a starting image for each series video shot using its cast
+- [x] Generate a starting frame for each series video shot using its cast
       references, setting, action, and shared style.
-- [x] Let users review, edit the description, regenerate, or upload the starting image.
+- [x] Let users review, edit the description, regenerate, or upload the starting frame.
 - [x] Animate the approved image with an explicit image-to-video request.
 - [ ] Use previous-shot frames where continuity helps, rather than forcing every
       shot to start from the previous clip's last frame.
@@ -81,7 +81,7 @@ and 6–10 simple shots. These are product defaults, not model limits.
 
 ### 5. Retry individual shots
 
-- [x] Regenerate one starting image or retry one animation without rebuilding
+- [x] Regenerate one starting frame or retry one animation without rebuilding
       the whole video.
 - [x] Retain the existing clip until its replacement animation succeeds.
       Separate acceptance of completed animations remains a later step.
@@ -103,7 +103,7 @@ music/captions → export.
 
 - [ ] Create and export a short story with two recurring characters appearing in
       multiple locations.
-- [ ] Confirm each shot uses its selected cast and approved starting image.
+- [ ] Confirm each shot uses its selected cast and approved starting frame.
 - [ ] Review generated results for recognizable characters; references improve
       consistency but do not guarantee it.
 - [ ] Replace one unsuccessful shot without changing the other approved shots.

@@ -29,8 +29,7 @@ export function StoryboardRevision({ videoId, storyboard, disabled, onApply }) {
   };
 
   return (
-    <section aria-label="Revise storyboard with AI" className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 dark:border-indigo-800 dark:bg-indigo-950/20">
-      <h3 className="text-sm font-semibold">Revise storyboard with AI</h3>
+    <section aria-label="Revise storyboard with AI" className="space-y-3 pb-3">
       <p className="mt-1 text-xs text-gray-500">Describe your changes. Preview the proposal before applying it. One paid AI request; media is generated only after Proceed.</p>
       <label className="mt-3 block text-sm">
         What would you like to change?

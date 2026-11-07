@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { generateSceneImage, updateStartingImage } from "../api/apiService";
+import { generateSceneImage, updateStartingFrame } from "../api/apiService";
 
-async function sendStartingImageAction(scene, operation, description, file) {
+async function sendStartingFrameAction(scene, operation, description, file) {
   const data = new FormData();
   if (operation === "prepare" || operation === "retry") {
     data.append("image_description", description);
@@ -14,11 +14,11 @@ async function sendStartingImageAction(scene, operation, description, file) {
     data.append("image", file);
     data.append("image_description", description);
   }
-  return updateStartingImage(scene.id, data);
+  return updateStartingFrame(scene.id, data);
 }
 
-export function useStartingImage(scene, { disabled, onSaved }) {
-  const savedDescription = scene.starting_image_description || scene.scene_image?.prompt || "";
+export function useStartingFrame(scene, { disabled, onSaved }) {
+  const savedDescription = scene.starting_frame_description || scene.scene_image?.prompt || "";
   const [description, setDescription] = useState(savedDescription);
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState("");
@@ -28,23 +28,23 @@ export function useStartingImage(scene, { disabled, onSaved }) {
     setFile(null);
   }, [scene.id, scene.starting_asset, savedDescription]);
 
-  const edited = description.trim() !== (scene.starting_image_description || "").trim();
+  const edited = description.trim() !== (scene.starting_frame_description || "").trim();
   const blocked = disabled || !!busy;
   const run = async operation => {
     if (blocked) return;
     setBusy(operation);
     setError("");
     try {
-      const response = await sendStartingImageAction(scene, operation, description, file);
+      const response = await sendStartingFrameAction(scene, operation, description, file);
       if (!response?.ok) {
         setError(response?.message || "Could not finish this step. Your saved media is preserved.");
         return;
       }
       if (operation === "upload") {
         setFile(null);
-        toast.success("Starting image ready for review");
+        toast.success("Starting frame ready for review");
       }
-      if (operation === "approve") toast.success("Starting image approved");
+      if (operation === "approve") toast.success("Starting frame approved");
     } catch {
       setError("Could not finish this step. Your saved media is preserved.");
     } finally {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { reviewStartingImage } from "../api/apiService";
+import { reviewStartingFrame } from "../api/apiService";
 
 const verdictLabels = {
   ready: "Looks ready",
@@ -13,34 +13,34 @@ const categoryLabels = {
   quality: "Image quality",
 };
 
-export const SceneImageReview = ({ scene, disabled, edited, onUseDescription, onSaved }) => {
+export const SceneFrameReview = ({ scene, disabled, edited, onUseDescription, onSaved }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-  const review = edited ? null : result || scene.starting_image_review;
+  const review = edited ? null : result || scene.starting_frame_review;
   const run = async () => {
     if (busy || disabled || edited) return;
     setBusy(true);
     setError("");
     try {
-      const response = await reviewStartingImage(scene.id, scene.starting_asset);
+      const response = await reviewStartingFrame(scene.id, scene.starting_asset);
       if (!response?.ok) {
-        setError(response?.message || "Could not review this image. Please try again.");
-      } else if (response.data?.source_key === scene.starting_image_review_key) {
+        setError(response?.message || "Could not review this frame. Please try again.");
+      } else if (response.data?.source_key === scene.starting_frame_review_key) {
         setResult(response.data);
         onSaved(true);
       } else {
-        setError("The image or shot changed. Refresh and review the current image.");
+        setError("The frame or shot changed. Refresh and review the current frame.");
         onSaved(true);
       }
     } catch {
-      setError("Could not review this image. Please try again.");
+      setError("Could not review this frame. Please try again.");
     } finally {
       setBusy(false);
     }
   };
   return (
-    <section aria-label="AI starting image review" className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
+    <section aria-label="AI starting frame review" className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-medium">
           {review ? verdictLabels[review.verdict] : "Optional AI check"}
@@ -51,11 +51,11 @@ export const SceneImageReview = ({ scene, disabled, edited, onUseDescription, on
           onClick={run}
           className="rounded-lg px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50 dark:text-blue-300 dark:hover:bg-blue-950"
         >
-          {busy ? "Reviewing image…" : review ? "Review again with AI" : "Review image with AI"}
+          {busy ? "Reviewing frame…" : review ? "Review frame again with AI" : "Review frame with AI"}
         </button>
       </div>
       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-        {edited ? "Generate your updated image before reviewing it." : "One paid AI request per check. AI can miss details."}
+        {edited ? "Generate your updated frame before reviewing it." : "One paid AI request per check. AI can miss details."}
       </p>
       {busy && (
         <p role="status" className="mt-2 text-xs text-gray-500">

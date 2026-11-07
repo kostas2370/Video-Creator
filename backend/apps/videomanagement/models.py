@@ -273,7 +273,7 @@ class Scene(UUIDModel):
         "MediaAsset", null=True, blank=True, on_delete=models.RESTRICT,
         related_name="starting_scenes", editable=False,
     )
-    starting_image_context = models.JSONField(default=dict, blank=True, editable=False)
+    starting_frame_context = models.JSONField(default=dict, blank=True, editable=False)
     script_index = models.PositiveIntegerField(null=True, blank=True, editable=False)
     shot_plan = models.JSONField(default=dict, blank=True)
     archived_at = models.DateTimeField(

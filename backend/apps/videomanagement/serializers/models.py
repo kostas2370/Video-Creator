@@ -44,41 +44,41 @@ class SceneImageSerializer(serializers.ModelSerializer):
 
 
 class SceneSerializer(serializers.ModelSerializer):
-    starting_image_review = serializers.SerializerMethodField()
-    starting_image_review_key = serializers.SerializerMethodField()
-    starting_image_required = serializers.SerializerMethodField()
-    starting_image_status = serializers.SerializerMethodField()
-    starting_image = serializers.SerializerMethodField()
+    starting_frame_review = serializers.SerializerMethodField()
+    starting_frame_review_key = serializers.SerializerMethodField()
+    starting_frame_required = serializers.SerializerMethodField()
+    starting_frame_status = serializers.SerializerMethodField()
+    starting_frame = serializers.SerializerMethodField()
 
-    def get_starting_image_review(self, obj):
-        from ..services.scenes.image_review import current_saved_review
+    def get_starting_frame_review(self, obj):
+        from ..services.scenes.starting_frame_review import current_saved_review
 
         return current_saved_review(obj) if obj.starting_asset_id else None
 
-    def get_starting_image_review_key(self, obj):
-        from ..services.scenes.image_review import review_source_key
+    def get_starting_frame_review_key(self, obj):
+        from ..services.scenes.starting_frame_review import review_source_key
 
         return review_source_key(obj) if obj.starting_asset_id else None
 
-    def get_starting_image_required(self, obj):
-        from ..services.scenes.starting_images import requires_starting_image
+    def get_starting_frame_required(self, obj):
+        from ..services.scenes.starting_frames import requires_starting_frame
 
-        return requires_starting_image(obj.video)
+        return requires_starting_frame(obj.video)
 
-    def get_starting_image_status(self, obj):
-        from ..services.scenes.starting_images import starting_image_status
+    def get_starting_frame_status(self, obj):
+        from ..services.scenes.starting_frames import starting_frame_status
 
-        return starting_image_status(obj)
+        return starting_frame_status(obj)
 
-    starting_image_description = serializers.SerializerMethodField()
+    starting_frame_description = serializers.SerializerMethodField()
 
-    def get_starting_image(self, obj):
+    def get_starting_frame(self, obj):
         if obj.starting_asset_id and stored_file_exists(obj.starting_asset.file):
             return obj.starting_asset.file.url
         return None
 
-    def get_starting_image_description(self, obj):
-        return obj.starting_image_context.get("description", "")
+    def get_starting_frame_description(self, obj):
+        return obj.starting_frame_context.get("description", "")
 
     scene_image = serializers.SerializerMethodField()
     narration_status = serializers.SerializerMethodField()
