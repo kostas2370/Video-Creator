@@ -174,7 +174,7 @@ def _script_structure(brief, narration, ai_scene_editing=False):
             + json.dumps(shape, indent=2) + "\n")
 
 
-def _scene_editing_instructions(visual_type, diagram_icons=()):
+def scene_editing_instructions(visual_type, diagram_icons=()):
     instructions = (
         "Plan the whole visual story before choosing edits. Open with a clear visual question or "
         "surprising situation, build through explanation and evidence, and end with a payoff. "
@@ -362,7 +362,7 @@ def build_script_prompt(
             "reviewable before media generation."
         )
     if ai_scene_editing:
-        output += "\nAI SCENE EDITING:\n" + _scene_editing_instructions(visual_type, diagram_icons)
+        output += "\nAI SCENE EDITING:\n" + scene_editing_instructions(visual_type, diagram_icons)
     if narration:
         output += " Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph."
     else:

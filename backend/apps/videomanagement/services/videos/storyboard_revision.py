@@ -8,6 +8,10 @@ from apps.videomanagement.integrations.llm import get_reply, script_errors
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import VideoStatus
 from apps.videomanagement.serializers.requests import StoryboardSerializer
+from apps.videomanagement.utils.prompt_utils import (
+    resolve_visual_type,
+    scene_editing_instructions,
+)
 
 
 def revise_storyboard(video, *, storyboard, instructions):
@@ -16,6 +20,9 @@ def revise_storyboard(video, *, storyboard, instructions):
     settings = video.settings or {}
     params = settings.get("generation_params") or {}
     narration = settings.get("narration", True)
+    video_provider = ImageProviderRegistry.is_video(
+        settings.get("provider"), user=video.created_by, mode=video.mode
+    )
     prompt = (
         "Revise this existing video storyboard according to the user's instructions. "
         "Return only the complete revised storyboard as JSON, using the same structure. "
@@ -37,7 +44,17 @@ def revise_storyboard(video, *, storyboard, instructions):
             if narration
             else "Narration is off; omit sentence from every shot.\n"
         )
-        + "Project context:\n"
+        + "\nRequired field specification (use exactly these field names and choices):\n"
+        + str(StoryboardSerializer())
+        + (
+            "\nAI SCENE EDITING:\n"
+            + scene_editing_instructions(
+                resolve_visual_type(video.mode, video_provider)
+            )
+            if settings.get("ai_scene_editing")
+            else ""
+        )
+        + "\nProject context:\n"
         + json.dumps(
             {
                 "prompt": video.prompt.prompt if video.prompt_id else "",
@@ -80,9 +97,7 @@ def revise_storyboard(video, *, storyboard, instructions):
             narration=narration,
             user=video.created_by,
             ai_scene_editing=settings.get("ai_scene_editing", False),
-            video_provider=ImageProviderRegistry.is_video(
-                settings.get("provider"), user=video.created_by, mode=video.mode
-            ),
+            video_provider=video_provider,
         )
         if errors:
             raise ValidationError(errors)

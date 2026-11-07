@@ -170,3 +170,28 @@ class StoryboardRevisionTests(ApiTestCase):
         self.request_revision()
         with self.assertRaises(ValidationError):
             self.run_draft_task()
+
+    def test_revision_prompt_includes_supported_editing_schema_and_diagram_rules(self):
+        from ..test_ai_scene_editing import PLAN
+
+        self.video.settings["ai_scene_editing"] = True
+        self.video.save()
+        self.proposal["scenes"][0]["sentences"][0]["editing"] = {
+            **PLAN,
+            "diagram": {
+                "template": "steps",
+                "items": [{"label": "First"}, {"label": "Second"}, {"label": "Third"}],
+            },
+        }
+        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.request_revision()
+        result = self.run_draft_task()
+        self.assertEqual(
+            result["scenes"][0]["sentences"][0]["editing"]["diagram"]["template"],
+            "steps",
+        )
+        prompt = self.provider.call_args.args[0]
+        self.assertIn("steps for 2–4 ordered stages", prompt)
+        self.assertIn("ChoiceField(choices=", prompt)
+        self.assertIn("template = ChoiceField", prompt)
+        self.assertIn("Keep overlays empty", prompt)
