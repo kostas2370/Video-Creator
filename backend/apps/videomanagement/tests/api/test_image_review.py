@@ -15,7 +15,7 @@ from apps.videomanagement import draft_tasks
 from apps.videomanagement.serializers.models import SceneSerializer
 from apps.videomanagement.services.scenes.image_review import (
     comparison_image,
-    review_key,
+    review_source_key,
     review_starting_image,
 )
 
@@ -91,7 +91,7 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
             return StringIO(json.dumps(self.review))
 
         self.provider.side_effect = reply
-        review_starting_image(self.scene, review_key(self.scene))
+        review_starting_image(self.scene, review_source_key(self.scene))
         self.assertIsNone(current_video.get())
 
     def test_other_users_invalid_assets_and_missing_images_cannot_queue_reviews(self):
@@ -124,11 +124,11 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
         self.run_draft_task()
         self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gemini-episode-model")
 
-    def test_saved_review_is_invalidated_when_the_resolved_model_changes(self):
+    def test_current_saved_review_is_invalidated_when_the_resolved_model_changes(self):
         self.scene.video = self.video
         self.video.settings["generation_params"] = {"gpt_model": "claude-selected-model"}
         self.video.save(update_fields=["settings"])
-        review_starting_image(self.scene, review_key(self.scene))
+        review_starting_image(self.scene, review_source_key(self.scene))
         self.scene.refresh_from_db()
         self.scene.video = self.video
         self.assertIsNotNone(SceneSerializer(self.scene).data["starting_image_review"])
@@ -138,18 +138,18 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
     @override_settings(DEFAULT_GPT_MODEL="gpt-default-model")
     def test_legacy_project_without_saved_model_uses_and_fingerprints_the_default(self):
         self.scene.video = self.video
-        source_key = review_key(self.scene)
+        source_key = review_source_key(self.scene)
         review_starting_image(self.scene, source_key)
         self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gpt-default-model")
         with override_settings(DEFAULT_GPT_MODEL="gemini-new-default"):
-            self.assertNotEqual(review_key(self.scene), source_key)
+            self.assertNotEqual(review_source_key(self.scene), source_key)
 
     def test_worker_rechecks_ownership(self):
         with self.assertRaises(type(self.scene).DoesNotExist):
             draft_tasks.review_starting_image_task.run(
                 str(user.make().pk),
                 scene_id=str(self.scene.pk),
-                source_key=review_key(self.scene),
+                source_key=review_source_key(self.scene),
             )
         self.provider.assert_not_called()
 
@@ -168,12 +168,12 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
 
         self.provider.side_effect = change_shot
         with self.assertRaises(ValidationError):
-            review_starting_image(self.scene, review_key(self.scene))
+            review_starting_image(self.scene, review_source_key(self.scene))
         self.scene.refresh_from_db()
         self.assertNotIn("ai_review", self.scene.starting_image_context)
 
-    def test_saved_review_is_hidden_after_guidance_changes(self):
-        review_starting_image(self.scene, review_key(self.scene))
+    def test_current_saved_review_is_hidden_after_guidance_changes(self):
+        review_starting_image(self.scene, review_source_key(self.scene))
         self.scene.refresh_from_db()
         self.assertIsNotNone(SceneSerializer(self.scene).data["starting_image_review"])
         self.video.settings["visual_continuity"] = "Milo now wears a yellow scarf"
@@ -182,7 +182,7 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
         self.assertIsNone(SceneSerializer(self.scene).data["starting_image_review"])
 
     def test_approval_does_not_invalidate_a_review(self):
-        review_starting_image(self.scene, review_key(self.scene))
+        review_starting_image(self.scene, review_source_key(self.scene))
         self.post("approve")
         self.scene.refresh_from_db()
         self.assertEqual(
@@ -217,7 +217,7 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
             with self.subTest(value=value):
                 self.provider.return_value = StringIO(json.dumps(value))
                 with self.assertRaises(ValidationError):
-                    review_starting_image(self.scene, review_key(self.scene))
+                    review_starting_image(self.scene, review_source_key(self.scene))
                 self.scene.refresh_from_db()
                 self.assertNotIn("ai_review", self.scene.starting_image_context)
 
@@ -234,19 +234,29 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
                         }
                     )
                 )
-                result = review_starting_image(self.scene, review_key(self.scene))
+                result = review_starting_image(self.scene, review_source_key(self.scene))
                 self.assertEqual(result["verdict"], verdict)
 
     def test_provider_failure_keeps_the_existing_review_and_approved_image(self):
         self.post("approve")
         self.scene.refresh_from_db()
-        review_starting_image(self.scene, review_key(self.scene))
-        self.provider.side_effect = RuntimeError("private provider details")
-        with self.assertRaises(RuntimeError):
-            review_starting_image(self.scene, review_key(self.scene))
+        review_starting_image(self.scene, review_source_key(self.scene))
+        for error_type in [RuntimeError, ValueError, OSError]:
+            with self.subTest(error_type=error_type):
+                self.provider.side_effect = error_type("private provider details")
+                with self.assertRaises(error_type):
+                    review_starting_image(self.scene, review_source_key(self.scene))
+                self.assertIsNone(current_video.get())
         self.scene.refresh_from_db()
         serialized = SceneSerializer(self.scene).data
         self.assertEqual(
             serialized["starting_image_review"]["verdict"], "needs_changes"
         )
         self.assertEqual(serialized["starting_image_status"], "approved")
+
+    def test_unreadable_image_is_reported_before_calling_the_provider(self):
+        with self.video.reference_image.open("wb") as reference:
+            reference.write(b"invalid image")
+        with self.assertRaisesMessage(ValidationError, "The review images could not be read"):
+            review_starting_image(self.scene, review_source_key(self.scene))
+        self.provider.assert_not_called()

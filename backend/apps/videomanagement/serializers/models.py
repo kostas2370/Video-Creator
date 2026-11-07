@@ -51,14 +51,14 @@ class SceneSerializer(serializers.ModelSerializer):
     starting_image = serializers.SerializerMethodField()
 
     def get_starting_image_review(self, obj):
-        from ..services.scenes.image_review import saved_review
+        from ..services.scenes.image_review import current_saved_review
 
-        return saved_review(obj) if obj.starting_asset_id else None
+        return current_saved_review(obj) if obj.starting_asset_id else None
 
     def get_starting_image_review_key(self, obj):
-        from ..services.scenes.image_review import review_key
+        from ..services.scenes.image_review import review_source_key
 
-        return review_key(obj) if obj.starting_asset_id else None
+        return review_source_key(obj) if obj.starting_asset_id else None
 
     def get_starting_image_required(self, obj):
         from ..services.scenes.starting_images import requires_starting_image

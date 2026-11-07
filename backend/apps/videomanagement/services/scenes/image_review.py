@@ -35,7 +35,7 @@ def review_model(video):
     return model or django_settings.DEFAULT_GPT_MODEL
 
 
-def review_key(scene):
+def review_source_key(scene):
     context = scene.starting_image_context or {}
     video = scene.video
     settings = video.settings or {}
@@ -57,11 +57,11 @@ def review_key(scene):
     return hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
 
 
-def saved_review(scene):
+def current_saved_review(scene):
     review = (scene.starting_image_context or {}).get("ai_review")
     if (
         isinstance(review, dict)
-        and review.get("source_key") == review_key(scene)
+        and review.get("source_key") == review_source_key(scene)
         and starting_image_status(scene) != "missing"
     ):
         return review
@@ -82,11 +82,12 @@ def check_review_source(scene, source_key=None):
         raise ValidationError(
             "The shot settings changed. Prepare a new starting image before reviewing."
         )
-    if source_key is not None and review_key(scene) != source_key:
+    current_source_key = review_source_key(scene)
+    if source_key is not None and current_source_key != source_key:
         raise ValidationError(
             "The image or shot changed. Review the current image again."
         )
-    return review_key(scene)
+    return current_source_key
 
 
 def comparison_image(scene):
@@ -124,23 +125,25 @@ def review_starting_image(scene, source_key):
         "style": context.get("style", "natural"),
     }
     try:
-        with comparison_image(scene) as reference, video_usage(scene.video):
-            response = get_reply(
-                build_image_review_prompt(brief),
-                reply_format="text",
-                gpt_model=review_model(scene.video),
-                user=scene.video.created_by,
-                reference_image=reference,
-            )
+        reference = comparison_image(scene)
+    except OSError as exc:
+        raise ValidationError(
+            "The review images could not be read. Restore them and retry."
+        ) from exc
+    with reference, video_usage(scene.video):
+        response = get_reply(
+            build_image_review_prompt(brief),
+            reply_format="text",
+            gpt_model=review_model(scene.video),
+            user=scene.video.created_by,
+            reference_image=reference,
+        )
+    try:
         result = ImageReviewResultSerializer(data=parse_ai_json(response.getvalue()))
         result.is_valid(raise_exception=True)
     except (ValueError, TypeError, KeyError, ValidationError) as exc:
         raise ValidationError(
             "AI returned an invalid image review. Please try again."
-        ) from exc
-    except OSError as exc:
-        raise ValidationError(
-            "The review images could not be read. Restore them and retry."
         ) from exc
     review = {
         **result.validated_data,
