@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider
@@ -97,16 +97,19 @@ class GenerateVideoTests(TestCase):
     def test_review_stops_before_media_and_uses_approved_script_on_proceed(self):
         self.video.settings = {"generation_params": {"message": "cats", "review_script": False}}
         self.video.save()
-        draft = self.generate(review_script=True)
+        draft = self.generate(review_script=True, gpt_model="claude-selected-model")
         self.assertEqual(draft.status, "REVIEW")
         self.assertEqual(draft.settings["generation_params"]["message"], "cats")
+        self.assertEqual(draft.settings["gpt_model"], "claude-selected-model")
         self.make_scenes_speech.assert_not_called()
         self.create_image_scenes.assert_not_called()
         self.download_music.assert_not_called()
         self.assertEqual(draft.scenes.count(), 0)
         draft.gpt_answer = {**A_SCRIPT, "title": "Edited title"}
         draft.save()
-        finished = self.generate()
+        finished = self.generate(gpt_model="claude-selected-model")
+        finished.refresh_from_db()
+        self.assertEqual(finished.settings["gpt_model"], "claude-selected-model")
         self.assertEqual(finished.status, "READY")
         self.assertEqual(finished.title, "Edited title")
         self.get_reply.assert_called_once()
@@ -251,8 +254,15 @@ class GenerateVideoTests(TestCase):
                 style="vivid",
                 provider=None,
                 generation_mode="STANDARD",
+                gpt_model="gpt-4",
             ),
         )
+
+    @override_settings(DEFAULT_GPT_MODEL="gemini-default-model")
+    def test_records_the_default_script_model_when_none_is_selected(self):
+        video = self.generate(gpt_model=None)
+        video.refresh_from_db()
+        self.assertEqual(video.settings["gpt_model"], "gemini-default-model")
 
     def test_web_mode_takes_precedence_over_a_stale_video_provider(self):
         self.generate(provider="sora", image_mode="WEB")

@@ -744,7 +744,7 @@ pagination, so every workspace page can link to the pending review/preparation.
 
 ### Background AI drafts
 
-Story and scene drafts, scene rewrites, cast and character descriptions, episode memories,
+Video and series idea proposals, story and scene drafts, scene rewrites, cast and character descriptions, episode memories,
 tags, YouTube descriptions, clip hashtags, and transcript clip suggestions queue their own
 Celery tasks and return HTTP 202 with a signed job token. Tasks are defined in
 `apps.videomanagement.draft_tasks`, loaded by `CELERY_IMPORTS`, and return the provider's

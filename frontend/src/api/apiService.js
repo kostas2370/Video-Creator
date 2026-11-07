@@ -57,6 +57,8 @@ export const createOutro = data => post("outros/", data);
 export const createAvatar = data => post("avatars/", data);
 export const createStoryVideo = data => post("videos/story/", data, callerHandlesErrors);
 export const draftStory = data => runBackgroundDraft("videos/draft_story/", data);
+export const generateIdeas = data => runBackgroundDraft("videos/ideas/", data);
+export const rewritePrompt = data => runBackgroundDraft("videos/rewrite_prompt/", data);
 export const getCaptionProjects = params => request({ url: "captions/", params, ...callerHandlesErrors });
 export const getCaptionProject = id => request({ url: detail("captions", id), ...callerHandlesErrors });
 export const createCaptionProject = data => post("captions/", data, callerHandlesErrors);
@@ -97,6 +99,7 @@ export const saveVideoNotes = (id, notes, previousNotes) => patch(`${detail("vid
 export const updateVideo = (id, data) => patch(detail("videos", id), data);
 export const generateScene = (id, data) => runBackgroundDraft(action("scenes", id, "generate"), data, "patch");
 export const updateStartingImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "starting_image"), data, callerHandlesErrors));
+export const reviewStartingImage = (id, assetId) => runBackgroundDraft(action("scenes", id, "review_starting_image"), { asset_id: assetId });
 export const generateSceneImage = (id, data) => sceneOperation(id, () => post(action("scenes", id, "generate_image_scene"), data));
 export const updateSceneImage = (id, imageId, data) => request({ method: "post", url: action("scenes", id, "change_image_scene"), data, params: { scene_image: imageId || undefined } });
 export const resumeVideo = id => patch(action("videos", id, "resume"), {}, callerHandlesErrors);

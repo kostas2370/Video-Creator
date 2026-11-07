@@ -19,6 +19,21 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("lets users edit their idea and production choices directly from review", () => {
+  render(<MemoryRouter><Home /></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText("Your prompt"), { target: { value: "A fox mystery" } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Portrait/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Review video" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit idea" }));
+  expect(screen.getByLabelText("Your prompt").value).toBe("A fox mystery");
+  fireEvent.change(screen.getByLabelText("Your prompt"), { target: { value: "A fox mystery at night" } });
+  fireEvent.click(screen.getByRole("button", { name: "Review", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit look & sound" }));
+  expect(screen.getByRole("radio", { name: /Portrait/ }).checked).toBe(true);
+  expect(api.generateVideo).not.toHaveBeenCalled();
+});
+
 it("offers Economy only as an explicit generation choice", async () => {
   render(<MemoryRouter><Home /></MemoryRouter>);
   fireEvent.change(screen.getByLabelText("Your prompt"), { target: { value: "A fox solves a mystery" } });

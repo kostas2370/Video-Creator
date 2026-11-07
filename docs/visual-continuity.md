@@ -182,4 +182,37 @@ Resume prepares missing images and never starts animation. An asset used as a sc
 starting image is protected from deletion. Restart the API and general worker and
 rebuild the frontend together when upgrading; no new database migration is required.
 
+### AI starting-image review
+
+For character video shots, choose **Review image with AI** in the starting-image
+panel before animation. The project's script model receives a labeled comparison
+of the saved character reference and starting image, along with the saved shot
+description, shot plan, dialogue and shared visual guidance. Choose a script model
+that accepts images. Each review makes one AI request and records available usage
+against the project. Reviews have a separate allowance of 30 per hour.
+
+The review reports **Looks ready**, **Changes suggested**, or **Needs a closer look**,
+with specific findings about character appearance, shot details, composition and
+visible image defects. When useful, it proposes a replacement shot description.
+The summary stays visible; **Review details** expands the findings and proposed
+prompt. **Use suggested description** opens **Change image** and fills the editable
+field; generating the replacement image remains a separate action. Prompt editing,
+image generation and replacement uploads live under **Change image**. The main
+button shows approval first, then animation after approval; **Animation cost**
+expands the estimate. Reviews never approve images, regenerate media,
+or start animation. The existing approval controls remain available regardless of
+the verdict.
+
+Reviews are saved with the starting image and survive reopening the editor. Changes
+to the image, description, shot plan, dialogue, character reference, visual guidance
+or script-model selection hide the previous review. A queued review checks its
+inputs again before calling the provider and before saving; a changed shot cannot
+receive outdated findings. Prepare a new image when its generation settings change.
+
+This is a still-image assessment, not an assessment of motion, audio, pacing,
+captions or continuity between finished clips. It can miss details or report false
+positives. Automated tests use mocked provider responses; real review accuracy
+still needs representative human evaluation. Restart the API and general worker
+and rebuild the frontend together; no database migration is required.
+
 After upgrading, run `python manage.py archive_reference_images` to archive existing character/project images and logos. Image files left in project image folders by earlier failed jobs are also added to the library. They cannot be reliably associated with a specific scene retroactively; choose them from the library when needed.

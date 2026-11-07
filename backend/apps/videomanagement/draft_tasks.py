@@ -10,7 +10,9 @@ from apps.series.models import SeriesEpisode
 from apps.series.services import characters, episodes
 from apps.videomanagement.models import Scene, Video
 from apps.videomanagement.services.scenes import generation as scene_generation
+from apps.videomanagement.services.scenes.image_review import review_starting_image
 from apps.videomanagement.services.videos import story as video_story
+from apps.videomanagement.services.videos.ideas import generate_ideas, rewrite_prompt
 from apps.videomanagement.services.videos import tags as video_tags
 from apps.videomanagement.services.videos import youtube_metadata
 
@@ -30,6 +32,16 @@ def draft_story_task(user_id, *, prompt):
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def generate_ideas_task(user_id, **choices):
+    return generate_ideas(load_user(user_id), **choices)
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def rewrite_prompt_task(user_id, **choices):
+    return rewrite_prompt(load_user(user_id), **choices)
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def draft_scene_task(user_id, *, video_id, choices):
     user = load_user(user_id)
     return scene_generation.draft_scene(owned_video(user, video_id), **choices)
@@ -42,6 +54,15 @@ def rewrite_scene_task(user_id, *, scene_id, instructions):
         pk=scene_id, video__created_by=user
     )
     return {"text": scene_generation.generate_scene(instructions, scene)}
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def review_starting_image_task(user_id, *, scene_id, source_key):
+    user = load_user(user_id)
+    scene = Scene.objects.select_related("video__created_by", "starting_asset").get(
+        pk=scene_id, video__created_by=user
+    )
+    return review_starting_image(scene, source_key)
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)

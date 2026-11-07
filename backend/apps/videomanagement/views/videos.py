@@ -21,6 +21,7 @@ from apps.videomanagement.serializers.audio import (
     MusicAudioSerializer,
     MusicUploadSerializer,
 )
+from apps.videomanagement.serializers.ideas import IdeaRequestSerializer, PromptRewriteRequestSerializer
 from apps.videomanagement.serializers.models import (
     VideoNestedSerializer,
     VideoSerializer,
@@ -100,6 +101,8 @@ class VideoView(
         "notes": VideoNotesSerializer,
         "story": StoryVideoSerializer,
         "draft_story": StoryDraftSerializer,
+        "ideas": IdeaRequestSerializer,
+        "rewrite_prompt": PromptRewriteRequestSerializer,
         "music": MusicUploadSerializer,
         "audio": MusicAudioSerializer,
         "approve_script": StoryboardSerializer,
@@ -147,6 +150,28 @@ class VideoView(
             queue_draft(
                 request.user, draft_tasks.draft_story_task, **serializer.validated_data
             ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @swagger_auto_schema(request_body=IdeaRequestSerializer, responses={202: DraftJobSerializer})
+    @action(detail=False, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
+    def ideas(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            queue_draft(request.user, draft_tasks.generate_ideas_task, **serializer.validated_data),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @swagger_auto_schema(request_body=PromptRewriteRequestSerializer, responses={202: DraftJobSerializer})
+    @action(detail=False, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
+    def rewrite_prompt(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            queue_draft(request.user, draft_tasks.rewrite_prompt_task, **serializer.validated_data),
             status=202,
             headers={"Cache-Control": "no-store"},
         )
