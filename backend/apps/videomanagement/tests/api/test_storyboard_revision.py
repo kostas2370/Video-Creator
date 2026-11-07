@@ -46,7 +46,7 @@ class StoryboardRevisionTests(ApiTestCase):
             },
         )
         self.url = reverse("video-revise-storyboard", args=[self.video.pk])
-        self.proposal = {**self.storyboard, "title": "Revised"}
+        self.proposal = {**deepcopy(self.storyboard), "title": "Revised"}
         provider = patch(
             "apps.videomanagement.services.videos.storyboard_revision.get_reply",
             return_value=StringIO(json.dumps(self.proposal)),
@@ -144,3 +144,29 @@ class StoryboardRevisionTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 202, response.data)
         self.assertEqual(generate.call_args.kwargs["scene_count"], 2)
+
+    def test_empty_optional_diagram_is_normalized_without_another_paid_request(self):
+        from ..test_ai_scene_editing import PLAN
+
+        self.video.settings["ai_scene_editing"] = True
+        self.video.save()
+        self.proposal["scenes"][0]["sentences"][0]["editing"] = {**PLAN, "diagram": {}}
+        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.request_revision()
+        result = self.run_draft_task()
+        self.assertIsNone(result["scenes"][0]["sentences"][0]["editing"]["diagram"])
+        self.provider.assert_called_once()
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.gpt_answer, self.storyboard)
+
+    def test_incomplete_nonempty_diagram_is_still_rejected(self):
+        from ..test_ai_scene_editing import PLAN
+
+        self.proposal["scenes"][0]["sentences"][0]["editing"] = {
+            **PLAN,
+            "diagram": {"title": "Incomplete"},
+        }
+        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.request_revision()
+        with self.assertRaises(ValidationError):
+            self.run_draft_task()
