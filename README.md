@@ -397,6 +397,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Visual continuity](docs/visual-continuity.md) | References and consistency across generated scenes |
 | [Long video → Shorts](docs/clips.md) | Uploads, highlight suggestions, clip editing, exports, and recovery |
 | [AI usage](docs/ai-usage.md) | Usage records and cost estimates |
+| [Music TODOs](docs/music-todo.md) | Planned music search and AI-generated soundtracks |
 | [Creator publishing](docs/social-publishing.md) | Social platform integrations and deployment setup |
 | [Performance checks](docs/performance-check.md) | Measuring application performance |
 | [Dependency security](docs/dependency-security-check.md) | Dependency audit procedure |
