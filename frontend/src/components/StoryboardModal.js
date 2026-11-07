@@ -95,8 +95,8 @@ export function StoryboardModal({ open, video, onClose, onApproved, onDeleted })
           <p className="mt-2 text-xs text-gray-500">{script.scenes.length} scenes · {narration ? "With narration" : "Visual story"} · Edit only what you want to change</p>
         </div>
 
-        <details className="group rounded-2xl border border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/20">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+        <details className="group rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold text-indigo-700 dark:text-indigo-100">
             <span>Revise storyboard with AI</span>
             <span aria-hidden="true" className="transition group-open:rotate-180">⌄</span>
           </summary>
