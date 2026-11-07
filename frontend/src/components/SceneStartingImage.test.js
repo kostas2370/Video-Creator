@@ -29,7 +29,8 @@ it("requires approval before offering a separate animation request", async () =>
   const generate = vi.spyOn(api, "generateSceneImage").mockResolvedValue({ ok: true });
   const updated = vi.fn();
   const { rerender } = render(<Scene scene={reviewScene} manual setUpdated={updated} />);
-  expect(screen.getByRole("button", { name: "Animate approved image" }).disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Animate approved image" })).toBeNull();
+  expect(screen.getByText("Change image").closest("details").open).toBe(false);
   fireEvent.click(screen.getByRole("button", { name: "Approve starting image" }));
   await waitFor(() => expect(updated).toHaveBeenCalledWith(true));
   expect(update).toHaveBeenCalledTimes(1);
@@ -47,6 +48,7 @@ it("prepares a changed image without animation and blocks unsaved edits", async 
   const update = vi.spyOn(api, "updateStartingImage").mockResolvedValue({ ok: true });
   const updated = vi.fn();
   render(<Scene scene={{ ...reviewScene, starting_image_status: "approved" }} manual setUpdated={updated} />);
+  fireEvent.click(screen.getByText("Change image"));
   fireEvent.change(screen.getByRole("textbox", { name: "Scene 1 starting image description" }), { target: { value: "Milo in the workshop" } });
   expect(screen.getByRole("button", { name: "Animate approved image" }).disabled).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Regenerate starting image" }));
@@ -58,6 +60,8 @@ it("prepares a changed image without animation and blocks unsaved edits", async 
 it("uploads replacement images for review and shows failed actions", async () => {
   const update = vi.spyOn(api, "updateStartingImage").mockResolvedValue({ ok: false, message: "Could not upload the image" });
   render(<Scene scene={reviewScene} manual setUpdated={vi.fn()} />);
+  fireEvent.click(screen.getByText("Change image"));
+  fireEvent.click(screen.getByText("Upload an image instead"));
   const file = new File(["image"], "replacement.png", { type: "image/png" });
   fireEvent.change(screen.getByLabelText("Scene 1 replacement starting image"), { target: { files: [file] } });
   expect(screen.getByRole("button", { name: "Approve starting image" }).disabled).toBe(true);

@@ -1,56 +1,25 @@
 import { GenerationCost } from "./GenerationCost";
-import React, { useEffect, useState } from "react";
-import { toast } from "react-toastify";
-import { generateSceneImage, updateStartingImage } from "../api/apiService";
+import { SceneImageReview } from "./SceneImageReview";
+import { PromptRewrite } from "./PromptRewrite";
+import React, { useState } from "react";
 import { API_HOST } from "../endpoints";
 import { useObjectUrl } from "../hooks/useObjectUrl";
+import { useStartingImage } from "../hooks/useStartingImage";
 import { RememberedDetails } from "./ui/RememberedDetails";
 import { editorInput } from "./ui/EditorDialog";
 
 export const SceneStartingImage = ({ generationMode = "STANDARD", scene, index, disabled, onSaved }) => {
-  const [description, setDescription] = useState(scene.starting_image_description || scene.scene_image?.prompt || "");
-  const [file, setFile] = useState(null);
-  const [busy, setBusy] = useState("");
-  const [error, setError] = useState("");
+  const { description, setDescription, file, setFile, busy, error, edited, blocked, run } = useStartingImage(scene, { disabled, onSaved });
+  const [changingImage, setChangingImage] = useState(false);
   const preview = useObjectUrl(file);
-  useEffect(() => {
-    setDescription(scene.starting_image_description || scene.scene_image?.prompt || "");
-    setFile(null);
-  }, [scene.id, scene.starting_asset, scene.starting_image_description, scene.scene_image?.prompt]);
   const approved = scene.starting_image_status === "approved";
-  const edited = description.trim() !== (scene.starting_image_description || "").trim();
-  const blocked = disabled || !!busy;
-  const run = async operation => {
-    if (blocked) return;
-    setBusy(operation);
-    setError("");
-    try {
-      const data = new FormData();
-      let result;
-      if (operation === "prepare" || operation === "retry") {
-        data.append("image_description", description);
-        result = await generateSceneImage(scene.id, data);
-      } else {
-        data.append("operation", operation);
-        if (scene.starting_asset) data.append("asset_id", scene.starting_asset);
-        if (operation === "upload") {
-          data.append("image", file);
-          data.append("image_description", description);
-        }
-        result = await updateStartingImage(scene.id, data);
-      }
-      if (!result?.ok) {
-        setError(result?.message || "Could not finish this step. Your saved media is preserved.");
-        return;
-      }
-      if (operation === "upload") setFile(null);
-      if (["upload", "approve"].includes(operation)) toast.success({ prepare: "Starting image ready for review", retry: "Video is ready", upload: "Starting image ready for review", approve: "Starting image approved", animate: "Animation is ready" }[operation]);
-    } catch {
-      setError("Could not finish this step. Your saved media is preserved.");
-    } finally {
-      setBusy("");
-      onSaved(true);
-    }
+  const approvalLabel = busy === "approve" ? "Approving…" : "Approve starting image";
+  const animationLabel = busy === "animate" ? "Animating…" : scene.starting_image_context?.animation_error ? "Retry animation" : "Animate approved image";
+  const primaryAction = approved ? "animate" : "approve";
+  const primaryLabel = approved ? animationLabel : approvalLabel;
+  const useSuggestion = value => {
+    setDescription(value);
+    setChangingImage(true);
   };
   const savedError = scene.starting_image_context?.preparation_error || scene.starting_image_context?.animation_error;
   const buttonClass = "rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50";
@@ -65,19 +34,27 @@ export const SceneStartingImage = ({ generationMode = "STANDARD", scene, index, 
   </RememberedDetails>;
   return <RememberedDetails videoId={scene.video} panel={`startingImage:${scene.id}`} defaultOpen aria-label={`Scene ${index + 1} starting image review`} className="mt-4 rounded-xl border border-blue-200 p-4 dark:border-blue-900">
     <summary className="cursor-pointer text-sm font-semibold">Starting image · {approved ? "Approved" : "Needs review"}</summary>
-    <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Review the characters and composition, then approve the image before animating. Image generation and animation are separate paid requests. Your current clip stays until a new animation succeeds.</p>
+    <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{approved ? "Ready to animate. Your current clip stays until the replacement is ready." : "Check the image, then approve it to animate."}</p>
     {startingImage}
-    <label className="mt-3 block text-sm">Shot description<textarea aria-label={`Scene ${index + 1} starting image description`} maxLength={2000} rows={3} value={description} disabled={blocked} onChange={event => setDescription(event.target.value)} className={`${editorInput} mt-1`} /></label>
-    <GenerationCost refresh={[scene, generationMode]} videoId={scene.video} sceneId={scene.id} operation="visual" />
-    <button type="button" disabled={blocked || !description.trim()} onClick={() => run("prepare")} className={`${buttonClass} mt-3`}>{busy === "prepare" ? "Preparing image…" : scene.starting_image ? "Regenerate starting image" : "Generate starting image"}</button>
-    <label className="mt-3 block text-sm">Upload a replacement image<input aria-label={`Scene ${index + 1} replacement starting image`} type="file" accept="image/png,image/jpeg,image/webp" disabled={blocked} onChange={event => setFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" /></label>
-    {file && <button type="button" disabled={blocked || !description.trim()} onClick={() => run("upload")} className={`${buttonClass} mt-3`}>{busy === "upload" ? "Uploading…" : "Save starting image"}</button>}
-    {scene.starting_image && <div className="mt-3 flex flex-wrap gap-2">
-      <button type="button" disabled={blocked || approved || edited || !!file} onClick={() => run("approve")} className={buttonClass}>{busy === "approve" ? "Approving…" : "Approve starting image"}</button>
-      <button type="button" disabled={blocked || !approved || edited || !!file} onClick={() => run("animate")} className={buttonClass}>{busy === "animate" ? "Animating…" : scene.starting_image_context?.animation_error ? "Retry animation" : "Animate approved image"}</button>
-    </div>}
-    {scene.starting_image && <GenerationCost refresh={[scene, generationMode]} videoId={scene.video} sceneId={scene.id} operation="animation" />}
-    {edited && <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Generate or upload an image for the changed description, then review and approve it.</p>}
+    {scene.starting_image && <>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" disabled={blocked || edited || !!file} onClick={() => run(primaryAction)} className={buttonClass}>{primaryLabel}</button>
+        {approved && <details className="text-xs text-gray-500 dark:text-gray-400"><summary className="cursor-pointer">Animation cost</summary><GenerationCost refresh={[scene, generationMode]} videoId={scene.video} sceneId={scene.id} operation="animation" /></details>}
+      </div>
+      <SceneImageReview key={scene.starting_image_review_key || scene.starting_asset} scene={scene} disabled={blocked || !!file} edited={edited} onUseDescription={useSuggestion} onSaved={onSaved} />
+    </>}
+    <details open={changingImage || !scene.starting_image} onToggle={event => setChangingImage(event.currentTarget.open)} className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
+      <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-300">{scene.starting_image ? "Change image" : "Create starting image"}{edited && " · Unsaved changes"}</summary>
+      <label className="mt-3 block text-sm">Shot description<textarea aria-label={`Scene ${index + 1} starting image description`} maxLength={2000} rows={3} value={description} disabled={blocked} onChange={event => setDescription(event.target.value)} className={`${editorInput} mt-1`} /></label>
+      <PromptRewrite key={scene.id} kind="visual" scope={`starting:${scene.id}`} value={description} disabled={blocked} onUse={setDescription} />
+      <GenerationCost refresh={[scene, generationMode]} videoId={scene.video} sceneId={scene.id} operation="visual" />
+      <button type="button" disabled={blocked || !description.trim() || !!file} onClick={() => run("prepare")} className={`${buttonClass} mt-3`}>{busy === "prepare" ? "Preparing image…" : scene.starting_image ? "Regenerate starting image" : "Generate starting image"}</button>
+      <details className="mt-4 text-sm"><summary className="cursor-pointer text-gray-500 dark:text-gray-400">Upload an image instead</summary>
+        <label className="mt-3 block">Upload a replacement image<input aria-label={`Scene ${index + 1} replacement starting image`} type="file" accept="image/png,image/jpeg,image/webp" disabled={blocked} onChange={event => setFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" /></label>
+        {file && <button type="button" disabled={blocked || !description.trim()} onClick={() => run("upload")} className={`${buttonClass} mt-3`}>{busy === "upload" ? "Uploading…" : "Save starting image"}</button>}
+      </details>
+      {edited && <p className="mt-3 text-xs text-amber-700 dark:text-amber-300">Generate or upload a new image to apply your description, then approve it.</p>}
+    </details>
     {failure}
   </RememberedDetails>;
 };

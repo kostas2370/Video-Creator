@@ -19,6 +19,7 @@ from apps.videomanagement.serializers.audio import (
     SceneAudioSerializer,
     VoiceoverUploadSerializer,
 )
+from apps.videomanagement.serializers.image_review import ImageReviewRequestSerializer
 from apps.videomanagement.serializers.models import (
     SceneSerializer,
     VideoNestedSerializer,
@@ -63,6 +64,8 @@ from apps.videomanagement.services.scenes.jobs import (
     queue_scene_job,
     scene_job_result,
 )
+from apps.videomanagement.services.scenes.image_review import check_review_source
+from apps.videomanagement.throttling import ImageReviewRateThrottle
 from apps.videomanagement.services.scenes.overlays import update_overlays
 from apps.videomanagement.services.scenes.starting_images import (
     checked_scene,
@@ -99,7 +102,26 @@ class SceneView(viewsets.GenericViewSet):
             "change_image_scene": ChangeSceneImageSerializer,
             "generate_image_scene": GenerateSceneImageSerializer,
             "starting_image": StartingImageSerializer,
+            "review_starting_image": ImageReviewRequestSerializer,
         }.get(self.action, super().get_serializer_class())
+
+    @action(detail=True, methods=["POST"], throttle_classes=[ImageReviewRateThrottle])
+    def review_starting_image(self, request, pk=None):
+        scene = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        checked_scene(scene, serializer.validated_data["asset_id"])
+        source_key = check_review_source(scene)
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.review_starting_image_task,
+                scene_id=str(scene.pk),
+                source_key=source_key,
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @action(detail=True, methods=["GET", "PATCH"])
     def captions(self, request, pk=None):

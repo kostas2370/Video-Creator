@@ -1,0 +1,211 @@
+import json
+from io import StringIO
+from unittest.mock import patch
+from uuid import uuid4
+
+from django.urls import reverse
+from PIL import Image
+from rest_framework.exceptions import ValidationError
+
+from apps.usermanagement.baker_recipes import user
+from apps.usage.services import current_video
+from apps.videomanagement import draft_tasks
+from apps.videomanagement.serializers.models import SceneSerializer
+from apps.videomanagement.services.scenes.image_review import (
+    comparison_image,
+    review_key,
+    review_starting_image,
+)
+
+from . import test_starting_images
+
+
+class ImageReviewTests(test_starting_images.StartingImageTests):
+    def setUp(self):
+        super().setUp()
+        self.review_url = reverse("scene-review-starting-image", args=[self.scene.pk])
+        self.review = {
+            "verdict": "needs_changes",
+            "summary": "The scarf color differs from the reference.",
+            "findings": [
+                {
+                    "category": "character",
+                    "issue": "Milo has a red scarf.",
+                    "fix": "Use the green scarf in the reference.",
+                }
+            ],
+            "suggested_description": "Milo at the forest gate wearing his green scarf.",
+        }
+        provider = patch(
+            "apps.videomanagement.services.scenes.image_review.get_reply",
+            return_value=StringIO(json.dumps(self.review)),
+        )
+        self.provider = provider.start()
+        self.addCleanup(provider.stop)
+
+    def request_review(self, **extra):
+        return self.client.post(
+            self.review_url,
+            {
+                "asset_id": str(self.scene.starting_asset_id),
+                **extra,
+            },
+            format="json",
+        )
+
+    def test_review_is_queued_without_calling_provider_or_changing_approval(self):
+        response = self.request_review()
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertIs(
+            self.draft_queue.call_args.args[0], draft_tasks.review_starting_image_task
+        )
+        self.provider.assert_not_called()
+        result = self.run_draft_task()
+        self.assertEqual(result["verdict"], "needs_changes")
+        self.scene.refresh_from_db()
+        serialized = SceneSerializer(self.scene).data
+        self.assertEqual(serialized["starting_image_review"], result)
+        self.assertEqual(serialized["starting_image_status"], "needs_review")
+        self.old.refresh_from_db()
+        self.assertEqual(self.old.file.name, "images/old.mp4")
+        self.scene_queue.assert_not_called()
+
+    def test_comparison_contains_both_images_and_uses_project_model_and_usage(self):
+        Image.new("RGB", (32, 32), "red").save(self.frame.parent / "cast.png")
+        with comparison_image(self.scene) as output, Image.open(output) as sheet:
+            self.assertEqual(sheet.size, (1536, 800))
+            self.assertGreater(sheet.getpixel((384, 416))[0], 200)
+            self.assertGreater(sheet.getpixel((1152, 416))[2], 200)
+        self.video.settings["gpt_model"] = "claude-example"
+        self.video.save(update_fields=["settings"])
+        self.scene.video = self.video
+
+        def reply(*args, **kwargs):
+            self.assertEqual(current_video.get().pk, self.video.pk)
+            self.assertEqual(kwargs["user"], self.user)
+            self.assertEqual(kwargs["gpt_model"], "claude-example")
+            self.assertTrue(kwargs["reference_image"].read())
+            self.assertIn("Milo at gate", args[0])
+            return StringIO(json.dumps(self.review))
+
+        self.provider.side_effect = reply
+        review_starting_image(self.scene, review_key(self.scene))
+        self.assertIsNone(current_video.get())
+
+    def test_other_users_invalid_assets_and_missing_images_cannot_queue_reviews(self):
+        self.client.force_authenticate(user.make())
+        self.assertEqual(self.request_review().status_code, 403)
+        self.client.force_authenticate(self.user)
+        self.assertEqual(self.request_review(asset_id=str(uuid4())).status_code, 400)
+        self.assertEqual(self.request_review(asset_id="invalid").status_code, 400)
+        self.scene.starting_asset.file.delete(save=False)
+        self.assertEqual(self.request_review().status_code, 400)
+        self.draft_queue.assert_not_called()
+        self.provider.assert_not_called()
+
+    def test_worker_rechecks_ownership(self):
+        with self.assertRaises(type(self.scene).DoesNotExist):
+            draft_tasks.review_starting_image_task.run(
+                str(user.make().pk),
+                scene_id=str(self.scene.pk),
+                source_key=review_key(self.scene),
+            )
+        self.provider.assert_not_called()
+
+    def test_changed_source_is_rejected_before_spending_on_a_queued_review(self):
+        self.request_review()
+        self.scene.text = "A different action"
+        self.scene.save(update_fields=["text"])
+        with self.assertRaises(ValidationError):
+            self.run_draft_task()
+        self.provider.assert_not_called()
+
+    def test_changes_during_review_do_not_save_stale_findings(self):
+        def change_shot(*args, **kwargs):
+            type(self.scene).objects.filter(pk=self.scene.pk).update(text="New action")
+            return StringIO(json.dumps(self.review))
+
+        self.provider.side_effect = change_shot
+        with self.assertRaises(ValidationError):
+            review_starting_image(self.scene, review_key(self.scene))
+        self.scene.refresh_from_db()
+        self.assertNotIn("ai_review", self.scene.starting_image_context)
+
+    def test_saved_review_is_hidden_after_guidance_changes(self):
+        review_starting_image(self.scene, review_key(self.scene))
+        self.scene.refresh_from_db()
+        self.assertIsNotNone(SceneSerializer(self.scene).data["starting_image_review"])
+        self.video.settings["visual_continuity"] = "Milo now wears a yellow scarf"
+        self.video.save(update_fields=["settings"])
+        self.scene.video = self.video
+        self.assertIsNone(SceneSerializer(self.scene).data["starting_image_review"])
+
+    def test_approval_does_not_invalidate_a_review(self):
+        review_starting_image(self.scene, review_key(self.scene))
+        self.post("approve")
+        self.scene.refresh_from_db()
+        self.assertEqual(
+            SceneSerializer(self.scene).data["starting_image_review"]["verdict"],
+            "needs_changes",
+        )
+        self.assertEqual(
+            SceneSerializer(self.scene).data["starting_image_status"], "approved"
+        )
+
+    def test_missing_reference_or_changed_settings_do_not_spend_on_review(self):
+        self.video.settings["visual_continuity"] = "New wardrobe"
+        self.video.save(update_fields=["settings"])
+        self.assertEqual(self.request_review().status_code, 400)
+        self.video.settings.pop("visual_continuity")
+        self.video.save(update_fields=["settings"])
+        self.video.reference_image.delete(save=False)
+        self.assertEqual(self.request_review().status_code, 400)
+        self.draft_queue.assert_not_called()
+        self.provider.assert_not_called()
+
+    def test_malformed_or_contradictory_reviews_are_not_saved(self):
+        for value in [
+            "not JSON",
+            [],
+            {},
+            {**self.review, "verdict": "excellent"},
+            {**self.review, "verdict": "ready"},
+            {**self.review, "findings": []},
+            {**self.review, "findings": self.review["findings"] * 7},
+        ]:
+            with self.subTest(value=value):
+                self.provider.return_value = StringIO(json.dumps(value))
+                with self.assertRaises(ValidationError):
+                    review_starting_image(self.scene, review_key(self.scene))
+                self.scene.refresh_from_db()
+                self.assertNotIn("ai_review", self.scene.starting_image_context)
+
+    def test_ready_and_uncertain_verdicts_are_supported(self):
+        for verdict in ["ready", "uncertain"]:
+            with self.subTest(verdict=verdict):
+                self.provider.return_value = StringIO(
+                    json.dumps(
+                        {
+                            "verdict": verdict,
+                            "summary": "No clear defects visible.",
+                            "findings": [],
+                            "suggested_description": "",
+                        }
+                    )
+                )
+                result = review_starting_image(self.scene, review_key(self.scene))
+                self.assertEqual(result["verdict"], verdict)
+
+    def test_provider_failure_keeps_the_existing_review_and_approved_image(self):
+        self.post("approve")
+        self.scene.refresh_from_db()
+        review_starting_image(self.scene, review_key(self.scene))
+        self.provider.side_effect = RuntimeError("private provider details")
+        with self.assertRaises(RuntimeError):
+            review_starting_image(self.scene, review_key(self.scene))
+        self.scene.refresh_from_db()
+        serialized = SceneSerializer(self.scene).data
+        self.assertEqual(
+            serialized["starting_image_review"]["verdict"], "needs_changes"
+        )
+        self.assertEqual(serialized["starting_image_status"], "approved")

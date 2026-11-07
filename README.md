@@ -125,12 +125,30 @@ cookies stay on the same site.
    enter a prompt, choose visuals/voice and frame, then review before drafting.
    Optional providers, presenter and advanced settings stay folded away. Back
    preserves your choices. You can also start a manual project with your own media.
+   In AI video and series setup, choose **Find ideas** to get
+   three editable proposals. Add a topic, use your existing idea as inspiration, or
+   leave it blank for a surprise. **Use this idea** fills the video prompt or series
+   name and premise; it does not create a project or generate media. Each suggestion
+   request uses a paid text-model call. Completed proposals recover with the browser
+   draft. Idea requests share the story-draft allowance of 15 per hour.
+   **Rewrite with AI** improves your current video prompt or series premise, with
+   optional change instructions. Review the suggestion and choose **Use rewrite**
+   to apply it. The same helper is available for starting-image descriptions and
+   AI visual descriptions in the scene editor. Rewriting makes one paid text-model
+   request; image and video generation remain separate actions. It shares the same
+   15-per-hour allowance. Video and series rewrite drafts recover with the browser
+   draft; scene rewrite suggestions stay in the open editor.
+   The prompt toolbar opens one helper at a time and keeps its inputs and proposals
+   when switching. Saved templates sit below the video prompt; example prompts appear
+   while it is blank. The review step includes **Edit idea** and **Edit look & sound**
+   shortcuts, preserving your other choices as you move between steps.
 2. **Review the storyboard.** Edit the dialogue and visual prompts before generating
    media. For AI visuals, refine each shot's framing, camera direction, subject action,
    and target duration. You can save a draft and return to it from **My videos**.
 3. **Generate or add media.** Create visuals and narration, upload replacements, or
    select existing assets. Optional references and continuity guidance help keep
-   generated scenes visually consistent.
+   generated scenes visually consistent. For character video shots, **Review image
+   with AI** checks a saved starting image and suggests corrections before animation.
 4. **Refine the edit.** Reorder scenes, adjust audio and pauses, choose transitions
    and image motion, and add captions or overlays. Preview the timeline as you work.
 5. **Export and share.** Choose Draft, Standard, or High export quality and 24 or

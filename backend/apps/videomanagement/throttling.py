@@ -29,6 +29,11 @@ class StoryDraftRateThrottle(BaseThrottle):
     rate = "15/hour"
 
 
+class ImageReviewRateThrottle(BaseThrottle):
+    scope = "image_review"
+    rate = "30/hour"
+
+
 class CaptionRateThrottle(BaseThrottle):
     scope = "caption_processing"
     rate = "10/hour"

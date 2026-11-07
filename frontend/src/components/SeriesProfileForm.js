@@ -9,6 +9,7 @@ import { useObjectUrl } from "../hooks/useObjectUrl";
 import { defaultSeries, seriesPayload, storyFormats, characterIsApproved } from "../utils/series";
 import { SeriesCastEditor } from "./SeriesCastEditor";
 import { SeriesCastDesigner } from "./SeriesCastDesigner";
+import { PromptTools } from "./PromptTools";
 import { CreationSteps } from "./ui/CreationSteps";
 import { visualProviderNames, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
 import { videoFormats } from "../utils/videoFormats";
@@ -94,6 +95,7 @@ export function SeriesProfileForm({ initial, busy, onSave, onCancel, error }) {
             <div><h3 className="text-xl font-bold">What’s the story?</h3><p className="mt-1 text-sm text-gray-500">A few details are enough to get started.</p></div>
             <label className="block text-sm font-semibold">Series name<input required maxLength={100} value={form.title} onChange={event => change("title", event.target.value)} className={`${editorInput} mt-2`} placeholder="Give your world a name" /></label>
             <label className="block text-sm font-semibold">What is this series about?<textarea required maxLength={2000} rows={4} value={form.premise} onChange={event => change("premise", event.target.value)} className={`${editorInput} mt-2 font-normal`} placeholder="Two unlikely friends get caught in a new mystery every episode…" /></label>
+            <PromptTools kind="series" value={form.premise} preferences={{ story_format: form.story_format, visual_style: form.visual_style }} disabled={busy} onUseRewrite={premise => change("premise", premise)} onUseIdea={idea => { setForm(current => ({ ...current, title: idea.title, premise: idea.prompt })); setValidation(""); }} />
             <div><p className="mb-3 text-sm font-semibold">Story format</p><div className="grid gap-3 sm:grid-cols-3">{storyFormats.map(format => <button key={format.value} type="button" aria-pressed={form.story_format === format.value} onClick={() => change("story_format", format.value)} className={choiceClass(form.story_format === format.value)}><span className="font-semibold">{format.label}</span><span className="mt-2 block text-xs leading-relaxed opacity-70">{format.description}</span></button>)}</div></div>
             <div><p className="mb-3 text-sm font-semibold">Signature visual style</p><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{styles.map(style => <button type="button" key={style.label} aria-pressed={!customStyle && form.visual_style === style.value} onClick={() => { setCustomStyle(false); change("visual_style", style.value); }} className={choiceClass(!customStyle && form.visual_style === style.value)}>{style.label}</button>)}<button type="button" aria-pressed={customStyle} onClick={() => setCustomStyle(true)} className={choiceClass(customStyle)}>Custom style</button></div>{customStyle && <label className="mt-4 block text-sm font-semibold">Describe your style<textarea required maxLength={800} rows={3} value={form.visual_style} onChange={event => change("visual_style", event.target.value)} className={`${editorInput} mt-2 font-normal`} /></label>}</div>
           </section>
