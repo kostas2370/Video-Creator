@@ -3,7 +3,9 @@ from io import StringIO
 from unittest.mock import patch
 from uuid import uuid4
 
+from django.test import override_settings
 from django.urls import reverse
+from model_bakery import baker
 from PIL import Image
 from rest_framework.exceptions import ValidationError
 
@@ -102,6 +104,45 @@ class ImageReviewTests(test_starting_images.StartingImageTests):
         self.assertEqual(self.request_review().status_code, 400)
         self.draft_queue.assert_not_called()
         self.provider.assert_not_called()
+
+    def test_legacy_generation_parameters_select_the_review_model(self):
+        self.video.settings["generation_params"] = {"gpt_model": "claude-selected-model"}
+        self.video.save(update_fields=["settings"])
+        response = self.request_review()
+        self.assertEqual(response.status_code, 202, response.data)
+        self.run_draft_task()
+        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "claude-selected-model")
+
+    def test_legacy_series_episode_selects_the_review_model(self):
+        baker.make(
+            "series.SeriesEpisode",
+            video=self.video,
+            generation_params={"gpt_model": "gemini-episode-model"},
+        )
+        response = self.request_review()
+        self.assertEqual(response.status_code, 202, response.data)
+        self.run_draft_task()
+        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gemini-episode-model")
+
+    def test_saved_review_is_invalidated_when_the_resolved_model_changes(self):
+        self.scene.video = self.video
+        self.video.settings["generation_params"] = {"gpt_model": "claude-selected-model"}
+        self.video.save(update_fields=["settings"])
+        review_starting_image(self.scene, review_key(self.scene))
+        self.scene.refresh_from_db()
+        self.scene.video = self.video
+        self.assertIsNotNone(SceneSerializer(self.scene).data["starting_image_review"])
+        self.video.settings["gpt_model"] = "gemini-new-model"
+        self.assertIsNone(SceneSerializer(self.scene).data["starting_image_review"])
+
+    @override_settings(DEFAULT_GPT_MODEL="gpt-default-model")
+    def test_legacy_project_without_saved_model_uses_and_fingerprints_the_default(self):
+        self.scene.video = self.video
+        source_key = review_key(self.scene)
+        review_starting_image(self.scene, source_key)
+        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gpt-default-model")
+        with override_settings(DEFAULT_GPT_MODEL="gemini-new-default"):
+            self.assertNotEqual(review_key(self.scene), source_key)
 
     def test_worker_rechecks_ownership(self):
         with self.assertRaises(type(self.scene).DoesNotExist):

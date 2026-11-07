@@ -18,7 +18,7 @@ const ideas = [
   { title: "The Midnight Market", prompt: "Two unlikely friends solve a fresh market mystery each week." },
 ];
 const wrap = element => <MemoryRouter><AuthContext.Provider value={{ user: { id: "alice" } }}>{element}</AuthContext.Provider></MemoryRouter>;
-const openHelper = () => fireEvent.click(screen.queryByRole("button", { name: "Find ideas" }) || screen.getByText("Need an idea? Let AI suggest a few"));
+const openHelper = () => fireEvent.click(screen.getByRole("button", { name: "Find ideas" }));
 beforeEach(() => {
   vi.clearAllMocks(); localStorage.clear();
   api.generateIdeas.mockResolvedValue({ ok: true, data: { ideas } });
@@ -31,19 +31,16 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 it("suggests from a blank topic and applies only the chosen proposal", async () => {
   const useIdea = vi.fn();
   render(<IdeaGenerator kind="video" onUse={useIdea} />);
-  openHelper();
   fireEvent.click(screen.getByRole("button", { name: "Suggest video ideas" }));
   await screen.findByRole("heading", { name: ideas[0].title });
   expect(api.generateIdeas).toHaveBeenCalledWith({ kind: "video", seed: "" });
   expect(useIdea).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: `Use idea: ${ideas[1].title}` }));
   expect(useIdea).toHaveBeenCalledWith(ideas[1]);
-  expect(screen.getByText("Need an idea? Let AI suggest a few").closest("details").open).toBe(false);
 });
 
 it("uses current input as inspiration and lets an explicit topic take priority", async () => {
   render(<IdeaGenerator kind="series" seed="Fox mysteries" preferences={{ story_format: "ANIMATED_STORY" }} onUse={vi.fn()} />);
-  openHelper();
   fireEvent.change(screen.getByLabelText(/Topic or inspiration/), { target: { value: "Space detectives" } });
   fireEvent.click(screen.getByRole("button", { name: "Suggest series ideas" }));
   await screen.findByRole("heading", { name: ideas[0].title });
@@ -87,7 +84,6 @@ it("prevents duplicate requests and recovers from failures without discarding pr
   let finish;
   api.generateIdeas.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   render(<IdeaGenerator kind="video" onUse={vi.fn()} />);
-  openHelper();
   fireEvent.click(screen.getByRole("button", { name: "Suggest video ideas" }));
   expect(screen.getByRole("button", { name: "Finding ideas…" }).disabled).toBe(true);
   await act(async () => finish({ ok: true, data: { ideas } }));

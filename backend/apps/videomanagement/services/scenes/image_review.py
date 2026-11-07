@@ -2,6 +2,7 @@ import hashlib
 import json
 from io import BytesIO
 
+from django.conf import settings as django_settings
 from django.db import transaction
 from django.utils import timezone
 from PIL import Image, ImageDraw, ImageOps
@@ -22,6 +23,18 @@ from apps.videomanagement.utils.file_utils import stored_file_exists
 from apps.videomanagement.utils.prompt_utils import build_image_review_prompt
 
 
+def review_model(video):
+    """Use the saved script model, including parameters retained by older projects."""
+    settings = video.settings or {}
+    model = settings.get("gpt_model") or (settings.get("generation_params") or {}).get(
+        "gpt_model"
+    )
+    if not model:
+        episode = getattr(video, "series_episode", None)
+        model = (episode.generation_params or {}).get("gpt_model") if episode else None
+    return model or django_settings.DEFAULT_GPT_MODEL
+
+
 def review_key(scene):
     context = scene.starting_image_context or {}
     video = scene.video
@@ -38,7 +51,7 @@ def review_key(scene):
         "text": scene.text,
         "shot_plan": scene.shot_plan,
         "continuity": settings.get("visual_continuity", ""),
-        "model": settings.get("gpt_model"),
+        "model": review_model(video),
         "archived_at": str(scene.archived_at or ""),
     }
     return hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
@@ -115,7 +128,7 @@ def review_starting_image(scene, source_key):
             response = get_reply(
                 build_image_review_prompt(brief),
                 reply_format="text",
-                gpt_model=settings.get("gpt_model"),
+                gpt_model=review_model(scene.video),
                 user=scene.video.created_by,
                 reference_image=reference,
             )

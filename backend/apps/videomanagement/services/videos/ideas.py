@@ -12,33 +12,36 @@ from apps.videomanagement.utils.prompt_utils import (
 )
 
 
-def generate_ideas(user, *, gpt_model="", **brief):
+def _creative_reply(user, prompt, serializer, error_message, gpt_model):
     response = get_reply(
-        build_ideas_prompt(brief),
+        prompt,
         reply_format="text",
         gpt_model=gpt_model or None,
         user=user,
     )
     try:
-        result = IdeaResultSerializer(data=parse_ai_json(response.getvalue()))
+        result = serializer(data=parse_ai_json(response.getvalue()))
         result.is_valid(raise_exception=True)
     except (ValueError, TypeError, AttributeError, ValidationError) as exc:
-        raise ValidationError("AI returned invalid ideas. Please try again.") from exc
+        raise ValidationError(error_message) from exc
     return dict(result.validated_data)
+
+
+def generate_ideas(user, *, gpt_model="", **brief):
+    return _creative_reply(
+        user,
+        build_ideas_prompt(brief),
+        IdeaResultSerializer,
+        "AI returned invalid ideas. Please try again.",
+        gpt_model,
+    )
 
 
 def rewrite_prompt(user, *, gpt_model="", **brief):
-    response = get_reply(
+    return _creative_reply(
+        user,
         build_prompt_rewrite(brief),
-        reply_format="text",
-        gpt_model=gpt_model or None,
-        user=user,
+        PromptResultSerializer,
+        "AI returned an invalid rewrite. Please try again.",
+        gpt_model,
     )
-    try:
-        result = PromptResultSerializer(data=parse_ai_json(response.getvalue()))
-        result.is_valid(raise_exception=True)
-    except (ValueError, TypeError, AttributeError, ValidationError) as exc:
-        raise ValidationError(
-            "AI returned an invalid rewrite. Please try again."
-        ) from exc
-    return dict(result.validated_data)
