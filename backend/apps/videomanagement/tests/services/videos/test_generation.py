@@ -89,6 +89,13 @@ class GenerateVideoTests(TestCase):
         params.update(kwargs)
         return generate_video(video=self.video, **params)
 
+    def test_starting_frame_option_survives_storyboard_and_media_generation(self):
+        draft = self.generate(review_script=True, review_starting_frames=True, image_mode="AI", provider="gemini-video")
+        self.assertTrue(draft.settings["review_starting_frames"])
+        finished = self.generate(review_starting_frames=True, image_mode="AI", provider="gemini-video")
+        self.assertTrue(finished.settings["review_starting_frames"])
+        self.create_image_scenes.assert_called_once()
+
     def test_music_download_uses_the_video_owner(self):
         url = "https://youtu.be/abcdefghijk"
         self.generate(music=url)

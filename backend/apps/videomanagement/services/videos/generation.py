@@ -133,6 +133,7 @@ def generate_video(
     platform: str = "GENERAL",
     scene_count: int = None,
     review_script: bool = False,
+    review_starting_frames: bool = False,
     ai_scene_editing: bool = False,
     visual_continuity: str = "",
     reference_role: str = "both",
@@ -281,6 +282,8 @@ def generate_video(
         generation_mode=generation_mode,
         gpt_model=gpt_model or settings.DEFAULT_GPT_MODEL,
     )
+    if review_starting_frames:
+        vid.settings["review_starting_frames"] = True
     if creation_mode:
         vid.settings["creation_mode"] = creation_mode
     if character_references:

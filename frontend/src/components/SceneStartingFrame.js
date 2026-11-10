@@ -33,8 +33,8 @@ export const SceneStartingFrame = ({ generationMode = "STANDARD", scene, index, 
     {failure}
   </RememberedDetails>;
   return <RememberedDetails videoId={scene.video} panel={`startingFrame:${scene.id}`} defaultOpen aria-label={`Scene ${index + 1} starting frame review`} className="mt-4 rounded-xl border border-blue-200 p-4 dark:border-blue-900">
-    <summary className="cursor-pointer text-sm font-semibold">Starting frame · {approved ? "Approved" : "Needs review"}</summary>
-    <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{approved ? "Ready to animate. Your current clip stays until the replacement is ready." : "Check the frame, then approve it to animate."}</p>
+    <summary className="cursor-pointer text-sm font-semibold">Starting frame · {!scene.starting_frame ? "Not prepared" : approved ? "Approved" : "Needs review"}</summary>
+    <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{!scene.starting_frame ? "Create a frame to review before animating. Your current clip stays until the replacement is ready." : approved ? "Ready to animate. Your current clip stays until the replacement is ready." : "Check the frame, then approve it to animate."}</p>
     {startingFrame}
     {scene.starting_frame && <>
       <div className="mt-4 flex flex-wrap items-center gap-3">

@@ -82,7 +82,7 @@ def validate_review_source(scene, source_key=None, *, asset_id=None):
         raise ValidationError(
             "Prepare a starting frame before requesting an AI review."
         )
-    if not stored_file_exists(scene.video.reference_image):
+    if (scene.video.settings or {}).get("character_references") and not stored_file_exists(scene.video.reference_image):
         raise ValidationError(
             "The character reference is missing. Restore it before reviewing."
         )
@@ -99,14 +99,12 @@ def validate_review_source(scene, source_key=None, *, asset_id=None):
 
 
 def review_comparison_sheet(scene):
-    sheet = Image.new("RGB", (1536, 800), "white")
+    fields = [("STARTING FRAME TO REVIEW", scene.starting_asset.file)]
+    if stored_file_exists(scene.video.reference_image):
+        fields.insert(0, ("CHARACTER REFERENCE (identity only)", scene.video.reference_image))
+    sheet = Image.new("RGB", (768 * len(fields), 800), "white")
     draw = ImageDraw.Draw(sheet)
-    for index, (label, field) in enumerate(
-        [
-            ("CHARACTER REFERENCE (identity only)", scene.video.reference_image),
-            ("STARTING FRAME TO REVIEW", scene.starting_asset.file),
-        ]
-    ):
+    for index, (label, field) in enumerate(fields):
         left = index * 768
         draw.text((left + 16, 12), label, fill="black")
         with field.open("rb") as source, Image.open(source) as original:
@@ -140,7 +138,7 @@ def review_starting_frame(scene, source_key):
         ) from exc
     with reference, video_usage(scene.video):
         response = get_reply(
-            build_starting_frame_review_prompt(brief),
+            build_starting_frame_review_prompt(brief, has_reference=stored_file_exists(scene.video.reference_image)),
             reply_format="text",
             gpt_model=review_model(scene.video),
             user=scene.video.created_by,

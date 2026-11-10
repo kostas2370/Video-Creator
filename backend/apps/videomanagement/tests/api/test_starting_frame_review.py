@@ -260,3 +260,23 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         with self.assertRaisesMessage(ValidationError, "The review images could not be read"):
             review_starting_frame(self.scene, review_source_key(self.scene))
         self.provider.assert_not_called()
+
+    def test_optional_review_without_reference_checks_the_single_frame(self):
+        self.video.settings.pop("character_references")
+        self.video.settings["review_starting_frames"] = True
+        self.video.reference_image = ""
+        self.video.save(update_fields=["settings", "reference_image"])
+        self.scene.video = self.video
+        with patch("apps.videomanagement.services.scenes.visuals.openai_images.OpenAIImageProvider.generate", return_value=str(self.frame)):
+            from apps.videomanagement.services.scenes.visuals import generate_new_image
+            generate_new_image(self.old, self.video)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.request_review().status_code, 202)
+        self.run_draft_task()
+        self.assertIn("No character reference was supplied", self.provider.call_args.args[0])
+        self.scene.refresh_from_db()
+        self.scene.video = self.video
+        with review_comparison_sheet(self.scene) as output, Image.open(output) as sheet:
+            self.assertEqual(sheet.size, (768, 800))
+        self.old.refresh_from_db()
+        self.assertEqual(self.old.file.name, "images/old.mp4")

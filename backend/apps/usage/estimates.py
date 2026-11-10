@@ -97,7 +97,7 @@ def media_estimate(video, storyboard=None, *, scene=None, operation="all", text=
         is_video = ImageProviderRegistry.is_video(
             provider, user=video.created_by, mode=video.mode
         )
-        character_images = is_video and options.get("character_references")
+        character_images = is_video and (options.get("character_references") or options.get("review_starting_frames"))
         if operation == "animation" or (
             is_video and (operation == "all" or not character_images)
         ):

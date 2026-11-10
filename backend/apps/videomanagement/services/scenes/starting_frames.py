@@ -1,28 +1,16 @@
 from rest_framework.exceptions import ValidationError
 
-from apps.videomanagement.integrations.visuals import ImageProviderRegistry
-from apps.videomanagement.models import ImageMode, SceneImage
+from apps.videomanagement.models import SceneImage
 from apps.videomanagement.services.scenes.editing import changed, editable_video
 from apps.videomanagement.services.scenes.visuals import (
     planned_visual_prompt,
+    requires_starting_frame,
     generate_scene_visual,
     store_starting_frame,
     starting_frame_key,
     starting_frame_matches,
 )
 from apps.videomanagement.utils.file_utils import stored_file_exists
-
-
-def requires_starting_frame(video):
-    return bool(
-        (video.settings or {}).get("character_references")
-        and video.mode == ImageMode.AI
-        and ImageProviderRegistry.is_video(
-            (video.settings or {}).get("provider"),
-            user=video.created_by,
-            mode=video.mode,
-        )
-    )
 
 
 def current_frame_key(scene, description, style):
@@ -68,13 +56,7 @@ def starting_frame_status(scene):
 def validate_starting_frame_scene(scene, asset_id):
     if not requires_starting_frame(scene.video):
         raise ValidationError(
-            "Starting-frame review is available for character video shots."
-        )
-    if not ImageProviderRegistry.supports_reference(
-        (scene.video.settings or {}).get("provider")
-    ):
-        raise ValidationError(
-            "Choose a video provider with reference-image support for this cast."
+            "Enable starting-frame review for a supported AI video provider."
         )
     if str(scene.starting_asset_id or "") != str(asset_id or ""):
         raise ValidationError(

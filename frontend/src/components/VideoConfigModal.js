@@ -1,3 +1,4 @@
+import { StartingFrameOption } from "./StartingFrameOption";
 import { GenerationModeSelect } from "./GenerationModeSelect";
 import { VisualContinuity } from "./VisualContinuity";
 import { videoFormats } from "../utils/videoFormats";
@@ -60,6 +61,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [introTransition, setIntroTransition] = useState("DEFAULT");
   const [introTransitionDuration, setIntroTransitionDuration] = useState("");
   const [visualContinuity, setVisualContinuity] = useState("");
+  const [reviewStartingFrames, setReviewStartingFrames] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generationMode, setGenerationMode] = useState("STANDARD");
 
@@ -80,6 +82,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   useEffect(() => {
     setAvatarPosition(normalizeAvatarPosition(info?.settings?.avatar_position));
     setVisualContinuity(info?.settings?.visual_continuity || "");
+    setReviewStartingFrames(!!info?.settings?.review_starting_frames);
     setGenerationMode(info?.settings?.generation_mode || "STANDARD");
     setPlatform(info?.settings?.platform || "GENERAL");
     setVideoFormat(info?.settings?.video_format || "LANDSCAPE");
@@ -120,6 +123,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     event.preventDefault();
     const changes = {
       visual_continuity: visualContinuity,
+      review_starting_frames: reviewStartingFrames,
       generation_mode: generationMode,
       intro,
       outro,
@@ -148,6 +152,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   </div>}>
     <form id="video-settings-form" onSubmit={onSubmit}><fieldset disabled={saving} className="min-w-0 space-y-6">
             {(info?.mode === "AI" || info?.video_type === "MANUAL") && <GenerationModeSelect value={generationMode} onChange={setGenerationMode} disabled={saving} />}
+            <StartingFrameOption mode={info?.mode} provider={info?.settings?.provider} checked={reviewStartingFrames} required={!!info?.settings?.character_references} onChange={setReviewStartingFrames} disabled={saving} />
             {(info?.mode === "AI" || info?.video_type === "MANUAL") && <VisualContinuity value={visualContinuity} onChange={setVisualContinuity} disabled={saving} />}
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
               <h3 className={sectionTitle}>Output format</h3>
