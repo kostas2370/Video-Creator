@@ -623,16 +623,11 @@ def generate_scene_visual(
     visual_prompt = planned_visual_prompt(
         scene_image.scene, scene_image.prompt or "", mode, provider
     )
-    if reference is _UNSET:
-        reference = scene_reference(scene_image.scene, video, provider)
-    if reference_role is _UNSET:
-        reference_role = reference_role_for(video, reference)
-    if duration is _UNSET:
-        duration = visual_generation_duration(scene_image.scene)
-    if audio_mode is _UNSET:
-        audio_mode = resolve_audio_mode(settings)
-    if video_format is _UNSET:
-        video_format = settings.get("video_format", "LANDSCAPE")
+    reference = scene_reference(scene_image.scene, video, provider) if reference is _UNSET else reference
+    reference_role = reference_role_for(video, reference) if reference_role is _UNSET else reference_role
+    duration = visual_generation_duration(scene_image.scene) if duration is _UNSET else duration
+    audio_mode = resolve_audio_mode(settings) if audio_mode is _UNSET else audio_mode
+    video_format = settings.get("video_format", "LANDSCAPE") if video_format is _UNSET else video_format
     if generation_mode is not _UNSET:
         provider_options["generation_mode"] = generation_mode
     elif settings.get("generation_mode") == "ECONOMY":
