@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { reviewStartingFrame } from "../api/apiService";
+import { useAIRequest } from "../hooks/useAIRequest";
 
 const verdictLabels = {
   ready: "Looks ready",
@@ -14,30 +15,20 @@ const categoryLabels = {
 };
 
 export const SceneFrameReview = ({ scene, disabled, edited, onUseDescription, onSaved }) => {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { busy, error, setError, run: runRequest } = useAIRequest();
   const [result, setResult] = useState(null);
   const review = edited ? null : result || scene.starting_frame_review;
   const run = async () => {
     if (busy || disabled || edited) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await reviewStartingFrame(scene.id, scene.starting_asset);
-      if (!response?.ok) {
-        setError(response?.message || "Could not review this frame. Please try again.");
-      } else if (response.data?.source_key === scene.starting_frame_review_key) {
-        setResult(response.data);
+    await runRequest(
+      () => reviewStartingFrame(scene.id, scene.starting_asset),
+      data => {
+        if (data?.source_key === scene.starting_frame_review_key) setResult(data);
+        else setError("The frame or shot changed. Refresh and review the current frame.");
         onSaved(true);
-      } else {
-        setError("The frame or shot changed. Refresh and review the current frame.");
-        onSaved(true);
-      }
-    } catch {
-      setError("Could not review this frame. Please try again.");
-    } finally {
-      setBusy(false);
-    }
+      },
+      "Could not review this frame. Please try again.",
+    );
   };
   return (
     <section aria-label="AI starting frame review" className="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">

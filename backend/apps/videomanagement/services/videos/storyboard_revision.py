@@ -50,12 +50,20 @@ def revise_storyboard(video, *, storyboard, instructions):
                     editing = shot.get("editing") if isinstance(shot, dict) else None
                     if isinstance(editing, dict) and editing.get("diagram") == {}:
                         editing["diagram"] = None
-        result = StoryboardSerializer(data=data, context={"narration": narration})
+        result = StoryboardSerializer(
+            data=data,
+            context={
+                "narration": narration,
+                "user": video.created_by,
+                "video_provider": video_provider,
+            },
+        )
         result.is_valid(raise_exception=True)
         revised = dict(result.validated_data)
         # These are render choices, not AI editing instructions.
-        if "generation_mode" in storyboard:
-            revised["generation_mode"] = storyboard["generation_mode"]
+        revised["generation_mode"] = storyboard.get(
+            "generation_mode", settings.get("generation_mode", "STANDARD")
+        )
         errors = script_errors(
             revised,
             narration=narration,
