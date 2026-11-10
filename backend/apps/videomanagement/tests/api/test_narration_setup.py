@@ -59,6 +59,7 @@ class NarrationSetupTests(ApiTestCase):
         )
 
     def test_generated_draft_is_read_only_and_preserves_original_source_text(self):
+        self.video.settings["generation_params"] = {"gpt_model": "legacy-selected"}
         rows = [
             {"scene_id": row["scene_id"], "text": row["text"]}
             for row in self.reviewed()
@@ -75,6 +76,7 @@ class NarrationSetupTests(ApiTestCase):
         self.assertEqual(self.video.status, "READY")
         self.assertEqual(result["scenes"], self.reviewed())
         self.assertIn("never camera", write.call_args.args[0])
+        self.assertEqual(write.call_args.kwargs["gpt_model"], "legacy-selected")
 
     def test_malformed_or_incomplete_ai_drafts_do_not_change_the_project(self):
         from rest_framework.exceptions import ValidationError
