@@ -9,7 +9,27 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterator
-from .video_audio import audio_direction, audio_mode
+from .video_audio import audio_mode
+
+
+AUDIO_DIRECTIONS = {
+    "SILENT": "Generate a silent clip: no speech, ambient sound, sound effects or music.",
+    "DIALOGUE": (
+        "Allow brief, natural character dialogue with synchronized mouth movements "
+        "when it serves the scene, plus natural ambient sound. Use explicitly supplied "
+        "dialogue verbatim; otherwise characters may speak short lines consistent with "
+        "the scene and the project's language. Do not add a voice-over narrator. "
+        "No background music; the editor supplies the shared soundtrack."
+    ),
+    "AMBIENT": (
+        "Use natural ambient sound and sound effects only. No character speech or "
+        "voice-over narration. No background music; the editor supplies the shared soundtrack."
+    ),
+}
+
+
+def audio_direction(mode):
+    return AUDIO_DIRECTIONS.get(mode, AUDIO_DIRECTIONS["AMBIENT"])
 
 
 _WEB_IMAGE_INSTRUCTIONS = (
