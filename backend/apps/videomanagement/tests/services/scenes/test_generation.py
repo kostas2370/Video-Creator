@@ -8,6 +8,10 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from apps.videomanagement.baker_recipes import scene, video
 from apps.videomanagement.models import SceneImage
+from apps.videomanagement.serializers.requests import (
+    AddSceneSerializer,
+    AddScenesSerializer,
+)
 from apps.videomanagement.services.scenes import generation as SceneServices
 from apps.videomanagement.services.scenes.generation import (
     create_scene,
@@ -257,8 +261,6 @@ class DiagramSceneDraftTests(TestCase):
                 draft_scene(vid, "A graph")
 
     def test_add_scene_serializer_keeps_single_and_batch_graphs(self):
-        from apps.videomanagement.serializers.requests import AddSceneSerializer, AddScenesSerializer
-
         payload = {"text": "Sunlight feeds the plant.", "diagram": self.diagram}
         for serializer in (AddSceneSerializer(data=payload), AddScenesSerializer(data={"scenes": [payload]})):
             self.assertTrue(serializer.is_valid(), serializer.errors)
