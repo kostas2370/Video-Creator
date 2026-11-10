@@ -17,6 +17,7 @@ from apps.videomanagement.utils.captions.styles import (
 )
 
 from ..models import MotionIntensity, MotionStyle, TransitionStyle, Video
+from apps.videomanagement.utils.cuts import timeline_sections
 from ..utils.audio_editing import narration_file, voice_tracks
 from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
 from ..utils.motion import resolved_motion
@@ -150,7 +151,6 @@ class PreviewTimelineSerializer(serializers.Serializer):
     playback_sections = serializers.SerializerMethodField()
 
     def get_playback_sections(self, obj):
-        from apps.videomanagement.utils.cuts import timeline_sections
         return timeline_sections(obj.timeline.segments)
 
     def get_caption_config(self, obj):

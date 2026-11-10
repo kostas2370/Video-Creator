@@ -24,7 +24,7 @@ from apps.clips.highlights import RANKING_ATTEMPTS, HighlightRankingError, sugge
 from apps.clips.models import Clip, ClipProject
 from apps.clips.processing import process_project, transcribe_source
 from apps.clips.rendering import export_clip
-from apps.clips.serializers import ProjectUploadSerializer
+from apps.clips.serializers import ClipEditSerializer, ProjectUploadSerializer
 from apps.clips.services import (
     clip_words,
     delete_clip,
@@ -815,8 +815,6 @@ class ClipsTests(ApiTestCase):
             [{"start": 1, "end": float("inf")}],
         ):
             # Infinity is not valid JSON, but can reach the serializer directly.
-            from apps.clips.serializers import ClipEditSerializer
-
             serializer = ClipEditSerializer(
                 clip, data={"segments": invalid}, context={"project": project}
             )

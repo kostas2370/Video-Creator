@@ -15,7 +15,13 @@ from ..models import (
     Video,
     VoiceModel,
 )
+from ..services.scenes import starting_frame_review
+from ..services.scenes.starting_frames import (
+    requires_starting_frame,
+    starting_frame_status,
+)
 from ..utils.audio_editing import narration_enabled, narration_file
+from ..utils.cuts import joined_duration, scene_sections
 from ..utils.file_utils import stored_file_exists
 from ..utils.timing import file_timing, scene_timing
 
@@ -51,18 +57,14 @@ class SceneSerializer(serializers.ModelSerializer):
     starting_frame = serializers.SerializerMethodField()
 
     def to_representation(self, instance):
-        from ..services.scenes.starting_frame_review import review_source_key
-
         self._review_source_key = (
-            review_source_key(instance) if instance.starting_asset_id else None
+            starting_frame_review.review_source_key(instance) if instance.starting_asset_id else None
         )
         return super().to_representation(instance)
 
     def get_starting_frame_review(self, obj):
-        from ..services.scenes.starting_frame_review import current_saved_review
-
         return (
-            current_saved_review(obj, source_key=self._review_source_key)
+            starting_frame_review.current_saved_review(obj, source_key=self._review_source_key)
             if obj.starting_asset_id
             else None
         )
@@ -71,13 +73,9 @@ class SceneSerializer(serializers.ModelSerializer):
         return self._review_source_key
 
     def get_starting_frame_required(self, obj):
-        from ..services.scenes.starting_frames import requires_starting_frame
-
         return requires_starting_frame(obj.video)
 
     def get_starting_frame_status(self, obj):
-        from ..services.scenes.starting_frames import starting_frame_status
-
         return starting_frame_status(obj)
 
     starting_frame_description = serializers.SerializerMethodField()
@@ -97,7 +95,6 @@ class SceneSerializer(serializers.ModelSerializer):
     def get_timing(self, obj):
         timing = scene_timing(obj, next(iter(obj.scene_images.all()), None))
         if obj.cuts:
-            from apps.videomanagement.utils.cuts import joined_duration, scene_sections
             timing["source_duration"] = timing["duration"]
             timing["duration"] = joined_duration(scene_sections(obj, timing["source_duration"]))
         return timing

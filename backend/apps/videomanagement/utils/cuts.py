@@ -2,6 +2,8 @@
 
 import math
 
+from .captions.cues import CaptionCue
+
 
 def scene_sections(scene, duration):
     cuts = getattr(scene, "cuts", None) or {}
@@ -34,8 +36,6 @@ def joined_duration(sections):
 
 
 def cut_cues(cues, sections):
-    from .captions.cues import CaptionCue
-
     result, offset = [], 0
     for section in sections:
         for cue in cues:

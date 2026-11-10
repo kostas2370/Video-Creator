@@ -1,3 +1,4 @@
+import math
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from apps.videomanagement.models import (
     Video,
     VideoStatus,
 )
+from apps.videomanagement.utils.timing import scene_timing
 from apps.videomanagement.utils.file_utils import check_if_image
 
 from .ordering import assign_scene_positions
@@ -104,9 +106,6 @@ def update_scene_motion(scene, **changes):
 
 
 def update_scene_cuts(scene, *, source_duration, sections, previous):
-    import math
-    from apps.videomanagement.utils.timing import scene_timing
-
     with editable_video(scene.video_id) as video:
         scene = get_object_or_404(Scene.objects.select_for_update().with_media(), pk=scene.pk)
         current_duration = scene_timing(scene, next(iter(scene.scene_images.all()), None))["duration"]

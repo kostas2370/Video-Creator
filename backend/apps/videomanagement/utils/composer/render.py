@@ -29,6 +29,7 @@ from ..diagrams import diagram_icon_keys
 from ..file_utils import check_if_image, stored_file_exists
 from ..fonts import subtitles_filter
 from ..motion import AMOUNTS, resolved_motion
+from ..photo_animation import animation_plan, keyframe_expression
 from ..timing import media_timing
 from .audio import voice_stream, write_music_envelope
 from .captions import write_captions
@@ -182,8 +183,6 @@ def fit_filter(size):
 
 
 def motion_filter(scene, duration, size, fps=FPS):
-    from ..photo_animation import animation_plan, keyframe_expression
-
     style = resolved_motion(scene)
     amount = AMOUNTS[scene.motion_intensity]
     last = max(1, math.ceil(duration * fps) - 1)
