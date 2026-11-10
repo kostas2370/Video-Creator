@@ -882,7 +882,7 @@ class ClipsTests(ApiTestCase):
     def test_hashtags_reject_invalid_values_and_concurrent_overwrites(self):
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])
-        for values in (["wrong!"], [123], ["a"] * 21):
+        for values in (["wrong!"], [True], ["a"] * 21):
             response = self.client.patch(
                 self.hashtags_url(clip),
                 {"hashtags": values, "previous_hashtags": []},

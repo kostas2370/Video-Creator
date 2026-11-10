@@ -46,11 +46,11 @@ def review_source_key(scene):
     return hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
 
 
-def current_saved_review(scene):
+def current_saved_review(scene, *, source_key=None):
     review = (scene.starting_frame_context or {}).get("ai_review")
     if (
         isinstance(review, dict)
-        and review.get("source_key") == review_source_key(scene)
+        and review.get("source_key") == (source_key or review_source_key(scene))
         and scene.starting_asset_id
         and stored_file_exists(scene.starting_asset.file)
     ):
