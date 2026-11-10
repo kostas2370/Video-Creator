@@ -111,7 +111,7 @@ class IdeaTests(ApiTestCase):
             {"ideas": self.ideas[:2]},
             {"ideas": self.ideas * 2},
             {"ideas": [self.ideas[0]] * 3},
-            {"ideas": [{"title": 7, "prompt": "A brief"}] + self.ideas[1:]},
+            {"ideas": [{"title": True, "prompt": "A brief"}] + self.ideas[1:]},
             {"ideas": [{"title": "A title", "prompt": "x" * 2001}] + self.ideas[1:]},
         ]
         for reply in replies:
