@@ -174,6 +174,17 @@ class CharacterShotReferenceTests(TestCase):
             animate_starting_frame(self.scene, uuid4())
         self.provider.assert_not_called()
 
+    def test_approval_reloads_shot_changes_before_validating(self):
+        self.prepare()
+        type(self.scene).objects.filter(pk=self.scene.pk).update(
+            shot_plan={"shot_size": "CLOSE_UP"}
+        )
+        with self.assertRaisesMessage(ValidationError, "The shot settings changed"):
+            self.approve()
+        self.scene.refresh_from_db()
+        self.assertNotIn("approved_asset", self.scene.starting_frame_context)
+        self.provider.assert_not_called()
+
     def test_missing_cast_sheet_never_falls_back_to_unreferenced_generation(self):
         Path(self.video.reference_image.path).unlink()
         with self.assertRaisesMessage(ValueError, "character reference is missing"):

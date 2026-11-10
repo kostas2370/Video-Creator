@@ -68,7 +68,7 @@ from apps.videomanagement.services.scenes.starting_frame_review import validate_
 from apps.videomanagement.throttling import StartingFrameReviewRateThrottle
 from apps.videomanagement.services.scenes.overlays import update_overlays
 from apps.videomanagement.services.scenes.starting_frames import (
-    validate_starting_frame_scene,
+    validate_starting_frame_state,
     save_starting_frame,
     starting_frame_status,
 )
@@ -326,8 +326,8 @@ class SceneView(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         values = serializer.validated_data
-        validate_starting_frame_scene(scene, values.get("asset_id"))
         if values["operation"] == "animate":
+            validate_starting_frame_state(scene, values.get("asset_id"))
             if starting_frame_status(scene) != "approved":
                 raise ValidationError(
                     "Approve the current starting frame before animating it."
