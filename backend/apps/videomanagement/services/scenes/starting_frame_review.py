@@ -15,9 +15,9 @@ from apps.videomanagement.serializers.starting_frame_review import (
     StartingFrameReviewResultSerializer,
 )
 from apps.videomanagement.services.scenes.starting_frames import (
-    validate_starting_frame_scene,
+    validate_starting_frame_state,
     current_frame_key,
-    starting_frame_current,
+    validate_current_starting_frame,
 )
 from apps.videomanagement.utils.file_utils import stored_file_exists
 from apps.videomanagement.utils.prompt_utils import build_starting_frame_review_prompt
@@ -59,24 +59,15 @@ def current_saved_review(scene):
 
 
 def validate_review_source(scene, source_key=None, *, asset_id=None):
-    validate_starting_frame_scene(
+    validate_starting_frame_state(
         scene, scene.starting_asset_id if asset_id is None else asset_id
     )
-    if (
-        scene.archived_at
-        or not scene.starting_asset_id
-        or not stored_file_exists(scene.starting_asset.file)
+    validate_current_starting_frame(scene)
+    if (scene.video.settings or {}).get("character_references") and not stored_file_exists(
+        scene.video.reference_image
     ):
         raise ValidationError(
-            "Prepare a starting frame before requesting an AI review."
-        )
-    if (scene.video.settings or {}).get("character_references") and not stored_file_exists(scene.video.reference_image):
-        raise ValidationError(
             "The character reference is missing. Restore it before reviewing."
-        )
-    if not starting_frame_current(scene):
-        raise ValidationError(
-            "The shot settings changed. Prepare a new starting frame before reviewing."
         )
     current_source_key = review_source_key(scene)
     if source_key is not None and current_source_key != source_key:
