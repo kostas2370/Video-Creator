@@ -59,6 +59,14 @@ class GenerateViewTests(ApiTestCase):
         self.assertEqual(response.status_code, 400)
         delay.assert_not_called()
 
+    def test_starting_frame_option_accepts_video_without_reference_and_rejects_images(self):
+        response, delay = self.post(image_mode="AI", provider="gemini-video", review_starting_frames=True)
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertTrue(delay.call_args.kwargs["review_starting_frames"])
+        response, delay = self.post(image_mode="AI", provider="OPENAI", review_starting_frames=True)
+        self.assertEqual(response.status_code, 400)
+        delay.assert_not_called()
+
     def test_new_video_providers_accept_reference_images(self):
         for provider in ("kling", "runway", "gemini-video"):
             with self.subTest(provider=provider), tempfile.TemporaryDirectory() as directory, override_settings(MEDIA_ROOT=directory):

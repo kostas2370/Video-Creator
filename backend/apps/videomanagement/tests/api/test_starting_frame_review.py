@@ -74,7 +74,7 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
 
     def test_comparison_contains_both_images_and_uses_project_model_and_usage(self):
         Image.new("RGB", (32, 32), "red").save(self.frame.parent / "cast.png")
-        with review_comparison_sheet(self.scene) as output, Image.open(output) as sheet:
+        with review_comparison_sheet(self.scene, has_reference=True) as output, Image.open(output) as sheet:
             self.assertEqual(sheet.size, (1536, 800))
             self.assertGreater(sheet.getpixel((384, 416))[0], 200)
             self.assertGreater(sheet.getpixel((1152, 416))[2], 200)
@@ -296,3 +296,59 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         with self.assertRaisesMessage(ValidationError, "The review images could not be read"):
             review_starting_frame(self.scene, review_source_key(self.scene))
         self.provider.assert_not_called()
+
+    def test_optional_review_without_reference_checks_the_single_frame(self):
+        self.video.settings.pop("character_references")
+        self.video.settings["review_starting_frames"] = True
+        self.video.reference_image = ""
+        self.video.save(update_fields=["settings", "reference_image"])
+        self.scene.video = self.video
+        with patch("apps.videomanagement.services.scenes.visuals.openai_images.OpenAIImageProvider.generate", return_value=str(self.frame)):
+            from apps.videomanagement.services.scenes.visuals import generate_new_image
+            generate_new_image(self.old, self.video)
+        self.scene.refresh_from_db()
+        self.assertEqual(self.request_review().status_code, 202)
+        self.run_draft_task()
+        self.assertIn("No character reference was supplied", self.provider.call_args.args[0])
+        self.scene.refresh_from_db()
+        self.scene.video = self.video
+        with review_comparison_sheet(self.scene, has_reference=False) as output, Image.open(output) as sheet:
+            self.assertEqual(sheet.size, (768, 800))
+        self.old.refresh_from_db()
+        self.assertEqual(self.old.file.name, "images/old.mp4")
+
+    def test_optional_reference_disappearing_during_review_rejects_stale_findings(self):
+        self.video.settings.pop("character_references")
+        self.video.settings["review_starting_frames"] = True
+        self.video.save(update_fields=["settings"])
+        self.scene.video = self.video
+
+        def remove_reference(*args, **kwargs):
+            self.assertNotIn("No character reference was supplied", args[0])
+            with Image.open(kwargs["reference_image"]) as sheet:
+                self.assertEqual(sheet.size, (1536, 800))
+            self.video.reference_image.delete(save=False)
+            return StringIO(json.dumps(self.review))
+
+        self.provider.side_effect = remove_reference
+        with self.assertRaisesMessage(ValidationError, "The frame or shot changed"):
+            review_starting_frame(self.scene, review_source_key(self.scene))
+        self.scene.refresh_from_db()
+        self.assertNotIn("ai_review", self.scene.starting_frame_context)
+
+    def test_prompt_uses_the_reference_decision_made_for_the_comparison_image(self):
+        from apps.videomanagement.services.scenes import starting_frame_review
+
+        comparison = starting_frame_review.review_comparison_sheet
+
+        def remove_after_comparison(*args, **kwargs):
+            output = comparison(*args, **kwargs)
+            self.video.reference_image.delete(save=False)
+            return output
+
+        with patch.object(starting_frame_review, "review_comparison_sheet", side_effect=remove_after_comparison):
+            with self.assertRaises(ValidationError):
+                review_starting_frame(self.scene, review_source_key(self.scene))
+        self.assertNotIn("No character reference was supplied", self.provider.call_args.args[0])
+        self.scene.refresh_from_db()
+        self.assertNotIn("ai_review", self.scene.starting_frame_context)

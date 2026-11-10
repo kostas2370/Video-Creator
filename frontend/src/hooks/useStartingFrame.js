@@ -28,7 +28,7 @@ export function useStartingFrame(scene, { disabled, onSaved }) {
     setFile(null);
   }, [scene.id, scene.starting_asset, savedDescription]);
 
-  const edited = description.trim() !== (scene.starting_frame_description || "").trim();
+  const edited = description.trim() !== savedDescription.trim();
   const blocked = disabled || !!busy;
   const run = async operation => {
     if (blocked) return;

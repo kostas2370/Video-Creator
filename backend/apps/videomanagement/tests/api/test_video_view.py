@@ -12,6 +12,26 @@ from .base import ApiTestCase
 
 
 class VideoViewTests(ApiTestCase):
+    def test_starting_frame_review_can_be_enabled_without_cast_or_paid_generation(self):
+        made = self.video_for(mode="AI", status="READY", settings={"provider": "gemini-video", "narration": False})
+        line = scene.make(video=made)
+        old = scene_image.make(scene=line, file="images/existing.mp4")
+        response = self.client.patch(reverse("video-detail", args=[made.pk]), {"review_starting_frames": True}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        made.refresh_from_db()
+        self.assertTrue(made.settings["review_starting_frames"])
+        from apps.videomanagement.serializers.models import SceneSerializer
+        line.video = made
+        self.assertTrue(SceneSerializer(line).data["starting_frame_required"])
+        old.refresh_from_db()
+        self.assertEqual(old.file.name, "images/existing.mp4")
+        self.scene_queue.assert_not_called()
+
+    def test_starting_frame_review_rejects_image_provider(self):
+        made = self.video_for(mode="AI", status="READY", settings={"provider": "OPENAI"})
+        response = self.client.patch(reverse("video-detail", args=[made.pk]), {"review_starting_frames": True}, format="json")
+        self.assertEqual(response.status_code, 400)
+
     def test_intro_transition_settings_save_without_replacing_other_choices(self):
         made = self.video_for(
             settings={"narration": False, "transition_default": "CUT"}

@@ -152,7 +152,21 @@ def store_starting_frame(scene, upload, *, description, style, key):
     return asset
 
 
-def character_starting_frame(
+def requires_starting_frame(video):
+    choices = video.settings or {}
+    return bool(
+        (choices.get("character_references") or choices.get("review_starting_frames"))
+        and ImageProviderRegistry.supports_reference(choices.get("provider"))
+        and video.mode == ImageMode.AI
+        and ImageProviderRegistry.is_video(
+            choices.get("provider"),
+            user=video.created_by,
+            mode=video.mode,
+        )
+    )
+
+
+def prepare_starting_frame(
     video,
     prompt,
     style,
@@ -163,18 +177,13 @@ def character_starting_frame(
     description=None,
     force=False,
 ):
-    if not (video.settings or {}).get("character_references") or mode != ImageMode.AI:
+    if mode != ImageMode.AI or not requires_starting_frame(video):
         return None
-    if not ImageProviderRegistry.supports_reference(provider or Provider.OPENAI):
-        raise ValueError(
-            "Choose a visual provider with reference-image support for this cast."
-        )
-    if not stored_file_exists(video.reference_image):
+    character_reference = (video.settings or {}).get("character_references", False)
+    if character_reference and not stored_file_exists(video.reference_image):
         raise ValueError(
             "The episode character reference is missing. Restore it before generating shots."
         )
-    if not ImageProviderRegistry.is_video(provider, user=user, mode=mode):
-        return None
     key = starting_frame_key(video, prompt, style)
     if (
         not force
@@ -185,25 +194,38 @@ def character_starting_frame(
     ):
         return scene.starting_asset.file.path
     with video_usage(video):
-        frame = openai_images.OpenAIImageProvider.generate(
+        instructions = (
             "Create the starting frame of this single film shot. The reference is a labeled "
             "character identity sheet, not a scene composition. Use only the characters called "
             "for in this shot. Preserve their faces, anatomy and distinguishing features. "
             "Do not reproduce the sheet, panels, labels, or neutral studio backgrounds. "
-            "Compose the actual story setting and action.\n" + prompt,
+            "Compose the actual story setting and action.\n"
+            if character_reference else
+            "Create the starting frame of this single film shot in its story setting. "
+            "Show a moment before the described motion begins.\n"
+        )
+        reference = (
+            video.reference_image.path
+            if character_reference
+            else uploaded_reference(video, provider)
+        )
+        frame = openai_images.OpenAIImageProvider.generate(
+            instructions + prompt,
             f"{video.dir_name}/images/",
             style=style,
             user=user,
-            reference=video.reference_image.path,
-            reference_role="character",
+            reference=reference,
+            reference_role=(
+                "character" if character_reference else reference_role_for(video, reference)
+            ),
             title=f"{video.title} · Scene {scene.position} starting frame"
             if scene
-            else "Character starting frame",
+            else "Starting frame",
             video_format=(video.settings or {}).get("video_format", "PORTRAIT"),
             **({"generation_mode": "ECONOMY"} if (video.settings or {}).get("generation_mode") == "ECONOMY" else {}),
         )
     if not frame:
-        raise RuntimeError("Could not create the character shot's starting frame.")
+        raise RuntimeError("Could not create the shot's starting frame.")
     if scene is not None:
         with open(frame, "rb") as source:
             asset = store_starting_frame(
@@ -292,7 +314,7 @@ def create_image_scene(
     try:
         generate = ImageProviderRegistry.resolve(mode, provider)
         visual_prompt = planned_visual_prompt(scene, image, mode, provider)
-        starting_frame = character_starting_frame(
+        starting_frame = prepare_starting_frame(
             video,
             visual_prompt,
             style,
@@ -323,7 +345,7 @@ def create_image_scene(
             )
     except Exception as ex:
         logger.error(ex)
-        if (video.settings or {}).get("character_references"):
+        if requires_starting_frame(video):
             scene.starting_frame_context = {
                 **scene.starting_frame_context,
                 "description": image,
@@ -551,7 +573,7 @@ def generate_new_image(
     visual_prompt = planned_visual_prompt(
         scene_image.scene, scene_image.prompt or "", mode, provider
     )
-    starting_frame = character_starting_frame(
+    starting_frame = prepare_starting_frame(
         video,
         visual_prompt,
         style,

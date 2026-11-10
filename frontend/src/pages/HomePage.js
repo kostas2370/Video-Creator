@@ -1,3 +1,4 @@
+import { StartingFrameOption } from "../components/StartingFrameOption";
 import { GenerationModeSelect } from "../components/GenerationModeSelect";
 import { GenerationCost } from "../components/GenerationCost";
 import { visualProviderNames, isBuiltinVisualProvider, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
@@ -76,6 +77,7 @@ const Home = () => {
     message: "",
     scene_count: 8,
     ai_scene_editing: false,
+    review_starting_frames: false,
     target_audience: "",
     image_mode: "WEB",
     gpt_model: "",
@@ -202,6 +204,7 @@ const Home = () => {
           subtitles: selectedTemplate.subtitles ?? prevData.subtitles,
           narration: selectedTemplate.narration ?? prevData.narration,
           ai_scene_editing: selectedTemplate.ai_scene_editing ?? false,
+          review_starting_frames: selectedTemplate.review_starting_frames ?? false,
           avatar_position:
             selectedTemplate.avatar_position ?? prevData.avatar_position,
         }));
@@ -259,7 +262,7 @@ const Home = () => {
     }
     setIsLoading(true);
 
-    const generationData = { ...formData, review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
+    const generationData = { ...formData, review_starting_frames: !!formData.review_starting_frames && supportsReference && isBuiltinVideoProvider(formData.provider), review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
     let payload = generationData;
     if (supportsReference && referenceImage) {
       payload = new FormData();
@@ -414,6 +417,7 @@ const Home = () => {
               {field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration), "An avatar uses its assigned voice.")}
               <MoreAssetOptions options={avatarOptions} label="presenters" />
             </div></details>
+            <StartingFrameOption mode={formData.image_mode} provider={formData.provider} checked={!!formData.review_starting_frames} onChange={value => setFormData(previous => ({ ...previous, review_starting_frames: value }))} disabled={isLoading} />
             {unavailableVisualProvider && <p role="alert" className="mt-3 text-sm text-amber-700 dark:text-amber-300">Your saved visual provider is unavailable. Open provider options and choose another.</p>}
           </section>
 

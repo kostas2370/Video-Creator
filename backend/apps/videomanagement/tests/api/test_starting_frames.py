@@ -82,7 +82,7 @@ class StartingFrameTests(ApiTestCase):
         self.assertEqual(response.status_code, 202, response.data)
         provider = Mock(return_value="images/new.mp4")
         with patch(
-            "apps.videomanagement.services.scenes.starting_frames.ImageProviderRegistry.resolve",
+            "apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve",
             return_value=provider,
         ):
             self.run_scene_job()
@@ -96,7 +96,7 @@ class StartingFrameTests(ApiTestCase):
         self.post("approve")
         self.post("animate")
         with patch(
-            "apps.videomanagement.services.scenes.starting_frames.ImageProviderRegistry.resolve",
+            "apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve",
             side_effect=RuntimeError("private upstream details"),
         ):
             with self.assertRaises(RuntimeError):
@@ -168,7 +168,7 @@ class StartingFrameTests(ApiTestCase):
         }
         self.scene.save(update_fields=["starting_frame_context"])
         with patch(
-            "apps.videomanagement.services.scenes.starting_frames.ImageProviderRegistry.resolve"
+            "apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve"
         ) as provider:
             with self.assertRaises(Exception):
                 self.run_scene_job()

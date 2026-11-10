@@ -188,7 +188,7 @@ class CharacterShotReferenceTests(TestCase):
     def test_missing_cast_sheet_never_falls_back_to_unreferenced_generation(self):
         Path(self.video.reference_image.path).unlink()
         with self.assertRaisesMessage(ValueError, "character reference is missing"):
-            visuals.character_starting_frame(
+            visuals.prepare_starting_frame(
                 self.video, "Milo", "", "kling", "AI", self.video.created_by
             )
         self.starting.assert_not_called()
@@ -252,3 +252,25 @@ class CharacterShotReferenceTests(TestCase):
         with self.assertRaises(ValidationError):
             self.approve()
         self.provider.assert_not_called()
+
+    def test_optional_review_without_character_reference_prepares_then_animates(self):
+        self.video.reference_image = ""
+        self.video.settings.pop("character_references")
+        self.video.settings["review_starting_frames"] = True
+        self.video.save(update_fields=["settings", "reference_image"])
+        self.prepare()
+        self.assertIsNone(self.starting.call_args.kwargs["reference"])
+        self.assertNotIn("identity sheet", self.starting.call_args.args[0])
+        self.provider.assert_not_called()
+        self.assertEqual(starting_frame_status(self.scene), "needs_review")
+        self.approve()
+        animate_starting_frame(self.scene, self.scene.starting_asset_id)
+        self.assertEqual(self.provider.call_args.kwargs["reference"], self.scene.starting_asset.file.path)
+
+    def test_without_review_option_video_generation_stays_direct(self):
+        self.video.settings.pop("character_references")
+        self.video.reference_image = ""
+        self.video.save(update_fields=["settings", "reference_image"])
+        self.prepare()
+        self.starting.assert_not_called()
+        self.provider.assert_called_once()

@@ -91,3 +91,10 @@ it("remembers a hidden starting-frame panel for that scene after reopening the e
   render(<Scene scene={reviewScene} manual setUpdated={vi.fn()} />);
   expect(screen.getByText("Starting frame · Needs review").closest("details").open).toBe(false);
 });
+
+it("offers frame preparation without marking the initial description as unsaved", () => {
+  render(<Scene scene={{ ...reviewScene, starting_frame: null, starting_asset: null, starting_frame_description: "", scene_image: { file: "/media/old.mp4", prompt: "A teaching lab" } }} manual setUpdated={vi.fn()} />);
+  expect(screen.getByText("Starting frame · Not prepared")).toBeTruthy();
+  expect(screen.queryByText(/Unsaved changes/)).toBeNull();
+  expect(screen.getByRole("button", { name: "Generate starting frame" }).disabled).toBe(false);
+});

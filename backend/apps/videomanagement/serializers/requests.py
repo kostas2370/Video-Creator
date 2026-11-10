@@ -60,6 +60,7 @@ class GenerateSerializer(serializers.Serializer):
     )
     ai_scene_editing = serializers.BooleanField(required=False, default=False)
     review_script = serializers.BooleanField(required=False, default=False)
+    review_starting_frames = serializers.BooleanField(required=False, default=False)
     scene_count = serializers.IntegerField(
         required=False, allow_null=True, min_value=1, max_value=60
     )
@@ -125,6 +126,11 @@ class GenerateSerializer(serializers.Serializer):
                     "reference_image": "The selected visual provider does not support reference images."
                 }
             )
+        if attrs.get("review_starting_frames") and not (
+            ImageProviderRegistry.supports_reference(attrs.get("provider"), mode=attrs.get("image_mode"))
+            and ImageProviderRegistry.is_video(attrs.get("provider"), user=attrs["created_by"], mode=attrs.get("image_mode"))
+        ):
+            raise serializers.ValidationError({"review_starting_frames": "Choose an AI video provider with starting-frame support."})
         attrs["avatar_position"] = normalize_avatar_position(
             attrs.get("avatar_position", "right,top")
         )
@@ -225,6 +231,7 @@ class RenderVideoSerializer(serializers.Serializer):
 
 
 class VideoUpdateSerializer(serializers.Serializer):
+    review_starting_frames = serializers.BooleanField(required=False)
     retry_narration = serializers.BooleanField(required=False)
     generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False)
     visual_continuity = serializers.CharField(

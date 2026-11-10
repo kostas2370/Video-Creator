@@ -19,6 +19,7 @@ def video_update(video: Video, **changes) -> Video:
     """Apply only supplied fields, resolving every asset before changing the video."""
     if {
         "generation_mode",
+        "review_starting_frames",
         "visual_continuity",
         "transition_default",
         "transition_duration",
@@ -37,6 +38,20 @@ def video_update(video: Video, **changes) -> Video:
 
 
 def _apply_video_changes(video, changes):
+    if changes.get("review_starting_frames"):
+        from apps.videomanagement.integrations.visuals import ImageProviderRegistry
+
+        provider = (video.settings or {}).get("provider")
+        if not (
+            video.mode == "AI"
+            and ImageProviderRegistry.supports_reference(provider)
+            and ImageProviderRegistry.is_video(provider, user=video.created_by)
+        ):
+            raise ValidationError(
+                {
+                    "review_starting_frames": "Choose an AI video provider with starting-frame support."
+                }
+            )
     retry_narration = changes.get("retry_narration", False)
     if retry_narration and not (
         video.status == VideoStatus.FAILED and video.narration_retry_status
@@ -66,6 +81,7 @@ def _apply_video_changes(video, changes):
 
     settings_fields = (
         "generation_mode",
+        "review_starting_frames",
         "video_format",
         "platform",
         "subtitles",

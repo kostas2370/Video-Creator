@@ -27,3 +27,14 @@ it("queues narration again only through its explicit retry action", async () => 
   await waitFor(() => expect(updateVideo).toHaveBeenCalledWith("video", { retry_narration: true }));
   await waitFor(() => expect(options.setShowModal).toHaveBeenCalledWith(false));
 });
+
+it("saves starting-frame review for a video without character references", async () => {
+  updateVideo.mockResolvedValue({ status: 200, data: {} });
+  const options = props();
+  options.info.mode = "AI";
+  options.info.settings = { provider: "gemini-video" };
+  render(<VideoConfigModal {...options} />);
+  fireEvent.click(screen.getByRole("checkbox", { name: /Review starting frames before generating/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() => expect(updateVideo).toHaveBeenCalledWith("video", expect.objectContaining({ review_starting_frames: true })));
+});
