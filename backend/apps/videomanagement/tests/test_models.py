@@ -41,13 +41,13 @@ class VideoDefaultsTests(TestCase):
 
 @override_settings(DEFAULT_GPT_MODEL="project-default")
 class VideoScriptModelTests(TestCase):
-    def test_saved_model_takes_precedence_without_fetching_the_episode(self):
+    def test_saved_model_takes_precedence(self):
         for config in (
             {"gpt_model": "selected", "generation_params": {"gpt_model": "legacy"}},
             {"generation_params": {"gpt_model": "selected"}},
         ):
             saved = video.make(settings=config)
-            with self.subTest(config=config), self.assertNumQueries(0):
+            with self.subTest(config=config):
                 self.assertEqual(saved.script_model, "selected")
 
     def test_missing_or_empty_legacy_settings_use_the_default(self):

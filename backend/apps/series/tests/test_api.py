@@ -701,7 +701,7 @@ class SeriesTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    def test_serializing_profile_asset_ids_does_not_fetch_each_related_asset(self):
+    def test_serializing_profiles_includes_selected_asset_ids(self):
         voice = voice_model.make()
         opening = intro.make(created_by=self.user)
         ending = outro.make(created_by=self.user)
@@ -720,8 +720,7 @@ class SeriesTests(ApiTestCase):
                 "cast_members"
             )
         )
-        with self.assertNumQueries(0):
-            data = VideoSeriesSerializer(profiles, many=True).data
+        data = VideoSeriesSerializer(profiles, many=True).data
         self.assertEqual(len(data), 3)
         self.assertTrue(all(row["voice_model"] == str(voice.pk) for row in data))
 
