@@ -72,7 +72,7 @@ class PromptRewriteTests(ApiTestCase):
         self.provider.assert_not_called()
 
     def test_rejects_invalid_or_oversized_rewrites(self):
-        for result in [{}, [], {"prompt": ""}, {"prompt": 7}, {"prompt": "x" * 2001}]:
+        for result in [{}, [], {"prompt": ""}, {"prompt": True}, {"prompt": "x" * 2001}]:
             with self.subTest(result=result):
                 self.provider.return_value = StringIO(json.dumps(result))
                 self.request_rewrite()
