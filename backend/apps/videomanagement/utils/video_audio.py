@@ -14,7 +14,3 @@ def clip_audio_enabled(scene, image):
         and image.with_audio
         and (scene.video.settings or {}).get("video_audio_enabled", True)
     )
-
-
-def generated_audio_enabled(choices):
-    return choices.get("video_audio_enabled", not choices.get("narration", True))
