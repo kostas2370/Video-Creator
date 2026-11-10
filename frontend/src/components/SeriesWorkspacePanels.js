@@ -36,10 +36,10 @@ export function EpisodeComposer({ profile, idea, onIdeaChange, onSubmit, busy, e
     <div className="border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white px-5 py-4 sm:px-6 dark:border-gray-700 dark:from-indigo-900/50 dark:to-gray-800">
       <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300"><HiOutlineSparkles aria-hidden="true" />Next chapter</span>
       <h2 className="mt-2 text-2xl font-bold">{profile.episode_count ? "What happens next?" : "Let’s make episode one"}</h2>
-      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Your cast and style are saved. All you need is a new idea.</p>
+      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Your series setup is saved. All you need is a new episode idea.</p>
     </div>
     <div className="p-5 sm:p-6">
-      <label className="block text-sm font-semibold">Episode idea<textarea required maxLength={2000} rows={3} disabled={busy || editing || loading} value={idea} onChange={event => onIdeaChange(event.target.value)} placeholder="A new question, a surprising discovery, or a problem for your characters to solve…" className={`${editorInput} mt-2 resize-y font-normal`} /></label>
+      <label className="block text-sm font-semibold">Episode idea<textarea required maxLength={2000} rows={3} disabled={busy || editing || loading} value={idea} onChange={event => onIdeaChange(event.target.value)} placeholder="A new question, a surprising discovery, or an idea to explore…" className={`${editorInput} mt-2 resize-y font-normal`} /></label>
       <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400"><span>A specific starting point makes a stronger story.</span><span className="shrink-0">{idea.length}/2000</span></div>
       <ol aria-label="Episode creation steps" className="my-4 grid grid-cols-3 gap-2 border-y border-gray-100 py-3 text-xs dark:border-gray-700">{["Add an idea", "Review storyboard", "Generate media"].map((step, index) => <li key={step} className="flex items-center gap-2"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-semibold ${index === 0 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200" : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300"}`}>{index + 1}</span><span>{step}</span></li>)}</ol>
       {editing && <p role="status" className="mb-3 text-sm text-amber-700 dark:text-amber-300">Save or close series setup before drafting.</p>}
