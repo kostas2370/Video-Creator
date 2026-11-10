@@ -35,7 +35,6 @@ from apps.videomanagement.utils.prompt_utils import (
 from apps.videomanagement.utils.timing import file_timing
 from apps.videomanagement.utils.video_audio import (
     audio_mode as resolve_audio_mode,
-    generated_audio_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -421,10 +420,7 @@ def create_image_scenes(
     """
 
     dir_name = video.dir_name
-    choices = video.settings or {}
-    # Narration-off projects keep the characters' dialogue and ambient sound.
-    # Explicit mix settings take priority over this default.
-    with_audio = generated_audio_enabled(choices)
+    with_audio = video.default_clip_audio_enabled
     lines, indexed = ensure_scene_rows(video)
     pairs = [(line, indexed[index]) for index, line in enumerate(lines)]
     pending = [
@@ -652,7 +648,7 @@ def generate_scene_visual(
     replacing_clip = bool(scene_image.file and check_if_video(scene_image.file.name))
     scene_image.file = img
     if check_if_video(img) and not replacing_clip and not scene_image.with_audio:
-        scene_image.with_audio = generated_audio_enabled(settings)
+        scene_image.with_audio = video.default_clip_audio_enabled
     scene_image.save()
 
     return scene_image
