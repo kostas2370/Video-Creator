@@ -23,5 +23,5 @@ export function useAIRequest() {
     }
   };
 
-  return { busy, error, run };
+  return { busy, error, setError, run };
 }

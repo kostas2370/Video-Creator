@@ -50,15 +50,25 @@ class SceneSerializer(serializers.ModelSerializer):
     starting_frame_status = serializers.SerializerMethodField()
     starting_frame = serializers.SerializerMethodField()
 
+    def to_representation(self, instance):
+        from ..services.scenes.starting_frame_review import review_source_key
+
+        self._review_source_key = (
+            review_source_key(instance) if instance.starting_asset_id else None
+        )
+        return super().to_representation(instance)
+
     def get_starting_frame_review(self, obj):
         from ..services.scenes.starting_frame_review import current_saved_review
 
-        return current_saved_review(obj) if obj.starting_asset_id else None
+        return (
+            current_saved_review(obj, source_key=self._review_source_key)
+            if obj.starting_asset_id
+            else None
+        )
 
     def get_starting_frame_review_key(self, obj):
-        from ..services.scenes.starting_frame_review import review_source_key
-
-        return review_source_key(obj) if obj.starting_asset_id else None
+        return self._review_source_key
 
     def get_starting_frame_required(self, obj):
         from ..services.scenes.starting_frames import requires_starting_frame
