@@ -14,8 +14,7 @@ from rest_framework.exceptions import APIException
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.usage.services import record_usage
-from apps.videomanagement.utils.prompt_utils import format_sora_prompt
-from apps.videomanagement.utils.video_audio import audio_direction
+from apps.videomanagement.utils.prompt_utils import audio_direction, format_sora_prompt
 
 logger = logging.getLogger(__name__)
 
