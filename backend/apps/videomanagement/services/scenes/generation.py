@@ -9,6 +9,7 @@ from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, SceneImage, Video
 from apps.videomanagement.schemas.drafts import SceneDraftResultSerializer
+from apps.videomanagement.serializers.overlays import OverlaySerializer
 from apps.videomanagement.services.scenes.narration import make_scene_speech
 from apps.videomanagement.services.scenes.narration import update_scene as update
 from apps.videomanagement.services.scenes.visuals import (
@@ -69,6 +70,16 @@ def update_scene(text: str, scene: Scene):
 def create_scene(video: Video, data: dict, files: dict) -> Scene:
     if not data.get("text", "").strip():
         raise ValidationError("Add dialogue for this scene.")
+    diagram_overlay = None
+    if data.get("diagram"):
+        if files.get("image"):
+            raise ValidationError("Choose either a diagram or an uploaded visual.")
+        serializer = OverlaySerializer(
+            data={"kind": "diagram", "diagram": data["diagram"]},
+            context={"user": video.created_by_id},
+        )
+        serializer.is_valid(raise_exception=True)
+        diagram_overlay = dict(serializer.validated_data)
     try:
         scene = make_scene_speech(
             video,
@@ -82,6 +93,16 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
     except Exception as exc:
         logger.error(exc)
         raise APIException(str(exc), code=400)
+
+    if diagram_overlay:
+        scene.overlays = [diagram_overlay]
+        scene.save(update_fields=["overlays"])
+        create_image_scene(
+            video=video, scene=scene, image=data.get("image_description", ""),
+            text=scene.text, dir_name=video.dir_name, mode=video.mode,
+            user=video.created_by,
+        )
+        return scene
 
     if files.get("image"):
         SceneImage.objects.create(
@@ -151,6 +172,7 @@ def draft_scene(
         serializer = SceneDraftResultSerializer(
             data=[result] if sentence_count == 1 else result["scenes"],
             many=True,
+            context={"user": video.created_by_id},
             min_length=sentence_count,
             max_length=sentence_count,
         )

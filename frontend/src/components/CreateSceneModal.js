@@ -1,4 +1,6 @@
 import { SceneCreationChoices, SceneMediaUpload, SceneDraftPreview } from "./SceneComposer";
+import { DiagramFields } from "./DiagramFields";
+import { SceneDiagramPreview } from "./SceneDiagramPreview";
 import React, { useEffect, useRef, useState } from "react";
 import { createScene, draftScene } from "../api/apiService";
 import { toast } from "react-toastify";
@@ -12,6 +14,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
   const [text, setText] = useState("");
   const [imageDescription, setImageDescription] = useState("");
   const [image, setImage] = useState(null);
+  const [diagram, setDiagram] = useState(null);
   const [isLast, setIsLast] = useState(false);
   const [withAudio, setWithAudio] = useState(false);
   const [mode, setMode] = useState("manual");
@@ -27,7 +30,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
     if (showModal && !busy && !retainDraft.current) {
       setPosition(""); setText(""); setImageDescription(""); setImage(null); setIsLast(false);
       setWithAudio(false); setMode("manual"); setPrompt(""); setUseContext(true); setError("");
-      setDraftType("sentence"); setSentenceCount(1); setDrafts([]);
+      setDraftType("sentence"); setSentenceCount(1); setDrafts([]); setDiagram(null);
     }
   }, [showModal, id]);
 
@@ -41,7 +44,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
       if (response.data.scenes) {
         setDrafts(response.data.scenes); setText(""); setImageDescription(""); setImage(null);
       } else {
-        setDrafts([]); setText(response.data.text); setImageDescription(response.data.image_description);
+        setDrafts([]); setText(response.data.text); setImageDescription(response.data.image_description || ""); setDiagram(response.data.diagram || null); setImage(null);
       }
     } catch { setError("Could not generate a draft. Please try again."); }
     finally { setBusy(""); }
@@ -55,9 +58,13 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
     if (drafts.length) {
       data = { ...(position ? { position: Number(position) } : {}), scenes: drafts.map((item, index) => ({
         text: item.text.trim(),
-        ...(item.image_description.trim() ? { image_description: item.image_description.trim() } : {}),
+        ...(!item.diagram && (item.image_description || "").trim() ? { image_description: (item.image_description || "").trim() } : {}),
+        ...(item.diagram ? { diagram: item.diagram } : {}),
         is_last: index === drafts.length - 1, with_audio: withAudio,
       })) };
+    } else if (diagram) {
+      data = { text: text.trim(), diagram, is_last: isLast, with_audio: false,
+        ...(position ? { position: Number(position) } : {}) };
     } else {
       data = new FormData();
       data.append("text", text.trim());
@@ -129,22 +136,24 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Scene {index + 1}</h3><button type="button" disabled={drafts.length === 1} onClick={() => setDrafts(items => items.filter((_, position) => position !== index))} className="text-xs text-red-600 disabled:opacity-40">Remove</button></div>
             <label htmlFor={`draft-text-${index}`} className="block text-sm">Sentence</label>
             <textarea id={`draft-text-${index}`} rows={2} required maxLength={320} className={editorInput} value={item.text} onChange={event => updateDraft(index, "text", event.target.value)} />
-            <label htmlFor={`draft-visual-${index}`} className="block text-sm">Visual description</label>
-            <textarea id={`draft-visual-${index}`} rows={2} maxLength={600} className={editorInput} value={item.image_description} onChange={event => updateDraft(index, "image_description", event.target.value)} />
+            <DiagramFields optional value={item.diagram} onChange={value => updateDraft(index, "diagram", value)} />
+            {!item.diagram && <><label htmlFor={`draft-visual-${index}`} className="block text-sm">Visual description</label>
+            <textarea id={`draft-visual-${index}`} rows={2} maxLength={2000} className={editorInput} value={item.image_description || ""} onChange={event => updateDraft(index, "image_description", event.target.value)} /></>}
           </div>)}
         </section> : <>
         <div>
           <label htmlFor="new-scene-text" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"><RiVolumeUpLine className="text-gray-400" />Dialogue</label>
           <textarea id="new-scene-text" rows={3} required className={editorInput} value={text} onChange={e => setText(e.target.value)} placeholder="What will the narrator say?" />
         </div>
-        <div>
+        <DiagramFields optional value={diagram} onChange={value => { setDiagram(value); if (value) setImage(null); }} />
+        {!diagram && <><div>
           <label htmlFor="new-scene-visual" className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200"><RiImageLine className="text-gray-400" />Visual description <span className="font-normal text-gray-400">(optional)</span></label>
-          <textarea id="new-scene-visual" rows={3} className={editorInput} value={imageDescription} onChange={e => setImageDescription(e.target.value)} placeholder="Describe the setting, subject, lighting, and camera angle…" />
+          <textarea id="new-scene-visual" rows={3} maxLength={2000} className={editorInput} value={imageDescription} onChange={e => setImageDescription(e.target.value)} placeholder="Describe the setting, subject, lighting, and camera angle…" />
         </div>
         <section aria-label="Scene media" className="space-y-3">
           <div><h3 className="text-sm font-semibold">Bring your own visual <span className="font-normal text-gray-400">(optional)</span></h3><p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Upload an image or clip to use instead of generating one.</p></div>
           <SceneMediaUpload inputId="new-scene-file" file={image} onChange={setImage} onError={setError} disabled={!!busy} />
-        </section>
+        </section></>}
         </>}
         <details className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"><summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300"><RiSettings3Line className="text-gray-400" />More options</summary><div className="mt-4 flex flex-wrap gap-5 text-sm text-gray-700 dark:text-gray-200">
           <label className="flex items-center gap-2"><input type="checkbox" checked={withAudio} onChange={e => setWithAudio(e.target.checked)} />Keep visual audio</label>
@@ -152,7 +161,7 @@ export const SceneCreationModal = ({ id, showModal, setShowModal, setItems, scen
         </div></details>
       </div>
       <aside className="min-w-0 space-y-4 lg:sticky lg:top-0">
-        <SceneDraftPreview file={drafts.length ? null : image} text={drafts.length ? drafts[0].text : text} description={drafts.length ? drafts[0].image_description : imageDescription} count={drafts.length || 1} videoFormat={videoFormat} />
+        {(drafts.length ? drafts[0].diagram : diagram) ? <SceneDiagramPreview controls videoFormat={videoFormat} scene={{ overlays: [{ kind: "diagram", diagram: drafts.length ? drafts[0].diagram : diagram, start: 0, end: null, opacity: 1 }] }} /> : <SceneDraftPreview file={drafts.length ? null : image} text={drafts.length ? drafts[0].text : text} description={drafts.length ? drafts[0].image_description : imageDescription} count={drafts.length || 1} videoFormat={videoFormat} />}
         <ScenePositionPicker compact disabled={!!busy} scenes={scenes} value={position} onChange={setPosition} count={drafts.length || 1} />
         <p className="px-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{drafts.length > 1 ? "Each sentence becomes its own scene. You can fine-tune them in the editor." : "You can fine-tune narration, captions and timing after adding your scene."}</p>
       </aside>

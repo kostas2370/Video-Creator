@@ -215,3 +215,74 @@ class DraftSceneTests(TestCase):
                 with self.assertRaises(APIException):
                     draft_scene(vid, "Next scene")
         self.assertFalse(vid.scenes.exists())
+
+
+class DiagramSceneDraftTests(TestCase):
+    diagram = {
+        "template": "graph", "title": "Energy flow",
+        "items": [{"label": "Sun", "detail": ""}, {"label": "Plant", "detail": ""}],
+        "connections": [{"source": 0, "target": 1, "label": "energy"}],
+    }
+
+    def test_accepts_visual_descriptions_up_to_editor_limit(self):
+        vid = video.make()
+        for length in (601, 2000, 2001):
+            draft = {"text": "A detailed view.", "image_description": "x" * length}
+            with self.subTest(length=length), patch.object(
+                SceneServices, "get_update_sentence", return_value=json.dumps(draft)
+            ) as generate:
+                if length > 2000:
+                    with self.assertRaises(APIException):
+                        draft_scene(vid, "Continue")
+                else:
+                    self.assertEqual(draft_scene(vid, "Continue"), draft)
+                    self.assertIn("at most 2000 characters", generate.call_args.args[0])
+
+    def test_drafts_a_graph_without_a_photographic_description(self):
+        vid = video.make()
+        draft = {"text": "Sunlight feeds the plant.", "diagram": self.diagram}
+        with patch.object(SceneServices, "get_update_sentence", return_value=json.dumps(draft)):
+            result = draft_scene(vid, "Use an icon graph")
+        self.assertEqual(result["diagram"], self.diagram)
+        self.assertEqual(result["image_description"], "")
+        self.assertFalse(vid.scenes.exists())
+
+    def test_rejects_invalid_graph_connections(self):
+        vid = video.make()
+        diagram = {**self.diagram, "connections": [{"source": 0, "target": 0}]}
+        with patch.object(SceneServices, "get_update_sentence", return_value=json.dumps({
+            "text": "A graph.", "diagram": diagram,
+        })):
+            with self.assertRaises(APIException):
+                draft_scene(vid, "A graph")
+
+    def test_add_scene_serializer_keeps_single_and_batch_graphs(self):
+        from apps.videomanagement.serializers.requests import AddSceneSerializer, AddScenesSerializer
+
+        payload = {"text": "Sunlight feeds the plant.", "diagram": self.diagram}
+        for serializer in (AddSceneSerializer(data=payload), AddScenesSerializer(data={"scenes": [payload]})):
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+            data = serializer.validated_data
+            self.assertEqual((data.get("scenes") or [data])[0]["diagram"], self.diagram)
+
+    def test_stores_diagram_before_creating_its_background(self):
+        vid = video.make()
+        line = scene.make(video=vid)
+        with (
+            patch.object(SceneServices, "make_scene_speech", return_value=line),
+            patch.object(SceneServices, "create_image_scene") as visual,
+            patch.object(SceneServices, "scene_reference") as reference,
+        ):
+            create_scene(vid, {"text": "Sunlight feeds the plant.", "diagram": self.diagram}, {})
+        line.refresh_from_db()
+        self.assertEqual(line.overlays[0]["diagram"], self.diagram)
+        visual.assert_called_once()
+        self.assertEqual(visual.call_args.kwargs["scene"].overlays[0]["kind"], "diagram")
+        reference.assert_not_called()
+
+    def test_rejects_a_graph_and_upload_before_creating_speech(self):
+        vid = video.make()
+        with patch.object(SceneServices, "make_scene_speech") as speech:
+            with self.assertRaises(ValidationError):
+                create_scene(vid, {"text": "A graph.", "diagram": self.diagram}, {"image": "upload.png"})
+        speech.assert_not_called()

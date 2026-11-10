@@ -26,6 +26,7 @@ from ..video_formats import (
     VIDEO_PLATFORM_CHOICES,
 )
 from .caption_styles import CaptionPresetField, CaptionStyleSerializer
+from .diagrams import DiagramSerializer
 from .fields import FiniteFloat, validate_reference_image
 from .motion import MotionSettingsSerializer
 
@@ -296,7 +297,8 @@ class ManualSceneSerializer(ScenePositionSerializer):
 
 class AddSceneSerializer(ScenePositionSerializer):
     text = serializers.CharField()
-    image_description = serializers.CharField(required=False)
+    image_description = serializers.CharField(required=False, max_length=2000)
+    diagram = DiagramSerializer(required=False, allow_null=True)
     is_last = serializers.BooleanField(default=False)
     with_audio = serializers.BooleanField(default=False)
 

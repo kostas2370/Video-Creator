@@ -13,7 +13,7 @@ export function SceneDiagramPreview({ scene, videoFormat, controls = false }) {
       <OverlayLayer overlays={scene.overlays} logo={scene.overlay_logo} time={Math.min(time ?? end, end)} duration={duration} frameSize={frameSize} />
     </div>
     {controls && <label className="mt-3 block text-xs text-gray-500 dark:text-gray-400">Preview animation
-      <input aria-label="Diagram preview time" type="range" min="0" max={end} step="0.01" value={Math.min(time ?? end, end)} onChange={event => setTime(Number(event.target.value))} className="mt-2 block w-full accent-blue-600" />
+      <input aria-label="Diagram preview time" type="range" min="0" max={end} step="any" value={Math.min(time ?? end, end)} onChange={event => setTime(Number(event.target.value))} className="mt-2 block w-full accent-blue-600" />
     </label>}
   </div>;
 }
