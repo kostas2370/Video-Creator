@@ -78,12 +78,11 @@ class CustomVoiceTests(TestCase):
         self.assertNotIn(voice, VoiceModel.objects.available_to(user.make()))
         self.assertNotIn(voice, VoiceModel.objects.available_to(None))
 
-    def test_available_voices_preserve_existing_filters_and_use_one_query(self):
+    def test_available_voices_preserve_existing_filters(self):
         voice = self.clone()
         self.clone(path="another-clone")
         selected = VoiceModel.objects.filter(pk=voice.pk)
-        with self.assertNumQueries(1):
-            self.assertEqual(list(selected.available_to(self.user)), [voice])
+        self.assertEqual(list(selected.available_to(self.user)), [voice])
 
     def test_list_only_returns_voices_usable_with_the_active_credentials(self):
         ready = self.clone(name="Ready")

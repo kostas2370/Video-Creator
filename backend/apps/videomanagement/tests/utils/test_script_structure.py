@@ -25,8 +25,10 @@ class ScriptFormatTests(SimpleTestCase):
     def test_drops_the_spoken_line_when_there_is_no_narration(self):
         brief = build_script_prompt(narration=False)
 
-        self.assertNotIn('"sentence"', brief)
-        self.assertIn("there is no narration", brief)
+        shape = json.loads(brief[brief.index("{") : brief.rindex("}") + 1])
+        shot = shape["scenes"][0]["sentences"][0]
+        self.assertNotIn("sentence", shot)
+        self.assertIn("image_description", shot)
 
     def test_preserves_scene_shape_and_adds_continuity_only_for_ai(self):
         for mode in ("AI", "WEB"):
