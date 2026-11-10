@@ -71,7 +71,7 @@ def draft_narration(video):
         reply = get_reply(
             prompt,
             reply_format="text",
-            gpt_model=(video.settings or {}).get("gpt_model"),
+            gpt_model=video.script_model,
             user=video.created_by,
         )
     try:

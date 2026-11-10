@@ -6,7 +6,7 @@ from uuid import UUID
 
 from django.apps import apps
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from ..baker_recipes import (
@@ -37,6 +37,30 @@ class VideoDefaultsTests(TestCase):
 
         self.assertFalse(second.settings["subtitles"])
         self.assertFalse(Video().settings["subtitles"])
+
+
+@override_settings(DEFAULT_GPT_MODEL="project-default")
+class VideoScriptModelTests(TestCase):
+    def test_saved_model_takes_precedence_without_fetching_the_episode(self):
+        for config in (
+            {"gpt_model": "selected", "generation_params": {"gpt_model": "legacy"}},
+            {"generation_params": {"gpt_model": "selected"}},
+        ):
+            saved = video.make(settings=config)
+            with self.subTest(config=config), self.assertNumQueries(0):
+                self.assertEqual(saved.script_model, "selected")
+
+    def test_missing_or_empty_legacy_settings_use_the_default(self):
+        for config in (None, {}, {"gpt_model": "", "generation_params": None}):
+            saved = video.make(settings=config)
+            with self.subTest(config=config):
+                self.assertEqual(saved.script_model, "project-default")
+
+    def test_model_reflects_unsaved_settings_changes(self):
+        saved = video.make(settings={"gpt_model": "original"})
+        self.assertEqual(saved.script_model, "original")
+        saved.settings["gpt_model"] = "replacement"
+        self.assertEqual(saved.script_model, "replacement")
 
 
 class GptAnswerTests(TestCase):
