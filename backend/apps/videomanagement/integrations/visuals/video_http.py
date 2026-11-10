@@ -137,13 +137,14 @@ def video_provider(
             **kwargs,
         ):
             key = key_for(user, provider)
+            audio_mode = kwargs.get("audio_mode", "AMBIENT")
             return fn(
                 VideoRequest(
                     prompt=shot_prompt(
                         prompt,
                         style,
                         reference,
-                        audio_mode=kwargs.get("audio_mode", "AMBIENT"),
+                        audio_mode=audio_mode,
                     ),
                     directory=dir_name,
                     seconds=seconds_for(duration, minimum, maximum),
@@ -155,7 +156,7 @@ def video_provider(
                         auth_header: f"{auth_scheme} {key}".strip(),
                     },
                     label=label,
-                    audio_mode=kwargs.get("audio_mode", "AMBIENT"),
+                    audio_mode=audio_mode,
                 )
             )
 

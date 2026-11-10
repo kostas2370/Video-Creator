@@ -82,7 +82,10 @@ class NarrationSetupTests(ApiTestCase):
         from rest_framework.exceptions import ValidationError
 
         for rows in (
+            None,
+            "not a scene list",
             [],
+            [None, None],
             [{"scene_id": str(self.first.pk), "text": "Only one"}],
             [{"scene_id": str(self.first.pk), "text": "Duplicate"}] * 2,
         ):
@@ -95,6 +98,18 @@ class NarrationSetupTests(ApiTestCase):
             ):
                 with self.assertRaises(ValidationError):
                     draft_narration(self.video)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.text, "Camera pans across a bank.")
+
+    def test_missing_provider_response_is_reported_as_invalid_draft(self):
+        from rest_framework.exceptions import ValidationError
+
+        with patch(
+            "apps.videomanagement.services.videos.narration_setup.get_reply",
+            return_value=None,
+        ):
+            with self.assertRaisesMessage(ValidationError, "AI returned an incomplete narration draft"):
+                draft_narration(self.video)
         self.first.refresh_from_db()
         self.assertEqual(self.first.text, "Camera pans across a bank.")
 
@@ -166,7 +181,8 @@ class NarrationSetupTests(ApiTestCase):
         self.first.refresh_from_db()
         self.assertEqual(self.first.text, "Camera pans across a bank.")
 
-    def test_audio_mix_settings_do_not_regenerate_media(self):
+    def test_audio_mix_settings_preserve_individual_clip_choices_without_regeneration(self):
+        audible = scene_image.make(scene=self.second, file="audible.mp4", with_audio=True)
         with patch(
             "apps.videomanagement.tasks.regenerate_narration_task.delay"
         ) as speech:
@@ -183,6 +199,17 @@ class NarrationSetupTests(ApiTestCase):
         speech.assert_not_called()
         self.visual.refresh_from_db()
         self.video.refresh_from_db()
-        self.assertTrue(self.visual.with_audio)
+        self.assertFalse(self.visual.with_audio)
+        audible.refresh_from_db()
+        self.assertTrue(audible.with_audio)
         self.assertEqual(self.video.settings["music_volume"], 0)
         self.assertEqual(self.video.settings["video_audio_mode"], "DIALOGUE")
+        for enabled in (False, True):
+            response = self.client.patch(
+                self.url, {"video_audio_enabled": enabled}, format="json"
+            )
+            self.assertEqual(response.status_code, 200, response.data)
+            self.visual.refresh_from_db()
+            audible.refresh_from_db()
+            self.assertFalse(self.visual.with_audio)
+            self.assertTrue(audible.with_audio)

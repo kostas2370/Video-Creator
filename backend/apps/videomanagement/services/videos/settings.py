@@ -14,12 +14,12 @@ from apps.videomanagement.models import (
     Avatar,
     Intro,
     Outro,
-    SceneImage,
     Video,
     VideoStatus,
 )
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.scenes.editing import changed, editable_video
+from .narration_setup import apply_reviewed_narration
 
 
 def video_update(video: Video, **changes) -> Video:
@@ -104,36 +104,7 @@ def _apply_video_changes(video, changes):
             }
         )
     if enabling_narration:
-        from .narration_setup import visual_description
-
-        scenes = list(video.scenes.select_for_update().prefetch_related("scene_images"))
-        if scenes and narration_scenes is None:
-            raise ValidationError(
-                {
-                    "narration_scenes": "Review narration for each scene before generating speech."
-                }
-            )
-        if narration_scenes is not None:
-            if [str(row["scene_id"]) for row in narration_scenes] != [
-                str(scene.pk) for scene in scenes
-            ]:
-                raise ValidationError(
-                    {
-                        "narration_scenes": "The scene list changed. Refresh and review narration again."
-                    }
-                )
-            for scene, row in zip(scenes, narration_scenes):
-                if row["before"] != scene.text or row[
-                    "before_visual"
-                ] != visual_description(scene):
-                    raise ValidationError(
-                        {
-                            "narration_scenes": "A scene changed while you were reviewing. Refresh and review narration again."
-                        }
-                    )
-            for scene, row in zip(scenes, narration_scenes):
-                scene.text = row["text"]
-                scene.save(update_fields=["text"])
+        apply_reviewed_narration(video, narration_scenes)
 
     settings_fields = (
         "video_audio_mode",
@@ -163,10 +134,6 @@ def _apply_video_changes(video, changes):
     for field, value in updates.items():
         setattr(video, field, value)
     video.save(update_fields=[*updates, "updated_at"])
-    if changes.get("video_audio_enabled") is True:
-        SceneImage.objects.filter(
-            scene__video=video, scene__archived_at__isnull=True
-        ).update(with_audio=True)
     if (
         (voice_changed or retry_narration or enabling_narration)
         and (video.settings or {}).get("narration", True)
