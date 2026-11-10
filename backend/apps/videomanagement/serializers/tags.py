@@ -5,11 +5,9 @@ import unicodedata
 
 from rest_framework import serializers
 
-from .fields import StrictCharField
-
 
 class TagListField(serializers.ListField):
-    child = StrictCharField(max_length=80, allow_blank=False)
+    child = serializers.CharField(max_length=80, allow_blank=False)
     default_error_messages = {
         "hashtag": "Use only letters, numbers and underscores in hashtags.",
         "keyword": "Use nonempty keyword phrases without commas or #.",
