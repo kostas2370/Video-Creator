@@ -70,7 +70,7 @@ def revise_storyboard(video, *, storyboard, instructions):
         response = get_reply(
             prompt,
             reply_format="text",
-            gpt_model=settings.get("gpt_model") or params.get("gpt_model"),
+            gpt_model=video.script_model,
             user=video.created_by,
         )
     try:
