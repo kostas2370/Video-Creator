@@ -9,14 +9,19 @@ from apps.clips.models import Clip, ClipProject
 from apps.series.models import SeriesEpisode
 from apps.series.services import characters, episodes
 from apps.videomanagement.models import Scene, Video
+from apps.videomanagement.serializers.ideas import (
+    IdeaResultSerializer,
+    PromptResultSerializer,
+)
 from apps.videomanagement.services.scenes import generation as scene_generation
 from apps.videomanagement.services.scenes.starting_frame_review import review_starting_frame
 from apps.videomanagement.services.videos import story as video_story
-from apps.videomanagement.services.videos.ideas import generate_ideas, rewrite_prompt
+from apps.videomanagement.services.videos.ideas import creative_reply
 from apps.videomanagement.services.videos import tags as video_tags
 from apps.videomanagement.services.videos import youtube_metadata
 from apps.videomanagement.services.videos.storyboard_revision import revise_storyboard
 from apps.videomanagement.services.videos.narration_setup import draft_narration
+from apps.videomanagement.utils.prompt_utils import build_ideas_prompt, build_prompt_rewrite
 
 
 def load_user(user_id):
@@ -34,13 +39,25 @@ def draft_story_task(user_id, *, prompt):
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
-def generate_ideas_task(user_id, **choices):
-    return generate_ideas(load_user(user_id), **choices)
+def generate_ideas_task(user_id, *, gpt_model="", **brief):
+    return creative_reply(
+        load_user(user_id),
+        prompt=build_ideas_prompt(brief),
+        serializer_class=IdeaResultSerializer,
+        error_message="AI returned invalid ideas. Please try again.",
+        gpt_model=gpt_model,
+    )
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
-def rewrite_prompt_task(user_id, **choices):
-    return rewrite_prompt(load_user(user_id), **choices)
+def rewrite_prompt_task(user_id, *, gpt_model="", **brief):
+    return creative_reply(
+        load_user(user_id),
+        prompt=build_prompt_rewrite(brief),
+        serializer_class=PromptResultSerializer,
+        error_message="AI returned an invalid rewrite. Please try again.",
+        gpt_model=gpt_model,
+    )
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
