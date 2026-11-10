@@ -10,7 +10,8 @@ from rest_framework.exceptions import ValidationError
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import VideoStatus, VideoType
 from apps.videomanagement.services.captions.alignment import caption_words
-from apps.videomanagement.services.scenes.timeline import caption_offsets
+from apps.videomanagement.services.scenes.timeline import caption_offsets, scene_segment
+from apps.videomanagement.utils.cuts import cut_cues, joined_duration, timeline_sections
 from apps.videomanagement.utils.audio_editing import (
     audio_bounds,
     duration_override,
@@ -116,4 +117,14 @@ def export_subtitles(video):
                 "detail": "Add caption text or recorded narration before exporting subtitles."
             }
         )
+    raw_segments, start = [], intro_offset
+    for index, scene in enumerate(scenes, 1):
+        segment = scene_segment(scene, index, start, video.settings or {})
+        raw_segments.append(segment)
+        start += segment.duration
+    sections = timeline_sections(raw_segments)
+    if intro_offset:
+        sections.insert(0, {"start": 0, "end": intro_offset})
+    if joined_duration(sections) < start - 1e-9:
+        cues = cut_cues(cues, sections)
     return cues_to_srt(cues)

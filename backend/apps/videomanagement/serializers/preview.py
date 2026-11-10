@@ -147,6 +147,11 @@ class PreviewTimelineSerializer(serializers.Serializer):
     render_only = serializers.SerializerMethodField()
     audio_tracks = serializers.SerializerMethodField()
     music = serializers.SerializerMethodField()
+    playback_sections = serializers.SerializerMethodField()
+
+    def get_playback_sections(self, obj):
+        from apps.videomanagement.utils.cuts import timeline_sections
+        return timeline_sections(obj.timeline.segments)
 
     def get_caption_config(self, obj):
         return video_caption_style(obj.video).to_dict()

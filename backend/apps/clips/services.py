@@ -38,6 +38,22 @@ def clip_words(words, start, end):
     ]
 
 
+def segment_words(words, segments):
+    result, offset = [], 0
+    duration = sum(s["end"] - s["start"] for s in segments)
+    for segment in segments:
+        for word in clip_words(words, segment["start"], segment["end"]):
+            result.append(
+                {
+                    **word,
+                    "start": round(word["start"] + offset, 4),
+                    "end": min(duration, round(word["end"] + offset, 4)),
+                }
+            )
+        offset += segment["end"] - segment["start"]
+    return result
+
+
 def project_editable(project):
     if project.status in PROJECT_BUSY:
         raise ClipConflict(
@@ -129,11 +145,17 @@ def save_clip(project, changes, clip_id=None):
             key in changes and changes[key] != getattr(clip, key)
             for key in ("start", "end")
         )
+        if bounds_changed and "segments" not in changes:
+            changes["segments"] = []
+        segments_changed = (
+            "segments" in changes and changes["segments"] != clip.segments
+        )
         for key, value in changes.items():
             setattr(clip, key, {**clip.style, **value} if key == "style" else value)
-        if bounds_changed and "words" not in changes:
-            clip.words = clip_words(project.words, clip.start, clip.end)
-        validate_word_bounds(clip.words, clip.end - clip.start)
+        segments = clip.segments or [{"start": clip.start, "end": clip.end}]
+        if (bounds_changed or segments_changed) and "words" not in changes:
+            clip.words = segment_words(project.words, segments)
+        validate_word_bounds(clip.words, sum(s["end"] - s["start"] for s in segments))
         render_changed = clip_id is None or any(
             getattr(clip, field) != original[field] for field in CLIP_RENDER_FIELDS
         )

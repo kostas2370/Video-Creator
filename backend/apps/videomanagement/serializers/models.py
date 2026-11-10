@@ -95,7 +95,12 @@ class SceneSerializer(serializers.ModelSerializer):
     timing = serializers.SerializerMethodField()
 
     def get_timing(self, obj):
-        return scene_timing(obj, next(iter(obj.scene_images.all()), None))
+        timing = scene_timing(obj, next(iter(obj.scene_images.all()), None))
+        if obj.cuts:
+            from apps.videomanagement.utils.cuts import joined_duration, scene_sections
+            timing["source_duration"] = timing["duration"]
+            timing["duration"] = joined_duration(scene_sections(obj, timing["source_duration"]))
+        return timing
 
     def get_narration_status(self, obj):
         if not narration_enabled(obj):

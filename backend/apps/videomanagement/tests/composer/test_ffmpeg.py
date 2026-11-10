@@ -364,6 +364,26 @@ class FFmpegRenderTests(TestCase):
         self.assertLess(after_intro[:, :, 2].max(), 20)
         self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 1.25, delta=0.05)
 
+    def test_scene_cuts_trim_the_composed_picture_and_audio_in_both_render_paths(self):
+        self.row.settings.update(narration=False)
+        self.row.save()
+        self.create_clip("source.mp4", "blue", 4)
+        subprocess.run([
+            "ffmpeg", "-v", "error", "-y", "-i", str(self.root / "source.mp4"),
+            "-vf", "drawbox=color=red:t=fill:enable='gte(t,3)'", "-c:a", "copy", str(self.root / "marked.mp4"),
+        ], check=True, capture_output=True)
+        row = scene.make(video=self.row, is_last=False, cuts={"source_duration": 4, "sections": [{"start": 0, "end": 1}, {"start": 3, "end": 4}]})
+        scene_image.make(scene=row, file="marked.mp4", with_audio=True)
+        for direct in (True, False):
+            with self.subTest(direct=direct), override_settings(FFMPEG_DIRECT_RENDER=direct):
+                make_video(self.row)
+                metadata = self.metadata()
+                self.assertAlmostEqual(float(metadata["format"]["duration"]), 2, delta=0.1)
+                self.assertTrue(any(s["codec_type"] == "audio" for s in metadata["streams"]))
+                before, after = self.frame(0.5)[0, 0], self.frame(1.5)[0, 0]
+                self.assertGreater(int(before[2]), int(before[0]) + 100)
+                self.assertGreater(int(after[0]), int(after[2]) + 100)
+
     def setUp(self):
         # Rendering fixtures use synthetic tones; speech providers stay mocked.
         self.enterContext(patch("apps.videomanagement.utils.composer.render.align_scene_narration"))

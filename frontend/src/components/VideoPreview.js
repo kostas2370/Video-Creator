@@ -10,6 +10,7 @@ import { getVideoPreview } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { voiceGain, musicGain } from "./audioEnvelope";
 
+import { joinedPosition, sourcePosition, sectionsDuration, previewSections, cutClock } from "../utils/cuts";
 import { imageMotion } from "../utils/motion";
 
 const mediaUrl = url => /^https?:\/\//i.test(url || "") ? url : `${API_HOST}${url}`;
@@ -108,12 +109,14 @@ export function VideoPreviewModal({ open, onClose, video, disabled = false }) {
   </EditorDialog>;
 }
 
-export function VideoPreview({ video, disabled = false, selectedSceneId, compact = false, sceneOnly = false }) {
+export function VideoPreview({ video, disabled = false, selectedSceneId, compact = false, sceneOnly = false, cutSections, renderCutControls }) {
   const [preview, setPreview] = useState(null);
   const manifest = preview?.videoId === video?.id ? preview.manifest : null;
   const previewSegment = sceneOnly ? manifest?.segments.find(item => String(item.id) === String(selectedSceneId)) : null;
-  const playbackStart = previewSegment?.start || 0;
-  const playbackEnd = previewSegment ? previewSegment.start + previewSegment.duration : manifest?.duration || 0;
+  const playbackSections = useMemo(() => previewSections(manifest, previewSegment, sceneOnly ? cutSections : undefined), [manifest, previewSegment, sceneOnly, cutSections]);
+  const playbackStart = playbackSections[0]?.start || 0;
+  const playbackEnd = playbackSections[playbackSections.length - 1]?.end || 0;
+  const playbackDuration = sectionsDuration(playbackSections);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mediaError, setMediaError] = useState(false);
@@ -128,13 +131,14 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
   const anchor = useRef({ position: 0, wall: 0 });
   const timeRef = useRef(0);
   const activeButton = useRef(null);
+  const previewSelection = useRef({ manifest: null, id: null });
   const timeline = useRef(null);
   const currentVideoId = useRef(video?.id);
   const allowed = ["READY", "COMPLETED", "FAILED"].includes(video?.status);
   // Polling returns new objects even when nothing changed; only an edited timeline reloads.
   const revision = useMemo(() => JSON.stringify([video?.id, video?.status, video?.settings,
     video?.intro, video?.outro, video?.avatar, video?.music,
-    video?.scenes?.map(s => [s.id, s.text, s.file, s.voiceover, s.audio_settings, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.animation_preset, s.animation_accents, s.overlays, s.overlay_logo])]), [video]);
+    video?.scenes?.map(s => [s.id, s.text, s.file, s.voiceover, s.audio_settings, s.cuts, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.animation_preset, s.animation_accents, s.overlays, s.overlay_logo])]), [video]);
   useEffect(() => {
     setPlaying(false);
     if (currentVideoId.current !== video?.id) {
@@ -159,7 +163,11 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
     let lastUpdate = 0;
     anchor.current = { position: timeRef.current, wall: performance.now() };
     const tick = now => {
-      const next = Math.min(playbackEnd, anchor.current.position + (now - anchor.current.wall) / 1000);
+      const joined = joinedPosition(playbackSections, anchor.current.position) + (now - anchor.current.wall) / 1000;
+      const next = sourcePosition(playbackSections, Math.min(playbackDuration, joined));
+      const before = playbackSections.findIndex(s => timeRef.current >= s.start && timeRef.current < s.end);
+      const after = playbackSections.findIndex(s => next >= s.start && next < s.end);
+      if (before !== after && next < playbackEnd) setSeekVersion(version => version + 1);
       timeRef.current = next;
       // Keep the UI responsive without rendering every browser animation frame.
       if (now - lastUpdate >= 1000 / 30 || next >= playbackEnd) {
@@ -171,24 +179,32 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, manifest, buffering, playbackEnd]);
+  }, [playing, manifest, buffering, playbackEnd, playbackSections, playbackDuration]);
   useEffect(() => {
     const pauseHidden = () => { if (document.hidden) setPlaying(false); };
     document.addEventListener("visibilitychange", pauseHidden);
     return () => document.removeEventListener("visibilitychange", pauseHidden);
   }, []);
   const seek = useCallback(position => {
-    const next = Math.max(playbackStart, Math.min(playbackEnd, position));
+    const next = sourcePosition(playbackSections, joinedPosition(playbackSections, Math.max(playbackStart, Math.min(playbackEnd, position))));
     anchor.current = { position: next, wall: performance.now() };
     timeRef.current = next;
     setTime(next);
     setSeekVersion(version => version + 1);
-  }, [playbackStart, playbackEnd]);
+  }, [playbackStart, playbackEnd, playbackSections]);
   useEffect(() => {
-    if (selectedSceneId == null || !manifest) return;
+    if (!manifest) return;
+    const changed = previewSelection.current.manifest !== manifest || previewSelection.current.id !== selectedSceneId;
+    previewSelection.current = { manifest, id: selectedSceneId };
+    if (selectedSceneId == null) { setPlaying(false); seek(timeRef.current); return; }
     const segment = manifest.segments.find(item => String(item.id) === String(selectedSceneId));
-    if (segment) { setPlaying(false); seek(segment.start); }
+    if (segment) { setPlaying(false); seek(changed ? segment.start : timeRef.current); }
   }, [selectedSceneId, manifest, seek]);
+  const togglePlayback = () => {
+    setError("");
+    if (time >= playbackEnd) seek(playbackStart);
+    setPlaying(value => !value);
+  };
   const failMedia = useCallback(() => setMediaError(true), []);
   const blocked = useCallback(() => { setPlaying(false); setError("Your browser paused the media. Press play to try again."); }, []);
   const musicSpeech = useMemo(() => !manifest?.music ? [] : (manifest.audio_tracks || []).flatMap(track =>
@@ -228,7 +244,7 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
       {loading && !disabled && <p role="status" className="py-2 text-center text-xs text-gray-500">{manifest ? "Updating preview…" : "Loading preview…"}</p>}
       {error && <div role="alert" className="mb-3 flex flex-wrap items-center gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><span>{error}</span><button type="button" onClick={() => setRetry(value => value + 1)} className="font-semibold underline">Reload preview</button></div>}
       {manifest && <>
-        <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-xl bg-black" style={{ maxWidth: manifest.size[0] < manifest.size[1] ? 280 : manifest.size[0] === manifest.size[1] ? 420 : undefined }}>
+        <div className="preview-stage mx-auto w-full max-w-2xl overflow-hidden rounded-xl bg-black" style={{ maxWidth: renderCutControls ? `min(100%, calc(26vh * ${manifest.size[0] / manifest.size[1]}))` : manifest.size[0] < manifest.size[1] ? 280 : manifest.size[0] === manifest.size[1] ? 420 : undefined }}>
           <div role="img" aria-label={`${active?.label || "Video"} preview`} className="relative isolate w-full overflow-hidden bg-black" style={{ aspectRatio: `${manifest.size[0]} / ${manifest.size[1]}` }}>
             {active && <Visual key={active.id} segment={active} size={manifest.size} time={local} playing={playing} muted={muted} opacity={time === 0 && !playing ? 1 : Math.max(0, opacity)} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
             {dissolve && <Visual key={`hold-${previous.id}`} segment={previous} size={manifest.size} time={previous.duration} playing={false} muted opacity={1 - local / active.dissolve_in} onFailure={failMedia} onBlocked={blocked} onBuffering={onBuffering} stalled={buffering} seekVersion={seekVersion} />}
@@ -237,16 +253,17 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
             <CaptionLayer cue={cue} style={manifest.caption_style} size={manifest.size} config={manifest.caption_config} />
           </div>
         </div>
-        <fieldset disabled={disabled || loading} className="mt-4 flex items-center gap-2 sm:gap-3">
-          <button type="button" aria-label={playing ? "Pause preview" : "Play preview"} onClick={() => { setError(""); if (time >= playbackEnd) seek(playbackStart); setPlaying(value => !value); }} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-700">{playing ? <FaPause /> : <FaPlay />}</button>
+        <fieldset disabled={disabled || loading} className={`preview-transport mt-4 flex items-center gap-2 sm:gap-3 ${renderCutControls ? "cut-transport" : ""}`}>
+          <button type="button" aria-label={playing ? "Pause preview" : "Play preview"} onClick={togglePlayback} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-700">{playing ? <FaPause /> : <FaPlay />}</button>
           <button type="button" aria-label="Restart preview" onClick={() => seek(playbackStart)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"><FaUndo /></button>
-          <input aria-label="Preview playhead" type="range" min="0" max={playbackEnd - playbackStart} step="0.01" value={Math.max(0, time - playbackStart)} onChange={event => seek(playbackStart + Number(event.target.value))} className="min-w-0 flex-1 accent-blue-600" />
-          <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-300">{clock(Math.max(0, time - playbackStart))} / {clock(playbackEnd - playbackStart)}</span>
+          <input aria-label="Preview playhead" type="range" min="0" max={playbackDuration} step="0.01" value={joinedPosition(playbackSections, time)} onChange={event => seek(sourcePosition(playbackSections, Number(event.target.value)))} aria-hidden={renderCutControls ? true : undefined} tabIndex={renderCutControls ? -1 : undefined} className={renderCutControls ? "sr-only" : "min-w-0 flex-1 accent-blue-600"} />
+          <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-300">{renderCutControls ? cutClock(joinedPosition(playbackSections, time)) : clock(joinedPosition(playbackSections, time))} / {renderCutControls ? cutClock(playbackDuration) : clock(playbackDuration)}</span>
           <button type="button" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(value => !value)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{muted ? <FaVolumeMute /> : <FaVolumeUp />}</button>
         </fieldset>
+        {renderCutControls?.({ position: joinedPosition(playbackSections, time), onSeek: position => seek(sourcePosition(playbackSections, position)), duration: playbackDuration, onTogglePlayback: togglePlayback, playing, ready: !!previewSegment && !loading && !error })}
         {!compact && <> <h2 className="mt-5 text-sm font-semibold text-gray-900 dark:text-white">Scene timeline</h2>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose a scene to jump to it.</p>
-        <Timeline segments={segments} activeId={activeId} local={local} activeButton={activeButton} timelineRef={timeline} onSeek={seek} /></>}
+        <Timeline segments={segments} activeId={activeId} local={local} activeButton={activeButton} timelineRef={timeline} onSeek={seek} playbackSections={playbackSections} /></>}
         {buffering && <p role="status" className="mt-2 text-xs text-gray-500">Buffering preview…</p>}
         {mediaError && <p role="status" className="mt-2 text-xs text-amber-700 dark:text-amber-300">Some media could not load. Check the scene files or reload the preview.</p>}
         <details className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400"><summary className="cursor-pointer font-medium">About this preview</summary><p className="mt-2">Preview plays without rendering a video file. Caption timing is estimated; caption appearance may vary in the render.{manifest.render_only?.length > 0 ? ` Render to include ${manifest.render_only.join(", ")}.` : ""}</p></details>
@@ -255,18 +272,18 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
   </section>;
 }
 
-const TimelineItem = memo(function TimelineItem({ segment, active, progress, activeButton, onSeek }) {
-  return <button type="button" ref={active ? activeButton : null} aria-label={`Preview ${segment.label}`} aria-current={active ? "true" : undefined} onClick={() => onSeek(segment.start)} style={{ width: Math.max(100, Math.min(240, segment.duration * 18)) }} className={`relative shrink-0 overflow-hidden rounded-xl border-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-700"}`}>
+const TimelineItem = memo(function TimelineItem({ segment, active, progress, activeButton, onSeek, playbackDuration = segment.duration }) {
+  return <button type="button" ref={active ? activeButton : null} aria-label={`Preview ${segment.label}`} aria-current={active ? "true" : undefined} onClick={() => onSeek(segment.start)} style={{ width: Math.max(100, Math.min(240, playbackDuration * 18)) }} className={`relative shrink-0 overflow-hidden rounded-xl border-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-200 dark:border-gray-700"}`}>
               <div className="relative h-14 overflow-hidden bg-gray-100 dark:bg-gray-900">{segment.visual && (segment.visual_type === "video" ? <DeferredVideo src={mediaUrl(segment.visual)} muted playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={mediaUrl(segment.visual)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />)}{!segment.visual && <span className="flex h-full items-center justify-center text-xs text-gray-400">No visual</span>}</div>
-              <div className="px-2 py-1.5"><span className="block text-xs font-semibold text-gray-700 dark:text-gray-200">{segment.label}</span><span className="block text-[11px] text-gray-500 dark:text-gray-400">{segment.duration.toFixed(1)}s{segment.pause > 0 ? ` · +${segment.pause}s pause` : ""}</span></div>
-              {active && <span aria-hidden="true" className="pointer-events-none absolute bottom-0 top-0 w-0.5 bg-blue-500" style={{ left: `${Math.min(100, Math.max(0, progress / segment.duration * 100))}%` }} />}
+              <div className="px-2 py-1.5"><span className="block text-xs font-semibold text-gray-700 dark:text-gray-200">{segment.label}</span><span className="block text-[11px] text-gray-500 dark:text-gray-400">{playbackDuration.toFixed(1)}s{segment.pause > 0 ? ` · +${segment.pause}s pause` : ""}</span></div>
+              {active && <span aria-hidden="true" className="pointer-events-none absolute bottom-0 top-0 w-0.5 bg-blue-500" style={{ left: `${Math.min(100, Math.max(0, progress / playbackDuration * 100))}%` }} />}
             </button>;
 });
 
-function Timeline({ segments, activeId, local, activeButton, timelineRef, onSeek }) {
+function Timeline({ segments, activeId, local, activeButton, timelineRef, onSeek, playbackSections }) {
   return <nav ref={timelineRef} aria-label="Preview timeline" className="mt-3 flex gap-2 overflow-x-auto pb-2">
           {segments.map((segment, segmentIndex) => <React.Fragment key={segment.id}>
-            <TimelineItem segment={segment} active={segment.id === activeId} progress={segment.id === activeId ? local : 0} activeButton={activeButton} onSeek={onSeek} />
+            <TimelineItem segment={segment} active={segment.id === activeId} playbackDuration={sectionsDuration(previewSections({ playback_sections: playbackSections }, segment))} progress={segment.id === activeId ? joinedPosition(previewSections({ playback_sections: playbackSections }, segment).map(s => ({ start: s.start - segment.start, end: s.end - segment.start })), local) : 0} activeButton={activeButton} onSeek={onSeek} />
             {segmentIndex < segments.length - 1 && <span className="flex shrink-0 items-center text-[10px] text-gray-400">{segment.kind === "scene" && segments[segmentIndex + 1].kind === "scene" ? ({ CUT: "Cut", FADE: "Fade", DISSOLVE: "Dissolve" }[segment.transition]) : "Cut"}</span>}
           </React.Fragment>)}
         </nav>;

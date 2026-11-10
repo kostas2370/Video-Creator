@@ -29,6 +29,24 @@ def framing_filter(clip):
     )
 
 
+def cut_filter(clip):
+    """Trim both streams to identical intervals and join on a fresh timeline."""
+    parts, inputs = [], []
+    for index, segment in enumerate(clip.segments):
+        start, end = segment["start"] - clip.start, segment["end"] - clip.start
+        parts.extend(
+            [
+                f"[0:v]trim=start={start:.6f}:end={end:.6f},setpts=PTS-STARTPTS[v{index}]",
+                f"[0:a]atrim=start={start:.6f}:end={end:.6f},asetpts=PTS-STARTPTS[a{index}]",
+            ]
+        )
+        inputs.append(f"[v{index}][a{index}]")
+    parts.append(
+        "".join(inputs) + f"concat=n={len(inputs)}:v=1:a=1[cutvideo][cutaudio]"
+    )
+    return ";".join(parts)
+
+
 def export_clip(clip_id, token):
     rows = Clip.objects.filter(pk=clip_id, job_id=token)
     if not update_jobs(
@@ -42,6 +60,8 @@ def export_clip(clip_id, token):
             raise ValueError("Inactive account")
         with tempfile.TemporaryDirectory(prefix="clip-export-") as directory:
             graph = framing_filter(clip)
+            if clip.segments:
+                graph = cut_filter(clip) + ";" + graph.replace("[0:v]", "[cutvideo]")
             if clip.captions and clip.words:
                 style = project_caption_style(clip)
                 write_ass(
@@ -63,13 +83,17 @@ def export_clip(clip_id, token):
                     "-i",
                     clip.project.source.path,
                     "-t",
-                    str(clip.end - clip.start),
+                    str(
+                        sum(s["end"] - s["start"] for s in clip.segments)
+                        if clip.segments
+                        else clip.end - clip.start
+                    ),
                     "-filter_complex",
                     graph,
                     "-map",
                     "[out]",
                     "-map",
-                    "0:a:0",
+                    "[cutaudio]" if clip.segments else "0:a:0",
                     "-c:v",
                     "libx264",
                     "-preset",

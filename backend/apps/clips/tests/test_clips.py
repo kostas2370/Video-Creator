@@ -795,6 +795,100 @@ class ClipsTests(ApiTestCase):
         self.assertEqual(b.output.name, "media/saved.mp4")
         self.assertEqual(b.status, "COMPLETED")
 
+    def test_cut_sections_rebuild_captions_and_validate_bounds(self):
+        project = self.project()
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        segments = [{"start": 1, "end": 3}, {"start": 8, "end": 10}]
+        response = self.edit(clip, segments=segments)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["segments"], segments)
+        self.assertEqual(
+            [w["text"] for w in response.data["words"]],
+            ["Word1", "Word2", "Word8", "Word9"],
+        )
+        self.assertEqual(response.data["words"][2]["start"], 2)
+        for invalid in (
+            [{"start": 0, "end": 3}],
+            [{"start": 1, "end": 4}, {"start": 3, "end": 5}],
+            [{"start": 8, "end": 10}, {"start": 1, "end": 3}],
+            [{"start": 2, "end": 2}],
+            [{"start": 1, "end": float("inf")}],
+        ):
+            # Infinity is not valid JSON, but can reach the serializer directly.
+            from apps.clips.serializers import ClipEditSerializer
+
+            serializer = ClipEditSerializer(
+                clip, data={"segments": invalid}, context={"project": project}
+            )
+            self.assertFalse(serializer.is_valid(), invalid)
+        invalid_words = self.edit(clip, words=[{"text": "Late", "start": 7, "end": 8}])
+        self.assertEqual(invalid_words.status_code, 400)
+        response = self.edit(clip, start=2)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["segments"], [])
+        self.assertEqual(response.data["words"][0]["text"], "Word2")
+
+    def test_real_cut_export_joins_video_audio_and_caption_timing(self):
+        project = self.project()
+        # Blue before the removed interval, red after it: an uncut export stays blue.
+        marked = Path(self.media.name, "marked.mp4")
+        run_ffmpeg(
+            [
+                "-i",
+                project.source.path,
+                "-vf",
+                "drawbox=color=red:t=fill:enable='gte(t,6)'",
+                "-c:a",
+                "copy",
+                str(marked),
+            ]
+        )
+        with marked.open("rb") as file:
+            project.source.save("marked.mp4", File(file))
+        clip = Clip.objects.get(pk=self.add(project).data["id"])
+        response = self.edit(
+            clip, segments=[{"start": 1, "end": 2}, {"start": 8, "end": 9}]
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        queue_exports(project, [clip.pk])
+        clip.refresh_from_db()
+        export_clip(clip.pk, clip.job_id)
+        clip.refresh_from_db()
+        self.assertEqual(clip.status, "COMPLETED", clip.error)
+        metadata = video_metadata(clip.output.path)
+        self.assertAlmostEqual(metadata["duration"], 2, delta=0.15)
+        self.assertTrue(metadata["audio"])
+        self.assertEqual((metadata["width"], metadata["height"]), (720, 1280))
+        self.assertEqual(clip.words[1]["start"], 1)
+        colors = []
+        for time in (0.5, 1.5):
+            frame = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-ss",
+                    str(time),
+                    "-i",
+                    clip.output.path,
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    "scale=1:1",
+                    "-f",
+                    "rawvideo",
+                    "-pix_fmt",
+                    "rgb24",
+                    "pipe:1",
+                ],
+                check=True,
+                capture_output=True,
+                timeout=30,
+            ).stdout
+            colors.append(tuple(frame))
+        self.assertGreater(colors[0][2], colors[0][0] + 100)
+        self.assertGreater(colors[1][0], colors[1][2] + 100)
+
     def test_export_duplicate_delivery_does_not_render_twice(self):
         project = self.project()
         clip = Clip.objects.create(

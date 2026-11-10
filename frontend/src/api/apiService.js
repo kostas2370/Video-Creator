@@ -93,6 +93,7 @@ export const updateMusicAudio = (id, data) => patch(action("videos", id, "audio"
 
 export const applyAutoMotion = (id, intensity, preset = "NONE", accents = true) => patch(action("videos", id, "auto_motion"), { motion_intensity: intensity, animation_preset: preset, animation_accents: accents }, callerHandlesErrors);
 export const updateSceneMotion = (id, changes) => patch(action("scenes", id, "motion"), changes, callerHandlesErrors);
+export const updateSceneCuts = (id, changes) => patch(action("scenes", id, "cuts"), changes, callerHandlesErrors);
 export const updateSceneTiming = (id, changes) => patch(action("scenes", id, "timing"), changes, callerHandlesErrors);
 export const updateSceneTransition = (id, changes) => patch(action("scenes", id, "transition"), changes, callerHandlesErrors);
 export const updateScene = (id, data) => sceneOperation(id, () => patch(detail("scenes", id), data));

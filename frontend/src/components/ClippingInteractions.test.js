@@ -269,3 +269,29 @@ it("shows End of video while a YouTube duration is unknown and updates from prog
   await act(async () => stream.options.onUpdate({ ...pending, duration: 10800, status: "TRANSCRIBING", has_transcript: false }));
   expect(screen.getByText(/Processing range: 130:00–180:00/)).toBeTruthy();
 });
+
+it("previews cuts, saves joined captions, and restores removed sections with undo", async () => {
+  api.saveClip.mockResolvedValue({ ok: false, message: "Retry save" });
+  const { container } = render(<ClipEditor project={projectFixture()} clip={clipFixture()} onSaved={vi.fn()} onClose={vi.fn()} />);
+  const video = container.querySelector("video:not([aria-hidden])");
+  const position = screen.getByLabelText("Clip preview position");
+  fireEvent.change(position, { target: { value: "3" } });
+  fireEvent.click(screen.getByRole("button", { name: "Split at playhead" }));
+  fireEvent.change(position, { target: { value: "6" } });
+  fireEvent.click(screen.getByRole("button", { name: "Split at playhead" }));
+  fireEvent.click(screen.getByRole("button", { name: /Section 2/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Remove selected section" }));
+  expect(position.max).toBe("9");
+  video.currentTime = 3.1;
+  fireEvent.timeUpdate(video);
+  expect(video.currentTime).toBe(6);
+  fireEvent.submit(screen.getByRole("button", { name: "Save clip", exact: true }).closest("form"));
+  await screen.findByText("Retry save");
+  const changes = api.saveClip.mock.calls[0][2];
+  expect(changes.segments).toEqual([{ start: 0, end: 3 }, { start: 6, end: 12 }]);
+  expect(changes.words.find(word => word.text === "Word6").start).toBe(3);
+  expect(changes.words.some(word => word.text === "Word4")).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Undo cut" }));
+  expect(position.max).toBe("12");
+  expect(screen.getByRole("button", { name: /Section 3/ })).toBeTruthy();
+});

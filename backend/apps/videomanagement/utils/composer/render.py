@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 from copy import copy
+from dataclasses import replace
 from pathlib import Path
 
 from django.conf import settings
@@ -23,6 +24,7 @@ from apps.videomanagement.utils.frames import save_video_frame
 from ...models import RENDERABLE_STATUSES, MotionStyle, TransitionStyle, VideoStatus
 from ...video_formats import output_size
 from ..audio_editing import narration_file, voice_tracks
+from ..cuts import joined_duration, timeline_sections
 from ..diagrams import diagram_icon_keys
 from ..file_utils import check_if_image, stored_file_exists
 from ..fonts import subtitles_filter
@@ -499,6 +501,42 @@ def final_graph(
         total += closing.duration
     visual = graph.filter(visuals, f"concat=n={len(visuals)}:v=1:a=0")
     audio = graph.filter(audios, f"concat=n={len(audios)}:v=0:a=1")
+    intro_duration = opening.duration if opening else 0
+    raw_segments = ([opening] if opening else []) + [
+        replace(segment, start=segment.start + intro_duration)
+        for segment in segments
+    ]
+    if video.outro:
+        raw_segments.append(asset_segment(video.outro, "outro", total - closing.duration))
+    sections = timeline_sections(raw_segments)
+    edited_duration = joined_duration(sections)
+    if edited_duration < total - 1e-9:
+        count = len(sections)
+        visual_inputs = (
+            graph.filter([visual], f"split={count}", outputs=count)
+            if count > 1 else [visual]
+        )
+        audio_inputs = (
+            graph.filter([audio], f"asplit={count}", outputs=count)
+            if count > 1 else [audio]
+        )
+        streams = []
+        for index, section in enumerate(sections):
+            a, b = section["start"], section["end"]
+            streams.extend(
+                [
+                    graph.filter(
+                        [visual_inputs[index]],
+                        f"trim=start={a:.6f}:end={b:.6f},setpts=PTS-STARTPTS",
+                    ),
+                    graph.filter(
+                        [audio_inputs[index]],
+                        f"atrim=start={a:.6f}:end={b:.6f},asetpts=PTS-STARTPTS",
+                    ),
+                ]
+            )
+        visual, audio = graph.filter(streams, f"concat=n={count}:v=1:a=1", outputs=2)
+        total = edited_duration
     visual = graph.filter([visual], f"fps={fps},format=yuv420p")
     return graph, visual, audio, total
 

@@ -382,6 +382,26 @@ class BulkAutoMotionSerializer(MotionSettingsSerializer):
     animation_accents = serializers.BooleanField(default=True)
 
 
+class SceneCutSectionSerializer(serializers.Serializer):
+    start = FiniteFloat(min_value=0)
+    end = FiniteFloat(min_value=0)
+
+
+class SceneCutsSerializer(serializers.Serializer):
+    source_duration = FiniteFloat(min_value=0.05)
+    sections = SceneCutSectionSerializer(many=True, min_length=1, max_length=100)
+    previous = serializers.JSONField()
+
+    def validate(self, attrs):
+        previous_end = 0
+        for section in attrs["sections"]:
+            start, end = section["start"], section["end"]
+            if start < previous_end or end - start < 0.05 - 1e-9 or end > attrs["source_duration"] + 1e-9:
+                raise serializers.ValidationError("Keep sections in source order, within the scene, and at least 0.05 seconds long.")
+            previous_end = end
+        return attrs
+
+
 class SceneTimingSerializer(serializers.Serializer):
     duration = FiniteFloat(
         min_value=0.1, max_value=900, required=False, allow_null=True

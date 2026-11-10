@@ -9,6 +9,7 @@ EXPORT_STALE_AFTER = timedelta(minutes=30)
 CLIP_RENDER_FIELDS = (
     "start",
     "end",
+    "segments",
     "layout",
     "crop_position",
     "captions",
