@@ -1,31 +1,22 @@
 import React, { useState } from "react";
 import { reviseStoryboard } from "../api/apiService";
+import { useAIRequest } from "../hooks/useAIRequest";
 import { editorInput } from "./ui/EditorDialog";
 
 export function StoryboardRevision({ videoId, storyboard, disabled, onApply }) {
   const [instructions, setInstructions] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { busy, error, run } = useAIRequest();
   const [proposal, setProposal] = useState(null);
   const stale = proposal && proposal.source !== JSON.stringify(storyboard);
 
   const revise = async () => {
     if (disabled || busy || !instructions.trim()) return;
     const source = JSON.stringify(storyboard);
-    setBusy(true);
-    setError("");
-    try {
-      const response = await reviseStoryboard(videoId, { storyboard, instructions: instructions.trim() });
-      if (!response?.ok) {
-        setError(response?.message || "Could not revise the storyboard. Please try again.");
-      } else {
-        setProposal({ source, storyboard: response.data });
-      }
-    } catch {
-      setError("Could not revise the storyboard. Please try again.");
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      () => reviseStoryboard(videoId, { storyboard, instructions: instructions.trim() }),
+      data => setProposal({ source, storyboard: data }),
+      "Could not revise the storyboard. Please try again.",
+    );
   };
 
   return (
