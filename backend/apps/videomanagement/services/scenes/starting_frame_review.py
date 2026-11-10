@@ -86,9 +86,9 @@ def validate_review_source(scene, source_key=None, *, asset_id=None):
     return current_source_key
 
 
-def review_comparison_sheet(scene):
+def review_comparison_sheet(scene, *, has_reference):
     fields = [("STARTING FRAME TO REVIEW", scene.starting_asset.file)]
-    if stored_file_exists(scene.video.reference_image):
+    if has_reference:
         fields.insert(0, ("CHARACTER REFERENCE (identity only)", scene.video.reference_image))
     sheet = Image.new("RGB", (768 * len(fields), 800), "white")
     draw = ImageDraw.Draw(sheet)
@@ -118,15 +118,16 @@ def review_starting_frame(scene, source_key):
         "character_and_setting_guidance": settings.get("visual_continuity", ""),
         "style": context.get("style", "natural"),
     }
+    has_reference = stored_file_exists(scene.video.reference_image)
     try:
-        reference = review_comparison_sheet(scene)
+        reference = review_comparison_sheet(scene, has_reference=has_reference)
     except OSError as exc:
         raise ValidationError(
             "The review images could not be read. Restore them and retry."
         ) from exc
     with reference, video_usage(scene.video):
         response = get_reply(
-            build_starting_frame_review_prompt(brief, has_reference=stored_file_exists(scene.video.reference_image)),
+            build_starting_frame_review_prompt(brief, has_reference=has_reference),
             reply_format="text",
             gpt_model=scene.video.script_model,
             user=scene.video.created_by,
