@@ -29,6 +29,14 @@ class SubtitleExportTests(ApiTestCase):
         self.second = scene.make(video=self.video, file="speech.wav", text="Second scene.")
         self.url = reverse("video-subtitles", args=[self.video.pk])
 
+    def test_cuts_remove_cues_and_shift_later_scene_subtitles(self):
+        self.first.cuts = {"source_duration": 2.75, "sections": [{"start": 0, "end": 0.5}, {"start": 1.5, "end": 2.75}]}
+        self.first.save()
+        text = self.client.get(self.url).content.decode("utf-8")
+        self.assertIn("00:00:00,000 --> 00:00:00,500", text)
+        self.assertIn("00:00:00,500 --> 00:00:01,000", text)
+        self.assertIn("00:00:01,750 --> 00:00:03,750\nSecond scene.", text)
+
     def test_export_uses_recorded_audio_and_skips_pauses(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)

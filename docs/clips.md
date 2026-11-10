@@ -64,15 +64,22 @@ before sharing. There is no promise of engagement or virality.
 3. In **Clips**, review the suggested titles and explanations, or add a clip manually.
    The clip list stays beside the editor on desktop and scrolls horizontally on phones.
 4. Open **Preview & edit**. Adjust start/end times in minutes or select boundaries from transcript words.
+   Use **Split at playhead** to divide the clip, select a section, and choose
+   **Remove selected section** to close the gap. **Undo cut** restores the previous
+   split or removal during this editing session.
 5. Choose a portrait crop with horizontal positioning, or preserve the picture over a blurred background.
 6. Correct caption words and timing, choose a font/style, and save.
 7. Export individual clips or select several and use **Export selected**. Download each finished file.
 
-Exports are 720 × 1280 H.264/AAC MP4 at 30 fps. Every clip is one continuous excerpt
-of the original video with its original audio. Captions can be disabled. A project
-can contain up to 20 clips, each at most 180 seconds. Changing clip boundaries
+Exports are 720 × 1280 H.264/AAC MP4 at 30 fps. Clips keep the original audio and can join
+several sections of the source in their original order. Preview and export skip
+removed sections, and captions follow the shortened timeline. Captions can be disabled. A project
+can contain up to 20 clips, each at most 180 seconds. Changing clip boundaries resets cuts and
 rebuilds its captions from the source transcript; review corrections after trimming.
-Saving changes to picture, timing, or captions invalidates that clip's previous export;
+Deployments adding cuts must apply the `clips.0010_clip_segments` migration before
+starting the updated API and workers.
+
+Saving changes to picture, timing, cuts, or captions invalidates that clip's previous export;
 title-only and unchanged saves preserve it. Other clips remain unchanged.
 
 Use the **Uploaded** checkbox on a clip card to track clips you have uploaded

@@ -301,6 +301,7 @@ class Scene(UUIDModel):
         max_length=6, choices=MotionIntensity.choices, default=MotionIntensity.SUBTLE
     )
     pause_after = models.FloatField(default=0)
+    cuts = models.JSONField(default=dict, blank=True)
     transition_after = models.CharField(
         max_length=8, choices=TransitionStyle.choices, default=TransitionStyle.DEFAULT
     )

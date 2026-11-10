@@ -94,12 +94,18 @@ class ProjectUploadSerializer(serializers.Serializer):
         return data
 
 
+class ClipSegmentSerializer(serializers.Serializer):
+    start = serializers.FloatField(min_value=0)
+    end = serializers.FloatField(min_value=0)
+
+
 class ClipEditSerializer(serializers.Serializer):
     revision = serializers.DateTimeField(required=False)
     uploaded = serializers.BooleanField(required=False)
     title = serializers.CharField(max_length=100, required=False)
     start = serializers.FloatField(min_value=0, required=False)
     end = serializers.FloatField(min_value=0, required=False)
+    segments = ClipSegmentSerializer(many=True, max_length=100, required=False)
     layout = serializers.ChoiceField(choices=ClipLayout.choices, required=False)
     crop_position = serializers.FloatField(min_value=0, max_value=100, required=False)
     captions = serializers.BooleanField(required=False)
@@ -127,6 +133,25 @@ class ClipEditSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "Choose a clip within the processing range, up to 180 seconds long."
             )
+        bounds_changed = clip and (start != clip.start or end != clip.end)
+        segments = data.get(
+            "segments", [] if bounds_changed or not clip else clip.segments
+        )
+        previous_end = start
+        for segment in segments:
+            a, b = segment["start"], segment["end"]
+            if not (
+                math.isfinite(a)
+                and math.isfinite(b)
+                and start <= a < b <= end
+                and a >= previous_end
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "segments": "Keep sections in source order within the clip, without overlaps."
+                    }
+                )
+            previous_end = b
         if clip is None:
             data.setdefault("start", start)
             data.setdefault("end", end)
@@ -159,6 +184,7 @@ class ClipSerializer(serializers.ModelSerializer):
             "uploaded",
             "start",
             "end",
+            "segments",
             "layout",
             "crop_position",
             "captions",

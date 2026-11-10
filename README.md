@@ -160,6 +160,13 @@ cookies stay on the same site.
    with AI** checks a saved starting frame and suggests corrections before animation.
 4. **Refine the edit.** Reorder scenes, adjust audio and pauses, choose transitions
    and image motion, and add captions or overlays. Preview the timeline as you work.
+   Choose **Cut scene** in the scene header beside its duration to split at the playhead,
+   remove a selected section, undo or redo cuts, or restore the full scene. Scrub
+   the thumbnail timeline, zoom for precision, and use **S** to split, **Delete**
+   to remove, **←/→** to step frames, and **Space** to play or pause. **Save cuts**
+   applies the edit to playback, rendered video, and downloaded subtitles, keeping
+   audio, captions, overlays, and motion together. Cuts stay with their scene when
+   reordering. Changing the original scene duration resets its cuts.
 5. **Export and share.** Choose Draft, Standard, or High export quality and 24 or
    30 fps in the render dialog. Render the video, create a cover, and edit its metadata.
    Download the result or use **Publish** with a configured destination account.

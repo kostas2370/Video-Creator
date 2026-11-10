@@ -35,6 +35,7 @@ from apps.videomanagement.serializers.requests import (
     SceneMotionSerializer,
     SceneOrderSerializer,
     SceneTimingSerializer,
+    SceneCutsSerializer,
     SceneTransitionSerializer,
     SceneUpdateSerializer,
     StartingFrameSerializer,
@@ -57,6 +58,7 @@ from apps.videomanagement.services.scenes.editing import (
     update_scene_image,
     update_scene_motion,
     update_scene_timing,
+    update_scene_cuts,
     update_scene_transition,
 )
 from apps.videomanagement.services.scenes.jobs import (
@@ -96,6 +98,7 @@ class SceneView(viewsets.GenericViewSet):
             "voiceover": VoiceoverUploadSerializer,
             "motion": SceneMotionSerializer,
             "timing": SceneTimingSerializer,
+            "cuts": SceneCutsSerializer,
             "transition": SceneTransitionSerializer,
             "partial_update": SceneUpdateSerializer,
             "generate": SceneUpdateSerializer,
@@ -190,6 +193,15 @@ class SceneView(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         scene = update_scene_motion(owned_scene, **serializer.validated_data)
+        return Response(SceneSerializer(scene).data)
+
+    @swagger_auto_schema(request_body=SceneCutsSerializer)
+    @action(detail=True, methods=["PATCH"])
+    def cuts(self, request, pk=None):
+        owned_scene = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        scene = update_scene_cuts(owned_scene, **serializer.validated_data)
         return Response(SceneSerializer(scene).data)
 
     @swagger_auto_schema(request_body=SceneTimingSerializer)

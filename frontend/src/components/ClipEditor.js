@@ -4,7 +4,7 @@ import { CaptionLayer } from "./CaptionLayer";
 import { FontPicker } from "./FontPicker";
 import { editorButton, editorInput } from "./ui/EditorDialog";
 import { captionAt, captionGroups, defaultCaptionStyle, validateCaptionWords, resolveCaptionConfig } from "../utils/captions";
-import { formatTime, minutesToSeconds, validateClip, wordsForClip } from "../utils/clips";
+import { formatTime, minutesToSeconds, validateClip, wordsForClip, clipSegments, clipDuration, segmentAt, splitClip, removeClipSection } from "../utils/clips";
 import { API_HOST } from "../endpoints";
 import { saveClip } from "../api/apiService";
 
@@ -14,6 +14,10 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
   const [draft, setDraft] = useState(() => initialDraft || ({ ...clip, style: { ...defaultCaptionStyle, ...clip.style } }));
   useEffect(() => { onDraftChange?.(draft); }, [draft, onDraftChange]);
   const [time, setTime] = useState(0);
+  const [cutHistory, setCutHistory] = useState([]);
+  const [selectedSection, setSelectedSection] = useState(0);
+  const activeSegment = useRef(0);
+  const syncPreview = useRef(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [playing, setPlaying] = useState(false);
@@ -26,12 +30,15 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
     player.current?.pause();
     backdrop.current?.pause();
     if (Number.isFinite(draft.start) && draft.start >= 0) {
-      if (player.current) player.current.currentTime = draft.start;
-      if (backdrop.current) backdrop.current.currentTime = draft.start;
+      const start = clipSegments(draft)[0].start;
+      if (player.current) player.current.currentTime = start;
+      if (backdrop.current) backdrop.current.currentTime = start;
     }
     setTime(0);
-  }, [draft.start, draft.end]);
-  const duration = draft.end - draft.start;
+    activeSegment.current = 0;
+  }, [draft.start, draft.end, draft.segments]);
+  const segments = clipSegments(draft);
+  const duration = clipDuration(draft);
   const groups = useMemo(() => captionGroups(draft.words, draft.style.preset), [draft.words, draft.style.preset]);
   const cue = captionAt(groups, time, draft.style.preset);
   const config = resolveCaptionConfig(draft.style.preset, draft.style);
@@ -40,27 +47,70 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
   const trim = (key, value) => {
     player.current?.pause();
     setDraft(current => {
-      const next = { ...current, [key]: value };
+      const next = { ...current, [key]: value, segments: [] };
       next.words = wordsForClip(project.words, next.start, next.end);
       return next;
     });
+    setCutHistory([]);
+    setSelectedSection(0);
     setTime(0);
   };
+  const applyCut = next => {
+    if (!next) return;
+    player.current?.pause();
+    setCutHistory(history => [...history, { segments: draft.segments || [], words: draft.words }]);
+    setDraft(next);
+    setSelectedSection(0);
+    setError("");
+  };
+  const undoCut = () => {
+    const previous = cutHistory[cutHistory.length - 1];
+    if (!previous) return;
+    player.current?.pause();
+    setDraft(current => ({ ...current, ...previous }));
+    setCutHistory(history => history.slice(0, -1));
+    setSelectedSection(0);
+  };
   const seek = relative => {
-    if (player.current && Number.isFinite(relative) && Number.isFinite(draft.start)) player.current.currentTime = draft.start + relative;
+    if (!Number.isFinite(relative) || !Number.isFinite(draft.start)) return;
+    const target = segmentAt(segments, relative);
+    activeSegment.current = target.index;
+    if (player.current) player.current.currentTime = target.source;
+    if (backdrop.current) backdrop.current.currentTime = target.source;
     setTime(relative);
   };
   const sync = event => {
     const video = event.currentTarget;
     if (validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0)) { video.pause(); return; }
-    if (video.currentTime >= draft.end) {
-      video.pause();
-      if (video.currentTime > draft.end) video.currentTime = draft.end;
+    let index = Math.min(activeSegment.current, segments.length - 1);
+    let segment = segments[index];
+    if (video.currentTime >= segment.end) {
+      if (index < segments.length - 1) {
+        index += 1;
+        segment = segments[index];
+        activeSegment.current = index;
+        video.currentTime = segment.start;
+      } else {
+        video.pause();
+        if (video.currentTime > segment.end) video.currentTime = segment.end;
+      }
     }
-    if (video.currentTime < draft.start) video.currentTime = draft.start;
-    setTime(Math.min(duration, Math.max(0, video.currentTime - draft.start)));
+    if (video.currentTime < segment.start) video.currentTime = segment.start;
+    const offset = segments.slice(0, index).reduce((total, s) => total + s.end - s.start, 0);
+    setTime(Math.min(duration, Math.max(0, offset + video.currentTime - segment.start)));
     if (backdrop.current && Math.abs(backdrop.current.currentTime - video.currentTime) > 0.2) backdrop.current.currentTime = video.currentTime;
   };
+  syncPreview.current = sync;
+  useEffect(() => {
+    if (!playing) return;
+    let frame;
+    const update = () => {
+      if (player.current) syncPreview.current({ currentTarget: player.current });
+      frame = requestAnimationFrame(update);
+    };
+    frame = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frame);
+  }, [playing]);
   const submit = async event => {
     event.preventDefault();
     const message = validateClip(draft.start, draft.end, project.range_end ?? project.duration, project.range_start ?? 0) || validateCaptionWords(draft.words, duration);
@@ -93,7 +143,7 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
           <div className="min-w-0 space-y-4">
             <label className="block text-sm font-medium">Clip title<input required maxLength={100} value={draft.title} onChange={event => edit("title", event.target.value)} className={`${editorInput} mt-2`} /></label>
             <div className="grid grid-cols-2 gap-3">{["start", "end"].map(key => <label key={key} className="text-sm">{key === "start" ? "Start" : "End"} (minutes)<input type="number" required min={(project.range_start ?? 0) / 60} max={(project.range_end ?? project.duration) / 60} step="any" value={Number.isFinite(draft[key]) ? draft[key] / 60 : ""} onChange={event => trim(key, event.target.value === "" ? NaN : minutesToSeconds(event.target.value))} className={`${editorInput} mt-2`} /></label>)}</div>
-            <p className="text-xs text-gray-500">{Number.isFinite(duration) ? `${duration.toFixed(1)} seconds` : "Enter clip times"} · Changing the trim rebuilds captions from the original transcript.</p>
+            <p className="text-xs text-gray-500">{Number.isFinite(duration) ? `${duration.toFixed(1)} seconds` : "Enter clip times"} · Changing the trim resets cuts and rebuilds captions from the original transcript.</p>
             <label className="block text-sm">Portrait layout<select value={draft.layout} onChange={event => edit("layout", event.target.value)} className={`${editorInput} mt-2`}><option value="FIT">Full picture with blurred background</option><option value="CROP">Crop to portrait</option></select></label>
             {draft.layout === "CROP" && <label className="block text-sm">Horizontal framing<input aria-label="Horizontal framing" type="range" min={0} max={100} value={draft.crop_position} onChange={event => edit("crop_position", Number(event.target.value))} className="mt-2 w-full" /><span className="flex justify-between text-xs text-gray-500"><span>Left</span><span>Right</span></span></label>}
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.captions} onChange={event => edit("captions", event.target.checked)} />Show captions</label>
@@ -101,6 +151,17 @@ export function ClipEditor({ project, clip, onSaved, onClose, initialDraft, onDr
 
           </div>
         </div>
+        <section aria-label="Cut clip" className="mt-6 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+          <h3 className="font-semibold">Cut clip</h3>
+          <p className="mt-1 text-xs text-gray-500">Move the preview to a cut point, split, then select a section to remove. Remaining sections join automatically with audio and captions.</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button type="button" disabled={!splitClip(draft, time)} onClick={() => applyCut(splitClip(draft, time))} className={editorButton}>Split at playhead</button>
+            <button type="button" disabled={segments.length < 2} onClick={() => applyCut(removeClipSection(draft, selectedSection))} className="min-h-11 rounded-lg border border-gray-300 px-3 text-sm disabled:opacity-40">Remove selected section</button>
+            <button type="button" disabled={!cutHistory.length} onClick={undoCut} className="min-h-11 px-3 text-sm disabled:opacity-40">Undo cut</button>
+          </div>
+          <div aria-label="Clip sections" className="mt-3 flex gap-2 overflow-x-auto pb-2">{segments.map((segment, index) => <button key={index} type="button" aria-pressed={selectedSection === index} onClick={() => { setSelectedSection(index); seek(segments.slice(0, index).reduce((total, s) => total + s.end - s.start, 0)); }} className={`min-h-11 shrink-0 rounded-lg border px-3 py-2 text-left text-xs ${selectedSection === index ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200" : "border-gray-200 dark:border-gray-600"}`}><span className="block font-semibold">Section {index + 1}</span><span>Source {segment.start.toFixed(2)}–{segment.end.toFixed(2)}s · {(segment.end - segment.start).toFixed(2)}s</span></button>)}</div>
+          <p role="status" className="mt-2 text-xs text-gray-500">{segments.length} {segments.length === 1 ? "section" : "sections"} · {Number.isFinite(duration) ? duration.toFixed(2) : "0.00"}s after cuts</p>
+        </section>
         <details className="mt-6 min-w-0 border-t border-gray-200 pt-4 dark:border-gray-700"><summary className="cursor-pointer font-semibold">Choose boundaries from the transcript</summary><div className="my-3 flex gap-3 text-sm">{["start", "end"].map(value => <label key={value} className="flex items-center gap-2"><input type="radio" name="boundary" checked={boundary === value} onChange={() => setBoundary(value)} />Set {value}</label>)}</div><div className="max-h-60 overflow-y-auto rounded-xl bg-gray-50 p-3 text-sm break-words leading-8 dark:bg-gray-900">{project.words.slice(transcriptPage * 150, (transcriptPage + 1) * 150).map((word, index) => <button key={index} type="button" title={`Set ${boundary} at ${formatTime(word[boundary])}`} onClick={() => trim(boundary, word[boundary])} className={`mr-1 min-h-10 rounded px-1 hover:bg-blue-200 dark:hover:bg-blue-800 ${word.start >= draft.start && word.end <= draft.end ? "bg-blue-100 dark:bg-blue-950" : ""}`}>{word.text}</button>)}</div>{transcriptPages > 1 && <div className="mt-3 flex justify-between text-sm"><button type="button" disabled={!transcriptPage} onClick={() => setTranscriptPage(value => value - 1)}>Previous words</button><span>{transcriptPage + 1} / {transcriptPages}</span><button type="button" disabled={transcriptPage + 1 >= transcriptPages} onClick={() => setTranscriptPage(value => value + 1)}>Next words</button></div>}</details>
         {draft.captions && <details className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700"><summary className="mb-4 cursor-pointer font-semibold">Edit caption words and timing</summary><CaptionWordEditor words={draft.words} onChange={words => edit("words", words)} duration={Math.max(0, duration)} time={time} disabled={working} onSeek={seek} onError={setError} emptyMessage="No spoken words in this excerpt." /></details>}
         <div className="clip-savebar sticky bottom-0 z-10 -mx-4 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 dark:border-gray-700 dark:bg-gray-800/95"><p className="text-xs text-gray-500">{working ? "Saving your changes…" : "Save your changes before exporting."}</p><button className={editorButton} type="submit">{working ? "Saving…" : "Save clip"}</button></div>

@@ -90,3 +90,15 @@ it("shows scene-relative time when previewing a later scene", async () => {
   expect(screen.getByText("0:02 / 0:06")).toBeTruthy();
   expect(screen.getByRole("img", { name: "Scene 2 preview" })).toBeTruthy();
 });
+
+it("seeks across removed sections using joined output time and source caption timing", async () => {
+  getVideoPreview.mockResolvedValueOnce({ ok: true, data: { ...manifest, playback_sections: [{ start: 1, end: 2 }, { start: 7, end: 10 }] } });
+  render(<VideoPreview video={{ id: "cut-project", status: "READY", scenes: [] }} compact />);
+  await waitFor(() => expect(screen.getByLabelText("Preview playhead").max).toBe("4"));
+  const slider = screen.getByLabelText("Preview playhead");
+  expect(slider.value).toBe("0");
+  expect(screen.getByRole("img", { name: "Scene 1 preview" })).toBeTruthy();
+  fireEvent.change(slider, { target: { value: "1.5" } });
+  expect(screen.getByRole("img", { name: "Scene 2 preview" })).toBeTruthy();
+  expect(screen.getByText("0:01 / 0:04")).toBeTruthy();
+});

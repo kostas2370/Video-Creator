@@ -71,6 +71,7 @@ class Clip(TranscribedMediaModel):
     uploaded = models.BooleanField(default=False)
     start = models.FloatField()
     end = models.FloatField()
+    segments = models.JSONField(default=list, blank=True)
     layout = models.CharField(
         max_length=10,
         choices=ClipLayout.choices,
