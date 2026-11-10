@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from .fields import StrictCharField
-
 
 class StartingFrameReviewRequestSerializer(serializers.Serializer):
     asset_id = serializers.UUIDField()
@@ -11,15 +9,15 @@ class StartingFrameReviewFindingSerializer(serializers.Serializer):
     category = serializers.ChoiceField(
         choices=["character", "shot", "composition", "quality"]
     )
-    issue = StrictCharField(max_length=500)
-    fix = StrictCharField(max_length=500)
+    issue = serializers.CharField(max_length=500)
+    fix = serializers.CharField(max_length=500)
 
 
 class StartingFrameReviewResultSerializer(serializers.Serializer):
     verdict = serializers.ChoiceField(choices=["ready", "needs_changes", "uncertain"])
-    summary = StrictCharField(max_length=800)
+    summary = serializers.CharField(max_length=800)
     findings = StartingFrameReviewFindingSerializer(many=True, max_length=6)
-    suggested_description = StrictCharField(max_length=2000, allow_blank=True)
+    suggested_description = serializers.CharField(max_length=2000, allow_blank=True)
 
     def validate(self, attrs):
         if attrs["verdict"] == "ready" and attrs["findings"]:

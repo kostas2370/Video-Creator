@@ -222,10 +222,10 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             {**self.review, "verdict": "ready"},
             {**self.review, "findings": []},
             {**self.review, "findings": self.review["findings"] * 7},
-            {**self.review, "summary": 42},
-            {**self.review, "suggested_description": 42},
-            {**self.review, "findings": [{**self.review["findings"][0], "issue": 42}]},
-            {**self.review, "findings": [{**self.review["findings"][0], "fix": 42}]},
+            {**self.review, "summary": True},
+            {**self.review, "suggested_description": True},
+            {**self.review, "findings": [{**self.review["findings"][0], "issue": True}]},
+            {**self.review, "findings": [{**self.review["findings"][0], "fix": True}]},
         ]:
             with self.subTest(value=value):
                 self.provider.return_value = StringIO(json.dumps(value))
