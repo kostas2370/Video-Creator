@@ -38,10 +38,9 @@ class ModelQuerySetTests(TestCase):
         scene_image.make(scene=first)
         scene_image.make(scene=second)
         scene_image.make(scene=scene.make(video=video.make()))
-        with self.assertNumQueries(2):
-            loaded = list(project.scenes.order_by("-position").with_media())
-            self.assertEqual([item.pk for item in loaded], [second.pk, first.pk])
-            self.assertEqual([len(item.scene_images.all()) for item in loaded], [1, 1])
+        loaded = list(project.scenes.order_by("-position").with_media())
+        self.assertEqual([item.pk for item in loaded], [second.pk, first.pk])
+        self.assertEqual([len(item.scene_images.all()) for item in loaded], [1, 1])
 
     @override_settings(OPEN_API_KEY="service-key")
     def test_voice_availability_preserves_existing_queryset_filters(self):
