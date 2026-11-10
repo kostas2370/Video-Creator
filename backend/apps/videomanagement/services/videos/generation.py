@@ -10,6 +10,8 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 from slugify import slugify
 
+from apps.usage.models import GenerationEstimate
+from apps.usage.scenarios import project_estimate
 from apps.usage.services import video_usage
 from apps.videomanagement.hooks import run_video_hooks
 from apps.videomanagement.integrations.llm import get_reply
@@ -53,9 +55,6 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
     Video providers stay sequential: they can use narration duration and a previous
     clip's final frame as an input to the next scene.
     """
-    from apps.usage.models import GenerationEstimate
-    from apps.usage.scenarios import project_estimate
-
     GenerationEstimate.objects.get_or_create(video=video, defaults={"estimate": project_estimate(video)})
     if not image_mode or ImageProviderRegistry.is_video(
         provider, user=video.created_by, mode=image_mode

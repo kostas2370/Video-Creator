@@ -10,6 +10,7 @@ from apps.videomanagement.exceptions import (
     GenerationQueueUnavailable,
     VideoEditConflict,
 )
+from apps.videomanagement.integrations.visuals import ImageProviderRegistry
 from apps.videomanagement.models import (
     Avatar,
     Intro,
@@ -68,8 +69,6 @@ def _apply_video_changes(video, changes):
         video.settings or {}
     ).get("narration", True)
     if changes.get("review_starting_frames"):
-        from apps.videomanagement.integrations.visuals import ImageProviderRegistry
-
         provider = (video.settings or {}).get("provider")
         if not (
             video.mode == "AI"

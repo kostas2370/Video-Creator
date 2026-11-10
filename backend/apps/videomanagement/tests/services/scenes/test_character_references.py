@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from uuid import uuid4
 from unittest.mock import Mock, patch
 
 from django.test import TestCase, override_settings
@@ -167,8 +168,6 @@ class CharacterShotReferenceTests(TestCase):
 
     def test_stale_image_cannot_be_approved_or_animated(self):
         self.prepare()
-        from uuid import uuid4
-
         with self.assertRaises(ValidationError):
             save_starting_frame(self.scene, operation="approve", asset_id=uuid4())
         self.approve()

@@ -2,6 +2,7 @@ import json
 from io import StringIO
 from unittest.mock import patch
 
+from rest_framework.exceptions import ValidationError
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
@@ -79,8 +80,6 @@ class NarrationSetupTests(ApiTestCase):
         self.assertEqual(write.call_args.kwargs["gpt_model"], "legacy-selected")
 
     def test_malformed_or_incomplete_ai_drafts_do_not_change_the_project(self):
-        from rest_framework.exceptions import ValidationError
-
         for rows in (
             None,
             "not a scene list",
@@ -102,8 +101,6 @@ class NarrationSetupTests(ApiTestCase):
         self.assertEqual(self.first.text, "Camera pans across a bank.")
 
     def test_missing_provider_response_is_reported_as_invalid_draft(self):
-        from rest_framework.exceptions import ValidationError
-
         with patch(
             "apps.videomanagement.services.videos.narration_setup.get_reply",
             return_value=None,

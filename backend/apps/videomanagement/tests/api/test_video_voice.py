@@ -5,6 +5,7 @@ from django.urls import reverse
 from apps.usermanagement.baker_recipes import user
 
 from ...baker_recipes import avatar, scene, voice_model
+from apps.videomanagement.tasks import regenerate_narration_task
 from .base import ApiTestCase
 
 
@@ -31,8 +32,6 @@ class VideoVoiceTests(ApiTestCase):
         self.assertEqual(response.data["video"]["voice_model"], self.voice.pk)
         narrate.assert_called_once()
         self.assertEqual(self.video.status, "GENERATION")
-        from apps.videomanagement.tasks import regenerate_narration_task
-
         with patch("apps.videomanagement.tasks.regenerate_scene_narration") as speech:
             regenerate_narration_task.run(
                 *narrate.call_args.args, **narrate.call_args.kwargs
@@ -94,8 +93,6 @@ class VideoVoiceTests(ApiTestCase):
         self.assertEqual(self.video.settings["provider"], "gemini-video")
         self.assertEqual(self.video.status, "GENERATION")
         queue.assert_called_once()
-        from apps.videomanagement.tasks import regenerate_narration_task
-
         with patch("apps.videomanagement.tasks.regenerate_scene_narration") as speech:
             regenerate_narration_task.run(
                 *queue.call_args.args, **queue.call_args.kwargs
@@ -224,8 +221,6 @@ class VideoVoiceTests(ApiTestCase):
         )
 
     def test_failed_narration_unlocks_project_and_can_be_queued_again(self):
-        from apps.videomanagement.tasks import regenerate_narration_task
-
         scene.make(video=self.video)
         with patch(
             "apps.videomanagement.tasks.regenerate_narration_task.delay"
@@ -284,8 +279,6 @@ class VideoVoiceTests(ApiTestCase):
         self.assertNotEqual(self.video.title, "Changed")
 
     def test_changing_voice_does_not_clear_an_unrelated_generation_failure(self):
-        from apps.videomanagement.tasks import regenerate_narration_task
-
         self.video.status = "FAILED"
         self.video.save(update_fields=["status"])
         scene.make(video=self.video)
