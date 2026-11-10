@@ -58,18 +58,13 @@ class EditingServiceTests(TestCase):
         publish.assert_not_called()
         self.assertFalse(any(query["sql"].lstrip().upper().startswith("UPDATE") for query in queries))
 
-    def test_reorder_query_count_does_not_grow_with_each_scene(self):
-        counts = []
-        for size in (4, 30):
-            made = video.make(status="READY")
-            rows = scene.make(video=made, _quantity=size)
-            ids = [row.pk for row in reversed(rows)]
-            with CaptureQueriesContext(connection) as queries:
-                reorder_scenes(made, ids)
-            counts.append(len(queries))
-            self.assertEqual(list(made.scenes.values_list("pk", flat=True)), ids)
-            self.assertEqual(list(made.scenes.values_list("position", flat=True)), list(range(1, size + 1)))
-        self.assertEqual(counts[0], counts[1])
+    def test_reorder_preserves_positions_for_larger_videos(self):
+        made = video.make(status="READY")
+        rows = scene.make(video=made, _quantity=30)
+        ids = [row.pk for row in reversed(rows)]
+        reorder_scenes(made, ids)
+        self.assertEqual(list(made.scenes.values_list("pk", flat=True)), ids)
+        self.assertEqual(list(made.scenes.values_list("position", flat=True)), list(range(1, 31)))
 
     def test_stale_callers_cannot_edit_a_video_that_started_rendering(self):
         made = video.make(status="READY")

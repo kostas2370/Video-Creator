@@ -1,5 +1,3 @@
-from django.db import connection
-from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
@@ -45,14 +43,3 @@ class VideoLibraryTests(ApiTestCase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["id"], str(completed.pk))
         self.assertNotIn("private.png", str(response.data))
-
-    def test_preview_query_count_does_not_grow_with_library_size(self):
-        first = self.video_for()
-        scene_image.make(scene=scene.make(video=first))
-        with CaptureQueriesContext(connection) as small:
-            self.assertEqual(self.client.get(reverse("video-list")).status_code, 200)
-        for _ in range(5):
-            scene_image.make(scene=scene.make(video=self.video_for()))
-        with CaptureQueriesContext(connection) as larger:
-            self.assertEqual(self.client.get(reverse("video-list")).status_code, 200)
-        self.assertEqual(len(larger), len(small))

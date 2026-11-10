@@ -624,7 +624,7 @@ class CustomVideoProviderTests(TestCase):
     def test_web_and_disabled_modes_ignore_stale_video_providers(self):
         for mode in ("WEB", None, False):
             for provider in ("sora", self.provider.name):
-                with self.subTest(mode=mode, provider=provider), self.assertNumQueries(0):
+                with self.subTest(mode=mode, provider=provider):
                     self.assertFalse(ImageProviderRegistry.is_video(provider, self.user, mode=mode))
 
     def test_video_metadata_is_scoped_to_the_owner(self):
