@@ -37,9 +37,20 @@ def joined_duration(sections):
     return sum(s["end"] - s["start"] for s in sections)
 
 
+def continuous_sections(sections):
+    """A split without removed footage must not split a caption phrase."""
+    result = []
+    for section in sections:
+        if result and abs(result[-1]["end"] - section["start"]) < 1e-9:
+            result[-1]["end"] = section["end"]
+        else:
+            result.append(dict(section))
+    return result
+
+
 def cut_cues(cues, sections):
     result, offset = [], 0
-    for section in sections:
+    for section in continuous_sections(sections):
         for cue in cues:
             start, end = max(cue.start, section["start"]), min(cue.end, section["end"])
             if end > start:

@@ -1,3 +1,5 @@
+import { continuousSections } from "./sections";
+
 export const defaultCaptionStyle = { preset: "TIKTOK", font: "DejaVu Sans", size: 6, color: "#ffffff", highlight: "#ffe846", position: "bottom" };
 export const captionBusy = status => ["QUEUED", "TRANSCRIBING", "RENDER_QUEUED", "RENDERING"].includes(status);
 
@@ -79,4 +81,17 @@ export function insertCaptionWord(words, time, duration) {
   const end = Math.floor(Math.min(duration, words[index]?.start ?? duration, start + 0.3) * 1000) / 1000;
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return null;
   return { index, words: [...words.slice(0, index), { text: "", start, end }, ...words.slice(index)] };
+}
+
+
+export function cutCaptionGroups(words, sections, preset) {
+  const scenes = new Map();
+  for (const word of words) {
+    if (!scenes.has(word.scene_id)) scenes.set(word.scene_id, []);
+    scenes.get(word.scene_id).push(word);
+  }
+  return continuousSections(sections).flatMap(section => [...scenes.values()].flatMap(sceneWords => captionGroups(
+    sceneWords.filter(word => word.end > section.start + 1e-9 && word.start < section.end - 1e-9)
+      .map(word => ({ ...word, start: Math.max(word.start, section.start), end: Math.min(word.end, section.end) })), preset,
+  ))).sort((a, b) => a[0].start - b[0].start);
 }

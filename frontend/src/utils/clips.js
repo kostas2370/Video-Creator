@@ -1,3 +1,6 @@
+import { sectionsDuration, splitSections, removeSection } from "./sections";
+export { segmentAt } from "./sections";
+
 export const projectBusy = status => ["QUEUED", "DOWNLOADING", "TRANSCRIBING", "ANALYZING"].includes(status);
 export const clipBusy = status => ["QUEUED", "RENDERING"].includes(status);
 export const clipStatus = { READY: "Ready to edit", QUEUED: "Export queued", RENDERING: "Exporting…", COMPLETED: "Export ready", FAILED: "Export needs attention" };
@@ -33,26 +36,15 @@ export async function reconcileClipProgress(current, progress, { loadProject, lo
 
 // Segments use original source times; caption words use the joined output timeline.
 export const clipSegments = clip => clip.segments?.length ? clip.segments : [{ start: clip.start, end: clip.end }];
-export const clipDuration = clip => clipSegments(clip).reduce((total, s) => total + s.end - s.start, 0);
-export function segmentAt(segments, time) {
-  let offset = 0;
-  for (let index = 0; index < segments.length; index++) {
-    const segment = segments[index];
-    if (time < offset + segment.end - segment.start - 0.000001 || index === segments.length - 1) return { index, offset, source: Math.min(segment.end, segment.start + Math.max(0, time - offset)) };
-    offset += segment.end - segment.start;
-  }
-}
+export const clipDuration = clip => sectionsDuration(clipSegments(clip));
 export function splitClip(clip, time) {
-  if (!Number.isFinite(time) || !Number.isFinite(clipDuration(clip)) || time < 0 || time > clipDuration(clip)) return null;
-  const segments = clipSegments(clip);
-  const { index, source } = segmentAt(segments, time);
-  const segment = segments[index];
-  if (segments.length >= 100 || source - segment.start < 0.05 || segment.end - source < 0.05) return null;
-  return { ...clip, segments: [...segments.slice(0, index), { start: segment.start, end: source }, { start: source, end: segment.end }, ...segments.slice(index + 1)] };
+  const segments = splitSections(clipSegments(clip), time);
+  return segments ? { ...clip, segments } : null;
 }
 export function removeClipSection(clip, index) {
   const segments = clipSegments(clip);
-  if (segments.length <= 1 || !segments[index]) return null;
+  const kept = removeSection(segments, index);
+  if (!kept) return null;
   const start = segments.slice(0, index).reduce((total, s) => total + s.end - s.start, 0);
   const end = start + segments[index].end - segments[index].start;
   const duration = clipDuration(clip);
@@ -60,5 +52,5 @@ export function removeClipSection(clip, index) {
     ...wordsForClip(clip.words, 0, start),
     ...wordsForClip(clip.words, end, duration).map(word => ({ ...word, start: Number((word.start + start).toFixed(4)), end: Math.min(duration - (end - start), Number((word.end + start).toFixed(4))) })),
   ];
-  return { ...clip, segments: segments.filter((_, i) => i !== index), words };
+  return { ...clip, segments: kept, words };
 }

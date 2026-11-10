@@ -112,3 +112,33 @@ class VideoCutsTests(ApiTestCase):
         self.assertEqual(
             self.client.patch(self.url, payload, format="json").status_code, 404
         )
+
+    def test_full_video_cut_removes_deleted_words_from_preview_and_subtitles(self):
+        video = self.video_for(video_type="MANUAL", settings={"narration": False, "subtitles": True})
+        scene.make(video=video, text="Hello wrong world", audio_settings={"duration": 3})
+        preview_url = reverse("video-preview", args=[video.pk])
+        source = self.client.get(preview_url).data["cut_source"]
+        response = self.client.patch(reverse("video-cuts", args=[video.pk]), {
+            "source_duration": source["duration"], "source_key": source["key"], "previous": {},
+            "sections": [{"start": 0, "end": 1}, {"start": 2, "end": 3}],
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        preview = self.client.get(preview_url).data
+        self.assertEqual([cue["text"] for cue in preview["captions"]], ["Hello", "world"])
+        self.assertEqual([word["text"] for word in preview["caption_words"]], ["Hello", "wrong", "world"])
+        text = self.client.get(reverse("video-subtitles", args=[video.pk])).content.decode()
+        self.assertNotIn("wrong", text)
+        self.assertIn("00:00:00,000 --> 00:00:01,000\nHello", text)
+        self.assertIn("00:00:01,000 --> 00:00:02,000\nworld", text)
+
+    def test_split_without_removing_footage_does_not_repeat_subtitle_phrases(self):
+        video = self.video_for(video_type="MANUAL", settings={"narration": False, "subtitles": True})
+        scene.make(video=video, text="Hello wrong world", audio_settings={"duration": 3})
+        source = self.client.get(reverse("video-preview", args=[video.pk])).data["cut_source"]
+        response = self.client.patch(reverse("video-cuts", args=[video.pk]), {
+            "source_duration": source["duration"], "source_key": source["key"], "previous": {},
+            "sections": [{"start": 0, "end": 0.5}, {"start": 0.5, "end": 3}],
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        text = self.client.get(reverse("video-subtitles", args=[video.pk])).content.decode()
+        self.assertEqual(text, "1\n00:00:00,000 --> 00:00:03,000\nHello wrong world\n")

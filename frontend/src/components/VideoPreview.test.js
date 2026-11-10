@@ -102,3 +102,20 @@ it("seeks across removed sections using joined output time and source caption ti
   expect(screen.getByRole("img", { name: "Scene 2 preview" })).toBeTruthy();
   expect(screen.getByText("0:01 / 0:04")).toBeTruthy();
 });
+
+it("previews an original scene even when full-video cuts omit it", async () => {
+  getVideoPreview.mockResolvedValueOnce({ ok: true, data: { ...manifest, playback_sections: [{ start: 4, end: 8 }], cut_source: { sections: [{ start: 0, end: 2 }, { start: 3, end: 8 }] } } });
+  render(<VideoPreview video={{ id: "removed-scene", status: "READY" }} selectedSceneId="first" sceneOnly compact />);
+  await screen.findByRole("img", { name: "Scene 1 preview" });
+  await waitFor(() => expect(screen.getByLabelText("Preview playhead").max).toBe("3"));
+});
+it("rebuilds preview captions when cuts remove a word from a phrase", async () => {
+  const data = { ...manifest, duration: 3, segments: [{ id: "first", kind: "scene", label: "Scene 1", start: 0, duration: 3, base_duration: 3 }], playback_sections: [{ start: 0, end: 1 }, { start: 2, end: 3 }], caption_style: "CLASSIC", caption_words: [
+    { scene_id: "first", text: "Hello", start: 0, end: 1 }, { scene_id: "first", text: "unwanted", start: 1, end: 2 }, { scene_id: "first", text: "goodbye.", start: 2, end: 3 },
+  ] };
+  getVideoPreview.mockResolvedValueOnce({ ok: true, data });
+  const { container } = render(<VideoPreview video={{ id: "cut-captions", status: "READY" }} compact />);
+  await waitFor(() => expect(container.querySelector("[data-preview-caption]")?.textContent).toBe("Hello"));
+  fireEvent.change(screen.getByLabelText("Preview playhead"), { target: { value: "1" } });
+  expect(container.querySelector("[data-preview-caption]").textContent).toBe("goodbye.");
+});

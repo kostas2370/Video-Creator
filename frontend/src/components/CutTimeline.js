@@ -8,7 +8,7 @@ export { cutClock } from "../utils/cuts";
 
 // Decode a small filmstrip locally. Missing or cross-origin media keeps a usable timeline.
 function useFilmstrip(scene, duration) {
-  const source = scene.scene_image?.file;
+  const source = scene?.scene_image?.file;
   const url = source ? (/^https?:\/\//i.test(source) ? source : `${API_HOST}${source}`) : null;
   const [strip, setStrip] = useState({ source: null, frames: [] });
   useEffect(() => {

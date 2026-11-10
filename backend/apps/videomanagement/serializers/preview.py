@@ -150,6 +150,11 @@ class PreviewTimelineSerializer(serializers.Serializer):
     music = serializers.SerializerMethodField()
     playback_sections = serializers.SerializerMethodField()
 
+    caption_words = serializers.SerializerMethodField()
+
+    def get_caption_words(self, obj):
+        return obj.timeline.caption_words or []
+
     cut_source = serializers.SerializerMethodField()
     cuts_stale = serializers.SerializerMethodField()
 

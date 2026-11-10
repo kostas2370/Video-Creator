@@ -9,15 +9,13 @@ from apps.videomanagement.models import (
     TransitionStyle,
     VideoStatus,
 )
-from apps.videomanagement.services.captions.subtitles import scene_cues
+from apps.videomanagement.services.captions.subtitles import timeline_caption_words, timeline_cues
 from apps.videomanagement.services.scenes.timeline import (
     SegmentTiming,
     scene_segment,
 )
-from apps.videomanagement.utils.audio_editing import (
-    voice_tracks,
-)
 from apps.videomanagement.utils.captions.cues import CaptionCue
+from apps.videomanagement.utils.cuts import video_sections
 from apps.videomanagement.utils.timing import file_timing
 from apps.videomanagement.utils.transitions import default_transition, intro_transition
 
@@ -27,6 +25,7 @@ class PreviewTimeline:
     duration: float
     segments: list[SegmentTiming]
     captions: list[CaptionCue]
+    caption_words: list | None = None
 
 
 def asset_segment(asset, kind, start):
@@ -120,36 +119,7 @@ def preview_timeline(video):
     for index, scene in enumerate(scenes, start=1):
         segment = scene_segment(scene, index, offset, choices)
         scene_segments.append(segment)
-        if choices.get("subtitles", False):
-            captions.extend(
-                scene_cues(
-                    scene,
-                    offset=offset,
-                    duration=segment.narration_duration,
-                    highlight=True,
-                )
-            )
         offset += segment.duration
-    if choices.get("subtitles", False) and any(
-        scene.audio_settings.get("crossfade") for scene in scenes
-    ):
-        tracks = {track["id"]: track for track in voice_tracks(scene_segments)}
-        captions = []
-        for segment in scene_segments:
-            track = tracks.get(str(segment.content.pk))
-            caption_offset = (
-                track["start"] - segment.content.audio_settings.get("delay", 0)
-                if track
-                else segment.start
-            )
-            captions.extend(
-                scene_cues(
-                    segment.content,
-                    offset=caption_offset,
-                    duration=segment.narration_duration,
-                    highlight=True,
-                )
-            )
     apply_transitions(scene_segments, choices, opening)
     segments.extend(scene_segments)
 
@@ -157,4 +127,7 @@ def preview_timeline(video):
         closing = asset_segment(video.outro, "outro", offset)
         segments.append(closing)
         offset += closing.duration
-    return PreviewTimeline(duration=offset, segments=segments, captions=captions)
+    words = timeline_caption_words(segments) if choices.get("subtitles", False) else []
+    if words:
+        captions = timeline_cues(segments, sections=video_sections(video, segments), words=words, highlight=True)
+    return PreviewTimeline(duration=offset, segments=segments, captions=captions, caption_words=words)

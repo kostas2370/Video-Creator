@@ -2,13 +2,12 @@
 
 import re
 
-from apps.videomanagement.services.captions.subtitles import scene_cues
+from apps.videomanagement.services.captions.subtitles import timeline_cues
 from apps.videomanagement.utils.captions.styles import (
     resolve_style,
     video_caption_style,
 )
 
-from ..audio_editing import voice_tracks
 from .ass import (
     ass_color,
     ass_event,
@@ -68,34 +67,13 @@ def caption_ass_text(cue, *, style):
     return text.replace("\n", "\\N")
 
 
-def write_captions(path, segments, size):
+def write_captions(path, segments, size, *, sections=None):
     style = (
         video_caption_style(segments[0].content.video)
         if segments
         else resolve_style("CLASSIC")
     )
-    tracks = (
-        {track["id"]: track for track in voice_tracks(segments)}
-        if any(segment.content.audio_settings.get("crossfade") for segment in segments)
-        else {}
-    )
-    cues = []
-    for segment in segments:
-        scene = segment.content
-        track = tracks.get(str(scene.pk))
-        offset = (
-            track["start"] - scene.audio_settings.get("delay", 0)
-            if track
-            else segment.start
-        )
-        cues.extend(
-            scene_cues(
-                scene,
-                offset=offset,
-                duration=segment.narration_duration,
-                highlight=True,
-            )
-        )
+    cues = timeline_cues(segments, sections=sections, highlight=True)
     write_ass(path, cues, size, style)
 
 

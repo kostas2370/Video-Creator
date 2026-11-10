@@ -33,6 +33,7 @@ from ...models import Icon
 from ...utils.cuts import video_cut_source
 from ...services.videos.preview import preview_timeline
 from ...utils.diagrams import diagram_plan
+from ...utils.composer.captions import write_ass
 from ...utils.composer.render import Graph, make_video, render_scene_clip
 
 
@@ -365,6 +366,24 @@ class FFmpegRenderTests(TestCase):
         self.assertGreater(after_intro[:, :, 0].min(), 220)
         self.assertLess(after_intro[:, :, 2].max(), 20)
         self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 1.25, delta=0.05)
+
+    def test_full_video_cuts_rebuild_burned_in_caption_phrases(self):
+        self.row.video_type = "MANUAL"
+        self.row.settings.update(narration=False, subtitles=True, caption_style="CLASSIC")
+        self.row.save()
+        self.create_clip("caption-source.mp4", "blue", 3)
+        row = scene.make(video=self.row, text="Hello wrong world", is_last=False)
+        scene_image.make(scene=row, file="caption-source.mp4", with_audio=True)
+        source = video_cut_source(preview_timeline(self.row).segments)
+        self.row.cuts = {"source_duration": source["duration"], "source_key": source["key"], "sections": [{"start": 0, "end": 1}, {"start": 2, "end": 3}]}
+        self.row.save()
+        for direct in (True, False):
+            with self.subTest(direct=direct), override_settings(FFMPEG_DIRECT_RENDER=direct), patch(
+                "apps.videomanagement.utils.composer.captions.write_ass", wraps=write_ass,
+            ) as captions:
+                make_video(self.row)
+                self.assertEqual([cue.text for cue in captions.call_args.args[1]], ["Hello", "world"])
+                self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 2, delta=0.1)
 
     def test_full_video_cuts_cross_scenes_intro_and_outro_in_both_render_paths(self):
         self.row.settings.update(narration=False)

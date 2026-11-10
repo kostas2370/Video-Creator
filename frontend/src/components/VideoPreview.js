@@ -10,7 +10,8 @@ import { getVideoPreview } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { voiceGain, musicGain } from "./audioEnvelope";
 
-import { joinedPosition, sourcePosition, sectionsDuration, previewSections, cutClock, mapSections } from "../utils/cuts";
+import { joinedPosition, sourcePosition, sectionsDuration, previewSections, cutClock } from "../utils/cuts";
+import { captionAt, cutCaptionGroups } from "../utils/captions";
 import { imageMotion } from "../utils/motion";
 
 const mediaUrl = url => /^https?:\/\//i.test(url || "") ? url : `${API_HOST}${url}`;
@@ -113,7 +114,7 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
   const [preview, setPreview] = useState(null);
   const manifest = preview?.videoId === video?.id ? preview.manifest : null;
   const previewSegment = sceneOnly ? manifest?.segments.find(item => String(item.id) === String(selectedSceneId)) : null;
-  const playbackSections = useMemo(() => !sceneOnly && cutSections && manifest?.cut_source ? mapSections(manifest.cut_source.sections, cutSections) : previewSections(manifest, previewSegment, sceneOnly ? cutSections : undefined), [manifest, previewSegment, sceneOnly, cutSections]);
+  const playbackSections = useMemo(() => previewSections(manifest, previewSegment, cutSections), [manifest, previewSegment, cutSections]);
   const playbackStart = playbackSections[0]?.start || 0;
   const playbackEnd = playbackSections[playbackSections.length - 1]?.end || 0;
   const playbackDuration = sectionsDuration(playbackSections);
@@ -221,7 +222,9 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
   if (active?.fade_in && local < active.fade_in) opacity = local / active.fade_in;
   if (active?.fade_out && local > active.duration - active.fade_out) opacity = Math.min(opacity, (active.duration - local) / active.fade_out);
   const captionTime = previewSegment ? Math.min(time, playbackEnd - 0.000001) : time;
-  const cue = manifest?.captions?.find(c => captionTime >= c.start && captionTime < c.end);
+  const captionStyle = manifest?.caption_config || manifest?.caption_style;
+  const captionGroups = useMemo(() => manifest?.caption_words ? cutCaptionGroups(manifest.caption_words, playbackSections, captionStyle) : null, [manifest, playbackSections, captionStyle]);
+  const cue = captionGroups ? captionAt(captionGroups, captionTime, captionStyle) : manifest?.captions?.find(c => captionTime >= c.start && captionTime < c.end);
   const activeId = active?.id;
   useEffect(() => {
     if (!activeButton.current || !timeline.current) return;
@@ -254,7 +257,7 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
             <CaptionLayer cue={cue} style={manifest.caption_style} size={manifest.size} config={manifest.caption_config} />
           </div>
         </div>
-        <fieldset disabled={disabled || loading} className={`preview-transport mt-4 flex items-center gap-2 sm:gap-3 ${renderCutControls ? "cut-transport" : ""}`}>
+        <fieldset disabled={disabled || loading} className="preview-transport mt-4 flex items-center gap-2 sm:gap-3">
           <button type="button" aria-label={playing ? "Pause preview" : "Play preview"} onClick={togglePlayback} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-700">{playing ? <FaPause /> : <FaPlay />}</button>
           <button type="button" aria-label="Restart preview" onClick={() => seek(playbackStart)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"><FaUndo /></button>
           <input aria-label="Preview playhead" type="range" min="0" max={playbackDuration} step="0.01" value={joinedPosition(playbackSections, time)} onChange={event => seek(sourcePosition(playbackSections, Number(event.target.value)))} aria-hidden={renderCutControls ? true : undefined} tabIndex={renderCutControls ? -1 : undefined} className={renderCutControls ? "sr-only" : "min-w-0 flex-1 accent-blue-600"} />

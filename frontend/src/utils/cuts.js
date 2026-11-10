@@ -1,6 +1,6 @@
-import { segmentAt } from "./clips";
+import { segmentAt } from "./sections";
+export { sectionsDuration } from "./sections";
 
-export const sectionsDuration = sections => sections.reduce((total, s) => total + s.end - s.start, 0);
 export const sourcePosition = (sections, position) => sections.length ? segmentAt(sections, position).source : 0;
 export function joinedPosition(sections, source) {
   let offset = 0;
@@ -13,7 +13,8 @@ export function joinedPosition(sections, source) {
 export function previewSections(manifest, scene, override) {
   if (!manifest) return [];
   if (scene && override) return override.map(s => ({ start: scene.start + s.start, end: scene.start + s.end }));
-  const sections = manifest.playback_sections || [{ start: 0, end: manifest.duration }];
+  if (!scene && override && manifest.cut_source) return mapSections(manifest.cut_source.sections, override);
+  const sections = (scene ? manifest.cut_source?.sections : null) || manifest.playback_sections || [{ start: 0, end: manifest.duration }];
   return scene ? sections.map(s => ({ start: Math.max(s.start, scene.start), end: Math.min(s.end, scene.start + scene.duration) })).filter(s => s.end > s.start) : sections;
 }
 

@@ -448,8 +448,16 @@ def final_graph(
             )
             music = graph.filter([f"{index}:a"], ",".join(filters))
         audio = graph.filter([audio, music], "amix=inputs=2:duration=first:normalize=0")
+    intro_duration = opening.duration if opening else 0
+    raw_segments = ([opening] if opening else []) + [
+        replace(segment, start=segment.start + intro_duration) for segment in segments
+    ]
+    if video.outro:
+        raw_segments.append(asset_segment(video.outro, "outro", intro_duration + duration))
+    sections = video_sections(video, raw_segments)
     if (video.settings or {}).get("subtitles", False):
-        write_captions(Path(directory, "captions.ass"), segments, size)
+        caption_sections = [{"start": s["start"] - intro_duration, "end": s["end"] - intro_duration} for s in sections]
+        write_captions(Path(directory, "captions.ass"), segments, size, sections=caption_sections)
         visual = graph.filter([visual], subtitles_filter("captions.ass", directory))
     visuals, audios = [], []
     total = duration
@@ -500,14 +508,6 @@ def final_graph(
         total += closing.duration
     visual = graph.filter(visuals, f"concat=n={len(visuals)}:v=1:a=0")
     audio = graph.filter(audios, f"concat=n={len(audios)}:v=0:a=1")
-    intro_duration = opening.duration if opening else 0
-    raw_segments = ([opening] if opening else []) + [
-        replace(segment, start=segment.start + intro_duration)
-        for segment in segments
-    ]
-    if video.outro:
-        raw_segments.append(asset_segment(video.outro, "outro", total - closing.duration))
-    sections = video_sections(video, raw_segments)
     edited_duration = joined_duration(sections)
     if edited_duration < total - 1e-9:
         count = len(sections)

@@ -4,16 +4,20 @@ import { EditorDialog, editorButton, editorSecondaryButton } from "./ui/EditorDi
 import { VideoPreview } from "./VideoPreview";
 import { CutTimeline, cutClock } from "./CutTimeline";
 import { getVideoPreview, updateVideoCuts, updateSceneCuts } from "../api/apiService";
-import { clipSegments, splitClip, removeClipSection, segmentAt } from "../utils/clips";
+import { splitSections, removeSection, segmentAt } from "../utils/sections";
 import { sectionsDuration } from "../utils/cuts";
 
 export function VideoCuts(props) {
-  return <SceneCuts {...props} fullVideo scene={{}} />;
+  return <TimelineCuts {...props} fullVideo />;
 }
 
-export function SceneCuts({ scene, video, index, disabled, onSaved, fullVideo = false }) {
-  const sourceDuration = scene.timing?.source_duration ?? scene.timing?.duration;
-  const saved = (fullVideo ? video.cuts : scene.cuts) || {};
+export function SceneCuts(props) {
+  return <TimelineCuts {...props} />;
+}
+
+function TimelineCuts({ scene, video, index, disabled, onSaved, fullVideo = false }) {
+  const sourceDuration = scene?.timing?.source_duration ?? scene?.timing?.duration ?? 0;
+  const saved = (fullVideo ? video.cuts : scene?.cuts) || {};
   const initial = saved.sections && Math.abs(saved.source_duration - sourceDuration) <= 0.001 ? saved.sections : [{ start: 0, end: sourceDuration }];
   const [sections, setSections] = useState(initial);
   const [history, setHistory] = useState([]);
@@ -27,17 +31,16 @@ export function SceneCuts({ scene, video, index, disabled, onSaved, fullVideo = 
   const editDuration = session?.sourceDuration ?? sourceDuration;
   const duration = sectionsDuration(sections);
   const removed = Math.max(0, editDuration - duration);
-  const draft = { start: 0, end: editDuration, segments: sections, words: [] };
   const apply = (next, selection = 0) => {
     if (!next || busy) return;
     setHistory(current => [...current, { sections, selected }]);
     setFuture([]);
-    setSections(clipSegments(next));
+    setSections(next);
     setSelected(selection);
   };
   const split = () => {
     const position = controls.current?.position ?? 0;
-    apply(splitClip(draft, position), segmentAt(sections, position).index + 1);
+    apply(splitSections(sections, position), segmentAt(sections, position).index + 1);
   };
   const undo = () => {
     if (!history.length || busy) return;
@@ -61,7 +64,7 @@ export function SceneCuts({ scene, video, index, disabled, onSaved, fullVideo = 
     const command = event.metaKey || event.ctrlKey;
     if (command && event.key.toLowerCase() === "z") { event.preventDefault(); event.shiftKey ? redo() : undo(); }
     else if (!command && !event.altKey && event.key.toLowerCase() === "s") { event.preventDefault(); split(); }
-    else if (!command && (event.key === "Delete" || event.key === "Backspace")) { event.preventDefault(); apply(removeClipSection(draft, selected)); }
+    else if (!command && (event.key === "Delete" || event.key === "Backspace")) { event.preventDefault(); apply(removeSection(sections, selected)); }
     else if (target.getAttribute("role") === "slider") {
       if (event.key === " ") { event.preventDefault(); controls.current.onTogglePlayback(); }
       else if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
@@ -109,9 +112,9 @@ export function SceneCuts({ scene, video, index, disabled, onSaved, fullVideo = 
       {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
       {fullVideo && session?.manifest?.cuts_stale && <p role="status" className="mb-3 text-sm text-amber-600">The timeline changed since the last full-video cut. Review new cuts before saving. Your scene cuts are preserved.</p>}
       <div onKeyDown={keyboard}>
-        <VideoPreview disabled={busy} video={video} selectedSceneId={fullVideo ? undefined : scene.id} sceneOnly={!fullVideo} sourceManifest={session?.manifest} compact cutSections={sections} renderCutControls={state => {
+        <VideoPreview disabled={busy} video={video} selectedSceneId={scene?.id} sceneOnly={!fullVideo} sourceManifest={session?.manifest} compact cutSections={sections} renderCutControls={state => {
           controls.current = state;
-          return <CutTimeline scene={scene} fullVideo={fullVideo} sourceScenes={session?.manifest?.segments} sourceSections={session?.manifest?.cut_source.sections} sections={sections} sourceDuration={editDuration} position={state.position} selected={selected} onSelect={setSelected} onSeek={state.onSeek} onSplit={split} onRemove={() => apply(removeClipSection(draft, selected))} onUndo={undo} onRedo={redo} onReset={() => apply({ ...draft, segments: [{ start: 0, end: editDuration }] })} canSplit={!!splitClip(draft, state.position)} canUndo={!!history.length} canRedo={!!future.length} disabled={busy || !state.ready} />;
+          return <CutTimeline scene={scene} fullVideo={fullVideo} sourceScenes={session?.manifest?.segments} sourceSections={session?.manifest?.cut_source.sections} sections={sections} sourceDuration={editDuration} position={state.position} selected={selected} onSelect={setSelected} onSeek={state.onSeek} onSplit={split} onRemove={() => apply(removeSection(sections, selected))} onUndo={undo} onRedo={redo} onReset={() => apply([{ start: 0, end: editDuration }])} canSplit={!!splitSections(sections, state.position)} canUndo={!!history.length} canRedo={!!future.length} disabled={busy || !state.ready} />;
         }} />
         <p className="cut-keyboard-help mt-3 text-center text-[11px]">Drag to scrub <span>·</span> <kbd>S</kbd> Split <span>·</span> <kbd>Delete</kbd> Remove <span>·</span> <kbd>←</kbd><kbd>→</kbd> Frame by frame <span>·</span> <kbd>Space</kbd> Play / pause</p>
       </div>
