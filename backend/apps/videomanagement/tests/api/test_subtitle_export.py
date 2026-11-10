@@ -7,7 +7,9 @@ from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
 
-from ...baker_recipes import intro, scene, scene_image
+from ...baker_recipes import intro, outro, scene, scene_image
+from ...services.videos.preview import preview_timeline
+from ...utils.cuts import video_cut_source
 from .base import ApiTestCase
 
 
@@ -28,6 +30,16 @@ class SubtitleExportTests(ApiTestCase):
         self.first = scene.make(video=self.video, file="speech.wav", text="Γεια σου κόσμε.", pause_after=0.75)
         self.second = scene.make(video=self.video, file="speech.wav", text="Second scene.")
         self.url = reverse("video-subtitles", args=[self.video.pk])
+
+    def test_full_video_cuts_shift_subtitles_after_an_intro(self):
+        self.video.intro = intro.make(file="speech.wav", created_by=self.user)
+        self.video.outro = outro.make(file="speech.wav", created_by=self.user)
+        self.video.save()
+        source = video_cut_source(preview_timeline(self.video).segments)
+        self.video.cuts = {"source_duration": source["duration"], "source_key": source["key"], "sections": [{"start": 4.75, "end": 6.75}]}
+        self.video.save()
+        text = self.client.get(self.url).content.decode("utf-8")
+        self.assertEqual(text, "1\n00:00:00,000 --> 00:00:02,000\nSecond scene.\n")
 
     def test_cuts_remove_cues_and_shift_later_scene_subtitles(self):
         self.first.cuts = {"source_duration": 2.75, "sections": [{"start": 0, "end": 0.5}, {"start": 1.5, "end": 2.75}]}

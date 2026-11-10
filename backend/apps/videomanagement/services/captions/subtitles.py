@@ -10,8 +10,8 @@ from rest_framework.exceptions import ValidationError
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import VideoStatus, VideoType
 from apps.videomanagement.services.captions.alignment import caption_words
-from apps.videomanagement.services.scenes.timeline import caption_offsets, scene_segment
-from apps.videomanagement.utils.cuts import cut_cues, joined_duration, timeline_sections
+from apps.videomanagement.services.scenes.timeline import SegmentTiming, caption_offsets, scene_segment
+from apps.videomanagement.utils.cuts import cut_cues, joined_duration, video_sections
 from apps.videomanagement.utils.audio_editing import (
     audio_bounds,
     duration_override,
@@ -122,9 +122,21 @@ def export_subtitles(video):
         segment = scene_segment(scene, index, start, video.settings or {})
         raw_segments.append(segment)
         start += segment.duration
-    sections = timeline_sections(raw_segments)
     if intro_offset:
-        sections.insert(0, {"start": 0, "end": intro_offset})
+        raw_segments.insert(0, SegmentTiming(
+            content=video.intro, kind="intro", start=0, duration=intro_offset,
+            base_duration=intro_offset, visual_type="video",
+        ))
+    if video.outro and video.cuts:
+        closing_duration = file_timing(video.outro.file).get("duration")
+        if closing_duration is None:
+            raise ValidationError({"detail": "Check the outro file before exporting full-video cuts."})
+        raw_segments.append(SegmentTiming(
+            content=video.outro, kind="outro", start=start, duration=closing_duration,
+            base_duration=closing_duration, visual_type="video",
+        ))
+        start += closing_duration
+    sections = video_sections(video, raw_segments)
     if joined_duration(sections) < start - 1e-9:
         cues = cut_cues(cues, sections)
     return cues_to_srt(cues)

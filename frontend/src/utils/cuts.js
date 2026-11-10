@@ -21,3 +21,16 @@ export function cutClock(value) {
   const hundredths = Math.round(Math.max(0, value) * 100);
   return `${String(Math.floor(hundredths / 6000)).padStart(2, "0")}:${String(Math.floor(hundredths / 100) % 60).padStart(2, "0")}.${String(hundredths % 100).padStart(2, "0")}`;
 }
+
+
+export function mapSections(source, sections) {
+  let offset = 0;
+  return source.flatMap(part => {
+    const length = part.end - part.start;
+    const result = sections.map(section => ({ start: Math.max(offset, section.start), end: Math.min(offset + length, section.end) }))
+      .filter(section => section.end > section.start)
+      .map(section => ({ start: part.start + section.start - offset, end: part.start + section.end - offset }));
+    offset += length;
+    return result;
+  });
+}

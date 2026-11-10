@@ -24,7 +24,7 @@ from apps.videomanagement.utils.frames import save_video_frame
 from ...models import RENDERABLE_STATUSES, MotionStyle, TransitionStyle, VideoStatus
 from ...video_formats import output_size
 from ..audio_editing import narration_file, voice_tracks
-from ..cuts import joined_duration, timeline_sections
+from ..cuts import joined_duration, video_sections
 from ..diagrams import diagram_icon_keys
 from ..file_utils import check_if_image, stored_file_exists
 from ..fonts import subtitles_filter
@@ -507,7 +507,7 @@ def final_graph(
     ]
     if video.outro:
         raw_segments.append(asset_segment(video.outro, "outro", total - closing.duration))
-    sections = timeline_sections(raw_segments)
+    sections = video_sections(video, raw_segments)
     edited_duration = joined_duration(sections)
     if edited_duration < total - 1e-9:
         count = len(sections)

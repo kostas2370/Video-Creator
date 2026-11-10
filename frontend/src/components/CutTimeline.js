@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { HiOutlineArrowUturnLeft, HiOutlineArrowUturnRight, HiOutlineScissors, HiOutlineTrash, HiOutlineMinus, HiOutlinePlus, HiOutlineLink, HiOutlineFilm } from "react-icons/hi2";
 import { API_HOST } from "../endpoints";
 import { isVideo } from "../utils/media";
-import { sectionsDuration, cutClock } from "../utils/cuts";
+import { sectionsDuration, cutClock, sourcePosition, joinedPosition } from "../utils/cuts";
 
 export { cutClock } from "../utils/cuts";
 
@@ -62,7 +62,7 @@ function useFilmstrip(scene, duration) {
   return strip.source === url ? strip.frames : [];
 }
 
-export function CutTimeline({ scene, sections, sourceDuration, position, selected, onSelect, onSeek, onSplit, onRemove, onUndo, onRedo, onReset, canSplit, canUndo, canRedo, disabled }) {
+export function CutTimeline({ scene, fullVideo = false, sourceScenes = [], sourceSections = [], sections, sourceDuration, position, selected, onSelect, onSeek, onSplit, onRemove, onUndo, onRedo, onReset, canSplit, canUndo, canRedo, disabled }) {
   const [zoom, setZoom] = useState(1);
   const track = useRef(null);
   const playhead = useRef(null);
@@ -113,12 +113,17 @@ export function CutTimeline({ scene, sections, sourceDuration, position, selecte
         scrub(event);
       }} onPointerMove={event => { if (drag.current === event.pointerId) scrub(event); }} onPointerUp={finishDrag} onPointerCancel={finishDrag} onLostPointerCapture={event => { if (drag.current === event.pointerId) drag.current = null; }}>
         <div aria-hidden="true" className="cut-ruler relative h-8">{ticks.map((time, index) => <span key={index} className={`cut-ruler-tick ${index === ticks.length - 1 ? "cut-ruler-last" : ""}`} style={{ left: `${time / duration * 100}%` }}>{cutClock(time)}</span>)}</div>
-        <div aria-label="Scene cut sections" className="cut-filmstrip flex h-16">{sections.map((item, index) => {
+        <div aria-label={fullVideo ? "Video cut sections" : "Scene cut sections"} className="cut-filmstrip flex h-16">{sections.map((item, index) => {
           const length = item.end - item.start;
           const offset = sectionsDuration(sections.slice(0, index));
           const cells = Math.max(1, Math.ceil(length / duration * 12 * zoom));
           return <button type="button" key={index} data-cut-section={index} aria-label={`Section ${index + 1}, source ${cutClock(item.start)} to ${cutClock(item.end)}`} aria-pressed={selected === index} title={`Section ${index + 1} · ${length.toFixed(2)}s · source ${sourceDuration ? cutClock(item.start) : ""}–${cutClock(item.end)}`} className="cut-section relative min-w-0 shrink-0 overflow-hidden text-left" style={{ width: `${length / duration * 100}%` }} onClick={event => { if (!event.detail) { onSelect(index); onSeek(offset); } }}>
-            <div aria-hidden="true" className="cut-section-frames absolute inset-0 flex">{frames.length ? Array.from({ length: cells }, (_, frame) => {
+            <div aria-hidden="true" className="cut-section-frames absolute inset-0 flex">{fullVideo ? Array.from({ length: cells }, (_, frame) => {
+              const raw = sourcePosition(sourceSections, item.start + length * (frame + 0.5) / cells);
+              const segment = sourceScenes.find(s => raw >= s.start && raw < s.start + s.duration);
+              const url = segment?.visual;
+              return url && !isVideo(url) ? <img key={frame} src={/^https?:\/\//i.test(url) ? url : `${API_HOST}${url}`} alt="" draggable={false} className="h-full min-w-0 flex-1 object-cover" /> : <span key={frame} className="cut-section-placeholder"><HiOutlineFilm /></span>;
+            }) : frames.length ? Array.from({ length: cells }, (_, frame) => {
               const sourceTime = item.start + length * (frame + 0.5) / cells;
               const image = frames[Math.min(frames.length - 1, Math.floor(sourceTime / sourceDuration * frames.length))];
               return <img key={frame} src={image} alt="" draggable={false} className="h-full min-w-0 flex-1 object-cover" />;
@@ -127,13 +132,18 @@ export function CutTimeline({ scene, sections, sourceDuration, position, selecte
             <span className="cut-section-label absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 overflow-hidden px-2.5 py-2"><span className="truncate text-xs font-semibold">Section {index + 1}</span><span className="shrink-0 text-[10px] tabular-nums">{length.toFixed(2)}s</span></span>
           </button>;
         })}</div>
+        {fullVideo && <div aria-label="Scenes in cut" className="mt-2 flex flex-wrap gap-1">{sourceScenes.filter(segment => sections.some(section => {
+          const start = joinedPosition(sourceSections, segment.start);
+          const end = joinedPosition(sourceSections, segment.start + segment.duration);
+          return section.end > start && section.start < end;
+        })).map(segment => <span key={segment.id} className="rounded bg-blue-500/10 px-2 py-1 text-[10px]">{segment.label}</span>)}</div>}
         <div className="cut-linked-track mt-2 flex h-6 items-center gap-2 overflow-hidden rounded-md px-2 text-[10px] font-medium"><HiOutlineLink aria-hidden="true" className="h-3 w-3 shrink-0" /><span className="truncate">Audio, captions &amp; overlays linked</span></div>
         <div ref={playhead} role="slider" tabIndex={disabled ? -1 : 0} aria-label="Cut timeline playhead" aria-valuemin={0} aria-valuemax={duration} aria-valuenow={Math.min(duration, Math.max(0, position))} aria-valuetext={`${cutClock(position)} of ${cutClock(duration)}`} aria-disabled={disabled} className="cut-playhead absolute bottom-0 top-0" style={{ left: `${Math.max(0, Math.min(100, position / duration * 100))}%` }}><span className="cut-playhead-cap" /></div>
       </div>
     </div>
     <div className="cut-timeline-footer flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs"><span className="cut-selection-label font-semibold">Section {selected + 1}</span><span className="cut-source-time font-mono tabular-nums">{source}</span><span className="cut-source-caption">in original scene</span></div>
-      <button type="button" disabled={!removed && sections.length === 1} onClick={onReset} className="cut-reset">Restore full scene</button>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs"><span className="cut-selection-label font-semibold">Section {selected + 1}</span><span className="cut-source-time font-mono tabular-nums">{source}</span><span className="cut-source-caption">{fullVideo ? "in video after scene cuts" : "in original scene"}</span></div>
+      <button type="button" disabled={!removed && sections.length === 1} onClick={onReset} className="cut-reset">{fullVideo ? "Restore full video" : "Restore full scene"}</button>
     </div>
   </fieldset>;
 }

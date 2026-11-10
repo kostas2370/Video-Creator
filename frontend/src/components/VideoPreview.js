@@ -10,7 +10,7 @@ import { getVideoPreview } from "../api/apiService";
 import { API_HOST } from "../endpoints";
 import { voiceGain, musicGain } from "./audioEnvelope";
 
-import { joinedPosition, sourcePosition, sectionsDuration, previewSections, cutClock } from "../utils/cuts";
+import { joinedPosition, sourcePosition, sectionsDuration, previewSections, cutClock, mapSections } from "../utils/cuts";
 import { imageMotion } from "../utils/motion";
 
 const mediaUrl = url => /^https?:\/\//i.test(url || "") ? url : `${API_HOST}${url}`;
@@ -109,11 +109,11 @@ export function VideoPreviewModal({ open, onClose, video, disabled = false }) {
   </EditorDialog>;
 }
 
-export function VideoPreview({ video, disabled = false, selectedSceneId, compact = false, sceneOnly = false, cutSections, renderCutControls }) {
+export function VideoPreview({ video, disabled = false, selectedSceneId, compact = false, sceneOnly = false, cutSections, renderCutControls, sourceManifest }) {
   const [preview, setPreview] = useState(null);
   const manifest = preview?.videoId === video?.id ? preview.manifest : null;
   const previewSegment = sceneOnly ? manifest?.segments.find(item => String(item.id) === String(selectedSceneId)) : null;
-  const playbackSections = useMemo(() => previewSections(manifest, previewSegment, sceneOnly ? cutSections : undefined), [manifest, previewSegment, sceneOnly, cutSections]);
+  const playbackSections = useMemo(() => !sceneOnly && cutSections && manifest?.cut_source ? mapSections(manifest.cut_source.sections, cutSections) : previewSections(manifest, previewSegment, sceneOnly ? cutSections : undefined), [manifest, previewSegment, sceneOnly, cutSections]);
   const playbackStart = playbackSections[0]?.start || 0;
   const playbackEnd = playbackSections[playbackSections.length - 1]?.end || 0;
   const playbackDuration = sectionsDuration(playbackSections);
@@ -137,7 +137,7 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
   const allowed = ["READY", "COMPLETED", "FAILED"].includes(video?.status);
   // Polling returns new objects even when nothing changed; only an edited timeline reloads.
   const revision = useMemo(() => JSON.stringify([video?.id, video?.status, video?.settings,
-    video?.intro, video?.outro, video?.avatar, video?.music,
+    video?.intro, video?.outro, video?.avatar, video?.music, video?.cuts,
     video?.scenes?.map(s => [s.id, s.text, s.file, s.voiceover, s.audio_settings, s.cuts, s.scene_image, s.timing, s.pause_after, s.transition_after, s.transition_duration, s.motion_style, s.motion_intensity, s.animation_preset, s.animation_accents, s.overlays, s.overlay_logo])]), [video]);
   useEffect(() => {
     setPlaying(false);
@@ -146,6 +146,7 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
       setTime(0);
       timeRef.current = 0;
     }
+    if (sourceManifest) { setPreview({ videoId: video.id, manifest: sourceManifest }); return; }
     if (!allowed || disabled) return;
     let current = true;
     setLoading(true); setError(""); setMediaError(false);
@@ -156,7 +157,7 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
       setLoading(false);
     }).catch(() => { if (current) { setError("Could not load the preview. Please try again."); setLoading(false); } });
     return () => { current = false; };
-  }, [revision, allowed, disabled, retry, video?.id]);
+  }, [revision, allowed, disabled, retry, video?.id, sourceManifest]);
   useEffect(() => {
     if (!playing || !manifest || buffering) return;
     let frame;
@@ -260,7 +261,7 @@ export function VideoPreview({ video, disabled = false, selectedSceneId, compact
           <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-300">{renderCutControls ? cutClock(joinedPosition(playbackSections, time)) : clock(joinedPosition(playbackSections, time))} / {renderCutControls ? cutClock(playbackDuration) : clock(playbackDuration)}</span>
           <button type="button" aria-label={muted ? "Unmute preview" : "Mute preview"} onClick={() => setMuted(value => !value)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">{muted ? <FaVolumeMute /> : <FaVolumeUp />}</button>
         </fieldset>
-        {renderCutControls?.({ position: joinedPosition(playbackSections, time), onSeek: position => seek(sourcePosition(playbackSections, position)), duration: playbackDuration, onTogglePlayback: togglePlayback, playing, ready: !!previewSegment && !loading && !error })}
+        {renderCutControls?.({ position: joinedPosition(playbackSections, time), onSeek: position => seek(sourcePosition(playbackSections, position)), duration: playbackDuration, onTogglePlayback: togglePlayback, playing, ready: !!(sceneOnly ? previewSegment : manifest) && !loading && !error })}
         {!compact && <> <h2 className="mt-5 text-sm font-semibold text-gray-900 dark:text-white">Scene timeline</h2>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose a scene to jump to it.</p>
         <Timeline segments={segments} activeId={activeId} local={local} activeButton={activeButton} timelineRef={timeline} onSeek={seek} playbackSections={playbackSections} /></>}

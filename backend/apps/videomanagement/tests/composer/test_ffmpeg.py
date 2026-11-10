@@ -30,6 +30,8 @@ from ...baker_recipes import (
 )
 from ...serializers.overlays import OverlaySerializer
 from ...models import Icon
+from ...utils.cuts import video_cut_source
+from ...services.videos.preview import preview_timeline
 from ...utils.diagrams import diagram_plan
 from ...utils.composer.render import Graph, make_video, render_scene_clip
 
@@ -363,6 +365,32 @@ class FFmpegRenderTests(TestCase):
         self.assertGreater(after_intro[:, :, 0].min(), 220)
         self.assertLess(after_intro[:, :, 2].max(), 20)
         self.assertAlmostEqual(float(self.metadata()["format"]["duration"]), 1.25, delta=0.05)
+
+    def test_full_video_cuts_cross_scenes_intro_and_outro_in_both_render_paths(self):
+        self.row.settings.update(narration=False)
+        self.row.save()
+        self.create_clip("opening.mp4", "green", 1)
+        self.create_clip("blue.mp4", "blue", 2)
+        self.create_clip("red.mp4", "red", 2)
+        self.create_clip("ending.mp4", "green", 1)
+        self.row.intro = intro.make(file="opening.mp4")
+        self.row.outro = outro.make(file="ending.mp4")
+        self.row.save()
+        for name in ("blue.mp4", "red.mp4"):
+            row = scene.make(video=self.row, is_last=False)
+            scene_image.make(scene=row, file=name, with_audio=True)
+        source = video_cut_source(preview_timeline(self.row).segments)
+        self.row.cuts = {"source_duration": source["duration"], "source_key": source["key"], "sections": [{"start": 2, "end": 4}]}
+        self.row.save()
+        for direct in (True, False):
+            with self.subTest(direct=direct), override_settings(FFMPEG_DIRECT_RENDER=direct):
+                make_video(self.row)
+                metadata = self.metadata()
+                self.assertAlmostEqual(float(metadata["format"]["duration"]), 2, delta=0.1)
+                self.assertTrue(any(s["codec_type"] == "audio" for s in metadata["streams"]))
+                before, after = self.frame(0.5)[0, 0], self.frame(1.5)[0, 0]
+                self.assertGreater(int(before[2]), int(before[0]) + 100)
+                self.assertGreater(int(after[0]), int(after[2]) + 100)
 
     def test_scene_cuts_trim_the_composed_picture_and_audio_in_both_render_paths(self):
         self.row.settings.update(narration=False)

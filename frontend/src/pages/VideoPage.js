@@ -24,6 +24,7 @@ import { VideoToolbar } from "../components/VideoToolbar";
 import { MusicAudio } from "../components/MusicAudio";
 import { BulkAutoMotion, hasStillImage } from "../components/SceneMotion";
 
+const VideoCuts = lazy(() => import("../components/SceneCuts").then(module => ({ default: module.VideoCuts })));
 const ManualSceneModal = lazy(() => import("../components/ManualSceneModal").then(module => ({ default: module.ManualSceneModal })));
 const SceneCreationModal = lazy(() => import("../components/CreateSceneModal").then(module => ({ default: module.SceneCreationModal })));
 const ThumbnailCreator = lazy(() => import("../components/ThumbnailCreator").then(module => ({ default: module.ThumbnailCreator })));
@@ -209,8 +210,8 @@ export const Video = () => {
     "Could not save scene timing. Please try again.",
   );
   const durations = videoInfo?.scenes?.map(scene => scene.timing?.duration) || [];
-  const runtime = videoInfo && Number.isFinite(videoInfo.extra_duration) && durations.every(Number.isFinite)
-    ? durations.reduce((total, duration) => total + duration, videoInfo.extra_duration) : null;
+  const runtime = videoInfo?.cut_summary?.duration ?? (videoInfo && Number.isFinite(videoInfo.extra_duration) && durations.every(Number.isFinite)
+    ? durations.reduce((total, duration) => total + duration, videoInfo.extra_duration) : null);
   const downloadSubtitles = async () => {
     if (downloadingSubtitles) return;
     setDownloadingSubtitles(true);
@@ -316,6 +317,7 @@ export const Video = () => {
           onViewRendered={renderedUrl && String(videoInfo?.id) === String(videoId) ? () => setShowRenderedVideo(true) : undefined}
           onPreview={() => setShowPreview(true)} onSettings={() => setShowConfigModal(true)}
           onCover={() => setShowCover(true)} onExport={() => setShowRenderModal(true)} onResume={() => setShowResumeModal(true)}
+          cutAction={videoInfo && <React.Suspense fallback={null}><VideoCuts video={videoInfo} disabled={!canPreview} onSaved={setUpdated} /></React.Suspense>}
           tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} onEditDetails={() => setShowDetails(true)} disabled={processing || renderPending || sceneChangePending} /><VideoDetails key={`details-${videoInfo.id}`} video={videoInfo} open={showDetails} onOpenChange={setShowDetails} onSaved={details => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, ...details } : current)} /></>}
         />
         {updateError && !processing && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p>{videoInfo ? "Could not refresh your project. Reconnecting…" : "Could not load this project. Check your connection and try again."}</p><button type="button" onClick={setUpdated} className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-700">Try again</button></div>}
