@@ -5,6 +5,15 @@ import math
 from rest_framework import serializers
 
 
+class StrictCharField(serializers.CharField):
+    """Reject non-string values instead of coercing numbers into text."""
+
+    def to_internal_value(self, data):
+        if not isinstance(data, str):
+            self.fail("invalid")
+        return super().to_internal_value(data)
+
+
 def validate_finite_numbers(values, message):
     if any(not math.isfinite(value) for value in values):
         raise serializers.ValidationError(message)
