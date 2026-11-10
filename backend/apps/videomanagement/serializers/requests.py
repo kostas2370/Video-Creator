@@ -230,7 +230,19 @@ class RenderVideoSerializer(serializers.Serializer):
     export_fps = serializers.ChoiceField(choices=EXPORT_FRAME_RATES, required=False)
 
 
+class NarrationSceneSerializer(serializers.Serializer):
+    scene_id = serializers.UUIDField()
+    before = serializers.CharField(allow_blank=True, max_length=2000, trim_whitespace=False)
+    before_visual = serializers.CharField(allow_blank=True, max_length=2000, trim_whitespace=False)
+    text = serializers.CharField(max_length=2000)
+
+
 class VideoUpdateSerializer(serializers.Serializer):
+    video_audio_mode = serializers.ChoiceField(choices=("AUTO", "DIALOGUE", "AMBIENT", "SILENT"), required=False)
+    video_audio_enabled = serializers.BooleanField(required=False)
+    music_volume = FiniteFloat(min_value=0, max_value=1, required=False)
+    narration_scenes = NarrationSceneSerializer(many=True, required=False, allow_empty=False, max_length=120)
+    narration = serializers.BooleanField(required=False)
     review_starting_frames = serializers.BooleanField(required=False)
     retry_narration = serializers.BooleanField(required=False)
     generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False)

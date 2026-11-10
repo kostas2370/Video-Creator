@@ -19,6 +19,7 @@ from apps.apikeysmanagement.models import ApiKeys
 from apps.usage.pricing import estimate_line
 from apps.videomanagement.integrations.base import ImageProvider
 from apps.videomanagement.utils.image_inputs import image_data
+from apps.videomanagement.utils.video_audio import audio_direction
 from .custom import save_video
 from .registry import ImageProviderRegistry
 
@@ -79,6 +80,7 @@ class VideoRequest:
     user: object
     headers: dict = field(repr=False)
     label: str
+    audio_mode: str = "AMBIENT"
 
     @property
     def image_uri(self):
@@ -137,7 +139,12 @@ def video_provider(
             key = key_for(user, provider)
             return fn(
                 VideoRequest(
-                    prompt=shot_prompt(prompt, style, reference),
+                    prompt=shot_prompt(
+                        prompt,
+                        style,
+                        reference,
+                        audio_mode=kwargs.get("audio_mode", "AMBIENT"),
+                    ),
                     directory=dir_name,
                     seconds=seconds_for(duration, minimum, maximum),
                     image=image_data(reference),
@@ -148,6 +155,7 @@ def video_provider(
                         auth_header: f"{auth_scheme} {key}".strip(),
                     },
                     label=label,
+                    audio_mode=kwargs.get("audio_mode", "AMBIENT"),
                 )
             )
 
@@ -216,7 +224,6 @@ def provider_error(response):
     return f"{prefix}. Check your key, balance, model access, and prompt."
 
 
-
 def poll(fetch, *, field="status", completed, pending, label):
     deadline = time.monotonic() + settings.VIDEO_GENERATION_TIMEOUT
     while time.monotonic() < deadline:
@@ -262,14 +269,13 @@ def seconds_for(duration, minimum, maximum):
     return max(minimum, min(maximum, math.ceil(value)))
 
 
-def shot_prompt(prompt, style="", reference=None):
+def shot_prompt(prompt, style="", reference=None, *, audio_mode="AMBIENT"):
     text = f"One continuous shot, no cuts. {prompt}"
     text += (
         " No montage, internal cuts, fade to black, opening fade, or closing transition."
         " Keep the final action and reaction visible until the clip ends."
-        " Use only explicitly specified dialogue and natural ambient sounds."
-        " No background music or invented speech; the editor supplies the shared soundtrack."
     )
+    text += " " + audio_direction(audio_mode)
     if style:
         text += f" Visual style: {style}."
     if reference:

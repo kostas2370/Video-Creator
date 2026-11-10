@@ -65,6 +65,104 @@ class VideoVoiceTests(ApiTestCase):
         self.video.refresh_from_db()
         self.assertEqual(self.video.voice_model_id, other.pk)
 
+    def test_enabling_narration_queues_speech_with_the_existing_voice(self):
+        self.video.settings = {"narration": False, "provider": "gemini-video"}
+        self.video.voice_model = self.voice
+        self.video.save(update_fields=["settings", "voice_model"])
+        line = scene.make(video=self.video, text="Read this aloud.")
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as queue:
+            response = self.client.patch(
+                self.url,
+                {
+                    "narration": True,
+                    "narration_scenes": [
+                        {
+                            "scene_id": str(line.pk),
+                            "before": line.text,
+                            "before_visual": line.text,
+                            "text": line.text,
+                        }
+                    ],
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, 202, response.data)
+        self.video.refresh_from_db()
+        self.assertTrue(self.video.settings["narration"])
+        self.assertEqual(self.video.settings["provider"], "gemini-video")
+        self.assertEqual(self.video.status, "GENERATION")
+        queue.assert_called_once()
+        from apps.videomanagement.tasks import regenerate_narration_task
+
+        with patch("apps.videomanagement.tasks.regenerate_scene_narration") as speech:
+            regenerate_narration_task.run(
+                *queue.call_args.args, **queue.call_args.kwargs
+            )
+        self.assertEqual(speech.call_args.args[0].pk, line.pk)
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.status, "READY")
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as queue:
+            self.assertEqual(
+                self.client.patch(self.url, {"narration": True}).status_code, 200
+            )
+        queue.assert_not_called()
+
+    def test_disabling_narration_preserves_recordings_without_queuing_speech(self):
+        line = scene.make(video=self.video, file="speech/saved.wav")
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay"
+        ) as queue:
+            response = self.client.patch(self.url, {"narration": False})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.video.refresh_from_db()
+        line.refresh_from_db()
+        self.assertFalse(self.video.settings["narration"])
+        self.assertEqual(line.file.name, "speech/saved.wav")
+        queue.assert_not_called()
+
+    def test_enabling_narration_without_a_voice_is_rejected(self):
+        self.video.settings = {"narration": False}
+        self.video.voice_model = None
+        self.video.save(update_fields=["settings", "voice_model"])
+        response = self.client.patch(self.url, {"narration": True})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("voice_id", response.data)
+        self.video.refresh_from_db()
+        self.assertFalse(self.video.settings["narration"])
+
+    def test_enabling_narration_rolls_back_when_queue_is_unavailable(self):
+        self.video.settings = {"narration": False}
+        self.video.voice_model = self.voice
+        self.video.save(update_fields=["settings", "voice_model"])
+        line = scene.make(video=self.video)
+        with patch(
+            "apps.videomanagement.tasks.regenerate_narration_task.delay",
+            side_effect=RuntimeError("offline"),
+        ):
+            response = self.client.patch(
+                self.url,
+                {
+                    "narration": True,
+                    "narration_scenes": [
+                        {
+                            "scene_id": str(line.pk),
+                            "before": line.text,
+                            "before_visual": line.text,
+                            "text": "New spoken narration.",
+                        }
+                    ],
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, 503)
+        self.video.refresh_from_db()
+        self.assertFalse(self.video.settings["narration"])
+        self.assertEqual(self.video.status, "READY")
+
     def test_rejects_foreign_voice_before_changing_other_fields(self):
         foreign = voice_model.make(created_by=user.make(), type="CUSTOM_API")
         original = self.video.voice_model_id, self.video.title

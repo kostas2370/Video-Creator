@@ -21,6 +21,7 @@ from .audio_editing import (
     narration_file,
 )
 from .file_utils import check_if_video
+from .video_audio import clip_audio_enabled
 
 
 def media_timing(path):
@@ -91,12 +92,12 @@ def scene_timing(scene, image=None):
         if image and image.file and check_if_video(image.file.name)
         else {}
     )
-    clip_audio = visual.get("audio_duration") if image and image.with_audio else None
+    clip_audio = visual.get("audio_duration") if clip_audio_enabled(scene, image) else None
     durations = [value for value in (speech, clip_audio) if value is not None]
     if narration:
         blank = media_timing("assets/blank.wav").get("duration", 1)
         base = max(durations) if durations else blank
-        if image and scene.is_last and not image.with_audio and durations:
+        if image and scene.is_last and not clip_audio_enabled(scene, image) and durations:
             base += 2 * blank
     else:
         base = (

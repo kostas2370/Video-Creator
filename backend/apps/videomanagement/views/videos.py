@@ -293,6 +293,17 @@ class VideoView(
             status=202 if getattr(outcome, "narration_queued", False) else 200,
         )
 
+    @action(detail=True, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
+    def draft_narration(self, request, pk=None):
+        video = self.get_object()
+        if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
+            raise ValidationError("Wait for this project to finish processing before drafting narration.")
+        return Response(
+            queue_draft(request.user, draft_tasks.draft_narration_task, video_id=str(video.pk)),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
+
     @action(detail=True, methods=["PATCH"])
     def notes(self, request, pk=None):
         video = self.get_object()

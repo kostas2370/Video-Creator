@@ -15,6 +15,7 @@ from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.usage.services import record_usage
 from apps.videomanagement.utils.prompt_utils import format_sora_prompt
+from apps.videomanagement.utils.video_audio import audio_direction
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class SoraProvider(ImageProvider):
                 title=title,
                 image_description=prompt,
                 style=style or settings.SORA_STYLE,
-            ),
+            ) + " " + audio_direction(kwargs.get("audio_mode", "AMBIENT")),
             seconds=str(seconds),
             size=settings.SORA_SIZE,
         )

@@ -217,6 +217,7 @@ def generate_video(
         video=video_provider,
         style=style,
         narration=narration,
+        video_audio_mode=(video.settings or {}).get("video_audio_mode", "AUTO"),
         ai_scene_editing=ai_scene_editing,
         diagram_icons=icon_candidates(message, user=video.created_by_id) if ai_scene_editing else (),
         visual_continuity=visual_continuity,
@@ -271,6 +272,7 @@ def generate_video(
     creation_mode = (vid.settings or {}).get("creation_mode")
     character_references = (vid.settings or {}).get("character_references", False)
     generation_params = (vid.settings or {}).get("generation_params")
+    audio_settings = {key: vid.settings[key] for key in ("video_audio_mode", "video_audio_enabled", "music_volume") if key in (vid.settings or {})}
     vid.settings = dict(
         subtitles=subtitles,
         narration=narration,
@@ -282,6 +284,7 @@ def generate_video(
         generation_mode=generation_mode,
         gpt_model=gpt_model or settings.DEFAULT_GPT_MODEL,
     )
+    vid.settings.update(audio_settings)
     if review_starting_frames:
         vid.settings["review_starting_frames"] = True
     if creation_mode:

@@ -33,10 +33,11 @@ class StoryDirectionTests(SimpleTestCase):
             self.assertNotIn("No background music", prompt)
 
     def test_provider_prompt_keeps_explicit_dialogue_and_suppresses_scores_and_fades(self):
-        prompt = shot_prompt('Bananito says "Breakfast is ready".', "3D animation", "frame.png")
+        prompt = shot_prompt('Bananito says "Breakfast is ready".', "3D animation", "frame.png", audio_mode="DIALOGUE")
         self.assertIn('Bananito says "Breakfast is ready".', prompt)
-        self.assertIn("explicitly specified dialogue", prompt)
-        self.assertIn("No background music or invented speech", prompt)
+        self.assertIn("Use explicitly supplied dialogue verbatim", prompt)
+        self.assertIn("No background music", prompt)
+        self.assertNotIn("No character speech", prompt)
         self.assertIn("opening fade, or closing transition", prompt)
         self.assertIn("preserve subjects, clothing, lighting", prompt)
 

@@ -211,11 +211,11 @@ class CreateImageScenesTests(TestCase):
 
         self.assertTrue(create.call_args.kwargs["with_audio"])
 
-    def test_series_defaults_to_muted_clip_audio_without_narration(self):
+    def test_series_keeps_character_dialogue_without_narration(self):
         self.video.settings = dict(narration=False, creation_mode="SERIES")
         create, _ = self.run_with()
         self.assertTrue(create.called)
-        self.assertTrue(all(not call.kwargs["with_audio"] for call in create.call_args_list))
+        self.assertTrue(all(call.kwargs["with_audio"] for call in create.call_args_list))
 
     def test_narrates_by_default_when_the_video_has_no_settings(self):
         self.video.settings = None

@@ -11,6 +11,7 @@ from apps.videomanagement.utils.audio_editing import (
 from apps.videomanagement.utils.file_utils import check_if_video
 from apps.videomanagement.utils.timing import file_timing, scene_timing
 from apps.videomanagement.utils.transitions import scene_transition
+from apps.videomanagement.utils.video_audio import clip_audio_enabled
 
 
 @dataclass
@@ -58,7 +59,7 @@ def scene_segment(scene, index, start, choices):
         visual_duration=visual_timing.get("duration"),
         loop_visual=is_video and choices.get("loop_visual", False),
         clip_audio=bool(
-            is_video and image.with_audio and visual_timing.get("audio_duration")
+            is_video and clip_audio_enabled(scene, image) and visual_timing.get("audio_duration")
         ),
         narration_duration=speech,
         transition=style,

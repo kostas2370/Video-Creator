@@ -177,7 +177,7 @@ def ensure_scene_rows(video: Video):
                 audio_settings["duration"] = shot_plan["target_duration"]
             existing[index] = Scene.objects.create(
                 video=video,
-                text=line.text,
+                text=line.text if choices.get("narration", True) else line.narration,
                 is_last=line.is_last,
                 script_index=index,
                 shot_plan=shot_plan,

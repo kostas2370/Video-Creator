@@ -7,6 +7,7 @@ from apps.usage.services import video_usage
 from apps.videomanagement.integrations.llm import get_reply, script_errors
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import VideoStatus
+from apps.videomanagement.utils.video_audio import audio_direction, audio_mode
 from apps.videomanagement.serializers.requests import StoryboardSerializer
 from apps.videomanagement.utils.prompt_utils import (
     resolve_visual_type,
@@ -45,6 +46,7 @@ def revise_storyboard(video, *, storyboard, instructions):
             else "Narration is off; omit sentence from every shot.\n"
         )
         + "\nRequired field specification (use exactly these field names and choices):\n"
+        + (audio_direction(audio_mode(settings)) + "\n" if video_provider else "")
         + str(StoryboardSerializer())
         + (
             "\nAI SCENE EDITING:\n"

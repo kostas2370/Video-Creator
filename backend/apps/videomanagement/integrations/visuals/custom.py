@@ -100,6 +100,10 @@ class CustomImageProvider(ImageProvider):
             raise ValidationError("Unsupported visual output type.")
 
         is_video = provider.output_type == VisualOutputType.VIDEO
+        if is_video and "audio_mode" in kwargs:
+            from apps.videomanagement.utils.video_audio import audio_direction
+
+            prompt += " " + audio_direction(kwargs["audio_mode"])
         timeout = VIDEO_TIMEOUT if is_video else DEFAULT_TIMEOUT
         headers, auth = provider.get_auth_headers()
         headers["Accept"] = f"{'video' if is_video else 'image'}/*, application/json"

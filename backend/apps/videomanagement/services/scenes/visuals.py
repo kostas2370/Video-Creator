@@ -33,6 +33,7 @@ from apps.videomanagement.utils.prompt_utils import (
     with_visual_continuity,
 )
 from apps.videomanagement.utils.timing import file_timing
+from apps.videomanagement.utils.video_audio import audio_mode, generated_audio_enabled
 
 logger = logging.getLogger(__name__)
 MAX_PARALLEL_STILL_IMAGES = 3
@@ -338,6 +339,7 @@ def create_image_scene(
                 title=title,
                 duration=visual_generation_duration(scene),
                 video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
+                audio_mode=audio_mode(video.settings or {}),
                 **({"generation_mode": "ECONOMY"} if (video.settings or {}).get("generation_mode") == "ECONOMY" else {}),
                 reference=reference,
                 reference_role=reference_role_for(video, reference),
@@ -416,11 +418,9 @@ def create_image_scenes(
 
     dir_name = video.dir_name
     choices = video.settings or {}
-    # Keep each generated scene's independent score out of the episode mix.
-    # Users can still enable audio on individual visuals in the editor.
-    with_audio = (
-        not choices.get("narration", True) and choices.get("creation_mode") != "SERIES"
-    )
+    # Narration-off projects keep the characters' dialogue and ambient sound.
+    # Explicit mix settings take priority over this default.
+    with_audio = generated_audio_enabled(choices)
     lines, indexed = ensure_scene_rows(video)
     pairs = [(line, indexed[index]) for index, line in enumerate(lines)]
     pending = [
@@ -608,6 +608,7 @@ def generate_scene_visual(scene_image, video, style, *args, mode, provider, **kw
         kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
     kwargs.setdefault("reference_role", reference_role_for(video, kwargs["reference"]))
     kwargs.setdefault("duration", visual_generation_duration(scene_image.scene))
+    kwargs.setdefault("audio_mode", audio_mode(video.settings or {}))
     kwargs.setdefault(
         "video_format", (video.settings or {}).get("video_format", "LANDSCAPE")
     )
@@ -626,7 +627,10 @@ def generate_scene_visual(scene_image, video, style, *args, mode, provider, **kw
 
     if not img:
         raise RuntimeError("The visual provider returned no image")
+    replacing_clip = bool(scene_image.file and check_if_video(scene_image.file.name))
     scene_image.file = img
+    if check_if_video(img) and not replacing_clip and not scene_image.with_audio:
+        scene_image.with_audio = generated_audio_enabled(video.settings or {})
     scene_image.save()
 
     return scene_image
