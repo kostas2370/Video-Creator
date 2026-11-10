@@ -1,6 +1,8 @@
 from django.conf import settings
 from rest_framework import serializers
 
+from .fields import StrictCharField
+
 
 class CreativePreferencesSerializer(serializers.Serializer):
     target_audience = serializers.CharField(
@@ -28,18 +30,11 @@ class PromptRewriteRequestSerializer(CreativePreferencesSerializer):
 
 
 class PromptResultSerializer(serializers.Serializer):
-    prompt = serializers.CharField(max_length=2000)
-
-    def to_internal_value(self, data):
-        if isinstance(data, dict):
-            for field in self.fields:
-                if field in data and not isinstance(data[field], str):
-                    raise serializers.ValidationError({field: "Expected a string."})
-        return super().to_internal_value(data)
+    prompt = StrictCharField(max_length=2000)
 
 
 class IdeaSerializer(PromptResultSerializer):
-    title = serializers.CharField(max_length=100)
+    title = StrictCharField(max_length=100)
 
 
 class IdeaResultSerializer(serializers.Serializer):

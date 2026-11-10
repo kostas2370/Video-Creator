@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.videomanagement.serializers.fields import StrictCharField
+
 
 class StoryDraftResultSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=50)
@@ -7,15 +9,8 @@ class StoryDraftResultSerializer(serializers.Serializer):
 
 
 class SceneDraftResultSerializer(serializers.Serializer):
-    text = serializers.CharField(max_length=320)
-    image_description = serializers.CharField(max_length=600)
-
-    def to_internal_value(self, data):
-        if isinstance(data, dict):
-            for field in self.fields:
-                if field in data and not isinstance(data[field], str):
-                    raise serializers.ValidationError({field: "Expected a string."})
-        return super().to_internal_value(data)
+    text = StrictCharField(max_length=320)
+    image_description = StrictCharField(max_length=600)
 
 
 class DraftJobSerializer(serializers.Serializer):
