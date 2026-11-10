@@ -179,14 +179,42 @@ def json_request(method, url, *, headers, body=None, timeout=60):
         allow_redirects=False,
     ) as response:
         if not 200 <= response.status_code < 300:
-            raise APIException(
-                f"Video provider rejected the request (HTTP {response.status_code}). "
-                "Check your key, balance, model access, and prompt."
-            )
+            raise APIException(provider_error(response))
         payload = response.json()
     if not isinstance(payload, dict):
         raise APIException("Video provider returned an invalid response.")
     return payload
+
+
+def provider_error(response):
+    # Never expose raw provider messages: they can echo prompts, keys or URLs.
+    hints = {
+        "INVALID_ARGUMENT": "Check the video request parameters and input image.",
+        "FAILED_PRECONDITION": "Check billing and eligibility for the API key's project.",
+        "PAYMENT_REQUIRED": "Restore credits on the API key's provider project.",
+        "UNAUTHENTICATED": "Check the configured provider API key.",
+        "PERMISSION_DENIED": "Check the API key's permissions and model access.",
+        "RESOURCE_EXHAUSTED": "Check the provider project's quota, rate limits and balance.",
+        "NOT_FOUND": "Check that the configured model is available to this API key.",
+        "INVALID_REQUEST": "Check the video request parameters and input image.",
+        "CONTENT_BLOCKED": "The provider's safety filters blocked the prompt or reference image.",
+    }
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    error = payload.get("error") if isinstance(payload, dict) else None
+    status = (
+        error.get("status") or error.get("type") or error.get("code")
+        if isinstance(error, dict)
+        else None
+    )
+    status = status.upper() if isinstance(status, str) else None
+    prefix = f"Video provider rejected the request (HTTP {response.status_code})"
+    if status in hints:
+        return f"{prefix} [{status}]. {hints[status]}"
+    return f"{prefix}. Check your key, balance, model access, and prompt."
+
 
 
 def poll(fetch, *, field="status", completed, pending, label):

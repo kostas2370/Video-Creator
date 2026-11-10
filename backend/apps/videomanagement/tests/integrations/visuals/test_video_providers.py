@@ -222,10 +222,15 @@ class VideoProviderTests(SimpleTestCase):
             patch.object(gemini_video, "record_usage") as usage,
         ):
             gemini_video.GeminiVideoProvider.generate(
-                "fox", "images/", reference="ref.png", video_format="PORTRAIT"
+                "fox",
+                "images/",
+                reference="ref.png",
+                video_format="PORTRAIT",
+                duration=8,
             )
         body = request.call_args_list[0].kwargs["body"]
         self.assertEqual(body["response_format"]["aspect_ratio"], "9:16")
+        self.assertEqual(body["response_format"]["duration"], "8s")
         self.assertEqual(body["input"][0]["type"], "image")
         self.assertTrue(body["store"])
         self.assertEqual(body["response_format"]["delivery"], "uri")
@@ -340,6 +345,61 @@ class VideoHTTPTests(SimpleTestCase):
                     "POST", "https://api.example/", headers={"Authorization": "secret"}
                 )
         self.assertFalse(request.call_args.kwargs["allow_redirects"])
+
+    def test_http_errors_distinguish_request_and_billing_without_echoing_secrets(self):
+        for status, hint in (
+            ("INVALID_ARGUMENT", "request parameters"),
+            ("FAILED_PRECONDITION", "billing and eligibility"),
+            ("payment_required", "Restore credits"),
+        ):
+            with self.subTest(status=status):
+                response = MagicMock(status_code=400)
+                response.json.return_value = {
+                    "error": {"status": status, "message": "secret-key private prompt"}
+                }
+                with patch.object(http.requests, "request") as request:
+                    request.return_value.__enter__.return_value = response
+                    with self.assertRaises(APIException) as caught:
+                        http.json_request("POST", "https://api.example/", headers={})
+                message = str(caught.exception)
+                self.assertIn(hint, message)
+                self.assertIn(status.upper(), message)
+                self.assertNotIn("secret-key", message)
+                self.assertNotIn("private prompt", message)
+
+    def test_unrecognized_http_error_bodies_stay_private(self):
+        for payload in (
+            [],
+            {"error": "private prompt"},
+            {"error": {"status": ["bad"]}},
+            {"error": {"status": "secret-key"}},
+        ):
+            with self.subTest(payload=payload):
+                response = MagicMock(status_code=400)
+                response.json.return_value = payload
+                message = http.provider_error(response)
+                self.assertIn("HTTP 400", message)
+                self.assertNotIn("secret-key", message)
+                self.assertNotIn("private prompt", message)
+        response.json.side_effect = ValueError("private response")
+        self.assertIn("HTTP 400", http.provider_error(response))
+
+    def test_interactions_error_codes_are_read_without_echoing_provider_messages(self):
+        for code, hint in (
+            ("invalid_request", "request parameters"),
+            ("payment_required", "Restore credits"),
+            ("content_blocked", "safety filters"),
+        ):
+            with self.subTest(code=code):
+                response = MagicMock(status_code=400)
+                response.json.return_value = {
+                    "error": {"code": code, "message": "secret-key private prompt"}
+                }
+                message = http.provider_error(response)
+                self.assertIn(code.upper(), message)
+                self.assertIn(hint, message)
+                self.assertNotIn("secret-key", message)
+                self.assertNotIn("private prompt", message)
 
     def test_partial_normalized_output_is_removed_after_failure(self):
         with tempfile.TemporaryDirectory() as directory:

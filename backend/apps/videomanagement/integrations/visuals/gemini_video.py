@@ -74,6 +74,7 @@ class GeminiVideoProvider(http.DurationVideoProvider):
                     "delivery": "uri",
                     "aspect_ratio": request.aspect_ratio(square=False),
                     "resolution": "720p",
+                    "duration": f"{request.seconds}s",
                 },
             },
             timeout=600,
@@ -116,7 +117,7 @@ class GeminiVideoProvider(http.DurationVideoProvider):
             )
         else:
             raise http.APIException("Gemini returned no downloadable video.")
-        # Omni controls clip duration; record observed seconds rather than the prompt's target.
+        # Record the actual output length rather than the requested duration.
         seconds = math.ceil(video_metadata(path)["duration"])
         record_usage(
             request.user,
