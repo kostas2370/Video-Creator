@@ -22,28 +22,42 @@ from apps.videomanagement.services.scenes.editing import changed, editable_video
 from .narration_setup import apply_reviewed_narration
 
 
-def video_update(video: Video, **changes) -> Video:
-    """Apply only supplied fields, resolving every asset before changing the video."""
-    if {
+VIDEO_SETTINGS_FIELDS = frozenset(
+    {
+        "video_audio_mode",
+        "video_audio_enabled",
+        "music_volume",
+        "narration",
         "generation_mode",
         "review_starting_frames",
+        "video_format",
+        "platform",
+        "subtitles",
+        "caption_style",
+        "caption_config",
+        "avatar_position",
         "visual_continuity",
         "transition_default",
         "transition_duration",
         "intro_transition",
         "intro_transition_duration",
-        "intro",
-        "voice_id",
-        "retry_narration",
-        "narration",
-        "narration_scenes",
-        "video_audio_mode",
-        "video_audio_enabled",
-        "music_volume",
-        "avatar",
-        "caption_style",
-        "caption_config",
-    } & changes.keys():
+    }
+)
+
+
+def video_update(video: Video, **changes) -> Video:
+    """Apply only supplied fields, resolving every asset before changing the video."""
+    if (
+        VIDEO_SETTINGS_FIELDS
+        | {
+            "intro",
+            "outro",
+            "avatar",
+            "voice_id",
+            "retry_narration",
+            "narration_scenes",
+        }
+    ) & changes.keys():
         with editable_video(video.pk) as locked_video:
             return _apply_video_changes(locked_video, changes)
     return _apply_video_changes(video, changes)
@@ -106,27 +120,8 @@ def _apply_video_changes(video, changes):
     if enabling_narration:
         apply_reviewed_narration(video, narration_scenes)
 
-    settings_fields = (
-        "video_audio_mode",
-        "video_audio_enabled",
-        "music_volume",
-        "narration",
-        "generation_mode",
-        "review_starting_frames",
-        "video_format",
-        "platform",
-        "subtitles",
-        "caption_style",
-        "caption_config",
-        "avatar_position",
-        "visual_continuity",
-        "transition_default",
-        "transition_duration",
-        "intro_transition",
-        "intro_transition_duration",
-    )
     settings_changes = {
-        field: changes[field] for field in settings_fields if field in changes
+        field: changes[field] for field in VIDEO_SETTINGS_FIELDS if field in changes
     }
     if settings_changes:
         updates["settings"] = {**(video.settings or {}), **settings_changes}
