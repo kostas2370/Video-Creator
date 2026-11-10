@@ -74,7 +74,7 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
 
     def test_comparison_contains_both_images_and_uses_project_model_and_usage(self):
         Image.new("RGB", (32, 32), "red").save(self.frame.parent / "cast.png")
-        with review_comparison_sheet(self.scene) as output, Image.open(output) as sheet:
+        with review_comparison_sheet(self.scene, has_reference=True) as output, Image.open(output) as sheet:
             self.assertEqual(sheet.size, (1536, 800))
             self.assertGreater(sheet.getpixel((384, 416))[0], 200)
             self.assertGreater(sheet.getpixel((1152, 416))[2], 200)
@@ -193,6 +193,15 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             SceneSerializer(self.scene).data["starting_frame_status"], "approved"
         )
 
+    def test_saved_review_is_hidden_if_reference_file_disappears(self):
+        source_key = review_source_key(self.scene)
+        review_starting_frame(self.scene, source_key)
+        self.scene.refresh_from_db()
+        self.assertIsNotNone(SceneSerializer(self.scene).data["starting_frame_review"])
+        self.video.reference_image.delete(save=False)
+        self.assertNotEqual(review_source_key(self.scene), source_key)
+        self.assertIsNone(SceneSerializer(self.scene).data["starting_frame_review"])
+
     def test_missing_reference_or_changed_settings_do_not_spend_on_review(self):
         self.video.settings["visual_continuity"] = "New wardrobe"
         self.video.save(update_fields=["settings"])
@@ -213,6 +222,10 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             {**self.review, "verdict": "ready"},
             {**self.review, "findings": []},
             {**self.review, "findings": self.review["findings"] * 7},
+            {**self.review, "summary": 42},
+            {**self.review, "suggested_description": 42},
+            {**self.review, "findings": [{**self.review["findings"][0], "issue": 42}]},
+            {**self.review, "findings": [{**self.review["findings"][0], "fix": 42}]},
         ]:
             with self.subTest(value=value):
                 self.provider.return_value = StringIO(json.dumps(value))
@@ -220,6 +233,13 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
                     review_starting_frame(self.scene, review_source_key(self.scene))
                 self.scene.refresh_from_db()
                 self.assertNotIn("ai_review", self.scene.starting_frame_context)
+
+    def test_missing_provider_response_is_reported_as_invalid_review(self):
+        self.provider.return_value = None
+        with self.assertRaisesMessage(ValidationError, "AI returned an invalid starting frame review"):
+            review_starting_frame(self.scene, review_source_key(self.scene))
+        self.scene.refresh_from_db()
+        self.assertNotIn("ai_review", self.scene.starting_frame_context)
 
     def test_ready_and_uncertain_verdicts_are_supported(self):
         for verdict in ["ready", "uncertain"]:
@@ -276,7 +296,43 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         self.assertIn("No character reference was supplied", self.provider.call_args.args[0])
         self.scene.refresh_from_db()
         self.scene.video = self.video
-        with review_comparison_sheet(self.scene) as output, Image.open(output) as sheet:
+        with review_comparison_sheet(self.scene, has_reference=False) as output, Image.open(output) as sheet:
             self.assertEqual(sheet.size, (768, 800))
         self.old.refresh_from_db()
         self.assertEqual(self.old.file.name, "images/old.mp4")
+
+    def test_optional_reference_disappearing_during_review_rejects_stale_findings(self):
+        self.video.settings.pop("character_references")
+        self.video.settings["review_starting_frames"] = True
+        self.video.save(update_fields=["settings"])
+        self.scene.video = self.video
+
+        def remove_reference(*args, **kwargs):
+            self.assertNotIn("No character reference was supplied", args[0])
+            with Image.open(kwargs["reference_image"]) as sheet:
+                self.assertEqual(sheet.size, (1536, 800))
+            self.video.reference_image.delete(save=False)
+            return StringIO(json.dumps(self.review))
+
+        self.provider.side_effect = remove_reference
+        with self.assertRaisesMessage(ValidationError, "The frame or shot changed"):
+            review_starting_frame(self.scene, review_source_key(self.scene))
+        self.scene.refresh_from_db()
+        self.assertNotIn("ai_review", self.scene.starting_frame_context)
+
+    def test_prompt_uses_the_reference_decision_made_for_the_comparison_image(self):
+        from apps.videomanagement.services.scenes import starting_frame_review
+
+        comparison = starting_frame_review.review_comparison_sheet
+
+        def remove_after_comparison(*args, **kwargs):
+            output = comparison(*args, **kwargs)
+            self.video.reference_image.delete(save=False)
+            return output
+
+        with patch.object(starting_frame_review, "review_comparison_sheet", side_effect=remove_after_comparison):
+            with self.assertRaises(ValidationError):
+                review_starting_frame(self.scene, review_source_key(self.scene))
+        self.assertNotIn("No character reference was supplied", self.provider.call_args.args[0])
+        self.scene.refresh_from_db()
+        self.assertNotIn("ai_review", self.scene.starting_frame_context)
