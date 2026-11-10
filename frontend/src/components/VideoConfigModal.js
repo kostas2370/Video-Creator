@@ -1,10 +1,12 @@
 import { StartingFrameOption } from "./StartingFrameOption";
+import { NarrationSetup } from "./NarrationSetup";
 import { GenerationModeSelect } from "./GenerationModeSelect";
 import { VisualContinuity } from "./VisualContinuity";
 import { videoFormats } from "../utils/videoFormats";
 import { useAssetOptions } from "../hooks/useAssetOptions";
 import { MoreAssetOptions } from "./ui/MoreAssetOptions";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@headlessui/react";
 import { getIntro, getOutro, getAvatars, getVoices, updateVideo } from "../api/apiService";
 import { defaultTransition, transitionDurations, transitionStyles } from "./SceneTransition";
 import { AssetDropBox } from "./ui/assetDropBox";
@@ -26,6 +28,7 @@ const platforms = [
 
 const sectionTitle = "mb-1 text-sm font-semibold text-gray-900 dark:text-white";
 const sectionDescription = "text-xs leading-relaxed text-gray-500 dark:text-gray-400";
+const initialClipAudio = info => info?.settings?.video_audio_enabled ?? (info?.scenes?.length ? info.scenes.some(scene => scene.scene_image?.with_audio) : info?.settings?.narration === false);
 const normalizeAvatarPosition = (position) => {
   const parts = String(position || "").split(",");
   const horizontal = parts.find((part) => part === "left" || part === "right");
@@ -37,8 +40,20 @@ const normalizeAvatarPosition = (position) => {
 export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => {
   const avatarsOptions = useAssetOptions(getAvatars, showModal && info?.video_type !== "MANUAL");
   const avatars = avatarsOptions.items;
+  const [selectedTab, setSelectedTab] = useState(0);
+  const voiceSelect = useRef(null);
+  useEffect(() => { if (showModal) setSelectedTab(0); }, [showModal, info?.id]);
   const [avatar, setAvatar] = useState("");
   const [voice, setVoice] = useState("");
+  const [narration, setNarration] = useState(true);
+  const [narrationScenes, setNarrationScenes] = useState(null);
+  const [writingNarration, setWritingNarration] = useState(false);
+  const enablingNarration = info?.video_type !== "MANUAL" && info?.settings?.narration === false && narration;
+  const needsNarrationReview = enablingNarration && !!info?.scenes?.length;
+  const [videoAudioMode, setVideoAudioMode] = useState("AUTO");
+  const [clipAudio, setClipAudio] = useState(false);
+  const [clipAudioTouched, setClipAudioTouched] = useState(false);
+  const [musicVolume, setMusicVolume] = useState(0.07);
   const voicesOptions = useAssetOptions(getVoices, showModal && !avatar && info?.video_type !== "MANUAL");
   const voices = voicesOptions.items;
   const introsOptions = useAssetOptions(getIntro, showModal);
@@ -63,6 +78,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [visualContinuity, setVisualContinuity] = useState("");
   const [reviewStartingFrames, setReviewStartingFrames] = useState(false);
   const [saving, setSaving] = useState(false);
+  const busy = saving || writingNarration;
   const [generationMode, setGenerationMode] = useState("STANDARD");
 
 
@@ -81,6 +97,12 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   useEffect(() => setVoice(info?.voice_model ?? ""), [info?.voice_model]);
   useEffect(() => {
     setAvatarPosition(normalizeAvatarPosition(info?.settings?.avatar_position));
+    setNarration(info?.settings?.narration !== false);
+    setNarrationScenes(null);
+    setVideoAudioMode(info?.settings?.video_audio_mode || "AUTO");
+    setClipAudio(initialClipAudio(info));
+    setClipAudioTouched(false);
+    setMusicVolume(info?.settings?.music_volume ?? 0.07);
     setVisualContinuity(info?.settings?.visual_continuity || "");
     setReviewStartingFrames(!!info?.settings?.review_starting_frames);
     setGenerationMode(info?.settings?.generation_mode || "STANDARD");
@@ -93,7 +115,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
     setTransitionDuration(info?.settings?.transition_duration ?? "");
     setIntroTransition(info?.settings?.intro_transition || "DEFAULT");
     setIntroTransitionDuration(info?.settings?.intro_transition_duration ?? "");
-  }, [info?.settings]);
+  }, [info?.settings, showModal]);
 
   const changePlatform = (value) => {
     setPlatform(value);
@@ -121,6 +143,12 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
 
   const onSubmit = async event => {
     event.preventDefault();
+    if (busy || (needsNarrationReview && !narrationScenes)) return;
+    if (info?.video_type !== "MANUAL" && narration && !avatar && !voice) {
+      setSelectedTab(2);
+      requestAnimationFrame(() => voiceSelect.current?.reportValidity());
+      return;
+    }
     const changes = {
       visual_continuity: visualContinuity,
       review_starting_frames: reviewStartingFrames,
@@ -138,6 +166,11 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
       intro_transition: introTransition,
       intro_transition_duration: introTransitionDuration === "" ? null : Number(introTransitionDuration),
     };
+    if (info?.video_type !== "MANUAL") changes.narration = narration;
+    if (info?.video_type !== "MANUAL") changes.video_audio_mode = videoAudioMode;
+    if (clipAudio !== initialClipAudio(info)) changes.video_audio_enabled = clipAudio;
+    if (musicVolume !== (info?.settings?.music_volume ?? 0.07)) changes.music_volume = musicVolume;
+    if (needsNarrationReview) changes.narration_scenes = narrationScenes;
     if (!avatar && voice && String(voice) !== String(info?.voice_model ?? "")) changes.voice_id = voice;
     if (avatar) changes.avatar_position = normalizeAvatarPosition(avatarPosition);
     await saveSettings(changes);
@@ -145,15 +178,20 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
 
   if (!showModal) return null;
 
-  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Video settings" description={`Customize ${info?.title || "your video"} before rendering.`} icon={RiSettings3Line} busy={saving} maxWidth="max-w-4xl" footer={<div className="flex justify-end gap-2">
-    {info?.can_retry_narration && <button type="button" disabled={saving} onClick={() => saveSettings({ retry_narration: true })} className={editorSecondaryButton}>Retry narration</button>}
-    <button type="button" disabled={saving} onClick={() => setShowModal(false)} className={editorSecondaryButton}>Cancel</button>
-    <button type="submit" form="video-settings-form" disabled={saving} className={editorButton}>{saving ? "Saving…" : "Save settings"}</button>
+  return <EditorDialog open={showModal} onClose={() => setShowModal(false)} title="Video settings" description={`Customize ${info?.title || "your video"} before rendering.`} icon={RiSettings3Line} busy={busy} maxWidth="max-w-4xl" footer={<div className="flex flex-wrap items-center justify-end gap-2">
+    {needsNarrationReview && !narrationScenes && <button type="button" disabled={busy} onClick={() => setSelectedTab(2)} className="mr-auto text-sm font-medium text-blue-600 dark:text-blue-300">Review narration in Audio</button>}
+    {info?.can_retry_narration && <button type="button" disabled={busy} onClick={() => saveSettings({ retry_narration: true })} className={editorSecondaryButton}>Retry narration</button>}
+    <button type="button" disabled={busy} onClick={() => setShowModal(false)} className={editorSecondaryButton}>Cancel</button>
+    <button type="submit" form="video-settings-form" disabled={busy || (needsNarrationReview && !narrationScenes)} className={editorButton}>{saving ? "Saving…" : needsNarrationReview ? "Save and generate speech" : "Save settings"}</button>
   </div>}>
-    <form id="video-settings-form" onSubmit={onSubmit}><fieldset disabled={saving} className="min-w-0 space-y-6">
-            {(info?.mode === "AI" || info?.video_type === "MANUAL") && <GenerationModeSelect value={generationMode} onChange={setGenerationMode} disabled={saving} />}
-            <StartingFrameOption mode={info?.mode} provider={info?.settings?.provider} checked={reviewStartingFrames} required={!!info?.settings?.character_references} onChange={setReviewStartingFrames} disabled={saving} />
-            {(info?.mode === "AI" || info?.video_type === "MANUAL") && <VisualContinuity value={visualContinuity} onChange={setVisualContinuity} disabled={saving} />}
+    <TabGroup selectedIndex={selectedTab} onChange={setSelectedTab}>
+      <TabList aria-label="Video settings sections" className="sticky -top-4 z-10 mb-5 flex gap-1 border-b border-gray-200 bg-white pb-3 pt-1 dark:border-gray-700 dark:bg-gray-800 sm:-top-6">
+        {["General", "Visuals", "Audio", "Captions"].map(label => <Tab key={label} disabled={busy} className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold text-gray-500 outline-none transition hover:bg-gray-100 data-selected:bg-blue-50 data-selected:text-blue-700 data-focus:ring-2 data-focus:ring-blue-500 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:data-selected:bg-blue-500/15 dark:data-selected:text-blue-300">{label}</Tab>)}
+      </TabList>
+      <form id="video-settings-form" onSubmit={onSubmit}>
+        <fieldset disabled={busy} className="min-w-0">
+          <TabPanels>
+            <TabPanel unmount={false}><fieldset disabled={selectedTab !== 0} className="min-w-0 space-y-6">
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
               <h3 className={sectionTitle}>Output format</h3>
               <p className={sectionDescription}>Choose a platform preset and frame for your next render.</p>
@@ -212,20 +250,45 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
               </fieldset>}
             </section>
 
+            </fieldset></TabPanel>
+            <TabPanel unmount={false}><fieldset disabled={selectedTab !== 1} className="min-w-0 space-y-6">
+            {(info?.mode === "AI" || info?.video_type === "MANUAL") && <GenerationModeSelect value={generationMode} onChange={setGenerationMode} disabled={saving} />}
+            <StartingFrameOption mode={info?.mode} provider={info?.settings?.provider} checked={reviewStartingFrames} required={!!info?.settings?.character_references} onChange={setReviewStartingFrames} disabled={saving} />
+            {(info?.mode === "AI" || info?.video_type === "MANUAL") && <VisualContinuity value={visualContinuity} onChange={setVisualContinuity} disabled={saving} />}
+            </fieldset></TabPanel>
+            <TabPanel unmount={false}><fieldset disabled={selectedTab !== 2} className="min-w-0 space-y-6">
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
-              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>{info?.video_type === "MANUAL" ? "Captions" : "Presenter and captions"}</h3><p className={sectionDescription}>{info?.video_type === "MANUAL" ? "Show the caption text you add to your scenes." : "Choose a presenter or narration voice, and subtitle visibility."}</p></div></div>
+              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>{info?.video_type === "MANUAL" ? "Audio" : "Narration and audio"}</h3><p className={sectionDescription}>{info?.video_type === "MANUAL" ? "Choose which audio is included in your video." : "Choose a voice, presenter, and the sound the audience hears."}</p></div></div>
               {info?.video_type !== "MANUAL" && <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />}
               {info?.video_type !== "MANUAL" && <MoreAssetOptions options={avatarsOptions} label="avatars" />}
+              {info?.video_type !== "MANUAL" && <label htmlFor="video-narration" className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-800">
+                <input id="video-narration" type="checkbox" checked={narration} onChange={(event) => { setNarration(event.target.checked); if (!clipAudioTouched && info?.settings?.video_audio_enabled === undefined) setClipAudio(!event.target.checked); }} className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                <span><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">Read your scene text aloud using the selected voice. Enabling narration generates speech in the background. Turning it off keeps saved recordings.</span></span>
+              </label>}
+              {showModal && needsNarrationReview && <NarrationSetup video={info} disabled={saving} onChange={setNarrationScenes} onBusyChange={setWritingNarration} />}
+              <fieldset className="mt-5 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                <legend className="px-1 text-sm font-semibold">What the audience hears</legend>
+                <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={clipAudio} onChange={event => { setClipAudio(event.target.checked); setClipAudioTouched(true); }} className="mt-1" /><span>Include original clip audio<span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">Include dialogue, ambient sound and effects recorded in the scene clips. Only clips with audio enabled under Visual will play.</span></span></label>
+                {info?.video_type !== "MANUAL" && <label className="block text-sm font-medium">Sound for newly generated clips<select aria-label="Generated clip sound" value={videoAudioMode} onChange={event => setVideoAudioMode(event.target.value)} className={`${editorInput} mt-2`}>
+                  <option value="AUTO">Automatic — {narration ? "ambient sound, no character speech" : "character dialogue allowed"}</option>
+                  <option value="DIALOGUE">Character dialogue and ambient sound</option>
+                  <option value="AMBIENT">Ambient sound only</option>
+                  <option value="SILENT">Silent</option>
+                </select><span className="mt-2 block text-xs font-normal text-gray-500 dark:text-gray-400">Applies when generating or regenerating a clip. Audio support depends on the provider. Existing recordings stay as they are.</span></label>}
+                {!clipAudio && videoAudioMode !== "SILENT" && <p className="text-xs text-gray-500 dark:text-gray-400">Original clip audio is muted in the final edit. Enable it above to hear generated dialogue and ambient sound.</p>}
+                {narration && clipAudio && (videoAudioMode === "DIALOGUE") && <p className="text-xs text-amber-700 dark:text-amber-300">Narration and character dialogue will both be heard. Keep spoken lines separate to avoid overlapping speech.</p>}
+                <label className="block text-sm font-medium">Background music volume — {Math.round(musicVolume * 100)}%<input aria-label="Background music volume" type="range" min="0" max="100" step="1" value={Math.round(musicVolume * 100)} onChange={event => setMusicVolume(Number(event.target.value) / 100)} className="mt-3 block w-full accent-blue-600" /><span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">{info?.music ? "Set to 0% to mute the soundtrack. More music controls are in Project extras." : "Add a soundtrack in Project extras to hear background music."}</span></label>
+              </fieldset>
               {!avatar && info?.video_type !== "MANUAL" && (
                 <div className="mt-5">
                   <label htmlFor="video-voice" className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration voice</label>
-                  <select id="video-voice" value={voice} onChange={(event) => setVoice(event.target.value)} disabled={saving || info?.settings?.narration === false} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                  <select ref={voiceSelect} id="video-voice" value={voice} onChange={(event) => setVoice(event.target.value)} disabled={saving || !narration || selectedTab !== 2} required={narration} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                     <option value="" disabled>{voicesOptions.loading ? "Loading voices…" : "Choose a voice"}</option>
                     {voice && !voices.some((item) => String(item.id) === String(voice)) && <option value={voice}>Current voice</option>}
                     {voices.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.provider})</option>)}
                   </select>
                   <MoreAssetOptions options={voicesOptions} label="voices" />
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{info?.settings?.narration === false ? "Narration is off for this video." : "Changing the voice regenerates narration for your scenes."}</p>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{!narration ? "Enable narration to choose a voice." : "Changing the voice regenerates narration for your scenes."}</p>
                 </div>
               )}
               {avatar && (
@@ -241,6 +304,12 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
                   </div>
                 </fieldset>
               )}
+            </section>
+            </fieldset></TabPanel>
+            <TabPanel unmount={false}><fieldset disabled={selectedTab !== 3} className="min-w-0 space-y-6">
+            <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
+              <h3 className={sectionTitle}>Captions</h3>
+              <p className={sectionDescription}>Choose subtitle visibility and appearance.</p>
               <label htmlFor="video-subtitles" className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 transition hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800">
                 <input type="checkbox" id="video-subtitles" checked={subtitles} onChange={(event) => setSubtitles(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-xs font-bold tracking-tight text-blue-600 dark:bg-blue-400/10 dark:text-blue-300">CC</span>
@@ -249,6 +318,10 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
               </label>
               {subtitles && <div className="mt-3"><CaptionStyleEditor preset={captionStyle} config={captionConfig} videoFormat={videoFormat} onChange={(preset, config) => { setCaptionStyle(preset); setCaptionConfig(config); }} /></div>}
             </section>
-    </fieldset></form>
+            </fieldset></TabPanel>
+          </TabPanels>
+        </fieldset>
+      </form>
+    </TabGroup>
   </EditorDialog>;
 };

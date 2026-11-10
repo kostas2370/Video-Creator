@@ -524,6 +524,12 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
     objects = VideoQuerySet.as_manager()
 
     @property
+    def default_clip_audio_enabled(self):
+        """Include generated clip audio by default when narration is off."""
+        config = self.settings or {}
+        return config.get("video_audio_enabled", not config.get("narration", True))
+
+    @property
     def script_model(self):
         """Resolve the project's saved model, including legacy generation settings."""
         config = self.settings or {}

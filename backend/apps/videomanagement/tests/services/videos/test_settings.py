@@ -7,6 +7,7 @@ from rest_framework.exceptions import APIException
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import avatar, intro, outro, scene, video
+from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.models import Video
 from apps.videomanagement.services.videos.settings import video_update
 
@@ -51,6 +52,34 @@ class VideoUpdateTests(TestCase):
         )
 
         self.assertEqual(updated.settings, expected_settings)
+
+    def test_stale_output_edits_preserve_newer_audio_settings(self):
+        for changes in (
+            {"subtitles": True},
+            {"video_format": "PORTRAIT"},
+            {"platform": "TIKTOK"},
+            {"avatar_position": "left,top"},
+        ):
+            with self.subTest(changes=changes):
+                Video.objects.filter(pk=self.video.pk).update(
+                    settings={"narration": False, "video_audio_enabled": True}
+                )
+                updated = video_update(self.video, **changes)
+                self.assertEqual(
+                    updated.settings,
+                    {
+                        "narration": False,
+                        "video_audio_enabled": True,
+                        **changes,
+                    },
+                )
+
+    def test_output_changes_are_rejected_while_processing(self):
+        Video.objects.filter(pk=self.video.pk).update(status="RENDERING")
+        with self.assertRaises(VideoEditConflict):
+            video_update(self.video, subtitles=True)
+        self.video.refresh_from_db()
+        self.assertEqual(self.video.status, "RENDERING")
 
     def test_clears_the_avatar_when_none_was_chosen(self):
         self.video.avatar = avatar.make()

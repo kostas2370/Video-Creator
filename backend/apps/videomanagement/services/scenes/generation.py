@@ -161,6 +161,8 @@ def draft_scene(
             settings.get("provider"), user=video.created_by, mode=video.mode
         ),
         style=settings.get("style", ""),
+        narration=settings.get("narration", True),
+        video_audio_mode=settings.get("video_audio_mode", "AUTO"),
     )
     if video.mode == "AI" or video.video_type == "MANUAL":
         instructions = with_visual_continuity(

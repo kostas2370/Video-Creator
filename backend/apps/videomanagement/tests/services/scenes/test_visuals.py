@@ -211,11 +211,11 @@ class CreateImageScenesTests(TestCase):
 
         self.assertTrue(create.call_args.kwargs["with_audio"])
 
-    def test_series_defaults_to_muted_clip_audio_without_narration(self):
+    def test_series_keeps_character_dialogue_without_narration(self):
         self.video.settings = dict(narration=False, creation_mode="SERIES")
         create, _ = self.run_with()
         self.assertTrue(create.called)
-        self.assertTrue(all(not call.kwargs["with_audio"] for call in create.call_args_list))
+        self.assertTrue(all(call.kwargs["with_audio"] for call in create.call_args_list))
 
     def test_narrates_by_default_when_the_video_has_no_settings(self):
         self.video.settings = None
@@ -501,6 +501,68 @@ class GenerateNewImageTests(TestCase):
             reference = scenes_utils.scene_reference(target.scene, self.video, "sora")
         self.assertEqual(reference, "anchor.png")
         self.assertEqual(still.call_args.args[0], saved.file.path)
+
+
+class VisualGenerationOptionsTests(TestCase):
+    def setUp(self):
+        self.video = video.make(
+            mode="AI",
+            settings={
+                "narration": False,
+                "video_format": "PORTRAIT",
+                "generation_mode": "ECONOMY",
+            },
+        )
+        self.visual = scene_image.make(scene=scene.make(video=self.video))
+
+    def test_explicit_options_bypass_automatic_reference_and_media_probing(self):
+        with (
+            patch.object(scenes_utils.ImageProviderRegistry, "resolve") as resolve,
+            patch.object(scenes_utils, "scene_reference", side_effect=AssertionError("Unexpected reference lookup")),
+            patch.object(scenes_utils, "reference_role_for", side_effect=AssertionError("Unexpected reference-role lookup")),
+            patch.object(scenes_utils, "visual_generation_duration", side_effect=AssertionError("Unexpected media probe")),
+            patch.object(scenes_utils, "resolve_audio_mode", side_effect=AssertionError("Unexpected audio default")),
+        ):
+            generate = resolve.return_value
+            generate.return_value = "images/new.png"
+            for duration in (None, 0, 8):
+                with self.subTest(duration=duration):
+                    scenes_utils.generate_new_image(
+                        self.visual,
+                        self.video,
+                        reference=None,
+                        reference_role=None,
+                        duration=duration,
+                        audio_mode="SILENT",
+                        video_format="SQUARE",
+                        generation_mode="STANDARD",
+                        seed=123,
+                    )
+                    options = generate.call_args.kwargs
+                    self.assertIsNone(options["reference"])
+                    self.assertIsNone(options["reference_role"])
+                    self.assertEqual(options["duration"], duration)
+                    self.assertEqual(options["audio_mode"], "SILENT")
+                    self.assertEqual(options["video_format"], "SQUARE")
+                    self.assertEqual(options["generation_mode"], "STANDARD")
+                    self.assertEqual(options["seed"], 123)
+
+    def test_omitted_options_use_project_settings_and_scene_defaults(self):
+        with (
+            patch.object(scenes_utils.ImageProviderRegistry, "resolve") as resolve,
+            patch.object(scenes_utils, "scene_reference", return_value="anchor.png"),
+            patch.object(scenes_utils, "visual_generation_duration", return_value=6.25),
+        ):
+            generate = resolve.return_value
+            generate.return_value = "images/new.png"
+            scenes_utils.generate_new_image(self.visual, self.video)
+        options = generate.call_args.kwargs
+        self.assertEqual(options["reference"], "anchor.png")
+        self.assertEqual(options["reference_role"], "both")
+        self.assertEqual(options["duration"], 6.25)
+        self.assertEqual(options["audio_mode"], "DIALOGUE")
+        self.assertEqual(options["video_format"], "PORTRAIT")
+        self.assertEqual(options["generation_mode"], "ECONOMY")
 
 
 class ReferenceRoleTests(TestCase):

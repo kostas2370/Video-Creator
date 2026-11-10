@@ -32,7 +32,7 @@ class KlingProvider(http.DurationVideoProvider):
             "prompt": request.prompt,
             "duration": str(request.seconds),
             "aspect_ratio": request.aspect_ratio(),
-            "generate_audio": True,
+            "generate_audio": request.audio_mode != "SILENT",
         }
         if request.image_uri:
             body["start_image_url"] = request.image_uri

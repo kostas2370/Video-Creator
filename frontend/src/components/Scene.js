@@ -144,7 +144,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
                   {diagram ? diagramEditor : <button type="button" disabled={timingDisabled} onClick={() => setShowEditImageModal(true)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">Replace or generate visual</button>}
 
 
-            {!diagram && visualPrompt && !promptShownInStartingFrame && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual prompt</summary><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
+            {!diagram && visualPrompt && !promptShownInStartingFrame && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual description</summary><p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Directions for what the scene shows. Narration is edited separately under Script.</p><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
                 </TabPanel>
                 <TabPanel unmount={false}>
                   <h3 className="text-sm font-semibold">Scene audio</h3>

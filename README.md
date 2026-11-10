@@ -226,6 +226,23 @@ When updating an already running installation, apply the database migrations and
 restart the API and Celery workers as well as rebuilding the frontend. The API must
 load the new scene fields before animation settings can be saved.
 
+## Narration and generated audio
+
+In **Video settings**, enabling narration on an existing project opens a review
+step. Choose **Write narration from scenes** or **Use existing text**, edit the
+spoken lines beside their separate visual descriptions, and confirm the review
+before **Save and generate speech**. Drafting does not replace scene text or
+generate speech. If the source scenes change during review, refresh and review
+again before saving.
+
+**What the audience hears** controls original clip audio and background music
+volume. For newly generated clips, **Automatic** allows character dialogue when
+narration is off and requests ambient sound without speech when narration is on.
+You can explicitly choose dialogue, ambient sound, or silence. These generation
+settings apply to new or regenerated clips; they do not change existing recordings.
+Generated sound depends on the selected provider's capabilities. Per-clip audio
+controls remain available under **Visual**.
+
 ## Provider configuration
 
 Both Docker and manual installations read [`backend/.env`](backend/.env_example).

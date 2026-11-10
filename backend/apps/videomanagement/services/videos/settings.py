@@ -10,37 +10,65 @@ from apps.videomanagement.exceptions import (
     GenerationQueueUnavailable,
     VideoEditConflict,
 )
-from apps.videomanagement.models import Avatar, Intro, Outro, Video, VideoStatus
+from apps.videomanagement.integrations.visuals import ImageProviderRegistry
+from apps.videomanagement.models import (
+    Avatar,
+    Intro,
+    Outro,
+    Video,
+    VideoStatus,
+)
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.scenes.editing import changed, editable_video
+from .narration_setup import apply_reviewed_narration
 
 
-def video_update(video: Video, **changes) -> Video:
-    """Apply only supplied fields, resolving every asset before changing the video."""
-    if {
+VIDEO_SETTINGS_FIELDS = frozenset(
+    {
+        "video_audio_mode",
+        "video_audio_enabled",
+        "music_volume",
+        "narration",
         "generation_mode",
         "review_starting_frames",
+        "video_format",
+        "platform",
+        "subtitles",
+        "caption_style",
+        "caption_config",
+        "avatar_position",
         "visual_continuity",
         "transition_default",
         "transition_duration",
         "intro_transition",
         "intro_transition_duration",
-        "intro",
-        "voice_id",
-        "retry_narration",
-        "avatar",
-        "caption_style",
-        "caption_config",
-    } & changes.keys():
+    }
+)
+
+
+def video_update(video: Video, **changes) -> Video:
+    """Apply only supplied fields, resolving every asset before changing the video."""
+    if (
+        VIDEO_SETTINGS_FIELDS
+        | {
+            "intro",
+            "outro",
+            "avatar",
+            "voice_id",
+            "retry_narration",
+            "narration_scenes",
+        }
+    ) & changes.keys():
         with editable_video(video.pk) as locked_video:
             return _apply_video_changes(locked_video, changes)
     return _apply_video_changes(video, changes)
 
 
 def _apply_video_changes(video, changes):
+    enabling_narration = changes.get("narration") is True and not (
+        video.settings or {}
+    ).get("narration", True)
     if changes.get("review_starting_frames"):
-        from apps.videomanagement.integrations.visuals import ImageProviderRegistry
-
         provider = (video.settings or {}).get("provider")
         if not (
             video.mode == "AI"
@@ -78,24 +106,21 @@ def _apply_video_changes(video, changes):
     )
     if voice_changed:
         updates["voice_model"] = selected_voice
+    if enabling_narration and not (selected_voice or video.voice_model_id):
+        raise ValidationError({"voice_id": "Choose a voice before enabling narration."})
 
-    settings_fields = (
-        "generation_mode",
-        "review_starting_frames",
-        "video_format",
-        "platform",
-        "subtitles",
-        "caption_style",
-        "caption_config",
-        "avatar_position",
-        "visual_continuity",
-        "transition_default",
-        "transition_duration",
-        "intro_transition",
-        "intro_transition_duration",
-    )
+    narration_scenes = changes.get("narration_scenes")
+    if narration_scenes is not None and not enabling_narration:
+        raise ValidationError(
+            {
+                "narration_scenes": "Narration review is only used when enabling narration."
+            }
+        )
+    if enabling_narration:
+        apply_reviewed_narration(video, narration_scenes)
+
     settings_changes = {
-        field: changes[field] for field in settings_fields if field in changes
+        field: changes[field] for field in VIDEO_SETTINGS_FIELDS if field in changes
     }
     if settings_changes:
         updates["settings"] = {**(video.settings or {}), **settings_changes}
@@ -104,7 +129,7 @@ def _apply_video_changes(video, changes):
         setattr(video, field, value)
     video.save(update_fields=[*updates, "updated_at"])
     if (
-        (voice_changed or retry_narration)
+        (voice_changed or retry_narration or enabling_narration)
         and (video.settings or {}).get("narration", True)
         and video.scenes.exists()
     ):
