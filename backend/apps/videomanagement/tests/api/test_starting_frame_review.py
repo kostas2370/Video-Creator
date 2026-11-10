@@ -181,6 +181,22 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         self.scene.video = self.video
         self.assertIsNone(SceneSerializer(self.scene).data["starting_frame_review"])
 
+    def test_serialization_computes_one_fingerprint_and_refreshes_it_each_time(self):
+        review_starting_frame(self.scene, review_source_key(self.scene))
+        self.scene.refresh_from_db()
+        serializer = SceneSerializer()
+        with patch(
+            "apps.videomanagement.services.scenes.starting_frame_review.review_source_key",
+            wraps=review_source_key,
+        ) as fingerprint:
+            first = serializer.to_representation(self.scene)
+            self.scene.text = "A changed shot"
+            second = serializer.to_representation(self.scene)
+        self.assertEqual(fingerprint.call_count, 2)
+        self.assertIsNotNone(first["starting_frame_review"])
+        self.assertIsNone(second["starting_frame_review"])
+        self.assertNotEqual(first["starting_frame_review_key"], second["starting_frame_review_key"])
+
     def test_approval_does_not_invalidate_a_review(self):
         review_starting_frame(self.scene, review_source_key(self.scene))
         self.post("approve")

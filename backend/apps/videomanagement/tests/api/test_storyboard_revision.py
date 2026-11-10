@@ -8,6 +8,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement import draft_tasks
+from apps.videomanagement.models import Icon
 from apps.usage.services import current_video
 
 from .base import ApiTestCase
@@ -144,6 +145,48 @@ class StoryboardRevisionTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 202, response.data)
         self.assertEqual(generate.call_args.kwargs["scene_count"], 2)
+
+    def test_omitted_render_mode_uses_saved_setting_instead_of_ai_choice(self):
+        self.video.settings["generation_mode"] = "ECONOMY"
+        self.video.save(update_fields=["settings"])
+        self.storyboard.pop("generation_mode")
+        self.proposal["generation_mode"] = "STANDARD"
+        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.assertEqual(self.request_revision().status_code, 202)
+        self.assertEqual(self.run_draft_task()["generation_mode"], "ECONOMY")
+
+    def test_revision_preserves_owned_diagram_icons_and_removes_other_users_icons(self):
+        from ..test_ai_scene_editing import PLAN
+
+        for key, owner in (("private:mine", self.user), ("private:other", user.make())):
+            Icon.objects.create(
+                key=key,
+                created_by=owner,
+                name=key,
+                collection="uploaded",
+                file="icons/example.svg",
+            )
+        self.video.settings["ai_scene_editing"] = True
+        self.video.save(update_fields=["settings"])
+        self.proposal["scenes"][0]["sentences"][0]["editing"] = {
+            **PLAN,
+            "diagram": {
+                "template": "steps",
+                "items": [
+                    {"label": "First", "icon": "private:mine"},
+                    {"label": "Second", "icon": "private:other"},
+                ],
+            },
+        }
+        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        with patch(
+            "apps.videomanagement.services.media.icons.stored_file_exists",
+            return_value=True,
+        ):
+            self.assertEqual(self.request_revision().status_code, 202)
+            result = self.run_draft_task()
+        items = result["scenes"][0]["sentences"][0]["editing"]["diagram"]["items"]
+        self.assertEqual([item["icon"] for item in items], ["private:mine", ""])
 
     def test_empty_optional_diagram_is_normalized_without_another_paid_request(self):
         from ..test_ai_scene_editing import PLAN
