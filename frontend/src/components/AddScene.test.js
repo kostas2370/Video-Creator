@@ -86,3 +86,48 @@ it("accepts dropped media and keeps the selected insertion position in the reque
   expect(createScene.mock.calls[0][1].get("position")).toBe("2");
   expect(createScene.mock.calls[0][1].get("image").name).toBe("dropped.png");
 });
+
+it("adds a written graph with an animated preview instead of an uploaded visual", async () => {
+  createScene.mockResolvedValueOnce({ data: { id: "queued" } });
+  render(<SceneCreationModal {...settings()} />);
+  fireEvent.change(screen.getByLabelText("Dialogue"), { target: { value: "Sunlight feeds the plant." } });
+  fireEvent.change(screen.getByLabelText("Educational animation"), { target: { value: "graph" } });
+  fireEvent.change(screen.getByLabelText("Item 1"), { target: { value: "Sun" } });
+  fireEvent.change(screen.getByLabelText("Item 2"), { target: { value: "Plant" } });
+  expect(screen.getByLabelText("Diagram preview time")).toBeTruthy();
+  expect(screen.queryByLabelText("Upload a visual")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Add scene", exact: true }));
+  await waitFor(() => expect(createScene).toHaveBeenCalled());
+  expect(createScene.mock.calls[0][1]).toMatchObject({ text: "Sunlight feeds the plant.", diagram: { template: "graph", items: [{ label: "Sun" }, { label: "Plant" }] } });
+});
+it("preserves AI diagram drafts when adding multiple scenes", async () => {
+  const diagram = { template: "graph", title: "Energy", items: [{ label: "Sun", detail: "" }, { label: "Plant", detail: "" }] };
+  draftScene.mockResolvedValueOnce({ data: { scenes: [{ text: "Sunlight feeds the plant.", diagram }, { text: "A forest grows.", image_description: "x".repeat(1500) }] } });
+  createScene.mockResolvedValueOnce({ data: { id: "queued" } });
+  render(<SceneCreationModal {...settings()} />);
+  fireEvent.click(screen.getByRole("button", { name: /Create with AI/ }));
+  fireEvent.change(screen.getByLabelText("What should happen in this scene?"), { target: { value: "Explain energy with a graph" } });
+  fireEvent.change(screen.getByLabelText("Draft length"), { target: { value: "section" } });
+  fireEvent.click(screen.getByRole("button", { name: "Generate draft" }));
+  await screen.findByRole("region", { name: "Draft sentences" });
+  const visual = screen.getByLabelText("Visual description");
+  expect(visual.maxLength).toBe(2000);
+  expect(visual.value.length).toBe(1500);
+  fireEvent.click(screen.getByRole("button", { name: "Add 2 scenes" }));
+  await waitFor(() => expect(createScene).toHaveBeenCalled());
+  expect(createScene.mock.calls[0][1].scenes[0].diagram).toEqual(diagram);
+});
+it("reviews a single AI graph before submitting it", async () => {
+  const diagram = { template: "graph", title: "Energy", items: [{ label: "Sun", detail: "" }, { label: "Plant", detail: "" }] };
+  draftScene.mockResolvedValueOnce({ data: { text: "Sunlight feeds the plant.", diagram } });
+  createScene.mockResolvedValueOnce({ data: { id: "queued" } });
+  render(<SceneCreationModal {...settings()} />);
+  fireEvent.click(screen.getByRole("button", { name: /Create with AI/ }));
+  fireEvent.change(screen.getByLabelText("What should happen in this scene?"), { target: { value: "Explain energy with a graph" } });
+  fireEvent.click(screen.getByRole("button", { name: "Generate draft" }));
+  await screen.findByLabelText("Item 1");
+  fireEvent.change(screen.getByLabelText("Item 1"), { target: { value: "Sunlight" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add scene", exact: true }));
+  await waitFor(() => expect(createScene).toHaveBeenCalled());
+  expect(createScene.mock.calls[0][1].diagram.items[0].label).toBe("Sunlight");
+});
