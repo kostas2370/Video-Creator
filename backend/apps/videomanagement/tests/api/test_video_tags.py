@@ -143,7 +143,7 @@ class VideoTagsTests(ApiTestCase):
             {**TAGS, "tiktok": ["Topic"] * 21},
             {**TAGS, "tiktok": ["!!!"]},
             {**TAGS, "search": [""]},
-            {**TAGS, "search": [123]},
+            {**TAGS, "search": [True]},
             {**TAGS, "youtube": ["a,b"]},
         ):
             with self.subTest(tags=tags):

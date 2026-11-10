@@ -207,8 +207,8 @@ class DraftSceneTests(TestCase):
         vid = video.make()
         for reply in (
             'not json', '{}', '[]', 'null',
-            '{"text":42,"image_description":"sky"}',
-            '{"text":"A line.","image_description":7}',
+            '{"text":true,"image_description":"sky"}',
+            '{"text":"A line.","image_description":false}',
             '{"text":" ","image_description":"sky"}',
         ):
             with self.subTest(reply=reply), patch.object(SceneServices, "get_update_sentence", return_value=reply):
