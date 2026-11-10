@@ -28,9 +28,10 @@ def review_source_key(scene):
     video = scene.video
     settings = video.settings or {}
     source = {
-        "version": 1,
+        "version": 2,
         "asset": str(scene.starting_asset_id or ""),
         "file": scene.starting_asset.file.name if scene.starting_asset_id else "",
+        "reference_available": stored_file_exists(video.reference_image),
         "description": context.get("description", ""),
         "frame_key": context.get("key"),
         "current_key": current_frame_key(
@@ -136,7 +137,7 @@ def review_starting_frame(scene, source_key):
             data=parse_ai_json(response.getvalue())
         )
         result.is_valid(raise_exception=True)
-    except (ValueError, TypeError, KeyError, ValidationError) as exc:
+    except (AttributeError, ValueError, TypeError, ValidationError) as exc:
         raise ValidationError(
             "AI returned an invalid starting frame review. Please try again."
         ) from exc

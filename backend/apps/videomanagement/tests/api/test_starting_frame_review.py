@@ -193,6 +193,15 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             SceneSerializer(self.scene).data["starting_frame_status"], "approved"
         )
 
+    def test_saved_review_is_hidden_if_reference_file_disappears(self):
+        source_key = review_source_key(self.scene)
+        review_starting_frame(self.scene, source_key)
+        self.scene.refresh_from_db()
+        self.assertIsNotNone(SceneSerializer(self.scene).data["starting_frame_review"])
+        self.video.reference_image.delete(save=False)
+        self.assertNotEqual(review_source_key(self.scene), source_key)
+        self.assertIsNone(SceneSerializer(self.scene).data["starting_frame_review"])
+
     def test_missing_reference_or_changed_settings_do_not_spend_on_review(self):
         self.video.settings["visual_continuity"] = "New wardrobe"
         self.video.save(update_fields=["settings"])
@@ -213,6 +222,10 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             {**self.review, "verdict": "ready"},
             {**self.review, "findings": []},
             {**self.review, "findings": self.review["findings"] * 7},
+            {**self.review, "summary": 42},
+            {**self.review, "suggested_description": 42},
+            {**self.review, "findings": [{**self.review["findings"][0], "issue": 42}]},
+            {**self.review, "findings": [{**self.review["findings"][0], "fix": 42}]},
         ]:
             with self.subTest(value=value):
                 self.provider.return_value = StringIO(json.dumps(value))
@@ -220,6 +233,13 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
                     review_starting_frame(self.scene, review_source_key(self.scene))
                 self.scene.refresh_from_db()
                 self.assertNotIn("ai_review", self.scene.starting_frame_context)
+
+    def test_missing_provider_response_is_reported_as_invalid_review(self):
+        self.provider.return_value = None
+        with self.assertRaisesMessage(ValidationError, "AI returned an invalid starting frame review"):
+            review_starting_frame(self.scene, review_source_key(self.scene))
+        self.scene.refresh_from_db()
+        self.assertNotIn("ai_review", self.scene.starting_frame_context)
 
     def test_ready_and_uncertain_verdicts_are_supported(self):
         for verdict in ["ready", "uncertain"]:
