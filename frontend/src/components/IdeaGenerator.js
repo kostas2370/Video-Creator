@@ -1,29 +1,20 @@
-import React, { useState } from "react";
+import React from "react";
 import { generateIdeas } from "../api/apiService";
 import { useDraftSection } from "../hooks/useCreationDraft";
+import { useAIRequest } from "../hooks/useAIRequest";
 import { editorInput } from "./ui/EditorDialog";
 
 export function IdeaGenerator({ kind, seed = "", preferences = {}, disabled = false, onUse }) {
   const [saved, updateSaved] = useDraftSection(`ideas:${kind}`, { seed: "", ideas: [] });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { busy, error, run } = useAIRequest();
   const ideas = Array.isArray(saved.ideas) ? saved.ideas : [];
   const generate = async () => {
     if (busy || disabled) return;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await generateIdeas({ ...preferences, kind, seed: saved.seed.trim() || seed.trim() });
-      if (!response?.ok) {
-        setError(response?.message || "Could not suggest ideas. Please try again.");
-      } else {
-        updateSaved(previous => ({ ...previous, ideas: response.data.ideas }));
-      }
-    } catch {
-      setError("Could not suggest ideas. Please try again.");
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      () => generateIdeas({ ...preferences, kind, seed: saved.seed.trim() || seed.trim() }),
+      data => updateSaved(previous => ({ ...previous, ideas: data.ideas })),
+      "Could not suggest ideas. Please try again.",
+    );
   };
   return (
     <div className="mt-4 space-y-3">

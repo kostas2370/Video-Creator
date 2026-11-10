@@ -1,27 +1,21 @@
-import React, { useState } from "react";
+import React from "react";
 import { rewritePrompt } from "../api/apiService";
 import { useDraftSection } from "../hooks/useCreationDraft";
+import { useAIRequest } from "../hooks/useAIRequest";
 import { editorInput } from "./ui/EditorDialog";
 
 export function PromptRewrite({ kind, value, onUse, preferences = {}, disabled = false, scope = kind, embedded = false }) {
   const [saved, updateSaved] = useDraftSection(`rewrite:${scope}`, { instructions: "", draft: null, source: "", open: false });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { busy, error, run } = useAIRequest();
   const stale = !!saved.draft && saved.source !== value;
   const generate = async () => {
     if (busy || disabled || !value.trim() || value.length > 2000) return;
     const source = value;
-    setBusy(true);
-    setError("");
-    try {
-      const response = await rewritePrompt({ ...preferences, kind, prompt: source, instructions: saved.instructions });
-      if (!response?.ok) setError(response?.message || "Could not rewrite this prompt. Please try again.");
-      else updateSaved(previous => ({ ...previous, source, draft: response.data.prompt }));
-    } catch {
-      setError("Could not rewrite this prompt. Please try again.");
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      () => rewritePrompt({ ...preferences, kind, prompt: source, instructions: saved.instructions }),
+      data => updateSaved(previous => ({ ...previous, source, draft: data.prompt })),
+      "Could not rewrite this prompt. Please try again.",
+    );
   };
   const content = (
     <div className="mt-3 space-y-3">
