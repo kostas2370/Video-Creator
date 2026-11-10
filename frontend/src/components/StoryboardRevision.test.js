@@ -53,3 +53,21 @@ it("reports failures without altering the current storyboard", async () => {
   expect((await screen.findByRole("alert")).textContent).toBe("Provider unavailable");
   expect(screen.getByLabelText("Current title").value).toBe("Original");
 });
+
+it("recovers from a network failure and keeps the existing proposal available", async () => {
+  const revise = vi.spyOn(api, "reviseStoryboard")
+    .mockResolvedValueOnce({ ok: true, data: revised })
+    .mockRejectedValueOnce(new Error("Network unavailable"))
+    .mockResolvedValueOnce({ ok: true, data: revised });
+  render(<Editor />);
+  request();
+  await screen.findByText("Suspenseful revision");
+  request();
+  expect((await screen.findByRole("alert")).textContent).toBe("Could not revise the storyboard. Please try again.");
+  expect(screen.getByRole("button", { name: "Apply revision" }).disabled).toBe(false);
+  expect(screen.getByLabelText("Current title").value).toBe("Original");
+  request();
+  await screen.findByRole("button", { name: "Suggest revision" });
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(revise).toHaveBeenCalledTimes(3);
+});
