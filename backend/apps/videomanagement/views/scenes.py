@@ -19,6 +19,7 @@ from apps.videomanagement.serializers.audio import (
     SceneAudioSerializer,
     VoiceoverUploadSerializer,
 )
+from apps.videomanagement.serializers.starting_frame_review import StartingFrameReviewRequestSerializer
 from apps.videomanagement.serializers.models import (
     SceneSerializer,
     VideoNestedSerializer,
@@ -36,7 +37,7 @@ from apps.videomanagement.serializers.requests import (
     SceneTimingSerializer,
     SceneTransitionSerializer,
     SceneUpdateSerializer,
-    StartingImageSerializer,
+    StartingFrameSerializer,
 )
 from apps.videomanagement.serializers.scene_captions import SceneCaptionsSerializer
 from apps.videomanagement.services.captions.scenes import (
@@ -63,11 +64,13 @@ from apps.videomanagement.services.scenes.jobs import (
     queue_scene_job,
     scene_job_result,
 )
+from apps.videomanagement.services.scenes.starting_frame_review import validate_review_source
+from apps.videomanagement.throttling import StartingFrameReviewRateThrottle
 from apps.videomanagement.services.scenes.overlays import update_overlays
-from apps.videomanagement.services.scenes.starting_images import (
-    checked_scene,
-    save_starting_image,
-    starting_image_status,
+from apps.videomanagement.services.scenes.starting_frames import (
+    validate_starting_frame_state,
+    save_starting_frame,
+    starting_frame_status,
 )
 from apps.videomanagement.services.videos.details import load_video_detail
 from apps.videomanagement.tasks import generate_scene_image_task
@@ -98,8 +101,28 @@ class SceneView(viewsets.GenericViewSet):
             "generate": SceneUpdateSerializer,
             "change_image_scene": ChangeSceneImageSerializer,
             "generate_image_scene": GenerateSceneImageSerializer,
-            "starting_image": StartingImageSerializer,
+            "starting_frame": StartingFrameSerializer,
+            "review_starting_frame": StartingFrameReviewRequestSerializer,
         }.get(self.action, super().get_serializer_class())
+
+    @action(detail=True, methods=["POST"], throttle_classes=[StartingFrameReviewRateThrottle])
+    def review_starting_frame(self, request, pk=None):
+        scene = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        source_key = validate_review_source(
+            scene, asset_id=serializer.validated_data["asset_id"]
+        )
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.review_starting_frame_task,
+                scene_id=str(scene.pk),
+                source_key=source_key,
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @action(detail=True, methods=["GET", "PATCH"])
     def captions(self, request, pk=None):
@@ -298,16 +321,16 @@ class SceneView(viewsets.GenericViewSet):
         return Response(operation, status=status.HTTP_202_ACCEPTED)
 
     @action(detail=True, methods=["POST"])
-    def starting_image(self, request, pk=None):
+    def starting_frame(self, request, pk=None):
         scene = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         values = serializer.validated_data
-        checked_scene(scene, values.get("asset_id"))
         if values["operation"] == "animate":
-            if starting_image_status(scene) != "approved":
+            validate_starting_frame_state(scene, values.get("asset_id"))
+            if starting_frame_status(scene) != "approved":
                 raise ValidationError(
-                    "Approve the current starting image before animating it."
+                    "Approve the current starting frame before animating it."
                 )
             operation = queue_scene_job(
                 scene,
@@ -315,7 +338,7 @@ class SceneView(viewsets.GenericViewSet):
                 {"operation": "animate", "asset_id": str(values["asset_id"])},
             )
             return Response(operation, status=status.HTTP_202_ACCEPTED)
-        scene = save_starting_image(scene, **values)
+        scene = save_starting_frame(scene, **values)
         return Response(
             SceneSerializer(scene, context=self.get_serializer_context()).data
         )

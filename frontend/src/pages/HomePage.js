@@ -1,7 +1,8 @@
 import { GenerationModeSelect } from "../components/GenerationModeSelect";
 import { GenerationCost } from "../components/GenerationCost";
 import { visualProviderNames, isBuiltinVisualProvider, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
-import { useCreationDraft } from "../hooks/useCreationDraft";
+import { CreationDraftContext, useCreationDraft } from "../hooks/useCreationDraft";
+import { GenerationIdeaStep } from "../components/GenerationIdeaStep";
 import { useDraftFile } from "../hooks/useDraftFile";
 import { restoreWizardDraft } from "../utils/creationDrafts";
 import { CreationDraftNotice } from "../components/ui/CreationDraftNotice";
@@ -316,11 +317,6 @@ const Home = () => {
   const selectedVisualProvider = visualProviders.find((provider) => provider.name === formData.provider);
   const unavailableVisualProvider = formData.image_mode === "AI" && !isBuiltinVisualProvider(formData.provider) && (visualProvidersLoading || Boolean(visualProvidersError) || !selectedVisualProvider);
   const selectedAvatar = avatars.find((avatar) => String(avatar.id) === String(formData.avatar_selection));
-  const examples = [
-    ["Explainer", "Create a short explainer about how solar panels turn sunlight into electricity. Use simple language and everyday examples."],
-    ["Travel story", "Create a relaxing travel video about a weekend in the Greek islands, with seaside villages, local food, and sunset views."],
-    ["Product intro", "Introduce a reusable water bottle for people who love the outdoors. Focus on durability, everyday use, and reducing waste."],
-  ];
   const field = (name, label, children, hint) => (
     <div>
       <label htmlFor={name} className="block text-sm font-medium text-gray-900 dark:text-gray-100">{label}</label>
@@ -359,10 +355,10 @@ const Home = () => {
       <DeferredDialog open={open} onClose={() => isOpenFunction(false)}><ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} /></DeferredDialog>
       <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
-      <header className="mx-auto mb-8 max-w-4xl">
+      <header className="mx-auto mb-6 max-w-4xl">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl dark:text-white">Turn your idea into a video</h1>
-        <p className="mt-3 max-w-2xl text-base leading-relaxed text-gray-500 dark:text-gray-400">An idea, a look, a final check. Your storyboard comes next.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl dark:text-white">Turn your idea into a video</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">An idea, a look, a final check. Your storyboard comes next.</p>
       </header>
 
       <form noValidate onSubmit={submitWizard} className="mx-auto max-w-4xl">
@@ -372,21 +368,16 @@ const Home = () => {
         {validation && <p role="alert" className="mb-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{validation}</p>}
         <fieldset disabled={isLoading || !!pendingVideoId} className="min-w-0 space-y-6">
           <div hidden={step !== 0}>
-          <section aria-labelledby="story-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-5 flex items-center gap-3"><h2 id="story-heading" className="text-lg font-semibold">Start with your idea</h2></div>
-            <details className="mb-5 rounded-xl border border-gray-100 p-3 dark:border-gray-700"><summary className="cursor-pointer text-sm text-gray-500">Use a saved template</summary>
-            <div className="mb-5">
+          <CreationDraftContext.Provider key={`${draft.key}:${draft.epoch}`} value={draft}>
+            <GenerationIdeaStep form={formData} disabled={isLoading || !!pendingVideoId} onChange={message => { setFormData(previous => ({ ...previous, message, template: "" })); setValidation(""); }} templateControl={<>
               <label htmlFor="template" className="block text-sm font-medium">Start from a template</label>
               <div className="flex items-center gap-2">
-                {select("template", <><option value="">Start fresh</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</>, optionsLoading)}
-                {selectedTemplate ? <button type="button" aria-label="Delete template" title={`Delete ${selectedTemplate.title}`} onClick={() => setDeletingTemplate(true)} className="mt-2 rounded-xl border border-red-200 px-3 py-3 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400">Delete</button> : null}
+                {select("template", <><option value="">Start fresh</option>{templates.map(template => <option key={template.id} value={template.id}>{template.title}</option>)}</>, optionsLoading)}
+                {selectedTemplate && <button type="button" aria-label="Delete template" title={`Delete ${selectedTemplate.title}`} onClick={() => setDeletingTemplate(true)} className="mt-2 rounded-xl border border-red-200 px-3 py-3 text-sm text-red-600 dark:border-red-900 dark:text-red-400">Delete</button>}
               </div>
               <MoreAssetOptions options={templateOptions} label="templates" />
-            </div>
-            </details>
-            {field("message", "Your prompt", <textarea id="message" name="message" rows={5} maxLength={2000} required value={formData.message} onChange={handleInputChange} className={`${inputClassName} resize-y leading-relaxed`} placeholder="What is your video about? Describe the story, tone, and details you want to include." />, "A clear topic and a few specific details help shape the script.")}
-            <div className="mt-4 flex flex-wrap items-center gap-2"><span className="text-xs text-gray-400">Try an idea</span>{examples.map(([label, prompt]) => <button key={label} type="button" onClick={() => setFormData((previous) => ({ ...previous, message: prompt, template: "" }))} className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-blue-900/30">{label}</button>)}</div>
-          </section>
+            </>} />
+          </CreationDraftContext.Provider>
 
           </div>
           <div hidden={step !== 1}><div className="space-y-5">
@@ -394,8 +385,10 @@ const Home = () => {
             <div className="mb-5 flex items-center gap-3"><h2 id="look-heading" className="text-lg font-semibold">Choose the look &amp; sound</h2></div>
             <label className="mb-5 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><input id="narration" name="narration" type="checkbox" checked={formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium">Narration</span><span className="block text-xs text-gray-500 dark:text-gray-400">Add a voice-over to tell your story.</span></span></label>
             <div className="grid gap-5 sm:grid-cols-2">
+              <div>
               {!formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
               {!formData.avatar_selection && <MoreAssetOptions options={voiceOptions} label="voices" />}
+              </div>
               {field("image_mode", "Visuals", select("image_mode", <><option value="WEB">Web images</option><option value="AI">AI-generated visuals</option></>))}
 
             </div>
@@ -439,12 +432,12 @@ const Home = () => {
           </div></div>
           <div hidden={step !== 2}><div className="space-y-5">
         <aside aria-labelledby="summary-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-5 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-100 p-5 dark:from-blue-900 dark:to-indigo-900"><RiSparkling2Line aria-hidden="true" className="mb-3 h-7 w-7 text-blue-600 dark:text-blue-300" /><h2 id="summary-heading" className="text-lg font-semibold">Review your video</h2><p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">A first draft you can edit and refine.</p></div>
+          <div className="mb-4 flex items-center justify-between gap-3"><div><h2 id="summary-heading" className="text-xl font-semibold">Review your video</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Check your choices before drafting the storyboard.</p></div><button type="button" onClick={() => navigateStep(0)} className="shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-300">Edit idea</button></div>
           <p className="mb-5 whitespace-pre-line text-sm leading-relaxed text-gray-600 dark:text-gray-300">{formData.message}</p>
           <GenerationModeSelect value={formData.generation_mode} onChange={value => setFormData(previous => ({ ...previous, generation_mode: value }))} disabled={isLoading} />
           <p className="mb-5 text-xs text-gray-500">{videoFormatOptions.find(format => format.value === formData.video_format)?.label} · {formData.scene_count || "AI-selected"} scenes</p>
             <div className="mt-4 max-w-xs">{field("scene_count", "Number of scenes", <input id="scene_count" name="scene_count" type="number" min={1} max={60} value={formData.scene_count} onChange={handleInputChange} className={inputClassName} placeholder="Let AI choose" />, "One short sentence per scene. Choose 1–60, or leave blank to let AI choose.")}</div>
-          <dl className="space-y-4 text-sm">
+          <div className="mb-3 mt-5 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">Look &amp; sound</h3><button type="button" onClick={() => navigateStep(1)} className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">Edit look &amp; sound</button></div><dl className="grid gap-4 rounded-xl bg-gray-50 p-4 text-sm sm:grid-cols-2 dark:bg-gray-900/40">
             <div className="flex items-start gap-3"><RiVolumeUpLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-medium">{!formData.narration ? "Clips only" : selectedAvatar ? selectedAvatar.name : selectedVoice ? `${selectedVoice.name} · ${ttsProviderNames[selectedVoice.provider] || selectedVoice.provider}` : "Any available voice"}</dd></div></div>
             <div className="flex items-start gap-3"><RiImageLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Visuals</dt><dd className="mt-1 font-medium">{formData.image_mode === "AI" ? (isBuiltinVisualProvider(formData.provider) ? visualProviderNames[formData.provider] : `${formData.provider} · ${selectedVisualProvider?.output_type === "VIDEO" ? "Video clips" : "Images"}`) : "Web images"}</dd></div></div>
           </dl>
@@ -478,7 +471,7 @@ const Home = () => {
             <button type="button" disabled={isLoading} onClick={() => setSavingTemplate(true)} className="text-sm font-semibold text-gray-500 hover:text-indigo-600">Save these settings as a template</button>
           </div></div>
         </fieldset>
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+        <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white/95 p-4 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95 ${step < 2 ? "sticky bottom-4 z-20 shadow-lg shadow-gray-900/5" : ""}`}>
           <div>{step > 0 ? <button type="button" disabled={isLoading} onClick={() => navigateStep(step - 1)} className="text-sm font-semibold text-gray-500">Back</button> : <span className="text-xs text-gray-500">You can edit every scene later.</span>}</div>
           {step === 2 && !pendingVideoId && <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost scenario={{ ...formData, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count), has_reference: !!referenceImage }} /></div>}
           {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || modelsLoading || Boolean(modelsError) || unavailableVisualProvider))} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }

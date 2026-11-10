@@ -9,10 +9,18 @@ from apps.clips.models import Clip, ClipProject
 from apps.series.models import SeriesEpisode
 from apps.series.services import characters, episodes
 from apps.videomanagement.models import Scene, Video
+from apps.videomanagement.serializers.ideas import (
+    IdeaResultSerializer,
+    PromptResultSerializer,
+)
 from apps.videomanagement.services.scenes import generation as scene_generation
+from apps.videomanagement.services.scenes.starting_frame_review import review_starting_frame
 from apps.videomanagement.services.videos import story as video_story
+from apps.videomanagement.services.videos.ideas import creative_reply
 from apps.videomanagement.services.videos import tags as video_tags
 from apps.videomanagement.services.videos import youtube_metadata
+from apps.videomanagement.services.videos.storyboard_revision import revise_storyboard
+from apps.videomanagement.utils.prompt_utils import build_ideas_prompt, build_prompt_rewrite
 
 
 def load_user(user_id):
@@ -30,6 +38,33 @@ def draft_story_task(user_id, *, prompt):
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def generate_ideas_task(user_id, *, gpt_model="", **brief):
+    return creative_reply(
+        load_user(user_id),
+        prompt=build_ideas_prompt(brief),
+        serializer_class=IdeaResultSerializer,
+        error_message="AI returned invalid ideas. Please try again.",
+        gpt_model=gpt_model,
+    )
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def rewrite_prompt_task(user_id, *, gpt_model="", **brief):
+    return creative_reply(
+        load_user(user_id),
+        prompt=build_prompt_rewrite(brief),
+        serializer_class=PromptResultSerializer,
+        error_message="AI returned an invalid rewrite. Please try again.",
+        gpt_model=gpt_model,
+    )
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def revise_storyboard_task(user_id, *, video_id, **choices):
+    return revise_storyboard(owned_video(load_user(user_id), video_id), **choices)
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def draft_scene_task(user_id, *, video_id, choices):
     user = load_user(user_id)
     return scene_generation.draft_scene(owned_video(user, video_id), **choices)
@@ -42,6 +77,15 @@ def rewrite_scene_task(user_id, *, scene_id, instructions):
         pk=scene_id, video__created_by=user
     )
     return {"text": scene_generation.generate_scene(instructions, scene)}
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def review_starting_frame_task(user_id, *, scene_id, source_key):
+    user = load_user(user_id)
+    scene = Scene.objects.select_related("video__created_by", "starting_asset").get(
+        pk=scene_id, video__created_by=user
+    )
+    return review_starting_frame(scene, source_key)
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)

@@ -317,7 +317,7 @@ class StoryboardApprovalTests(ApiTestCase):
         self.assertEqual(video.gpt_answer, self.script)
         self.assertEqual(video.title, "Reviewed title")
         self.assertEqual(video.status, "GENERATION")
-        delay.assert_called_once_with(video_id=video.pk, operation_id=str(video.operation_id), message="original idea", review_script=False, generation_mode="STANDARD")
+        delay.assert_called_once_with(video_id=video.pk, operation_id=str(video.operation_id), message="original idea", review_script=False, generation_mode="STANDARD", scene_count=1)
         self.assertEqual(self.approve(video).status_code, 409)
         delay.assert_called_once()
 

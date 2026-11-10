@@ -7,10 +7,10 @@ from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.baker_recipes import scene, scene_image, video
 from apps.videomanagement.services.scenes import visuals
-from apps.videomanagement.services.scenes.starting_images import (
-    animate_starting_image,
-    save_starting_image,
-    starting_image_status,
+from apps.videomanagement.services.scenes.starting_frames import (
+    animate_starting_frame,
+    save_starting_frame,
+    starting_frame_status,
 )
 
 
@@ -22,7 +22,7 @@ class CharacterShotReferenceTests(TestCase):
         storage.enable()
         self.addCleanup(storage.disable)
         self.frame = str(Path(self.tmp.name, "starting.png"))
-        Path(self.frame).write_bytes(b"starting image")
+        Path(self.frame).write_bytes(b"starting frame")
         Path(self.tmp.name, "cast.png").write_bytes(b"cast")
         self.video = video.make(
             mode="AI",
@@ -63,7 +63,7 @@ class CharacterShotReferenceTests(TestCase):
         self.scene.refresh_from_db()
 
     def approve(self):
-        save_starting_image(
+        save_starting_frame(
             self.scene, operation="approve", asset_id=self.scene.starting_asset_id
         )
         self.scene.refresh_from_db()
@@ -76,17 +76,17 @@ class CharacterShotReferenceTests(TestCase):
         self.assertEqual(self.starting.call_args.kwargs["reference_role"], "character")
         self.assertIn("Milo at the forest gate", self.starting.call_args.args[0])
         self.assertTrue(Path(self.scene.starting_asset.file.path).exists())
-        self.assertEqual(starting_image_status(self.scene), "needs_review")
+        self.assertEqual(starting_frame_status(self.scene), "needs_review")
         self.provider.assert_not_called()
         self.assertFalse(self.scene.scene_images.first().file)
 
     def test_animation_requires_approval_and_uses_the_exact_saved_image(self):
         self.prepare()
         with self.assertRaises(ValidationError):
-            animate_starting_image(self.scene, self.scene.starting_asset_id)
+            animate_starting_frame(self.scene, self.scene.starting_asset_id)
         self.provider.assert_not_called()
         self.approve()
-        animate_starting_image(self.scene, self.scene.starting_asset_id)
+        animate_starting_frame(self.scene, self.scene.starting_asset_id)
         self.assertEqual(
             self.provider.call_args.kwargs["reference"],
             self.scene.starting_asset.file.path,
@@ -107,9 +107,9 @@ class CharacterShotReferenceTests(TestCase):
         self.assertEqual(target.file.name, "images/approved.mp4")
         self.assertEqual(target.prompt, "Old shot")
         self.assertEqual(
-            self.scene.starting_image_context["description"], "Milo inside the workshop"
+            self.scene.starting_frame_context["description"], "Milo inside the workshop"
         )
-        self.assertEqual(starting_image_status(self.scene), "needs_review")
+        self.assertEqual(starting_frame_status(self.scene), "needs_review")
         self.provider.assert_not_called()
 
     def test_image_failure_preserves_saved_image_and_video(self):
@@ -126,7 +126,7 @@ class CharacterShotReferenceTests(TestCase):
         self.scene.refresh_from_db()
         self.assertEqual(target.file.name, "images/approved.mp4")
         self.assertEqual(self.scene.starting_asset_id, asset_id)
-        self.assertEqual(starting_image_status(self.scene), "approved")
+        self.assertEqual(starting_frame_status(self.scene), "approved")
         self.provider.assert_not_called()
 
     def test_failed_animation_can_retry_without_regenerating_the_image(self):
@@ -137,11 +137,11 @@ class CharacterShotReferenceTests(TestCase):
         target.save()
         self.provider.side_effect = RuntimeError("video unavailable")
         with self.assertRaises(RuntimeError):
-            animate_starting_image(self.scene, self.scene.starting_asset_id)
+            animate_starting_frame(self.scene, self.scene.starting_asset_id)
         target.refresh_from_db()
         self.assertEqual(target.file.name, "images/approved.mp4")
         self.provider.side_effect = None
-        animate_starting_image(self.scene, self.scene.starting_asset_id)
+        animate_starting_frame(self.scene, self.scene.starting_asset_id)
         self.starting.assert_called_once()
         target.refresh_from_db()
         self.assertEqual(target.file.name, "images/shot.mp4")
@@ -160,7 +160,7 @@ class CharacterShotReferenceTests(TestCase):
         self.scene.shot_plan = {"shot_size": "CLOSE_UP"}
         self.scene.save(update_fields=["shot_plan"])
         with self.assertRaises(ValidationError):
-            animate_starting_image(self.scene, self.scene.starting_asset_id)
+            animate_starting_frame(self.scene, self.scene.starting_asset_id)
         self.provider.assert_not_called()
 
     def test_stale_image_cannot_be_approved_or_animated(self):
@@ -168,10 +168,21 @@ class CharacterShotReferenceTests(TestCase):
         from uuid import uuid4
 
         with self.assertRaises(ValidationError):
-            save_starting_image(self.scene, operation="approve", asset_id=uuid4())
+            save_starting_frame(self.scene, operation="approve", asset_id=uuid4())
         self.approve()
         with self.assertRaises(ValidationError):
-            animate_starting_image(self.scene, uuid4())
+            animate_starting_frame(self.scene, uuid4())
+        self.provider.assert_not_called()
+
+    def test_approval_reloads_shot_changes_before_validating(self):
+        self.prepare()
+        type(self.scene).objects.filter(pk=self.scene.pk).update(
+            shot_plan={"shot_size": "CLOSE_UP"}
+        )
+        with self.assertRaisesMessage(ValidationError, "The shot settings changed"):
+            self.approve()
+        self.scene.refresh_from_db()
+        self.assertNotIn("approved_asset", self.scene.starting_frame_context)
         self.provider.assert_not_called()
 
     def test_missing_cast_sheet_never_falls_back_to_unreferenced_generation(self):
@@ -182,7 +193,7 @@ class CharacterShotReferenceTests(TestCase):
             )
         self.starting.assert_not_called()
 
-    def test_changed_style_is_used_when_regenerating_the_starting_image(self):
+    def test_changed_style_is_used_when_regenerating_the_starting_frame(self):
         self.prepare()
         self.approve()
         self.video.settings["style"] = "cinematic"
@@ -190,7 +201,7 @@ class CharacterShotReferenceTests(TestCase):
         target = self.scene.scene_images.first()
         target.scene = self.scene
         self.scene.video = self.video
-        self.assertEqual(starting_image_status(self.scene), "needs_review")
+        self.assertEqual(starting_frame_status(self.scene), "needs_review")
         visuals.generate_new_image(target, self.video)
         self.assertEqual(self.starting.call_args.kwargs["style"], "cinematic")
         self.provider.assert_not_called()
@@ -204,7 +215,7 @@ class CharacterShotReferenceTests(TestCase):
         self.provider.assert_not_called()
 
     def use_legacy_image_key(self):
-        context = self.scene.starting_image_context
+        context = self.scene.starting_frame_context
         context["key"] = visuals.starting_frame_key(
             self.video,
             visuals.planned_visual_prompt(
@@ -213,7 +224,7 @@ class CharacterShotReferenceTests(TestCase):
             context["style"],
             legacy=True,
         )
-        self.scene.save(update_fields=["starting_image_context"])
+        self.scene.save(update_fields=["starting_frame_context"])
 
     def test_existing_images_from_before_review_can_be_approved_without_regeneration(
         self,
@@ -221,11 +232,11 @@ class CharacterShotReferenceTests(TestCase):
         self.prepare()
         self.use_legacy_image_key()
         self.approve()
-        animate_starting_image(self.scene, self.scene.starting_asset_id)
+        animate_starting_frame(self.scene, self.scene.starting_asset_id)
         self.starting.assert_called_once()
         self.assertEqual(self.provider.call_count, 1)
 
-    def test_resume_reuses_a_legacy_starting_image_without_paid_requests(self):
+    def test_resume_reuses_a_legacy_starting_frame_without_paid_requests(self):
         self.prepare()
         self.use_legacy_image_key()
         self.prepare()

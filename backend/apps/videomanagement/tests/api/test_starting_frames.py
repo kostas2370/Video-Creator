@@ -16,7 +16,7 @@ from apps.videomanagement.services.scenes.visuals import create_image_scene
 from .base import ApiTestCase
 
 
-class StartingImageTests(ApiTestCase):
+class StartingFrameTests(ApiTestCase):
     def setUp(self):
         super().setUp()
         self.tmp = tempfile.TemporaryDirectory()
@@ -44,7 +44,7 @@ class StartingImageTests(ApiTestCase):
         self.old = scene_image.make(
             scene=self.scene, file="images/old.mp4", prompt="Old shot"
         )
-        self.url = reverse("scene-starting-image", args=[self.scene.pk])
+        self.url = reverse("scene-starting-frame", args=[self.scene.pk])
         with patch(
             "apps.videomanagement.services.scenes.visuals.openai_images.OpenAIImageProvider.generate",
             return_value=str(self.frame),
@@ -76,13 +76,13 @@ class StartingImageTests(ApiTestCase):
         self.assertEqual(self.post("animate").status_code, 400)
         approved = self.post("approve")
         self.assertEqual(approved.status_code, 200, approved.data)
-        self.assertEqual(approved.data["starting_image_status"], "approved")
+        self.assertEqual(approved.data["starting_frame_status"], "approved")
         self.scene_queue.assert_not_called()
         response = self.post("animate")
         self.assertEqual(response.status_code, 202, response.data)
         provider = Mock(return_value="images/new.mp4")
         with patch(
-            "apps.videomanagement.services.scenes.starting_images.ImageProviderRegistry.resolve",
+            "apps.videomanagement.services.scenes.starting_frames.ImageProviderRegistry.resolve",
             return_value=provider,
         ):
             self.run_scene_job()
@@ -96,7 +96,7 @@ class StartingImageTests(ApiTestCase):
         self.post("approve")
         self.post("animate")
         with patch(
-            "apps.videomanagement.services.scenes.starting_images.ImageProviderRegistry.resolve",
+            "apps.videomanagement.services.scenes.starting_frames.ImageProviderRegistry.resolve",
             side_effect=RuntimeError("private upstream details"),
         ):
             with self.assertRaises(RuntimeError):
@@ -107,9 +107,9 @@ class StartingImageTests(ApiTestCase):
         self.assertEqual(self.video.status, "READY")
         self.assertEqual(self.old.file.name, "images/old.mp4")
         self.assertIn(
-            "Animation failed", self.scene.starting_image_context["animation_error"]
+            "Animation failed", self.scene.starting_frame_context["animation_error"]
         )
-        self.assertNotIn("private upstream", str(self.scene.starting_image_context))
+        self.assertNotIn("private upstream", str(self.scene.starting_frame_context))
         self.assertEqual(self.post("animate").status_code, 202)
 
     def test_upload_requires_review_and_preserves_current_clip(self):
@@ -127,9 +127,9 @@ class StartingImageTests(ApiTestCase):
             format="multipart",
         )
         self.assertEqual(response.status_code, 200, response.data)
-        self.assertEqual(response.data["starting_image_status"], "needs_review")
+        self.assertEqual(response.data["starting_frame_status"], "needs_review")
         self.assertEqual(
-            response.data["starting_image_description"], "Milo in workshop"
+            response.data["starting_frame_description"], "Milo in workshop"
         )
         self.old.refresh_from_db()
         self.assertEqual(self.old.file.name, "images/old.mp4")
@@ -162,13 +162,13 @@ class StartingImageTests(ApiTestCase):
     def test_worker_rechecks_approval_before_calling_a_paid_provider(self):
         self.post("approve")
         self.post("animate")
-        self.scene.starting_image_context = {
-            **self.scene.starting_image_context,
+        self.scene.starting_frame_context = {
+            **self.scene.starting_frame_context,
             "approved_asset": "stale",
         }
-        self.scene.save(update_fields=["starting_image_context"])
+        self.scene.save(update_fields=["starting_frame_context"])
         with patch(
-            "apps.videomanagement.services.scenes.starting_images.ImageProviderRegistry.resolve"
+            "apps.videomanagement.services.scenes.starting_frames.ImageProviderRegistry.resolve"
         ) as provider:
             with self.assertRaises(Exception):
                 self.run_scene_job()

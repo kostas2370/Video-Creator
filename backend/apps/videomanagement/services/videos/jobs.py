@@ -166,7 +166,12 @@ def approve_script(video, storyboard):
         generation_mode = storyboard.get(
             "generation_mode", (video.settings or {}).get("generation_mode", "STANDARD")
         )
-        params = {**params, "generation_mode": generation_mode}
+        scene_count = (
+            len(storyboard["scenes"])
+            if all(len(scene["sentences"]) == 1 for scene in storyboard["scenes"])
+            else None
+        )
+        params = {**params, "generation_mode": generation_mode, "scene_count": scene_count}
         video.settings = {
             **(video.settings or {}),
             "generation_mode": generation_mode,

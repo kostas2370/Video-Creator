@@ -62,7 +62,7 @@ class ReferenceAssetTests(TestCase):
     def test_backfill_recovers_unlinked_images_from_an_earlier_failed_job(self):
         directory = Path(settings.MEDIA_ROOT, "project", "images")
         directory.mkdir(parents=True)
-        (directory / "old-starting-image.png").write_bytes(self.image)
+        (directory / "old-starting-frame.png").write_bytes(self.image)
         video = baker.make(Video, created_by=self.user, dir_name=str(directory.parent))
         for _ in range(2):
             call_command("archive_reference_images", stdout=io.StringIO())

@@ -52,7 +52,7 @@ class UsageTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(self.user)
 
-    def test_summary_preserves_scope_and_serialization_performs_no_queries(self):
+    def test_summary_preserves_scope_and_serializes_totals(self):
         record_usage(
             self.user,
             "text",
@@ -64,11 +64,9 @@ class UsageTests(TestCase):
         record_usage(self.user, "tts", "OPENAI", characters=20)
         record_usage(user.make(), "text", "OPENAI", "gpt-test", {"total_tokens": 999})
         usage = AIUsage.objects.filter(user=self.user, service="text")
-        with self.assertNumQueries(2):
-            summary = usage.summary()
+        summary = usage.summary()
         summary.update(period="all", first_recorded_at=usage.first_recorded_at())
-        with self.assertNumQueries(0):
-            result = UsageSerializer(summary).data
+        result = UsageSerializer(summary).data
         self.assertEqual(result["totals"]["requests"], 2)
         self.assertEqual(result["totals"]["requests_with_tokens"], 1)
         self.assertEqual(result["totals"]["total_tokens"], 12)

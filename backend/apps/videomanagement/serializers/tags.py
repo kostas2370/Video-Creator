@@ -6,15 +6,8 @@ import unicodedata
 from rest_framework import serializers
 
 
-class TagTextField(serializers.CharField):
-    def to_internal_value(self, data):
-        if not isinstance(data, str):
-            self.fail("invalid")
-        return super().to_internal_value(data)
-
-
 class TagListField(serializers.ListField):
-    child = TagTextField(max_length=80, allow_blank=False)
+    child = serializers.CharField(max_length=80, allow_blank=False)
     default_error_messages = {
         "hashtag": "Use only letters, numbers and underscores in hashtags.",
         "keyword": "Use nonempty keyword phrases without commas or #.",

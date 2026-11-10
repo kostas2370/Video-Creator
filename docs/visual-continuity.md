@@ -89,11 +89,11 @@ series without a cast retain the existing workflow.
 Each episode copies a labeled sheet containing its character images and, when
 present, the optional shared style/world reference. The sheet is passed to
 storyboard drafting and OpenAI still-image generation. For a video provider, each
-shot first generates a scene-specific starting image through OpenAI, using the
+shot first generates a scene-specific starting frame through OpenAI, using the
 episode's cast sheet, shot prompt and shared guidance. Generation stops there for
 review. In the editor, approve the image, then explicitly start animation. The video
-provider animates that starting image; it does not animate the cast sheet itself.
-Preparing or regenerating a starting image uses an image-generation request;
+provider animates that starting frame; it does not animate the cast sheet itself.
+Preparing or regenerating a starting frame uses an image-generation request;
 animation is a separate paid request. Uploading and approving images make no AI requests. The sheet stays
 the identity source for every shot instead of accumulating drift through closing
 frames. A provider without reference-image support cannot be saved with character
@@ -164,22 +164,63 @@ No database migration is required for the shared brief. Restart the API and work
 and rebuild the frontend to use updated code in Docker.
 
 
-### Saved starting images and image assets
+### Saved starting frames and image assets
 
 AI images are archived immediately in the owner's media library, before downstream video generation. Character images, uploaded series/video references, covers, thumbnails, and scene logos also receive independent library copies. Identical image bytes reuse an asset within the same account. Removing or changing the original reference does not remove the library copy.
 
-Character video shots save a starting-image asset and stop before animation. The
-editor shows **Starting image** with its approval state. Review the characters and
+Character video shots save a starting-frame asset and stop before animation. The
+editor shows **Starting frame** with its approval state. Review the characters and
 composition, edit the description and regenerate, or upload a PNG, JPEG or WebP
-replacement up to 10 MB. Choose **Approve starting image**, then **Animate approved
-image**. New images and changes to shot guidance, cast reference, style or frame
+replacement up to 10 MB. Choose **Approve starting frame**, then **Animate approved
+frame**. New images and changes to shot guidance, cast reference, style or frame
 format require preparing and approving an image again. Approval is checked again
 in the worker before any animation request.
 
 Failed animation shows a saved message and **Retry animation**, reusing the approved
 image without regenerating it. Existing clips stay until a replacement succeeds.
 Resume prepares missing images and never starts animation. An asset used as a scene's
-starting image is protected from deletion. Restart the API and general worker and
+starting frame is protected from deletion. Restart the API and general worker and
 rebuild the frontend together when upgrading; no new database migration is required.
 
+### AI starting-frame review
+
+For character video shots, choose **Review frame with AI** in the starting-frame
+panel before animation. The project's script model receives a labeled comparison
+of the saved character reference and starting frame, along with the saved shot
+description, shot plan, dialogue and shared visual guidance. Choose a script model
+that accepts images. Each review makes one AI request and records available usage
+against the project. Reviews have a separate allowance of 30 per hour.
+
+The review reports **Looks ready**, **Changes suggested**, or **Needs a closer look**,
+with specific findings about character appearance, shot details, composition and
+visible image defects. When useful, it proposes a replacement shot description.
+The summary stays visible; **Review details** expands the findings and proposed
+prompt. **Use suggested description** opens **Change frame** and fills the editable
+field; generating the replacement image remains a separate action. Prompt editing,
+image generation and replacement uploads live under **Change frame**. The main
+button shows approval first, then animation after approval; **Animation cost**
+expands the estimate. Reviews never approve images, regenerate media,
+or start animation. The existing approval controls remain available regardless of
+the verdict.
+
+Reviews are saved with the starting frame and survive reopening the editor. Changes
+to the image, description, shot plan, dialogue, character reference, visual guidance
+or script-model selection hide the previous review. A queued review checks its
+inputs again before calling the provider and before saving; a changed shot cannot
+receive outdated findings. Prepare a new image when its generation settings change.
+
+This is a still-image assessment, not an assessment of motion, audio, pacing,
+captions or continuity between finished clips. It can miss details or report false
+positives. Automated tests use mocked provider responses; real review accuracy
+still needs representative human evaluation. Restart the API and general worker
+and rebuild the frontend together; no database migration is required.
+
 After upgrading, run `python manage.py archive_reference_images` to archive existing character/project images and logos. Image files left in project image folders by earlier failed jobs are also added to the library. They cannot be reliably associated with a specific scene retroactively; choose them from the library when needed.
+
+### Starting-frame naming migration
+
+Apply videomanagement migration `0058_rename_starting_frame_context` before starting
+the updated API and workers, then rebuild the frontend. The migration renames the
+saved context field without discarding frame approvals or AI reviews. Scene API
+fields and actions now use `starting_frame` and `review_starting_frame`; refresh
+open clients when deploying the API and frontend together.

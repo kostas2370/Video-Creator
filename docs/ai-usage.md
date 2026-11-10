@@ -71,7 +71,7 @@ quality are unchanged. The mode can reduce detail in new images; it does not
 guarantee a lower total when animation or another provider dominates the cost.
 
 Changing the mode makes no paid request and retains saved media and approved
-starting images. It applies when you next explicitly generate missing or replacement
+starting frames. It applies when you next explicitly generate missing or replacement
 images. The cost breakdown uses the selected mode, including unsaved choices in
 storyboard review. Original saved estimates and historical usage are retained.
 No migration is required; load the updated API and generation worker and rebuild
@@ -91,7 +91,7 @@ Scenario estimates use the assembled prompt, an approximate range of two to four
 characters per input token, expected output by scene count, and the configured
 output budget, including OpenAI reasoning allowance. This planning range is not a
 guaranteed bound; reference inputs, language, series context and retries can change it. Character video projects
-include starting-image preparation and later animation as separate line items;
+include starting-frame preparation and later animation as separate line items;
 animation is charged only when explicitly requested. Narrated clip durations use a
 150-words-per-minute planning assumption until narration audio exists. Known built-in
 video providers use the same duration rounding and limits as generation.

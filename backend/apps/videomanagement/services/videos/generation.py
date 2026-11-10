@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Literal, Union
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
 from rest_framework import status
@@ -278,6 +279,7 @@ def generate_video(
         style=style,
         provider=provider,
         generation_mode=generation_mode,
+        gpt_model=gpt_model or settings.DEFAULT_GPT_MODEL,
     )
     if creation_mode:
         vid.settings["creation_mode"] = creation_mode

@@ -125,12 +125,39 @@ cookies stay on the same site.
    enter a prompt, choose visuals/voice and frame, then review before drafting.
    Optional providers, presenter and advanced settings stay folded away. Back
    preserves your choices. You can also start a manual project with your own media.
+   In AI video and series setup, choose **Find ideas** to get
+   three editable proposals. Add a topic, use your existing idea as inspiration, or
+   leave it blank for a surprise. **Use this idea** fills the video prompt or series
+   name and premise; it does not create a project or generate media. Each suggestion
+   request uses a paid text-model call. Completed proposals recover with the browser
+   draft. Idea requests share the story-draft allowance of 15 per hour.
+   **Rewrite with AI** improves your current video prompt or series premise, with
+   optional change instructions. Review the suggestion and choose **Use rewrite**
+   to apply it. The same helper is available for starting-frame descriptions and
+   AI visual descriptions in the scene editor. Rewriting makes one paid text-model
+   request; image and video generation remain separate actions. It shares the same
+   15-per-hour allowance. Video and series rewrite drafts recover with the browser
+   draft; scene rewrite suggestions stay in the open editor.
+   The prompt toolbar opens one helper at a time and keeps its inputs and proposals
+   when switching. Saved templates sit below the video prompt; example prompts appear
+   while it is blank. The review step includes **Edit idea** and **Edit look & sound**
+   shortcuts, preserving your other choices as you move between steps.
 2. **Review the storyboard.** Edit the dialogue and visual prompts before generating
    media. For AI visuals, refine each shot's framing, camera direction, subject action,
-   and target duration. You can save a draft and return to it from **My videos**.
+   and target duration. Scene cards show a compact story summary; expand one to edit
+   its narration and visual prompt. Motion and diagram controls are under **Motion,
+   diagrams & shot settings**. Generation mode, references, and continuity are under
+   **Project settings & character continuity**. You can return to saved drafts from
+   **My videos**.
+   Use **Revise storyboard with AI** to describe changes to the current draft. Preview
+   the proposed storyboard, then apply or discard it. Further requests use your latest
+   edits. Each revision is a paid text request; it does not generate media or change
+   the saved project until you approve with **Proceed**. Editing the source while a
+   revision is pending prevents applying its outdated proposal.
 3. **Generate or add media.** Create visuals and narration, upload replacements, or
    select existing assets. Optional references and continuity guidance help keep
-   generated scenes visually consistent.
+   generated scenes visually consistent. For character video shots, **Review frame
+   with AI** checks a saved starting frame and suggests corrections before animation.
 4. **Refine the edit.** Reorder scenes, adjust audio and pauses, choose transitions
    and image motion, and add captions or overlays. Preview the timeline as you work.
 5. **Export and share.** Choose Draft, Standard, or High export quality and 24 or
@@ -173,6 +200,12 @@ The storyboard request then suggests varied framing, each shot's role in the sto
 a photo animation, and up to two short emphasis labels per shot. Review or edit
 these choices before pressing **Proceed**. Camera movement for generated video
 clips stays with the visual provider; photo animation presets apply to images.
+Planning favors gentle movement on most photographic stills and animated diagrams
+for explanations, comparisons, and processes. A 4–6 scene explainer aims for 1–2
+useful diagram scenes when the content supports them. Static compositions remain
+available for readable graphics, deliberate pauses, and explicit user preferences.
+These guidelines apply to new drafts and requested AI revisions; existing videos
+keep their saved shot plans and animations.
 
 Label timing is an approximate percentage of each finished scene. After media
 generation, the app converts those percentages to editable seconds using the actual
@@ -379,6 +412,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Visual continuity](docs/visual-continuity.md) | References and consistency across generated scenes |
 | [Long video → Shorts](docs/clips.md) | Uploads, highlight suggestions, clip editing, exports, and recovery |
 | [AI usage](docs/ai-usage.md) | Usage records and cost estimates |
+| [Music TODOs](docs/music-todo.md) | Planned music search and AI-generated soundtracks |
 | [Creator publishing](docs/social-publishing.md) | Social platform integrations and deployment setup |
 | [Performance checks](docs/performance-check.md) | Measuring application performance |
 | [Dependency security](docs/dependency-security-check.md) | Dependency audit procedure |
@@ -443,15 +477,15 @@ generation credits. Later cast edits do not change existing episode references.
 See [visual continuity](docs/visual-continuity.md) for the full workflow.
 
 Generated images, character references, shared references, covers and scene logos
-are saved in the media library. If video generation fails after the starting image
+are saved in the media library. If video generation fails after the starting frame
 is created, the scene keeps that image for retry. Character video shots now stop
-after preparing their starting images. In each scene, review the characters and
+after preparing their starting frames. In each scene, review the characters and
 composition, edit the description and regenerate if needed, or upload a PNG, JPEG
-or WebP replacement (up to 10 MB). Choose **Approve starting image**, then
-**Animate approved image** to start that shot's paid animation request. Image
+or WebP replacement (up to 10 MB). Choose **Approve starting frame**, then
+**Animate approved frame** to start that shot's paid animation request. Image
 preparation and animation are separate requests; approving an image makes no AI
 request. A failed animation offers **Retry animation** using the approved image.
-Click the **Starting image** heading to hide or reopen the review controls; your
+Click the **Starting frame** heading to hide or reopen the review controls; your
 choice is remembered for each scene in this browser. Existing clips remain until
 their replacement succeeds. Resume prepares missing images without starting animations. Changed shot guidance or frame settings
 invalidate image approval and require preparing and reviewing a new image.

@@ -402,7 +402,7 @@ class VideoNotesSerializer(serializers.Serializer):
     )
 
 
-class StartingImageSerializer(serializers.Serializer):
+class StartingFrameSerializer(serializers.Serializer):
     operation = serializers.ChoiceField(choices=("upload", "approve", "animate"))
     asset_id = serializers.UUIDField(required=False, allow_null=True)
     image = serializers.ImageField(required=False)
@@ -413,7 +413,7 @@ class StartingImageSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs["operation"] == "upload" and "image" not in attrs:
-            raise serializers.ValidationError({"image": "Choose a starting image."})
+            raise serializers.ValidationError({"image": "Choose a starting frame."})
         if attrs["operation"] != "upload" and not attrs.get("asset_id"):
             raise serializers.ValidationError(
                 {"asset_id": "Select the image you reviewed."}

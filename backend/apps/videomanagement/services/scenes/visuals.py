@@ -127,28 +127,28 @@ def starting_frame_matches(video, prompt, style, context):
     ) and key == starting_frame_key(video, prompt, style, legacy=True)
 
 
-def store_starting_image(scene, upload, *, description, style, key):
+def store_starting_frame(scene, upload, *, description, style, key):
     video = scene.video
     asset = MediaAsset.from_visual(
         user=video.created_by,
         upload=upload,
-        title=f"{video.title} · Scene {scene.position} starting image",
-        tags=["starting image"],
+        title=f"{video.title} · Scene {scene.position} starting frame",
+        tags=["starting frame"],
         kind=MediaAsset.Kind.IMAGE,
         source_video=video,
     )
-    if "starting image" not in asset.tags:
-        asset.tags = list(dict.fromkeys([*asset.tags, "starting image"]))
+    if "starting frame" not in asset.tags:
+        asset.tags = list(dict.fromkeys([*asset.tags, "starting frame"]))
         if not asset.source_video_id:
             asset.source_video = video
         asset.save(update_fields=["tags", "source_video"])
     scene.starting_asset = asset
-    scene.starting_image_context = {
+    scene.starting_frame_context = {
         "key": key,
         "description": description,
         "style": style,
     }
-    scene.save(update_fields=["starting_asset", "starting_image_context"])
+    scene.save(update_fields=["starting_asset", "starting_frame_context"])
     return asset
 
 
@@ -180,7 +180,7 @@ def character_starting_frame(
         not force
         and scene is not None
         and scene.starting_asset_id
-        and starting_frame_matches(video, prompt, style, scene.starting_image_context)
+        and starting_frame_matches(video, prompt, style, scene.starting_frame_context)
         and stored_file_exists(scene.starting_asset.file)
     ):
         return scene.starting_asset.file.path
@@ -196,19 +196,19 @@ def character_starting_frame(
             user=user,
             reference=video.reference_image.path,
             reference_role="character",
-            title=f"{video.title} · Scene {scene.position} starting image"
+            title=f"{video.title} · Scene {scene.position} starting frame"
             if scene
-            else "Character starting image",
+            else "Character starting frame",
             video_format=(video.settings or {}).get("video_format", "PORTRAIT"),
             **({"generation_mode": "ECONOMY"} if (video.settings or {}).get("generation_mode") == "ECONOMY" else {}),
         )
     if not frame:
-        raise RuntimeError("Could not create the character shot's starting image.")
+        raise RuntimeError("Could not create the character shot's starting frame.")
     if scene is not None:
         with open(frame, "rb") as source:
-            asset = store_starting_image(
+            asset = store_starting_frame(
                 scene,
-                File(source, name="starting-image.png"),
+                File(source, name="starting-frame.png"),
                 description=description or prompt,
                 style=style,
                 key=key,
@@ -324,12 +324,12 @@ def create_image_scene(
     except Exception as ex:
         logger.error(ex)
         if (video.settings or {}).get("character_references"):
-            scene.starting_image_context = {
-                **scene.starting_image_context,
+            scene.starting_frame_context = {
+                **scene.starting_frame_context,
                 "description": image,
-                "preparation_error": "Could not prepare the starting image. Your saved media is preserved. Try again.",
+                "preparation_error": "Could not prepare the starting frame. Your saved media is preserved. Try again.",
             }
-            scene.save(update_fields=["starting_image_context"])
+            scene.save(update_fields=["starting_frame_context"])
         downloaded_image = None
 
     saved = scene.scene_images.filter(asset__isnull=True).first() or SceneImage(
