@@ -33,9 +33,13 @@ from apps.videomanagement.utils.prompt_utils import (
     with_visual_continuity,
 )
 from apps.videomanagement.utils.timing import file_timing
+from apps.videomanagement.utils.video_audio import (
+    audio_mode as resolve_audio_mode,
+)
 
 logger = logging.getLogger(__name__)
 MAX_PARALLEL_STILL_IMAGES = 3
+_UNSET = object()
 
 
 def scene_narration_duration(scene: Scene) -> float:
@@ -338,6 +342,7 @@ def create_image_scene(
                 title=title,
                 duration=visual_generation_duration(scene),
                 video_format=(video.settings or {}).get("video_format", "LANDSCAPE"),
+                audio_mode=resolve_audio_mode(video.settings or {}),
                 **({"generation_mode": "ECONOMY"} if (video.settings or {}).get("generation_mode") == "ECONOMY" else {}),
                 reference=reference,
                 reference_role=reference_role_for(video, reference),
@@ -415,12 +420,7 @@ def create_image_scenes(
     """
 
     dir_name = video.dir_name
-    choices = video.settings or {}
-    # Keep each generated scene's independent score out of the episode mix.
-    # Users can still enable audio on individual visuals in the editor.
-    with_audio = (
-        not choices.get("narration", True) and choices.get("creation_mode") != "SERIES"
-    )
+    with_audio = video.default_clip_audio_enabled
     lines, indexed = ensure_scene_rows(video)
     pairs = [(line, indexed[index]) for index, line in enumerate(lines)]
     pending = [
@@ -542,7 +542,7 @@ def scene_reference(scene: Scene, video: Video, provider):
 
 
 def generate_new_image(
-    scene_image: SceneImage, video: Video, style: str = None, *args, **kwargs
+    scene_image: SceneImage, video: Video, style: str = None, **options
 ) -> SceneImage:
     """
     Generate a new image for a scene image associated with a video.
@@ -592,41 +592,63 @@ def generate_new_image(
         scene_image,
         video,
         style,
-        *args,
         mode=mode,
         provider=provider,
-        **kwargs,
+        **options,
     )
 
 
-def generate_scene_visual(scene_image, video, style, *args, mode, provider, **kwargs):
+def generate_scene_visual(
+    scene_image,
+    video,
+    style,
+    *,
+    mode,
+    provider,
+    reference=_UNSET,
+    reference_role=_UNSET,
+    duration=_UNSET,
+    audio_mode=_UNSET,
+    video_format=_UNSET,
+    generation_mode=_UNSET,
+    **provider_options,
+):
+    """Inherit omitted options from the project; forward explicit values unchanged."""
+    settings = video.settings or {}
     generate = ImageProviderRegistry.resolve(mode, provider)
     visual_prompt = planned_visual_prompt(
         scene_image.scene, scene_image.prompt or "", mode, provider
     )
-    if "reference" not in kwargs:
-        kwargs["reference"] = scene_reference(scene_image.scene, video, provider)
-    kwargs.setdefault("reference_role", reference_role_for(video, kwargs["reference"]))
-    kwargs.setdefault("duration", visual_generation_duration(scene_image.scene))
-    kwargs.setdefault(
-        "video_format", (video.settings or {}).get("video_format", "LANDSCAPE")
-    )
-    if (video.settings or {}).get("generation_mode") == "ECONOMY":
-        kwargs.setdefault("generation_mode", "ECONOMY")
+    reference = scene_reference(scene_image.scene, video, provider) if reference is _UNSET else reference
+    reference_role = reference_role_for(video, reference) if reference_role is _UNSET else reference_role
+    duration = visual_generation_duration(scene_image.scene) if duration is _UNSET else duration
+    audio_mode = resolve_audio_mode(settings) if audio_mode is _UNSET else audio_mode
+    video_format = settings.get("video_format", "LANDSCAPE") if video_format is _UNSET else video_format
+    if generation_mode is not _UNSET:
+        provider_options["generation_mode"] = generation_mode
+    elif settings.get("generation_mode") == "ECONOMY":
+        provider_options["generation_mode"] = "ECONOMY"
     with video_usage(video):
         img = generate(
             visual_prompt,
             f"{video.dir_name}/images/",
-            *args,
             style=style,
             title=video.title,
             user=video.created_by,
-            **kwargs,
+            reference=reference,
+            reference_role=reference_role,
+            duration=duration,
+            audio_mode=audio_mode,
+            video_format=video_format,
+            **provider_options,
         )
 
     if not img:
         raise RuntimeError("The visual provider returned no image")
+    replacing_clip = bool(scene_image.file and check_if_video(scene_image.file.name))
     scene_image.file = img
+    if check_if_video(img) and not replacing_clip and not scene_image.with_audio:
+        scene_image.with_audio = video.default_clip_audio_enabled
     scene_image.save()
 
     return scene_image

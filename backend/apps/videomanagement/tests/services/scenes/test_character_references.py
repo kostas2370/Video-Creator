@@ -93,6 +93,8 @@ class CharacterShotReferenceTests(TestCase):
         )
         self.starting.assert_called_once()
         self.assertEqual(self.scene.scene_images.first().file.name, "images/shot.mp4")
+        self.assertEqual(self.provider.call_args.kwargs["audio_mode"], "DIALOGUE")
+        self.assertTrue(self.scene.scene_images.first().with_audio)
 
     def test_replacement_image_preserves_existing_video_and_requires_new_approval(self):
         target = scene_image.make(

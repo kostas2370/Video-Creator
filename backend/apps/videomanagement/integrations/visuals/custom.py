@@ -16,6 +16,7 @@ from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutput
 from apps.common.media import run_ffmpeg
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.usage.services import record_usage
+from apps.videomanagement.utils.prompt_utils import audio_direction
 from apps.videomanagement.utils.timing import video_metadata
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,8 @@ class CustomImageProvider(ImageProvider):
             raise ValidationError("Unsupported visual output type.")
 
         is_video = provider.output_type == VisualOutputType.VIDEO
+        if is_video and "audio_mode" in kwargs:
+            prompt += " " + audio_direction(kwargs["audio_mode"])
         timeout = VIDEO_TIMEOUT if is_video else DEFAULT_TIMEOUT
         headers, auth = provider.get_auth_headers()
         headers["Accept"] = f"{'video' if is_video else 'image'}/*, application/json"

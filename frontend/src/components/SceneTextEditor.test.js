@@ -51,7 +51,7 @@ it("retains edits on a refresh and lets the user resolve conflicting text", () =
   expect(screen.getByLabelText("Script for scene 1").value).toBe("My draft");
   expect(screen.getByRole("alert").textContent).toContain("saved text changed");
   expect(screen.getByRole("button", { name: "Save text" }).disabled).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Keep my draft" }));
+  fireEvent.click(screen.getByRole("button", { name: "Keep my unsaved text" }));
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByRole("button", { name: "Save text" }).disabled).toBe(false);
 });

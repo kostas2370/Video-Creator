@@ -111,3 +111,17 @@ class UpdateSceneTests(TestCase):
         line.refresh_from_db()
         self.assertEqual(line.file, "dialogues/new.wav")
         self.assertEqual(save_mock.call_args.args[1], line.text)
+
+
+class SilentProjectTextTests(TestCase):
+    def test_silent_scene_descriptions_are_not_saved_as_spoken_narration(self):
+        project = video.make(
+            mode="AI", settings={"provider": "gemini-video", "narration": False},
+            gpt_answer={"scenes": [{"sentences": [{"image_description": "A bank counter."}]}]},
+        )
+        lines, rows = audio_utils.ensure_scene_rows(project)
+        self.assertEqual(rows[0].text, "")
+        self.assertEqual(lines[0].image_description, "A bank counter.")
+        _, resumed = audio_utils.ensure_scene_rows(project)
+        self.assertEqual(resumed[0].pk, rows[0].pk)
+        self.assertEqual(project.scenes.count(), 1)

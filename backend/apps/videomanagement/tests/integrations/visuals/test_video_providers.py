@@ -90,6 +90,30 @@ class VideoProviderTests(SimpleTestCase):
             kling.KlingProvider.generate("cat", "images/")
         self.assertNotIn("start_image_url", request.call_args_list[0].kwargs["body"])
 
+    def test_kling_audio_flag_matches_the_prompt_for_each_sound_mode(self):
+        for mode in ("SILENT", "DIALOGUE", "AMBIENT"):
+            with (
+                self.subTest(mode=mode),
+                patch.object(http.VideoRequest, "post", return_value={
+                    "status_url": "https://queue.fal.run/status",
+                    "response_url": "https://queue.fal.run/result",
+                }) as submit,
+                patch.object(http.VideoRequest, "wait"),
+                patch.object(http.VideoRequest, "get", return_value={
+                    "video": {"url": "https://v3.fal.media/a.mp4"},
+                }),
+                patch.object(kling, "record_usage"),
+            ):
+                kling.KlingProvider.generate("A conversation", "images/", audio_mode=mode)
+                body = submit.call_args.args[1]
+                self.assertEqual(body["generate_audio"], mode != "SILENT")
+                direction = {
+                    "SILENT": "Generate a silent clip",
+                    "DIALOGUE": "Allow brief, natural character dialogue",
+                    "AMBIENT": "No character speech",
+                }[mode]
+                self.assertIn(direction, body["prompt"])
+
     def test_failed_fal_job_does_not_download(self):
         with (
             patch.object(

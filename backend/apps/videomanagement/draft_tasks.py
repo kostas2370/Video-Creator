@@ -20,6 +20,7 @@ from apps.videomanagement.services.videos.ideas import creative_reply
 from apps.videomanagement.services.videos import tags as video_tags
 from apps.videomanagement.services.videos import youtube_metadata
 from apps.videomanagement.services.videos.storyboard_revision import revise_storyboard
+from apps.videomanagement.services.videos.narration_setup import draft_narration
 from apps.videomanagement.utils.prompt_utils import build_ideas_prompt, build_prompt_rewrite
 
 
@@ -62,6 +63,11 @@ def rewrite_prompt_task(user_id, *, gpt_model="", **brief):
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def revise_storyboard_task(user_id, *, video_id, **choices):
     return revise_storyboard(owned_video(load_user(user_id), video_id), **choices)
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def draft_narration_task(user_id, *, video_id):
+    return draft_narration(owned_video(load_user(user_id), video_id))
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)

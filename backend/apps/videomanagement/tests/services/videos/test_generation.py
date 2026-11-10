@@ -96,6 +96,14 @@ class GenerateVideoTests(TestCase):
         self.assertTrue(finished.settings["review_starting_frames"])
         self.create_image_scenes.assert_called_once()
 
+    def test_generation_preserves_audio_preferences(self):
+        choices = {"video_audio_mode": "DIALOGUE", "video_audio_enabled": True, "music_volume": 0}
+        self.video.settings = {**(self.video.settings or {}), **choices}
+        self.video.save(update_fields=["settings"])
+        finished = self.generate(narration=False)
+        for key, value in choices.items():
+            self.assertEqual(finished.settings[key], value)
+
     def test_music_download_uses_the_video_owner(self):
         url = "https://youtu.be/abcdefghijk"
         self.generate(music=url)
