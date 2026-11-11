@@ -18,11 +18,13 @@ from .views.captions import CaptionProjectView
 from .views.draft_jobs import DraftJobView
 from .views.icons import IconDetailView, IconListView
 from .views.library import MediaAssetView
+from .views.music_catalog import MusicCatalogView
 
 router = routers.DefaultRouter()
 
 
 router.register("media-assets", MediaAssetView)
+router.register("music-catalog", MusicCatalogView)
 router.register("videos", VideoView)
 router.register("captions", CaptionProjectView)
 router.register("avatars", AvatarView)

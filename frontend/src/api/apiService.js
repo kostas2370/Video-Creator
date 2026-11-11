@@ -138,7 +138,7 @@ export const updateSceneCaptions = (id, data) => patch(action("scenes", id, "cap
 
 export const getCaptionStyles = () => request({ url: "videos/caption_styles/", ...callerHandlesErrors });
 
-export const getMediaAssets = (search, page = 1, kind, scope) => get("media-assets/", { search: search || undefined, page: page || 1, kind: kind || undefined, scope: scope || undefined });
+export const getMediaAssets = (search, page = 1, kind) => get("media-assets/", { search: search || undefined, page: page || 1, kind: kind || undefined });
 export const createMediaAsset = data => post("media-assets/", data, callerHandlesErrors);
 export const editMediaAsset = (id, data) => patch(detail("media-assets", id), data, callerHandlesErrors);
 export const downloadMediaAsset = id => request({ url: action("media-assets", id, "download"), responseType: "blob", ...callerHandlesErrors });
@@ -196,3 +196,7 @@ export const getClipProjectProgress = id => request({ url: action("clips", id, "
 export const getClip = (id, clipId) => request({ url: `${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, ...callerHandlesErrors });
 
 export const searchClipTranscript = (id, prompt) => runBackgroundDraft(action("clips", id, "search-transcript"), { prompt });
+
+export const getMusicCatalog = (search, page = 1) => get("music-catalog/", { search: search || undefined, page: page || 1 });
+export const useMusicCatalogTrack = (id, data) => post(action("music-catalog", id, "use"), data, callerHandlesErrors);
+export const downloadMusicCatalogTrack = id => request({ url: action("music-catalog", id, "download"), responseType: "blob", ...callerHandlesErrors });

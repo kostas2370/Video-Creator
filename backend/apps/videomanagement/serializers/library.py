@@ -3,7 +3,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.services.media.uploads import inspect_media_upload
 
-from ..models import MediaAsset
+from ..models import MediaAsset, MusicCatalogTrack
 from .fields import FiniteFloat
 
 
@@ -22,12 +22,8 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             "duration",
             "created_at",
             "source_video",
-            "is_shared",
-            "source_url",
-            "license_url",
-            "attribution",
         )
-        read_only_fields = ("id", "kind", "duration", "created_at", "source_video", "is_shared", "source_url", "license_url", "attribution")
+        read_only_fields = ("id", "kind", "duration", "created_at", "source_video")
 
     def create(self, validated_data):
         return MediaAsset.from_upload(
@@ -79,3 +75,26 @@ class UseMediaSerializer(serializers.Serializer):
     duration = FiniteFloat(required=False, min_value=0.1, max_value=900)
     position = serializers.IntegerField(required=False, min_value=1)
     with_audio = serializers.BooleanField(default=False)
+
+
+class MusicCatalogTrackSerializer(serializers.ModelSerializer):
+    kind = serializers.CharField(default="AUDIO", read_only=True)
+    is_shared = serializers.BooleanField(default=True, read_only=True)
+
+    class Meta:
+        model = MusicCatalogTrack
+        fields = (
+            "id",
+            "title",
+            "file",
+            "kind",
+            "is_shared",
+            "category",
+            "tags",
+            "duration",
+            "source_url",
+            "license_url",
+            "attribution",
+            "created_at",
+        )
+        read_only_fields = fields

@@ -82,17 +82,22 @@ than verified commercial-use rights. Different uploads can contain the same reco
 ## Review and publish
 
 New catalog items remain unapproved even after their audio is downloaded. They are
-hidden from the user library until reviewed. In Django admin, filter Media assets
-for shared, unapproved items. Verify the recording's rights and license, add the
+hidden from the user library until reviewed. In Django admin, open Music catalog
+tracks and filter for unapproved items. Verify the recording's rights and license, add the
 reviewed license URL and required attribution, correct tags, then enable
-`catalog_approved`. The admin form requires a file and license URL before approval.
+`approved`. The admin form requires a file and license URL before approval.
 
-Shared items are ownerless audio. The user API exposes only approved shared audio
-with a file and license URL, alongside the user's own private media. Creating or
-updating a user library item cannot change sharing or licensing metadata.
+Catalog tracks live in `MusicCatalogTrack`, with their own audio, source, license,
+attribution, approval, and discovery metadata. `MediaAsset` keeps only user-owned
+media; catalog discovery and downloads do not create user media records. The catalog
+API exposes only approved tracks with audio and a license URL.
 
-`GET /media-assets/?kind=AUDIO` returns both collections. Add `scope=private` or
-`scope=shared` to filter them. Pending catalog metadata is available only in admin.
+`GET /media-assets/?kind=AUDIO` returns the user's private audio.
+`GET /music-catalog/` returns approved general music, with optional `search` and
+`category` filters. Its `download` and `use` actions allow authenticated users to
+download or add music to their own editable videos. The catalog API does not allow
+creating, editing, or deleting catalog tracks. The frontend collection selector
+uses these separate APIs. Pending catalog metadata is available only in admin.
 
 YouTube's Creative Commons flag and "no copyright" titles do not verify ownership
 or permission to redistribute audio. The bundled entries are candidates, not a

@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 
-from apps.videomanagement.models import MediaAsset
+from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.services.media.music_discovery import (
     TARGETS,
     DiscoveryError,
@@ -51,13 +51,13 @@ class MusicDiscoveryTests(TestCase):
     def test_fills_all_six_targets_without_publishing_or_downloading_audio(self):
         counts = discover(self.youtube_client(), list(TARGETS), report=lambda _: None)
         self.assertEqual(counts, TARGETS)
-        self.assertEqual(MediaAsset.objects.count(), 390)
-        self.assertFalse(MediaAsset.objects.filter(catalog_approved=True).exists())
-        self.assertFalse(MediaAsset.objects.exclude(created_by=None).exists())
-        self.assertFalse(MediaAsset.objects.exclude(file="").exists())
-        asset = MediaAsset.objects.first()
+        self.assertEqual(MusicCatalogTrack.objects.count(), 390)
+        self.assertFalse(MusicCatalogTrack.objects.filter(approved=True).exists())
+        self.assertFalse(MediaAsset.objects.exists())
+        self.assertFalse(MusicCatalogTrack.objects.exclude(file="").exists())
+        asset = MusicCatalogTrack.objects.first()
         self.assertEqual(asset.tags.count("happy"), 1)
-        self.assertEqual(asset.catalog_metadata["declared_license"], "creativeCommon")
+        self.assertEqual(asset.metadata["declared_license"], "creativeCommon")
 
     def test_rerunning_a_complete_category_makes_no_requests(self):
         client = self.youtube_client()
@@ -65,7 +65,7 @@ class MusicDiscoveryTests(TestCase):
         client.get.reset_mock()
         discover(client, ["educational"], report=lambda _: None)
         client.get.assert_not_called()
-        self.assertEqual(MediaAsset.objects.count(), 100)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 100)
 
     def test_rejects_standard_license_invalid_durations_and_duplicates(self):
         client = Mock()
@@ -84,7 +84,7 @@ class MusicDiscoveryTests(TestCase):
         )
         counts = discover(client, ["fun", "horror"], report=lambda _: None)
         self.assertEqual(counts, {"fun": 1, "horror": 0})
-        self.assertEqual(MediaAsset.objects.count(), 1)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 1)
 
     def test_api_failure_keeps_already_saved_candidates(self):
         client = self.youtube_client()
@@ -98,9 +98,9 @@ class MusicDiscoveryTests(TestCase):
         client.get.side_effect = fail
         with self.assertRaises(DiscoveryError):
             discover(client, ["educational"], report=lambda _: None)
-        self.assertEqual(MediaAsset.objects.count(), 50)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 50)
         discover(self.youtube_client(), ["educational"], report=lambda _: None)
-        self.assertEqual(MediaAsset.objects.count(), 100)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 100)
 
     def test_duration_parsing(self):
         self.assertEqual(duration_seconds("PT1H2M3S"), 3723)

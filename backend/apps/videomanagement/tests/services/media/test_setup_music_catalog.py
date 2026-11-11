@@ -10,7 +10,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from apps.common.youtube import SourceImportError
-from apps.videomanagement.models import MediaAsset
+from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.services.media.music_discovery import export_catalog
 
 
@@ -60,13 +60,12 @@ class SetupMusicCatalogTests(TestCase):
     ):
         download.return_value = (self.audio, "A track")
         self.run_setup()
-        asset = MediaAsset.objects.get()
+        asset = MusicCatalogTrack.objects.get()
         self.assertTrue(Path(asset.file.path).exists())
         self.assertAlmostEqual(asset.duration, 2)
-        self.assertFalse(asset.catalog_approved)
-        self.assertTrue(asset.is_shared)
-        self.assertIsNone(asset.created_by_id)
-        asset.catalog_approved = True
+        self.assertFalse(asset.approved)
+        self.assertFalse(MediaAsset.objects.exists())
+        asset.approved = True
         asset.license_url = "https://example.com/license"
         asset.tags = ["reviewed"]
         asset.save()
@@ -77,9 +76,9 @@ class SetupMusicCatalogTests(TestCase):
         )
         self.assertEqual(download.call_args.kwargs, {"audio_only": True})
         asset.refresh_from_db()
-        self.assertTrue(asset.catalog_approved)
+        self.assertTrue(asset.approved)
         self.assertEqual(asset.tags, ["reviewed"])
-        self.assertEqual(MediaAsset.objects.count(), 1)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 1)
 
     @patch(
         "apps.videomanagement.management.commands.setup_music_catalog.download_youtube_video"
@@ -87,7 +86,7 @@ class SetupMusicCatalogTests(TestCase):
     def test_repairs_a_missing_audio_file(self, download):
         download.return_value = (self.audio, "A track")
         self.run_setup()
-        asset = MediaAsset.objects.get()
+        asset = MusicCatalogTrack.objects.get()
         Path(asset.file.path).unlink()
         self.run_setup()
         asset.refresh_from_db()
@@ -100,14 +99,14 @@ class SetupMusicCatalogTests(TestCase):
     def test_blocked_downloads_keep_pending_metadata_and_can_be_retried(self, download):
         download.side_effect = SourceImportError("YouTube blocked the download")
         self.run_setup(best_effort=True)
-        self.assertEqual(MediaAsset.objects.count(), 1)
-        self.assertFalse(MediaAsset.objects.get().file)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 1)
+        self.assertFalse(MusicCatalogTrack.objects.get().file)
         with self.assertRaises(CommandError):
             self.run_setup()
         download.side_effect = None
         download.return_value = (self.audio, "A track")
         self.run_setup()
-        self.assertTrue(MediaAsset.objects.get().file)
+        self.assertTrue(MusicCatalogTrack.objects.get().file)
 
     @patch(
         "apps.videomanagement.management.commands.setup_music_catalog.download_youtube_video"
@@ -115,7 +114,7 @@ class SetupMusicCatalogTests(TestCase):
     def test_metadata_only_needs_no_youtube_api_key_or_download(self, download):
         self.run_setup(metadata_only=True)
         download.assert_not_called()
-        self.assertEqual(MediaAsset.objects.count(), 1)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 1)
 
     @patch(
         "apps.videomanagement.management.commands.setup_music_catalog.download_youtube_video"
@@ -128,7 +127,7 @@ class SetupMusicCatalogTests(TestCase):
         with self.assertRaises(CommandError):
             self.run_setup()
         download.assert_not_called()
-        self.assertFalse(MediaAsset.objects.exists())
+        self.assertFalse(MusicCatalogTrack.objects.exists())
 
     @patch(
         "apps.videomanagement.management.commands.setup_music_catalog.download_youtube_video"
@@ -138,10 +137,10 @@ class SetupMusicCatalogTests(TestCase):
         download.return_value = (self.audio, "A track")
         before = set(self.directory.rglob("*.wav"))
         with patch.object(
-            MediaAsset, "save", side_effect=RuntimeError("Database unavailable")
+            MusicCatalogTrack, "save", side_effect=RuntimeError("Database unavailable")
         ):
             self.run_setup(best_effort=True)
-        self.assertFalse(MediaAsset.objects.get().file)
+        self.assertFalse(MusicCatalogTrack.objects.get().file)
         self.assertEqual(set(self.directory.rglob("*.wav")), before)
 
     def test_exported_catalog_can_seed_a_new_database(self):
@@ -155,7 +154,7 @@ class SetupMusicCatalogTests(TestCase):
         call_command(
             "setup_music_catalog", catalog=target, metadata_only=True, stdout=StringIO()
         )
-        self.assertEqual(MediaAsset.objects.count(), 1)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 1)
 
     def test_bundled_catalog_matches_all_targets_and_has_distinct_sources(self):
         from collections import Counter
@@ -183,4 +182,4 @@ class SetupMusicCatalogTests(TestCase):
         download.side_effect = SourceImportError("YouTube blocked downloads")
         self.run_setup(best_effort=True)
         self.assertEqual(download.call_count, 3)
-        self.assertEqual(MediaAsset.objects.count(), 4)
+        self.assertEqual(MusicCatalogTrack.objects.count(), 4)

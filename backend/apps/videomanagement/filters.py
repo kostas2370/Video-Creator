@@ -11,6 +11,7 @@ from apps.common.filters import (
 
 from .models import (
     MediaAsset,
+    MusicCatalogTrack,
     Scene,
     SceneImage,
     Video,
@@ -28,7 +29,6 @@ from .services.media.icons import search_icons
 
 
 class MediaAssetFilter(OwnerFilterSet):
-    scope = filters.ChoiceFilter(choices=[("private", "My media"), ("shared", "General music")], method="filter_scope")
     search = filters.CharFilter(method="filter_search")
     kind = filters.ChoiceFilter(
         choices=[*MediaAsset.Kind.choices, ("VISUAL", "Images and video")],
@@ -37,19 +37,7 @@ class MediaAssetFilter(OwnerFilterSet):
 
     class Meta:
         model = MediaAsset
-        fields = ("search", "kind", "scope")
-
-    def scope_queryset(self, queryset):
-        if self.request is None or not self.request.user.is_authenticated:
-            return queryset.none()
-        return queryset.filter(
-            Q(created_by=self.request.user, is_shared=False)
-            | (Q(is_shared=True, catalog_approved=True, kind="AUDIO", created_by__isnull=True)
-               & ~Q(file="") & ~Q(license_url=""))
-        )
-
-    def filter_scope(self, queryset, name, value):
-        return queryset.filter(is_shared=value == "shared")
+        fields = ("search", "kind")
 
     def filter_search(self, queryset, name, value):
         term = value.strip()[:100]
@@ -65,6 +53,19 @@ class MediaAssetFilter(OwnerFilterSet):
                 kind__in=(MediaAsset.Kind.IMAGE, MediaAsset.Kind.VIDEO)
             )
         return queryset.filter(kind=value)
+
+
+class MusicCatalogFilter(BaseFilterSet):
+    search = filters.CharFilter(method="filter_search")
+    category = filters.CharFilter()
+
+    class Meta:
+        model = MusicCatalogTrack
+        fields = ("search", "category")
+
+    def filter_search(self, queryset, name, value):
+        term = value.strip()[:100]
+        return queryset.filter(Q(title__icontains=term) | Q(tags__icontains=term)) if term else queryset
 
 
 class VideoFilter(OwnerFilterSet, SearchFilterSet):

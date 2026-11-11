@@ -6,7 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
-from apps.videomanagement.models import MediaAsset
+from apps.videomanagement.models import MusicCatalogTrack
 
 TARGETS = {
     "educational": 100,
@@ -69,9 +69,7 @@ def discover(
     client, categories, *, pages_per_query=3, minimum=30, maximum=900, report=print
 ):
     for category in categories:
-        count = MediaAsset.objects.filter(
-            is_shared=True, catalog_metadata__category=category
-        ).count()
+        count = MusicCatalogTrack.objects.filter(category=category).count()
         target = TARGETS[category]
         for query in QUERIES[category]:
             if count >= target:
@@ -129,16 +127,15 @@ def discover(
                         if isinstance(tag, str) and tag.strip()
                     ]
                     tags = list(dict.fromkeys(tags))[:12]
-                    _, created = MediaAsset.objects.get_or_create(
-                        is_shared=True,
-                        catalog_source_id=f"youtube:{video['id']}",
+                    _, created = MusicCatalogTrack.objects.get_or_create(
+                        source_id=f"youtube:{video['id']}",
                         defaults={
                             "source_url": f"https://www.youtube.com/watch?v={video['id']}",
                             "title": title[:100],
-                            "kind": MediaAsset.Kind.AUDIO,
+                            "category": category,
                             "tags": tags,
                             "duration": duration,
-                            "catalog_metadata": {
+                            "metadata": {
                                 "category": category,
                                 "youtube_id": video["id"],
                                 "channel_title": snippet.get("channelTitle", ""),
@@ -158,26 +155,24 @@ def discover(
                 seen_tokens.add(token)
         report(f"{category}: {count}/{target} candidates")
     return {
-        category: MediaAsset.objects.filter(
-            is_shared=True, catalog_metadata__category=category
-        ).count()
+        category: MusicCatalogTrack.objects.filter(category=category).count()
         for category in categories
     }
 
 
 def export_catalog(path):
     tracks = []
-    for asset in MediaAsset.objects.filter(
-        is_shared=True, catalog_source_id__startswith="youtube:"
-    ).order_by("catalog_metadata__category", "catalog_source_id"):
-        metadata = asset.catalog_metadata
+    for track in MusicCatalogTrack.objects.filter(
+        source_id__startswith="youtube:"
+    ).order_by("category", "source_id"):
+        metadata = track.metadata
         tracks.append(
             {
                 "youtube_id": metadata["youtube_id"],
-                "title": asset.title,
-                "category": metadata["category"],
-                "tags": asset.tags,
-                "duration": asset.duration,
+                "title": track.title,
+                "category": track.category,
+                "tags": track.tags,
+                "duration": track.duration,
                 "channel_title": metadata.get("channel_title", ""),
                 "channel_id": metadata.get("channel_id", ""),
                 "declared_license": metadata["declared_license"],

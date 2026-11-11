@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MediaLibrary } from "./MediaLibrary";
 import { EditorDialog } from "./ui/EditorDialog";
-import { useMediaAsset } from "../api/apiService";
+import { useMediaAsset, useMusicCatalogTrack } from "../api/apiService";
 
 export function LibraryPicker({ open, onClose, videoId, sceneId, purpose = "visual", onSaved, sceneData = {} }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
@@ -9,7 +9,7 @@ export function LibraryPicker({ open, onClose, videoId, sceneId, purpose = "visu
   const use = async asset => {
     if (busy) return;
     setBusy(true); setError("");
-    const response = await useMediaAsset(asset.id, { video_id: videoId, scene_id: sceneId, purpose, ...sceneData });
+    const response = await (asset.is_shared ? useMusicCatalogTrack : useMediaAsset)(asset.id, { video_id: videoId, scene_id: sceneId, purpose, ...sceneData });
     if (response.ok) { onSaved(); onClose(); } else setError(response.message || "Could not reuse this file.");
     setBusy(false);
   };

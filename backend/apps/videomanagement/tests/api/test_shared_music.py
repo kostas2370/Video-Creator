@@ -8,7 +8,7 @@ from django.test import override_settings
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.models import MediaAsset
+from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 
 from .base import ApiTestCase
 
@@ -22,6 +22,7 @@ class SharedMusicTests(ApiTestCase):
         override.enable()
         self.addCleanup(override.disable)
         self.url = reverse("mediaasset-list")
+        self.catalog_url = reverse("musiccatalogtrack-list")
 
     def audio(self):
         data = BytesIO()
@@ -35,95 +36,138 @@ class SharedMusicTests(ApiTestCase):
         )
 
     def shared(self, **values):
-        return MediaAsset.objects.create(
+        return MusicCatalogTrack.objects.create(
+            source_id=f"test:{MusicCatalogTrack.objects.count()}",
             title="General music",
-            kind="AUDIO",
+            category="fun",
             file=self.audio(),
-            is_shared=True,
+            source_url="https://example.com/track",
             license_url="https://example.com/license",
-            **{"catalog_approved": True, **values},
+            **{"approved": True, **values},
         )
 
-    def test_lists_own_private_media_and_approved_general_music_only(self):
+    def test_private_media_and_catalog_are_stored_and_listed_separately(self):
         own = MediaAsset.objects.create(
             created_by=self.user, title="Private", kind="AUDIO", file=self.audio()
         )
         foreign = MediaAsset.objects.create(
-            created_by=user.make(),
-            title="Other user's track",
-            kind="AUDIO",
-            file=self.audio(),
+            created_by=user.make(), title="Other track", kind="AUDIO", file=self.audio()
         )
         shared = self.shared()
-        pending = self.shared(catalog_approved=False)
+        pending = self.shared(approved=False)
         missing = self.shared()
         missing.file = ""
         missing.save()
         response = self.client.get(self.url)
+        self.assertEqual([row["id"] for row in response.data["results"]], [str(own.pk)])
+        response = self.client.get(self.catalog_url)
         self.assertEqual(
-            {row["id"] for row in response.data["results"]},
-            {str(own.pk), str(shared.pk)},
+            [row["id"] for row in response.data["results"]], [str(shared.pk)]
         )
-        for hidden in (foreign, pending, missing):
+        self.assertTrue(response.data["results"][0]["is_shared"])
+        self.assertEqual(response.data["results"][0]["kind"], "AUDIO")
+        for hidden in (pending, missing):
             self.assertEqual(
                 self.client.get(
-                    reverse("mediaasset-detail", args=[hidden.pk])
+                    reverse("musiccatalogtrack-detail", args=[hidden.pk])
                 ).status_code,
                 404,
             )
         self.assertEqual(
-            self.client.get(self.url, {"scope": "private"}).data["count"], 1
+            self.client.get(
+                reverse("mediaasset-detail", args=[foreign.pk])
+            ).status_code,
+            404,
         )
         self.assertEqual(
-            self.client.get(self.url, {"scope": "shared"}).data["count"], 1
+            self.client.get(reverse("mediaasset-detail", args=[shared.pk])).status_code,
+            404,
         )
         self.assertEqual(
-            self.client.get(self.url, {"scope": "unknown"}).status_code, 400
+            self.client.get(self.catalog_url, {"category": "horror"}).data["count"], 0
+        )
+        self.assertEqual(
+            self.client.get(self.catalog_url, {"search": "General"}).data["count"], 1
         )
 
     def test_shared_music_can_be_used_but_cannot_be_edited_or_removed(self):
-        asset = self.shared()
+        track = self.shared()
         video = self.video_for(status="READY")
         response = self.client.post(
-            reverse("mediaasset-use", args=[asset.pk]),
+            reverse("musiccatalogtrack-use", args=[track.pk]),
             {"video_id": str(video.pk), "purpose": "music"},
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
         video.refresh_from_db()
         self.assertTrue(video.music.file)
-        url = reverse("mediaasset-detail", args=[asset.pk])
+        self.assertNotEqual(video.music.file.name, track.file.name)
+        self.assertFalse(MediaAsset.objects.exists())
+        url = reverse("musiccatalogtrack-detail", args=[track.pk])
         self.assertEqual(
-            self.client.patch(url, {"title": "Changed"}, format="json").status_code, 403
+            self.client.patch(url, {"title": "Changed"}, format="json").status_code, 405
         )
-        self.assertEqual(self.client.delete(url).status_code, 403)
+        self.assertEqual(self.client.delete(url).status_code, 405)
+        self.assertEqual(
+            self.client.post(
+                self.catalog_url, {"title": "New"}, format="json"
+            ).status_code,
+            405,
+        )
         self.client.force_authenticate(user.make())
         self.assertEqual(self.client.get(url).status_code, 200)
-        response = self.client.get(reverse("mediaasset-download", args=[asset.pk]))
+        self.assertEqual(
+            self.client.post(
+                reverse("musiccatalogtrack-use", args=[track.pk]),
+                {"video_id": str(video.pk), "purpose": "music"},
+                format="json",
+            ).status_code,
+            404,
+        )
+        response = self.client.get(
+            reverse("musiccatalogtrack-download", args=[track.pk])
+        )
         self.assertEqual(response.status_code, 200)
         response.close()
 
-    def test_uploads_cannot_publish_themselves_as_general_music(self):
+    def test_uploads_cannot_create_or_publish_catalog_tracks(self):
         response = self.client.post(
             self.url,
             {
                 "title": "Private upload",
                 "file": self.audio(),
                 "is_shared": True,
-                "catalog_approved": True,
+                "approved": True,
             },
             format="multipart",
         )
         self.assertEqual(response.status_code, 201, response.data)
-        asset = MediaAsset.objects.get(pk=response.data["id"])
-        self.assertEqual(asset.created_by, self.user)
-        self.assertFalse(asset.is_shared)
-        self.assertFalse(asset.catalog_approved)
+        self.assertEqual(
+            MediaAsset.objects.get(pk=response.data["id"]).created_by, self.user
+        )
+        self.assertFalse(MusicCatalogTrack.objects.exists())
 
     def test_approval_requires_audio_and_license_information(self):
-        asset = MediaAsset(
-            title="Pending", kind="AUDIO", is_shared=True, catalog_approved=True
-        )
+        track = MusicCatalogTrack(title="Pending", approved=True)
         with self.assertRaises(ValidationError) as error:
-            asset.clean()
+            track.clean()
         self.assertEqual(set(error.exception.message_dict), {"file", "license_url"})
+
+    def test_catalog_use_rejects_visual_purposes_and_rendering_projects(self):
+        track = self.shared()
+        video = self.video_for(status="READY")
+        url = reverse("musiccatalogtrack-use", args=[track.pk])
+        self.assertEqual(
+            self.client.post(
+                url, {"video_id": str(video.pk), "purpose": "new_scene"}, format="json"
+            ).status_code,
+            400,
+        )
+        video.status = "RENDERING"
+        video.save()
+        self.assertEqual(
+            self.client.post(
+                url, {"video_id": str(video.pk), "purpose": "music"}, format="json"
+            ).status_code,
+            409,
+        )
