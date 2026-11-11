@@ -17,7 +17,7 @@ from apps.videomanagement.services.media.library import (
 
 from ..models import MediaAsset, Video
 from ..paginator import AssetResultsPagination
-from ..permissions import IsOwnerPermission
+from ..permissions import IsLibraryOwnerOrSharedPermission
 from ..serializers.library import MediaAssetSerializer, UseMediaSerializer
 from ..utils.file_utils import stored_file_exists
 
@@ -27,7 +27,7 @@ class MediaAssetView(viewsets.ModelViewSet):
     filterset_class = MediaAssetFilter
     queryset = MediaAsset.objects.all()
     serializer_class = MediaAssetSerializer
-    permission_classes = [IsAuthenticated, IsOwnerPermission]
+    permission_classes = [IsAuthenticated, IsLibraryOwnerOrSharedPermission]
     pagination_class = AssetResultsPagination
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 

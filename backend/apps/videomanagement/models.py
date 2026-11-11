@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import IntegrityError, models, router, transaction
 from django.utils import timezone
@@ -588,6 +589,13 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
 
 
 class MediaAsset(AbstractModel):
+    is_shared = models.BooleanField(default=False)
+    catalog_approved = models.BooleanField(default=False)
+    catalog_source_id = models.CharField(max_length=180, unique=True, null=True, blank=True)
+    source_url = models.URLField(max_length=500, blank=True)
+    license_url = models.URLField(max_length=500, blank=True)
+    attribution = models.TextField(blank=True)
+    catalog_metadata = models.JSONField(default=dict, blank=True)
     checksum = models.CharField(max_length=64, null=True, blank=True, editable=False)
     source_video = models.ForeignKey(
         Video,
@@ -610,9 +618,25 @@ class MediaAsset(AbstractModel):
     duration = models.FloatField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
+    def clean(self):
+        super().clean()
+        if self.is_shared and self.catalog_approved:
+            errors = {}
+            if not self.file:
+                errors["file"] = "Upload the authorized audio file before approving this track."
+            if not self.license_url:
+                errors["license_url"] = "Add the reviewed license URL before approving this track."
+            if errors:
+                raise ValidationError(errors)
+
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [
+            models.CheckConstraint(
+                condition=models.Q(is_shared=False)
+                | models.Q(kind="AUDIO", created_by__isnull=True),
+                name="shared_assets_are_ownerless_audio",
+            ),
             models.UniqueConstraint(
                 fields=("created_by", "checksum"), name="unique_owner_visual_checksum"
             )

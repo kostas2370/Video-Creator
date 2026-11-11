@@ -138,7 +138,7 @@ export const updateSceneCaptions = (id, data) => patch(action("scenes", id, "cap
 
 export const getCaptionStyles = () => request({ url: "videos/caption_styles/", ...callerHandlesErrors });
 
-export const getMediaAssets = (search, page = 1, kind) => get("media-assets/", { search: search || undefined, page: page || 1, kind: kind || undefined });
+export const getMediaAssets = (search, page = 1, kind, scope) => get("media-assets/", { search: search || undefined, page: page || 1, kind: kind || undefined, scope: scope || undefined });
 export const createMediaAsset = data => post("media-assets/", data, callerHandlesErrors);
 export const editMediaAsset = (id, data) => patch(detail("media-assets", id), data, callerHandlesErrors);
 export const downloadMediaAsset = id => request({ url: action("media-assets", id, "download"), responseType: "blob", ...callerHandlesErrors });

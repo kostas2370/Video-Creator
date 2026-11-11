@@ -4,6 +4,7 @@ from .models import (
     Avatar,
     Icon,
     Intro,
+    MediaAsset,
     Music,
     Outro,
     Scene,
@@ -14,6 +15,14 @@ from .models import (
     VoiceModel,
 )
 from .services.videos.jobs import queue_render
+
+
+@admin.register(MediaAsset)
+class MediaAssetAdmin(admin.ModelAdmin):
+    list_display = ("title", "kind", "is_shared", "catalog_approved", "created_by")
+    list_filter = ("is_shared", "catalog_approved", "kind")
+    search_fields = ("title", "source_url", "attribution")
+    readonly_fields = ("catalog_source_id", "catalog_metadata", "checksum")
 
 
 class VideoAdmin(admin.ModelAdmin):

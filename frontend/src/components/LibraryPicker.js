@@ -13,7 +13,7 @@ export function LibraryPicker({ open, onClose, videoId, sceneId, purpose = "visu
     if (response.ok) { onSaved(); onClose(); } else setError(response.message || "Could not reuse this file.");
     setBusy(false);
   };
-  return <EditorDialog open={open} onClose={onClose} busy={busy} title="Choose from your media library" description={purpose === "music" ? "Reuse a saved audio track as background music." : "Choose a saved image or clip for this scene."} maxWidth="max-w-5xl" footer={<div className="flex justify-end"><button type="button" disabled={busy} onClick={onClose} className="px-4 py-2 text-sm text-gray-500">Cancel</button></div>}>
+  return <EditorDialog open={open} onClose={onClose} busy={busy} title="Choose from the media library" description={purpose === "music" ? "Choose general music or reuse one of your private audio tracks." : "Choose a saved image or clip for this scene."} maxWidth="max-w-5xl" footer={<div className="flex justify-end"><button type="button" disabled={busy} onClick={onClose} className="px-4 py-2 text-sm text-gray-500">Cancel</button></div>}>
     {error && <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-300">{error}</p>}
     {open && <MediaLibrary kind={purpose === "music" ? "AUDIO" : "VISUAL"} onSelect={use} selecting={busy} />}
   </EditorDialog>;

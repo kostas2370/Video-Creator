@@ -26,3 +26,10 @@ class IsOwnerOrReadOnlyPermission(IsOwnerPermission):
             return True
 
         return super().has_object_permission(request, view, obj)
+
+
+class IsLibraryOwnerOrSharedPermission(IsOwnerPermission):
+    def has_object_permission(self, request, view, obj):
+        if obj.is_shared:
+            return view.action in ("retrieve", "download", "use")
+        return super().has_object_permission(request, view, obj)

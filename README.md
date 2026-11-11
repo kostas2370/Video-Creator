@@ -552,3 +552,12 @@ tables, episode links and permission grants; the `/api/series/` routes stay the 
 Existing memories without a recorded script version need one review and save.
 Memory-save API requests must include `previous_summary` and `script_hash` from the
 episode response, alongside `summary`, so stale edits are rejected.
+
+### Shared music catalog
+
+Deployment setup seeds the bundled 390-track music catalog and uses pytubefix to
+download missing audio automatically. It needs no YouTube Data API key. Download
+failures leave setup resumable and do not block application startup. Existing user
+tracks stay private; general tracks become visible after license review in admin.
+Set `MUSIC_CATALOG_AUTO_SETUP=false` to disable automatic downloads. See
+[the music catalog guide](docs/music-catalog.md) for commands and review steps.

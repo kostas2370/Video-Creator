@@ -22,8 +22,12 @@ class MediaAssetSerializer(serializers.ModelSerializer):
             "duration",
             "created_at",
             "source_video",
+            "is_shared",
+            "source_url",
+            "license_url",
+            "attribution",
         )
-        read_only_fields = ("id", "kind", "duration", "created_at", "source_video")
+        read_only_fields = ("id", "kind", "duration", "created_at", "source_video", "is_shared", "source_url", "license_url", "attribution")
 
     def create(self, validated_data):
         return MediaAsset.from_upload(
