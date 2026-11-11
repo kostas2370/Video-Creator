@@ -7,6 +7,7 @@ vi.mock("../api/apiService", () => ({ uploadMusic: vi.fn(), removeMusic: vi.fn()
 vi.mock("./LibraryPicker", () => ({ LibraryPicker: () => null }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn() } }));
 import { uploadMusic } from "../api/apiService";
+import { toast } from "react-toastify";
 import { MusicAudio } from "./MusicAudio";
 
 beforeEach(() => vi.clearAllMocks());
@@ -23,6 +24,7 @@ it("imports a YouTube link and refreshes the editor after saving", async () => {
   expect(uploadMusic.mock.calls[0][0]).toBe("video-1");
   expect(uploadMusic.mock.calls[0][1].get("youtube_url")).toBe("https://youtu.be/abcdefghijk");
   expect(uploadMusic.mock.calls[0][1].has("file")).toBe(false);
+  expect(toast.success).toHaveBeenCalledWith("Music added and saved to library");
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
