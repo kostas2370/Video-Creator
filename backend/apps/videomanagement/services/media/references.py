@@ -34,7 +34,7 @@ def archive_reference(instance):
         if not stored_file_exists(image):
             continue
         with image.open("rb") as source:
-            asset = MediaAsset.from_visual(
+            asset = MediaAsset.from_upload(
                 user=owner, upload=File(source, name=Path(image.name).name),
                 title=f"{title} · {tag.capitalize()}", tags=[tag],
                 kind=MediaAsset.Kind.IMAGE, source_video=video,

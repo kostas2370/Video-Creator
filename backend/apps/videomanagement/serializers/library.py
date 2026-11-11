@@ -26,9 +26,7 @@ class MediaAssetSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "kind", "duration", "created_at", "source_video")
 
     def create(self, validated_data):
-        if validated_data["kind"] == MediaAsset.Kind.AUDIO:
-            return super().create(validated_data)
-        return MediaAsset.from_visual(
+        return MediaAsset.from_upload(
             user=validated_data["created_by"],
             upload=validated_data["file"],
             title=validated_data["title"],

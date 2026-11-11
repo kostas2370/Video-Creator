@@ -8,13 +8,13 @@ from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
 
 from apps.common.youtube import SourceImportError, download_youtube_video
-from apps.videomanagement.models import Music
+from apps.videomanagement.models import MediaAsset, Music
 from apps.videomanagement.services.scenes.audio import playable_voiceover
 from apps.videomanagement.services.scenes.editing import changed, editable_video
 
 
-def set_music(video, upload=None):
-    saved = None
+def set_music(video, upload=None, *, library_title=None):
+    saved = []
     try:
         with playable_voiceover(upload) as audio, editable_video(video.pk) as locked:
             old_music = locked.music
@@ -23,8 +23,19 @@ def set_music(video, upload=None):
                     created_by=video.created_by, name=Path(upload.name).stem[:140]
                 )
                 music.file.save(audio.name, audio, save=False)
-                saved = music.file
+                saved.append(music.file)
                 music.save()
+                if library_title is not None:
+                    asset = MediaAsset.from_upload(
+                        user=locked.created_by,
+                        upload=audio,
+                        source_video=locked,
+                        title=(library_title or music.name)[:100],
+                        kind=MediaAsset.Kind.AUDIO,
+                        tags=["youtube"],
+                    )
+                    if uploaded := getattr(asset, "_uploaded_file", None):
+                        saved.append(uploaded)
                 locked.music = music
             else:
                 locked.music = None
@@ -41,8 +52,8 @@ def set_music(video, upload=None):
                     lambda: old_file.storage.delete(old_file.name), robust=True
                 )
     except Exception:
-        if saved:
-            saved.storage.delete(saved.name)
+        for file in saved:
+            file.storage.delete(file.name)
         raise
     return locked
 
@@ -71,4 +82,8 @@ def set_music_from_youtube(video, url):
             raise ValidationError({"youtube_url": "Audio must be smaller than 50 MB."})
         with path.open("rb") as audio:
             name = slugify(title)[:100] or "youtube-music"
-            return set_music(video, File(audio, name=f"{name}{path.suffix}"))
+            return set_music(
+                video,
+                File(audio, name=f"{name}{path.suffix}"),
+                library_title=title,
+            )

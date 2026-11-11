@@ -97,21 +97,16 @@ def playable_voiceover(upload):
 
 
 def save_voiceover(scene, upload=None):
-    with playable_voiceover(upload) as prepared:
-        return store_voiceover(scene, prepared)
-
-
-def store_voiceover(scene, upload):
     saved_name = None
     storage = scene.voiceover.storage
     try:
-        with editable_video(scene.video_id) as video:
+        with playable_voiceover(upload) as prepared, editable_video(scene.video_id) as video:
             scene = get_object_or_404(Scene.objects.select_for_update(), pk=scene.pk)
             old_name = scene.voiceover.name
-            if upload is None:
+            if prepared is None:
                 scene.voiceover = ""
             else:
-                scene.voiceover.save(upload.name, upload, save=False)
+                scene.voiceover.save(prepared.name, prepared, save=False)
                 saved_name = scene.voiceover.name
             override = duration_override(scene)
             scene.audio_settings = (

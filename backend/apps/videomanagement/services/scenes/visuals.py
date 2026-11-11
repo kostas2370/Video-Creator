@@ -133,7 +133,7 @@ def starting_frame_matches(video, prompt, style, context):
 
 def store_starting_frame(scene, upload, *, description, style, key):
     video = scene.video
-    asset = MediaAsset.from_visual(
+    asset = MediaAsset.from_upload(
         user=video.created_by,
         upload=upload,
         title=f"{video.title} · Scene {scene.position} starting frame",

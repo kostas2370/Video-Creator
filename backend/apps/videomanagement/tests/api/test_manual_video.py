@@ -15,7 +15,7 @@ from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.services.scenes.visuals import generate_new_image
 from apps.videomanagement.services.videos.manual import add_manual_scene
 
-from ...models import Music, SceneImage, Video, VideoStatus, VideoType
+from ...models import MediaAsset, Music, SceneImage, Video, VideoStatus, VideoType
 from ...utils.composer.render import make_video
 from ...utils.timing import media_timing
 from .base import ApiTestCase
@@ -157,6 +157,79 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(download.call_args.args[0], "https://www.youtube.com/watch?v=abcdefghijk")
         self.assertEqual(download.call_args.kwargs, {"audio_only": True})
         self.assertFalse(Path(download.call_args.args[1]).exists())
+        asset = MediaAsset.objects.get(created_by=self.user, kind=MediaAsset.Kind.AUDIO)
+        self.assertEqual(asset.title, "My YouTube song")
+        self.assertEqual(asset.source_video_id, video.pk)
+        self.assertAlmostEqual(asset.duration, 2)
+        self.assertNotEqual(asset.file.name, video.music.file.name)
+        with asset.file.open("rb") as stored:
+            self.assertEqual(stored.read(), source.read_bytes())
+        listed = self.client.get(reverse("mediaasset-list"), {"kind": "AUDIO"})
+        self.assertEqual(listed.data["count"], 1)
+        with self.captureOnCommitCallbacks(execute=True):
+            removed = self.client.delete(reverse("video-music", args=[video.pk]))
+        self.assertEqual(removed.status_code, 200)
+        self.assertTrue(Path(asset.file.path).exists())
+        another_video = self.create_project()
+        reused = self.client.post(
+            reverse("mediaasset-use", args=[asset.pk]),
+            {"video_id": str(another_video.pk), "purpose": "music"},
+            format="json",
+        )
+        self.assertEqual(reused.status_code, 200, reused.data)
+        another_video.refresh_from_db()
+        self.assertTrue(Path(another_video.music.file.path).exists())
+        self.assertEqual(MediaAsset.objects.count(), 1)
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_library_save_failure_rolls_back_youtube_music_and_cleans_up_files(self, download):
+        video = self.create_project()
+        self.client.post(reverse("video-music", args=[video.pk]), {"file": self.audio()}, format="multipart")
+        video.refresh_from_db()
+        old_music = video.music_id
+        source = Path(self.directory.name, "youtube.wav")
+        source.write_bytes(self.audio().read())
+        download.return_value = (source, "My YouTube song")
+        before = set(Path(self.directory.name).rglob("*.wav"))
+        with patch.object(MediaAsset, "save", side_effect=RuntimeError("Database unavailable")):
+            response = self.client.post(
+                reverse("video-music", args=[video.pk]),
+                {"youtube_url": "https://youtu.be/abcdefghijk"},
+                format="multipart",
+            )
+        self.assertEqual(response.status_code, 500)
+        video.refresh_from_db()
+        self.assertEqual(video.music_id, old_music)
+        self.assertEqual(Music.objects.count(), 1)
+        self.assertFalse(MediaAsset.objects.exists())
+        self.assertEqual(set(Path(self.directory.name).rglob("*.wav")), before)
+
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_repeated_youtube_import_reuses_library_audio_and_preserves_it_on_failure(self, download):
+        video = self.create_project()
+        source = Path(self.directory.name, "youtube.wav")
+        source.write_bytes(self.audio().read())
+        download.return_value = (source, "My YouTube song")
+        url = reverse("video-music", args=[video.pk])
+        data = {"youtube_url": "https://youtu.be/abcdefghijk"}
+        for _ in range(2):
+            response = self.client.post(url, data, format="multipart")
+            self.assertEqual(response.status_code, 200, response.data)
+        asset = MediaAsset.objects.get(created_by=self.user)
+        self.assertTrue(asset.checksum)
+        video.refresh_from_db()
+        old_music = video.music_id
+        before = set(Path(self.directory.name).rglob("*.wav"))
+        with patch("apps.videomanagement.services.media.music.changed", side_effect=RuntimeError("Update failed")):
+            response = self.client.post(url, data, format="multipart")
+        self.assertEqual(response.status_code, 500)
+        video.refresh_from_db()
+        self.assertEqual(video.music_id, old_music)
+        self.assertEqual(MediaAsset.objects.count(), 1)
+        self.assertEqual(set(Path(self.directory.name).rglob("*.wav")), before)
+        with asset.file.open("rb") as stored:
+            self.assertEqual(stored.read(), source.read_bytes())
 
     @patch("apps.videomanagement.services.media.music.download_youtube_video")
     def test_invalid_music_sources_are_rejected_before_downloading(self, download):
