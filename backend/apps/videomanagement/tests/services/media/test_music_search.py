@@ -1,5 +1,7 @@
+import json
 import os
 import tempfile
+from io import StringIO
 from unittest.mock import Mock, patch
 
 from django.core.files.base import ContentFile
@@ -11,7 +13,11 @@ from apps.videomanagement.baker_recipes import video
 from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.services.media import music_search
-from apps.videomanagement.serializers.music_search import MusicBriefSerializer
+from apps.videomanagement.serializers.music_search import (
+    MusicBriefSerializer,
+    MusicSearchSerializer,
+)
+from apps.videomanagement.services.videos.ideas import creative_reply
 
 BRIEF = {
     "mood": "curious",
@@ -89,6 +95,31 @@ class MusicSearchTests(TestCase):
         self.reply.assert_called_once()
         self.client.get.assert_not_called()
         self.assertFalse(MusicCatalogTrack.objects.exists())
+
+    def test_verbose_ai_brief_produces_preferences_that_can_be_searched(self):
+        self.reply.side_effect = creative_reply
+        with patch(
+            "apps.videomanagement.services.videos.ideas.get_reply",
+            return_value=StringIO(
+                json.dumps(
+                    {
+                        **BRIEF,
+                        "instruments": ["soft acoustic piano", "gentle ambient strings"]
+                        * 8,
+                        "mood": "calm and curious " * 15,
+                        "tempo": "a relaxed medium pace " * 10,
+                        "query": "curious educational piano background music " * 10,
+                    }
+                )
+            ),
+        ):
+            result = music_search.search_music(
+                self.user, prompt="Science lesson", recommend_only=True
+            )
+        request = MusicSearchSerializer(data={"prompt": "Science lesson", **result})
+        self.assertTrue(request.is_valid(), request.errors)
+        self.assertIn("soft acoustic piano", result["preferences"])
+        self.client.get.assert_not_called()
 
     def test_search_creates_a_brief_ranks_actual_results_and_downloads_nothing(self):
         with patch.object(music_search, "download_music") as download:
@@ -234,6 +265,36 @@ class MusicSearchTests(TestCase):
 
 
 class MusicSearchConfigurationTests(TestCase):
+    def test_shortens_verbose_brief_fields_at_word_boundaries(self):
+        serializer = MusicBriefSerializer(
+            data={
+                **BRIEF,
+                **{
+                    field: "piano " * 100
+                    for field in ("mood", "instruments", "tempo", "query")
+                },
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        for field in ("mood", "instruments", "tempo", "query"):
+            self.assertLessEqual(
+                len(serializer.validated_data[field]),
+                serializer.fields[field].max_length,
+            )
+            self.assertTrue(serializer.validated_data[field].endswith("piano"))
+
+    def test_rejects_malformed_briefs_instead_of_converting_them_to_text(self):
+        for field, value in (
+            ("instruments", {"piano": True}),
+            ("mood", ["calm", None]),
+            ("query", []),
+            ("category", "invented"),
+            ("tempo", "   "),
+        ):
+            with self.subTest(field=field):
+                serializer = MusicBriefSerializer(data={**BRIEF, field: value})
+                self.assertFalse(serializer.is_valid())
+
     def test_accepts_text_or_lists_for_musical_brief_descriptors(self):
         serializer = MusicBriefSerializer(
             data={

@@ -33,12 +33,22 @@ class MusicBriefSerializer(serializers.Serializer):
     def to_internal_value(self, data):
         if isinstance(data, dict):
             data = dict(data)
-            for field in ("mood", "instruments", "tempo"):
+            for field in ("mood", "instruments", "tempo", "query"):
                 value = data.get(field)
-                if isinstance(value, list) and all(
-                    isinstance(item, str) for item in value
+                if (
+                    field != "query"
+                    and isinstance(value, list)
+                    and all(isinstance(item, str) for item in value)
                 ):
-                    data[field] = ", ".join(value)
+                    value = ", ".join(value)
+                if isinstance(value, str):
+                    value = " ".join(value.split())
+                    limit = self.fields[field].max_length
+                    if len(value) > limit:
+                        value = (
+                            value[: limit + 1].rsplit(" ", 1)[0][:limit].rstrip(",;.")
+                        )
+                    data[field] = value
         return super().to_internal_value(data)
 
 
