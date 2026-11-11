@@ -18,9 +18,11 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install system dependencies
+      timeout-minutes: 10
       run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core libgl1 libglib2.0-0 default-libmysqlclient-dev pkg-config
+        apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+        sudo apt-get "${apt_options[@]}" update -qq --error-on=any
+        sudo apt-get "${apt_options[@]}" install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core libgl1 libglib2.0-0 default-libmysqlclient-dev pkg-config
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
