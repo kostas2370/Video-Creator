@@ -31,7 +31,7 @@ key**. Audio is stored under the normal media directory; persist that directory
 across deployments. The first run can take time and storage for 390 audio files.
 
 Reruns reuse source IDs, skip existing files, restore missing files, and preserve
-review decisions and edited tags. Downloaded audio must be playable, at most 15
+existing approved records and edited tags. Downloaded audio must be playable, at most 15
 minutes, and no larger than 50 MB before normalization. Downloads pause after three
 consecutive failures. With `--best-effort`, download failures do not prevent the app
 from starting; metadata and successful downloads remain for the next attempt.
@@ -79,13 +79,32 @@ Categories reflect search intent. "Instrumental candidate" is a search hint, not
 analysis of the recording. "Commercial" means corporate/advertising style rather
 than verified commercial-use rights. Different uploads can contain the same recording.
 
-## Review and publish
+## Automatic approval and attribution
 
-New catalog items remain unapproved even after their audio is downloaded. They are
-hidden from the user library until reviewed. In Django admin, open Music catalog
-tracks and filter for unapproved items. Verify the recording's rights and license, add the
-reviewed license URL and required attribution, correct tags, then enable
-`approved`. The admin form requires a file and license URL before approval.
+Setup automatically approves downloaded tracks whose stored YouTube metadata
+explicitly declares `creativeCommon` and identifies an uploader. It adds a license
+information link and attribution containing the title, uploader, source URL, CC BY
+declaration, and a note about extraction and possible edits. The metadata records
+`approval_basis=youtube_declared_creative_commons` and the approval timestamp.
+Existing attribution and license links are preserved. This is approval based on the
+uploader's license declaration, not an independent copyright or rights review.
+
+To approve already-downloaded entries without starting new downloads:
+
+```sh
+python backend/manage.py setup_music_catalog --approve-only
+```
+
+To download tracks while leaving new entries pending manual approval:
+
+```sh
+python backend/manage.py setup_music_catalog --no-auto-approve
+```
+
+Missing audio, a missing uploader, or a missing Creative Commons declaration keeps
+an entry pending. `--metadata-only` only seeds metadata. Admin can review and adjust
+source information, attribution, license URLs, and approval status. The admin form
+requires an audio file and license URL before approval.
 
 Catalog tracks live in `MusicCatalogTrack`, with their own audio, source, license,
 attribution, approval, and discovery metadata. `MediaAsset` keeps only user-owned

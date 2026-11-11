@@ -4,6 +4,7 @@ from django.core.files import File
 from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from django.utils.text import slugify
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -58,5 +59,8 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
         if not stored_file_exists(track.file):
             raise NotFound("This catalog file is missing.")
         with track.file.open("rb") as source:
-            set_music(video, File(source, name=Path(track.file.name).name))
+            name = (slugify(track.title)[:100] or "catalog-music") + Path(
+                track.file.name
+            ).suffix
+            set_music(video, File(source, name=name))
         return Response({"video_id": str(video.pk), "scene_id": None})

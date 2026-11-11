@@ -558,6 +558,7 @@ episode response, alongside `summary`, so stale edits are rejected.
 Deployment setup seeds the bundled 390-track music catalog and uses pytubefix to
 download missing audio automatically. It needs no YouTube Data API key. Download
 failures leave setup resumable and do not block application startup. Existing user
-tracks stay private; general tracks become visible after license review in admin.
+tracks stay private; downloaded catalog tracks become available automatically when
+their YouTube metadata declares Creative Commons, with attribution attached.
 Set `MUSIC_CATALOG_AUTO_SETUP=false` to disable automatic downloads. See
 [the music catalog guide](docs/music-catalog.md) for commands and review steps.

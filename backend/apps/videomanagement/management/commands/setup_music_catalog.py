@@ -8,6 +8,7 @@ from django.conf import settings
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
 
 from apps.common.youtube import SourceImportError, download_youtube_video
 from apps.videomanagement.models import MusicCatalogTrack
@@ -27,6 +28,16 @@ class Command(BaseCommand):
             default=settings.BASE_DIR / "fixtures/music_catalog.json",
         )
         parser.add_argument("--metadata-only", action="store_true")
+        parser.add_argument(
+            "--approve-only",
+            action="store_true",
+            help="Approve already-downloaded Creative Commons tracks without downloading more files.",
+        )
+        parser.add_argument(
+            "--no-auto-approve",
+            action="store_true",
+            help="Keep downloaded tracks pending manual approval.",
+        )
         parser.add_argument(
             "--best-effort",
             action="store_true",
@@ -103,7 +114,7 @@ class Command(BaseCommand):
             return
 
         downloaded = skipped = failures = consecutive_failures = 0
-        for track in tracks:
+        for track in [] if options["approve_only"] else tracks:
             if stored_file_exists(track.file):
                 skipped += 1
                 continue
@@ -150,8 +161,40 @@ class Command(BaseCommand):
         self.stdout.write(
             f"Downloaded: {downloaded}; already available: {skipped}; failed: {failures}."
         )
+        approved = 0
+        if not options["no_auto_approve"]:
+            for track in MusicCatalogTrack.objects.filter(
+                pk__in=[item.pk for item in tracks], approved=False
+            ):
+                metadata = track.metadata or {}
+                if metadata.get(
+                    "declared_license"
+                ) != "creativeCommon" or not stored_file_exists(track.file):
+                    continue
+                track.license_url = (
+                    track.license_url
+                    or "https://support.google.com/youtube/answer/2797468"
+                )
+                uploader = metadata.get("channel_title") or metadata.get("channel_id")
+                if not uploader:
+                    continue
+                track.attribution = track.attribution or (
+                    f'"{track.title}" — uploaded by {uploader}. '
+                    f"{track.source_url}. Declared Creative Commons Attribution (CC BY) on YouTube. "
+                    f"License information: {track.license_url}. Audio extracted for background music; edits may include trimming and fades."
+                )
+                track.metadata = {
+                    **metadata,
+                    "approval_basis": "youtube_declared_creative_commons",
+                    "approved_at": timezone.now().isoformat(),
+                }
+                track.approved = True
+                track.save(
+                    update_fields=["approved", "license_url", "attribution", "metadata"]
+                )
+                approved += 1
         self.stdout.write(
-            "New tracks remain pending license review before appearing as general music."
+            f"Automatically approved: {approved}. Approval uses the stored YouTube Creative Commons declaration."
         )
         if failures and not options["best_effort"]:
             raise CommandError(

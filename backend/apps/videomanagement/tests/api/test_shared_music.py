@@ -101,6 +101,7 @@ class SharedMusicTests(ApiTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         video.refresh_from_db()
         self.assertTrue(video.music.file)
+        self.assertEqual(video.music.name, "general-music")
         self.assertNotEqual(video.music.file.name, track.file.name)
         self.assertFalse(MediaAsset.objects.exists())
         url = reverse("musiccatalogtrack-detail", args=[track.pk])

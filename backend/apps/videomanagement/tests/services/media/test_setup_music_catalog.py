@@ -63,7 +63,12 @@ class SetupMusicCatalogTests(TestCase):
         asset = MusicCatalogTrack.objects.get()
         self.assertTrue(Path(asset.file.path).exists())
         self.assertAlmostEqual(asset.duration, 2)
-        self.assertFalse(asset.approved)
+        self.assertTrue(asset.approved)
+        self.assertIn("Uploader", asset.attribution)
+        self.assertIn(asset.source_url, asset.attribution)
+        self.assertEqual(
+            asset.metadata["approval_basis"], "youtube_declared_creative_commons"
+        )
         self.assertFalse(MediaAsset.objects.exists())
         asset.approved = True
         asset.license_url = "https://example.com/license"
@@ -183,3 +188,41 @@ class SetupMusicCatalogTests(TestCase):
         self.run_setup(best_effort=True)
         self.assertEqual(download.call_count, 3)
         self.assertEqual(MusicCatalogTrack.objects.count(), 4)
+
+    @patch(
+        "apps.videomanagement.management.commands.setup_music_catalog.download_youtube_video"
+    )
+    def test_manual_approval_mode_leaves_new_downloads_pending(self, download):
+        download.return_value = (self.audio, "A track")
+        self.run_setup(no_auto_approve=True)
+        self.assertFalse(MusicCatalogTrack.objects.get().approved)
+
+    @patch(
+        "apps.videomanagement.management.commands.setup_music_catalog.download_youtube_video"
+    )
+    def test_approve_only_publishes_existing_downloads_without_fetching_audio(
+        self, download
+    ):
+        download.return_value = (self.audio, "A track")
+        self.run_setup(no_auto_approve=True)
+        download.reset_mock()
+        self.run_setup(approve_only=True)
+        download.assert_not_called()
+        self.assertTrue(MusicCatalogTrack.objects.get().approved)
+
+    @patch(
+        "apps.videomanagement.management.commands.setup_music_catalog.download_youtube_video"
+    )
+    def test_automatic_approval_skips_missing_files_and_missing_source_license(
+        self, download
+    ):
+        self.run_setup(metadata_only=True)
+        self.run_setup(approve_only=True)
+        self.assertFalse(MusicCatalogTrack.objects.get().approved)
+        download.return_value = (self.audio, "A track")
+        self.run_setup(no_auto_approve=True)
+        track = MusicCatalogTrack.objects.get()
+        track.metadata = {**track.metadata, "declared_license": "youtube"}
+        track.save()
+        self.run_setup(approve_only=True)
+        self.assertFalse(MusicCatalogTrack.objects.get().approved)
