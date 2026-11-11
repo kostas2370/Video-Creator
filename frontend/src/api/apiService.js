@@ -199,5 +199,7 @@ export const searchClipTranscript = (id, prompt) => runBackgroundDraft(action("c
 
 export const getMusicCatalog = (search, page = 1) => get("music-catalog/", { search: search || undefined, page: page || 1 });
 export const autoSelectMusic = videoId => post("music-catalog/auto-select/", { video_id: videoId }, callerHandlesErrors);
+export const searchMusicWithAI = async data => followBackgroundJob(await post("music-catalog/ai-search/", data, { ...callerHandlesErrors, timeout: 15000 }));
+export const importSearchMusic = async (videoId, selection) => followBackgroundJob(await post("music-catalog/ai-import/", { video_id: videoId, selection }, { ...callerHandlesErrors, timeout: 15000 }));
 export const useMusicCatalogTrack = (id, data) => post(action("music-catalog", id, "use"), data, callerHandlesErrors);
 export const downloadMusicCatalogTrack = id => request({ url: action("music-catalog", id, "download"), responseType: "blob", ...callerHandlesErrors });

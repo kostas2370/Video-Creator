@@ -135,6 +135,17 @@ class GenerateVideoTests(TestCase):
         self.assertEqual(finished.status, "READY")
         self.assertIsNone(finished.music)
 
+    def test_generation_imports_a_previewed_ai_music_selection_after_review(self):
+        selected = music.make(created_by=self.user)
+        with patch.object(VideoGenerationServices, "import_search_music", return_value=selected) as save:
+            draft = self.generate(music="ai:abcdefghijk", review_script=True)
+            self.assertEqual(draft.settings["music_selection"], "ai:abcdefghijk")
+            save.assert_not_called()
+            finished = self.generate(music="ai:abcdefghijk")
+            self.assertEqual(finished.music, selected)
+            save.assert_called_once_with(finished, "ai:abcdefghijk", editing=False)
+            self.download_music.assert_not_called()
+
     def test_review_stops_before_media_and_uses_approved_script_on_proceed(self):
         self.video.settings = {"generation_params": {"message": "cats", "review_script": False}}
         self.video.save()
@@ -453,6 +464,15 @@ class ResumeGenerationTests(TestCase):
             resume_video(resumed)
             choose.assert_called_once()
             create.assert_called_once_with(choose.return_value, user=self.user)
+
+    def test_resume_retries_a_missing_ai_search_selection(self):
+        self.video.music = None
+        self.video.settings["music_selection"] = "ai:abcdefghijk"
+        selected = music.make(created_by=self.user)
+        with patch.object(VideoGenerationServices, "import_search_music", return_value=selected) as save:
+            resumed = resume_video(self.video)
+            self.assertEqual(resumed.music, selected)
+            save.assert_called_once_with(resumed, "ai:abcdefghijk", editing=False)
 
     def test_fills_in_the_narration_and_the_visuals_again(self):
         resume_video(self.video)

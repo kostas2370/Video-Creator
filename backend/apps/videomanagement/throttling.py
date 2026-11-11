@@ -54,6 +54,11 @@ class TagGenerationRateThrottle(BaseThrottle):
     rate = "15/hour"
 
 
+class MusicSearchRateThrottle(BaseThrottle):
+    scope = "music_search"
+    rate = "15/hour"
+
+
 class CoverGenerationRateThrottle(BaseThrottle):
     scope = "cover_generation"
     rate = "10/hour"
