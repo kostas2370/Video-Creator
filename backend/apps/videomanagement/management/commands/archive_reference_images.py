@@ -31,7 +31,7 @@ class Command(BaseCommand):
                         or not image.is_file() or image.is_symlink()):
                     continue
                 with image.open("rb") as source:
-                    MediaAsset.from_visual(
+                    MediaAsset.from_upload(
                         user=video.created_by, upload=File(source, name=image.name),
                         title=f"{video.title} · Saved image", tags=["recovered image"],
                         kind=MediaAsset.Kind.IMAGE, source_video=video,

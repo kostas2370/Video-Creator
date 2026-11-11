@@ -49,7 +49,7 @@ class ReferenceAssetTests(TestCase):
         self.assertEqual(MediaAsset.objects.filter(created_by=other).count(), 1)
 
     def test_generated_asset_path_reuses_the_same_asset_when_attached_to_a_scene(self):
-        asset = MediaAsset.from_visual(
+        asset = MediaAsset.from_upload(
             user=self.user, upload=ContentFile(self.image, name="image.png"),
             title="Generated image", tags=["ai image"], kind="IMAGE",
         )

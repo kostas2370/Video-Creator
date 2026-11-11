@@ -87,7 +87,7 @@ def save_reference_image(reference, image, job_id=None, brief=None):
         normalized.save(output, format="PNG")
     content = output.getvalue()
     # Keep every completed image in the library, including superseded job results.
-    MediaAsset.from_visual(
+    MediaAsset.from_upload(
         user=reference.created_by,
         upload=ContentFile(content, name="character.png"),
         title=f"{reference.name or 'Character'} · Character reference",

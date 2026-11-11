@@ -243,7 +243,7 @@ class UsageTests(TestCase):
         )
         with (
             patch.object(openai_images, "OpenAI", return_value=client),
-            patch.object(openai_images.MediaAsset, "from_visual", side_effect=OSError),
+            patch.object(openai_images.MediaAsset, "from_upload", side_effect=OSError),
         ):
             with self.assertRaises(OSError):
                 openai_images.OpenAIImageProvider.generate(

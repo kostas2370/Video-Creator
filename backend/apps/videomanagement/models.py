@@ -631,7 +631,7 @@ class MediaAsset(AbstractModel):
             "source_video": scene.video,
         }
         if not file._committed:
-            return cls.from_visual(
+            return cls.from_upload(
                 user=scene.video.created_by, upload=file.file, **defaults
             )
         file_name = file.name
@@ -655,10 +655,10 @@ class MediaAsset(AbstractModel):
         )
 
     @classmethod
-    def from_visual(
+    def from_upload(
         cls, *, user, upload, title, tags, kind, duration=None, source_video=None
     ):
-        """Save an uploaded visual once, reusing identical assets for this owner."""
+        """Save an upload once, reusing identical assets for this owner."""
         digest = hashlib.sha256()
         upload.seek(0)
         for chunk in upload.chunks():
@@ -683,7 +683,7 @@ class MediaAsset(AbstractModel):
         saved_name = asset.file.name
         try:
             with transaction.atomic():
-                if kind == cls.Kind.VIDEO and duration is None:
+                if kind in (cls.Kind.VIDEO, cls.Kind.AUDIO) and duration is None:
                     asset.duration = file_timing(asset.file).get("duration")
                 asset.save()
         except IntegrityError:

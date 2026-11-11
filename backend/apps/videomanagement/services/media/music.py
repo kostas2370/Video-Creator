@@ -11,7 +11,6 @@ from apps.common.youtube import SourceImportError, download_youtube_video
 from apps.videomanagement.models import MediaAsset, Music
 from apps.videomanagement.services.scenes.audio import playable_voiceover
 from apps.videomanagement.services.scenes.editing import changed, editable_video
-from apps.videomanagement.utils.timing import file_timing
 
 
 def set_music(video, upload=None, *, library_title=None):
@@ -27,18 +26,16 @@ def set_music(video, upload=None, *, library_title=None):
                 saved.append(music.file)
                 music.save()
                 if library_title is not None:
-                    asset = MediaAsset(
-                        created_by=locked.created_by,
+                    asset = MediaAsset.from_upload(
+                        user=locked.created_by,
+                        upload=audio,
                         source_video=locked,
                         title=(library_title or music.name)[:100],
                         kind=MediaAsset.Kind.AUDIO,
                         tags=["youtube"],
-                        duration=file_timing(music.file).get("audio_duration"),
                     )
-                    audio.seek(0)
-                    asset.file.save(audio.name, audio, save=False)
-                    saved.append(asset.file)
-                    asset.save()
+                    if uploaded := getattr(asset, "_uploaded_file", None):
+                        saved.append(uploaded)
                 locked.music = music
             else:
                 locked.music = None

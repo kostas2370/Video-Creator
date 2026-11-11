@@ -107,7 +107,7 @@ class OpenAIImageProvider(ImageProvider):
                 code=status.HTTP_400_BAD_REQUEST,
             )
 
-        asset = MediaAsset.from_visual(
+        asset = MediaAsset.from_upload(
             user=user,
             upload=ContentFile(
                 base64.b64decode(response.data[0].b64_json), name="generated.png"

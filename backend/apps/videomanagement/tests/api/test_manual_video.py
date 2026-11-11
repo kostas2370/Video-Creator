@@ -204,6 +204,33 @@ class ManualVideoTests(ApiTestCase):
         self.assertFalse(MediaAsset.objects.exists())
         self.assertEqual(set(Path(self.directory.name).rglob("*.wav")), before)
 
+
+    @patch("apps.videomanagement.services.media.music.download_youtube_video")
+    def test_repeated_youtube_import_reuses_library_audio_and_preserves_it_on_failure(self, download):
+        video = self.create_project()
+        source = Path(self.directory.name, "youtube.wav")
+        source.write_bytes(self.audio().read())
+        download.return_value = (source, "My YouTube song")
+        url = reverse("video-music", args=[video.pk])
+        data = {"youtube_url": "https://youtu.be/abcdefghijk"}
+        for _ in range(2):
+            response = self.client.post(url, data, format="multipart")
+            self.assertEqual(response.status_code, 200, response.data)
+        asset = MediaAsset.objects.get(created_by=self.user)
+        self.assertTrue(asset.checksum)
+        video.refresh_from_db()
+        old_music = video.music_id
+        before = set(Path(self.directory.name).rglob("*.wav"))
+        with patch("apps.videomanagement.services.media.music.changed", side_effect=RuntimeError("Update failed")):
+            response = self.client.post(url, data, format="multipart")
+        self.assertEqual(response.status_code, 500)
+        video.refresh_from_db()
+        self.assertEqual(video.music_id, old_music)
+        self.assertEqual(MediaAsset.objects.count(), 1)
+        self.assertEqual(set(Path(self.directory.name).rglob("*.wav")), before)
+        with asset.file.open("rb") as stored:
+            self.assertEqual(stored.read(), source.read_bytes())
+
     @patch("apps.videomanagement.services.media.music.download_youtube_video")
     def test_invalid_music_sources_are_rejected_before_downloading(self, download):
         video = self.create_project()
