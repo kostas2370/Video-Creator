@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import IntegrityError, models, router, transaction
 from django.utils import timezone
@@ -585,6 +586,38 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
             link=f"/videos/{self.pk}/",
         )
         send_email.delay(name=subject, email=self.created_by.email, text=message)
+
+
+class MusicCatalogTrack(UUIDModel):
+    source_id = models.CharField(max_length=180, unique=True)
+    title = models.CharField(max_length=100)
+    category = models.CharField(max_length=30, db_index=True)
+    tags = models.JSONField(default=list, blank=True)
+    duration = models.FloatField(null=True, blank=True)
+    file = models.FileField(upload_to="media/music-catalog/", max_length=2000, blank=True)
+    source_url = models.URLField(max_length=500)
+    license_url = models.URLField(max_length=500, blank=True)
+    attribution = models.TextField(blank=True)
+    approved = models.BooleanField(default=False)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["category", "title", "id"]
+
+    def clean(self):
+        super().clean()
+        if self.approved:
+            errors = {}
+            if not self.file:
+                errors["file"] = "Download or upload the audio before approving this track."
+            if not self.license_url:
+                errors["license_url"] = "Add the reviewed license URL before approving this track."
+            if errors:
+                raise ValidationError(errors)
+
+    def __str__(self):
+        return self.title
 
 
 class MediaAsset(AbstractModel):

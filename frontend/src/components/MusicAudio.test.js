@@ -3,10 +3,10 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-vi.mock("../api/apiService", () => ({ uploadMusic: vi.fn(), removeMusic: vi.fn(), updateMusicAudio: vi.fn() }));
+vi.mock("../api/apiService", () => ({ uploadMusic: vi.fn(), removeMusic: vi.fn(), updateMusicAudio: vi.fn(), autoSelectMusic: vi.fn() }));
 vi.mock("./LibraryPicker", () => ({ LibraryPicker: () => null }));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn() } }));
-import { uploadMusic } from "../api/apiService";
+import { uploadMusic, autoSelectMusic } from "../api/apiService";
 import { toast } from "react-toastify";
 import { MusicAudio } from "./MusicAudio";
 
@@ -44,4 +44,25 @@ it("keeps the link and current song visible when an import fails", async () => {
 it("disables link imports while editing is locked", () => {
   render(<MusicAudio video={{ id: "video-1" }} disabled onSaved={vi.fn()} />);
   expect(screen.getByRole("button", { name: "From YouTube" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Auto-select music" }).disabled).toBe(true);
+});
+
+it("automatically selects catalog music and refreshes the editor", async () => {
+  const onSaved = vi.fn();
+  autoSelectMusic.mockResolvedValue({ ok: true, data: { track: { title: "Calm piano" } } });
+  render(<MusicAudio video={{ id: "video-1" }} onSaved={onSaved} />);
+  fireEvent.click(screen.getByRole("button", { name: "Auto-select music" }));
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  expect(autoSelectMusic).toHaveBeenCalledWith("video-1");
+  expect(toast.success).toHaveBeenCalledWith("Music selected: Calm piano");
+});
+
+it("keeps the existing music and explains failed automatic selection", async () => {
+  const onSaved = vi.fn();
+  autoSelectMusic.mockResolvedValue({ ok: false, message: "No general music is available yet." });
+  render(<MusicAudio video={{ id: "video-1", music: "Current song" }} onSaved={onSaved} />);
+  fireEvent.click(screen.getByRole("button", { name: "Auto-select music" }));
+  expect((await screen.findByRole("alert")).textContent).toBe("No general music is available yet.");
+  expect(screen.getByText("Current song")).toBeTruthy();
+  expect(onSaved).not.toHaveBeenCalled();
 });

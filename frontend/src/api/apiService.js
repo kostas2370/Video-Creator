@@ -196,3 +196,8 @@ export const getClipProjectProgress = id => request({ url: action("clips", id, "
 export const getClip = (id, clipId) => request({ url: `${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, ...callerHandlesErrors });
 
 export const searchClipTranscript = (id, prompt) => runBackgroundDraft(action("clips", id, "search-transcript"), { prompt });
+
+export const getMusicCatalog = (search, page = 1) => get("music-catalog/", { search: search || undefined, page: page || 1 });
+export const autoSelectMusic = videoId => post("music-catalog/auto-select/", { video_id: videoId }, callerHandlesErrors);
+export const useMusicCatalogTrack = (id, data) => post(action("music-catalog", id, "use"), data, callerHandlesErrors);
+export const downloadMusicCatalogTrack = id => request({ url: action("music-catalog", id, "download"), responseType: "blob", ...callerHandlesErrors });

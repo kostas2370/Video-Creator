@@ -26,6 +26,10 @@ from apps.videomanagement.models import (
     VoiceModel,
 )
 from apps.videomanagement.services.media.downloads import download_music
+from apps.videomanagement.services.media.catalog import (
+    create_catalog_music,
+    select_music_track,
+)
 from apps.videomanagement.services.media.icons import icon_candidates
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.scenes.narration import (
@@ -284,6 +288,8 @@ def generate_video(
         gpt_model=gpt_model or settings.DEFAULT_GPT_MODEL,
     )
     vid.settings.update(audio_settings)
+    if music == "auto":
+        vid.settings["auto_music"] = True
     if review_starting_frames:
         vid.settings["review_starting_frames"] = True
     if creation_mode:
@@ -332,7 +338,13 @@ def generate_video(
         logger.info(f"Generated the images for the video with id : {vid.id}")
 
     try:
-        vid.music = download_music(music, user=vid.created_by)
+        if music == "auto":
+            if not vid.music_id:
+                vid.music = create_catalog_music(
+                    select_music_track(vid), user=vid.created_by
+                )
+        else:
+            vid.music = download_music(music, user=vid.created_by)
     except Exception as exc:
         logger.error(exc)
 
@@ -369,6 +381,14 @@ def resume_video(video: Video) -> Video:
     logger.info("Filled in the missing narration for video %s", video.id)
     if video.mode:
         logger.info("Filled in the missing visuals for video %s", video.id)
+
+    if choices.get("auto_music") and not video.music_id:
+        try:
+            video.music = create_catalog_music(
+                select_music_track(video), user=video.created_by
+            )
+        except Exception as exc:
+            logger.error(exc)
 
     video.status = VideoStatus.READY
     video.save()

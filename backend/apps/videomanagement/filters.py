@@ -11,6 +11,7 @@ from apps.common.filters import (
 
 from .models import (
     MediaAsset,
+    MusicCatalogTrack,
     Scene,
     SceneImage,
     Video,
@@ -52,6 +53,19 @@ class MediaAssetFilter(OwnerFilterSet):
                 kind__in=(MediaAsset.Kind.IMAGE, MediaAsset.Kind.VIDEO)
             )
         return queryset.filter(kind=value)
+
+
+class MusicCatalogFilter(BaseFilterSet):
+    search = filters.CharFilter(method="filter_search")
+    category = filters.CharFilter()
+
+    class Meta:
+        model = MusicCatalogTrack
+        fields = ("search", "category")
+
+    def filter_search(self, queryset, name, value):
+        term = value.strip()[:100]
+        return queryset.filter(Q(title__icontains=term) | Q(tags__icontains=term)) if term else queryset
 
 
 class VideoFilter(OwnerFilterSet, SearchFilterSet):

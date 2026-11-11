@@ -98,7 +98,12 @@ class GenerateSerializer(serializers.Serializer):
         required=False, choices=["vivid", "natural"], default="vivid"
     )
     music = serializers.CharField(
-        required=False, max_length=500, default="", allow_blank=True, allow_null=True
+        required=False,
+        max_length=500,
+        default="",
+        allow_blank=True,
+        allow_null=True,
+        help_text='YouTube URL, "auto" to select from the general catalog, or blank for no music.',
     )
     target_audience = serializers.CharField(
         required=False, max_length=30, min_length=0, default="", allow_blank=True

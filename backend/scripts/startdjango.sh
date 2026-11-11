@@ -10,6 +10,9 @@ python manage.py makemigrations usermanagement videomanagement news
 python manage.py migrate
 python manage.py loaddata fixtures/fixtures.json
 python manage.py setup_media
+if [ "${MUSIC_CATALOG_AUTO_SETUP:-true}" = "true" ]; then
+  python manage.py setup_music_catalog --best-effort
+fi
 python manage.py setup_elevenlabs
 
 exec uvicorn video_creator.asgi:application --host 0.0.0.0 --port 8000 --lifespan off --proxy-headers --forwarded-allow-ips "*"

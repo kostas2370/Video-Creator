@@ -5,6 +5,7 @@ from .models import (
     Icon,
     Intro,
     Music,
+    MusicCatalogTrack,
     Outro,
     Scene,
     SceneImage,
@@ -14,6 +15,14 @@ from .models import (
     VoiceModel,
 )
 from .services.videos.jobs import queue_render
+
+
+@admin.register(MusicCatalogTrack)
+class MusicCatalogTrackAdmin(admin.ModelAdmin):
+    list_display = ("title", "category", "approved")
+    list_filter = ("category", "approved")
+    search_fields = ("title", "source_url", "attribution")
+    readonly_fields = ("source_id", "metadata")
 
 
 class VideoAdmin(admin.ModelAdmin):
