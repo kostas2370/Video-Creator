@@ -7,7 +7,7 @@ from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.baker_recipes import avatar, intro, outro, video, voice_model
+from apps.videomanagement.baker_recipes import avatar, intro, outro, video, voice_model, music
 from apps.videomanagement.services.videos import generation as VideoGenerationServices
 from apps.videomanagement.services.videos.generation import (
     create_pending_video,
@@ -108,6 +108,32 @@ class GenerateVideoTests(TestCase):
         url = "https://youtu.be/abcdefghijk"
         self.generate(music=url)
         self.download_music.assert_called_once_with(url, user=self.user)
+
+    def test_auto_music_selects_from_the_catalog_after_script_review(self):
+        selected = music.make(created_by=self.user)
+        with (
+            patch.object(VideoGenerationServices, "select_music_track") as choose,
+            patch.object(
+                VideoGenerationServices, "create_catalog_music", return_value=selected
+            ) as create,
+        ):
+            draft = self.generate(music="auto", review_script=True)
+            self.assertTrue(draft.settings["auto_music"])
+            choose.assert_not_called()
+            finished = self.generate(music="auto")
+            self.assertEqual(finished.music, selected)
+            create.assert_called_once_with(choose.return_value, user=self.user)
+            self.download_music.assert_not_called()
+
+    def test_auto_music_does_not_fail_generation_when_the_catalog_is_empty(self):
+        with patch.object(
+            VideoGenerationServices,
+            "select_music_track",
+            side_effect=ValueError("No tracks"),
+        ):
+            finished = self.generate(music="auto")
+        self.assertEqual(finished.status, "READY")
+        self.assertIsNone(finished.music)
 
     def test_review_stops_before_media_and_uses_approved_script_on_proceed(self):
         self.video.settings = {"generation_params": {"message": "cats", "review_script": False}}
@@ -410,6 +436,23 @@ class ResumeGenerationTests(TestCase):
         asked.assert_not_called()
         self.assertEqual(resumed.gpt_answer, A_SCRIPT)
         self.assertEqual(resumed.status, "READY")
+
+    def test_resume_retries_auto_music_but_preserves_a_selected_track(self):
+        self.video.music = None
+        self.video.settings["auto_music"] = True
+        self.video.save()
+        selected = music.make(created_by=self.user)
+        with (
+            patch.object(VideoGenerationServices, "select_music_track") as choose,
+            patch.object(
+                VideoGenerationServices, "create_catalog_music", return_value=selected
+            ) as create,
+        ):
+            resumed = resume_video(self.video)
+            self.assertEqual(resumed.music, selected)
+            resume_video(resumed)
+            choose.assert_called_once()
+            create.assert_called_once_with(choose.return_value, user=self.user)
 
     def test_fills_in_the_narration_and_the_visuals_again(self):
         resume_video(self.video)

@@ -1,4 +1,5 @@
 import { StartingFrameOption } from "../components/StartingFrameOption";
+import { GenerationMusic } from "../components/GenerationMusic";
 import { GenerationModeSelect } from "../components/GenerationModeSelect";
 import { GenerationCost } from "../components/GenerationCost";
 import { visualProviderNames, isBuiltinVisualProvider, supportsVisualReference, isBuiltinVideoProvider } from "../utils/visualProviders";
@@ -468,7 +469,7 @@ const Home = () => {
                   <input className="sr-only" type="radio" name="platform" value={option.value} checked={formData.platform === option.value} onChange={handleInputChange} />{option.label}
                 </label>)}
               </div>, "TikTok adds short-form script guidance, portrait framing, and captions by default.")}
-              {field("music", "Background music", <input type="url" id="music" name="music" value={formData.music} onChange={handleInputChange} className={inputClassName} placeholder="Paste a YouTube URL" />, "Optional. Add a YouTube link for background music.")}
+              {field("music", "Background music", <GenerationMusic value={formData.music} onChange={music => setFormData(previous => ({ ...previous, music }))} className={inputClassName} />)}
               <label htmlFor="subtitles" className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${formData.narration ? "border-gray-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800" : "border-gray-200 bg-gray-100/70 opacity-60 dark:border-gray-700 dark:bg-gray-800/50"}`}><input id="subtitles" name="subtitles" type="checkbox" checked={formData.subtitles && formData.narration} disabled={!formData.narration} onChange={handleInputChange} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium text-gray-900 dark:text-gray-100">Add subtitles</span><span className="mt-1 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">Burn the spoken words into the video.</span></span></label>
             </div>
           </section>

@@ -5,6 +5,26 @@ User uploads and music imported into a video stay private to their owner. Approv
 use general tracks but cannot edit or remove them. The library collection selector
 switches between private media and general music.
 
+## Automatic music selection
+
+In generation's advanced settings, enable **Auto-select music** to pick a soundtrack
+from the general catalog after script approval. You can still leave music blank or
+paste a YouTube link. The choice is saved in drafts and templates (`music="auto"`
+in generation requests). If generation is resumed, missing automatic music is
+retried while an existing soundtrack is preserved. Generation can finish without
+music when the catalog is unavailable.
+
+In the editor, **Project extras → Auto-select music** adds or replaces background
+music immediately. Click again to try a different track when alternatives exist.
+It uses the video title, genre, prompt, script, and catalog tags with keyword
+matching. Unrecognized topics favor general-use music. Selection only considers
+approved catalog entries with a license URL and a stored audio file. No YouTube
+search, download, or AI request runs during selection. Private tracks are excluded.
+If no tracks are available, the editor displays an error and keeps existing music.
+
+`POST /music-catalog/auto-select/` accepts `{"video_id": "..."}` for an owned,
+editable video and returns the selected catalog track with its attribution.
+
 ## Automatic deployment setup
 
 `fixtures/music_catalog.json` bundles 390 YouTube music candidates with titles,

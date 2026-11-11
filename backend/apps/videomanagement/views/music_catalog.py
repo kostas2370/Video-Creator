@@ -1,10 +1,8 @@
 from pathlib import Path
 
-from django.core.files import File
 from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
-from django.utils.text import slugify
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -19,7 +17,11 @@ from apps.videomanagement.serializers.library import (
     MusicCatalogTrackSerializer,
     UseMediaSerializer,
 )
-from apps.videomanagement.services.media.music import set_music
+from apps.videomanagement.services.media.catalog import (
+    select_music_track,
+    set_catalog_music,
+)
+from apps.videomanagement.services.scenes.editing import editable_video
 from apps.videomanagement.utils.file_utils import stored_file_exists
 
 
@@ -58,9 +60,21 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
         )
         if not stored_file_exists(track.file):
             raise NotFound("This catalog file is missing.")
-        with track.file.open("rb") as source:
-            name = (slugify(track.title)[:100] or "catalog-music") + Path(
-                track.file.name
-            ).suffix
-            set_music(video, File(source, name=name))
+        set_catalog_music(video, track)
         return Response({"video_id": str(video.pk), "scene_id": None})
+
+    @action(detail=False, methods=["POST"], url_path="auto-select")
+    def auto_select(self, request):
+        choices = UseMediaSerializer(
+            data={"video_id": request.data.get("video_id"), "purpose": "music"}
+        )
+        choices.is_valid(raise_exception=True)
+        video = get_object_or_404(
+            Video.objects.for_user(request.user), pk=choices.validated_data["video_id"]
+        )
+        with editable_video(video.pk) as locked:
+            track = select_music_track(locked)
+            set_catalog_music(locked, track)
+        return Response(
+            {"video_id": str(video.pk), "track": self.get_serializer(track).data}
+        )
