@@ -9,6 +9,27 @@ from .base import ApiTestCase
 
 
 class MusicSearchApiTests(ApiTestCase):
+    def test_recommendation_uses_the_owned_video_and_rejects_foreign_videos(self):
+        video = self.video_for(status="READY")
+        url = reverse("musiccatalogtrack-ai-recommend")
+        response = self.client.post(url, {"video_id": str(video.pk)}, format="json")
+        self.assertEqual(response.status_code, 202, response.data)
+        with patch.object(
+            music_search, "search_music", return_value={"preferences": "Soft piano"}
+        ) as recommend:
+            self.assertEqual(self.run_draft_task(), {"preferences": "Soft piano"})
+        self.assertEqual(recommend.call_args.kwargs["video"], video)
+        self.assertTrue(recommend.call_args.kwargs["recommend_only"])
+        self.draft_queue.reset_mock()
+        foreign = self.video_for(owner=user.make())
+        self.assertEqual(
+            self.client.post(
+                url, {"video_id": str(foreign.pk)}, format="json"
+            ).status_code,
+            404,
+        )
+        self.draft_queue.assert_not_called()
+
     def test_queues_owned_music_search_and_returns_worker_results(self):
         video = self.video_for(status="READY")
         response = self.client.post(

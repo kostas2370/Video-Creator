@@ -29,7 +29,12 @@ editable video and returns the selected catalog track with its attribution.
 
 **AI search YouTube** is available in generation's background music settings and
 the editor's Project extras. It uses the selected script model to create an English
-music brief (mood, instruments, tempo and search phrase). One bounded YouTube search
+music brief. **Recommend** fills the preferences field from the video idea or edited
+script; you can change the suggestion before pressing **Find music**. Recommending
+does not search YouTube, download audio, or change the project.
+
+Search uses an English music brief (mood, instruments, tempo and search phrase).
+One bounded YouTube search
 and a video-details request find public, embeddable music marked Creative Commons
 and lasting 30 seconds to 15 minutes. AI ranks actual returned IDs together with up
 to five matching, downloaded general catalog tracks. Unknown and duplicate IDs are
@@ -49,9 +54,11 @@ and approval. New searches do not modify the bundled JSON or publish user tracks
 
 This optional feature needs `YOUTUBE_API_KEY` on the server and a connected script
 model for the user. Catalog deployment/import still needs neither AI nor a YouTube
-Data API key. AI search/import share a separate limit of 15 requests per user/hour.
+Data API key. Recommendations, search and imports share a limit of 15 requests per user/hour.
 Both use owner-bound background jobs; imports require an editable owned video.
 
+- `POST /music-catalog/ai-recommend/`: `video_id` or generation `prompt`; returns
+  editable preferences without running a YouTube search.
 - `POST /music-catalog/ai-search/`: `video_id` or generation `prompt`, optional
   `genre`, `gpt_model`, and `preferences`.
 - `POST /music-catalog/ai-import/`: `video_id` and the chosen `selection` key.

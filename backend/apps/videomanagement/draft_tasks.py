@@ -9,6 +9,7 @@ from apps.clips.models import Clip, ClipProject
 from apps.series.models import SeriesEpisode
 from apps.series.services import characters, episodes
 from apps.videomanagement.models import Scene, Video
+from apps.videomanagement.services.media import music_search
 from apps.videomanagement.serializers.ideas import (
     IdeaResultSerializer,
     PromptResultSerializer,
@@ -34,19 +35,15 @@ def owned_video(user, video_id):
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def search_music_task(user_id, *, video_id=None, **choices):
-    from apps.videomanagement.services.media.music_search import search_music
-
     user = load_user(user_id)
     video = owned_video(user, video_id) if video_id else None
-    return search_music(user, video=video, **choices)
+    return music_search.search_music(user, video=video, **choices)
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
 def import_search_music_task(user_id, *, video_id, selection):
-    from apps.videomanagement.services.media.music_search import import_search_music
-
     video = owned_video(load_user(user_id), video_id)
-    updated = import_search_music(video, selection)
+    updated = music_search.import_search_music(video, selection)
     return {"video_id": str(updated.pk)}
 
 

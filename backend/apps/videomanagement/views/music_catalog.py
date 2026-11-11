@@ -42,13 +42,7 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = MusicCatalogFilter
 
-    @action(
-        detail=False,
-        methods=["POST"],
-        url_path="ai-search",
-        throttle_classes=[MusicSearchRateThrottle],
-    )
-    def ai_search(self, request):
+    def queue_music_request(self, request, *, recommend_only=False):
         choices = MusicSearchSerializer(data=request.data)
         choices.is_valid(raise_exception=True)
         values = dict(choices.validated_data)
@@ -58,10 +52,33 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
             )
             values["video_id"] = str(video.pk)
         return Response(
-            queue_draft(request.user, draft_tasks.search_music_task, **values),
+            queue_draft(
+                request.user,
+                draft_tasks.search_music_task,
+                recommend_only=recommend_only,
+                **values,
+            ),
             status=202,
             headers={"Cache-Control": "no-store"},
         )
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="ai-recommend",
+        throttle_classes=[MusicSearchRateThrottle],
+    )
+    def ai_recommend(self, request):
+        return self.queue_music_request(request, recommend_only=True)
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="ai-search",
+        throttle_classes=[MusicSearchRateThrottle],
+    )
+    def ai_search(self, request):
+        return self.queue_music_request(request)
 
     @action(
         detail=False,

@@ -78,6 +78,18 @@ class MusicSearchTests(TestCase):
             self.user, prompt="A science lesson", gpt_model="gpt-4"
         )
 
+    def test_recommendation_writes_preferences_without_youtube_or_downloads(self):
+        result = music_search.search_music(
+            self.user, prompt="Science lesson", gpt_model="gpt-4", recommend_only=True
+        )
+        self.assertEqual(
+            result["preferences"],
+            "curious, piano, medium tempo, instrumental, no vocals.",
+        )
+        self.reply.assert_called_once()
+        self.client.get.assert_not_called()
+        self.assertFalse(MusicCatalogTrack.objects.exists())
+
     def test_search_creates_a_brief_ranks_actual_results_and_downloads_nothing(self):
         with patch.object(music_search, "download_music") as download:
             result = self.search()
@@ -180,7 +192,7 @@ class MusicSearchTests(TestCase):
             },
         ]
         result = self.search()
-        self.assertEqual(result["tracks"][0]["origin"], "catalog")
+        self.assertEqual(result["tracks"][0]["key"], f"catalog:{track.pk}")
         self.assertTrue(result["tracks"][0]["file"])
 
     def test_import_rechecks_license_before_download_and_keeps_existing_music(self):
