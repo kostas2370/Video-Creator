@@ -73,17 +73,13 @@ def youtube_candidate(video):
     }
 
 
-def search_music(
-    user,
-    *,
-    prompt,
-    genre="",
-    preferences="",
-    gpt_model="",
-    video=None,
-    recommend_only=False,
+def music_model(gpt_model, video):
+    return gpt_model or ((video.settings or {}).get("gpt_model", "") if video else "")
+
+
+def build_music_brief(
+    user, *, prompt, genre="", preferences="", gpt_model="", video=None
 ):
-    client = None if recommend_only else youtube_client()
     content = {"prompt": prompt, "genre": genre, "preferences": preferences}
     if video:
         content.update(
@@ -95,8 +91,7 @@ def search_music(
             or video.gpt_answer
             or video.prompt.prompt,
         )
-        gpt_model = gpt_model or (video.settings or {}).get("gpt_model", "")
-    brief = creative_reply(
+    return creative_reply(
         user,
         prompt=(
             'Create an English instrumental background music brief for this video. Return JSON with string fields: {"mood":"curious", "instruments":"soft piano", "tempo":"medium", "category":"educational", "query":"curious educational piano"}. '
@@ -110,11 +105,25 @@ def search_music(
         error_message="AI could not create a music brief. Please try again.",
         gpt_model=gpt_model,
     )
-    if recommend_only:
-        return {
-            "preferences": f"{brief['mood']}, {brief['instruments']}, {brief['tempo']} tempo, instrumental, no vocals."
-        }
-    candidates = {}
+
+
+def recommend_music_preferences(
+    user, *, prompt, genre="", preferences="", gpt_model="", video=None
+):
+    brief = build_music_brief(
+        user,
+        prompt=prompt,
+        genre=genre,
+        preferences=preferences,
+        gpt_model=music_model(gpt_model, video),
+        video=video,
+    )
+    return {
+        "preferences": f"{brief['mood']}, {brief['instruments']}, {brief['tempo']} tempo, instrumental, no vocals."
+    }
+
+
+def find_catalog_candidates(brief):
     terms = words(f"{brief['query']} {brief['mood']} {brief['instruments']}")
     local = [
         t
@@ -128,18 +137,25 @@ def search_music(
     local.sort(
         key=lambda t: len(terms & words(f"{t.title} {' '.join(t.tags)}")), reverse=True
     )
+    candidates = []
     for track in local[:5]:
         key = f"catalog:{track.pk}"
-        candidates[key] = {
-            "key": key,
-            "title": track.title,
-            "duration": track.duration,
-            "tags": track.tags,
-            "source_url": track.source_url,
-            "license_url": track.license_url,
-            "attribution": track.attribution,
-            "file": track.file.url,
-        }
+        candidates.append(
+            {
+                "key": key,
+                "title": track.title,
+                "duration": track.duration,
+                "tags": track.tags,
+                "source_url": track.source_url,
+                "license_url": track.license_url,
+                "attribution": track.attribution,
+                "file": track.file.url,
+            }
+        )
+    return candidates
+
+
+def find_youtube_candidates(client, brief):
     try:
         page = client.get(
             "search",
@@ -167,13 +183,17 @@ def search_music(
         )
     except DiscoveryError as exc:
         raise ValidationError(str(exc)) from None
-    known = {t.source_url for t in local[:5]}
+    candidates = []
     for item in videos.get("items", []):
         track = youtube_candidate(item) if item.get("id") in ids else None
-        if track and track["source_url"] not in known:
-            candidates[track["key"]] = track
+        if track:
+            candidates.append(track)
+    return candidates
+
+
+def rank_music_candidates(user, brief, candidates, *, gpt_model=""):
     if not candidates:
-        return {"brief": brief, "tracks": []}
+        return []
     ranking = creative_reply(
         user,
         prompt=(
@@ -205,12 +225,31 @@ def search_music(
         raise ValidationError(
             "AI returned an unknown music result. Please search again."
         )
+    return [
+        {**candidates[row["key"]], "reason": row["reason"]} for row in ranking["tracks"]
+    ]
+
+
+def search_music(user, *, prompt, genre="", preferences="", gpt_model="", video=None):
+    client = youtube_client()
+    gpt_model = music_model(gpt_model, video)
+    brief = build_music_brief(
+        user,
+        prompt=prompt,
+        genre=genre,
+        preferences=preferences,
+        gpt_model=gpt_model,
+        video=video,
+    )
+    local = find_catalog_candidates(brief)
+    known = {track["source_url"] for track in local}
+    candidates = {track["key"]: track for track in local}
+    for track in find_youtube_candidates(client, brief):
+        if track["source_url"] not in known:
+            candidates[track["key"]] = track
     return {
         "brief": brief,
-        "tracks": [
-            {**candidates[row["key"]], "reason": row["reason"]}
-            for row in ranking["tracks"]
-        ],
+        "tracks": rank_music_candidates(user, brief, candidates, gpt_model=gpt_model),
     }
 
 

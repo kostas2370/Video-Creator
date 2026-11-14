@@ -42,7 +42,7 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = MusicCatalogFilter
 
-    def queue_music_request(self, request, *, recommend_only=False):
+    def queue_music_request(self, request, task):
         choices = MusicSearchSerializer(data=request.data)
         choices.is_valid(raise_exception=True)
         values = dict(choices.validated_data)
@@ -54,8 +54,7 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
         return Response(
             queue_draft(
                 request.user,
-                draft_tasks.search_music_task,
-                recommend_only=recommend_only,
+                task,
                 **values,
             ),
             status=202,
@@ -69,7 +68,9 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
         throttle_classes=[MusicSearchRateThrottle],
     )
     def ai_recommend(self, request):
-        return self.queue_music_request(request, recommend_only=True)
+        return self.queue_music_request(
+            request, draft_tasks.recommend_music_preferences_task
+        )
 
     @action(
         detail=False,
@@ -78,7 +79,7 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
         throttle_classes=[MusicSearchRateThrottle],
     )
     def ai_search(self, request):
-        return self.queue_music_request(request)
+        return self.queue_music_request(request, draft_tasks.search_music_task)
 
     @action(
         detail=False,

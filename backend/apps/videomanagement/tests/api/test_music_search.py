@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.services.media import music_search
 
 from .base import ApiTestCase
@@ -15,11 +16,12 @@ class MusicSearchApiTests(ApiTestCase):
         response = self.client.post(url, {"video_id": str(video.pk)}, format="json")
         self.assertEqual(response.status_code, 202, response.data)
         with patch.object(
-            music_search, "search_music", return_value={"preferences": "Soft piano"}
+            music_search,
+            "recommend_music_preferences",
+            return_value={"preferences": "Soft piano"},
         ) as recommend:
             self.assertEqual(self.run_draft_task(), {"preferences": "Soft piano"})
         self.assertEqual(recommend.call_args.kwargs["video"], video)
-        self.assertTrue(recommend.call_args.kwargs["recommend_only"])
         self.draft_queue.reset_mock()
         foreign = self.video_for(owner=user.make())
         self.assertEqual(
@@ -29,6 +31,18 @@ class MusicSearchApiTests(ApiTestCase):
             404,
         )
         self.draft_queue.assert_not_called()
+
+    def test_previously_queued_recommendations_still_return_preferences(self):
+        with patch.object(
+            music_search,
+            "recommend_music_preferences",
+            return_value={"preferences": "Piano"},
+        ) as recommend:
+            result = draft_tasks.search_music_task.run(
+                str(self.user.pk), prompt="Science", recommend_only=True
+            )
+        self.assertEqual(result, {"preferences": "Piano"})
+        recommend.assert_called_once_with(self.user, video=None, prompt="Science")
 
     def test_queues_owned_music_search_and_returns_worker_results(self):
         video = self.video_for(status="READY")

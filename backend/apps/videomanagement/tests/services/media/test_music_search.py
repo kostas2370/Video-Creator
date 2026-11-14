@@ -58,7 +58,8 @@ class MusicSearchTests(TestCase):
         override.enable()
         self.addCleanup(override.disable)
         client = patch.object(music_search, "youtube_client")
-        self.client = client.start().return_value
+        self.youtube_client = client.start()
+        self.client = self.youtube_client.return_value
         self.addCleanup(client.stop)
         self.client.get.side_effect = [
             {"items": [{"id": {"videoId": "abcdefghijk"}}]},
@@ -85,15 +86,15 @@ class MusicSearchTests(TestCase):
         )
 
     def test_recommendation_writes_preferences_without_youtube_or_downloads(self):
-        result = music_search.search_music(
-            self.user, prompt="Science lesson", gpt_model="gpt-4", recommend_only=True
+        result = music_search.recommend_music_preferences(
+            self.user, prompt="Science lesson", gpt_model="gpt-4"
         )
         self.assertEqual(
             result["preferences"],
             "curious, piano, medium tempo, instrumental, no vocals.",
         )
         self.reply.assert_called_once()
-        self.client.get.assert_not_called()
+        self.youtube_client.assert_not_called()
         self.assertFalse(MusicCatalogTrack.objects.exists())
 
     def test_verbose_ai_brief_produces_preferences_that_can_be_searched(self):
@@ -113,8 +114,8 @@ class MusicSearchTests(TestCase):
                 )
             ),
         ):
-            result = music_search.search_music(
-                self.user, prompt="Science lesson", recommend_only=True
+            result = music_search.recommend_music_preferences(
+                self.user, prompt="Science lesson"
             )
         request = MusicSearchSerializer(data={"prompt": "Science lesson", **result})
         self.assertTrue(request.is_valid(), request.errors)
@@ -138,6 +139,25 @@ class MusicSearchTests(TestCase):
         download.assert_not_called()
         self.assertFalse(MusicCatalogTrack.objects.exists())
         self.assertFalse(MediaAsset.objects.exists())
+
+    def test_video_model_is_used_for_both_brief_and_ranking(self):
+        self.video.settings["gpt_model"] = "video-model"
+        music_search.search_music(self.user, prompt="Science", video=self.video)
+        for call in self.reply.call_args_list:
+            self.assertEqual(call.kwargs["gpt_model"], "video-model")
+        content = json.loads(
+            self.reply.call_args_list[0].kwargs["prompt"].split("\n", 1)[1]
+        )
+        self.assertEqual(content["title"], self.video.title)
+        self.assertEqual(content["script"], self.video.gpt_answer)
+
+    def test_explicit_model_overrides_video_model_for_recommendations(self):
+        self.video.settings["gpt_model"] = "video-model"
+        music_search.recommend_music_preferences(
+            self.user, prompt="Science", video=self.video, gpt_model="chosen-model"
+        )
+        self.assertEqual(self.reply.call_args.kwargs["gpt_model"], "chosen-model")
+        self.youtube_client.assert_not_called()
 
     def test_rejects_unknown_or_duplicate_ai_ranking_ids(self):
         for keys in (["ai:invented000"], ["ai:abcdefghijk", "ai:abcdefghijk"]):
@@ -225,6 +245,28 @@ class MusicSearchTests(TestCase):
         result = self.search()
         self.assertEqual(result["tracks"][0]["key"], f"catalog:{track.pk}")
         self.assertTrue(result["tracks"][0]["file"])
+
+    def test_catalog_candidate_takes_precedence_over_the_same_youtube_track(self):
+        track = MusicCatalogTrack.objects.create(
+            source_id="youtube:abcdefghijk",
+            source_url="https://www.youtube.com/watch?v=abcdefghijk",
+            title="Piano",
+            category="educational",
+            tags=["piano"],
+            approved=True,
+            license_url="https://example.com/license",
+            file=ContentFile(b"audio", name="local.wav"),
+        )
+        self.reply.side_effect = [
+            BRIEF,
+            {"tracks": [{"key": f"catalog:{track.pk}", "reason": "Existing match"}]},
+        ]
+        result = self.search()
+        candidates = json.loads(
+            self.reply.call_args.kwargs["prompt"].split("\n", 1)[1]
+        )["candidates"]
+        self.assertEqual([row["key"] for row in candidates], [f"catalog:{track.pk}"])
+        self.assertEqual(result["tracks"][0]["key"], f"catalog:{track.pk}")
 
     def test_import_rechecks_license_before_download_and_keeps_existing_music(self):
         self.client.get.side_effect = [

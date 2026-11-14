@@ -15,14 +15,19 @@ from apps.videomanagement.serializers.ideas import (
     PromptResultSerializer,
 )
 from apps.videomanagement.services.scenes import generation as scene_generation
-from apps.videomanagement.services.scenes.starting_frame_review import review_starting_frame
+from apps.videomanagement.services.scenes.starting_frame_review import (
+    review_starting_frame,
+)
 from apps.videomanagement.services.videos import story as video_story
 from apps.videomanagement.services.videos.ideas import creative_reply
 from apps.videomanagement.services.videos import tags as video_tags
 from apps.videomanagement.services.videos import youtube_metadata
 from apps.videomanagement.services.videos.storyboard_revision import revise_storyboard
 from apps.videomanagement.services.videos.narration_setup import draft_narration
-from apps.videomanagement.utils.prompt_utils import build_ideas_prompt, build_prompt_rewrite
+from apps.videomanagement.utils.prompt_utils import (
+    build_ideas_prompt,
+    build_prompt_rewrite,
+)
 
 
 def load_user(user_id):
@@ -34,10 +39,20 @@ def owned_video(user, video_id):
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
-def search_music_task(user_id, *, video_id=None, **choices):
+def search_music_task(user_id, *, video_id=None, recommend_only=False, **choices):
     user = load_user(user_id)
     video = owned_video(user, video_id) if video_id else None
+    # Support requests queued before recommendations had their own task.
+    if recommend_only:
+        return music_search.recommend_music_preferences(user, video=video, **choices)
     return music_search.search_music(user, video=video, **choices)
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def recommend_music_preferences_task(user_id, *, video_id=None, **choices):
+    user = load_user(user_id)
+    video = owned_video(user, video_id) if video_id else None
+    return music_search.recommend_music_preferences(user, video=video, **choices)
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
