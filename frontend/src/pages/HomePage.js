@@ -359,17 +359,19 @@ const Home = () => {
       <DeferredDialog open={open} onClose={() => isOpenFunction(false)}><ProceedModal open={open} setOpen={isOpenFunction} video_id={video_id} /></DeferredDialog>
       <SaveTemplateModal showModal={savingTemplate} setShowModal={setSavingTemplate} settings={settingsForTemplate} onSaved={handleTemplateSaved} />
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
-      <header className="mx-auto mb-6 max-w-4xl">
+      <header className="mx-auto mb-6 max-w-6xl">
+        <Link to="/" className="studio-text-link mb-4 flex w-fit text-xs">← All creation tools</Link>
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl dark:text-white">Turn your idea into a video</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">An idea, a look, a final check. Your storyboard comes next.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">Start with the essentials. Fine-tune the details whenever you’re ready.</p>
       </header>
 
-      <form noValidate onSubmit={submitWizard} className="mx-auto max-w-4xl">
+      <form noValidate onSubmit={submitWizard} className="mx-auto max-w-6xl">
         <CreationDraftNotice onProjectDeleted={draftProjectDeleted} draft={draft} pendingVideoId={pendingVideoId} disabled={isLoading} onReset={() => { setReferenceImage(null); draft.reset(); setValidation(""); setDraftVideo(null); }} />
         {referenceFile.error && <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-200">{referenceFile.error} <button type="button" onClick={() => setReferenceImage(null)} className="underline">Remove this reference</button></p>}
         <CreationSteps steps={["Idea", "Look & sound", "Review"]} current={step} onSelect={navigateStep} disabled={isLoading} />
         {validation && <p role="alert" className="mb-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{validation}</p>}
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <fieldset disabled={isLoading || !!pendingVideoId} className="min-w-0 space-y-6">
           <div hidden={step !== 0}>
           <CreationDraftContext.Provider key={`${draft.key}:${draft.epoch}`} value={draft}>
@@ -386,7 +388,7 @@ const Home = () => {
           </div>
           <div hidden={step !== 1}><div className="space-y-5">
           <section aria-labelledby="look-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-5 flex items-center gap-3"><h2 id="look-heading" className="text-lg font-semibold">Choose the look &amp; sound</h2></div>
+            <div className="mb-5"><h2 id="look-heading" className="text-lg font-semibold">Choose the look &amp; sound</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose your voice, visuals, and frame. The rest is optional.</p></div>
             <label className="mb-5 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><input id="narration" name="narration" type="checkbox" checked={formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium">Narration</span><span className="block text-xs text-gray-500 dark:text-gray-400">Add a voice-over to tell your story.</span></span></label>
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
@@ -405,7 +407,7 @@ const Home = () => {
                 </label>)}
               </div>, "Sets the output frame. The render crops scene visuals to fill it.")}
             </div>
-            <details className="mt-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700"><summary className="cursor-pointer text-sm font-semibold">Provider &amp; presenter options</summary><div className="mt-4 grid gap-5 sm:grid-cols-2">
+            <details className="mt-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700"><summary className="cursor-pointer text-sm font-semibold">Provider &amp; presenter options <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">Optional</span></summary><div className="mt-4 grid gap-5 sm:grid-cols-2">
               {field("provider", "Visual provider", select("provider", formData.image_mode === "AI" ? <>
                 <optgroup label="Built-in providers">{Object.entries(visualProviderNames).map(([name, label]) => <option key={name} value={name}>{label}</option>)}</optgroup>
                 {["VIDEO", "IMAGE"].map((type) => visualProviders.some((provider) => provider.output_type === type) ? <optgroup key={type} label={type === "VIDEO" ? "Custom video providers" : "Custom image providers"}>{visualProviders.filter((provider) => provider.output_type === type).map((provider) => <option key={provider.id} value={provider.name}>{provider.name}</option>)}</optgroup> : null)}
@@ -437,22 +439,23 @@ const Home = () => {
           </div></div>
           <div hidden={step !== 2}><div className="space-y-5">
         <aside aria-labelledby="summary-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-4 flex items-center justify-between gap-3"><div><h2 id="summary-heading" className="text-xl font-semibold">Review your video</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Check your choices before drafting the storyboard.</p></div><button type="button" onClick={() => navigateStep(0)} className="shrink-0 text-xs font-semibold text-indigo-600 dark:text-indigo-300">Edit idea</button></div>
+          <div className="mb-4 flex items-center justify-between gap-3"><div><h2 id="summary-heading" className="text-xl font-semibold">Review your video</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Check your choices before drafting the storyboard.</p></div><button type="button" onClick={() => navigateStep(0)} className="shrink-0 text-xs font-semibold text-blue-600 dark:text-blue-300">Edit idea</button></div>
           <p className="mb-5 whitespace-pre-line text-sm leading-relaxed text-gray-600 dark:text-gray-300">{formData.message}</p>
           <GenerationModeSelect value={formData.generation_mode} onChange={value => setFormData(previous => ({ ...previous, generation_mode: value }))} disabled={isLoading} />
           <p className="mb-5 text-xs text-gray-500">{videoFormatOptions.find(format => format.value === formData.video_format)?.label} · {formData.scene_count || "AI-selected"} scenes</p>
             <div className="mt-4 max-w-xs">{field("scene_count", "Number of scenes", <input id="scene_count" name="scene_count" type="number" min={1} max={60} value={formData.scene_count} onChange={handleInputChange} className={inputClassName} placeholder="Let AI choose" />, "One short sentence per scene. Choose 1–60, or leave blank to let AI choose.")}</div>
-          <div className="mb-3 mt-5 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">Look &amp; sound</h3><button type="button" onClick={() => navigateStep(1)} className="text-xs font-semibold text-indigo-600 dark:text-indigo-300">Edit look &amp; sound</button></div><dl className="grid gap-4 rounded-xl bg-gray-50 p-4 text-sm sm:grid-cols-2 dark:bg-gray-900/40">
+          <div className="mb-3 mt-5 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">Look &amp; sound</h3><button type="button" onClick={() => navigateStep(1)} className="text-xs font-semibold text-blue-600 dark:text-blue-300">Edit look &amp; sound</button></div><dl className="grid gap-4 rounded-xl bg-gray-50 p-4 text-sm sm:grid-cols-2 dark:bg-gray-900/40">
             <div className="flex items-start gap-3"><RiVolumeUpLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-medium">{!formData.narration ? "Clips only" : selectedAvatar ? selectedAvatar.name : selectedVoice ? `${selectedVoice.name} · ${ttsProviderNames[selectedVoice.provider] || selectedVoice.provider}` : "Any available voice"}</dd></div></div>
             <div className="flex items-start gap-3"><RiImageLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Visuals</dt><dd className="mt-1 font-medium">{formData.image_mode === "AI" ? (isBuiltinVisualProvider(formData.provider) ? visualProviderNames[formData.provider] : `${formData.provider} · ${selectedVisualProvider?.output_type === "VIDEO" ? "Video clips" : "Images"}`) : "Web images"}</dd></div></div>
           </dl>
         </aside>          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <button type="button" aria-expanded={settings} aria-controls="generation-settings" onClick={() => setSettings((previous) => !previous)} className="group flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 sm:p-6 dark:hover:bg-gray-800/80">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 ring-1 ring-inset ring-indigo-100 dark:bg-indigo-400/10 dark:text-indigo-300 dark:ring-indigo-300/15"><RiSettings3Line aria-hidden="true" className="h-5 w-5" /></span>
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-inset ring-blue-100 dark:bg-blue-400/10 dark:text-blue-300 dark:ring-blue-300/15"><RiSettings3Line aria-hidden="true" className="h-5 w-5" /></span>
               <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">Advanced settings<span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-700 dark:text-gray-300">Optional</span></span><span className="mt-1 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">Set the audience, style, soundtrack, captions, and script model.</span></span>
               <RiArrowDownSLine aria-hidden="true" className={`h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 ${settings ? "rotate-180" : ""}`} />
             </button>
             <div id="generation-settings" hidden={!settings} className={`${settings ? "grid" : "hidden"} gap-6 border-t border-gray-100 bg-gray-50/70 p-5 sm:grid-cols-2 sm:p-6 dark:border-gray-700 dark:bg-gray-900/20`}>
+              <div className="sm:col-span-2"><h3 className="text-sm font-semibold">Story &amp; audience</h3><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Guide the writing and how each scene is planned.</p></div>
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:col-span-2 dark:border-gray-700 dark:bg-gray-800">
                 <input id="ai_scene_editing" name="ai_scene_editing" type="checkbox" checked={formData.ai_scene_editing} onChange={handleInputChange} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 <span><span className="block text-sm font-medium">AI visual planning</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">Plan varied shots, photo animations, and short timed labels from your script. Review the choices before generating, then adjust them in the editor.</span></span>
@@ -469,17 +472,29 @@ const Home = () => {
                   <input className="sr-only" type="radio" name="platform" value={option.value} checked={formData.platform === option.value} onChange={handleInputChange} />{option.label}
                 </label>)}
               </div>, "TikTok adds short-form script guidance, portrait framing, and captions by default.")}
+              <div className="border-t border-gray-200 pt-5 sm:col-span-2 dark:border-gray-700"><h3 className="text-sm font-semibold">Music &amp; captions</h3><p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Add the finishing touches to your video.</p></div>
               {field("music", "Background music", <GenerationMusic value={formData.music} onChange={music => setFormData(previous => ({ ...previous, music }))} className={inputClassName} prompt={formData.message} genre={formData.genre} gptModel={formData.gpt_model} />)}
               <label htmlFor="subtitles" className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${formData.narration ? "border-gray-200 bg-white hover:border-blue-200 dark:border-gray-700 dark:bg-gray-800" : "border-gray-200 bg-gray-100/70 opacity-60 dark:border-gray-700 dark:bg-gray-800/50"}`}><input id="subtitles" name="subtitles" type="checkbox" checked={formData.subtitles && formData.narration} disabled={!formData.narration} onChange={handleInputChange} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium text-gray-900 dark:text-gray-100">Add subtitles</span><span className="mt-1 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">Burn the spoken words into the video.</span></span></label>
             </div>
           </section>
-            <button type="button" disabled={isLoading} onClick={() => setSavingTemplate(true)} className="text-sm font-semibold text-gray-500 hover:text-indigo-600">Save these settings as a template</button>
+            <button type="button" disabled={isLoading} onClick={() => setSavingTemplate(true)} className="text-sm font-semibold text-gray-500 hover:text-blue-600">Save these settings as a template</button>
           </div></div>
         </fieldset>
+        <aside aria-labelledby="video-summary-heading" className="creation-summary studio-panel hidden p-5 lg:block">
+          <p className="studio-eyebrow mb-2">Your project</p><h2 id="video-summary-heading" className="text-base font-semibold">Your video at a glance</h2>
+          <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Your choices stay with you as you go.</p>
+          <div className="my-5 border-y border-gray-100 py-4 dark:border-gray-700"><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">Idea</h3><button type="button" disabled={isLoading || !!pendingVideoId} onClick={() => navigateStep(0)} aria-label="Edit idea in project summary" className="studio-text-link text-xs">Edit</button></div><p className="line-clamp-4 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{formData.message.trim() || "Your next story starts with an idea."}</p></div>
+          <dl className="space-y-4 text-sm">
+            {[["Format", videoFormatOptions.find(format => format.value === formData.video_format)?.label], ["Visuals", formData.image_mode === "AI" ? "AI-generated visuals" : "Web images"], ["Narration", !formData.narration ? "Off" : selectedAvatar?.name || selectedVoice?.name || "Any available voice"], ["Scenes", formData.scene_count || "AI-selected"]].map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3"><dt className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{label}</dt><dd className="text-right text-xs font-medium">{value}</dd></div>)}
+          </dl>
+          <button type="button" disabled={isLoading || !!pendingVideoId} onClick={() => navigateStep(1)} aria-label="Edit look and sound in project summary" className="studio-text-link mt-5 text-xs">Edit look &amp; sound<RiArrowRightLine aria-hidden="true" className="h-3 w-3" /></button>
+          <p className="mt-5 rounded-xl bg-gray-50 p-3 text-xs leading-relaxed text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">Every scene is editable. You’ll review the storyboard before generating media.</p>
+        </aside>
+        </div>
         <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white/95 p-4 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95 ${step < 2 ? "sticky bottom-4 z-20 shadow-lg shadow-gray-900/5" : ""}`}>
-          <div>{step > 0 ? <button type="button" disabled={isLoading} onClick={() => navigateStep(step - 1)} className="text-sm font-semibold text-gray-500">Back</button> : <span className="text-xs text-gray-500">You can edit every scene later.</span>}</div>
+          <div>{step > 0 ? <button type="button" disabled={isLoading} onClick={() => navigateStep(step - 1)} className="studio-secondary-button">Back</button> : <span className="text-xs text-gray-500">You can edit every scene later.</span>}</div>
           {step === 2 && !pendingVideoId && <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost scenario={{ ...formData, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count), has_reference: !!referenceImage }} /></div>}
-          {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || modelsLoading || Boolean(modelsError) || unavailableVisualProvider))} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }
+          {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || modelsLoading || Boolean(modelsError) || unavailableVisualProvider))} className="studio-primary-button justify-center">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }
         </div>
         {step === 2 && <p role={isLoading ? "status" : undefined} className="mt-3 text-center text-xs text-gray-500">{isLoading ? "Drafting your storyboard. This can take a few minutes." : "Review the storyboard before generating voice and visuals."}</p>}
       </form>
