@@ -142,7 +142,9 @@ class MusicSearchTests(TestCase):
 
     def test_video_model_is_used_for_both_brief_and_ranking(self):
         self.video.settings["gpt_model"] = "video-model"
-        music_search.search_music(self.user, prompt="Science", video=self.video)
+        music_search.search_music(
+            self.user, prompt="Science", video=self.video, gpt_model="request-model"
+        )
         for call in self.reply.call_args_list:
             self.assertEqual(call.kwargs["gpt_model"], "video-model")
         content = json.loads(
@@ -152,9 +154,9 @@ class MusicSearchTests(TestCase):
         self.assertEqual(content["script"], self.video.gpt_answer)
 
     @override_settings(DEFAULT_GPT_MODEL="system-model")
-    def test_recommendation_uses_legacy_video_model_or_system_default(self):
+    def test_recommendation_uses_video_model_or_system_default(self):
         for config, expected in (
-            ({"generation_params": {"gpt_model": "legacy-model"}}, "legacy-model"),
+            ({"gpt_model": "video-model"}, "video-model"),
             ({}, "system-model"),
             (None, "system-model"),
         ):
@@ -167,12 +169,12 @@ class MusicSearchTests(TestCase):
                 self.assertEqual(self.reply.call_args.kwargs["gpt_model"], expected)
         self.youtube_client.assert_not_called()
 
-    def test_explicit_model_overrides_video_model_for_recommendations(self):
+    def test_recommendation_uses_video_model_despite_request_model(self):
         self.video.settings["gpt_model"] = "video-model"
         music_search.recommend_music_preferences(
             self.user, prompt="Science", video=self.video, gpt_model="chosen-model"
         )
-        self.assertEqual(self.reply.call_args.kwargs["gpt_model"], "chosen-model")
+        self.assertEqual(self.reply.call_args.kwargs["gpt_model"], "video-model")
         self.youtube_client.assert_not_called()
 
     def test_rejects_unknown_or_duplicate_ai_ranking_ids(self):

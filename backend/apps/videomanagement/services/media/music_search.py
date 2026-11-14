@@ -107,7 +107,7 @@ def recommend_music_preferences(
     user, *, prompt, genre="", preferences="", gpt_model="", video=None
 ):
     if video:
-        gpt_model = gpt_model or video.script_model
+        gpt_model = video.script_model
     brief = build_music_brief(
         user,
         prompt=prompt,
@@ -231,7 +231,7 @@ def rank_music_candidates(user, brief, candidates, *, gpt_model=""):
 def search_music(user, *, prompt, genre="", preferences="", gpt_model="", video=None):
     client = youtube_client()
     if video:
-        gpt_model = gpt_model or video.script_model
+        gpt_model = video.script_model
     brief = build_music_brief(
         user,
         prompt=prompt,

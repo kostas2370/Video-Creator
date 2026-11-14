@@ -105,15 +105,17 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         self.draft_queue.assert_not_called()
         self.provider.assert_not_called()
 
-    def test_legacy_generation_parameters_select_the_review_model(self):
+    @override_settings(DEFAULT_GPT_MODEL="gpt-default-model")
+    def test_legacy_generation_parameters_do_not_override_the_default_model(self):
         self.video.settings["generation_params"] = {"gpt_model": "claude-selected-model"}
         self.video.save(update_fields=["settings"])
         response = self.request_review()
         self.assertEqual(response.status_code, 202, response.data)
         self.run_draft_task()
-        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "claude-selected-model")
+        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gpt-default-model")
 
-    def test_legacy_series_episode_selects_the_review_model(self):
+    @override_settings(DEFAULT_GPT_MODEL="gpt-default-model")
+    def test_legacy_series_episode_does_not_override_the_default_model(self):
         baker.make(
             "series.SeriesEpisode",
             video=self.video,
@@ -122,11 +124,11 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         response = self.request_review()
         self.assertEqual(response.status_code, 202, response.data)
         self.run_draft_task()
-        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gemini-episode-model")
+        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gpt-default-model")
 
     def test_current_saved_review_is_invalidated_when_the_resolved_model_changes(self):
         self.scene.video = self.video
-        self.video.settings["generation_params"] = {"gpt_model": "claude-selected-model"}
+        self.video.settings["gpt_model"] = "claude-selected-model"
         self.video.save(update_fields=["settings"])
         review_starting_frame(self.scene, review_source_key(self.scene))
         self.scene.refresh_from_db()
