@@ -77,6 +77,7 @@ export const reorderScenes = (id, sceneIds, expectedSceneIds) => post(action("vi
 export const getDeletedScenes = (id, page = 1) => request({ url: action("videos", id, "deleted_scenes"), params: { page }, ...callerHandlesErrors });
 export const archiveScene = (id, sceneIds) => post(action("scenes", id, "archive"), { scene_ids: sceneIds }, callerHandlesErrors);
 export const restoreScene = (id, sceneIds, expectedSceneIds) => post(action("scenes", id, "restore"), { ...(sceneIds ? { scene_ids: sceneIds } : {}), expected_scene_ids: expectedSceneIds }, callerHandlesErrors);
+export const updateVideoCuts = (id, data) => patch(action("videos", id, "cuts"), data, callerHandlesErrors);
 export const createScene = (id, data) => post(action("videos", id, "add_scene"), data);
 export const draftScene = (id, data) => runBackgroundDraft(action("videos", id, "draft_scene"), data);
 export const createTemplate = data => post("templates/", data, callerHandlesErrors);

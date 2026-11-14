@@ -168,6 +168,10 @@ cookies stay on the same site.
    applies the edit to playback, rendered video, and downloaded subtitles, keeping
    audio, captions, overlays, and motion together. Cuts stay with their scene when
    reordering. Changing the original scene duration resets its cuts.
+   Choose **Cut video** beside Preview to cut across scenes, the intro, and the outro.
+   Full-video cuts apply after scene cuts; **Restore full video** restores that timeline
+   without clearing scene cuts. Reordering scenes or changing their timing makes old
+   full-video cuts inactive and marks them for review before another save.
 5. **Export and share.** Choose Draft, Standard, or High export quality and 24 or
    30 fps in the render dialog. Render the video, create a cover, and edit its metadata.
    Download the result or use **Publish** with a configured destination account.

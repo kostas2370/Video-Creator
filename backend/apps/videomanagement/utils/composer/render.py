@@ -24,7 +24,7 @@ from apps.videomanagement.utils.frames import save_video_frame
 from ...models import RENDERABLE_STATUSES, MotionStyle, TransitionStyle, VideoStatus
 from ...video_formats import output_size
 from ..audio_editing import narration_file, voice_tracks
-from ..cuts import joined_duration, timeline_sections
+from ..cuts import joined_duration, video_sections
 from ..diagrams import diagram_icon_keys
 from ..file_utils import check_if_image, stored_file_exists
 from ..fonts import subtitles_filter
@@ -448,8 +448,16 @@ def final_graph(
             )
             music = graph.filter([f"{index}:a"], ",".join(filters))
         audio = graph.filter([audio, music], "amix=inputs=2:duration=first:normalize=0")
+    intro_duration = opening.duration if opening else 0
+    raw_segments = ([opening] if opening else []) + [
+        replace(segment, start=segment.start + intro_duration) for segment in segments
+    ]
+    if video.outro:
+        raw_segments.append(asset_segment(video.outro, "outro", intro_duration + duration))
+    sections = video_sections(video, raw_segments)
     if (video.settings or {}).get("subtitles", False):
-        write_captions(Path(directory, "captions.ass"), segments, size)
+        caption_sections = [{"start": s["start"] - intro_duration, "end": s["end"] - intro_duration} for s in sections]
+        write_captions(Path(directory, "captions.ass"), segments, size, sections=caption_sections)
         visual = graph.filter([visual], subtitles_filter("captions.ass", directory))
     visuals, audios = [], []
     total = duration
@@ -500,14 +508,6 @@ def final_graph(
         total += closing.duration
     visual = graph.filter(visuals, f"concat=n={len(visuals)}:v=1:a=0")
     audio = graph.filter(audios, f"concat=n={len(audios)}:v=0:a=1")
-    intro_duration = opening.duration if opening else 0
-    raw_segments = ([opening] if opening else []) + [
-        replace(segment, start=segment.start + intro_duration)
-        for segment in segments
-    ]
-    if video.outro:
-        raw_segments.append(asset_segment(video.outro, "outro", total - closing.duration))
-    sections = timeline_sections(raw_segments)
     edited_duration = joined_duration(sections)
     if edited_duration < total - 1e-9:
         count = len(sections)

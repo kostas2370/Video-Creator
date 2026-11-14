@@ -10,7 +10,7 @@ const actionFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visib
 
 export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, processing,
   canPreview, canExport, renderPending, saving, isResumable,
-  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onSettings, onCover, onExport, onResume, tagsAction }) {
+  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onSettings, onCover, onExport, onResume, tagsAction, cutAction }) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const exporting = renderPending || video?.status === "RENDERING";
   const exportHint = canExport ? "Export your current edit" : saving ? "Wait for your changes to save" : !sceneCount ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`;
@@ -19,6 +19,7 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
   return <div className="editor-toolbar sm:sticky top-2 z-20 mb-5 rounded-2xl border border-gray-200/80 bg-white/95 p-2 shadow-lg shadow-gray-900/5 backdrop-blur-xl dark:border-gray-700/80 dark:bg-gray-900/95">
     <div aria-label="Video actions" className="grid grid-cols-2 items-center gap-1.5 sm:flex sm:flex-wrap">
       <button type="button" disabled={!canPreview} aria-label="Preview video" title={canPreview ? "Preview your full video with saved edits" : "Preview is available after processing and saving scenes"} onClick={onPreview} className={`order-1 inline-flex min-h-11 sm:min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-blue-50 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20 ${actionFocus}`}><HiOutlinePlay aria-hidden="true" className="h-4 w-4" />Preview video</button>
+      {cutAction && <div className="order-1">{cutAction}</div>}
       {onViewRendered && <button type="button" title="Watch your latest rendered export" onClick={onViewRendered} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction}`}><HiOutlinePlay aria-hidden="true" className="h-4 w-4" />Watch export</button>}
       <button type="button" aria-expanded={toolsOpen} aria-controls="video-project-tools" onClick={() => setToolsOpen(open => !open)} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} ${toolsOpen ? "bg-gray-100 dark:bg-gray-700/60" : ""}`}><HiOutlineAdjustmentsHorizontal aria-hidden="true" className="h-4 w-4" />More actions<HiOutlineChevronDown aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`} /></button>
         {isResumable && <button type="button" onClick={onResume} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} text-amber-700 dark:text-amber-300`}><HiOutlineArrowPath aria-hidden="true" className="h-4 w-4" />Retry<span className="sr-only"> generation</span></button>}
@@ -38,6 +39,7 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
       <span className="inline-flex items-center gap-1.5"><HiOutlineSquares2X2 aria-hidden="true" className="h-3.5 w-3.5" />{sceneCount} {sceneCount === 1 ? "scene" : "scenes"}</span>
       <span className="inline-flex items-center gap-1.5"><HiOutlineClock aria-hidden="true" className="h-3.5 w-3.5" />{formatDuration(runtime)}</span>
       {format && <span title={`${format.label} video`}>{format.ratio}</span>}
+      {video?.cut_summary?.stale && <span className="text-amber-600 dark:text-amber-300">Full-video cuts need review</span>}
       {saving ? <span role="status" className="inline-flex items-center gap-1.5 text-blue-600 sm:ml-auto dark:text-blue-300"><HiOutlineArrowPath aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />Saving changes…</span> : !sceneCount && <span className="sm:ml-auto">Add a scene to get started</span>}
     </div>
   </div>;
