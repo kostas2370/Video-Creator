@@ -6,7 +6,13 @@ from django.middleware import csrf
 from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, mixins, status, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import (
+    action,
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.exceptions import ParseError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -32,7 +38,7 @@ from .services import (
     send_contact_message,
     verify_email,
 )
-from .throttling import ContactThrottle
+from .throttling import ContactThrottle, LoginThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +67,27 @@ class VerifyEmail(generics.GenericAPIView):
         return Response({"email": "Successfully Activated"}, status=status.HTTP_200_OK)
 
 
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def csrf_token(request):
+    response = Response({"detail": "CSRF token issued."})
+    response["X-CSRFToken"] = csrf.get_token(request)
+    response["Cache-Control"] = "no-store"
+    return response
+
+
 class LoginView(generics.GenericAPIView):
     serializer_class = LoginSerializer
     permission_classes = (AllowAny,)
+    authentication_classes = []
+    throttle_classes = [LoginThrottle]
+
+    def get_authenticate_header(self, request):
+        return "Bearer"
 
     def post(self, request):
+        SessionAuthentication().enforce_csrf(request)
         serializer = self.get_serializer(data=request.data)
 
         serializer.is_valid(raise_exception=True)
@@ -100,6 +122,7 @@ class LoginView(generics.GenericAPIView):
             secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
         )
 
+        csrf.rotate_token(request)
         response["X-CSRFToken"] = csrf.get_token(request)
 
         return response
@@ -108,7 +131,13 @@ class LoginView(generics.GenericAPIView):
 class CookieTokenRefreshView(jwt_views.TokenRefreshView):
     serializer_class = CookieTokenRefreshSerializer
 
+    def post(self, request, *args, **kwargs):
+        SessionAuthentication().enforce_csrf(request)
+        return super().post(request, *args, **kwargs)
+
     def finalize_response(self, request, response, *args, **kwargs):
+        if response.status_code == 403:
+            return super().finalize_response(request, response, *args, **kwargs)
         refresh = request.COOKIES.get("refresh_token")
 
         if not refresh:
@@ -145,6 +174,7 @@ class CookieTokenRefreshView(jwt_views.TokenRefreshView):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def logout_view(request):
+    SessionAuthentication().enforce_csrf(request)
     refresh_token = request.COOKIES.get("refresh_token")
     if not refresh_token:
         raise ParseError("Invalid token")
