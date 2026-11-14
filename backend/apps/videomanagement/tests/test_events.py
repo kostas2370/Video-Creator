@@ -99,16 +99,28 @@ class EventStreamTests(TransactionTestCase):
 
     @asynccontextmanager
     async def connect(
-        self, user=None, path=None, method="GET", origin=None, token=None, query=b""
+        self,
+        user=None,
+        path=None,
+        method="GET",
+        origin=None,
+        token=None,
+        query=b"",
+        csrf=False,
     ):
         headers = [(b"host", b"testserver"), (b"accept", b"text/event-stream")]
         if user:
             headers.append(
                 (
                     b"cookie",
-                    f"access_token={token or AccessToken.for_user(user)}".encode(),
+                    (
+                        f"access_token={token or AccessToken.for_user(user)}"
+                        + ("; csrftoken=" + "a" * 32 if csrf else "")
+                    ).encode(),
                 )
             )
+        if csrf:
+            headers.append((b"x-csrftoken", b"a" * 32))
         if origin:
             headers.append((b"origin", origin.encode()))
         scope = {
@@ -209,7 +221,8 @@ class EventStreamTests(TransactionTestCase):
     async def test_wrong_origin_and_wrong_method_are_refused(self):
         for kwargs, expected in (
             ({"origin": "https://evil.example"}, 403),
-            ({"method": "POST"}, 405),
+            ({"method": "POST"}, 403),
+            ({"method": "POST", "csrf": True}, 405),
         ):
             async with self.connect(self.owner, **kwargs) as (_, response):
                 self.assertEqual(response["status"], expected)
