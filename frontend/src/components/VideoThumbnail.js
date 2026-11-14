@@ -7,7 +7,7 @@ import { videoFormats } from "../utils/videoFormats";
 
 const focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 
-export function VideoThumbnail({ video, compact, badge, statusLabel }) {
+export function VideoThumbnail({ video, compact, badge, statusLabel, polished = false }) {
   const container = useRef(null);
   const [visible, setVisible] = useState(false);
   const [failedImages, setFailedImages] = useState([]);
@@ -39,9 +39,10 @@ export function VideoThumbnail({ video, compact, badge, statusLabel }) {
     return () => { cancelled = true; };
   }, [visible, hasStoredThumbnail, source, video, requestKey]);
 
-  return <Link ref={container} to={`/videos/${video.id}/`} aria-label={`Open ${video.title || "Untitled video"}${statusLabel ? ` · ${statusLabel}` : ""}`} className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 text-blue-300 ${focus} dark:from-gray-800 dark:via-slate-800 dark:to-slate-900 dark:text-slate-600 ${compact ? "h-20 w-28 rounded-xl sm:h-20 sm:w-36" : "aspect-video w-full rounded-t-2xl"}`}>
+  return <Link ref={container} to={`/videos/${video.id}/`} aria-label={`Open ${video.title || "Untitled video"}${statusLabel ? ` · ${statusLabel}` : ""}`} className={`${polished ? "library-thumbnail" : ""} relative flex shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 text-blue-300 ${focus} dark:from-gray-800 dark:via-slate-800 dark:to-slate-900 dark:text-slate-600 ${compact ? "h-20 w-28 rounded-xl sm:h-20 sm:w-36" : "aspect-video w-full rounded-t-2xl"}`}>
     <HiOutlineFilm aria-hidden="true" className={compact ? "h-8 w-8" : "h-12 w-12"} />
     {image && <img src={image} loading="lazy" decoding="async" alt="" onError={() => setFailedImages(current => [...current, image])} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105" />}
+    {polished && <span aria-hidden="true" className="library-thumbnail-shade absolute inset-0" />}
     {!compact && badge && <span className="absolute left-3 top-3 rounded-lg bg-white/95 backdrop-blur-sm dark:bg-gray-950/95">{badge}</span>}
     {!compact && <span className="absolute bottom-3 right-3 rounded-md bg-gray-950/65 px-2 py-1 text-[10px] font-medium text-white">{videoFormats.find(format => format.value === video.settings?.video_format)?.ratio || "Video"}</span>}
   </Link>;

@@ -16,7 +16,7 @@ export function VideoLibraryToolbar({ search, onSearch, status, onStatus, type, 
     type && { label: libraryTypes.find(item => item.value === type)?.label, clear: () => onType("") },
   ].filter(Boolean);
 
-  return <div className="mb-5 space-y-4">
+  return <div className="library-toolbar mb-6 space-y-4">
     <div role="group" aria-label="Video collection" className="flex gap-6 border-b border-gray-200 dark:border-gray-700">
       {[[false, "All videos"], [true, "Favorites"]].map(([value, label]) =>
         <button key={label} type="button" aria-pressed={favoritesOnly === value} onClick={() => onFavorites(value)} className={`relative -mb-px inline-flex min-h-11 items-center gap-2 border-b-2 px-1 pb-3 pt-1 text-sm font-semibold transition ${focus} ${favoritesOnly === value ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-300" : "border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"}`}>
@@ -24,7 +24,7 @@ export function VideoLibraryToolbar({ search, onSearch, status, onStatus, type, 
         </button>
       )}
     </div>
-    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+    <div className="library-controls flex flex-wrap items-center gap-2 sm:gap-3">
       <div className="relative w-full sm:mr-auto sm:w-auto sm:min-w-52 sm:flex-1">
         <HiOutlineMagnifyingGlass aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-gray-400" />
         <input type="search" aria-label="Search videos" placeholder="Search your videos…" value={search} onChange={event => onSearch(event.target.value)} className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white" />
@@ -52,7 +52,7 @@ export function VideoLibraryToolbar({ search, onSearch, status, onStatus, type, 
         {[["grid", "Grid view", HiOutlineSquares2X2], ["list", "List view", HiOutlineBars3]].map(([value, label, Icon]) => <button key={value} type="button" aria-label={label} title={label} aria-pressed={view === value} onClick={() => onView(value)} className={`rounded-lg p-1.5 transition ${focus} ${view === value ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-300" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"}`}><Icon aria-hidden="true" className="h-4 w-4" /></button>)}
       </div>
     </div>
-    <div role="group" aria-label="Quick status filters" className="flex flex-wrap gap-2">
+    <div role="group" aria-label="Quick status filters" className="library-status-filters flex flex-wrap gap-2">
       {[["", "Any status"], ["REVIEW", "Review script"], ["READY", "Ready to export"], ["COMPLETED", "Export ready"], ["FAILED", "Needs attention"]].map(([value, label]) => <button key={value} type="button" aria-pressed={status === value} onClick={() => onStatus(value)} className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${focus} ${status === value ? "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300" : "border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:text-blue-300"}`}>{label}</button>)}
     </div>
     {active.length > 0 && <div role="group" aria-label="Active filters" className="flex flex-wrap gap-2">{active.map(({ label, clear }) => <button key={label} type="button" aria-label={`Remove ${label} filter`} onClick={clear} className={`inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20 ${focus}`}>{label}<HiOutlineXMark aria-hidden="true" className="h-3.5 w-3.5" /></button>)}</div>}
