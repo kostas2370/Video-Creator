@@ -11,7 +11,7 @@ export const creationModes = [
     to: "/series/", label: "Create a series", eyebrow: "Keep the story going", icon: HiOutlineBookOpen,
     description: "Make an ongoing series with recurring characters, a shared style, and connected episodes.",
     requirement: "A series idea + connected AI providers", action: "Build your series",
-    color: "text-indigo-600 dark:text-indigo-300", background: "bg-indigo-50 dark:bg-indigo-950/40", preview: "series",
+    color: "text-indigo-600 dark:text-indigo-300", background: "bg-indigo-50 dark:bg-indigo-900/20", preview: "series",
   },
   {
     to: "/ai/", label: "Create with AI", eyebrow: "Start with an idea", icon: HiOutlineSparkles,
@@ -35,7 +35,7 @@ export const creationModes = [
     to: "/captions/", label: "Add captions", eyebrow: "Already have a video?", icon: HiOutlineChatBubbleBottomCenterText,
     description: "Add styled captions to an existing video. Edit the words and timing before exporting.",
     requirement: "A video with speech + an OpenAI API key", action: "Caption a video",
-    color: "text-amber-700 dark:text-amber-300", background: "bg-amber-50 dark:bg-amber-950/40", preview: "captions",
+    color: "text-amber-700 dark:text-amber-300", background: "bg-amber-50 dark:bg-amber-900/20", preview: "captions",
   },
 ];
 
