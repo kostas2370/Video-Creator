@@ -25,6 +25,51 @@ If no tracks are available, the editor displays an error and keeps existing musi
 `POST /music-catalog/auto-select/` accepts `{"video_id": "..."}` for an owned,
 editable video and returns the selected catalog track with its attribution.
 
+## AI music search
+
+**AI search YouTube** is available in generation's background music settings and
+the editor's Project extras. It uses the selected script model to create an English
+music brief. **Recommend** fills the preferences field from the video idea or edited
+script; you can change the suggestion before pressing **Find music**. Recommending
+does not search YouTube, download audio, or change the project.
+
+Search uses an English music brief (mood, instruments, tempo and search phrase).
+One bounded YouTube search
+and a video-details request find public, embeddable music marked Creative Commons
+and lasting 30 seconds to 15 minutes. AI ranks actual returned IDs together with up
+to five matching, downloaded general catalog tracks. Unknown and duplicate IDs are
+rejected. Ranking uses metadata; it does not listen to the recordings.
+
+Users can preview local audio or explicitly load a YouTube player, inspect source
+and attribution, and choose a track. Search itself downloads no audio and does not
+change the project. In generation, the selected key is stored in the draft/template
+and imported after script approval. Editor imports run as background jobs. Missing
+AI-selected music is retried on generation resume; import failures remain visible.
+
+YouTube imports recheck current license, category, duration and embed availability
+before downloading. They use the existing private import path and save reusable
+audio to the user's private library. Source/license/attribution metadata is retained
+in a catalog record, which remains unpublished without a general catalog audio file
+and approval. New searches do not modify the bundled JSON or publish user tracks.
+
+This optional feature needs `YOUTUBE_API_KEY` on the server and a connected script
+model for the user. Catalog deployment/import still needs neither AI nor a YouTube
+Data API key. Recommendations, search and imports share a limit of 15 requests per user/hour.
+Both use owner-bound background jobs; imports require an editable owned video.
+
+- `POST /music-catalog/ai-recommend/`: `video_id` or generation `prompt`; returns
+  editable preferences without running a YouTube search.
+- `POST /music-catalog/ai-search/`: `video_id` or generation `prompt`, optional
+  `genre`, `gpt_model`, and `preferences`.
+- `POST /music-catalog/ai-import/`: `video_id` and the chosen `selection` key.
+- Generation `music` accepts `ai:YouTubeID` or `catalog:UUID` from search results,
+  alongside the existing URL, `auto`, or blank choices.
+
+The filters use [YouTube search](https://developers.google.com/youtube/data/reference/rest/v3/search/list)
+and [video metadata](https://developers.google.com/youtube/data/reference/rest/v3/videos).
+The uploader's declaration remains the basis for attribution, not independent rights
+verification.
+
 ## Automatic deployment setup
 
 `fixtures/music_catalog.json` bundles 390 YouTube music candidates with titles,

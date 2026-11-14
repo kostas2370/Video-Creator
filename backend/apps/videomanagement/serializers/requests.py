@@ -103,7 +103,7 @@ class GenerateSerializer(serializers.Serializer):
         default="",
         allow_blank=True,
         allow_null=True,
-        help_text='YouTube URL, "auto" to select from the general catalog, or blank for no music.',
+        help_text='YouTube URL, "auto", an AI search selection (ai:YouTubeID or catalog:UUID), or blank.',
     )
     target_audience = serializers.CharField(
         required=False, max_length=30, min_length=0, default="", allow_blank=True

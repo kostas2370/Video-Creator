@@ -31,6 +31,7 @@ from apps.videomanagement.services.media.catalog import (
     select_music_track,
 )
 from apps.videomanagement.services.media.icons import icon_candidates
+from apps.videomanagement.services.media.music_search import import_search_music
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
 from apps.videomanagement.services.scenes.narration import (
     ensure_scene_rows,
@@ -290,6 +291,8 @@ def generate_video(
     vid.settings.update(audio_settings)
     if music == "auto":
         vid.settings["auto_music"] = True
+    elif music and music.startswith(("ai:", "catalog:")):
+        vid.settings["music_selection"] = music
     if review_starting_frames:
         vid.settings["review_starting_frames"] = True
     if creation_mode:
@@ -343,9 +346,13 @@ def generate_video(
                 vid.music = create_catalog_music(
                     select_music_track(vid), user=vid.created_by
                 )
+        elif music and music.startswith(("ai:", "catalog:")):
+            vid.music = import_search_music(vid, music, editing=False)
         else:
             vid.music = download_music(music, user=vid.created_by)
     except Exception as exc:
+        if music and music.startswith(("ai:", "catalog:")):
+            raise
         logger.error(exc)
 
     vid.status = VideoStatus.READY
@@ -389,6 +396,8 @@ def resume_video(video: Video) -> Video:
             )
         except Exception as exc:
             logger.error(exc)
+    elif choices.get("music_selection") and not video.music_id:
+        video.music = import_search_music(video, choices["music_selection"], editing=False)
 
     video.status = VideoStatus.READY
     video.save()

@@ -10,6 +10,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.videomanagement import draft_tasks
 from apps.videomanagement.filters import MusicCatalogFilter
 from apps.videomanagement.models import MusicCatalogTrack, Video
 from apps.videomanagement.paginator import AssetResultsPagination
@@ -17,6 +18,12 @@ from apps.videomanagement.serializers.library import (
     MusicCatalogTrackSerializer,
     UseMediaSerializer,
 )
+from apps.videomanagement.serializers.music_search import (
+    MusicSearchSerializer,
+    MusicImportSerializer,
+)
+from apps.videomanagement.services.draft_jobs import queue_draft
+from apps.videomanagement.throttling import MusicSearchRateThrottle
 from apps.videomanagement.services.media.catalog import (
     select_music_track,
     set_catalog_music,
@@ -34,6 +41,70 @@ class MusicCatalogView(viewsets.ReadOnlyModelViewSet):
     pagination_class = AssetResultsPagination
     filter_backends = [DjangoFilterBackend]
     filterset_class = MusicCatalogFilter
+
+    def queue_music_request(self, request, task):
+        choices = MusicSearchSerializer(data=request.data)
+        choices.is_valid(raise_exception=True)
+        values = dict(choices.validated_data)
+        if values.get("video_id"):
+            video = get_object_or_404(
+                Video.objects.for_user(request.user), pk=values["video_id"]
+            )
+            values["video_id"] = str(video.pk)
+        return Response(
+            queue_draft(
+                request.user,
+                task,
+                **values,
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="ai-recommend",
+        throttle_classes=[MusicSearchRateThrottle],
+    )
+    def ai_recommend(self, request):
+        return self.queue_music_request(
+            request, draft_tasks.recommend_music_preferences_task
+        )
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="ai-search",
+        throttle_classes=[MusicSearchRateThrottle],
+    )
+    def ai_search(self, request):
+        return self.queue_music_request(request, draft_tasks.search_music_task)
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="ai-import",
+        throttle_classes=[MusicSearchRateThrottle],
+    )
+    def ai_import(self, request):
+        choices = MusicImportSerializer(data=request.data)
+        choices.is_valid(raise_exception=True)
+        video = get_object_or_404(
+            Video.objects.for_user(request.user), pk=choices.validated_data["video_id"]
+        )
+        with editable_video(video.pk):
+            pass
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.import_search_music_task,
+                video_id=str(video.pk),
+                selection=choices.validated_data["selection"],
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @action(detail=True, methods=["GET"])
     def download(self, request, pk=None):

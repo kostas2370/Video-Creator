@@ -533,15 +533,8 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
 
     @property
     def script_model(self):
-        """Resolve the project's saved model, including legacy generation settings."""
-        config = self.settings or {}
-        model = config.get("gpt_model") or (config.get("generation_params") or {}).get(
-            "gpt_model"
-        )
-        if not model:
-            episode = getattr(self, "series_episode", None)
-            model = (episode.generation_params or {}).get("gpt_model") if episode else None
-        return model or settings.DEFAULT_GPT_MODEL
+        """Return the video's saved script model or the system default."""
+        return (self.settings or {}).get("gpt_model") or settings.DEFAULT_GPT_MODEL
 
     @hook(AFTER_SAVE)
     def run_workflow_save_hooks(self):
