@@ -7,12 +7,14 @@ from unittest.mock import patch
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
+from django.http import Http404
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.videomanagement.baker_recipes import intro, scene, video
+from apps.videomanagement.protected_media import authorized_file
 
 from ..baker_recipes import user
 
@@ -125,6 +127,26 @@ class CSRFSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotEqual(cookie, response.cookies["csrftoken"].value)
         self.assertTrue(response["X-CSRFToken"])
+
+    def test_login_logout_login_reuses_csrf_without_reloading(self):
+        data = {"username": self.owner.username, "password": "Strong-password-123"}
+        login = self.client.post(
+            reverse("login"), data, HTTP_X_CSRFTOKEN=self.bootstrap()
+        )
+        self.assertEqual(login.status_code, 200)
+        cached_token = login["X-CSRFToken"]
+        csrf_cookie = self.client.cookies["csrftoken"].value
+
+        logout = self.client.post(reverse("logout"), HTTP_X_CSRFTOKEN=cached_token)
+        self.assertEqual(logout.status_code, 200)
+        for name in ("access_token", "refresh_token"):
+            self.assertEqual(logout.cookies[name]["max-age"], 0)
+        self.assertNotIn("csrftoken", logout.cookies)
+        self.assertEqual(self.client.cookies["csrftoken"].value, csrf_cookie)
+
+        login = self.client.post(reverse("login"), data, HTTP_X_CSRFTOKEN=cached_token)
+        self.assertEqual(login.status_code, 200)
+        self.assertNotEqual(self.client.cookies["csrftoken"].value, csrf_cookie)
 
     def test_unsafe_cookie_requests_require_matching_csrf(self):
         self.client.cookies["access_token"] = self.access
@@ -246,6 +268,40 @@ class ProtectedMediaTests(TestCase):
         self.client.cookies["access_token"] = str(
             RefreshToken.for_user(owner).access_token
         )
+
+    def test_ownership_lookup_uses_one_query_for_owned_shared_and_denied_files(self):
+        with self.assertNumQueries(1):
+            field = authorized_file(self.owner, self.project.output.name)
+        self.assertEqual(field.name, self.project.output.name)
+        self.assertEqual(field.storage, self.project.output.storage)
+
+        # A match in the last source must cost the same as a match in the first.
+        from apps.videomanagement.baker_recipes import outro
+
+        outro.make(created_by=None, file="media/other/outros/shared.mp4")
+        with self.assertNumQueries(1):
+            field = authorized_file(self.other, "media/other/outros/shared.mp4")
+        self.assertEqual(field.name, "media/other/outros/shared.mp4")
+
+        for name in (self.project.output.name, "media/unknown.mp4"):
+            with self.subTest(name=name), self.assertNumQueries(1):
+                with self.assertRaises(Http404):
+                    authorized_file(self.other, name)
+
+    def test_lookup_keeps_the_matching_fields_storage_metadata(self):
+        self.project.reference_image = "media/references/frame.png"
+        self.project.save(update_fields=["reference_image"])
+        with self.assertNumQueries(1):
+            field = authorized_file(self.owner, "media/references/frame.png")
+        self.assertEqual(field.field.name, "reference_image")
+        self.assertEqual(field.name, "media/references/frame.png")
+        self.assertEqual(field.storage, self.project.reference_image.storage)
+
+    def test_differently_cased_file_owned_by_another_user_is_denied(self):
+        name = "media/output/MOVIE.mp4"
+        video.make(created_by=self.other, output=name)
+        with self.assertNumQueries(1), self.assertRaises(Http404):
+            authorized_file(self.owner, name)
 
     def test_anonymous_and_other_users_cannot_download_or_probe_ranges(self):
         self.assertEqual(self.client.get(self.url).status_code, 401)

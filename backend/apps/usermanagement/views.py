@@ -191,8 +191,8 @@ def logout_view(request):
             "refresh_token",
             samesite="Strict",
         )
-        res.delete_cookie("X-CSRFToken", samesite="None")
-        res.delete_cookie("csrftoken", samesite="None")
+        # CSRF is not an authentication credential. Keep it in sync with the
+        # browser's cached header; the next successful login rotates it.
         return res
 
     except Exception as exc:
