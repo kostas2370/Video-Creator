@@ -1,3 +1,4 @@
+import { isVideo, mediaUrl as sceneMediaUrl } from "../utils/media";
 import { editorToolButton } from "./ui/editorStyles";
 import { useObjectUrl } from "../hooks/useObjectUrl";
 import { useEffect, useRef, useState } from "react";
@@ -15,15 +16,15 @@ const mediaUrl = source => /^https?:\/\//i.test(source || "") ? source : `${API_
 const clock = seconds => `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 const quietButton = "rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700";
 
-export function SceneAudio({ scene, index = 0, nextScene, disabled, onSaved }) {
+export function SceneAudio({ videoFormat = "LANDSCAPE", scene, index = 0, nextScene, disabled, onSaved }) {
   const [open, setOpen] = useState(false);
   return <>
     <button type="button" disabled={disabled} aria-haspopup="dialog" aria-label={`Edit audio for scene ${index + 1}`} onClick={() => setOpen(true)} className={editorToolButton}><HiOutlineSpeakerWave aria-hidden="true" className="h-5 w-5 shrink-0" />Audio</button>
-    {open && <AudioEditor scene={scene} index={index} nextScene={nextScene} disabled={disabled} onSaved={onSaved} onClose={() => setOpen(false)} />}
+    {open && <AudioEditor videoFormat={videoFormat} scene={scene} index={index} nextScene={nextScene} disabled={disabled} onSaved={onSaved} onClose={() => setOpen(false)} />}
   </>;
 }
 
-function AudioEditor({ scene, index, nextScene, disabled, onSaved, onClose }) {
+function AudioEditor({ videoFormat, scene, index, nextScene, disabled, onSaved, onClose }) {
   const [settings, setSettings] = useState({ ...audioDefaults, ...scene.audio_settings });
   const [baseline, setBaseline] = useState({ ...audioDefaults, ...scene.audio_settings });
   const [wave, setWave] = useState(null), [loading, setLoading] = useState(false);
@@ -129,8 +130,16 @@ function AudioEditor({ scene, index, nextScene, disabled, onSaved, onClose }) {
     } catch (reason) { if (mounted.current) setError(reason.message); }
     finally { if (mounted.current) setBusy(false); }
   };
-  return <EditorDialog open onClose={onClose} title="Scene audio" description={`Scene ${index + 1} · Voiceover, timing and transitions.`} busy={busy} maxWidth="max-w-2xl" footer={<div className="flex flex-wrap items-center justify-between gap-3"><p role="status" className="text-xs text-gray-500 dark:text-gray-400">{busy ? "Saving audio…" : changed ? "Unsaved changes" : !source ? "Add a voiceover to begin" : "Audio is saved"}</p><div className="flex gap-2"><button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-300">Cancel</button><button type="button" disabled={locked || loading || !wave || !changed} onClick={save} className={editorButton}>{busy ? "Saving…" : "Save changes"}</button></div></div>}>
-    <div className="space-y-5">
+  return <EditorDialog open onClose={onClose} title="Scene audio" description={`Scene ${index + 1} · Voiceover, timing and transitions.`} busy={busy} maxWidth="max-w-5xl" footer={<div className="flex flex-wrap items-center justify-between gap-3"><p role="status" className="text-xs text-gray-500 dark:text-gray-400">{busy ? "Saving audio…" : changed ? "Unsaved changes" : !source ? "Add a voiceover to begin" : "Audio is saved"}</p><div className="flex gap-2"><button type="button" disabled={busy} onClick={onClose} className="rounded-xl px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-300">Cancel</button><button type="button" disabled={locked || loading || !wave || !changed} onClick={save} className={editorButton}>{busy ? "Saving…" : "Save changes"}</button></div></div>}>
+    <div className="grid items-start gap-6 md:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
+      <aside aria-label="Audio editing visual reference" className="scene-dialog-preview rounded-xl bg-gray-50 p-4 dark:bg-gray-900/40">
+        <h3 className="mb-3 text-sm font-semibold">Scene {index + 1} visual</h3>
+        <div className="relative mx-auto flex max-h-[40vh] w-full items-center justify-center overflow-hidden rounded-xl bg-black" style={{ aspectRatio: { LANDSCAPE: "16/9", PORTRAIT: "9/16", SQUARE: "1/1" }[videoFormat] || "16/9", maxWidth: videoFormat === "PORTRAIT" ? 200 : videoFormat === "SQUARE" ? 300 : undefined }}>
+          {scene.scene_image?.file ? isVideo(scene.scene_image.file) ? <video src={sceneMediaUrl(scene.scene_image.file)} controls muted playsInline preload="metadata" aria-label="Scene visual reference" className="absolute inset-0 h-full w-full object-cover" /> : <img src={sceneMediaUrl(scene.scene_image.file)} alt={`Scene ${index + 1} visual reference`} className="absolute inset-0 h-full w-full object-cover" /> : <p className="p-5 text-xs text-gray-400">No visual yet</p>}
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Visual reference. Preview audio plays your current trim, fades and volume. Save to hear the complete mix in Preview scene.</p>
+      </aside>
+      <div className="min-w-0 space-y-5">
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{error}</p>}
       <section className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
         <div className="flex flex-wrap items-center justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-gray-900 dark:text-white">{file ? "New voiceover" : !restored && scene.voiceover ? "Your voiceover" : scene.file ? "Generated narration" : "Voiceover"}</p><p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{file ? file.name : source ? "Choose a replacement or edit the voice below." : "Upload or record a voice to get started."}</p></div><div className="flex flex-wrap gap-2"><button type="button" disabled={locked} onClick={() => picker.current?.click()} className={`${quietButton} flex items-center gap-2`}><HiOutlineArrowUpTray aria-hidden="true" className="h-4 w-4" />Upload</button>{navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined" && <button type="button" disabled={disabled || busy || recording.starting} onClick={() => recording.recording ? recording.stop() : recording.start()} className={`${quietButton} flex items-center gap-2 ${recording.recording ? "border-red-300 text-red-600" : ""}`}><HiOutlineMicrophone aria-hidden="true" className="h-4 w-4" />{recording.recording ? `Stop · ${clock(recording.seconds)}` : recording.starting ? "Opening mic…" : "Record"}</button>}</div></div>
@@ -150,6 +159,7 @@ function AudioEditor({ scene, index, nextScene, disabled, onSaved, onClose }) {
       </fieldset>}
       <audio ref={player} src={file ? localUrl || undefined : source ? mediaUrl(source) : undefined} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} onError={() => setError("Could not play this audio. Choose another file or try again.")} />
       {wave && <p className="text-xs text-gray-500 dark:text-gray-400">Preview plays your trim, fades and volume. Save, then use the full video preview to hear music and transitions together.</p>}
+      </div>
     </div>
   </EditorDialog>;
 }
