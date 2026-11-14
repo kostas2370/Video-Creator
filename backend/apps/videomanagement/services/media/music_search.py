@@ -73,10 +73,6 @@ def youtube_candidate(video):
     }
 
 
-def music_model(gpt_model, video):
-    return gpt_model or ((video.settings or {}).get("gpt_model", "") if video else "")
-
-
 def build_music_brief(
     user, *, prompt, genre="", preferences="", gpt_model="", video=None
 ):
@@ -110,12 +106,14 @@ def build_music_brief(
 def recommend_music_preferences(
     user, *, prompt, genre="", preferences="", gpt_model="", video=None
 ):
+    if video:
+        gpt_model = gpt_model or (video.settings or {}).get("gpt_model", "")
     brief = build_music_brief(
         user,
         prompt=prompt,
         genre=genre,
         preferences=preferences,
-        gpt_model=music_model(gpt_model, video),
+        gpt_model=gpt_model,
         video=video,
     )
     return {
@@ -232,7 +230,8 @@ def rank_music_candidates(user, brief, candidates, *, gpt_model=""):
 
 def search_music(user, *, prompt, genre="", preferences="", gpt_model="", video=None):
     client = youtube_client()
-    gpt_model = music_model(gpt_model, video)
+    if video:
+        gpt_model = gpt_model or (video.settings or {}).get("gpt_model", "")
     brief = build_music_brief(
         user,
         prompt=prompt,
