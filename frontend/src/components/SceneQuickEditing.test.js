@@ -41,13 +41,14 @@ it("keeps drafts in memory when browser storage is unavailable", () => {
   expect(screen.getByLabelText("Text for scene 1").value).toBe("Keep in memory");
 });
 
-it("keeps the script visible while opening and closing optional audio tools", () => {
+it("keeps the script draft when switching to Audio and back", () => {
   render(<Editor />);
   fireEvent.change(screen.getByLabelText("Text for scene 1"), { target: { value: "Draft across tabs" } });
-  fireEvent.click(screen.getByText("Audio & style"));
+  fireEvent.click(screen.getByRole("tab", { name: "Audio" }));
   expect(screen.getByRole("heading", { name: "Scene audio" })).toBeTruthy();
-  expect(screen.getByRole("textbox", { name: "Text for scene 1" }).value).toBe("Draft across tabs");
-  fireEvent.click(screen.getByText("Audio & style"));
+  fireEvent.click(screen.getByRole("tab", { name: "Captions" }));
+  expect(screen.getByRole("heading", { name: "Scene captions" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "Script" }));
   expect(screen.getByLabelText("Text for scene 1").value).toBe("Draft across tabs");
 });
 

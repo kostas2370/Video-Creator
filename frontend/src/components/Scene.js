@@ -131,9 +131,9 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
           </section>
           <aside aria-label="Scene inspector" className="studio-inspector min-w-0 rounded-b-2xl lg:rounded-bl-none lg:rounded-br-2xl">
             <TabGroup selectedIndex={inspectorTab} onChange={setInspectorTab}>
-              {scene.narration_status === "missing" && <button type="button" onClick={() => setToolsOpen(true)} className="w-full bg-amber-50 px-4 py-3 text-left text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Narration needs attention → Open audio</button>}
+              {scene.narration_status === "missing" && <button type="button" onClick={() => setInspectorTab(2)} className="w-full bg-amber-50 px-4 py-3 text-left text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Narration needs attention → Open audio</button>}
               <TabList className="studio-tabs flex gap-1 border-b border-gray-200 p-2 dark:border-gray-700">
-                {["Script", "Visual", ...((onTiming || transitionControl) ? ["Timing"] : [])].map(label => <Tab key={label} className="min-w-0 flex-1 rounded-lg px-2 py-2.5 text-xs font-semibold text-gray-500 outline-none transition hover:text-gray-900 data-selected:bg-blue-50 data-selected:text-blue-700 data-focus:ring-2 data-focus:ring-blue-500 dark:text-gray-400 dark:hover:text-white dark:data-selected:bg-blue-500/15 dark:data-selected:text-blue-300">{label}</Tab>)}
+                {["Script", "Visual", "Audio", "Captions", ...((onTiming || transitionControl) ? ["Timing"] : [])].map(label => <Tab key={label} className="min-w-0 flex-1 rounded-lg px-2 py-2.5 text-xs font-semibold text-gray-500 outline-none transition hover:text-gray-900 data-selected:bg-blue-50 data-selected:text-blue-700 data-focus:ring-2 data-focus:ring-blue-500 dark:text-gray-400 dark:hover:text-white dark:data-selected:bg-blue-500/15 dark:data-selected:text-blue-300">{label}</Tab>)}
               </TabList>
               <TabPanels className="studio-tab-panels p-4 sm:p-5">
                 <TabPanel unmount={false}>
@@ -148,18 +148,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
 
             {!diagram && visualPrompt && !promptShownInStartingFrame && <details className="mt-4"><summary className="cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Visual description</summary><p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Directions for what the scene shows. Narration is edited separately under Script.</p><p className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-500 dark:text-gray-400">{scene.scene_image.prompt}</p></details>}
                 </TabPanel>
-                {(onTiming || transitionControl) && <TabPanel unmount={false}>
-                  <section aria-label="Quick scene timing" className="space-y-5">
-                    {onTiming && <div><h3 className="text-sm font-semibold">Scene timing</h3><SceneTiming manual={manual} scene={scene} index={index} disabled={timingDisabled} saving={timingSaving} onChange={onTiming} /></div>}
-                    {transitionControl && <div><h3 className="mb-3 text-sm font-semibold">Transition to next scene</h3>{transitionControl}</div>}
-                  </section>
-                </TabPanel>}
-              </TabPanels>
-            </TabGroup>
-            <section className="border-t border-gray-200 p-4 sm:p-5 dark:border-gray-700">
-              <button type="button" aria-expanded={toolsOpen} aria-controls={`scene-tools-${scene.id}`} onClick={() => setToolsOpen(open => !open)} className="flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><span>Audio &amp; style</span><span className="text-xs font-normal text-gray-500 dark:text-gray-400">{toolsOpen ? "Hide tools −" : "Optional tools +"}</span></button>
-              <div id={`scene-tools-${scene.id}`} hidden={!toolsOpen} className="mt-5 space-y-6">
-                <section className="space-y-3">
+                <TabPanel unmount={false}>
                   <h3 className="text-sm font-semibold">Scene audio</h3>
                   <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Manage narration and the sound of this scene.</p>
             {scene.narration_status === "missing" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
@@ -169,10 +158,27 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
               <button type="button" disabled={retryingNarration} onClick={retryNarration} className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-50 dark:bg-amber-900/50 dark:text-amber-200">{retryingNarration ? "Retrying…" : "Retry narration"}</button>
             </div> : scene.narration_status === "disabled" ? <p className="mt-4 text-xs text-gray-400">{manual ? "Use Audio to record or upload a voiceover." : "Narration is off for this video"}</p> : ((scene.voiceover || scene.file) ? <details className="mt-4"><summary className="mb-3 cursor-pointer text-xs font-medium text-gray-500 dark:text-gray-400">Listen to original narration</summary><p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Before audio edits. Use Preview scene to hear the current mix.</p><audio aria-label={`Scene ${index + 1} narration`} controls preload="none" key={scene.voiceover || scene.file} className="h-10 w-full"><source src={MEDIA_URL + (scene.voiceover || scene.file)} /></audio></details> : <p className="mt-4 text-xs text-gray-400">No narration yet</p>)}
             <div className="mt-4"><SceneAudio videoFormat={video_format} scene={scene} index={index} nextScene={nextScene} disabled={timingDisabled} onSaved={setUpdated} /></div>
-                </section>
+                </TabPanel>
+                <TabPanel unmount={false}>
+                  <h3 className="text-sm font-semibold">Scene captions</h3>
+                  <p className="mb-4 mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Correct the words and their timing while keeping the recorded voice unchanged.</p>
+                  <SceneCaptions scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />
+                  {scene.narration_status !== "available" && <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Add narration or a voiceover in Audio to edit timed captions.</p>}
+                </TabPanel>
+                {(onTiming || transitionControl) && <TabPanel unmount={false}>
+                  <section aria-label="Quick scene timing" className="space-y-5">
+                    {onTiming && <div><h3 className="text-sm font-semibold">Scene timing</h3><SceneTiming manual={manual} scene={scene} index={index} disabled={timingDisabled} saving={timingSaving} onChange={onTiming} /></div>}
+                    {transitionControl && <div><h3 className="mb-3 text-sm font-semibold">Transition to next scene</h3>{transitionControl}</div>}
+                  </section>
+                </TabPanel>}
+              </TabPanels>
+            </TabGroup>
+            <section className="border-t border-gray-200 p-4 sm:p-5 dark:border-gray-700">
+              <button type="button" aria-expanded={toolsOpen} aria-controls={`scene-tools-${scene.id}`} onClick={() => setToolsOpen(open => !open)} className="flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><span>Overlays &amp; motion</span><span className="text-xs font-normal text-gray-500 dark:text-gray-400">{toolsOpen ? "Hide tools −" : "Optional tools +"}</span></button>
+              <div id={`scene-tools-${scene.id}`} hidden={!toolsOpen} className="mt-5 space-y-6">
                 <section className="space-y-3">
-                  <h3 className="mb-4 text-sm font-semibold">Captions, overlays &amp; motion</h3>
-            <div aria-label="Scene editing tools" className="flex flex-wrap items-center gap-2">{!diagram && <SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />}<SceneCaptions scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />{onMotion && <SceneMotion fps={exportFps} scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}</div>
+                  <h3 className="mb-4 text-sm font-semibold">Additional scene tools</h3>
+            <div aria-label="Scene editing tools" className="flex flex-wrap items-center gap-2">{!diagram && <SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />}{onMotion && <SceneMotion fps={exportFps} scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}</div>
                 </section>
               </div>
             </section>
