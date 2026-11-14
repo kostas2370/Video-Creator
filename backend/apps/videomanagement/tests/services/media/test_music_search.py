@@ -151,6 +151,22 @@ class MusicSearchTests(TestCase):
         self.assertEqual(content["title"], self.video.title)
         self.assertEqual(content["script"], self.video.gpt_answer)
 
+    @override_settings(DEFAULT_GPT_MODEL="system-model")
+    def test_recommendation_uses_legacy_video_model_or_system_default(self):
+        for config, expected in (
+            ({"generation_params": {"gpt_model": "legacy-model"}}, "legacy-model"),
+            ({}, "system-model"),
+            (None, "system-model"),
+        ):
+            with self.subTest(config=config):
+                self.video.settings = config
+                self.reply.side_effect = [BRIEF]
+                music_search.recommend_music_preferences(
+                    self.user, prompt="Science", video=self.video
+                )
+                self.assertEqual(self.reply.call_args.kwargs["gpt_model"], expected)
+        self.youtube_client.assert_not_called()
+
     def test_explicit_model_overrides_video_model_for_recommendations(self):
         self.video.settings["gpt_model"] = "video-model"
         music_search.recommend_music_preferences(
