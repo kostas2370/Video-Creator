@@ -121,3 +121,23 @@ it.each([["MANUAL", "Manual edits"], ["STORY", "Story videos"], ["AI", "AI video
   await waitFor(() => expect(getVideos).toHaveBeenLastCalledWith("", 1, "", expect.objectContaining({ creation_mode: value })));
   expect(screen.getByTestId("location").textContent).toContain(`creation_mode=${value}`);
 });
+
+
+it("explains empty filtered results and resets all constraints while retaining layout", async () => {
+  getVideos.mockResolvedValueOnce({ data: { count: 0, results: [] } });
+  open("/videos/?search=fox&creation_mode=STORY&status=READY&is_favorite=true&view=list");
+  await screen.findByRole("heading", { name: "No videos match your selection" });
+  expect(screen.getByText(/We couldn’t find any videos/).textContent).toContain("Story videos");
+  fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+  await screen.findByRole("link", { name: "Fox project" });
+  expect(getVideos).toHaveBeenLastCalledWith("", 1, "", { creation_mode: undefined, is_favorite: undefined, ordering: "-updated_at" });
+  expect(screen.getByTestId("results").getAttribute("data-view")).toBe("list");
+});
+it("offers a route back to all videos when favorites are empty", async () => {
+  getVideos.mockResolvedValueOnce({ data: { count: 0, results: [] } });
+  open("/videos/?is_favorite=true");
+  await screen.findByRole("heading", { name: "No favorites yet" });
+  fireEvent.click(screen.getByRole("button", { name: "Browse all videos" }));
+  await screen.findByRole("link", { name: "Fox project" });
+  expect(getVideos).toHaveBeenLastCalledWith("", 1, "", expect.objectContaining({ is_favorite: undefined }));
+});

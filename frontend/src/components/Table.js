@@ -8,6 +8,7 @@ import {
 } from "react-icons/hi2";
 import { formatDistanceToNow, isValid, parseISO } from "date-fns";
 import { videoLibraryInfo } from "../utils/videoLibrary";
+import { VideoLibraryProgress } from "./VideoLibraryProgress";
 import { VideoThumbnail } from "./VideoThumbnail";
 import { deleteVideo, toggleVideoFavorite } from "../api/apiService";
 import { DeleteModal } from "./DeleteModal";
@@ -74,9 +75,12 @@ export function DefaultTable({ data, setVideos, view = "grid", onUpdated, favori
             </div>
             <h2 className="library-card-title text-sm font-semibold leading-6 text-gray-900 dark:text-white"><Link to={`/videos/${video.id}/`} title={title} className={`${compact ? "" : "min-h-12"} line-clamp-2 rounded hover:text-blue-600 dark:hover:text-blue-300 ${focus}`}>{title}</Link></h2>
             {updated && isValid(updated) && <p className="library-updated mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">Updated <time dateTime={video.updated_at} title={updated.toLocaleString()}>{formatDistanceToNow(updated, { addSuffix: true })}</time></p>}
+            {info.processing && <VideoLibraryProgress video={video} onFinished={onUpdated} />}
+            {video.status === "FAILED" && <p className="mt-3 rounded-lg bg-amber-50 p-2.5 text-xs leading-relaxed text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">{video.render_error?.message ? "Your edit is saved. Open the editor to review and retry the failed export." : "Your project is saved. Review the issue in the editor or retry missing scene generation."}</p>}
             <div className={`library-card-actions flex flex-wrap items-center gap-2 ${compact ? "mt-3" : "mt-auto pt-4"}`}>
-              <Link to={`/videos/${video.id}/`} aria-label={`Open editor for ${title}`} className={`library-edit-action inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-blue-500/15 dark:hover:text-blue-300 ${focus}`}>{video.status === "REVIEW" ? "Review script" : "Continue editing"}<HiOutlineArrowRight aria-hidden="true" className="h-3.5 w-3.5" /></Link>
+              <Link to={`/videos/${video.id}/`} aria-label={`Open editor for ${title}`} className={`library-edit-action inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:bg-gray-700/60 dark:text-gray-200 dark:hover:bg-blue-500/15 dark:hover:text-blue-300 ${focus}`}>{video.status === "FAILED" ? "Review issue" : info.processing ? "View progress" : video.status === "REVIEW" ? "Review script" : "Continue editing"}<HiOutlineArrowRight aria-hidden="true" className="h-3.5 w-3.5" /></Link>
               {video.status === "COMPLETED" && video.output && <button type="button" aria-label={`Watch ${title}`} onClick={() => showDetails(video)} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10 ${focus}`}><HiOutlinePlay aria-hidden="true" className="h-3.5 w-3.5" />Watch</button>}
+              {info.canResume && <button type="button" onClick={() => { setId(video.id); setShowResumeModal(true); }} className={`inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:text-amber-300 ${focus}`}><HiOutlineArrowPath aria-hidden="true" className="h-3.5 w-3.5" />Retry generation</button>}
               {compact && favoriteButton}
               <Menu as="div" className={`relative ${compact ? "" : "ml-auto"}`}>
                 <MenuButton aria-label={`Actions for ${title}`} className={`rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white ${focus}`}><HiOutlineEllipsisHorizontal aria-hidden="true" className="h-5 w-5" /></MenuButton>

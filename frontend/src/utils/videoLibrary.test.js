@@ -27,3 +27,24 @@ describe("video library presentation", () => {
 it("sends failed exports to the editor rather than offering AI generation resume", () => {
   expect(videoLibraryInfo({ status: "FAILED", video_type: "AI", gpt_answer: {}, dir_name: "media", render_error: { message: "Export failed" } }).canResume).toBe(false);
 });
+
+
+import { libraryProgress, libraryEmptyState } from "./videoLibrary";
+it("reports saved assets without inventing export percentages", () => {
+  expect(libraryProgress({ status: "GENERATION", scenes: [
+    { scene_image: { file: "fox.png" }, narration_status: "available" },
+    { narration_status: "missing" },
+  ] }).steps).toEqual([
+    { label: "Visuals prepared", done: 1, total: 2 },
+    { label: "Narration prepared", done: 1, total: 2 },
+  ]);
+  expect(libraryProgress({ status: "RENDERING" }).steps).toEqual([]);
+  expect(libraryProgress({ status: "GENERATION", scenes: [{ narration_status: "disabled" }] }).steps).toHaveLength(1);
+});
+it("explains favorites and combinations of empty-result constraints", () => {
+  expect(libraryEmptyState({ is_favorite: true }).title).toBe("No favorites yet");
+  const empty = libraryEmptyState({ search: "fox", status: "READY", creation_mode: "STORY", is_favorite: true });
+  for (const text of ["fox", "Ready to export", "Story videos", "Favorites"]) expect(empty.description).toContain(text);
+  expect(empty.action).toBe("Reset filters");
+  expect(libraryEmptyState({}).action).toBeUndefined();
+});
