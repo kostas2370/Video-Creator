@@ -6,6 +6,7 @@ Viddie is a self-hosted video creation app. Start with an AI-generated storyboar
 build a project from your own media, edit each scene, and export a finished video.
 The workflow brings scripts, visuals, narration, captions, music, and publishing
 into one place.
+You can find some samples here: https://www.tiktok.com/@wasteoftime157?_r=1&_t=ZN-9BLLwsTOkGk
 
 ![Viddie video editor in dark theme](docs/screenshots/video-edit.png)
 
@@ -167,6 +168,10 @@ cookies stay on the same site.
    applies the edit to playback, rendered video, and downloaded subtitles, keeping
    audio, captions, overlays, and motion together. Cuts stay with their scene when
    reordering. Changing the original scene duration resets its cuts.
+   Choose **Cut video** beside Preview to cut across scenes, the intro, and the outro.
+   Full-video cuts apply after scene cuts; **Restore full video** restores that timeline
+   without clearing scene cuts. Reordering scenes or changing their timing makes old
+   full-video cuts inactive and marks them for review before another save.
 5. **Export and share.** Choose Draft, Standard, or High export quality and 24 or
    30 fps in the render dialog. Render the video, create a cover, and edit its metadata.
    Download the result or use **Publish** with a configured destination account.

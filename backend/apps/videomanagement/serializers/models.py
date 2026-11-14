@@ -2,6 +2,7 @@ from pathlib import Path
 
 from django.core.files.storage import default_storage
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator
 
 from ..models import (
@@ -20,8 +21,9 @@ from ..services.scenes.starting_frames import (
     requires_starting_frame,
     starting_frame_status,
 )
+from ..services.videos.preview import preview_timeline
 from ..utils.audio_editing import narration_enabled, narration_file
-from ..utils.cuts import joined_duration, scene_sections
+from ..utils.cuts import joined_duration, scene_sections, video_cut_source, video_sections
 from ..utils.file_utils import stored_file_exists
 from ..utils.timing import file_timing, scene_timing
 
@@ -182,6 +184,7 @@ VIDEO_RESPONSE_FIELDS = (
     "video_type",
     "mode",
     "settings",
+    "cuts",
     "cover",
     "cover_settings",
     "tags",
@@ -228,6 +231,20 @@ class VideoSerializer(VideoResponseSerializer):
 
 
 class VideoNestedSerializer(VideoResponseSerializer):
+    cut_summary = serializers.SerializerMethodField()
+
+    def get_cut_summary(self, obj):
+        if not obj.cuts or obj.status not in ("READY", "COMPLETED", "FAILED"):
+            return None
+        try:
+            segments = preview_timeline(obj).segments
+        except ValidationError:
+            return None
+        return {
+            "duration": joined_duration(video_sections(obj, segments)),
+            "stale": obj.cuts.get("source_key") != video_cut_source(segments)["key"],
+        }
+
     can_retry_narration = serializers.SerializerMethodField()
 
     def get_can_retry_narration(self, obj):
@@ -245,7 +262,7 @@ class VideoNestedSerializer(VideoResponseSerializer):
         return sum(durations) if all(value is not None for value in durations) else None
 
     class Meta(VideoResponseSerializer.Meta):
-        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes", "can_retry_narration")
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes", "can_retry_narration", "cut_summary")
         read_only_fields = fields
 
     def get_scenes(self, obj):

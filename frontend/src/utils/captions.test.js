@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { captionAt, captionGroups, insertCaptionWord, validateCaptionWords } from "./captions";
+import { cutCaptionGroups, captionAt, captionGroups, insertCaptionWord, validateCaptionWords } from "./captions";
 
 const words = [{ text: "Hello", start: 0.1, end: 0.3 }, { text: "world.", start: 0.45, end: 0.8 }, { text: "Again", start: 1.5, end: 2 }];
 describe("caption timing", () => {
@@ -64,4 +64,9 @@ it("accepts saved decimal caption ends with only floating-point noise", () => {
   const duration = 200.44 - 149.34;
   expect(validateCaptionWords([{ text: "End", start: 0, end: 51.1 }], duration)).toBe("");
   expect(validateCaptionWords([{ text: "End", start: 0, end: 51.1001 }], duration)).toContain("check");
+});
+
+it("keeps caption phrases unchanged when a section is only split", () => {
+  const words = [{ text: "Hello", start: 0, end: 1 }, { text: "world", start: 1, end: 2 }];
+  expect(cutCaptionGroups(words, [{ start: 0, end: 0.5 }, { start: 0.5, end: 2 }], "CLASSIC")).toEqual([words]);
 });

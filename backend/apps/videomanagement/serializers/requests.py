@@ -416,9 +416,13 @@ class SceneCutsSerializer(serializers.Serializer):
         for section in attrs["sections"]:
             start, end = section["start"], section["end"]
             if start < previous_end or end - start < 0.05 - 1e-9 or end > attrs["source_duration"] + 1e-9:
-                raise serializers.ValidationError("Keep sections in source order, within the scene, and at least 0.05 seconds long.")
+                raise serializers.ValidationError("Keep sections in source order, within the source timeline, and at least 0.05 seconds long.")
             previous_end = end
         return attrs
+
+
+class VideoCutsSerializer(SceneCutsSerializer):
+    source_key = serializers.CharField(min_length=64, max_length=64)
 
 
 class SceneTimingSerializer(serializers.Serializer):

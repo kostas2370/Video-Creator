@@ -17,7 +17,7 @@ from apps.videomanagement.utils.captions.styles import (
 )
 
 from ..models import MotionIntensity, MotionStyle, TransitionStyle, Video
-from apps.videomanagement.utils.cuts import timeline_sections
+from apps.videomanagement.utils.cuts import video_cut_source, video_sections
 from ..utils.audio_editing import narration_file, voice_tracks
 from ..utils.file_utils import check_if_image, check_if_video, stored_file_exists
 from ..utils.motion import resolved_motion
@@ -150,8 +150,22 @@ class PreviewTimelineSerializer(serializers.Serializer):
     music = serializers.SerializerMethodField()
     playback_sections = serializers.SerializerMethodField()
 
+    caption_words = serializers.SerializerMethodField()
+
+    def get_caption_words(self, obj):
+        return obj.timeline.caption_words or []
+
+    cut_source = serializers.SerializerMethodField()
+    cuts_stale = serializers.SerializerMethodField()
+
+    def get_cut_source(self, obj):
+        return video_cut_source(obj.timeline.segments)
+
+    def get_cuts_stale(self, obj):
+        return bool(obj.video.cuts and obj.video.cuts.get("source_key") != self.get_cut_source(obj)["key"])
+
     def get_playback_sections(self, obj):
-        return timeline_sections(obj.timeline.segments)
+        return video_sections(obj.video, obj.timeline.segments)
 
     def get_caption_config(self, obj):
         return video_caption_style(obj.video).to_dict()

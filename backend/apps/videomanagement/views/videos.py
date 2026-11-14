@@ -43,6 +43,7 @@ from apps.videomanagement.serializers.requests import (
     StoryVideoSerializer,
     VideoNotesSerializer,
     VideoUpdateSerializer,
+    VideoCutsSerializer,
 )
 from apps.videomanagement.services.captions.subtitles import export_subtitles
 from apps.videomanagement.services.draft_jobs import queue_draft
@@ -55,6 +56,7 @@ from apps.videomanagement.services.scenes.recovery import (
     SCENE_RETENTION,
     recoverable_scenes,
 )
+from apps.videomanagement.services.videos.cuts import update_video_cuts
 from apps.videomanagement.services.videos.details import load_video_detail
 from apps.videomanagement.services.videos.jobs import (
     approve_script,
@@ -116,6 +118,7 @@ class VideoView(
         "partial_update": VideoUpdateSerializer,
         "add_scene": AddSceneSerializer,
         "preview": PreviewTimelineSerializer,
+        "cuts": VideoCutsSerializer,
         "render_video": RenderVideoSerializer,
     }
     queryset = Video.objects.all()
@@ -272,6 +275,15 @@ class VideoView(
         response = Response(self.get_serializer(self.get_object()).data)
         response["Cache-Control"] = "private, no-store"
         return response
+
+    @swagger_auto_schema(request_body=VideoCutsSerializer, responses={200: VideoNestedSerializer})
+    @action(detail=True, methods=["PATCH"])
+    def cuts(self, request, pk=None):
+        video = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        video = update_video_cuts(video, **serializer.validated_data)
+        return Response(VideoNestedSerializer(load_video_detail(video.pk), context={"request": request}).data)
 
     @swagger_auto_schema(
         request_body=VideoUpdateSerializer,

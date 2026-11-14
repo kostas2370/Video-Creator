@@ -37,10 +37,11 @@ class CaptionCueTests(SimpleTestCase):
         self.assertTrue(all(cue.active_word is None for cue in phrases))
         self.assertEqual(" ".join(" ".join(cue.text for cue in phrases).split()), scene.text)
 
-    def test_trimmed_tiktok_highlights_keep_original_word_and_delay(self):
+    def test_trimmed_tiktok_highlights_follow_retained_words_and_delay(self):
         scene = SimpleNamespace(text="One two six ten", video=SimpleNamespace(settings={"platform": "TIKTOK"}), audio_settings={"trim_start": 1, "trim_end": 3, "delay": 0.5})
         cues = scene_cues(scene, duration=4, offset=2, highlight=True)
-        self.assertEqual([cue.active_word for cue in cues], [1, 2])
+        self.assertEqual([cue.active_word for cue in cues], [0, 1])
+        self.assertEqual([cue.text for cue in cues], ["two six", "two six"])
         self.assertEqual(cues[0].start, 2.5)
         self.assertEqual(cues[-1].end, 4.5)
 
