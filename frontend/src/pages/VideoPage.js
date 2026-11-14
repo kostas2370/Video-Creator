@@ -1,3 +1,4 @@
+import { ProjectNextStep } from "../components/ProjectNextStep";
 import { ProjectCosts } from "../components/GenerationCost";
 import { DeferredDialog } from "../components/ui/DeferredDialog";
 import { RecentlyDeletedScenes } from "../components/RecentlyDeletedScenes";
@@ -308,6 +309,18 @@ export const Video = () => {
 
           </div>
         </header>
+        <ProjectNextStep video={videoInfo} disabled={sceneChangePending || renderPending} canExport={isRenderable} onAction={next => {
+          if (next.action === "review") setShowStoryboard(true);
+          else if (next.action === "export") setShowRenderModal(true);
+          else if (next.action === "watch") setShowRenderedVideo(true);
+          else if (next.action === "resume") setShowResumeModal(true);
+          else if (next.action === "settings") setShowConfigModal(true);
+          else if (next.action === "add") setShowAddSceneModal(true);
+          else if (next.action === "scene") {
+            selectScene(next.sceneId);
+            requestAnimationFrame(() => document.getElementById(`scene-${next.sceneId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+          }
+        }} />
         <ExportFailure video={videoInfo} disabled={!isRenderable} onRetry={() => setShowRenderModal(true)} />
         {videoInfo?.can_retry_narration && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Narration stopped before finishing. Your saved scenes are preserved. <button type="button" onClick={() => setShowConfigModal(true)} className="ml-2 font-semibold underline">Open narration retry</button></div>}
         <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
@@ -320,18 +333,7 @@ export const Video = () => {
           cutAction={videoInfo && <React.Suspense fallback={null}><VideoCuts video={videoInfo} disabled={!canPreview} onSaved={setUpdated} /></React.Suspense>}
           tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} onEditDetails={() => setShowDetails(true)} disabled={processing || renderPending || sceneChangePending} /><VideoDetails key={`details-${videoInfo.id}`} video={videoInfo} open={showDetails} onOpenChange={setShowDetails} onSaved={details => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, ...details } : current)} /></>}
         />
-        {updateError && !processing && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p>{videoInfo ? "Could not refresh your project. Reconnecting…" : "Could not load this project. Check your connection and try again."}</p><button type="button" onClick={setUpdated} className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-700">Try again</button></div>}
-        {videoInfo?.status === "REVIEW" && <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800 dark:bg-blue-900/20">
-          <p className="font-semibold">Your storyboard is ready for review</p>
-          <p className="mt-1 text-sm">Review the narration and generated visual prompts before creating media.</p>
-          <button type="button" onClick={() => setShowStoryboard(true)} className="mt-3 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">Review storyboard</button>
-        </div>}
-        {processing && <div role="status" className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-          <p className="font-semibold">Processing your video…</p>
-          <p className="mt-1">Your changes are processing in the background. This page refreshes automatically; you can leave and come back.</p>
-          {updateError && <p className="mt-2">Could not load updates. Reconnecting automatically…</p>}
-        </div>}
-        {videoInfo?.status === "FAILED" && <p role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">Processing failed. Check the available scenes before trying again.</p>}
+        {updateError && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p>{videoInfo ? "Could not refresh your project. Reconnecting…" : "Could not load this project. Check your connection and try again."}</p><button type="button" onClick={setUpdated} className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-700">Try again</button></div>}
         {missingNarration.length > 0 && <div role="status" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
           <p className="font-semibold">{missingNarration.length} {missingNarration.length === 1 ? "scene is" : "scenes are"} missing narration</p>
           <p className="mt-1">Your script and visuals are saved. Retry narration in the scenes below, or render with the available audio.</p>

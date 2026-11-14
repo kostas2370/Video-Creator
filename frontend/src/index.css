@@ -312,3 +312,13 @@ html { scrollbar-gutter: stable; }
 .tool-preview > div { height: 112px; }
 .tool-preview > div > div { transform: scale(.75); transform-origin: center; flex-shrink: 0; }
 .creation-summary { position: sticky; top: 24px; }
+
+@media (min-width: 768px) {
+  .scene-dialog-preview { position: sticky; top: 0; align-self: start; }
+}
+@media (min-width: 1024px) {
+  .studio-stage { top: 9rem; border-bottom-left-radius: 1rem; }
+}
+@media (max-height: 760px) and (min-width: 1024px) {
+  .studio-stage .preview-stage { max-width: min(100%, calc(34vh * var(--preview-ratio, 1.7778))) !important; }
+}

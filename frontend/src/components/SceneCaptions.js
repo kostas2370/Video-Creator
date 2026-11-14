@@ -81,7 +81,7 @@ export function SceneCaptionEditor({ scene, index, disabled, onSaved, onClose, v
     {loading ? <p role="status">Loading captions…</p> : data && <>
       {!data.enabled && <p role="status" className="mb-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Captions are off for this video. Enable Subtitles in video settings to show your saved captions in preview and export.</p>}
       <div className="grid items-start gap-6 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <div className="md:sticky md:top-0">
+        <div className="scene-dialog-preview">
           <div className={`relative mx-auto overflow-hidden rounded-xl bg-black ${size[1] > size[0] ? "w-40 md:w-full" : "w-full"}`} style={{ aspectRatio: `${size[0]} / ${size[1]}`, maxWidth: size[1] > size[0] ? 260 : undefined }}>
             {visual && (isVideo(visual) ? <video src={mediaUrl(visual)} muted playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" /> : <img src={mediaUrl(visual)} alt={`Scene ${index + 1}`} className="absolute inset-0 h-full w-full object-cover" />)}
             <CaptionLayer cue={cue} style={data.style} size={size} config={data.config} />
