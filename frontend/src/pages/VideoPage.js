@@ -1,3 +1,5 @@
+import { useDraftOwner } from "../hooks/useCreationDraft";
+import { libraryReturnUrl } from "../utils/videoLibraryNavigation";
 import { ProjectNextStep } from "../components/ProjectNextStep";
 import { ProjectCosts } from "../components/GenerationCost";
 import { DeferredDialog } from "../components/ui/DeferredDialog";
@@ -37,6 +39,7 @@ const ResumeModal = lazy(() => import("../components/ResumeModal").then(module =
 
 export const Video = () => {
   const { videoId } = useParams();
+  const libraryOwner = useDraftOwner();
   const [videoInfo, setVideoInfo] = useState(null);
   const [updateError, setUpdateError] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -301,7 +304,7 @@ export const Video = () => {
 
       <main className="editor-workspace mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
         {videoInfo?.settings?.series_id && <Link to={`/series/${videoInfo.settings.series_id}/`} className="mb-3 block text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-300">← {videoInfo.settings.series_title} · Episode {videoInfo.settings.episode_number}</Link>}
-        <Link to="/videos/" className="text-sm font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400">← All videos</Link>
+        <Link to={libraryReturnUrl(libraryOwner)} className="text-sm font-medium text-gray-500 hover:text-blue-600 dark:text-gray-400">← All videos</Link>
         <header className="mb-4 mt-3">
           <div className="min-w-0">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-400">{story ? "Story video editor" : manual ? "Manual video editor" : "Video editor"}</p>
