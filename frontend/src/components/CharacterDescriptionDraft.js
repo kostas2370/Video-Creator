@@ -71,7 +71,7 @@ export function CharacterDescriptionDraft({
       </button>
       <p className="text-xs text-gray-500 dark:text-gray-400">
         {ready
-          ? "Uses your AI text provider. A retry may use a second request. Review the draft before using it."
+          ? "Uses your AI text provider. Review the draft before using it."
           : "Add a series idea and visual style in Idea before generating a character."}
       </p>
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-300">{error}</p>}

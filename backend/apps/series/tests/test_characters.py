@@ -75,35 +75,14 @@ class CharacterSetupTests(ApiTestCase):
         self.assertEqual(serialize_cast(series), original)
         images.assert_not_called()
 
-    def test_character_description_repairs_cast_shaped_response(self):
-        choices = {
-            "premise": "Fox mysteries",
-            "visual_style": "Watercolor",
-            "story_format": "GENERAL",
-            "count": 1,
-            "name": "Milo",
-            "idea": "A shy detective",
-            "cast_names": ["Milo", "Rin"],
-        }
+    def test_character_description_rejects_cast_shaped_response_without_retrying(self):
         with patch(
             "apps.series.services.characters.get_update_sentence",
-            side_effect=[
-                json.dumps({"cast": [{"name": "Milo"}, {"name": "Rin"}]}),
-                json.dumps(
-                    {
-                        "character": {
-                            "appearance": "Orange fox",
-                            "personality": "Shy detective",
-                        }
-                    }
-                ),
-            ],
+            return_value=json.dumps({"cast": [{"name": "Milo"}]}),
         ) as ai:
-            result = draft_character_description(self.user, choices)
-        self.assertEqual(result["name"], "Milo")
-        self.assertEqual(result["appearance"], "Orange fox")
-        self.assertEqual(ai.call_count, 2)
-        self.assertIn('"character"', ai.call_args.args[0])
+            with self.assertRaisesMessage(APIException, "Your characters are unchanged"):
+                draft_character_description(self.user, {"name": "Milo"})
+        ai.assert_called_once()
 
     def test_new_character_has_a_distinct_name_and_is_not_saved_until_reviewed(self):
         choices = {
@@ -118,18 +97,15 @@ class CharacterSetupTests(ApiTestCase):
         before = Character.objects.count()
         with patch(
             "apps.series.services.characters.get_update_sentence",
-            side_effect=[
-                json.dumps({"character": {"name": "milo", "appearance": "Grey fox"}}),
-                json.dumps({"character": {"name": "Rin", "appearance": "Grey fox"}}),
-            ],
+            return_value=json.dumps({"character": {"name": "Rin", "appearance": "Grey fox"}}),
         ) as ai:
             result = draft_character_description(self.user, choices)
         self.assertEqual(result["name"], "Rin")
         self.assertNotIn("id", result)
         self.assertEqual(Character.objects.count(), before)
-        self.assertEqual(ai.call_count, 2)
+        ai.assert_called_once()
 
-    def test_invalid_character_response_stops_after_one_repair(self):
+    def test_invalid_character_response_does_not_retry(self):
         with patch(
             "apps.series.services.characters.get_update_sentence",
             return_value=json.dumps(
@@ -140,7 +116,16 @@ class CharacterSetupTests(ApiTestCase):
                 APIException, "Your characters are unchanged"
             ):
                 draft_character_description(self.user, {"name": "", "cast_names": []})
-        self.assertEqual(ai.call_count, 2)
+        ai.assert_called_once()
+
+    def test_new_character_rejects_duplicate_cast_name_without_retrying(self):
+        with patch(
+            "apps.series.services.characters.get_update_sentence",
+            return_value=json.dumps({"character": {"name": "milo", "appearance": "Grey fox"}}),
+        ) as ai:
+            with self.assertRaisesMessage(APIException, "Your characters are unchanged"):
+                draft_character_description(self.user, {"name": "", "cast_names": ["Milo"]})
+        ai.assert_called_once()
 
     def test_character_description_rejects_invalid_input_before_calling_ai(self):
         with patch("apps.series.services.characters.get_update_sentence") as ai:

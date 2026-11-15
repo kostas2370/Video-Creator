@@ -249,40 +249,26 @@ def draft_character_description(owner, choices):
         "relationships 200 each. No image URLs or IDs.\n"
         + json.dumps(choices, ensure_ascii=False)
     )
-    original_prompt = prompt
-    for attempt in range(2):
-        raw = get_update_sentence(prompt, user=owner)
-        try:
-            character = parse_ai_json(raw)["character"]
-            if not isinstance(character, dict):
-                raise ValueError("Expected one character object")
-            values = {key: character.get(key, "") for key in CHARACTER_PROFILE_FIELDS}
-            if choices.get("name"):
-                values["name"] = choices["name"]
-            serializer = CharacterSerializer(data={"id": str(uuid4()), **values})
-            serializer.is_valid(raise_exception=True)
-            result = {key: serializer.data[key] for key in CHARACTER_PROFILE_FIELDS}
-            existing_names = {name.casefold() for name in choices.get("cast_names", [])}
-            if not choices.get("name") and result["name"].casefold() in existing_names:
-                raise ValueError("Choose a different name from the existing cast")
-            return result
-        except (
-            ValueError,
-            KeyError,
-            TypeError,
-            AttributeError,
-            ValidationError,
-        ) as exc:
-            if attempt:
-                raise APIException(
-                    "AI could not write a valid character description. "
-                    "Your characters are unchanged. Please try again."
-                ) from exc
-            prompt = original_prompt + (
-                "\nThe previous response failed validation. Return exactly one character "
-                'inside {"character": {...}} with nonempty name and appearance, obeying '
-                "all field limits and the existing-name rule."
-            )
+    raw = get_update_sentence(prompt, user=owner)
+    try:
+        character = parse_ai_json(raw)["character"]
+        if not isinstance(character, dict):
+            raise ValueError("Expected one character object")
+        values = {key: character.get(key, "") for key in CHARACTER_PROFILE_FIELDS}
+        if choices.get("name"):
+            values["name"] = choices["name"]
+        serializer = CharacterSerializer(data={"id": str(uuid4()), **values})
+        serializer.is_valid(raise_exception=True)
+        result = {key: serializer.data[key] for key in CHARACTER_PROFILE_FIELDS}
+        existing_names = {name.casefold() for name in choices.get("cast_names", [])}
+        if not choices.get("name") and result["name"].casefold() in existing_names:
+            raise ValueError("Choose a different name from the existing cast")
+        return result
+    except (ValueError, KeyError, TypeError, AttributeError, ValidationError):
+        raise APIException(
+            "AI could not write a valid character description. "
+            "Your characters are unchanged. Please try again."
+        )
 
 
 def request_character_image(*, owner, choices):
