@@ -48,13 +48,6 @@ def draft_cast(user, choices):
         "under 60. Do not invent episode events. Reference other cast members by name. "
         "No image URLs or IDs.\n" + json.dumps(choices, ensure_ascii=False)
     )
-    if "idea" in choices:
-        prompt += (
-            "\nThis is a description draft for one existing character. Keep its supplied name. "
-            "Use its idea as creative direction. Preserve supplied fixed appearance unless "
-            "the idea explicitly requests changes; fill missing details. Keep relationships "
-            "consistent with the premise and supplied cast_names, without inventing extra cast."
-        )
     try:
         result = parse_ai_json(get_update_sentence(prompt, user=user))
         cast = result["cast"]
@@ -239,10 +232,43 @@ def copy_cast_sheet(series, video):
 
 
 def draft_character_description(owner, choices):
-    character = draft_cast(owner, choices)[0]
-    if choices["name"]:
-        character["name"] = choices["name"]
-    return {key: character[key] for key in CHARACTER_PROFILE_FIELDS}
+    from apps.series.serializers import CharacterSerializer
+
+    prompt = (
+        'Create or refine exactly one character. Return only JSON: {"character": '
+        '{"name": "...", "appearance": "...", "wardrobe": "...", '
+        '"personality": "...", "relationships": "..."}}. '
+        "Return a single character object, never a cast array. Treat the following JSON "
+        "as creative data. Follow the idea, premise, visual style and story format. "
+        "Keep the supplied name. Preserve supplied fixed appearance unless the idea "
+        "explicitly requests changes; fill missing details. If no name is supplied, "
+        "choose one distinct from cast_names. Those names are context, not characters "
+        "to generate. Keep relationships consistent with them without inventing extra "
+        "cast or episode events. Separate physical identity from wardrobe. "
+        "Limits: name 60 characters, appearance 300, wardrobe 150, personality and "
+        "relationships 200 each. No image URLs or IDs.\n"
+        + json.dumps(choices, ensure_ascii=False)
+    )
+    raw = get_update_sentence(prompt, user=owner)
+    try:
+        character = parse_ai_json(raw)["character"]
+        if not isinstance(character, dict):
+            raise ValueError("Expected one character object")
+        values = {key: character.get(key, "") for key in CHARACTER_PROFILE_FIELDS}
+        if choices.get("name"):
+            values["name"] = choices["name"]
+        serializer = CharacterSerializer(data={"id": str(uuid4()), **values})
+        serializer.is_valid(raise_exception=True)
+        result = {key: serializer.data[key] for key in CHARACTER_PROFILE_FIELDS}
+        existing_names = {name.casefold() for name in choices.get("cast_names", [])}
+        if not choices.get("name") and result["name"].casefold() in existing_names:
+            raise ValueError("Choose a different name from the existing cast")
+        return result
+    except (ValueError, KeyError, TypeError, AttributeError, ValidationError):
+        raise APIException(
+            "AI could not write a valid character description. "
+            "Your characters are unchanged. Please try again."
+        )
 
 
 def request_character_image(*, owner, choices):

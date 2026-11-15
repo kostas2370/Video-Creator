@@ -13,6 +13,9 @@ const fields = [
 ];
 
 export function SeriesCastEditor({ cast, onChange, visualStyle = "", premise = "", storyFormat = "GENERAL" }) {
+  const [creator, setCreator] = useDraftSection("cast-create", { open: false });
+  const showAICreator = !!creator.open;
+  const setShowAICreator = value => setCreator(previous => ({ open: typeof value === "function" ? value(previous.open) : value }));
   const [selection, setSelection] = useDraftSection("cast-selection", { active: cast[0]?.id || null });
   const active = selection.active;
   const setActive = value => setSelection({ active: value });
@@ -22,10 +25,21 @@ export function SeriesCastEditor({ cast, onChange, visualStyle = "", premise = "
   const patch = (id, values) => onChange(latest.current.map(character => character.id === id ? patchCharacter(character, values) : character));
   const add = () => {
     const character = { id: crypto.randomUUID(), name: "", appearance: "", wardrobe: "", personality: "", relationships: "" };
-    onChange([...cast, character]); setActive(character.id);
+    if (latest.current.length >= 6) return;
+    onChange([...latest.current, character]); setActive(character.id);
+  };
+  const addDraft = draft => {
+    if (latest.current.length >= 6) return;
+    const character = { ...draft, id: crypto.randomUUID() };
+    onChange([...latest.current, character]);
+    setActive(character.id);
+    setShowAICreator(false);
   };
   return <section aria-label="Recurring characters" className="space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="text-sm font-semibold">Your cast <span className="ml-2 font-normal text-gray-400">{cast.length}/6</span></h4><button type="button" disabled={cast.length >= 6} onClick={add} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700">Add character</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="text-sm font-semibold">Your cast <span className="ml-2 font-normal text-gray-400">{cast.length}/6</span></h4><div className="flex flex-wrap gap-2"><button type="button" disabled={cast.length >= 6} onClick={add} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold disabled:opacity-50 dark:border-gray-700">Add character</button><button type="button" disabled={cast.length >= 6} aria-expanded={showAICreator} onClick={() => setShowAICreator(open => !open)} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">Add character with AI</button></div></div>
+    <div hidden={!showAICreator}>
+      <CharacterDescriptionDraft character={{ id: "new-character" }} premise={premise} visualStyle={visualStyle} storyFormat={storyFormat} castNames={cast.map(character => character.name).filter(Boolean)} creating disabled={cast.length >= 6} onUse={addDraft} />
+    </div>
     {cast.length === 0 && <p className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-gray-700">No recurring characters added. Continue without a cast, or add characters whenever you need them.</p>}
     {cast.length > 0 && <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Choose a character">{cast.map((character, index) => <button key={character.id} type="button" aria-label={`Edit character ${character.name || index + 1}`} aria-pressed={selected === character.id} onClick={() => setActive(character.id)} className={`flex shrink-0 items-center gap-3 rounded-2xl border px-4 py-3 text-left ${selected === character.id ? "border-indigo-400 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-900/40" : "border-gray-200 dark:border-gray-700"}`}>{character.image ? <img src={mediaUrl(character.image)} alt="" className="h-10 w-10 rounded-xl object-cover" /> : <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-lg font-semibold text-gray-400 dark:bg-gray-900">{character.name?.[0] || "+"}</span>}<span><span className="block text-sm font-semibold">{character.name || `Character ${index + 1}`}</span><span className="text-xs text-gray-500">{characterIsApproved(character, visualStyle) ? "Look approved" : "Needs a look"}</span></span></button>)}</div>}
     {cast.map((character, index) => <div key={character.id} hidden={selected !== character.id}>

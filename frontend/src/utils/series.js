@@ -1,6 +1,6 @@
 export const defaultSeries = {
   title: "", premise: "", characters: "", visual_style: "", provider: "OPENAI",
-  narration: true, voice_model: "", intro: "", outro: "", subtitles: true,
+  generation_mode: "STANDARD", narration: true, voice_model: "", intro: "", outro: "", subtitles: true,
   video_format: "PORTRAIT", platform: "GENERAL", scene_count: 6,
   cast: [], story_format: "GENERAL",
 };
@@ -22,7 +22,7 @@ export function characterIsApproved(character, visualStyle) {
 
 export function seriesPayload(profile, file, removeReference = false) {
   const values = Object.fromEntries(Object.keys(defaultSeries).map(key => [key,
-    ["voice_model", "intro", "outro"].includes(key) ? profile[key] || null : profile[key],
+    ["voice_model", "intro", "outro"].includes(key) ? profile[key] || null : profile[key] ?? defaultSeries[key],
   ]));
   values.scene_count = Number(values.scene_count);
   values.remove_reference = removeReference;

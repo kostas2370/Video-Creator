@@ -5,11 +5,9 @@ from django.utils.functional import cached_property
 from apps.common.models import TimestampedModel, UUIDModel
 from apps.videomanagement.models import (
     AbstractModel,
-    Intro,
-    Outro,
+    NarrationAssetsModel,
     Video,
     VideoStatus,
-    VoiceModel,
 )
 from apps.videomanagement.video_formats import (
     VIDEO_FORMAT_CHOICES,
@@ -24,7 +22,7 @@ CHARACTER_PROFILE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "personality", "relation
 CHARACTER_REFERENCE_FIELDS = (*CHARACTER_IDENTITY_FIELDS, "visual_style")
 
 
-class VideoSeries(AbstractModel, TimestampedModel):
+class VideoSeries(AbstractModel, TimestampedModel, NarrationAssetsModel):
     title = models.CharField(max_length=100)
     premise = models.TextField(max_length=2000)
     characters = models.TextField(max_length=2000, blank=True)
@@ -39,12 +37,12 @@ class VideoSeries(AbstractModel, TimestampedModel):
     )
     visual_style = models.TextField(max_length=800)
     reference_image = models.ImageField(upload_to="media/series/%Y/%m/%d", blank=True)
-    voice_model = models.ForeignKey(
-        VoiceModel, null=True, blank=True, on_delete=models.SET_NULL
-    )
-    intro = models.ForeignKey(Intro, null=True, blank=True, on_delete=models.SET_NULL)
-    outro = models.ForeignKey(Outro, null=True, blank=True, on_delete=models.SET_NULL)
     provider = models.CharField(max_length=100, default="OPENAI")
+    generation_mode = models.CharField(
+        max_length=12,
+        choices=[("STANDARD", "Standard"), ("ECONOMY", "Economy")],
+        default="STANDARD",
+    )
     narration = models.BooleanField(default=True)
     subtitles = models.BooleanField(default=True)
     video_format = models.CharField(

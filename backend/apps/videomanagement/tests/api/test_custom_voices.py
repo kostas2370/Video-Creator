@@ -169,6 +169,21 @@ class CustomVoiceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(voice, VoiceModel.objects.available_to(self.user))
 
+    def test_shared_voice_preview_uses_the_callers_provider_and_returns_wav(self):
+        from pathlib import Path
+        voice = voice_model.make(created_by=None, provider=Provider.OPENAI, path="fable", is_cloned=False)
+        def save(syn, *, text, save_path, user):
+            self.assertEqual(user, self.user)
+            self.assertEqual(syn.pk, voice.pk)
+            Path(save_path).write_bytes(b"RIFFsample")
+            return save_path
+        with override_settings(OPENAI_KEY="test-key"), patch("apps.videomanagement.views.assets.tts.save", side_effect=save):
+            response = self.client.post(reverse("voicemodel-preview", args=[voice.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, b"RIFFsample")
+        self.assertEqual(response["Content-Type"], "audio/wav")
+        self.assertEqual(response["Cache-Control"], "private, no-store")
+
     def test_preview_is_private_audio_and_records_usage(self):
         voice = self.clone()
         response = self.client.post(reverse("voicemodel-preview", args=[voice.pk]))

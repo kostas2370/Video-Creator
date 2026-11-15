@@ -137,8 +137,12 @@ class VoiceFilter(SearchOrderingFilterSet):
     def scope_queryset(self, queryset):
         if self.action == "destroy":
             queryset = queryset.filter(created_by=self.request.user)
-        elif self.action in ("preview", "refresh"):
+        elif self.action == "refresh":
             queryset = queryset.filter(created_by=self.request.user, is_cloned=True)
+        elif self.action == "preview":
+            queryset = queryset.available_to(self.request.user).filter(
+                is_cloned=False
+            ) | queryset.filter(created_by=self.request.user, is_cloned=True)
         else:
             queryset = queryset.available_to(self.request.user)
         return queryset.order_by("id")

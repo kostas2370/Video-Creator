@@ -81,6 +81,18 @@ class SeriesTests(ApiTestCase):
             )
         return reverse(f"series-{action}", args=[sid])
 
+    def test_economy_mode_is_saved_and_inherited_by_episode_drafts(self):
+        response = self.client.patch(self.url(), {"generation_mode": "ECONOMY"}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["generation_mode"], "ECONOMY")
+        self.series.refresh_from_db()
+        with patch("apps.series.serializers.validate_episode_generation", side_effect=lambda data, context: data):
+            serializer = EpisodeDraftSerializer(data={"idea": "A new mystery"}, context={"series": self.series})
+            serializer.is_valid(raise_exception=True)
+        self.assertEqual(serializer.validated_data["generation_params"]["generation_mode"], "ECONOMY")
+        response = self.client.patch(self.url(), {"generation_mode": "INVALID"}, format="json")
+        self.assertEqual(response.status_code, 400)
+
     def test_cast_round_trips_in_json_and_multipart_and_can_be_cleared(self):
         for encoding in ("json", "multipart"):
             cast = [self.character()]

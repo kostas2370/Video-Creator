@@ -457,7 +457,22 @@ class Outro(AbstractModel):
     file = models.FileField(upload_to="media/other/outros")
 
 
-class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
+class NarrationAssetsModel(models.Model):
+    voice_model = models.ForeignKey(
+        "videomanagement.VoiceModel", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    intro = models.ForeignKey(
+        "videomanagement.Intro", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    outro = models.ForeignKey(
+        "videomanagement.Outro", null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    class Meta:
+        abstract = True
+
+
+class Video(LifecycleModelMixin, AbstractModel, TimestampedModel, NarrationAssetsModel):
     operation_id = models.UUIDField(null=True, editable=False)
     narration_retry_status = models.CharField(max_length=12, blank=True, default="", db_default="", editable=False)
     render_error = models.JSONField(default=dict, blank=True)
@@ -490,6 +505,7 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
         upload_to="media/output", blank=True, null=True, max_length=2000
     )
     dir_name = models.TextField(default="")
+    # Videos retain their existing unconstrained voice reference.
     voice_model = models.ForeignKey(
         VoiceModel,
         on_delete=models.SET_NULL,
@@ -509,8 +525,6 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel):
         max_length=20, choices=VideoStatus.choices, default=VideoStatus.RENDERING
     )
     music = models.ForeignKey(Music, blank=True, null=True, on_delete=models.SET_NULL)
-    intro = models.ForeignKey(Intro, blank=True, null=True, on_delete=models.SET_NULL)
-    outro = models.ForeignKey(Outro, blank=True, null=True, on_delete=models.SET_NULL)
     video_type = models.CharField(
         max_length=20, default=VideoType.AI, choices=VideoType.choices
     )
