@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
+import { getVideos } from "../api/apiService";
+import { VideoThumbnail } from "../components/VideoThumbnail";
+import { videoLibraryInfo } from "../utils/videoLibrary";
 import { Link } from "react-router-dom";
-import { HiOutlineArrowRight, HiOutlineFilm, HiOutlinePlay, HiOutlineCheck } from "react-icons/hi2";
+import { HiOutlineArrowRight, HiOutlineFilm, HiOutlinePlay, HiOutlineCheck, HiOutlineClock } from "react-icons/hi2";
 import { creationModes } from "../utils/creationModes";
 
 function ModePreview({ mode }) {
@@ -13,18 +17,65 @@ function ModePreview({ mode }) {
   </div>;
 }
 
+function RecentProjects() {
+  const [state, setState] = useState({ loading: true, videos: [], error: false });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setState(previous => ({ ...previous, loading: true, error: false }));
+    getVideos("", 1, "", { ordering: "-updated_at" }).then(result => {
+      if (!active) return;
+      const videos = result.ok && Array.isArray(result.data?.results) ? result.data.results.slice(0, 3) : null;
+      setState({ loading: false, videos: videos || [], error: !videos });
+    }).catch(() => {
+      if (active) setState({ loading: false, videos: [], error: true });
+    });
+    return () => { active = false; };
+  }, [attempt]);
+
+  return <section aria-labelledby="recent-heading" className="mb-10">
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <h2 id="recent-heading" className="flex items-center gap-2 text-base font-semibold"><HiOutlineClock aria-hidden="true" className="h-4 w-4 text-gray-400" />Pick up where you left off</h2>
+      <Link to="/videos/" className="studio-text-link shrink-0">All videos <HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+    </div>
+    {state.loading ? <div role="status" className="grid gap-4 md:grid-cols-3"><span className="sr-only">Loading recent projects</span>{[1, 2, 3].map(item => <div key={item} className="studio-panel flex items-center gap-4 p-3"><div className="h-20 w-28 shrink-0 rounded-xl bg-gray-100 motion-safe:animate-pulse dark:bg-gray-700" /><div className="flex-1 space-y-3"><div className="h-3 w-3/4 rounded bg-gray-100 dark:bg-gray-700" /><div className="h-3 w-1/2 rounded bg-gray-100 dark:bg-gray-700" /></div></div>)}</div>
+      : state.error ? <div role="alert" className="studio-panel flex flex-wrap items-center justify-between gap-3 p-5"><p className="text-sm text-gray-500 dark:text-gray-400">We couldn’t load your recent projects.</p><button type="button" onClick={() => setAttempt(value => value + 1)} className="studio-text-link">Try again</button></div>
+      : state.videos.length ? <div className="grid gap-4 md:grid-cols-3">{state.videos.map(video => {
+        const info = videoLibraryInfo(video);
+        return <article key={video.id} className="studio-panel group flex min-w-0 items-center gap-3 p-3">
+          <VideoThumbnail video={video} compact />
+          <div className="min-w-0 flex-1"><p className={`mb-1.5 inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold ${info.color}`}>{info.label}</p><h3 className="truncate text-sm font-semibold" title={video.title || "Untitled video"}>{video.title || "Untitled video"}</h3><Link to={`/videos/${video.id}/`} aria-label={`Continue editing ${video.title || "Untitled video"}`} className="studio-text-link mt-2 text-xs">Continue editing<HiOutlineArrowRight aria-hidden="true" className="h-3 w-3" /></Link></div>
+        </article>;
+      })}</div>
+      : <div className="studio-panel flex items-center gap-4 border-dashed p-5"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"><HiOutlineFilm aria-hidden="true" className="h-5 w-5" /></span><div><h3 className="text-sm font-semibold">A little empty. Full of possibilities.</h3><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Start a video below. Your recent projects will appear here.</p></div></div>}
+  </section>;
+}
+
 export default function CreatePage() {
-  return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-    <header className="mb-9 flex flex-wrap items-end justify-between gap-5">
-      <div><p className="mb-3 text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-300">Your creative workspace</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">What will you create today?</h1><p className="mt-3 max-w-xl leading-relaxed text-gray-500 dark:text-gray-400">Start with an idea, a story, or footage you already love.<br className="hidden sm:block" />Choose your starting point. Make it yours in the editor.</p></div>
-      <Link to="/videos/" className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 hover:border-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">Continue a video<HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
+  const featured = ["ai", "manual"].map(preview => creationModes.find(mode => mode.preview === preview));
+  const moreTools = creationModes.filter(mode => !["ai", "manual"].includes(mode.preview));
+  return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+    <header className="mb-8 flex flex-wrap items-end justify-between gap-5">
+      <div><p className="studio-eyebrow mb-2">Your creative workspace</p><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Let’s make something worth watching.</h1><p className="mt-3 text-sm leading-relaxed text-gray-500 sm:text-base dark:text-gray-400">A new idea or your own footage. Every great video starts somewhere.</p></div>
     </header>
-    <section aria-label="Choose a creation tool" className="grid gap-5 md:grid-cols-2">
-      {creationModes.map(mode => <Link key={mode.to} to={mode.to} className="group flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-4 transition hover:border-blue-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:p-5 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-500">
+    <RecentProjects />
+    <section aria-labelledby="start-heading">
+      <div className="mb-4"><h2 id="start-heading" className="text-lg font-semibold tracking-tight">Start a new video</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose how you’d like to begin.</p></div>
+      <div className="grid gap-5 md:grid-cols-2">{featured.map(mode => <Link key={mode.to} to={mode.to} className="studio-panel studio-card group flex min-w-0 flex-col overflow-hidden p-5 sm:p-6">
+        <div className="mb-5 flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"><mode.icon aria-hidden="true" className="h-5 w-5" /></span><span className="studio-eyebrow">{mode.eyebrow}</span></div>
+        <h3 className="text-2xl font-semibold tracking-tight">{mode.label}</h3><p className="mb-5 mt-2 max-w-md text-sm leading-relaxed text-gray-500 dark:text-gray-400">{mode.description}</p>
         <ModePreview mode={mode} />
-        <div className="flex flex-1 flex-col px-1 pb-1 pt-5"><p className={`text-xs font-semibold ${mode.color}`}>{mode.eyebrow}</p><h2 className="mt-1.5 text-xl font-bold tracking-tight">{mode.label}</h2><p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{mode.description}</p><p className="mb-5 mt-4 flex items-start gap-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400"><HiOutlineCheck aria-hidden="true" className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${mode.color}`} />{mode.requirement}</p><span className={`mt-auto flex items-center justify-between border-t border-gray-100 pt-4 text-sm font-semibold dark:border-gray-700 ${mode.color}`}>{mode.action}<HiOutlineArrowRight aria-hidden="true" className="h-4 w-4 transition-transform motion-safe:group-hover:translate-x-1" /></span></div>
-      </Link>)}
+        <p className="mb-5 mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"><HiOutlineCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-blue-500" />{mode.requirement}</p>
+        <span className={`${mode.preview === "ai" ? "studio-primary-button" : "studio-secondary-button"} mt-auto w-full justify-between`}>{mode.action}<HiOutlineArrowRight aria-hidden="true" className="h-4 w-4 transition-transform motion-safe:group-hover:translate-x-1" /></span>
+      </Link>)}</div>
     </section>
-    <footer className="mt-7 flex flex-wrap items-center justify-between gap-3 px-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400"><p>AI tools use the providers you connect. You can edit your own media without API keys.</p><Link to="/api-keys/" className="font-semibold text-blue-600 hover:underline dark:text-blue-300">Manage providers →</Link></footer>
+    <section aria-labelledby="tools-heading" className="mt-9">
+      <div className="mb-4"><h2 id="tools-heading" className="text-lg font-semibold tracking-tight">More ways to create</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Have a specific result in mind? Start here.</p></div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{moreTools.map(mode => <Link key={mode.to} to={mode.to} className="studio-panel studio-card group flex min-w-0 flex-col p-4">
+        <div className="tool-preview mb-4"><ModePreview mode={mode} /></div>
+        <h3 className="text-sm font-semibold">{mode.label}</h3><p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{mode.description}</p><p className="mb-4 mt-3 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">{mode.requirement}</p><span className="studio-text-link mt-auto justify-between border-t border-gray-100 pt-3 text-xs dark:border-gray-700">{mode.action}<HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" /></span>
+      </Link>)}</div>
+    </section>
+    <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-5 text-xs leading-relaxed text-gray-500 dark:border-gray-800 dark:text-gray-400"><p>Your media, your pace. Connect providers when you want a little AI help.</p><Link to="/api-keys/" className="studio-text-link">Manage providers<HiOutlineArrowRight aria-hidden="true" className="h-3 w-3" /></Link></footer>
   </main>;
 }

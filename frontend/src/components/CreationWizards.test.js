@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../hooks/useAxiosPrivate", () => ({ useAxiosPrivate: () => ({}) }));
@@ -132,4 +132,21 @@ it("creates a topic-based series by skipping optional characters", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Create series" }));
   await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ cast: [], characters: "", story_format: "GENERAL" })));
   expect(api.draftCharacterDescription).not.toHaveBeenCalled();
+});
+
+it("updates the project summary and preserves choices when editing from it", () => {
+  render(<MemoryRouter><Home /></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText("Your prompt"), { target: { value: "A fox explores the forest" } });
+  const summary = within(screen.getByRole("complementary", { name: "Your video at a glance" }));
+  expect(summary.getByText("A fox explores the forest")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+  fireEvent.click(screen.getByRole("radio", { name: /Portrait/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Narration/ }));
+  expect(summary.getByText("Portrait")).toBeTruthy();
+  expect(summary.getByText("Off")).toBeTruthy();
+  fireEvent.click(summary.getByRole("button", { name: "Edit idea in project summary" }));
+  expect(screen.getByLabelText("Your prompt").value).toBe("A fox explores the forest");
+  fireEvent.click(summary.getByRole("button", { name: "Edit look and sound in project summary" }));
+  expect(screen.getByRole("radio", { name: /Portrait/ }).checked).toBe(true);
+  expect(api.generateVideo).not.toHaveBeenCalled();
 });
