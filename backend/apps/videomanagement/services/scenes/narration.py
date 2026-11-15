@@ -4,18 +4,18 @@ import uuid
 from collections import defaultdict, deque
 
 from django.db import transaction
-from apps.usage.services import video_usage
 from rest_framework.exceptions import ValidationError
 
+from apps.usage.services import video_usage
 from apps.videomanagement.integrations.tts import ApiSyn, save
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, Video
-from apps.videomanagement.serializers.overlays import OverlaySerializer
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.schemas.shot_planning import STILL_MOTION, ShotPlanSerializer
+from apps.videomanagement.serializers.overlays import OverlaySerializer
 from apps.videomanagement.services.captions.alignment import align_scene_narration
 from apps.videomanagement.utils.file_utils import stored_file_exists
-from apps.videomanagement.utils.prompt_utils import script_lines
+from apps.videomanagement.utils.storyboard import script_lines
 
 from .ordering import assign_scene_positions
 

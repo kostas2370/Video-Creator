@@ -7,8 +7,8 @@ from apps.usage.services import video_usage
 from apps.videomanagement.exceptions import VideoEditConflict
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.models import VideoStatus
+from apps.videomanagement.prompts.writing import build_narration_prompt
 from apps.videomanagement.serializers.requests import NarrationSceneSerializer
-from apps.videomanagement.utils.prompt_utils import build_narration_prompt
 
 
 def visual_description(scene):

@@ -9,25 +9,25 @@ from apps.clips.models import Clip, ClipProject
 from apps.series.models import SeriesEpisode, VideoSeries
 from apps.series.services import characters, episodes
 from apps.videomanagement.models import Scene, Video
-from apps.videomanagement.services.media import music_search
+from apps.videomanagement.prompts.writing import (
+    build_ideas_prompt,
+    build_prompt_rewrite,
+)
 from apps.videomanagement.serializers.ideas import (
     IdeaResultSerializer,
     PromptResultSerializer,
 )
+from apps.videomanagement.services.media import music_search
 from apps.videomanagement.services.scenes import generation as scene_generation
 from apps.videomanagement.services.scenes.starting_frame_review import (
     review_starting_frame,
 )
 from apps.videomanagement.services.videos import story as video_story
-from apps.videomanagement.services.videos.ideas import creative_reply
 from apps.videomanagement.services.videos import tags as video_tags
 from apps.videomanagement.services.videos import youtube_metadata
-from apps.videomanagement.services.videos.storyboard_revision import revise_storyboard
+from apps.videomanagement.services.videos.ideas import creative_reply
 from apps.videomanagement.services.videos.narration_setup import draft_narration
-from apps.videomanagement.utils.prompt_utils import (
-    build_ideas_prompt,
-    build_prompt_rewrite,
-)
+from apps.videomanagement.services.videos.storyboard_revision import revise_storyboard
 
 
 def load_user(user_id):

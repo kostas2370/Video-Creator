@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from apps.videomanagement.baker_recipes import scene_image, video
 from apps.videomanagement.integrations.llm import get_reply, script_errors
+from apps.videomanagement.prompts.storyboard import build_script_prompt
 from apps.videomanagement.schemas.shot_planning import ShotPlanSerializer
 from apps.videomanagement.serializers.requests import StoryboardSerializer
 from apps.videomanagement.services.scenes.narration import ensure_scene_rows
@@ -18,7 +19,7 @@ from apps.videomanagement.services.scenes.visuals import (
     visual_generation_duration,
 )
 from apps.videomanagement.tests.api.base import ApiTestCase
-from apps.videomanagement.utils.prompt_utils import build_script_prompt, script_lines
+from apps.videomanagement.utils.storyboard import script_lines
 from apps.videomanagement.utils.timing import scene_timing
 
 PLAN = {

@@ -3,8 +3,9 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
+from apps.videomanagement.prompts.storyboard import build_script_prompt
+from apps.videomanagement.prompts.visuals import audio_direction
 from apps.videomanagement.services.scenes.timeline import scene_segment
-from apps.videomanagement.utils.prompt_utils import audio_direction, build_script_prompt
 from apps.videomanagement.utils.video_audio import audio_mode
 
 

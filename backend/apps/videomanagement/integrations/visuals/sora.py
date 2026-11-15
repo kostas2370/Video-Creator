@@ -1,5 +1,3 @@
-from apps.videomanagement.integrations.base import ImageProvider
-from apps.usage.pricing import estimate_line
 import logging
 import os
 import uuid
@@ -12,9 +10,11 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
-from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.usage.pricing import estimate_line
 from apps.usage.services import record_usage
-from apps.videomanagement.utils.prompt_utils import audio_direction, format_sora_prompt
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.videomanagement.prompts.visuals import audio_direction, format_sora_prompt
 
 logger = logging.getLogger(__name__)
 

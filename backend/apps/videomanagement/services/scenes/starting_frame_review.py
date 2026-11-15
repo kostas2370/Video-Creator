@@ -11,16 +11,16 @@ from apps.common.ai_json import parse_ai_json
 from apps.usage.services import video_usage
 from apps.videomanagement.integrations.llm import get_reply
 from apps.videomanagement.models import Scene, Video
+from apps.videomanagement.prompts.visuals import build_starting_frame_review_prompt
 from apps.videomanagement.serializers.starting_frame_review import (
     StartingFrameReviewResultSerializer,
 )
 from apps.videomanagement.services.scenes.starting_frames import (
-    validate_starting_frame_state,
     current_frame_key,
     validate_current_starting_frame,
+    validate_starting_frame_state,
 )
 from apps.videomanagement.utils.file_utils import stored_file_exists
-from apps.videomanagement.utils.prompt_utils import build_starting_frame_review_prompt
 
 
 def review_source_key(scene):

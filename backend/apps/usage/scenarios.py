@@ -3,7 +3,7 @@ import math
 from django.conf import settings
 
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
-from apps.videomanagement.utils.prompt_utils import build_script_prompt
+from apps.videomanagement.prompts.storyboard import build_script_prompt
 from apps.videomanagement.services.media.icons import icon_candidates
 
 from .models import AIUsage

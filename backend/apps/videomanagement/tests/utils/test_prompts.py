@@ -2,16 +2,17 @@ import json
 
 from django.test import SimpleTestCase
 
-from ...utils.prompt_utils import (
+from apps.videomanagement.prompts.storyboard import (
     build_scene_draft_prompt,
     build_script_prompt,
+)
+from apps.videomanagement.prompts.visuals import format_image_prompt, format_sora_prompt
+from apps.videomanagement.prompts.writing import (
     build_story_draft_prompt,
     format_cover_prompt,
-    format_image_prompt,
-    format_sora_prompt,
     format_update_form,
-    scene_text,
 )
+from apps.videomanagement.utils.storyboard import scene_text
 
 
 class FormatPromptTests(SimpleTestCase):

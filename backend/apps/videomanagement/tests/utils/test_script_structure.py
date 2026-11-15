@@ -2,7 +2,7 @@ import json
 
 from django.test import SimpleTestCase
 
-from ...utils.prompt_utils import build_script_prompt
+from apps.videomanagement.prompts.storyboard import build_script_prompt
 
 
 class ScriptFormatTests(SimpleTestCase):

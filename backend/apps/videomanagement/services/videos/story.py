@@ -7,11 +7,11 @@ from apps.common.ai_json import parse_ai_json
 from apps.videomanagement import tasks
 from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.models import SceneImage
+from apps.videomanagement.prompts.writing import build_story_draft_prompt
 from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
 from apps.videomanagement.services.scenes.jobs import QueueUnavailable, queue_scene_job
 from apps.videomanagement.services.scenes.narration import make_scene_speech
 from apps.videomanagement.services.videos.manual import create_manual_video
-from apps.videomanagement.utils.prompt_utils import build_story_draft_prompt
 
 
 def draft_story(user, prompt):

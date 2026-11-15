@@ -206,7 +206,7 @@ contains `create_pending_video()`, `generate_video()`, and `resume_video()`.
 
 The script format is shared by [defaults.py](../backend/apps/videomanagement/defaults.py),
 `check_json()` in [llm.py](../backend/apps/videomanagement/integrations/llm.py), and
-`script_lines()` in [prompt_utils.py](../backend/apps/videomanagement/utils/prompt_utils.py).
+`script_lines()` in [utils/storyboard.py](../backend/apps/videomanagement/utils/storyboard.py).
 Change these together when changing the LLM output shape. Without narration, visual
 descriptions supply scene text instead of spoken sentences. Video providers receive
 shot-oriented descriptions.

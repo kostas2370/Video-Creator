@@ -18,8 +18,9 @@ from rest_framework.exceptions import APIException
 from apps.apikeysmanagement.models import ApiKeys
 from apps.usage.pricing import estimate_line
 from apps.videomanagement.integrations.base import ImageProvider
+from apps.videomanagement.prompts.visuals import audio_direction
 from apps.videomanagement.utils.image_inputs import image_data
-from apps.videomanagement.utils.prompt_utils import audio_direction
+
 from .custom import save_video
 from .registry import ImageProviderRegistry
 

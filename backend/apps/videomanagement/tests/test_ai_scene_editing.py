@@ -10,9 +10,9 @@ from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.baker_recipes import video
 from apps.videomanagement.integrations.llm import get_reply, script_errors
+from apps.videomanagement.prompts.storyboard import build_script_prompt
 from apps.videomanagement.serializers.requests import StoryboardSerializer
 from apps.videomanagement.services.scenes.narration import ensure_scene_rows
-from apps.videomanagement.utils.prompt_utils import build_script_prompt
 
 PLAN = {
     "motion_style": "ZOOM_IN", "motion_intensity": "SUBTLE",
