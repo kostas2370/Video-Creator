@@ -1,32 +1,24 @@
-import { useState, createContext } from 'react'
-
+import { createContext, useState } from "react";
 
 export const AuthContext = createContext({
-    user: {},
-    setUser: () => { },
-    access_token: null,
-    refresh_token: null,
-    csrftoken: null,
-    setAccessToken: () => { },
-    setRefreshToken: () => { },
-    setCSRFToken: () => { }
-})
+  user: {},
+  access_token: null,
+  csrftoken: null,
+  setUser: () => {},
+  setAccessToken: () => {},
+  setCSRFToken: () => {},
+});
 
-export function AuthContextProvider(props) {
+export function AuthContextProvider({ children }) {
+  const [user, setUser] = useState({});
+  const [access_token, setAccessToken] = useState();
+  const [csrftoken, setCSRFToken] = useState();
 
-    const [user, setUser] = useState({})
-    const [access_token, setAccessToken] = useState()
-    const [refresh_token, setRefreshToken] = useState()
-    const [csrftoken, setCSRFToken] = useState()
-
-    return <AuthContext.Provider value={{
-        user, setUser,
-        access_token, setAccessToken,
-        refresh_token, setRefreshToken,
-        csrftoken, setCSRFToken
-    }}>
-        {props.children}
+  return (
+    <AuthContext.Provider value={{ user, setUser, access_token, setAccessToken, csrftoken, setCSRFToken }}>
+      {children}
     </AuthContext.Provider>
+  );
 }
 
-export default AuthContext
+export default AuthContext;

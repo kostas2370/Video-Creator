@@ -7,6 +7,8 @@ import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
 import { LegalFooter } from "./components/LegalFooter";
 import { PageLoadBoundary } from "./components/PageLoadBoundary";
+import { PageLoading } from "./components/PageLoading";
+import { pageLayout } from "./utils/pageLayout";
 
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const Login = lazy(() => import("./pages/LoginPage"));
@@ -48,20 +50,16 @@ function App() {
   const { access_token } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  const shouldShowNavbar =
-    (!!access_token || !/^\/(guide|whats-new)\/?$/.test(location.pathname)) &&
-    !/^\/(privacy|terms|contact|login|register)\/?$/.test(location.pathname) &&
-    !location.pathname.startsWith("/forgot-password") &&
-    !location.pathname.startsWith("/reset-password");
+  const { showNavbar } = pageLayout(location.pathname, !!access_token);
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white">
-      {shouldShowNavbar ? (
+      {showNavbar ? (
         <Navbar theme={theme} toggleTheme={toggleTheme} />
       ) : null}
 
       <PageLoadBoundary resetKey={location.pathname}>
-        <Suspense fallback={<div role="status" className="flex min-h-[50vh] items-center justify-center px-6 text-sm text-gray-500 dark:text-gray-400">Loading page…</div>}>
+        <Suspense fallback={<PageLoading />}>
           <Routes>
             <Route path="/guide/" element={<GuidePage />} />
             <Route path="/whats-new/" element={<WhatsNewPage />} />
