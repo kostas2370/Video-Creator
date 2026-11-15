@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from "react";
+import "./components/PublicPages.css";
 import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
 import Navbar from "./components/ui/myNavBar";
@@ -50,10 +51,10 @@ function App() {
   const { access_token } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  const { showNavbar } = pageLayout(location.pathname, !!access_token);
+  const { showNavbar, publicShell } = pageLayout(location.pathname, !!access_token);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white">
+    <div className={`min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white ${publicShell ? "public-shell" : ""}`}>
       {showNavbar ? (
         <Navbar theme={theme} toggleTheme={toggleTheme} />
       ) : null}

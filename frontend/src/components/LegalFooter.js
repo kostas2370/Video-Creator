@@ -1,15 +1,19 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { hasEmbeddedFooter } from "../utils/pageLayout";
+import "./LegalFooter.css";
 
-export function LegalFooter() {
+export function LegalFooter({ compact = false }) {
+  const { pathname } = useLocation();
+  // Authentication pages place this same footer inside the form panel.
+  if (!compact && hasEmbeddedFooter(pathname)) return null;
+
   return (
-    <footer className="border-t border-gray-200 px-6 py-6 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
-      <nav aria-label="Help and legal" className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-6 gap-y-3">
-        <Link className="underline underline-offset-4" to="/guide/">Guide</Link>
-        <Link className="underline underline-offset-4" to="/whats-new/">What’s new</Link>
-        <Link className="underline underline-offset-4" to="/terms/">Terms of Service</Link>
-        <Link className="underline underline-offset-4" to="/privacy/">Privacy Policy</Link>
-        <Link className="underline underline-offset-4" to="/contact/">Contact us</Link>
+    <footer className="site-footer">
+      <nav aria-label="Help and legal">
+        <Link to="/privacy/">Privacy</Link>
+        <Link to="/terms/">Terms</Link>
+        <Link to="/contact/">Contact</Link>
       </nav>
     </footer>
   );
