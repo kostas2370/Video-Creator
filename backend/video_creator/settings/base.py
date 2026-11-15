@@ -6,6 +6,8 @@ from datetime import timedelta
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Paths
 # settings/ is a package now, so BASE_DIR is three parents up rather than two.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -19,8 +21,11 @@ YOUTUBE_CAPTIONS_ENABLED = (
 ).lower() == "true"
 
 # Security
-# `or`, not a getenv default: .env_example ships this blank, and "" would override it.
-SECRET_KEY = os.getenv("SECRET_KEY") or "REMOVED_EXPOSED_CREDENTIAL"
+SECRET_KEY = (os.getenv("SECRET_KEY") or "").strip()
+if not SECRET_KEY or SECRET_KEY == "REMOVED_EXPOSED_CREDENTIAL":
+    raise ImproperlyConfigured(
+        "Set SECRET_KEY to a persistent, randomly generated secret before starting."
+    )
 
 FIELD_ENCRYPTION_KEY = (
     os.getenv("FIELD_ENCRYPTION_KEY")
@@ -193,6 +198,7 @@ USE_TZ = True
 STATIC_URL = "static/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "")
 MEDIA_URL = ""
+MEDIA_ACCEL_REDIRECT = (os.getenv("MEDIA_ACCEL_REDIRECT") or "false").lower() == "true"
 
 # Templates
 TEMPLATES = [
@@ -230,7 +236,7 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_EXPOSE_HEADERS = ["Content-Type", "X-CSRFToken", "X-Request-ID"]
 CSRF_TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 CSRF_COOKIE_SECURE = COOKIES_SECURE
-CSRF_COOKIE_HTTP_ONLY = True
+CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 SESSION_COOKIE_SECURE = COOKIES_SECURE
 SESSION_COOKIE_SAMESITE = CROSS_SITE_SAMESITE

@@ -72,7 +72,9 @@ cp backend/.env_example backend/.env
 
 Edit `backend/.env` and add credentials for the providers you want to use. For an
 OpenAI-based workflow, set `OPEN_API_KEY` (the variable is named exactly this).
-Leave `ENV` blank for local development.
+Leave `ENV` blank for local development. Set `SECRET_KEY` to a persistent random
+value generated with `python -c "import secrets; print(secrets.token_urlsafe(64))"`.
+Startup fails if it is missing, blank, or the retired placeholder.
 
 ```sh
 cd backend
@@ -384,7 +386,32 @@ including cleanup of expired deleted scenes. Start the frontend separately with
 The quick start is a local development configuration. For a deployment, set
 `ENV=prod`, a unique `SECRET_KEY`, explicit `ALLOWED_HOSTS`, `FRONTEND_URL`, SMTP
 settings, and MySQL credentials. Serve the app over HTTPS; production authentication
-uses secure cookies.
+uses secure cookies, HTTPS redirects, and HSTS. Production rejects weak signing
+secrets and non-HTTPS frontend origins.
+
+Compose binds the frontend (3000) and backend (8000) to loopback; MySQL and Redis
+have no host ports. Put a TLS reverse proxy on the host in front of
+`127.0.0.1:3000`, preserve `Host`, and **overwrite** `X-Forwarded-Proto` with the
+external scheme. Keep port 8000 private. The bundled nginx forwards the sanitized
+scheme to Django; exposing either upstream directly breaks this trust boundary.
+`TRUSTED_PROXY_HOPS=1` trusts nginx's replacement client-IP header. Add any external
+login limits at the TLS edge as well; nginx treats that edge as the client address.
+
+Login is limited to 10 attempts per IP per minute and 10 per normalized account
+per five minutes, including failed attempts. Production stores counters atomically
+in the shared Redis cache (`CACHE_URL`, default Redis DB 2); keep it private and
+available. A cache failure stops login rather than bypassing the limits.
+
+Cookie-authenticated writes, login, refresh, and logout require CSRF tokens. The
+browser bootstraps one from `GET /api/csrf/` and sends `X-CSRFToken` on writes;
+login rotates it. API clients using only bearer authorization remain supported.
+
+All `/media/` requests require authentication and a registered file owned by the
+caller, or an explicitly shared catalog asset. This applies in development too.
+Unregistered files are unavailable. Byte ranges and HEAD requests are supported.
+For nginx file acceleration, set `MEDIA_ACCEL_REDIRECT=true`; the supplied internal
+nginx location serves bytes only after Django authorizes the exact file. Keep the
+read-only media mount and never add a public media alias.
 
 Set a persistent `FIELD_ENCRYPTION_KEY` before storing user credentials and back it
 up securely. If unset, it is derived from `SECRET_KEY`; changing that secret then
@@ -393,9 +420,9 @@ private publishing snapshots across deployments.
 
 Set the database port explicitly for your installation. The supplied MySQL container
 listens on port 3306, which is also the production default. Host connections use
-port 3307 through the `3307:3306` mapping. For an API container
+an explicitly configured loopback-only mapping if needed for maintenance. For an API container
 connecting to the Compose database, use `MYSQL_HOST=db` and `MYSQL_PORT=3306`.
-Review database persistence and exposed ports before deploying the Compose stack.
+Review database persistence before deploying the Compose stack.
 
 Creator publishing requires registered developer applications and platform-specific
 configuration. The [publishing guide](docs/social-publishing.md) covers credentials,

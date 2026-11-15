@@ -5,6 +5,9 @@ on:
     branches: [ "main" ]
   pull_request:
 
+env:
+  SECRET_KEY: ci-only-signing-key-for-isolated-tests-do-not-use-in-production
+
 jobs:
   build:
 

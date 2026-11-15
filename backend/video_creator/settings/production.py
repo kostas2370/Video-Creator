@@ -1,9 +1,10 @@
 import os
+from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401,F403
-from .base import BASE_DIR, FRONTEND_URL, SIMPLE_JWT
+from .base import BASE_DIR, FRONTEND_URL, SECRET_KEY, SIMPLE_JWT
 
 DEBUG = False
 
@@ -13,13 +14,37 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
-if not ALLOWED_HOSTS:
+if not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
     raise ImproperlyConfigured(
         "ALLOWED_HOSTS must name the hosts this deployment answers on. "
         "Set it to a comma separated list, for example "
         "ALLOWED_HOSTS=viddie.example.com,www.viddie.example.com"
     )
 
+
+if (
+    len(SECRET_KEY) < 50
+    or len(set(SECRET_KEY)) < 5
+    or SECRET_KEY.startswith("django-insecure-")
+):
+    raise ImproperlyConfigured(
+        "Production SECRET_KEY must be a strong random secret of at least 50 characters."
+    )
+
+SECURE_SSL_REDIRECT = True
+# Only the private nginx upstream may reach Django; it overwrites this header.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+
+# Shared across API workers; keep rate-limit counters separate from Celery data.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("CACHE_URL") or "redis://redis-stack-server:6379/2",
+    }
+}
 
 COOKIES_SECURE = True
 CROSS_SITE_SAMESITE = "None"
@@ -55,6 +80,14 @@ EMAIL_BACKEND = (
 FRONTEND_URL = (os.getenv("FRONTEND_URL") or "").rstrip("/") or next(
     (f"https://{host}" for host in ALLOWED_HOSTS if "*" not in host), FRONTEND_URL
 )
+
+frontend_origin = urlparse(FRONTEND_URL)
+if (
+    frontend_origin.scheme != "https"
+    or not frontend_origin.netloc
+    or frontend_origin.path
+):
+    raise ImproperlyConfigured("Production FRONTEND_URL must be an HTTPS origin.")
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ORIGIN_ALLOW_ALL = False

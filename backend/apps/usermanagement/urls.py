@@ -10,6 +10,7 @@ from .views import (
     NotificationView,
     UserRegisterView,
     VerifyEmail,
+    csrf_token,
     logout_view,
 )
 
@@ -18,6 +19,7 @@ router.register("notifications", NotificationView, basename="notification")
 
 
 urlpatterns = [
+    path("csrf/", csrf_token, name="csrf-token"),
     path("contact/", ContactView.as_view(), name="contact"),
     path("notifications/events/", event_updates, name="notification_events"),
     path("login/", LoginView.as_view(), name="login"),

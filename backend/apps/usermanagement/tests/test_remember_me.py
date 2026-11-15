@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.conf import settings
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -14,6 +15,7 @@ PASSWORD = "a-very-good-password"
 
 class RememberMeTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.user = user.make()
         self.user.set_password(PASSWORD)
         self.user.save()
