@@ -107,6 +107,10 @@ class ProductionConfigurationTests(SimpleTestCase):
 class CSRFSecurityTests(TestCase):
     def setUp(self):
         cache.clear()
+        # Exercise real login/CSRF behavior without requiring the email queue.
+        self.send_email = self.enterContext(
+            patch("apps.usermanagement.services.send_email.delay")
+        )
         self.owner = user.make()
         self.owner.set_password("Strong-password-123")
         self.owner.save()
@@ -127,6 +131,7 @@ class CSRFSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotEqual(cookie, response.cookies["csrftoken"].value)
         self.assertTrue(response["X-CSRFToken"])
+        self.send_email.assert_called_once()
 
     def test_login_logout_login_reuses_csrf_without_reloading(self):
         data = {"username": self.owner.username, "password": "Strong-password-123"}
