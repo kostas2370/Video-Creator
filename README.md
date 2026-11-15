@@ -334,6 +334,8 @@ After upgrading, apply the included migrations, restart the API and workers, and
 rebuild the frontend. Run `python manage.py archive_reference_images` to add older
 reference images and project image files to the library; this makes no AI requests.
 
+Enter your own episode idea or choose **Generate episode idea** for an AI suggestion based on the saved premise, cast, and reviewed memories. Review it and choose **Use this idea** before drafting. Suggestions use your AI text provider and do not create an episode or generate media.
+
 Use **Draft next episode** with a new idea. Drafting uses the configured text model
 and opens a normal video project. Review and edit its storyboard before approving
 narration and visual generation. Each episode snapshots the saved series setup and

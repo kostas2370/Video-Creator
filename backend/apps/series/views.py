@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from apps.series.models import Character, VideoSeries
 from apps.series.serializers import (
     EpisodeDraftSerializer,
+    EpisodeIdeaSerializer,
     EpisodeMemoryDraftSerializer,
     EpisodeMemorySerializer,
     SeriesEpisodeSerializer,
@@ -63,7 +64,7 @@ class VideoSeriesView(viewsets.ModelViewSet):
             return [SeriesCastDraftRateThrottle()]
         if self.action == "character_references" and self.request.method == "POST":
             return [CharacterImageRateThrottle()]
-        if self.action == "draft_memory":
+        if self.action in ("draft_memory", "episode_idea"):
             return [SeriesMemoryRateThrottle()]
         if self.request.method == "POST" and self.action in ("episodes", "retry"):
             return [GenerateRateThrottle()]
@@ -117,6 +118,22 @@ class VideoSeriesView(viewsets.ModelViewSet):
         return Response(
             CharacterSerializer(reference, context=self.get_serializer_context()).data,
             status=201 if serializer.validated_data.get("image") else 202,
+        )
+
+    @action(detail=True, methods=["post"])
+    def episode_idea(self, request, pk=None):
+        series = self.get_object()
+        serializer = EpisodeIdeaSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(
+            queue_draft(
+                request.user,
+                draft_tasks.draft_episode_idea_task,
+                series_id=str(series.pk),
+                **serializer.validated_data,
+            ),
+            status=202,
+            headers={"Cache-Control": "no-store"},
         )
 
     @action(detail=True, methods=["get", "post"])

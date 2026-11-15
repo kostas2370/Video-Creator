@@ -22,7 +22,7 @@ export function SeriesLibraryCard({ series }) {
   </Link>;
 }
 
-export function EpisodeComposer({ profile, idea, onIdeaChange, onSubmit, busy, editing, loading, error, onSetup }) {
+export function EpisodeComposer({ profile, idea, onIdeaChange, onSubmit, busy, editing, loading, error, onSetup, onGenerateIdea, ideaGenerating, suggestedIdea, onUseIdea, onDismissIdea }) {
   const active = profile.active_episode;
   if (active) return <section aria-label="Current episode" className="mb-7 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 sm:p-6 dark:border-indigo-800 dark:bg-indigo-900/40">
     <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-300">Pick up where you left off</span>
@@ -41,10 +41,14 @@ export function EpisodeComposer({ profile, idea, onIdeaChange, onSubmit, busy, e
     <div className="p-5 sm:p-6">
       <label className="block text-sm font-semibold">Episode idea<textarea required maxLength={2000} rows={3} disabled={busy || editing || loading} value={idea} onChange={event => onIdeaChange(event.target.value)} placeholder="A new question, a surprising discovery, or an idea to explore…" className={`${editorInput} mt-2 resize-y font-normal`} /></label>
       <div className="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400"><span>A specific starting point makes a stronger story.</span><span className="shrink-0">{idea.length}/2000</span></div>
+      <button type="button" disabled={busy || editing || loading} onClick={onGenerateIdea} className="mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-indigo-600 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-300"><HiOutlineSparkles aria-hidden="true" />{ideaGenerating ? "Suggesting an idea…" : "Generate episode idea"}</button>
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Uses your AI text provider and may incur charges. Review the suggestion before using it.</p>
+      {ideaGenerating && <p role="status" className="mt-3 text-sm">Finding a new story for your series…</p>}
+      {suggestedIdea && <section aria-label="Suggested episode idea" className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-900/30"><h3 className="text-sm font-semibold">Suggested episode idea</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{suggestedIdea}</p><div className="mt-3 flex flex-wrap gap-3"><button type="button" disabled={busy || editing || loading} onClick={onUseIdea} className={editorButton}>Use this idea</button><button type="button" disabled={busy} onClick={onDismissIdea} className="rounded-lg px-3 py-2 text-sm font-semibold">Dismiss</button></div></section>}
       <ol aria-label="Episode creation steps" className="my-4 grid grid-cols-3 gap-2 border-y border-gray-100 py-3 text-xs dark:border-gray-700">{["Add an idea", "Review storyboard", "Generate media"].map((step, index) => <li key={step} className="flex items-center gap-2"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-semibold ${index === 0 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200" : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300"}`}>{index + 1}</span><span>{step}</span></li>)}</ol>
       {editing && <p role="status" className="mb-3 text-sm text-amber-700 dark:text-amber-300">Save or close series setup before drafting.</p>}
       {error && <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-300">{error}</p>}
-      <div className="flex flex-wrap items-center gap-3"><button type="submit" disabled={busy || editing || loading || !idea.trim()} className={`${editorButton} inline-flex items-center gap-2`}><HiOutlineSparkles aria-hidden="true" />{busy ? "Preparing episode…" : "Draft next episode"}</button><span className="text-xs text-gray-500 dark:text-gray-400">Review the script before generating media.</span></div>
+      <div className="flex flex-wrap items-center gap-3"><button type="submit" disabled={busy || editing || loading || !idea.trim()} className={`${editorButton} inline-flex items-center gap-2`}><HiOutlineSparkles aria-hidden="true" />{busy && !ideaGenerating ? "Preparing episode…" : "Draft next episode"}</button><span className="text-xs text-gray-500 dark:text-gray-400">Review the script before generating media.</span></div>
       <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Uses your AI text provider, saved setup and reviewed memories from the latest ten prepared episodes.</p>
     </div>
   </form>;

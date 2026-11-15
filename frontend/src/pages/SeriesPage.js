@@ -10,7 +10,7 @@ import { AssetPagination } from "../components/ui/AssetPagination";
 import { editorButton } from "../components/ui/EditorDialog";
 import { useDraftOwner } from "../hooks/useCreationDraft";
 import { creationDraftKey, readCreationDraft } from "../utils/creationDrafts";
-import { createSeries, getSeries, getSeriesProfile, updateSeries, deleteSeries, getSeriesEpisodes, draftSeriesEpisode, saveEpisodeMemory, draftEpisodeMemory, retrySeriesEpisode } from "../api/apiService";
+import { createSeries, getSeries, getSeriesProfile, updateSeries, deleteSeries, getSeriesEpisodes, draftSeriesEpisode, generateSeriesEpisodeIdea, saveEpisodeMemory, draftEpisodeMemory, retrySeriesEpisode } from "../api/apiService";
 
 export { EpisodeCard } from "../components/SeriesEpisodeCard";
 
@@ -79,6 +79,8 @@ function SeriesWorkspace({ id }) {
   const [formError, setFormError] = useState("");
   const [idea, setIdea] = useState("");
   const [draftError, setDraftError] = useState("");
+  const [ideaGenerating, setIdeaGenerating] = useState(false);
+  const [suggestedIdea, setSuggestedIdea] = useState("");
   const [reload, setReload] = useState(0);
   useEffect(() => {
     let active = true; setLoading(true); setError("");
@@ -110,6 +112,16 @@ function SeriesWorkspace({ id }) {
       setReload(value => value + 1);
     } finally { setBusy(false); }
   };
+  const generateIdea = async () => {
+    if (busy || editing || loading) return;
+    setBusy(true); setIdeaGenerating(true); setDraftError("");
+    try {
+      const response = await generateSeriesEpisodeIdea(id, idea.trim());
+      if (!response.ok) throw new Error(response.message || "Could not suggest an episode idea.");
+      setSuggestedIdea(response.data.idea);
+    } catch (reason) { setDraftError(reason.message); }
+    finally { setBusy(false); setIdeaGenerating(false); }
+  };
   const draft = event => {
     event.preventDefault();
     if (!editing && !loading && !profile?.active_episode && idea.trim()) startEpisode(() => draftSeriesEpisode(id, idea.trim()));
@@ -138,7 +150,7 @@ function SeriesWorkspace({ id }) {
     {error && <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200"><p>{error} Your current work is kept.</p><button type="button" disabled={loading} onClick={() => setReload(value => value + 1)} className={textButton}>Try again</button></div>}
     {editing && <div className="mb-7"><SeriesProfileForm initial={profile} busy={busy} error={formError} onSave={saveProfile} onCancel={() => setEditing(false)} /><div className="mt-3 text-right"><button type="button" disabled={busy} onClick={() => setConfirmingRemoval(true)} className="rounded-lg px-3 py-2 text-sm text-red-600 disabled:opacity-40 dark:text-red-300">Delete series</button></div></div>}
     <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <section className="min-w-0"><EpisodeComposer profile={profile} idea={idea} onIdeaChange={setIdea} onSubmit={draft} busy={busy} editing={editing} loading={loading} error={draftError} onSetup={() => setEditing(true)} />
+      <section className="min-w-0"><EpisodeComposer profile={profile} idea={idea} onIdeaChange={setIdea} onSubmit={draft} busy={busy} editing={editing} loading={loading} error={draftError} onSetup={() => setEditing(true)} onGenerateIdea={generateIdea} ideaGenerating={ideaGenerating} suggestedIdea={suggestedIdea} onUseIdea={() => { setIdea(suggestedIdea); setSuggestedIdea(""); }} onDismissIdea={() => setSuggestedIdea("")} />
         <div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">Episodes &amp; memory</h2><button type="button" disabled={loading || busy} onClick={() => setReload(value => value + 1)} className={textButton}>{loading ? "Refreshing…" : "Refresh"}</button></div>
         {episodes?.results?.length === 0 && <div className={`${panel} border-dashed text-sm leading-relaxed text-gray-500 dark:text-gray-400`}>{profile.cast_ready === false ? "Finish your cast setup to begin episode one." : "Your series is ready for episode one."} Each finished episode adds memory for the next story.</div>}
         <div className="space-y-4">{episodes?.results?.map(episode => <EpisodeCard key={episode.id} episode={episode} onMemorySave={saveMemory} onMemoryDraft={(episodeId, summary) => draftEpisodeMemory(id, episodeId, summary)} onRetry={retry} disabled={busy || loading} />)}</div><AssetPagination pagination={episodes} loading={loading || busy} onPage={setPage} />

@@ -298,6 +298,10 @@ def validate_episode_generation(choices, context):
     return params
 
 
+class EpisodeIdeaSerializer(serializers.Serializer):
+    idea = serializers.CharField(max_length=2000, required=False, allow_blank=True, default="")
+
+
 class EpisodeDraftSerializer(serializers.Serializer):
     idea = serializers.CharField(max_length=2000)
 

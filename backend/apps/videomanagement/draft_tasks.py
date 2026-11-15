@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from apps.clips import hashtags as clip_hashtags
 from apps.clips import highlights
 from apps.clips.models import Clip, ClipProject
-from apps.series.models import SeriesEpisode
+from apps.series.models import SeriesEpisode, VideoSeries
 from apps.series.services import characters, episodes
 from apps.videomanagement.models import Scene, Video
 from apps.videomanagement.services.media import music_search
@@ -134,6 +134,13 @@ def draft_cast_task(user_id, **choices):
 def draft_character_task(user_id, **choices):
     user = load_user(user_id)
     return {"character": characters.draft_character_description(user, choices)}
+
+
+@shared_task(soft_time_limit=570, time_limit=600, expires=86400)
+def draft_episode_idea_task(user_id, *, series_id, idea=""):
+    user = load_user(user_id)
+    series = VideoSeries.objects.get(pk=series_id, created_by=user)
+    return episodes.draft_episode_idea(series, owner=user, idea=idea)
 
 
 @shared_task(soft_time_limit=570, time_limit=600, expires=86400)
