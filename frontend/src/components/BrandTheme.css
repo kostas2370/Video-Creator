@@ -1,0 +1,16 @@
+.auth-page, .public-shell, .site-footer {
+  --auth-accent:#4338ca;
+  --auth-ink:#182235;
+  --auth-muted:#64748b;
+  --auth-line:#dce2ec;
+  --auth-input:#fff;
+  --brand-surface:#fafbfe;
+}
+.dark .auth-page, .dark .public-shell, .dark .site-footer {
+  --auth-accent:#b6b3ff;
+  --auth-ink:#eef1fa;
+  --auth-muted:#a2aec3;
+  --auth-line:#334158;
+  --auth-input:#172235;
+  --brand-surface:#101a2b;
+}

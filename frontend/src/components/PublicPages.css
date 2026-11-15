@@ -1,0 +1,31 @@
+@import "./BrandTheme.css";
+
+.public-shell {
+  background:var(--brand-surface);
+  color:var(--auth-ink);
+}
+.public-page .public-card {
+  background:var(--auth-input);
+  border-color:var(--auth-line);
+  box-shadow:0 12px 40px rgb(24 34 53 / 4%);
+}
+.public-page h1 { letter-spacing:-.035em; }
+.public-page .public-muted { color:var(--auth-muted); }
+.public-page .public-body { color:var(--auth-ink); }
+.public-page a { color:var(--auth-accent); }
+.public-page .public-input {
+  background:var(--brand-surface);
+  border-color:var(--auth-line);
+  color:var(--auth-ink);
+}
+.public-page .public-input:focus {
+  outline:none;
+  border-color:#818cf8;
+  box-shadow:0 0 0 3px #818cf820;
+}
+.public-page .public-button { background:#4338ca; }
+.public-page .public-button:hover:not(:disabled) { background:#3730a3; }
+.public-page :is(a,button,input,textarea):focus-visible {
+  outline:3px solid #818cf8;
+  outline-offset:4px;
+}
