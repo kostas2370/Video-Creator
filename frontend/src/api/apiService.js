@@ -205,3 +205,5 @@ export const recommendMusicWithAI = async data => followBackgroundJob(await post
 export const importSearchMusic = async (videoId, selection) => followBackgroundJob(await post("music-catalog/ai-import/", { video_id: videoId, selection }, { ...callerHandlesErrors, timeout: 15000 }));
 export const useMusicCatalogTrack = (id, data) => post(action("music-catalog", id, "use"), data, callerHandlesErrors);
 export const downloadMusicCatalogTrack = id => request({ url: action("music-catalog", id, "download"), responseType: "blob", ...callerHandlesErrors });
+
+export const generateSeriesEpisodeIdea = (id, idea = "") => runBackgroundDraft(action("series", id, "episode_idea"), { idea });
