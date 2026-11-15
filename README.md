@@ -6,11 +6,13 @@ Viddie is a self-hosted video creation app. Start with an AI-generated storyboar
 build a project from your own media, edit each scene, and export a finished video.
 The workflow brings scripts, visuals, narration, captions, music, and publishing
 into one place.
-You can find some samples here: https://www.tiktok.com/@wasteoftime157?_r=1&_t=ZN-9BLLwsTOkGk
+Watch [example videos on TikTok](https://www.tiktok.com/@wasteoftime157).
 
 ![Viddie video editor in dark theme](docs/screenshots/video-edit.png)
 
-Explore the [dark-theme screenshot gallery](docs/screenshots.md) for more of the app.
+Explore **[84 screens, panels, and dialogs](docs/screenshots.md)** from the current
+app, including the Chrome editor, mobile audio tools, series, clipping, captions,
+media libraries, and provider settings. Screenshots were refreshed on 15 November 2026.
 
 ## What you can make
 
@@ -20,6 +22,12 @@ Explore the [dark-theme screenshot gallery](docs/screenshots.md) for more of the
   YouTube interviews, podcasts, and talks, then trim, frame, caption, and export portrait clips.
 - **Projects from your own media:** upload images, video, and audio, or reuse items
   from your media library.
+- **Recurring series:** save a premise, cast, visual style, and production defaults,
+  then draft episodes with reviewed memories of earlier stories.
+- **Story over gameplay:** narrate your own story over looping gameplay, with
+  portrait framing and optional word highlights.
+- **Captions for existing videos:** transcribe speech, correct words and timing,
+  customize the caption style, and export a captioned video or SRT file.
 - **Scene-by-scene edits:** rewrite dialogue, replace visuals, insert and reorder
   scenes, adjust timing, and preview the result before exporting.
 - **Finished productions:** add image motion, transitions, captions, overlays,
@@ -30,6 +38,23 @@ Explore the [dark-theme screenshot gallery](docs/screenshots.md) for more of the
   professional accounts after configuring the platform integrations.
 
 Save generation templates and reusable assets to speed up your next project.
+Browse **My voices** to search available narrators, listen to previews, and manage
+private custom voices. **My assets** holds images, clips, music, diagram icons,
+and reusable intro and outro clips.
+
+### Take a tour
+
+| Workflow | Screens and dialogs |
+| --- | --- |
+| Start a project | [Creation tools, AI steps, prompt helpers, and templates](docs/screenshots.md#create) |
+| Edit a video | [Scene canvas, inspector, cuts, captions, overlays, and motion](docs/screenshots.md#editor) |
+| Shape the sound | [Waveform audio editor, music mixing, and voice library](docs/screenshots.md#audio) |
+| Finish and share | [Settings, export, covers, metadata, and publishing](docs/screenshots.md#export) |
+| Create recurring episodes | [Series setup, character profiles, and episode memory](docs/screenshots.md#series) |
+| Rework existing footage | [Long video → Shorts](docs/screenshots.md#clips) and [Caption studio](docs/screenshots.md#captions) |
+
+### Resume unfinished work
+
 AI video and series creation forms also recover unfinished work automatically in
 the same browser and account. Reopen the page to return to your step, prompts,
 settings, character profiles, completed AI proposals and selected reference files.
@@ -161,8 +186,14 @@ cookies stay on the same site.
    select existing assets. Optional references and continuity guidance help keep
    generated scenes visually consistent. For character video shots, **Review frame
    with AI** checks a saved starting frame and suggests corrections before animation.
-4. **Refine the edit.** Reorder scenes, adjust audio and pauses, choose transitions
-   and image motion, and add captions or overlays. Preview the timeline as you work.
+4. **Refine the edit.** Select a scene in the horizontal storyboard. The scene canvas
+   stays beside an inspector with **Script**, **Visual**, **Audio**, **Captions**, and
+   **Timing** tabs on desktop. Edit narration inline under **Script**, replace media
+   under **Visual**, and open the waveform editor under **Audio**. Correct caption
+   words and timing under **Captions**; set pauses and transitions under **Timing**.
+   Open **Overlays & motion** for text, logos, diagrams, and photo animations.
+   Switch between **Scene visual** and **Preview scene**, or choose **Preview video**
+   to review the complete saved edit and its scene timeline.
    Choose **Cut scene** in the scene header beside its duration to split at the playhead,
    remove a selected section, undo or redo cuts, or restore the full scene. Scrub
    the thumbnail timeline, zoom for precision, and use **S** to split, **Delete**
@@ -189,6 +220,25 @@ project dimensions and do not regenerate or improve the source media.
 Removed scenes can be restored from **Project extras → Recently deleted** for seven
 days. Reusable scene assets remain in the media library after their project is
 deleted; assets still used by a scene cannot be deleted from the library.
+
+### Add captions to an existing video
+
+Choose **Add captions** from the creation tools. Upload an MP4, MOV, WebM, or M4V
+up to 100 MB and 15 minutes. OpenAI transcribes the audio and prepares a preview;
+an available OpenAI key is required and transcription can incur provider charges.
+Correct the words and their timestamps, choose Classic subtitles or TikTok word
+highlights, and adjust the font, size, colors, and position. Save your changes,
+then download an SRT file or export the captioned video. The original framing and
+sound are preserved. See the [caption studio screenshots](docs/screenshots.md#captions).
+
+### Tell a story over gameplay
+
+Choose **Story over gameplay**, paste the exact narration, upload a gameplay clip
+you can use, and select a narrator. The clip loops and crops to portrait framing;
+its original audio is muted. Optional word highlights follow the narration.
+Speech generation uses your voice provider, while AI story drafting is a separate
+optional request. Review the resulting scenes and captions in the editor before
+exporting. See the [creation screenshots](docs/screenshots.md#create).
 
 ### Animate photo scenes
 
@@ -233,6 +283,90 @@ When updating an already running installation, apply the database migrations and
 restart the API and Celery workers as well as rebuilding the frontend. The API must
 load the new scene fields before animation settings can be saved.
 
+## Create a series
+
+Choose **Create a series** from the creation tools. Save a series name, premise,
+visual style, narrator, frame, captions, and optional intro/outro. Setup uses
+**Idea → Cast → Finish**, with style presets and optional advanced settings.
+Choose General, Animated character story, or Serial drama. General series can
+continue without recurring characters.
+
+Add characters manually, use the AI cast helper to propose profiles from the
+premise and style, or choose **Add character with AI** to review one additional
+character without replacing the cast. For each recurring character, generate an
+image or upload one and choose **Use this look** before saving the setup.
+You can also use **Write description with AI** on a single character to draft its
+appearance, wardrobe, personality and relationships from a short idea. Review and
+apply that draft without replacing the character's identity or image.
+
+On **Finish**, choose **Standard** or **Economy** generation mode; new episode
+drafts inherit the saved choice. Existing episode media is kept.
+See the [series setup and episode screenshots](docs/screenshots.md#series).
+
+Story formats require characters with approved images before drafting an episode.
+You can also upload one shared PNG, JPEG or WebP style/world reference (up to 10 MB).
+Choose a supported built-in AI visual provider; a reference requires a
+provider with reference-image support. References guide appearance, but do not
+promise identical characters across generations.
+
+Character images run through the configured OpenAI image model in the general
+worker; uploaded references do not make an AI request. Each episode gets its own
+copied cast sheet. When using a video provider, each shot first generates a starting
+image from that sheet through OpenAI and then animates it, using image and video
+generation credits. Later cast edits do not change existing episode references.
+See [visual continuity](docs/visual-continuity.md) for the full workflow.
+
+Generated images, character references, shared references, covers and scene logos
+are saved in the media library. If video generation fails after the starting frame
+is created, the scene keeps that image for retry. Character video shots now stop
+after preparing their starting frames. In each scene, review the characters and
+composition, edit the description and regenerate if needed, or upload a PNG, JPEG
+or WebP replacement (up to 10 MB). Choose **Approve starting frame**, then
+**Animate approved frame** to start that shot's paid animation request. Image
+preparation and animation are separate requests; approving an image makes no AI
+request. A failed animation offers **Retry animation** using the approved image.
+Click the **Starting frame** heading to hide or reopen the review controls; your
+choice is remembered for each scene in this browser. Existing clips remain until
+their replacement succeeds. Resume prepares missing images without starting animations. Changed shot guidance or frame settings
+invalidate image approval and require preparing and reviewing a new image.
+
+After upgrading, apply the included migrations, restart the API and workers, and
+rebuild the frontend. Run `python manage.py archive_reference_images` to add older
+reference images and project image files to the library; this makes no AI requests.
+
+Use **Draft next episode** with a new idea. Drafting uses the configured text model
+and opens a normal video project. Review and edit its storyboard before approving
+narration and visual generation. Each episode snapshots the saved series setup and
+copies its reference image, so profile edits apply to future episodes. Finish the
+current episode's review and media preparation before starting another episode.
+The workspace links to that active episode even when browsing older episode pages.
+
+The AI also drafts an episode memory of up to 800 characters. Open **Episode memory**
+in the series workspace to correct the events, discoveries and ending after editing
+the story. Once its media is prepared, that memory can guide later episodes. A changed storyboard, dialogue or visual prompt marks its memory **Needs review**.
+Use **Update memory from current script** to draft an update with your existing
+corrections, then review and save it. You can undo the draft; generating it does not
+change saved memory. Manual review and save also clears the warning. Stale and
+unapproved memories are excluded from new drafts. Context considers the latest ten
+prepared episodes with nonempty memories. This is bounded story context, not guaranteed
+long-term recall or a check against every earlier episode. Memories remain in the
+series when an individual video is deleted. Deleting the series removes its setup
+and memories while preserving the videos in **My videos**.
+
+If a draft cannot be queued or fails before saving a storyboard, use **Retry draft**
+in the series workspace. It reuses the same episode number and saved setup. Once a
+storyboard exists, open the episode to review or resume it in the editor. Series
+drafting and retry share the existing generation allowance (two per hour, with the
+existing superuser exemption). Normal generation, export and provider costs apply.
+
+Series lives in the `apps.series` Django app and reuses video management for
+storyboards, editing and rendering. Run `python manage.py migrate` and restart the
+API and general worker when deploying. The app split preserves the existing series
+tables, episode links and permission grants; the `/api/series/` routes stay the same.
+Existing memories without a recorded script version need one review and save.
+Memory-save API requests must include `previous_summary` and `script_hash` from the
+episode response, alongside `summary`, so stale edits are rejected.
+
 ## Narration and generated audio
 
 In **Video settings**, enabling narration on an existing project opens a review
@@ -249,6 +383,28 @@ You can explicitly choose dialogue, ambient sound, or silence. These generation
 settings apply to new or regenerated clips; they do not change existing recordings.
 Generated sound depends on the selected provider's capabilities. Per-clip audio
 controls remain available under **Visual**.
+
+### Choose and preview a voice
+
+Open **Resources → My voices** to search the available voice library, or use
+**Listen** beside a selected narrator in creation and video settings. Existing
+provider samples play directly; voices without samples generate a short preview
+through their provider and can use provider credits.
+
+The voice library also supports private ElevenLabs voices from an uploaded sample
+or an in-browser recording. Review the consent requirement before creating a voice.
+Custom voices stay tied to the account and provider key that created them. See the
+[voice library and creation form](docs/screenshots.md#audio).
+
+### Shared music catalog
+
+Deployment setup seeds the bundled 390-track music catalog and uses pytubefix to
+download missing audio automatically. It needs no YouTube Data API key. Download
+failures leave setup resumable and do not block application startup. Existing user
+tracks stay private; downloaded catalog tracks become available automatically when
+their YouTube metadata declares Creative Commons, with attribution attached.
+Set `MUSIC_CATALOG_AUTO_SETUP=false` to disable automatic downloads. See
+[the music catalog guide](docs/music-catalog.md) for commands and review steps.
 
 ## Provider configuration
 
@@ -429,8 +585,27 @@ configuration. The [publishing guide](docs/social-publishing.md) covers credenti
 redirect URLs, account requirements, and private export snapshots. It also explains
 local HTTPS testing with [`scripts/local-tunnel.py`](scripts/local-tunnel.py).
 
-When updating an installation, apply migrations, restart the API, worker, and Beat,
-and rebuild the frontend. Back up persistent data before upgrading.
+When updating an installation, apply migrations, restart the API, both workers,
+and Beat, and rebuild the frontend. Back up persistent data before upgrading.
+
+### Generation and export recovery
+
+Apply all included database migrations before restarting updated services.
+Scene entries keep separate identities even when dialogue repeats. Completed media
+is reused when generation resumes; failed jobs can continue from saved progress.
+
+Docker runs two workers: `celery` handles generation, scene edits and other background
+jobs on the `celery` queue; `celery-render` handles video exports on `renders`.
+The render worker downloads missing presenter weights. Rebuild the backend images and
+restart the API, both workers and Beat together so routing and consumers change together.
+For manual installations, run both worker commands above. Older workers that consume
+only the default queue cannot process the new export queue.
+
+Failed exports show a saved message and reference in the editor, with **Retry export**.
+The reference can be searched in worker logs. Errors do not expose provider responses,
+file paths or tracebacks. Ordinary exports retain the one-per-day limit; failed export
+retries have a separate limit of three per hour. Generation failures retain the existing
+resume flow. The existing timeout cleanup also marks stalled exports as retryable.
 
 ## Troubleshooting
 
@@ -463,12 +638,15 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Architecture](docs/ARCHITECTURE.md) | API and worker responsibilities, generation, and rendering |
 | [Rendering](docs/rendering.md) | Timing, composition, export quality, scene caching, and failure recovery |
 | [Frontend](frontend/README.md) | Development server, builds, and frontend checks |
+| [Screenshot gallery](docs/screenshots.md) | Current screens, editor panels, dialogs, and mobile audio |
 | [AI video providers](docs/ai-video-providers.md) | Provider setup, references, timing, and limitations |
 | [Prompting](docs/prompting.md) | Storyboard and visual prompt assembly, with complete GPT request examples |
 | [Visual continuity](docs/visual-continuity.md) | References and consistency across generated scenes |
 | [Long video → Shorts](docs/clips.md) | Uploads, highlight suggestions, clip editing, exports, and recovery |
 | [AI usage](docs/ai-usage.md) | Usage records and cost estimates |
 | [Music TODOs](docs/music-todo.md) | Planned music search and AI-generated soundtracks |
+| [Music catalog](docs/music-catalog.md) | Shared music setup, licensing metadata, and resumable downloads |
+| [Educational visuals TODOs](docs/educational-visuals-todo.md) | Planned local teaching visuals guided by storyboard instructions |
 | [Creator publishing](docs/social-publishing.md) | Social platform integrations and deployment setup |
 | [Performance checks](docs/performance-check.md) | Measuring application performance |
 | [Dependency security](docs/dependency-security-check.md) | Dependency audit procedure |
@@ -485,112 +663,3 @@ Contributors follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Viddie is licensed under [AGPL-3.0](COPYING.txt). Vendored components retain their
 respective licenses.
-
-
-### Updating scene generation and export recovery
-
-Apply migration `0046_scene_identity_and_render_error` before starting updated services.
-Script entries now keep separate scene identities even when dialogue repeats. Existing
-scene rows acquire identities on the next generation/resume; completed media is reused.
-
-Docker runs two workers: `celery` handles generation, scene edits and other background
-jobs on the `celery` queue; `celery-render` handles video exports on `renders`.
-The render worker downloads missing presenter weights. Rebuild the backend images and
-restart the API, both workers and Beat together so routing and consumers change together.
-For manual installations, run both worker commands above. Older workers that consume
-only the default queue cannot process the new export queue.
-
-Failed exports show a saved message and reference in the editor, with **Retry export**.
-The reference can be searched in worker logs. Errors do not expose provider responses,
-file paths or tracebacks. Ordinary exports retain the one-per-day limit; failed export
-retries have a separate limit of three per hour. Generation failures retain the existing
-resume flow. The existing timeout cleanup also marks stalled exports as retryable.
-
-
-### Series mode
-
-Choose **Create a series** from the creation tools. Save a series name, premise,
-recurring cast/world, visual style, narrator, frame, captions and optional intro/outro.
-Series setup uses **Idea → Cast → Finish**, with style presets and optional advanced
-settings. Choose General, Animated character story or Serial drama. Before drafting a story,
-use **Create characters with AI** to propose profiles from your premise and style,
-then review and accept the cast. For each character, generate an image with AI or
-upload one and choose **Use this look**. Save the setup after approving the cast.
-You can also use **Write description with AI** on a single character to draft its
-appearance, wardrobe, personality and relationships from a short idea. Review and
-apply that draft without replacing the character's identity or image.
-Story formats require characters with approved images before drafting an episode.
-You can also upload one shared PNG, JPEG or WebP style/world reference (up to 10 MB).
-Choose a supported built-in AI visual provider; a reference requires a
-provider with reference-image support. References guide appearance, but do not
-promise identical characters across generations.
-
-Character images run through the configured OpenAI image model in the general
-worker; uploaded references do not make an AI request. Each episode gets its own
-copied cast sheet. When using a video provider, each shot first generates a starting
-image from that sheet through OpenAI and then animates it, using image and video
-generation credits. Later cast edits do not change existing episode references.
-See [visual continuity](docs/visual-continuity.md) for the full workflow.
-
-Generated images, character references, shared references, covers and scene logos
-are saved in the media library. If video generation fails after the starting frame
-is created, the scene keeps that image for retry. Character video shots now stop
-after preparing their starting frames. In each scene, review the characters and
-composition, edit the description and regenerate if needed, or upload a PNG, JPEG
-or WebP replacement (up to 10 MB). Choose **Approve starting frame**, then
-**Animate approved frame** to start that shot's paid animation request. Image
-preparation and animation are separate requests; approving an image makes no AI
-request. A failed animation offers **Retry animation** using the approved image.
-Click the **Starting frame** heading to hide or reopen the review controls; your
-choice is remembered for each scene in this browser. Existing clips remain until
-their replacement succeeds. Resume prepares missing images without starting animations. Changed shot guidance or frame settings
-invalidate image approval and require preparing and reviewing a new image.
-Restart the API and general worker and rebuild the frontend together when
-upgrading to this workflow; no new database migration is required.
-
-After upgrading, apply the included migrations, restart the API and workers, and
-rebuild the frontend. Run `python manage.py archive_reference_images` to add older
-reference images and project image files to the library; this makes no AI requests.
-
-Use **Draft next episode** with a new idea. Drafting uses the configured text model
-and opens a normal video project. Review and edit its storyboard before approving
-narration and visual generation. Each episode snapshots the saved series setup and
-copies its reference image, so profile edits apply to future episodes. Finish the
-current episode's review and media preparation before starting another episode.
-The workspace links to that active episode even when browsing older episode pages.
-
-The AI also drafts an episode memory of up to 800 characters. Open **Episode memory**
-in the series workspace to correct the events, discoveries and ending after editing
-the story. Once its media is prepared, that memory can guide later episodes. A changed storyboard, dialogue or visual prompt marks its memory **Needs review**.
-Use **Update memory from current script** to draft an update with your existing
-corrections, then review and save it. You can undo the draft; generating it does not
-change saved memory. Manual review and save also clears the warning. Stale and
-unapproved memories are excluded from new drafts. Context considers the latest ten
-prepared episodes with nonempty memories. This is bounded story context, not guaranteed
-long-term recall or a check against every earlier episode. Memories remain in the
-series when an individual video is deleted. Deleting the series removes its setup
-and memories while preserving the videos in **My videos**.
-
-If a draft cannot be queued or fails before saving a storyboard, use **Retry draft**
-in the series workspace. It reuses the same episode number and saved setup. Once a
-storyboard exists, open the episode to review or resume it in the editor. Series
-drafting and retry share the existing generation allowance (two per hour, with the
-existing superuser exemption). Normal generation, export and provider costs apply.
-
-Series lives in the `apps.series` Django app and reuses video management for
-storyboards, editing and rendering. Run `python manage.py migrate` and restart the
-API and general worker when deploying. The app split preserves the existing series
-tables, episode links and permission grants; the `/api/series/` routes stay the same.
-Existing memories without a recorded script version need one review and save.
-Memory-save API requests must include `previous_summary` and `script_hash` from the
-episode response, alongside `summary`, so stale edits are rejected.
-
-### Shared music catalog
-
-Deployment setup seeds the bundled 390-track music catalog and uses pytubefix to
-download missing audio automatically. It needs no YouTube Data API key. Download
-failures leave setup resumable and do not block application startup. Existing user
-tracks stay private; downloaded catalog tracks become available automatically when
-their YouTube metadata declares Creative Commons, with attribution attached.
-Set `MUSIC_CATALOG_AUTO_SETUP=false` to disable automatic downloads. See
-[the music catalog guide](docs/music-catalog.md) for commands and review steps.
