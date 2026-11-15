@@ -4,7 +4,7 @@ import { GenerationCost } from "./GenerationCost";
 import { DeferredDialog } from "./ui/DeferredDialog";
 import { formatDuration } from "../utils/timing";
 import { isVideo } from "../utils/media";
-import React, { lazy, Suspense, useState } from "react";
+import React, { lazy, Suspense, useLayoutEffect, useState } from "react";
 import { Menu, MenuButton, MenuItems, MenuItem, TabGroup, TabList, Tab, TabPanels, TabPanel } from "@headlessui/react";
 import { IoTrashBinSharp } from "react-icons/io5";
 import { DeleteModal } from "./DeleteModal";
@@ -41,6 +41,14 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
 
   const [showEditImageModal, setShowEditImageModal] = useState(false);
 
+  // Keep the canvas and inspector mounted across selection changes. Scene-specific
+  // dialogs close before paint; their forms reset independently below.
+  useLayoutEffect(() => {
+    setShowDeleteModal(false);
+    setShowDeleteSceneModal(false);
+    setShowEditImageModal(false);
+  }, [scene.id]);
+
   const MEDIA_URL = API_HOST;
   const [retryingNarration, setRetryingNarration] = useState(false);
   const retryNarration = async () => {
@@ -63,7 +71,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
 
   return (
     <>
-      <DeleteModal
+      <DeleteModal key={`visual-${scene.id}`}
         showModal={showDeleteModal}
         setShowModal={setShowDeleteModal}
         id={scene?.scene_image?.id}
@@ -73,7 +81,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
         mode="image"
       />
 
-    <DeleteModal
+    <DeleteModal key={`scene-${scene.id}`}
         showModal={showDeleteSceneModal}
         setShowModal={setShowDeleteSceneModal}
         id={scene?.id}
@@ -84,7 +92,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
         mode="image"
       />
 
-      <DeferredDialog open={showEditImageModal} onClose={() => setShowEditImageModal(false)}><EditSceneImageModal
+      <DeferredDialog key={scene.id} open={showEditImageModal} onClose={() => setShowEditImageModal(false)}><EditSceneImageModal
         showModal={showEditImageModal}
         setShowModal={setShowEditImageModal}
         scene_info={{
@@ -101,7 +109,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
         setUpdate={setUpdated}
       /></DeferredDialog>
       <article id={`scene-${scene.id}`} className="editor-panel scroll-mt-44 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <header className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+        <header key={scene.id} className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-gray-100 px-5 py-4 dark:border-gray-700">
           <div className="flex items-center gap-2">{reorderHandle}<h2 className="flex items-center gap-3 font-semibold text-gray-900 dark:text-white"><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">{index + 1}</span>Scene {index + 1}</h2></div>
           <div className="flex flex-wrap items-center gap-2">{video && <Suspense fallback={null}><SceneCuts scene={scene} video={video} index={index} disabled={timingDisabled} onSaved={setUpdated} /></Suspense>}<span className="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-300">{formatDuration(scene.timing?.duration)}</span><Menu as="div" className="relative"><MenuButton aria-label={`Scene ${index + 1} actions`} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"><HiOutlineEllipsisVertical className="h-5 w-5" /></MenuButton><MenuItems modal={false} anchor="bottom end" className="z-50 mt-1 rounded-xl border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">{!diagram && scene.scene_image?.file && <MenuItem><button type="button" disabled={timingDisabled} onClick={() => setShowDeleteModal(true)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 data-[focus]:bg-gray-50 disabled:opacity-40 dark:text-gray-300 dark:data-[focus]:bg-gray-700"><IoTrashBinSharp aria-hidden="true" className="h-4 w-4" />Remove visual</button></MenuItem>}<MenuItem><button type="button" disabled={timingDisabled} onClick={() => setShowDeleteSceneModal(true)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 data-[focus]:bg-red-50 disabled:opacity-40 dark:text-red-400 dark:data-[focus]:bg-red-900/20"><IoTrashBinSharp aria-hidden="true" className="h-4 w-4" />Delete scene</button></MenuItem></MenuItems></Menu></div>
         </header>
@@ -117,7 +125,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
             {stageMode === "edit" && video ? <Suspense fallback={<p role="status" className="py-20 text-center text-sm text-gray-500">Loading player…</p>}><InlineVideoPreview video={video} selectedSceneId={scene.id} disabled={previewDisabled} compact sceneOnly /><p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Saved scene preview · Captions, framing, motion and audio update after saving.</p></Suspense> : <>
               <div className="studio-canvas flex min-h-64 items-center justify-center rounded-xl bg-gray-950 p-3">
             {diagram ? <div className="w-full max-w-[calc(42vh*16/9)]"><SceneDiagramPreview key={scene.id} scene={scene} videoFormat={video_format} controls /></div> : <div className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-900 ${formatFrameClasses[video_format] || formatFrameClasses.LANDSCAPE}`}>
-              {scene.scene_image?.file ? (isVideo(scene.scene_image.file) ? <video controls playsInline preload="metadata" src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
+              {scene.scene_image?.file ? (isVideo(scene.scene_image.file) ? <video key={scene.id} controls playsInline preload="metadata" src={MEDIA_URL + scene.scene_image.file} className="h-full w-full bg-black object-cover" /> : <img src={MEDIA_URL + scene.scene_image.file} alt={scene.scene_image.prompt || `Scene ${index + 1} visual`} className="h-full w-full object-cover" />) : <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No visual yet</div>}
 
             </div>}
 
@@ -130,12 +138,12 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
 
           </section>
           <aside aria-label="Scene inspector" className="studio-inspector min-w-0 rounded-b-2xl lg:rounded-bl-none lg:rounded-br-2xl">
-            <TabGroup selectedIndex={inspectorTab} onChange={setInspectorTab}>
+            <TabGroup selectedIndex={Math.min(inspectorTab, (onTiming || transitionControl) ? 4 : 3)} onChange={setInspectorTab}>
               {scene.narration_status === "missing" && <button type="button" onClick={() => setInspectorTab(2)} className="w-full bg-amber-50 px-4 py-3 text-left text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Narration needs attention → Open audio</button>}
               <TabList className="studio-tabs flex gap-1 border-b border-gray-200 p-2 dark:border-gray-700">
                 {["Script", "Visual", "Audio", "Captions", ...((onTiming || transitionControl) ? ["Timing"] : [])].map(label => <Tab key={label} className="min-w-0 flex-1 rounded-lg px-2 py-2.5 text-xs font-semibold text-gray-500 outline-none transition hover:text-gray-900 data-selected:bg-blue-50 data-selected:text-blue-700 data-focus:ring-2 data-focus:ring-blue-500 dark:text-gray-400 dark:hover:text-white dark:data-selected:bg-blue-500/15 dark:data-selected:text-blue-300">{label}</Tab>)}
               </TabList>
-              <TabPanels className="studio-tab-panels p-4 sm:p-5">
+              <TabPanels key={scene.id} className="studio-tab-panels p-4 sm:p-5">
                 <TabPanel unmount={false}>
             <SceneTextEditor scene={scene} index={index} manual={manual} draft={textDraft} onDraftChange={onTextDraftChange} onSave={onTextSave} onRewrite={onTextRewrite} disabled={timingDisabled} />
                 </TabPanel>
@@ -175,7 +183,7 @@ export const Scene = ({ video, previewDisabled = false, generationMode = "STANDA
             </TabGroup>
             <section className="border-t border-gray-200 p-4 sm:p-5 dark:border-gray-700">
               <button type="button" aria-expanded={toolsOpen} aria-controls={`scene-tools-${scene.id}`} onClick={() => setToolsOpen(open => !open)} className="flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><span>Overlays &amp; motion</span><span className="text-xs font-normal text-gray-500 dark:text-gray-400">{toolsOpen ? "Hide tools −" : "Optional tools +"}</span></button>
-              <div id={`scene-tools-${scene.id}`} hidden={!toolsOpen} className="mt-5 space-y-6">
+              <div key={scene.id} id={`scene-tools-${scene.id}`} hidden={!toolsOpen} className="mt-5 space-y-6">
                 <section className="space-y-3">
                   <h3 className="mb-4 text-sm font-semibold">Additional scene tools</h3>
             <div aria-label="Scene editing tools" className="flex flex-wrap items-center gap-2">{!diagram && <SceneOverlays scene={scene} index={index} disabled={timingDisabled} onSaved={setUpdated} videoFormat={video_format} />}{onMotion && <SceneMotion fps={exportFps} scene={scene} index={index} disabled={motionDisabled} saving={motionSaving} onChange={onMotion} videoFormat={video_format} />}</div>
