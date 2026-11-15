@@ -1,3 +1,4 @@
+import { VoicePreview } from "../components/VoicePreview";
 import { StartingFrameOption } from "../components/StartingFrameOption";
 import { GenerationMusic } from "../components/GenerationMusic";
 import { GenerationModeSelect } from "../components/GenerationModeSelect";
@@ -393,7 +394,7 @@ const Home = () => {
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
               {!formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
-              {!formData.avatar_selection && <MoreAssetOptions options={voiceOptions} label="voices" />}
+              {!formData.avatar_selection && <><MoreAssetOptions options={voiceOptions} label="voices" /><VoicePreview voice={selectedVoice} disabled={!formData.narration} /></>}
               </div>
               {field("image_mode", "Visuals", select("image_mode", <><option value="WEB">Web images</option><option value="AI">AI-generated visuals</option></>))}
 

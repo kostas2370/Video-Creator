@@ -38,6 +38,7 @@ PROFILE_FIELDS = (
     "story_format",
     "visual_style",
     "provider",
+    "generation_mode",
     "narration",
     "subtitles",
     "video_format",

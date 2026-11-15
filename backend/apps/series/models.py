@@ -45,6 +45,11 @@ class VideoSeries(AbstractModel, TimestampedModel):
     intro = models.ForeignKey(Intro, null=True, blank=True, on_delete=models.SET_NULL)
     outro = models.ForeignKey(Outro, null=True, blank=True, on_delete=models.SET_NULL)
     provider = models.CharField(max_length=100, default="OPENAI")
+    generation_mode = models.CharField(
+        max_length=12,
+        choices=[("STANDARD", "Standard"), ("ECONOMY", "Economy")],
+        default="STANDARD",
+    )
     narration = models.BooleanField(default=True)
     subtitles = models.BooleanField(default=True)
     video_format = models.CharField(

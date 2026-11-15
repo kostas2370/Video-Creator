@@ -1,3 +1,4 @@
+import { VoicePreview } from "./VoicePreview";
 import { StartingFrameOption } from "./StartingFrameOption";
 import { NarrationSetup } from "./NarrationSetup";
 import { GenerationModeSelect } from "./GenerationModeSelect";
@@ -288,6 +289,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
                     {voices.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.provider})</option>)}
                   </select>
                   <MoreAssetOptions options={voicesOptions} label="voices" />
+                  <VoicePreview voice={voices.find(item => String(item.id) === String(voice))} disabled={saving || !narration || selectedTab !== 2} />
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{!narration ? "Enable narration to choose a voice." : "Changing the voice regenerates narration for your scenes."}</p>
                 </div>
               )}

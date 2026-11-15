@@ -1,3 +1,4 @@
+import { VoicePreview } from "../components/VoicePreview";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { HiOutlineMicrophone, HiOutlineArrowUpTray, HiOutlineSparkles } from "react-icons/hi2";
@@ -115,6 +116,7 @@ export function StoryVideo() {
             {voices.items.map(item => <option key={item.id} value={item.id}>{item.name} · {item.provider}</option>)}
           </select>
           <MoreAssetOptions options={voices} label="voices" />
+          <VoicePreview voice={voices.items.find(item => String(item.id) === String(voice))} />
           {!voices.loading && !voices.items.length && !voices.failed && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Connect a voice provider in <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">API keys</Link> to add narration.</p>}
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Uses your selected voice provider. No AI images or video generation needed.</p>
         </div>

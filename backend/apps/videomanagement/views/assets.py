@@ -1,3 +1,6 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, viewsets
@@ -37,12 +40,15 @@ from apps.videomanagement.serializers.models import (
 from apps.videomanagement.services.media.assets import save_limited_clip
 from apps.videomanagement.services.scenes.editing import clear_scene_image
 from apps.videomanagement.services.voices.cloning import (
+    PREVIEW_TEXT,
     create_clone,
     delete_clone,
     preview_clone,
     refresh_clone,
 )
 from apps.videomanagement.throttling import CloneVoiceThrottle, VoicePreviewThrottle
+from apps.videomanagement.exceptions import VoiceProviderError
+from apps.videomanagement.integrations import tts
 
 
 class SceneImageView(viewsets.GenericViewSet):
@@ -77,6 +83,12 @@ class VoiceView(
     queryset = VoiceModel.objects.all()
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnlyPermission]
 
+    def get_permissions(self):
+        # Previews use only voices available to the caller, including shared voices.
+        if self.action == "preview":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
     def get_serializer_class(self):
         return (
             CloneVoiceSerializer
@@ -94,9 +106,27 @@ class VoiceView(
 
     @action(detail=True, methods=["post"], throttle_classes=[VoicePreviewThrottle])
     def preview(self, request, pk=None):
-        response = HttpResponse(
-            preview_clone(request.user, self.get_object()), content_type="audio/mpeg"
-        )
+        voice = self.get_object()
+        content_type = "audio/mpeg"
+        if voice.is_cloned:
+            audio = preview_clone(request.user, voice)
+        else:
+            with TemporaryDirectory(prefix="voice-preview-") as directory:
+                path = str(Path(directory) / "sample.audio")
+                try:
+                    saved = tts.save(
+                        voice, text=PREVIEW_TEXT, save_path=path, user=request.user
+                    )
+                    if not saved:
+                        raise VoiceProviderError()
+                    audio = Path(saved).read_bytes()
+                except VoiceProviderError:
+                    raise
+                except Exception:
+                    raise VoiceProviderError() from None
+            if audio.startswith(b"RIFF"):
+                content_type = "audio/wav"
+        response = HttpResponse(audio, content_type=content_type)
         response["Cache-Control"] = "private, no-store"
         return response
 
