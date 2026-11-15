@@ -36,3 +36,27 @@ it("opens Audio directly from the missing-narration shortcut", () => {
   expect(screen.getByRole("tab", { name: "Audio" }).getAttribute("aria-selected")).toBe("true");
   expect(screen.getByRole("button", { name: "Retry narration" })).toBeTruthy();
 });
+
+it("keeps the player, canvas view, and inspector selection mounted when switching scenes", async () => {
+  const { ReorderableScenes } = await import("./ReorderableScenes");
+  const scenes = [scene, { ...scene, id: "second", text: "A new scene", scene_image: { file: "/next.jpg" } }];
+  const video = { id: "video-1", status: "READY", scenes };
+  function Editor() {
+    const [selected, select] = React.useState("first");
+    return <ReorderableScenes video={video} videoId={video.id} scenes={scenes} selectedSceneId={selected} onSelectScene={select} onTiming={() => {}} manual />;
+  }
+  render(<Editor />);
+  const player = await screen.findByText("Saved preview: first");
+  const canvas = screen.getByRole("region", { name: "Scene canvas" });
+  fireEvent.click(screen.getByRole("tab", { name: "Audio" }));
+  fireEvent.click(screen.getByRole("button", { name: /Overlays & motion/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Next scene" }));
+  expect(await screen.findByText("Saved preview: second")).toBe(player);
+  expect(screen.getByRole("region", { name: "Scene canvas" })).toBe(canvas);
+  expect(screen.getByRole("tab", { name: "Audio" }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("button", { name: /Overlays & motion/ }).getAttribute("aria-expanded")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Scene visual" }));
+  fireEvent.click(screen.getByRole("button", { name: "Previous scene" }));
+  expect(screen.getByRole("button", { name: "Scene visual" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("img", { name: "Scene 1 visual" })).toBeTruthy();
+});

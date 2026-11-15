@@ -8,8 +8,9 @@ import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
 import { LegalFooter } from "./components/LegalFooter";
 import { PageLoadBoundary } from "./components/PageLoadBoundary";
+import { VideoEditorEntry, VideoEditorLoading } from "./components/VideoEditorLoading";
 import { PageLoading } from "./components/PageLoading";
-import { pageLayout } from "./utils/pageLayout";
+import { isVideoEditorPath, pageLayout } from "./utils/pageLayout";
 
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const Login = lazy(() => import("./pages/LoginPage"));
@@ -59,8 +60,9 @@ function App() {
         <Navbar theme={theme} toggleTheme={toggleTheme} />
       ) : null}
 
+      <VideoEditorEntry />
       <PageLoadBoundary resetKey={location.pathname}>
-        <Suspense fallback={<PageLoading />}>
+        <Suspense fallback={isVideoEditorPath(location.pathname) ? <VideoEditorLoading /> : <PageLoading />}>
           <Routes>
             <Route path="/guide/" element={<GuidePage />} />
             <Route path="/whats-new/" element={<WhatsNewPage />} />
@@ -89,7 +91,14 @@ function App() {
                 <Route path="/manual/" element={<ManualVideo />} />
                 <Route path="/avatars/" element={<Avatar />} />
                 <Route path="/videos/" element={<Videos />} />
-                <Route path="/videos/:videoId/" element={<Video key={location.pathname} />} />
+                <Route
+                  path="/videos/:videoId/"
+                  element={
+                    <Suspense fallback={<VideoEditorLoading />}>
+                      <Video key={location.pathname} />
+                    </Suspense>
+                  }
+                />
                 <Route path="/assets/" element={<AssetPage />} />
                 <Route path="/api-keys/" element={<ApiKeys />} />
                 <Route path="/connections/" element={<Connections />} />

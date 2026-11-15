@@ -35,7 +35,8 @@ export function useVideoLibraryNavigation(owner, readyQuery) {
   const rememberedQuery = search === query.search ? queryKey : libraryQueryString({ ...query, search, page: 1 });
   latest.current = { query: rememberedQuery, scrollY: position.current };
   useEffect(() => { saveLibraryNavigation(owner, latest.current); }, [owner, rememberedQuery]);
-  useEffect(() => {
+  // Save and detach before the incoming editor resets the viewport.
+  useLayoutEffect(() => {
     const onScroll = () => {
       if (!scrollReady.current) return;
       position.current = Math.max(0, window.scrollY);

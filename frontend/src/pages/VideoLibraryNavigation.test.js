@@ -8,6 +8,7 @@ vi.mock("../components/Table", () => ({ DefaultTable: ({ data, view }) => <div d
 import { AuthContext } from "../store/AuthContext";
 import { getVideos } from "../api/apiService";
 import { Videos } from "./VideosPage";
+import { VideoEditorEntry } from "../components/VideoEditorLoading";
 import { libraryReturnUrl, readLibraryNavigation, saveLibraryNavigation } from "../utils/videoLibraryNavigation";
 let scroll;
 const response = { data: { count: 30, next: 3, previous: 1, results: [{ id: "fox", title: "Fox project" }] } };
@@ -18,7 +19,7 @@ function Position() {
 }
 function BackToLibrary({ owner }) { return <Link to={libraryReturnUrl(owner)}>All videos</Link>; }
 function open(url = "/videos/", owner = "creator", entries) {
-  return render(<AuthContext.Provider value={{ user: { id: owner } }}><MemoryRouter initialEntries={entries || [url]}><Position /><Routes><Route path="/videos/" element={<Videos />} /><Route path="/videos/:id/" element={<BackToLibrary owner={owner} />} /></Routes></MemoryRouter></AuthContext.Provider>);
+  return render(<AuthContext.Provider value={{ user: { id: owner } }}><MemoryRouter initialEntries={entries || [url]}><VideoEditorEntry /><Position /><Routes><Route path="/videos/" element={<Videos />} /><Route path="/videos/:id/" element={<BackToLibrary owner={owner} />} /></Routes></MemoryRouter></AuthContext.Provider>);
 }
 beforeEach(() => {
   vi.clearAllMocks(); sessionStorage.clear();
@@ -30,6 +31,10 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it("restores search, filters, favorites, sort, page, layout and scroll after returning from a project", async () => {
+  scroll.mockImplementation(({ top }) => {
+    Object.defineProperty(window, "scrollY", { configurable: true, value: top });
+    fireEvent.scroll(window);
+  });
   open("/videos/?search=fox&status=READY&creation_mode=AI&is_favorite=true&ordering=title&view=list&page=2");
   await screen.findByRole("link", { name: "Fox project" });
   expect(screen.getByLabelText("Search videos").value).toBe("fox");
@@ -40,6 +45,7 @@ it("restores search, filters, favorites, sort, page, layout and scroll after ret
   const back = await screen.findByRole("link", { name: "All videos" });
   expect(back.getAttribute("href")).toContain("search=fox");
   expect(readLibraryNavigation("creator").scrollY).toBe(640);
+  expect(scroll).toHaveBeenLastCalledWith({ top: 0, left: 0, behavior: "instant" });
   scroll.mockClear();
   fireEvent.click(back);
   await screen.findByRole("link", { name: "Fox project" });

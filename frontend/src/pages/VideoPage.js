@@ -1,3 +1,4 @@
+import { VideoEditorLoading } from "../components/VideoEditorLoading";
 import { useDraftOwner } from "../hooks/useCreationDraft";
 import { libraryReturnUrl } from "../utils/videoLibraryNavigation";
 import { ProjectNextStep } from "../components/ProjectNextStep";
@@ -243,6 +244,8 @@ export const Video = () => {
   const canPreview = ["READY", "COMPLETED", "FAILED"].includes(videoInfo?.status)
     && !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0;
   const missingNarration = videoInfo?.scenes?.filter(scene => scene.narration_status === "missing") || [];
+
+  if (!videoInfo && !updateError) return <VideoEditorLoading />;
 
   return (
     <>
