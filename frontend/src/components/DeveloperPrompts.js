@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { getVideoLLMTraces } from "../api/apiService";
+import { EditorDialog, editorSecondaryButton } from "./ui/EditorDialog";
 
 function formattedResponse(raw) {
   try { return JSON.stringify(JSON.parse(raw), null, 2); } catch { return raw; }
 }
 
-export function DeveloperPrompts({ videoId }) {
-  const [open, setOpen] = useState(false);
+export function DeveloperPrompts({ videoId, open, onClose }) {
   const [page, setPage] = useState(1);
   const [reload, setReload] = useState(0);
   const [result, setResult] = useState(null);
@@ -21,10 +21,12 @@ export function DeveloperPrompts({ videoId }) {
     }).catch(() => { if (current) setResult({ error: true }); }).finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
   }, [open, videoId, page, reload]);
-  return <details open={open} onToggle={event => setOpen(event.currentTarget.open)} className="editor-panel mt-5 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-    <summary className="cursor-pointer font-semibold">Advanced · Developer prompts</summary>
+  return <EditorDialog open={open} onClose={onClose} title="Developer prompts"
+    description="Inspect project language model requests, retries, and raw responses."
+    closeLabel="Close developer prompts" maxWidth="max-w-6xl"
+    footer={<div className="flex justify-end"><button type="button" onClick={onClose} className={editorSecondaryButton}>Done</button></div>}>
     {open && <div className="mt-3 space-y-3 text-sm">
-      <p className="text-gray-500 dark:text-gray-400">Project language model requests, newest first. Includes retries and raw responses. Requests made before capture was added are unavailable. Reference image contents are omitted.</p>
+      <p className="text-gray-500 dark:text-gray-400">Newest requests appear first. Older requests made before capture was added are unavailable. Reference image contents are omitted.</p>
       <button type="button" disabled={loading} onClick={() => setReload(value => value + 1)} className="underline disabled:opacity-50">Refresh requests</button>
       {loading && <p role="status">Loading requests…</p>}
       {result?.error && <p role="alert">Requests could not be loaded. Refresh to try again.</p>}
@@ -33,10 +35,12 @@ export function DeveloperPrompts({ videoId }) {
         <summary className="cursor-pointer">{trace.model} · Attempt {trace.attempt} · {new Date(trace.created_at).toLocaleString()}{trace.validation_errors.length > 0 ? " · Needs correction" : ""}</summary>
         {trace.has_reference_image && <p className="mt-2">A reference image was included with this prompt.</p>}
         {trace.validation_errors.length > 0 && <ul className="mt-2 list-inside list-disc text-amber-700 dark:text-amber-300">{trace.validation_errors.map((error, index) => <li key={index}>{error}</li>)}</ul>}
-        <h3 className="mt-3 font-semibold">Prompt sent to model</h3>
+        <div className="mt-3 grid min-w-0 gap-4 lg:grid-cols-2"><div className="min-w-0">
+        <h3 className="font-semibold">Prompt sent to model</h3>
         <pre tabIndex={0} className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded bg-gray-100 p-3 text-xs dark:bg-gray-900">{trace.prompt}</pre>
-        <h3 className="mt-3 font-semibold">Response · JSON when available</h3>
+        </div><div className="min-w-0"><h3 className="font-semibold">Response · JSON when available</h3>
         <pre tabIndex={0} className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded bg-gray-100 p-3 text-xs dark:bg-gray-900">{formattedResponse(trace.response) || "No response returned."}</pre>
+        </div></div>
       </details>)}
       {result && !result.error && result.count > 0 && <div className="flex items-center gap-3">
         <button type="button" disabled={!result.previous || loading} onClick={() => setPage(result.previous)} className="underline disabled:opacity-50">Newer</button>
@@ -44,5 +48,5 @@ export function DeveloperPrompts({ videoId }) {
         <button type="button" disabled={!result.next || loading} onClick={() => setPage(result.next)} className="underline disabled:opacity-50">Older</button>
       </div>}
     </div>}
-  </details>;
+  </EditorDialog>;
 }

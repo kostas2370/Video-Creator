@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   HiOutlineArrowPath, HiOutlineArrowUturnLeft, HiOutlineArrowUpTray, HiOutlineClock,
-  HiOutlineAdjustmentsHorizontal, HiOutlineChevronDown, HiOutlineCog6Tooth, HiOutlinePhoto, HiOutlinePlay, HiOutlineSquares2X2,
+  HiOutlineCodeBracket, HiOutlineAdjustmentsHorizontal, HiOutlineChevronDown, HiOutlineCog6Tooth, HiOutlinePhoto, HiOutlinePlay, HiOutlineSquares2X2,
 } from "react-icons/hi2";
 import { formatDuration } from "../utils/timing";
 
@@ -10,7 +10,7 @@ const actionFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visib
 
 export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, processing,
   canPreview, canExport, renderPending, saving, isResumable,
-  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onSettings, onCover, onExport, onResume, tagsAction, cutAction }) {
+  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onDeveloperPrompts, onSettings, onCover, onExport, onResume, tagsAction, cutAction }) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const exporting = renderPending || video?.status === "RENDERING";
   const exportHint = canExport ? "Export your current edit" : saving ? "Wait for your changes to save" : !sceneCount ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`;
@@ -32,6 +32,7 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
         <button type="button" disabled={!video || video.status === "REVIEW"} aria-label="Video settings" title="Video format, narration and appearance" onClick={onSettings} className={toolbarAction}><HiOutlineCog6Tooth aria-hidden="true" className="h-4 w-4" />Settings</button>
         <button type="button" disabled={!video || processing || renderPending} title="Generate an AI thumbnail, choose a frame, or upload a cover" onClick={onCover} className={toolbarAction}><HiOutlinePhoto aria-hidden="true" className="h-4 w-4" />Cover</button>
         {tagsAction}
+        {onDeveloperPrompts && <button type="button" disabled={!video} onClick={onDeveloperPrompts} className={toolbarAction}><HiOutlineCodeBracket aria-hidden="true" className="h-4 w-4" />Developer prompts</button>}
       </div>
     <div aria-label="Project overview" className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 px-2 pb-1 pt-2 text-[11px] text-gray-500 dark:border-gray-700/70 dark:text-gray-400">
       {onUndo && <button type="button" disabled={!canUndo} title={undoStale ? "Scene order changed. Undo is unavailable for this earlier action." : undoLabel} aria-label={undoLabel} onClick={onUndo} className="inline-flex items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-blue-600 disabled:text-gray-400 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300"><HiOutlineArrowUturnLeft aria-hidden="true" className="h-3.5 w-3.5" />Undo</button>}

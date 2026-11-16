@@ -1,4 +1,3 @@
-import { DeveloperPrompts } from "../components/DeveloperPrompts";
 import { VideoEditorLoading } from "../components/VideoEditorLoading";
 import { useDraftOwner } from "../hooks/useCreationDraft";
 import { libraryReturnUrl } from "../utils/videoLibraryNavigation";
@@ -29,6 +28,7 @@ import { VideoToolbar } from "../components/VideoToolbar";
 import { MusicAudio } from "../components/MusicAudio";
 import { BulkAutoMotion, hasStillImage } from "../components/SceneMotion";
 
+const DeveloperPrompts = lazy(() => import("../components/DeveloperPrompts").then(module => ({ default: module.DeveloperPrompts })));
 const VideoCuts = lazy(() => import("../components/SceneCuts").then(module => ({ default: module.VideoCuts })));
 const ManualSceneModal = lazy(() => import("../components/ManualSceneModal").then(module => ({ default: module.ManualSceneModal })));
 const SceneCreationModal = lazy(() => import("../components/CreateSceneModal").then(module => ({ default: module.SceneCreationModal })));
@@ -45,6 +45,7 @@ export const Video = () => {
   const [videoInfo, setVideoInfo] = useState(null);
   const [updateError, setUpdateError] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [showDeveloperPrompts, setShowDeveloperPrompts] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
@@ -262,6 +263,7 @@ export const Video = () => {
           <a href={renderedUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:bg-gray-700">Open video in new tab ↗</a>
         </>}
       </EditorDialog>
+      <DeferredDialog open={showDeveloperPrompts} onClose={() => setShowDeveloperPrompts(false)}><DeveloperPrompts key={videoId} videoId={videoId} open={showDeveloperPrompts} onClose={() => setShowDeveloperPrompts(false)} /></DeferredDialog>
       <DeferredDialog open={showCover} onClose={() => setShowCover(false)}><ThumbnailCreator open={showCover} onClose={() => setShowCover(false)} video={videoInfo} onSaved={changes => setVideoInfo(current => ({ ...current, ...changes }))} /></DeferredDialog>
       <DeferredDialog open={showPreview} onClose={() => setShowPreview(false)}><VideoPreviewModal open={showPreview} onClose={() => setShowPreview(false)} video={videoInfo} disabled={sceneChangePending || renderPending} /></DeferredDialog>
       <DeferredDialog open={showStoryboard} onClose={() => setShowStoryboard(false)}><StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} /></DeferredDialog>
@@ -335,7 +337,7 @@ export const Video = () => {
         }} />
         <ExportFailure video={videoInfo} disabled={!isRenderable} onRetry={() => setShowRenderModal(true)} />
         {videoInfo?.can_retry_narration && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Narration stopped before finishing. Your saved scenes are preserved. <button type="button" onClick={() => setShowConfigModal(true)} className="ml-2 font-semibold underline">Open narration retry</button></div>}
-        <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
+        <VideoToolbar onDeveloperPrompts={() => setShowDeveloperPrompts(true)} video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
           statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
           renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}
           onUndo={undo} canUndo={canUndo} undoLabel={undoEntry ? `Undo ${undoEntry.label}` : "Nothing to undo yet"} undoStale={!!undoEntry && !undoMatches}
@@ -373,7 +375,6 @@ export const Video = () => {
           {videoInfo && <ProjectCosts videoId={videoInfo.id} refresh={`${videoInfo.updated_at}:${videoInfo.status}:${refresh}`} />}
           {videoInfo && <RecentlyDeletedScenes key={`deleted-${videoId}`} videoId={videoId} refresh={videoInfo.updated_at} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo.status)} onRestore={recoverScene} />}
           </RememberedDetails>
-          {videoInfo && <DeveloperPrompts key={videoInfo.id} videoId={videoInfo.id} />}
       </main>
     </>
   );
