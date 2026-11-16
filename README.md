@@ -6,7 +6,7 @@ Viddie is a self-hosted video creation app. Start with an AI-generated storyboar
 build a project from your own media, edit each scene, and export a finished video.
 The workflow brings scripts, visuals, narration, captions, music, and publishing
 into one place.
-Watch [example videos on TikTok](https://www.tiktok.com/@wasteoftime157).
+Watch [example videos on TikTok](https://www.tiktok.com/@viddieeducation).
 
 ![Viddie video editor in dark theme](docs/screenshots/video-edit.png)
 
