@@ -6,7 +6,7 @@ from rest_framework.generics import get_object_or_404
 
 from apps.common.ai_json import parse_ai_json
 from apps.videomanagement.events import publish_update
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 
 from .exceptions import ClipConflict
 from .models import Clip
@@ -42,7 +42,7 @@ def draft_hashtags(clip, owner):
     for attempt in range(2):
         data = None
         try:
-            data = parse_ai_json(get_update_sentence(prompt, user=owner))
+            data = parse_ai_json(get_raw_reply(prompt, user=owner))
             serializer = HashtagsSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             if not serializer.validated_data["hashtags"]:

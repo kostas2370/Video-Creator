@@ -29,7 +29,7 @@ from apps.videomanagement.exceptions import (
     GenerationQueueUnavailable,
     VideoEditConflict,
 )
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.integrations.visuals import openai_images
 from apps.videomanagement.models import MediaAsset
 from apps.videomanagement.utils.file_utils import stored_file_exists
@@ -43,7 +43,7 @@ def draft_cast(user, choices):
 
     prompt = build_cast_prompt(choices)
     try:
-        result = parse_ai_json(get_update_sentence(prompt, user=user))
+        result = parse_ai_json(get_raw_reply(prompt, user=user))
         cast = result["cast"]
         if not isinstance(cast, list) or len(cast) != choices["count"]:
             raise ValueError("Invalid cast size")
@@ -221,7 +221,7 @@ def draft_character_description(owner, choices):
     from apps.series.serializers import CharacterSerializer
 
     prompt = build_character_description_prompt(choices)
-    raw = get_update_sentence(prompt, user=owner)
+    raw = get_raw_reply(prompt, user=owner)
     try:
         character = parse_ai_json(raw)["character"]
         if not isinstance(character, dict):

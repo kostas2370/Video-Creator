@@ -143,7 +143,7 @@ class ClipRankingTests(SimpleTestCase):
             with (
                 self.subTest(invalid=invalid),
                 patch(
-                    "apps.clips.highlights.get_update_sentence",
+                    "apps.clips.highlights.get_raw_reply",
                     side_effect=[invalid, json.dumps(valid)],
                 ) as provider,
             ):
@@ -156,7 +156,7 @@ class ClipRankingTests(SimpleTestCase):
         candidates = [{"title": str(i)} for i in range(20)]
         valid = {"assessments": [assessment(i) for i in range(20)], "indices": [19]}
         with patch(
-            "apps.clips.highlights.get_update_sentence", return_value=json.dumps(valid)
+            "apps.clips.highlights.get_raw_reply", return_value=json.dumps(valid)
         ) as provider:
             self.assertEqual(
                 rank_candidates(self.project(count=3), candidates), [candidates[19]]
@@ -169,7 +169,7 @@ class ClipRankingTests(SimpleTestCase):
 
     def test_stops_after_bounded_invalid_review_attempts(self):
         with patch(
-            "apps.clips.highlights.get_update_sentence", return_value='{"indices": []}'
+            "apps.clips.highlights.get_raw_reply", return_value='{"indices": []}'
         ) as provider:
             with self.assertRaisesRegex(HighlightRankingError, "saved transcript"):
                 rank_candidates(self.project(), [{"title": "A"}])
@@ -177,14 +177,14 @@ class ClipRankingTests(SimpleTestCase):
 
     def test_does_not_retry_provider_failures_or_valid_empty_selection(self):
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=RuntimeError("provider"),
         ) as provider:
             with self.assertRaisesRegex(RuntimeError, "provider"):
                 rank_candidates(self.project(), [{"title": "A"}])
         provider.assert_called_once()
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             return_value=json.dumps({"assessments": [assessment(0)], "indices": []}),
         ) as provider:
             self.assertEqual(rank_candidates(self.project(), [{"title": "A"}]), [])
@@ -202,7 +202,7 @@ class ClipRankingTests(SimpleTestCase):
             "indices": [0, 1],
         }
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[json.dumps(extraction), json.dumps(ranking)],
         ) as provider:
             result = suggest_clips(project)
@@ -224,7 +224,7 @@ class ClipRankingTests(SimpleTestCase):
             "indices": [0, 1],
         }
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[json.dumps(extraction), json.dumps(ranking)],
         ):
             result = suggest_clips(project)
@@ -234,7 +234,7 @@ class ClipRankingTests(SimpleTestCase):
         extraction = {"clips": [self.candidate(0, "A"), self.candidate(40, "B")]}
         with (
             patch(
-                "apps.clips.highlights.get_update_sentence",
+                "apps.clips.highlights.get_raw_reply",
                 return_value=json.dumps(extraction),
             ) as provider,
             patch("apps.clips.highlights.RANKING_BATCH_SIZE", 2),
@@ -253,7 +253,7 @@ class ClipRankingTests(SimpleTestCase):
             for first in (0, 1100, 2100)
         ]
         with (
-            patch("apps.clips.highlights.get_update_sentence", side_effect=responses),
+            patch("apps.clips.highlights.get_raw_reply", side_effect=responses),
             patch("apps.clips.highlights.RANKING_BATCH_SIZE", 2),
             patch(
                 "apps.clips.highlights.rank_candidates",
@@ -273,7 +273,7 @@ class ClipRankingTests(SimpleTestCase):
         ]
         with (
             patch(
-                "apps.clips.highlights.get_update_sentence", side_effect=responses
+                "apps.clips.highlights.get_raw_reply", side_effect=responses
             ) as provider,
             patch("apps.clips.highlights.rank_candidates") as rank,
         ):
@@ -293,7 +293,7 @@ class ClipRankingTests(SimpleTestCase):
             "indices": [0],
         }
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[json.dumps(extraction), json.dumps(ranking)],
         ) as provider:
             self.assertEqual(suggest_clips(project), [])
@@ -306,7 +306,7 @@ class ClipRankingTests(SimpleTestCase):
         extraction = {"clips": [self.candidate(0, "A")]}
         ranking = {"assessments": [assessment(0, relevance=4)], "indices": [0]}
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[json.dumps(extraction), json.dumps(ranking)],
         ):
             self.assertEqual(suggest_clips(project)[0]["title"], "A")
@@ -321,7 +321,7 @@ class ClipRankingTests(SimpleTestCase):
             "indices": [0, 1],
         }
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[json.dumps(extraction), json.dumps(ranking)],
         ) as provider:
             result = suggest_clips(project)
@@ -336,7 +336,7 @@ class ClipRankingTests(SimpleTestCase):
                 project = self.project()
                 project.clip_focus = focus
                 with patch(
-                    "apps.clips.highlights.get_update_sentence",
+                    "apps.clips.highlights.get_raw_reply",
                     return_value='{"clips": []}',
                 ) as provider:
                     self.assertEqual(suggest_clips(project), [])

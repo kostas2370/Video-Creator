@@ -1,5 +1,4 @@
 import json
-from io import StringIO
 from unittest.mock import patch
 
 from django.urls import reverse
@@ -68,7 +67,7 @@ class NarrationSetupTests(ApiTestCase):
         ]
         with patch(
             "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
-            return_value=StringIO(json.dumps({"scenes": rows})),
+            return_value=json.dumps({"scenes": rows}),
         ) as write:
             result = draft_narration(self.video)
         self.first.refresh_from_db()
@@ -94,7 +93,7 @@ class NarrationSetupTests(ApiTestCase):
                 self.subTest(rows=rows),
                 patch(
                     "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
-                    return_value=StringIO(json.dumps({"scenes": rows})),
+                    return_value=json.dumps({"scenes": rows}),
                 ),
             ):
                 with self.assertRaises(ValidationError):
@@ -107,7 +106,9 @@ class NarrationSetupTests(ApiTestCase):
             "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
             return_value=None,
         ):
-            with self.assertRaisesMessage(ValidationError, "AI returned an incomplete narration draft"):
+            with self.assertRaisesMessage(
+                ValidationError, "AI returned an incomplete narration draft"
+            ):
                 draft_narration(self.video)
         self.first.refresh_from_db()
         self.assertEqual(self.first.text, "Camera pans across a bank.")
@@ -180,8 +181,12 @@ class NarrationSetupTests(ApiTestCase):
         self.first.refresh_from_db()
         self.assertEqual(self.first.text, "Camera pans across a bank.")
 
-    def test_audio_mix_settings_preserve_individual_clip_choices_without_regeneration(self):
-        audible = scene_image.make(scene=self.second, file="audible.mp4", with_audio=True)
+    def test_audio_mix_settings_preserve_individual_clip_choices_without_regeneration(
+        self,
+    ):
+        audible = scene_image.make(
+            scene=self.second, file="audible.mp4", with_audio=True
+        )
         with patch(
             "apps.videomanagement.tasks.regenerate_narration_task.delay"
         ) as speech:

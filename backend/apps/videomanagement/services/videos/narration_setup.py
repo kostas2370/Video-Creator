@@ -58,7 +58,7 @@ def draft_narration(video):
             user=video.created_by,
         )
     try:
-        payload = parse_ai_json(reply.getvalue())
+        payload = parse_ai_json(reply)
         rows = payload["scenes"]
         if not isinstance(rows, list) or len(rows) != len(sources):
             raise ValueError()

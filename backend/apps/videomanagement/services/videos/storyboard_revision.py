@@ -37,7 +37,7 @@ def revise_storyboard(video, *, storyboard, instructions):
             user=video.created_by,
         )
     try:
-        data = parse_ai_json(response.getvalue())
+        data = parse_ai_json(response)
         # Models sometimes express an unused optional diagram as {} instead of null.
         if isinstance(data, dict) and isinstance(data.get("scenes"), list):
             for scene in data["scenes"]:

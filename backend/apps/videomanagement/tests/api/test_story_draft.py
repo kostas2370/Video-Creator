@@ -19,7 +19,7 @@ class StoryDraftTests(ApiTestCase):
             "story": "The text arrived at midnight. It was from my future self.",
         }
         with patch(
-            "apps.videomanagement.services.videos.story.get_update_sentence",
+            "apps.videomanagement.services.videos.story.get_raw_reply",
             return_value=json.dumps(draft),
         ) as generate:
             response = self.client.post(
@@ -37,7 +37,7 @@ class StoryDraftTests(ApiTestCase):
     def test_accepts_fenced_json_and_unicode(self):
         draft = {"title": "Ένα μήνυμα", "story": "Το μήνυμα ήρθε τα μεσάνυχτα."}
         with patch(
-            "apps.videomanagement.services.videos.story.get_update_sentence",
+            "apps.videomanagement.services.videos.story.get_raw_reply",
             return_value="```json\n" + json.dumps(draft) + "\n```",
         ):
             response = self.client.post(
@@ -50,7 +50,7 @@ class StoryDraftTests(ApiTestCase):
 
     def test_invalid_input_is_rejected_before_the_model_call(self):
         with patch(
-            "apps.videomanagement.services.videos.story.get_update_sentence"
+            "apps.videomanagement.services.videos.story.get_raw_reply"
         ) as generate:
             for prompt in ("", " ", "a" * 2001):
                 self.assertEqual(
@@ -71,7 +71,7 @@ class StoryDraftTests(ApiTestCase):
             with (
                 self.subTest(reply=reply[:30]),
                 patch(
-                    "apps.videomanagement.services.videos.story.get_update_sentence",
+                    "apps.videomanagement.services.videos.story.get_raw_reply",
                     return_value=reply,
                 ),
             ):
@@ -87,7 +87,7 @@ class StoryDraftTests(ApiTestCase):
 
     def test_provider_failure_and_unauthenticated_requests(self):
         with patch(
-            "apps.videomanagement.services.videos.story.get_update_sentence",
+            "apps.videomanagement.services.videos.story.get_raw_reply",
             side_effect=APIException("Text provider unavailable"),
         ):
             response = self.client.post(
@@ -100,7 +100,7 @@ class StoryDraftTests(ApiTestCase):
         self.assertIn("Text provider unavailable", str(failure.exception.detail))
         self.client.force_authenticate(None)
         with patch(
-            "apps.videomanagement.services.videos.story.get_update_sentence"
+            "apps.videomanagement.services.videos.story.get_raw_reply"
         ) as generate:
             self.assertIn(
                 self.client.post(

@@ -127,7 +127,7 @@ def review_starting_frame(scene, source_key):
         )
     try:
         result = StartingFrameReviewResultSerializer(
-            data=parse_ai_json(response.getvalue())
+            data=parse_ai_json(response)
         )
         result.is_valid(raise_exception=True)
     except (AttributeError, ValueError, TypeError, ValidationError) as exc:

@@ -255,18 +255,19 @@ def model_reply(prompt, gpt_model, *, user, image=None, attempt=1):
 
 
 def get_raw_reply(prompt, gpt_model=None, user=None, reference_image=None):
-    """Return an unparsed response for text tasks and service-specific validation."""
+    """Return trimmed response text for tasks with service-specific validation."""
     image = reference_data(reference_image)
     response, model = model_reply(prompt, gpt_model, user=user, image=image)
+    raw = response.getvalue()
     record_llm_trace(
         user,
         model,
         prompt,
-        response.getvalue(),
+        raw,
         attempt=1,
         has_reference_image=image is not None,
     )
-    return response
+    return raw.strip()
 
 
 def get_reply(
@@ -335,11 +336,6 @@ def get_reply(
             + json.dumps(raw[:12000], ensure_ascii=False)
         )
     raise APIException("AI returned an invalid script after 5 attempts.")
-
-
-def get_update_sentence(prompt, user=None):
-    """Return trimmed text from the configured language model."""
-    return get_raw_reply(prompt, user=user).getvalue().strip()
 
 
 def select_from_vision(prompt, images, user=None):

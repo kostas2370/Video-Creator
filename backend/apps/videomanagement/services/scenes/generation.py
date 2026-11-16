@@ -4,7 +4,7 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from apps.common.ai_json import parse_ai_json
 from apps.usage.services import video_usage
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, SceneImage, Video
 from apps.videomanagement.prompts.storyboard import build_scene_draft_prompt
@@ -38,7 +38,7 @@ def generate_scene(text: str, scene: Scene) -> str:
         return text
 
     with video_usage(scene.video):
-        text = get_update_sentence(
+        text = get_raw_reply(
             format_update_form(scene.text, text), user=scene.video.created_by
         )
 
@@ -166,7 +166,7 @@ def draft_scene(
         instructions = with_visual_continuity(
             instructions, settings.get("visual_continuity", "")
         )
-    reply = get_update_sentence(instructions, user=video.created_by)
+    reply = get_raw_reply(instructions, user=video.created_by)
     try:
         result = parse_ai_json(reply)
         serializer = SceneDraftResultSerializer(

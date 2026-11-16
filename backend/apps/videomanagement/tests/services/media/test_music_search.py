@@ -1,7 +1,6 @@
 import json
 import os
 import tempfile
-from io import StringIO
 from unittest.mock import Mock, patch
 
 from django.core.files.base import ContentFile
@@ -101,17 +100,15 @@ class MusicSearchTests(TestCase):
         self.reply.side_effect = creative_reply
         with patch(
             "apps.videomanagement.services.videos.ideas.get_raw_reply",
-            return_value=StringIO(
-                json.dumps(
-                    {
-                        **BRIEF,
-                        "instruments": ["soft acoustic piano", "gentle ambient strings"]
-                        * 8,
-                        "mood": "calm and curious " * 15,
-                        "tempo": "a relaxed medium pace " * 10,
-                        "query": "curious educational piano background music " * 10,
-                    }
-                )
+            return_value=json.dumps(
+                {
+                    **BRIEF,
+                    "instruments": ["soft acoustic piano", "gentle ambient strings"]
+                    * 8,
+                    "mood": "calm and curious " * 15,
+                    "tempo": "a relaxed medium pace " * 10,
+                    "query": "curious educational piano background music " * 10,
+                }
             ),
         ):
             result = music_search.recommend_music_preferences(

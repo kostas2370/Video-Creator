@@ -25,7 +25,7 @@ class YouTubeDescriptionTests(ApiTestCase):
         scene.make(video=video, text="Whales migrate every year.")
         original = video.updated_at
         with patch(
-            f"{SERVICE}.get_update_sentence",
+            f"{SERVICE}.get_raw_reply",
             return_value="Learn about whale migration.",
         ) as generate:
             response = self.draft(video)
@@ -42,7 +42,7 @@ class YouTubeDescriptionTests(ApiTestCase):
     def test_template_uses_script_without_calling_ai(self):
         video = self.video_for()
         scene.make(video=video, text="An edited scene.")
-        with patch(f"{SERVICE}.get_update_sentence") as generate:
+        with patch(f"{SERVICE}.get_raw_reply") as generate:
             response = self.draft(video, "template")
             self.assertEqual(response.status_code, 202, response.data)
             draft_result = self.run_draft_task()
@@ -92,7 +92,7 @@ class YouTubeDescriptionTests(ApiTestCase):
         video = self.video_for()
         scene.make(video=video, text="Whales migrate.")
         for reply in ("", "🐳" * 1200, "<invalid>"):
-            with patch(f"{SERVICE}.get_update_sentence", return_value=reply):
+            with patch(f"{SERVICE}.get_raw_reply", return_value=reply):
                 self.assertEqual(self.draft(video).status_code, 202)
                 with self.assertRaises(APIException):
                     self.run_draft_task()

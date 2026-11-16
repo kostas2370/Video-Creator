@@ -5,7 +5,7 @@ from rest_framework.exceptions import APIException, ValidationError
 
 from apps.common.ai_json import parse_ai_json
 from apps.videomanagement import tasks
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.models import SceneImage
 from apps.videomanagement.prompts.writing import build_story_draft_prompt
 from apps.videomanagement.schemas.drafts import StoryDraftResultSerializer
@@ -16,7 +16,7 @@ from apps.videomanagement.services.videos.manual import create_manual_video
 
 def draft_story(user, prompt):
     instructions = build_story_draft_prompt(prompt)
-    reply = get_update_sentence(instructions, user=user)
+    reply = get_raw_reply(instructions, user=user)
     try:
         result = parse_ai_json(reply)
         serializer = StoryDraftResultSerializer(data=result)

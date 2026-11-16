@@ -77,16 +77,16 @@ class LLMTraceTests(ApiTestCase):
             video_usage(self.video),
             patch(
                 "apps.videomanagement.integrations.llm.official_gpt_call",
-                return_value=StringIO("A rewritten sentence."),
+                return_value=StringIO("  A rewritten sentence.\n"),
             ),
         ):
             response = get_raw_reply(
                 "Rewrite this", gpt_model="gpt-test", user=self.user
             )
-        self.assertEqual(response.getvalue(), "A rewritten sentence.")
+        self.assertEqual(response, "A rewritten sentence.")
         trace = LLMTrace.objects.get()
         self.assertEqual(trace.prompt, "Rewrite this")
-        self.assertEqual(trace.response, "A rewritten sentence.")
+        self.assertEqual(trace.response, "  A rewritten sentence.\n")
         self.assertEqual(trace.model, "gpt-test")
         self.assertEqual(trace.validation_errors, [])
 

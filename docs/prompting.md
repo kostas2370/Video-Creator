@@ -18,7 +18,8 @@ them. Model responses shown or described here are illustrative.
 3. `get_reply()` routes the text request to the selected language model, parses its
    JSON, and validates the fields used by generation. It always returns validated
    storyboard JSON. Text tasks and services that validate their own response schemas
-   use `get_raw_reply()` instead; there is no response-format switch.
+   use `get_raw_reply()` instead, which returns trimmed text directly; there is no
+   response-format switch.
 4. With storyboard review enabled, the project enters `REVIEW`. The user can edit
    narration, visual prompts, shared continuity, and shot plans before approving.
    Generating the initial storyboard does not create its scene images or speech.

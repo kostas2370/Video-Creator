@@ -1,5 +1,4 @@
 import json
-from io import StringIO
 from unittest.mock import patch
 
 from django.urls import reverse
@@ -18,8 +17,8 @@ class PromptRewriteTests(ApiTestCase):
         provider = patch("apps.videomanagement.services.videos.ideas.get_raw_reply")
         self.provider = provider.start()
         self.addCleanup(provider.stop)
-        self.provider.return_value = StringIO(
-            json.dumps({"prompt": "Milo discovers a lantern at dusk."})
+        self.provider.return_value = json.dumps(
+            {"prompt": "Milo discovers a lantern at dusk."}
         )
 
     def request_rewrite(self, **choices):
@@ -72,9 +71,15 @@ class PromptRewriteTests(ApiTestCase):
         self.provider.assert_not_called()
 
     def test_rejects_invalid_or_oversized_rewrites(self):
-        for result in [{}, [], {"prompt": ""}, {"prompt": True}, {"prompt": "x" * 2001}]:
+        for result in [
+            {},
+            [],
+            {"prompt": ""},
+            {"prompt": True},
+            {"prompt": "x" * 2001},
+        ]:
             with self.subTest(result=result):
-                self.provider.return_value = StringIO(json.dumps(result))
+                self.provider.return_value = json.dumps(result)
                 self.request_rewrite()
                 with self.assertRaises(ValidationError):
                     self.run_draft_task()

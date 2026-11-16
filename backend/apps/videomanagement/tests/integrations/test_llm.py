@@ -13,7 +13,6 @@ from apps.videomanagement.integrations.llm import (
     claude_call,
     gemini_call,
     get_reply,
-    get_update_sentence,
     official_gpt_call,
     script_errors,
     select_from_vision,
@@ -403,20 +402,12 @@ class GetReplyParsingTests(SimpleTestCase):
         self.assertEqual(len(parsed["scenes"]), 2)
         self.assertIn("exactly 2 scenes", call.call_args.args[0])
 
-    def test_raw_reply_returns_the_provider_stream(self):
-        stream = io.StringIO("just words")
+    def test_raw_reply_returns_trimmed_provider_text(self):
+        stream = io.StringIO("  just words\n")
         with patch.object(llm, "official_gpt_call", return_value=stream):
             result = llm.get_raw_reply("a prompt", gpt_model="gpt-4")
 
-        self.assertIs(result, stream)
-
-
-class GetUpdateSentenceTests(SimpleTestCase):
-    def test_joins_the_streamed_rewrite(self):
-        with patch.object(
-            llm, "get_raw_reply", return_value=io.StringIO("  a rewrite\n")
-        ):
-            self.assertEqual(get_update_sentence("a prompt"), "a rewrite")
+        self.assertEqual(result, "just words")
 
 
 class SelectFromVisionTests(SimpleTestCase):

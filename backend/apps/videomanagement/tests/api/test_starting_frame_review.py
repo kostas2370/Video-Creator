@@ -1,5 +1,4 @@
 import json
-from io import StringIO
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -9,8 +8,8 @@ from model_bakery import baker
 from PIL import Image
 from rest_framework.exceptions import ValidationError
 
-from apps.usermanagement.baker_recipes import user
 from apps.usage.services import current_video
+from apps.usermanagement.baker_recipes import user
 from apps.videomanagement import draft_tasks
 from apps.videomanagement.serializers.models import SceneSerializer
 from apps.videomanagement.services.scenes.starting_frame_review import (
@@ -40,7 +39,7 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         }
         provider = patch(
             "apps.videomanagement.services.scenes.starting_frame_review.get_raw_reply",
-            return_value=StringIO(json.dumps(self.review)),
+            return_value=json.dumps(self.review),
         )
         self.provider = provider.start()
         self.addCleanup(provider.stop)
@@ -74,7 +73,10 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
 
     def test_comparison_contains_both_images_and_uses_project_model_and_usage(self):
         Image.new("RGB", (32, 32), "red").save(self.frame.parent / "cast.png")
-        with review_comparison_sheet(self.scene, has_reference=True) as output, Image.open(output) as sheet:
+        with (
+            review_comparison_sheet(self.scene, has_reference=True) as output,
+            Image.open(output) as sheet,
+        ):
             self.assertEqual(sheet.size, (1536, 800))
             self.assertGreater(sheet.getpixel((384, 416))[0], 200)
             self.assertGreater(sheet.getpixel((1152, 416))[2], 200)
@@ -88,7 +90,7 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             self.assertEqual(kwargs["gpt_model"], "claude-example")
             self.assertTrue(kwargs["reference_image"].read())
             self.assertIn("Milo at gate", args[0])
-            return StringIO(json.dumps(self.review))
+            return json.dumps(self.review)
 
         self.provider.side_effect = reply
         review_starting_frame(self.scene, review_source_key(self.scene))
@@ -107,12 +109,16 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
 
     @override_settings(DEFAULT_GPT_MODEL="gpt-default-model")
     def test_legacy_generation_parameters_do_not_override_the_default_model(self):
-        self.video.settings["generation_params"] = {"gpt_model": "claude-selected-model"}
+        self.video.settings["generation_params"] = {
+            "gpt_model": "claude-selected-model"
+        }
         self.video.save(update_fields=["settings"])
         response = self.request_review()
         self.assertEqual(response.status_code, 202, response.data)
         self.run_draft_task()
-        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gpt-default-model")
+        self.assertEqual(
+            self.provider.call_args.kwargs["gpt_model"], "gpt-default-model"
+        )
 
     @override_settings(DEFAULT_GPT_MODEL="gpt-default-model")
     def test_legacy_series_episode_does_not_override_the_default_model(self):
@@ -124,7 +130,9 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         response = self.request_review()
         self.assertEqual(response.status_code, 202, response.data)
         self.run_draft_task()
-        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gpt-default-model")
+        self.assertEqual(
+            self.provider.call_args.kwargs["gpt_model"], "gpt-default-model"
+        )
 
     def test_current_saved_review_is_invalidated_when_the_resolved_model_changes(self):
         self.scene.video = self.video
@@ -142,7 +150,9 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         self.scene.video = self.video
         source_key = review_source_key(self.scene)
         review_starting_frame(self.scene, source_key)
-        self.assertEqual(self.provider.call_args.kwargs["gpt_model"], "gpt-default-model")
+        self.assertEqual(
+            self.provider.call_args.kwargs["gpt_model"], "gpt-default-model"
+        )
         with override_settings(DEFAULT_GPT_MODEL="gemini-new-default"):
             self.assertNotEqual(review_source_key(self.scene), source_key)
 
@@ -166,7 +176,7 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
     def test_changes_during_review_do_not_save_stale_findings(self):
         def change_shot(*args, **kwargs):
             type(self.scene).objects.filter(pk=self.scene.pk).update(text="New action")
-            return StringIO(json.dumps(self.review))
+            return json.dumps(self.review)
 
         self.provider.side_effect = change_shot
         with self.assertRaises(ValidationError):
@@ -197,7 +207,9 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         self.assertEqual(fingerprint.call_count, 2)
         self.assertIsNotNone(first["starting_frame_review"])
         self.assertIsNone(second["starting_frame_review"])
-        self.assertNotEqual(first["starting_frame_review_key"], second["starting_frame_review_key"])
+        self.assertNotEqual(
+            first["starting_frame_review_key"], second["starting_frame_review_key"]
+        )
 
     def test_approval_does_not_invalidate_a_review(self):
         review_starting_frame(self.scene, review_source_key(self.scene))
@@ -242,11 +254,14 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             {**self.review, "findings": self.review["findings"] * 7},
             {**self.review, "summary": True},
             {**self.review, "suggested_description": True},
-            {**self.review, "findings": [{**self.review["findings"][0], "issue": True}]},
+            {
+                **self.review,
+                "findings": [{**self.review["findings"][0], "issue": True}],
+            },
             {**self.review, "findings": [{**self.review["findings"][0], "fix": True}]},
         ]:
             with self.subTest(value=value):
-                self.provider.return_value = StringIO(json.dumps(value))
+                self.provider.return_value = json.dumps(value)
                 with self.assertRaises(ValidationError):
                     review_starting_frame(self.scene, review_source_key(self.scene))
                 self.scene.refresh_from_db()
@@ -254,7 +269,9 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
 
     def test_missing_provider_response_is_reported_as_invalid_review(self):
         self.provider.return_value = None
-        with self.assertRaisesMessage(ValidationError, "AI returned an invalid starting frame review"):
+        with self.assertRaisesMessage(
+            ValidationError, "AI returned an invalid starting frame review"
+        ):
             review_starting_frame(self.scene, review_source_key(self.scene))
         self.scene.refresh_from_db()
         self.assertNotIn("ai_review", self.scene.starting_frame_context)
@@ -262,17 +279,17 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
     def test_ready_and_uncertain_verdicts_are_supported(self):
         for verdict in ["ready", "uncertain"]:
             with self.subTest(verdict=verdict):
-                self.provider.return_value = StringIO(
-                    json.dumps(
-                        {
-                            "verdict": verdict,
-                            "summary": "No clear defects visible.",
-                            "findings": [],
-                            "suggested_description": "",
-                        }
-                    )
+                self.provider.return_value = json.dumps(
+                    {
+                        "verdict": verdict,
+                        "summary": "No clear defects visible.",
+                        "findings": [],
+                        "suggested_description": "",
+                    }
                 )
-                result = review_starting_frame(self.scene, review_source_key(self.scene))
+                result = review_starting_frame(
+                    self.scene, review_source_key(self.scene)
+                )
                 self.assertEqual(result["verdict"], verdict)
 
     def test_provider_failure_keeps_the_existing_review_and_approved_image(self):
@@ -295,7 +312,9 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
     def test_unreadable_image_is_reported_before_calling_the_provider(self):
         with self.video.reference_image.open("wb") as reference:
             reference.write(b"invalid image")
-        with self.assertRaisesMessage(ValidationError, "The review images could not be read"):
+        with self.assertRaisesMessage(
+            ValidationError, "The review images could not be read"
+        ):
             review_starting_frame(self.scene, review_source_key(self.scene))
         self.provider.assert_not_called()
 
@@ -305,16 +324,25 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
         self.video.reference_image = ""
         self.video.save(update_fields=["settings", "reference_image"])
         self.scene.video = self.video
-        with patch("apps.videomanagement.services.scenes.visuals.openai_images.OpenAIImageProvider.generate", return_value=str(self.frame)):
+        with patch(
+            "apps.videomanagement.services.scenes.visuals.openai_images.OpenAIImageProvider.generate",
+            return_value=str(self.frame),
+        ):
             from apps.videomanagement.services.scenes.visuals import generate_new_image
+
             generate_new_image(self.old, self.video)
         self.scene.refresh_from_db()
         self.assertEqual(self.request_review().status_code, 202)
         self.run_draft_task()
-        self.assertIn("No character reference was supplied", self.provider.call_args.args[0])
+        self.assertIn(
+            "No character reference was supplied", self.provider.call_args.args[0]
+        )
         self.scene.refresh_from_db()
         self.scene.video = self.video
-        with review_comparison_sheet(self.scene, has_reference=False) as output, Image.open(output) as sheet:
+        with (
+            review_comparison_sheet(self.scene, has_reference=False) as output,
+            Image.open(output) as sheet,
+        ):
             self.assertEqual(sheet.size, (768, 800))
         self.old.refresh_from_db()
         self.assertEqual(self.old.file.name, "images/old.mp4")
@@ -330,7 +358,7 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             with Image.open(kwargs["reference_image"]) as sheet:
                 self.assertEqual(sheet.size, (1536, 800))
             self.video.reference_image.delete(save=False)
-            return StringIO(json.dumps(self.review))
+            return json.dumps(self.review)
 
         self.provider.side_effect = remove_reference
         with self.assertRaisesMessage(ValidationError, "The frame or shot changed"):
@@ -348,9 +376,15 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             self.video.reference_image.delete(save=False)
             return output
 
-        with patch.object(starting_frame_review, "review_comparison_sheet", side_effect=remove_after_comparison):
+        with patch.object(
+            starting_frame_review,
+            "review_comparison_sheet",
+            side_effect=remove_after_comparison,
+        ):
             with self.assertRaises(ValidationError):
                 review_starting_frame(self.scene, review_source_key(self.scene))
-        self.assertNotIn("No character reference was supplied", self.provider.call_args.args[0])
+        self.assertNotIn(
+            "No character reference was supplied", self.provider.call_args.args[0]
+        )
         self.scene.refresh_from_db()
         self.assertNotIn("ai_review", self.scene.starting_frame_context)

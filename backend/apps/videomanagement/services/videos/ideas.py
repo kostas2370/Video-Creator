@@ -11,7 +11,7 @@ def creative_reply(user, *, prompt, serializer_class, error_message, gpt_model="
         user=user,
     )
     try:
-        result = serializer_class(data=parse_ai_json(response.getvalue()))
+        result = serializer_class(data=parse_ai_json(response))
         result.is_valid(raise_exception=True)
     except (ValueError, TypeError, AttributeError, ValidationError) as exc:
         raise ValidationError(error_message) from exc

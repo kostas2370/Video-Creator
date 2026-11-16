@@ -879,7 +879,7 @@ class SeriesTests(ApiTestCase):
         )
 
     @patch(
-        "apps.series.services.episodes.get_update_sentence",
+        "apps.series.services.episodes.get_raw_reply",
         return_value="Milo found a blue lantern.",
     )
     def test_memory_update_is_an_unsaved_draft_and_includes_manual_corrections(
@@ -904,7 +904,7 @@ class SeriesTests(ApiTestCase):
         self.assertEqual(draft_result["script_hash"], episode.script_hash)
 
     @patch(
-        "apps.series.services.episodes.get_update_sentence",
+        "apps.series.services.episodes.get_raw_reply",
         return_value="",
     )
     def test_invalid_memory_draft_preserves_saved_memory(self, ai):
@@ -920,7 +920,7 @@ class SeriesTests(ApiTestCase):
         episode.refresh_from_db()
         self.assertEqual(episode.summary, "Milo built a lantern")
 
-    @patch("apps.series.services.episodes.get_update_sentence")
+    @patch("apps.series.services.episodes.get_raw_reply")
     def test_memory_update_rejects_changes_during_generation(self, ai):
         episode = self.episode()
         line = scene.make(video=episode.video, text="Before")
@@ -984,7 +984,7 @@ class SeriesTests(ApiTestCase):
         line.save(update_fields=["archived_at"])
         self.assertTrue(SeriesEpisode.objects.get(pk=episode.pk).memory_needs_review)
 
-    @patch("apps.series.services.episodes.get_update_sentence")
+    @patch("apps.series.services.episodes.get_raw_reply")
     def test_memory_update_is_owner_scoped_and_requires_current_script(self, ai):
         episode = self.episode()
         other = VideoSeries.objects.create(

@@ -8,7 +8,7 @@ from rest_framework.exceptions import APIException, ValidationError
 from apps.common.ai_json import parse_ai_json
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.models import Video
 from apps.videomanagement.serializers.tags import VideoTagsSerializer
 
@@ -43,7 +43,7 @@ def generate_tags(video, user):
         + json.dumps(content, ensure_ascii=False)[:24000]
     )
     for attempt in range(2):
-        reply = get_update_sentence(instructions, user=user)
+        reply = get_raw_reply(instructions, user=user)
         try:
             serializer = VideoTagsSerializer(data=parse_ai_json(reply))
             serializer.is_valid(raise_exception=True)
