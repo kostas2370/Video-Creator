@@ -14,7 +14,7 @@ from apps.usage.services import record_usage
 from apps.videomanagement.utils.timing import video_metadata
 from . import video_http as http
 
-MODEL = "gemini-omni-1.1-flash"
+MODEL = "gemini-omni-1.2-flash"
 HOST = "generativelanguage.googleapis.com"
 BASE = f"https://{HOST}/v1beta"
 
