@@ -100,7 +100,7 @@ class MusicSearchTests(TestCase):
     def test_verbose_ai_brief_produces_preferences_that_can_be_searched(self):
         self.reply.side_effect = creative_reply
         with patch(
-            "apps.videomanagement.services.videos.ideas.get_reply",
+            "apps.videomanagement.services.videos.ideas.get_raw_reply",
             return_value=StringIO(
                 json.dumps(
                     {

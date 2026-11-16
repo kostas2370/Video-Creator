@@ -49,7 +49,7 @@ class StoryboardRevisionTests(ApiTestCase):
         self.url = reverse("video-revise-storyboard", args=[self.video.pk])
         self.proposal = {**deepcopy(self.storyboard), "title": "Revised"}
         provider = patch(
-            "apps.videomanagement.services.videos.storyboard_revision.get_reply",
+            "apps.videomanagement.services.videos.storyboard_revision.get_raw_reply",
             return_value=StringIO(json.dumps(self.proposal)),
         )
         self.provider = provider.start()

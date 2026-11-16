@@ -29,7 +29,7 @@ class IdeaTests(ApiTestCase):
             ]
         ]
         provider = patch(
-            "apps.videomanagement.services.videos.ideas.get_reply",
+            "apps.videomanagement.services.videos.ideas.get_raw_reply",
             return_value=StringIO(json.dumps({"ideas": self.ideas})),
         )
         self.provider = provider.start()

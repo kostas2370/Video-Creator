@@ -9,7 +9,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.common.ai_json import parse_ai_json
 from apps.usage.services import video_usage
-from apps.videomanagement.integrations.llm import get_reply
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.models import Scene, Video
 from apps.videomanagement.prompts.visuals import build_starting_frame_review_prompt
 from apps.videomanagement.serializers.starting_frame_review import (
@@ -63,9 +63,9 @@ def validate_review_source(scene, source_key=None, *, asset_id=None):
         scene, scene.starting_asset_id if asset_id is None else asset_id
     )
     validate_current_starting_frame(scene)
-    if (scene.video.settings or {}).get("character_references") and not stored_file_exists(
-        scene.video.reference_image
-    ):
+    if (scene.video.settings or {}).get(
+        "character_references"
+    ) and not stored_file_exists(scene.video.reference_image):
         raise ValidationError(
             "The character reference is missing. Restore it before reviewing."
         )
@@ -80,7 +80,9 @@ def validate_review_source(scene, source_key=None, *, asset_id=None):
 def review_comparison_sheet(scene, *, has_reference):
     fields = [("STARTING FRAME TO REVIEW", scene.starting_asset.file)]
     if has_reference:
-        fields.insert(0, ("CHARACTER REFERENCE (identity only)", scene.video.reference_image))
+        fields.insert(
+            0, ("CHARACTER REFERENCE (identity only)", scene.video.reference_image)
+        )
     sheet = Image.new("RGB", (768 * len(fields), 800), "white")
     draw = ImageDraw.Draw(sheet)
     for index, (label, field) in enumerate(fields):
@@ -117,9 +119,8 @@ def review_starting_frame(scene, source_key):
             "The review images could not be read. Restore them and retry."
         ) from exc
     with reference, video_usage(scene.video):
-        response = get_reply(
+        response = get_raw_reply(
             build_starting_frame_review_prompt(brief, has_reference=has_reference),
-            reply_format="text",
             gpt_model=scene.video.script_model,
             user=scene.video.created_by,
             reference_image=reference,

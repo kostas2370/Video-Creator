@@ -9,7 +9,7 @@ from rest_framework.exceptions import APIException
 from apps.usage.models import LLMTrace
 from apps.usage.services import video_usage
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.integrations.llm import get_reply
+from apps.videomanagement.integrations.llm import get_raw_reply, get_reply
 
 from .base import ApiTestCase
 
@@ -72,14 +72,32 @@ class LLMTraceTests(ApiTestCase):
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(self.url).status_code, (401, 403))
 
+    def test_raw_text_requests_keep_their_project_trace(self):
+        with (
+            video_usage(self.video),
+            patch(
+                "apps.videomanagement.integrations.llm.official_gpt_call",
+                return_value=StringIO("A rewritten sentence."),
+            ),
+        ):
+            response = get_raw_reply(
+                "Rewrite this", gpt_model="gpt-test", user=self.user
+            )
+        self.assertEqual(response.getvalue(), "A rewritten sentence.")
+        trace = LLMTrace.objects.get()
+        self.assertEqual(trace.prompt, "Rewrite this")
+        self.assertEqual(trace.response, "A rewritten sentence.")
+        self.assertEqual(trace.model, "gpt-test")
+        self.assertEqual(trace.validation_errors, [])
+
     def test_wrong_owner_context_and_unscoped_calls_are_not_captured(self):
         with patch(
             "apps.videomanagement.integrations.llm.official_gpt_call",
             return_value=StringIO("hello"),
         ):
-            get_reply("prompt", reply_format="text", user=self.user)
+            get_raw_reply("prompt", user=self.user)
             with video_usage(self.video):
-                get_reply("prompt", reply_format="text", user=user.make())
+                get_raw_reply("prompt", user=user.make())
         self.assertFalse(LLMTrace.objects.exists())
 
     def test_failed_provider_attempt_is_recorded_without_provider_error_details(self):

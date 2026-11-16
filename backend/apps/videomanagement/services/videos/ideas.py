@@ -1,13 +1,12 @@
 from rest_framework.exceptions import ValidationError
 
 from apps.common.ai_json import parse_ai_json
-from apps.videomanagement.integrations.llm import get_reply
+from apps.videomanagement.integrations.llm import get_raw_reply
 
 
 def creative_reply(user, *, prompt, serializer_class, error_message, gpt_model=""):
-    response = get_reply(
+    response = get_raw_reply(
         prompt,
-        reply_format="text",
         gpt_model=gpt_model or None,
         user=user,
     )

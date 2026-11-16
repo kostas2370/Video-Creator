@@ -39,7 +39,7 @@ class StartingFrameReviewTests(test_starting_frames.StartingFrameTests):
             "suggested_description": "Milo at the forest gate wearing his green scarf.",
         }
         provider = patch(
-            "apps.videomanagement.services.scenes.starting_frame_review.get_reply",
+            "apps.videomanagement.services.scenes.starting_frame_review.get_raw_reply",
             return_value=StringIO(json.dumps(self.review)),
         )
         self.provider = provider.start()

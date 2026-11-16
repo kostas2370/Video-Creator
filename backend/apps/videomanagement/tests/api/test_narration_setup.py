@@ -67,7 +67,7 @@ class NarrationSetupTests(ApiTestCase):
             for row in self.reviewed()
         ]
         with patch(
-            "apps.videomanagement.services.videos.narration_setup.get_reply",
+            "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
             return_value=StringIO(json.dumps({"scenes": rows})),
         ) as write:
             result = draft_narration(self.video)
@@ -93,7 +93,7 @@ class NarrationSetupTests(ApiTestCase):
             with (
                 self.subTest(rows=rows),
                 patch(
-                    "apps.videomanagement.services.videos.narration_setup.get_reply",
+                    "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
                     return_value=StringIO(json.dumps({"scenes": rows})),
                 ),
             ):
@@ -104,7 +104,7 @@ class NarrationSetupTests(ApiTestCase):
 
     def test_missing_provider_response_is_reported_as_invalid_draft(self):
         with patch(
-            "apps.videomanagement.services.videos.narration_setup.get_reply",
+            "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
             return_value=None,
         ):
             with self.assertRaisesMessage(ValidationError, "AI returned an incomplete narration draft"):

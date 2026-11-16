@@ -15,7 +15,7 @@ class PromptRewriteTests(ApiTestCase):
     def setUp(self):
         super().setUp()
         self.url = reverse("video-rewrite-prompt")
-        provider = patch("apps.videomanagement.services.videos.ideas.get_reply")
+        provider = patch("apps.videomanagement.services.videos.ideas.get_raw_reply")
         self.provider = provider.start()
         self.addCleanup(provider.stop)
         self.provider.return_value = StringIO(
