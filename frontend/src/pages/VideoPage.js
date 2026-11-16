@@ -75,7 +75,7 @@ export const Video = () => {
   const processing = ["GENERATION", "RENDERING"].includes(videoInfo?.status);
 
   useEffect(() => subscribeUpdates(`videos/${encodeURIComponent(videoId)}/events/`, {
-    load: () => getVideo(videoId, { notifyError: false }),
+    load: (options = {}) => getVideo(videoId, { ...options, notifyError: false }),
     onUpdate: response => {
       setUpdateError(false);
       if (!savingSceneChangeRef.current) setVideoInfo(response);
@@ -88,6 +88,11 @@ export const Video = () => {
     setUpdated();
   }, [setUpdated]);
 
+  // Review is the next action for these projects; fetch its code before the click.
+  useEffect(() => {
+    if (videoInfo?.status === "REVIEW") import("../components/StoryboardModal").catch(() => {});
+  }, [videoInfo?.status]);
+
   const manual = videoInfo?.video_type === "MANUAL";
   const story = videoInfo?.settings?.creation_mode === "STORY";
   const CreationModal = manual ? ManualSceneModal : SceneCreationModal;
@@ -96,7 +101,7 @@ export const Video = () => {
   const focusedScene = rememberedScene(scenes, selectedSceneId);
   const selectScene = id => setSelectedSceneId(id);
   const format = videoFormats.find(item => item.value === videoInfo?.settings?.video_format);
-  const statusLabel = renderPending ? "Starting export" : sceneChangePending ? "Saving changes" : ({ REVIEW: "Review storyboard", GENERATION: "Preparing scenes", RENDERING: "Exporting video", READY: "Ready to edit", COMPLETED: "Export available", FAILED: "Needs attention" }[videoInfo?.status] || "Loading project");
+  const statusLabel = renderPending ? "Starting export" : sceneChangePending ? "Saving changes" : ({ REVIEW: "Review storyboard", GENERATION: "Preparing scenes", RENDERING: "Exporting video", READY: "Ready to edit", COMPLETED: videoInfo?.export_freshness?.status === "stale" ? "Export needs updating" : videoInfo?.export_freshness?.status === "unknown" ? "Previous export available" : "Export available", FAILED: "Needs attention" }[videoInfo?.status] || "Loading project");
   const isRenderable =
     !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0 && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED" || (videoInfo?.status === "FAILED" && !!videoInfo?.render_error?.message));
   const saveSceneChange = async (pending, apply, save, fallbackMessage, replaceVideo = false) => {
@@ -249,7 +254,7 @@ export const Video = () => {
 
   return (
     <>
-      <EditorDialog open={showRenderedVideo && !!renderedUrl} onClose={() => setShowRenderedVideo(false)} title="Watch export" description={videoInfo?.status === "RENDERING" ? "Your previous export is available while the new video renders." : "Watch your latest export. Export again to include any new edits."} maxWidth="max-w-4xl" footer={<div className="flex justify-end"><button type="button" onClick={() => setShowRenderedVideo(false)} className="min-h-11 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold dark:border-gray-600">Done</button></div>}>
+      <EditorDialog open={showRenderedVideo && !!renderedUrl} onClose={() => setShowRenderedVideo(false)} title="Watch export" description={videoInfo?.status === "RENDERING" ? "Your previous export is available while the new video renders." : videoInfo?.export_freshness?.status === "stale" ? "This export does not include your latest saved changes. Export again to update it." : videoInfo?.export_freshness?.status === "unknown" ? "This export predates edit tracking. Its freshness is unknown." : "Watch your latest export. It includes your saved edit."} maxWidth="max-w-4xl" footer={<div className="flex justify-end"><button type="button" onClick={() => setShowRenderedVideo(false)} className="min-h-11 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold dark:border-gray-600">Done</button></div>}>
         {showRenderedVideo && renderedUrl && <>
           <video key={renderedUrl} src={renderedUrl} controls playsInline preload="metadata" aria-label="Latest rendered video" onError={() => setPlaybackError(true)} onCanPlay={() => setPlaybackError(false)} className="mx-auto max-h-[60vh] w-full rounded-xl bg-black" />
           {playbackError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">Could not play this export. Try opening the video using the link below.</p>}

@@ -9,7 +9,7 @@ export function VideoLibraryProgress({ video, onFinished }) {
   const finished = useRef(onFinished);
   finished.current = onFinished;
   useEffect(() => subscribeUpdates(`videos/${encodeURIComponent(video.id)}/events/`, {
-    load: () => getVideo(video.id, { notifyError: false }),
+    load: (options = {}) => getVideo(video.id, { ...options, notifyError: false }),
     onUpdate: next => {
       setDetail(next);
       setUnavailable(false);

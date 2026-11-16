@@ -96,6 +96,12 @@ class GenerateVideoTests(TestCase):
         self.assertTrue(finished.settings["review_starting_frames"])
         self.create_image_scenes.assert_called_once()
 
+    def test_narration_language_is_saved_and_included_in_the_script_request(self):
+        result = self.generate(narration_language="Greek", review_script=True)
+        self.assertEqual(result.settings["narration_language"], "Greek")
+        self.assertIn('NARRATION LANGUAGE: "Greek"', self.get_reply.call_args.args[0])
+        self.assertIn("takes precedence", self.get_reply.call_args.args[0])
+
     def test_generation_preserves_audio_preferences(self):
         choices = {"video_audio_mode": "DIALOGUE", "video_audio_enabled": True, "music_volume": 0}
         self.video.settings = {**(self.video.settings or {}), **choices}
@@ -300,6 +306,7 @@ class GenerateVideoTests(TestCase):
             dict(
                 subtitles=True,
                 narration=False,
+                narration_language="",
                 avatar_position="left,top",
                 video_format="LANDSCAPE",
                 platform="GENERAL",

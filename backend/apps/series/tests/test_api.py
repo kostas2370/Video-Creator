@@ -81,6 +81,29 @@ class SeriesTests(ApiTestCase):
             )
         return reverse(f"series-{action}", args=[sid])
 
+    def test_narration_language_round_trips_and_is_inherited_by_new_episodes(self):
+        for encoding in ("json", "multipart"):
+            response = self.client.patch(self.url(), {"narration_language": "Greek"}, format=encoding)
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data["narration_language"], "Greek")
+        self.series.refresh_from_db()
+        serializer = EpisodeDraftSerializer(data={"idea": "A new discovery"}, context={"series": self.series, "request": type("Request", (), {"user": self.user})()})
+        serializer.is_valid(raise_exception=True)
+        params = serializer.validated_data["generation_params"]
+        self.assertEqual(params["narration_language"], "Greek")
+        episode = draft_episode(self.series, idea="A new discovery", generation_params=params, owner=self.user)
+        self.assertEqual(episode.profile_snapshot["narration_language"], "Greek")
+        self.assertEqual(episode.generation_params["narration_language"], "Greek")
+        self.assertIn('"narration_language": "Greek"', episode.generation_params["series_context"])
+        self.assertEqual(self.queue.call_args.kwargs["narration_language"], "Greek")
+        response = self.client.patch(self.url(), {"narration_language": ""}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["narration_language"], "")
+
+    def test_narration_language_rejects_overlong_values(self):
+        response = self.client.patch(self.url(), {"narration_language": "x" * 81}, format="json")
+        self.assertEqual(response.status_code, 400)
+
     def test_economy_mode_is_saved_and_inherited_by_episode_drafts(self):
         response = self.client.patch(self.url(), {"generation_mode": "ECONOMY"}, format="json")
         self.assertEqual(response.status_code, 200, response.data)

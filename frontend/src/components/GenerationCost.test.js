@@ -130,3 +130,17 @@ it("keeps recorded costs visible during a background refresh", async () => {
   expect(screen.getByText("Loading costs…")).toBeTruthy();
   expect(screen.queryByText("$0.32")).toBeNull();
 });
+
+it("identifies unpriced requests by service and model without treating missing prices as zero", async () => {
+  getProjectCosts.mockResolvedValue({ ok: true, data: { estimate, recorded: { totals: { requests: 3, requests_with_cost: 1, cost_usd: "0.12" }, breakdown: [
+    { service: "tts", provider: "OPENAI", model: "voice-model", requests: 1, requests_with_cost: 1, cost_usd: "0.12" },
+    { service: "images", provider: "GEMINI", model: "image-model", requests: 2, requests_with_cost: 0, cost_usd: null }
+  ] } } });
+  render(<ProjectCosts videoId="video" />);
+  await act(async () => {});
+  expect(screen.getByText("Recorded subtotal · USD")).toBeTruthy();
+  expect(screen.getByText("Request cost breakdown · 2 unpriced")).toBeTruthy();
+  expect(screen.getByText("Images · GEMINI / image-model")).toBeTruthy();
+  expect(screen.getByText(/Their cost is unknown, not zero/)).toBeTruthy();
+  expect(screen.getByText("Known subtotal: Price unavailable")).toBeTruthy();
+});

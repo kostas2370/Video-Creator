@@ -20,6 +20,13 @@ describe("API request results with the upgraded HTTP client", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("passes background cancellation and timeouts through to the HTTP client", async () => {
+    const controller = new AbortController();
+    axiosPrivateInstance.request.mockResolvedValue({ data: {}, status: 200 });
+    await request({ url: "videos/7/", signal: controller.signal, timeout: 15000, notifyError: false });
+    expect(axiosPrivateInstance.request).toHaveBeenCalledWith(expect.objectContaining({ signal: controller.signal, timeout: 15000 }));
+  });
+
   it("accepts a successful deletion with no response body", async () => {
     axiosPrivateInstance.request.mockResolvedValue({ status: 204, headers: {} });
     expect(await request({ method: "delete", url: "videos/7/" }))

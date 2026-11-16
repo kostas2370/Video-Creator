@@ -1,150 +1,124 @@
-import { API_BASE_URL } from "../endpoints";
-import { refreshToken } from "./apiService";
-
-// Share a stream and refresh requests between the editor and operation dialogs.
+// Short requests leave HTTP/1 connections available for navigation, editor chunks
+// and media. A persistent stream per progress card/tab can exhaust that pool.
 const subscriptions = new Map();
-const RECONNECT_MS = 30000;
+const waiting = new Set();
+const MAX_REFRESHES = 2;
+const REQUEST_TIMEOUT = 15000;
+let running = 0;
+let visibilityDocument = null;
 const pageVisible = () => typeof document === "undefined" || document.visibilityState !== "hidden";
-let authRefresh = null;
 
-function renewAuthentication() {
-  if (!authRefresh) {
-    authRefresh = Promise.resolve().then(refreshToken).finally(() => { authRefresh = null; });
+function intervalFor(path, data) {
+  if (path.startsWith("notifications/")) return 30000;
+  const busy = ["GENERATION", "RENDERING", "QUEUED", "TRANSCRIBING", "ANALYZING", "PROCESSING"];
+  return busy.includes(data?.status) || data?.clips?.some(clip => busy.includes(clip.status)) ? 3000 : 15000;
+}
+
+function enqueue(entry) {
+  if (entry.disposed || entry.authFailed || !pageVisible()) return;
+  clearTimeout(entry.timer);
+  if (entry.pending) { entry.dirty = true; return; }
+  entry.pending = true;
+  entry.revision += 1;
+  waiting.add(entry);
+  drain();
+}
+
+function drain() {
+  for (const entry of waiting) {
+    if (running >= MAX_REFRESHES) break;
+    waiting.delete(entry);
+    if (entry.disposed || !pageVisible()) { entry.pending = false; continue; }
+    running += 1;
+    refresh(entry).finally(() => { running -= 1; drain(); });
   }
-  return authRefresh;
+}
+
+async function refresh(entry) {
+  const revision = entry.revision;
+  const controller = new AbortController();
+  entry.controller = controller;
+  let timedOut = false;
+  const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT);
+  // The race also releases the scheduler if a caller ignores cancellation.
+  const cancelled = new Promise(resolve => controller.signal.addEventListener("abort", () => resolve(null), { once: true }));
+  try {
+    const response = await Promise.race([
+      Promise.resolve().then(() => !controller.signal.aborted && pageVisible() ? entry.load({ signal: controller.signal, timeout: REQUEST_TIMEOUT }) : null), cancelled,
+    ]);
+    if (entry.disposed || !pageVisible() || (controller.signal.aborted && !timedOut)) return;
+    if (response?.ok && response.data) {
+      entry.data = response.data;
+      const key = JSON.stringify(response.data);
+      for (const listener of entry.listeners) {
+        if (revision >= listener.afterRevision && (listener.key !== key || listener.failed)) {
+          listener.key = key; listener.failed = false;
+          listener.onUpdate?.(response.data);
+        }
+      }
+    } else {
+      const failure = response || { ok: false, message: "The update timed out. Retrying shortly." };
+      if ([401, 403].includes(failure.status)) entry.authFailed = true;
+      for (const listener of entry.listeners) {
+        if (revision >= listener.afterRevision) { listener.failed = true; listener.onError?.(failure); }
+      }
+    }
+  } catch (error) {
+    if (!entry.disposed && pageVisible() && !controller.signal.aborted) {
+      for (const listener of entry.listeners) {
+        if (revision >= listener.afterRevision) { listener.failed = true; listener.onError?.(error); }
+      }
+    }
+  } finally {
+    clearTimeout(timeout);
+    entry.controller = null;
+    entry.pending = false;
+    if (!entry.disposed && !entry.authFailed && pageVisible()) {
+      if (entry.dirty) { entry.dirty = false; enqueue(entry); }
+      else entry.timer = setTimeout(() => enqueue(entry), intervalFor(entry.path, entry.data));
+    }
+  }
+}
+
+function visibilityChanged() {
+  for (const entry of subscriptions.values()) {
+    if (!pageVisible()) entry.pause();
+    else enqueue(entry);
+  }
 }
 
 export function subscribeUpdates(path, { load, onUpdate, onError }) {
   let entry = subscriptions.get(path);
   if (!entry) {
-    entry = {
-      listeners: new Set(), source: null, disposed: false,
-      retry: null, debounce: null, pending: null, dirty: false, authFailed: false,
-    };
-    subscriptions.set(path, entry);
-
-    const fetchUpdate = async () => {
-      try {
-        if (entry.disposed || !pageVisible()) return;
-        const response = await load();
-        if (entry.disposed || !pageVisible()) return;
-        if (response.ok && response.data) {
-          entry.listeners.forEach(listener => {
-            if (listener.active) listener.onUpdate?.(response.data);
-          });
-        } else {
-          entry.listeners.forEach(listener => { if (listener.active) listener.onError?.(response); });
-        }
-      } catch (error) {
-        if (!entry.disposed) entry.listeners.forEach(listener => { if (listener.active) listener.onError?.(error); });
-      } finally {
-        entry.pending = null;
-        if (entry.dirty && !entry.disposed) {
-          entry.dirty = false;
-          refresh();
-        }
-      }
-    };
-    const refresh = () => {
-      if (entry.disposed || !pageVisible()) return;
-      if (entry.pending) { entry.dirty = true; return; }
-      entry.pending = Promise.resolve().then(fetchUpdate);
-    };
-    // HTTP/1 connections are shared across tabs; hidden streams can block normal requests.
+    entry = { path, load, listeners: new Set(), revision: 0, pending: false, dirty: false, disposed: false, authFailed: false };
     const pause = () => {
-      const source = entry.source;
-      entry.source = null;
-      source?.close();
-      clearTimeout(entry.retry);
-      clearTimeout(entry.debounce);
-      entry.retry = null;
-      entry.debounce = null;
+      clearTimeout(entry.timer);
       entry.dirty = false;
+      if (waiting.delete(entry)) entry.pending = false;
+      entry.controller?.abort();
     };
-    const scheduleReconnect = () => {
-      if (entry.disposed || entry.authFailed || !pageVisible()) return;
-      clearTimeout(entry.retry);
-      entry.retry = setTimeout(async () => {
-        entry.retry = null;
-        if (entry.disposed || !pageVisible()) return;
-        try {
-          const response = await renewAuthentication();
-          if (entry.disposed || !pageVisible()) return;
-          if (!response.ok) {
-            if ([400, 401, 403].includes(response.status)) {
-              pause();
-              entry.authFailed = true;
-              entry.listeners.forEach(listener => { if (listener.active) listener.onError?.(response); });
-            } else scheduleReconnect();
-            return;
-          }
-          connect();
-        } catch {
-          scheduleReconnect();
-        }
-      }, RECONNECT_MS);
-    };
-    const connect = () => {
-      if (entry.disposed || entry.authFailed || !pageVisible() || entry.source || typeof EventSource === "undefined") return;
-      try {
-        const source = new EventSource(`${API_BASE_URL}${path}`, { withCredentials: true });
-        entry.source = source;
-        const current = () => !entry.disposed && entry.source === source && pageVisible();
-        source.addEventListener("stream-open", () => {
-          if (current()) refresh(); // Reconcile updates missed while hidden or disconnected.
-        });
-        source.addEventListener("update", () => {
-          if (!current()) return;
-          clearTimeout(entry.debounce);
-          entry.debounce = setTimeout(refresh, 250);
-        });
-        source.addEventListener("stream-reset", () => { if (current()) refresh(); });
-        source.onerror = () => {
-          source.close();
-          if (entry.source !== source) return;
-          entry.source = null;
-          scheduleReconnect();
-        };
-        source.addEventListener("stream-error", source.onerror);
-      } catch {
-        scheduleReconnect();
-      }
-    };
-    const visibilityChanged = () => {
-      if (!pageVisible()) pause();
-      else if (!entry.authFailed) {
-        refresh();
-        if (!entry.retry) connect();
-      }
-    };
-    if (typeof document !== "undefined") document.addEventListener("visibilitychange", visibilityChanged);
-    entry.cleanup = () => {
-      pause();
-      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", visibilityChanged);
-    };
-    entry.refresh = refresh;
-    entry.connect = connect;
+    entry.pause = pause;
+    if (!visibilityDocument && typeof document !== "undefined") {
+      visibilityDocument = document;
+      visibilityDocument.addEventListener("visibilitychange", visibilityChanged);
+    }
+    subscriptions.set(path, entry);
   }
-  // Ignore a request that started before this subscriber (e.g. before rendering).
-  const listener = { onUpdate, onError, active: !entry.pending };
+  const listener = { onUpdate, onError, afterRevision: entry.revision + (entry.pending ? 1 : 0) };
   entry.listeners.add(listener);
-  const activate = () => {
-    if (!entry.listeners.has(listener)) return;
-    listener.active = true;
-    entry.refresh();
-  };
-  if (entry.pending) entry.pending.then(activate);
-  else activate();
-  if (!entry.source && !entry.retry) entry.connect();
-
-  let cancelled = false;
+  enqueue(entry);
+  let stopped = false;
   return () => {
-    if (cancelled) return;
-    cancelled = true;
+    if (stopped) return;
+    stopped = true;
     entry.listeners.delete(listener);
     if (entry.listeners.size) return;
     entry.disposed = true;
-    entry.cleanup();
+    entry.pause();
     subscriptions.delete(path);
+    if (!subscriptions.size && visibilityDocument) {
+      visibilityDocument.removeEventListener("visibilitychange", visibilityChanged);
+      visibilityDocument = null;
+    }
   };
 }

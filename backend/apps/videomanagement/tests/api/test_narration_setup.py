@@ -61,6 +61,7 @@ class NarrationSetupTests(ApiTestCase):
 
     def test_generated_draft_is_read_only_and_preserves_original_source_text(self):
         self.video.settings["gpt_model"] = "selected-model"
+        self.video.settings["narration_language"] = "Greek"
         rows = [
             {"scene_id": row["scene_id"], "text": row["text"]}
             for row in self.reviewed()
@@ -77,6 +78,7 @@ class NarrationSetupTests(ApiTestCase):
         self.assertEqual(self.video.status, "READY")
         self.assertEqual(result["scenes"], self.reviewed())
         self.assertIn("never camera", write.call_args.args[0])
+        self.assertIn('NARRATION LANGUAGE: "Greek"', write.call_args.args[0])
         self.assertEqual(write.call_args.kwargs["gpt_model"], "selected-model")
 
     def test_malformed_or_incomplete_ai_drafts_do_not_change_the_project(self):

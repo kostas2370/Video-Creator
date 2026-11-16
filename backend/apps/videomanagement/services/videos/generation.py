@@ -143,6 +143,7 @@ def generate_video(
     reference_role: str = "both",
     series_context: str = "",
     generation_mode: str = "STANDARD",
+    narration_language: str = "",
 ) -> Video:
     """
     Generate a video based on the provided parameters.
@@ -215,6 +216,7 @@ def generate_video(
         genre=genre,
         userprompt=message,
         target_audience=target_audience,
+        narration_language=narration_language,
         platform=platform,
         scene_count=scene_count,
         image_mode=image_mode,
@@ -280,6 +282,7 @@ def generate_video(
     vid.settings = dict(
         subtitles=subtitles,
         narration=narration,
+        narration_language=narration_language,
         avatar_position=avatar_position,
         video_format=video_format,
         platform=platform,

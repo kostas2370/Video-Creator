@@ -76,11 +76,13 @@ def set_catalog_music(video, track):
         name = (slugify(track.title)[:100] or "catalog-music") + Path(
             track.file.name
         ).suffix
-        return set_music(video, File(source, name=name))
+        return set_music(
+            video, File(source, name=name), title=track.title, catalog_track=track
+        )
 
 
 def create_catalog_music(track, *, user):
-    music = Music(created_by=user, name=track.title[:140])
+    music = Music(created_by=user, name=track.title[:140], catalog_track=track)
     with track.file.open("rb") as source:
         music.file.save(track.file.name.rsplit("/", 1)[-1], File(source), save=False)
     try:

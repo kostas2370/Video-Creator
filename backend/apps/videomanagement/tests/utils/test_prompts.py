@@ -16,6 +16,13 @@ from apps.videomanagement.utils.storyboard import scene_text
 
 
 class FormatPromptTests(SimpleTestCase):
+    def test_language_selection_overrides_the_language_of_the_creative_brief(self):
+        prompt = build_script_prompt(userprompt="Explain volcanoes", narration_language="Greek")
+        self.assertIn('NARRATION LANGUAGE: "Greek"', prompt)
+        self.assertIn("spoken dialogue", prompt)
+        self.assertNotIn("NARRATION LANGUAGE:", build_script_prompt(userprompt="Explain volcanoes"))
+
+
     def test_reference_roles_extract_only_the_requested_image_details(self):
         for role, expected in (
             ("character", "Extract only visible subject identity"),

@@ -18,3 +18,16 @@ _STORY_PROGRESSION_INSTRUCTIONS = (
     "not a requirement for exactly three scenes. For very short outputs, combine beats naturally. "
     "Do not add hook, development, or payoff labels to the output."
 )
+
+
+def narration_language_instruction(language):
+    if not language:
+        return ""
+    import json
+
+    return (
+        "\nNARRATION LANGUAGE: " + json.dumps(language, ensure_ascii=False) + ". "
+        "Write all narration, spoken dialogue and the video title in this selected language. "
+        "This explicit selection takes precedence over the language of the creative brief "
+        "and prior episodes. Keep character names and factual meaning intact.\n"
+    )

@@ -1,6 +1,6 @@
 export const defaultSeries = {
   title: "", premise: "", characters: "", visual_style: "", provider: "OPENAI",
-  generation_mode: "STANDARD", narration: true, voice_model: "", intro: "", outro: "", subtitles: true,
+  generation_mode: "STANDARD", narration_language: "", narration: true, voice_model: "", intro: "", outro: "", subtitles: true,
   video_format: "PORTRAIT", platform: "GENERAL", scene_count: 6,
   cast: [], story_format: "GENERAL",
 };

@@ -231,6 +231,27 @@ class VideoSerializer(VideoResponseSerializer):
 
 
 class VideoNestedSerializer(VideoResponseSerializer):
+    export_freshness = serializers.SerializerMethodField()
+    music_details = serializers.SerializerMethodField()
+
+    def get_export_freshness(self, obj):
+        from ..services.videos.export_freshness import export_freshness
+        return export_freshness(obj)
+
+    def get_music_details(self, obj):
+        if not obj.music_id:
+            return None
+        music = obj.music
+        track = music.catalog_track
+        return {
+            "title": track.title if track else music.name,
+            "artist": (track.metadata.get("artist") or track.metadata.get("channel_title") or "") if track else "",
+            "file": music.file.url if music.file else None,
+            "source_url": track.source_url if track else "",
+            "license_url": track.license_url if track else "",
+            "attribution": track.attribution if track else "",
+        }
+
     cut_summary = serializers.SerializerMethodField()
 
     def get_cut_summary(self, obj):
@@ -262,7 +283,7 @@ class VideoNestedSerializer(VideoResponseSerializer):
         return sum(durations) if all(value is not None for value in durations) else None
 
     class Meta(VideoResponseSerializer.Meta):
-        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes", "can_retry_narration", "cut_summary")
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes", "can_retry_narration", "cut_summary", "export_freshness", "music_details")
         read_only_fields = fields
 
     def get_scenes(self, obj):

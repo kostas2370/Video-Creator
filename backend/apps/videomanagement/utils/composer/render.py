@@ -8,11 +8,13 @@ from dataclasses import replace
 from pathlib import Path
 
 from django.conf import settings
+from django.utils import timezone
 
 from apps.videomanagement.exceptions import RenderFailedException
 from apps.videomanagement.export_settings import DEFAULT_EXPORT_FPS, export_settings
 from apps.videomanagement.services.captions.alignment import align_scene_narration
 from apps.videomanagement.services.media.icons import available_icon_files
+from apps.videomanagement.services.videos.export_freshness import export_source_key
 from apps.videomanagement.services.videos.preview import (
     apply_transitions,
     asset_segment,
@@ -573,6 +575,7 @@ def make_video(video):
         elapsed += segment.duration
     if not segments:
         raise RenderFailedException("No video scenes were processed.")
+    source_key = export_source_key(video, scenes=[segment.content for segment in segments])
     opening = intro_segment(video) if video.intro else None
     apply_transitions(segments, choices, opening)
     video.status = VideoStatus.RENDERING
@@ -643,5 +646,7 @@ def make_video(video):
     )
     video.status = VideoStatus.COMPLETED
     video.thumbnail = ""
-    video.save(update_fields=["output", "status", "updated_at", "thumbnail"])
+    video.export_source_key = source_key
+    video.exported_at = timezone.now()
+    video.save(update_fields=["output", "status", "updated_at", "thumbnail", "export_source_key", "exported_at"])
     return video

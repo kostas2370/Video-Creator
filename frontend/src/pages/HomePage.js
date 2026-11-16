@@ -1,3 +1,4 @@
+import { NarrationLanguage } from "../components/NarrationLanguage";
 import { VoicePreview } from "../components/VoicePreview";
 import { StartingFrameOption } from "../components/StartingFrameOption";
 import { GenerationMusic } from "../components/GenerationMusic";
@@ -80,6 +81,7 @@ const Home = () => {
     scene_count: 8,
     ai_scene_editing: false,
     review_starting_frames: false,
+    narration_language: "",
     target_audience: "",
     image_mode: "WEB",
     gpt_model: "",
@@ -192,6 +194,7 @@ const Home = () => {
           scene_count: selectedTemplate.scene_count ?? "",
           genre: selectedTemplate.genre ?? "",
           target_audience: selectedTemplate.target_audience ?? "",
+          narration_language: selectedTemplate.narration_language ?? "",
           avatar_selection: selectedTemplate.avatar_selection ?? "",
           voice_id: selectedTemplate.voice_id ?? "",
           gpt_model: selectedTemplate.gpt_model ?? prevData.gpt_model,
@@ -390,6 +393,7 @@ const Home = () => {
           <div hidden={step !== 1}><div className="space-y-5">
           <section aria-labelledby="look-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-5"><h2 id="look-heading" className="text-lg font-semibold">Choose the look &amp; sound</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose your voice, visuals, and frame. The rest is optional.</p></div>
+            <div className="mb-5"><NarrationLanguage value={formData.narration_language} onChange={narration_language => setFormData(previous => ({ ...previous, narration_language }))} disabled={isLoading} className={inputClassName} /></div>
             <label className="mb-5 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><input id="narration" name="narration" type="checkbox" checked={formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium">Narration</span><span className="block text-xs text-gray-500 dark:text-gray-400">Add a voice-over to tell your story.</span></span></label>
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
@@ -486,7 +490,7 @@ const Home = () => {
           <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Your choices stay with you as you go.</p>
           <div className="my-5 border-y border-gray-100 py-4 dark:border-gray-700"><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">Idea</h3><button type="button" disabled={isLoading || !!pendingVideoId} onClick={() => navigateStep(0)} aria-label="Edit idea in project summary" className="studio-text-link text-xs">Edit</button></div><p className="line-clamp-4 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{formData.message.trim() || "Your next story starts with an idea."}</p></div>
           <dl className="space-y-4 text-sm">
-            {[["Format", videoFormatOptions.find(format => format.value === formData.video_format)?.label], ["Visuals", formData.image_mode === "AI" ? "AI-generated visuals" : "Web images"], ["Narration", !formData.narration ? "Off" : selectedAvatar?.name || selectedVoice?.name || "Any available voice"], ["Scenes", formData.scene_count || "AI-selected"]].map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3"><dt className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{label}</dt><dd className="text-right text-xs font-medium">{value}</dd></div>)}
+            {[["Format", videoFormatOptions.find(format => format.value === formData.video_format)?.label], ["Visuals", formData.image_mode === "AI" ? "AI-generated visuals" : "Web images"], ["Narration", !formData.narration ? "Off" : selectedAvatar?.name || selectedVoice?.name || "Any available voice"], ["Language", formData.narration_language || "Automatic (match prompt)"], ["Scenes", formData.scene_count || "AI-selected"]].map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3"><dt className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{label}</dt><dd className="text-right text-xs font-medium">{value}</dd></div>)}
           </dl>
           <button type="button" disabled={isLoading || !!pendingVideoId} onClick={() => navigateStep(1)} aria-label="Edit look and sound in project summary" className="studio-text-link mt-5 text-xs">Edit look &amp; sound<RiArrowRightLine aria-hidden="true" className="h-3 w-3" /></button>
           <p className="mt-5 rounded-xl bg-gray-50 p-3 text-xs leading-relaxed text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">Every scene is editable. You’ll review the storyboard before generating media.</p>

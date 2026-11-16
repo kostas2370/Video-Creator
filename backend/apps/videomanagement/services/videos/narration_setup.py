@@ -49,6 +49,7 @@ def draft_narration(video):
         title=video.title,
         brief=video.prompt.prompt if video.prompt_id else "",
         sources=sources,
+        narration_language=(video.settings or {}).get("narration_language", ""),
     )
     with video_usage(video):
         reply = get_reply(

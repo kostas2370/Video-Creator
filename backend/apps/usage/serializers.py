@@ -52,6 +52,7 @@ class CostEstimateRequestSerializer(serializers.Serializer):
 
 
 class ScenarioEstimateRequestSerializer(serializers.Serializer):
+    narration_language = serializers.CharField(max_length=80, required=False, allow_blank=True)
     message = serializers.CharField(max_length=2000)
     gpt_model = serializers.CharField(max_length=100, required=False, allow_blank=True)
     scene_count = serializers.IntegerField(

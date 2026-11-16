@@ -159,6 +159,7 @@ def draft_scene(
         ),
         style=settings.get("style", ""),
         narration=settings.get("narration", True),
+        narration_language=settings.get("narration_language", ""),
         video_audio_mode=settings.get("video_audio_mode", "AUTO"),
     )
     if video.mode == "AI" or video.video_type == "MANUAL":

@@ -290,7 +290,7 @@ def import_search_music(video, selection, *, editing=True):
         raise ValidationError(
             "This track is no longer available as Creative Commons music. Search again or select another track."
         )
-    MusicCatalogTrack.objects.get_or_create(
+    track, _ = MusicCatalogTrack.objects.get_or_create(
         source_id=f"youtube:{selection[3:]}",
         defaults={
             "title": candidate["title"],
@@ -309,8 +309,10 @@ def import_search_music(video, selection, *, editing=True):
         },
     )
     if editing:
-        return set_music_from_youtube(video, candidate["source_url"])
+        return set_music_from_youtube(video, candidate["source_url"], catalog_track=track)
     music = download_music(candidate["source_url"], user=video.created_by)
+    music.catalog_track = track
+    music.save(update_fields=["catalog_track"])
     if music.file.size > 50 * 1024 * 1024:
         raise ValidationError("Audio must be smaller than 50 MB.")
     with music.file.open("rb") as source:

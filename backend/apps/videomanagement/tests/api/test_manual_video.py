@@ -152,7 +152,7 @@ class ManualVideoTests(ApiTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         video.refresh_from_db()
         self.assertEqual(video.music.created_by, self.user)
-        self.assertEqual(video.music.name, "my-youtube-song")
+        self.assertEqual(video.music.name, "My YouTube song")
         self.assertTrue(Path(video.music.file.path).exists())
         self.assertEqual(download.call_args.args[0], "https://www.youtube.com/watch?v=abcdefghijk")
         self.assertEqual(download.call_args.kwargs, {"audio_only": True})

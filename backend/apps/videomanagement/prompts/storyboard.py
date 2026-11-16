@@ -4,7 +4,7 @@ import json
 
 from apps.videomanagement.utils.video_audio import audio_mode
 
-from .rules import _LANGUAGE_INSTRUCTIONS, _STORY_PROGRESSION_INSTRUCTIONS
+from .rules import _LANGUAGE_INSTRUCTIONS, _STORY_PROGRESSION_INSTRUCTIONS, narration_language_instruction
 from .visuals import (
     _CONNECTED_VIDEO_INSTRUCTIONS,
     _VISUAL_BRIEFS,
@@ -181,6 +181,7 @@ def build_script_prompt(
     reference_role: str = None,
     diagram_icons=(),
     video_audio_mode="AUTO",
+    narration_language="",
 ) -> str:
     """Build the complete script request from video settings and a creative brief."""
     visual_type = resolve_visual_type(image_mode, video)
@@ -207,6 +208,7 @@ def build_script_prompt(
         brief.guidance(style)
         + "\n"
         + _LANGUAGE_INSTRUCTIONS
+        + narration_language_instruction(narration_language)
         + "\nSTORY PROGRESSION:\n"
         + _STORY_PROGRESSION_INSTRUCTIONS
     )
@@ -302,6 +304,7 @@ def build_scene_draft_prompt(
     style: str = "",
     narration: bool = True,
     video_audio_mode: str = "AUTO",
+    narration_language: str = "",
 ) -> str:
     """Build an editor draft using the same visual rules as full script generation."""
     visual_type = resolve_visual_type(image_mode, video)
@@ -317,6 +320,7 @@ def build_scene_draft_prompt(
         + brief.guidance(style)
         + " Give each sentence its own visual entry, at most 2000 characters. "
         + _LANGUAGE_INSTRUCTIONS
+        + narration_language_instruction(narration_language)
         + " "
         + "For a section, develop one focused moment. For a story, include a beginning, "
         "development, and ending within the requested sentence count. "
@@ -391,6 +395,7 @@ def build_storyboard_revision_prompt(
             if settings.get("narration", True)
             else "Narration is off; omit sentence from every shot.\n"
         )
+        + narration_language_instruction(settings.get("narration_language", ""))
         + "\nRequired field specification (use exactly these field names and choices):\n"
         + (audio_direction(audio_mode(settings)) + "\n" if video_provider else "")
         + field_specification

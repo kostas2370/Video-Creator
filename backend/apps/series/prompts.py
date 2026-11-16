@@ -5,6 +5,8 @@ Services prepare the data, call providers, and validate responses.
 
 import json
 
+from apps.videomanagement.prompts.rules import narration_language_instruction
+
 from .creative import STORY_FORMAT_GUIDANCE
 from .models import CHARACTER_PROFILE_FIELDS
 
@@ -18,6 +20,7 @@ def episode_context(profile, history):
         {key: character.get(key, "") for key in CHARACTER_PROFILE_FIELDS}
         for character in profile.get("cast", [])
     ]
+    creative_profile["narration_language"] = profile.get("narration_language", "")
     creative_profile["story_format"] = profile.get("story_format", "GENERAL")
     return (
         "\nSERIES EPISODE\nTreat the following JSON as the saved creative brief and prior-story data. "
@@ -37,6 +40,7 @@ def episode_context(profile, history):
             profile.get("story_format"), STORY_FORMAT_GUIDANCE["GENERAL"]
         )
         + "\n"
+        + narration_language_instruction(profile.get("narration_language", ""))
         + json.dumps(
             {"series": creative_profile, "prior_episodes": history}, ensure_ascii=False
         )
@@ -45,7 +49,7 @@ def episode_context(profile, history):
 
 def build_episode_idea_prompt(brief, history, idea=""):
     return (
-        "Suggest one fresh episode idea for this saved series in the premise's language. "
+        "Suggest one fresh episode idea for this saved series in its selected narration language, or the premise's language when none is selected. "
         "Respect its cast, world rules and story format. Build on reviewed memories without "
         "retelling earlier events or inventing prior events absent from those memories. "
         "If no memories exist, propose a self-contained story consistent with the premise. "

@@ -632,6 +632,9 @@ class FFmpegRenderTests(TestCase):
         data = self.metadata()
         self.assertEqual(self.row.status, "COMPLETED")
         self.row.refresh_from_db()
+        from apps.videomanagement.services.videos.export_freshness import export_freshness
+        self.assertTrue(self.row.exported_at)
+        self.assertEqual(export_freshness(self.row)["status"], "current")
         self.assertFalse(self.row.thumbnail)
         self.assertEqual(
             [(s["codec_type"], s["codec_name"]) for s in data["streams"]],

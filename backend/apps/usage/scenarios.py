@@ -33,6 +33,7 @@ def scenario_estimate(data, user):
         ),
         style=data.get("style", "natural"),
         narration=data.get("narration", True),
+        narration_language=data.get("narration_language", ""),
         ai_scene_editing=data.get("ai_scene_editing", False),
         diagram_icons=icon_candidates(data["message"], user=user) if data.get("ai_scene_editing") else (),
         visual_continuity=data.get("visual_continuity", ""),

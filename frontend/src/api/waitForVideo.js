@@ -21,7 +21,7 @@ export function waitForVideo(id, options = {}) {
       resolve({ outcome, video: lastVideo });
     };
     unsubscribe = subscribeUpdates(`videos/${encodeURIComponent(id)}/events/`, {
-      load: () => getVideo(id, { notifyError: false }),
+      load: (options = {}) => getVideo(id, { ...options, notifyError: false }),
       onUpdate: video => {
         consecutiveErrors = 0;
         lastVideo = video;

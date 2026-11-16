@@ -307,10 +307,10 @@ class MusicSearchTests(TestCase):
         ) as save:
             result = music_search.import_search_music(self.video, "ai:abcdefghijk")
         self.assertEqual(result, self.video)
-        save.assert_called_once_with(
-            self.video, "https://www.youtube.com/watch?v=abcdefghijk"
-        )
         source = MusicCatalogTrack.objects.get(source_id="youtube:abcdefghijk")
+        save.assert_called_once_with(
+            self.video, "https://www.youtube.com/watch?v=abcdefghijk", catalog_track=source
+        )
         self.assertFalse(source.approved)
         self.assertFalse(source.file)
         self.assertIn("Piano uploader", source.attribution)

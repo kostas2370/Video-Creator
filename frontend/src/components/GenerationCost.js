@@ -61,6 +61,25 @@ export function GenerationCost({ videoId, storyboard, sceneId, operation = "all"
   </aside>;
 }
 
+function RecordedBreakdown({ recorded }) {
+  const rows = recorded?.breakdown || [];
+  if (!rows.length) return null;
+  const missing = (recorded.totals?.requests || 0) - (recorded.totals?.requests_with_cost || 0);
+  const services = { text: "Script", images: "Images", tts: "Narration", video: "Video", stt: "Transcription" };
+  return <details className="mt-3 rounded-xl border border-gray-200 p-3 text-xs dark:border-gray-700">
+    <summary className="cursor-pointer font-medium">Request cost breakdown{missing > 0 ? ` · ${missing} unpriced` : ""}</summary>
+    {missing > 0 && <p className="mt-2 text-amber-700 dark:text-amber-300">Unpriced requests are excluded from the recorded subtotal. Their cost is unknown, not zero. Pricing or measured usage was unavailable when they were recorded.</p>}
+    <ul className="mt-3 space-y-3">{rows.map((row, index) => {
+      const unpriced = Math.max(0, row.requests - row.requests_with_cost);
+      return <li key={index} className="border-t border-gray-100 pt-2 dark:border-gray-700">
+        <p className="font-medium">{services[row.service] || row.service} · {row.provider}{row.model ? ` / ${row.model}` : " / Model not recorded"}</p>
+        <p className="mt-1">{row.requests} {row.requests === 1 ? "request" : "requests"} · {row.requests_with_cost} priced{unpriced > 0 && <span className="text-amber-700 dark:text-amber-300"> · {unpriced} unpriced</span>}</p>
+        <p className="mt-1">Known subtotal: {formatCost(row.cost_usd)}</p>
+      </li>;
+    })}</ul>
+  </details>;
+}
+
 export function ProjectCosts({ videoId, refresh }) {
   const [result, setResult] = useState(null);
   useEffect(() => {
@@ -72,7 +91,8 @@ export function ProjectCosts({ videoId, refresh }) {
   return <section aria-label="Project generation costs" className="mt-4 border-t border-gray-100 pt-4 text-sm dark:border-gray-700">
     <h2 className="font-semibold">Generation costs</h2>
     {!result || result.id !== videoId ? <p role="status" className="mt-2">Loading costs…</p> : !data ? <p className="mt-2 text-xs text-gray-500">Project costs could not be loaded.</p> : <>
-      <dl className="mt-3 grid gap-3 sm:grid-cols-2"><div><dt>Original generation estimate{data.estimate?.partial && " · partial"}</dt><dd className="font-semibold">{data.estimate ? `${estimateRange(data.estimate)} USD` : "No saved estimate"}</dd></div><div><dt>Recorded generation cost · USD</dt><dd className="font-semibold"><RecordedCost metrics={data.recorded.totals} /></dd></div></dl>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2"><div><dt>Original generation estimate{data.estimate?.partial && " · partial"}</dt><dd className="font-semibold">{data.estimate ? `${estimateRange(data.estimate)} USD` : "No saved estimate"}</dd></div><div><dt>{(data.recorded.totals?.requests_with_cost || 0) < (data.recorded.totals?.requests || 0) ? "Recorded subtotal · USD" : "Recorded generation cost · USD"}</dt><dd className="font-semibold"><RecordedCost metrics={data.recorded.totals} /></dd></div></dl>
+      <RecordedBreakdown recorded={data.recorded} />
       <p className="mt-3 text-xs">Scenario / script: {estimateRange(data.scenario)}{data.scenario?.partial && " · partial cost"}</p>
       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Recorded costs include scenario drafting, media generation, replacements and measured retries. Earlier scenario requests may be missing. These are estimates, not invoices.</p>
     </>}

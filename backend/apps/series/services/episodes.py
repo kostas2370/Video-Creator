@@ -43,6 +43,7 @@ PROFILE_FIELDS = (
     "provider",
     "generation_mode",
     "narration",
+    "narration_language",
     "subtitles",
     "video_format",
     "platform",
@@ -68,7 +69,7 @@ def draft_episode_idea(series, *, owner, idea=""):
     profile = _snapshot_series_profile(series)
     brief = {
         key: profile[key]
-        for key in ("title", "premise", "characters", "story_format", "visual_style", "cast")
+        for key in ("title", "premise", "characters", "story_format", "visual_style", "cast", "narration_language")
     }
     prompt = build_episode_idea_prompt(brief, reviewed_episode_history(series), idea)
     result = get_update_sentence(prompt, user=owner)
