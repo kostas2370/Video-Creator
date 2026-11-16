@@ -3,6 +3,7 @@ from io import StringIO
 from unittest.mock import patch
 
 from django.db import DatabaseError
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework.exceptions import APIException
 
@@ -113,6 +114,22 @@ class LLMTraceTests(ApiTestCase):
         trace = LLMTrace.objects.get()
         self.assertEqual(trace.validation_errors, ["Provider request failed."])
         self.assertEqual(trace.response, "")
+
+    @override_settings(DEFAULT_GPT_MODEL="claude-test")
+    def test_failed_fallback_records_the_actual_model_and_keeps_the_exception(self):
+        error = APIException("sensitive provider details")
+        with (
+            video_usage(self.video),
+            patch(
+                "apps.videomanagement.integrations.llm.claude_call", side_effect=error
+            ),
+            self.assertRaises(APIException) as raised,
+        ):
+            get_raw_reply("prompt", gpt_model="unknown-model", user=self.user)
+        self.assertIs(raised.exception, error)
+        trace = LLMTrace.objects.get()
+        self.assertEqual(trace.model, "claude-test")
+        self.assertEqual(trace.validation_errors, ["Provider request failed."])
 
     def test_trace_storage_failure_does_not_discard_a_valid_response(self):
         with (

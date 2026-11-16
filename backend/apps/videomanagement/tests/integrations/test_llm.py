@@ -309,6 +309,19 @@ class GetReplyRoutingTests(SimpleTestCase):
     def test_sends_gemini_models_to_google(self):
         self.assertTrue(self.route("gemini-1.5-pro")["gemini"])
 
+    def test_unknown_model_uses_the_configured_defaults_provider(self):
+        for model, provider in (
+            ("gpt-test", "official_gpt_call"),
+            ("claude-test", "claude_call"),
+            ("gemini-test", "gemini_call"),
+        ):
+            with self.subTest(model=model), override_settings(DEFAULT_GPT_MODEL=model):
+                with patch.object(
+                    llm, provider, return_value=io.StringIO(A_SCRIPT)
+                ) as call:
+                    get_reply("a prompt", gpt_model="unknown-model")
+                call.assert_called_once_with("a prompt", model, user=None)
+
     @override_settings(DEFAULT_GPT_MODEL="gpt-4")
     def test_falls_back_to_openai_for_an_unknown_name(self):
         self.assertTrue(self.route("some-new-model")["openai"])

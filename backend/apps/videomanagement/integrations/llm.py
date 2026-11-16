@@ -2,7 +2,6 @@ import base64
 import io
 import json
 import logging
-import sys
 
 import anthropic
 import google.generativeai as genai
@@ -19,16 +18,6 @@ from apps.videomanagement.schemas.shot_planning import ShotPlanSerializer
 from apps.videomanagement.utils.image_inputs import image_data
 
 logger = logging.getLogger(__name__)
-thismodule = sys.modules[__name__]
-
-model_calls = (
-    ("claude", "claude_call"),
-    ("gemini", "gemini_call"),
-    ("gpt", "official_gpt_call"),
-    ("o1", "official_gpt_call"),
-    ("o3", "official_gpt_call"),
-    ("o4", "official_gpt_call"),
-)
 
 
 def token_limit_kwarg(model: str) -> dict:
@@ -232,15 +221,19 @@ def reference_data(reference_image):
 
 def model_reply(prompt, gpt_model, *, user, image=None, attempt=1):
     model = gpt_model or settings.DEFAULT_GPT_MODEL
+    if not model.startswith(("claude", "gemini", "gpt", "o1", "o3", "o4")):
+        model = settings.DEFAULT_GPT_MODEL
+    if model.startswith("claude"):
+        call = claude_call
+    elif model.startswith("gemini"):
+        call = gemini_call
+    else:
+        call = official_gpt_call
     options = {"user": user}
     if image is not None:
         options["image"] = image
     try:
-        for key, call in model_calls:
-            if model.startswith(key):
-                return getattr(thismodule, call)(prompt, model, **options), model
-        model = settings.DEFAULT_GPT_MODEL
-        return official_gpt_call(prompt, gpt_model=model, **options), model
+        return call(prompt, model, **options), model
     except Exception:
         record_llm_trace(
             user,
