@@ -5,8 +5,6 @@ Services prepare the data, call providers, and validate responses.
 
 import json
 
-from apps.videomanagement.prompts.rules import narration_language_instruction
-
 from .creative import STORY_FORMAT_GUIDANCE
 from .models import CHARACTER_PROFILE_FIELDS
 
@@ -40,7 +38,6 @@ def episode_context(profile, history):
             profile.get("story_format"), STORY_FORMAT_GUIDANCE["GENERAL"]
         )
         + "\n"
-        + narration_language_instruction(profile.get("narration_language", ""))
         + json.dumps(
             {"series": creative_profile, "prior_episodes": history}, ensure_ascii=False
         )

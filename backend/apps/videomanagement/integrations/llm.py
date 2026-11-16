@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.usage.llm_traces import record_llm_trace
 from apps.usage.services import record_usage
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.schemas.shot_planning import ShotPlanSerializer
@@ -37,8 +38,17 @@ def token_limit_kwarg(model: str) -> dict:
     }
 
 
-def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False, video_provider=False, require_visual_continuity=False, user=None):
+def script_errors(
+    data,
+    narration=None,
+    scene_count=None,
+    ai_scene_editing=False,
+    video_provider=False,
+    require_visual_continuity=False,
+    user=None,
+):
     """Validate the structure consumed by scene and media generation."""
+
     def nonempty(value):
         return isinstance(value, str) and bool(value.strip())
 
@@ -50,7 +60,9 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
     if require_visual_continuity or "visual_continuity" in data:
         continuity = data.get("visual_continuity")
         if not isinstance(continuity, str) or len(continuity) > 3000:
-            errors.append("visual_continuity must be a string of at most 3000 characters; use an empty string when unnecessary.")
+            errors.append(
+                "visual_continuity must be a string of at most 3000 characters; use an empty string when unnecessary."
+            )
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or not scenes:
         return errors + ["scenes must be a nonempty array."]
@@ -81,7 +93,8 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
                     errors.append(f"{label} shot_plan: {shot_plan.errors}")
             if ai_scene_editing:
                 plan = SceneEditingPlanSerializer(
-                    data=entry.get("editing"), context={"video_provider": video_provider, "user": user}
+                    data=entry.get("editing"),
+                    context={"video_provider": video_provider, "user": user},
                 )
                 if not plan.is_valid():
                     errors.append(f"{label} editing: {plan.errors}")
@@ -96,7 +109,9 @@ def script_errors(data, narration=None, scene_count=None, ai_scene_editing=False
 
 def model_error(error, image):
     if image is not None:
-        logger.warning("Reference-image storyboard request failed (%s)", type(error).__name__)
+        logger.warning(
+            "Reference-image storyboard request failed (%s)", type(error).__name__
+        )
         raise APIException(
             "The script model could not analyze the reference image. Choose a script "
             "model that accepts images and check your provider access, then retry."
@@ -111,10 +126,17 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
     model = gpt_model or settings.DEFAULT_GPT_MODEL
     try:
         client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
-        content = prompt if image is None else [
-            {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image}"}},
-        ]
+        content = (
+            prompt
+            if image is None
+            else [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image}"},
+                },
+            ]
+        )
         stream = client.chat.completions.create(
             model=model,
             messages=[
@@ -139,14 +161,21 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
     return x
 
 
-def gemini_call(prompt: str, model=settings.SCRIPT_MODELS["GEMINI"][0], user=None, image=None):
+def gemini_call(
+    prompt: str, model=settings.SCRIPT_MODELS["GEMINI"][0], user=None, image=None
+):
     x = io.StringIO()
     try:
         genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
         client = genai.GenerativeModel(model)
-        content = prompt if image is None else [
-            prompt, {"mime_type": "image/jpeg", "data": base64.b64decode(image)},
-        ]
+        content = (
+            prompt
+            if image is None
+            else [
+                prompt,
+                {"mime_type": "image/jpeg", "data": base64.b64decode(image)},
+            ]
+        )
         response = client.generate_content(content)
         record_usage(user, "text", Provider.GEMINI, model, response.usage_metadata)
         x.write(response.text)
@@ -157,16 +186,25 @@ def gemini_call(prompt: str, model=settings.SCRIPT_MODELS["GEMINI"][0], user=Non
     return x
 
 
-def claude_call(prompt: str, model=settings.SCRIPT_MODELS["ANTHROPIC"][0], user=None, image=None):
+def claude_call(
+    prompt: str, model=settings.SCRIPT_MODELS["ANTHROPIC"][0], user=None, image=None
+):
     x = io.StringIO()
     try:
         client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))
         content = [{"type": "text", "text": prompt}]
         if image is not None:
-            content.insert(0, {
-                "type": "image",
-                "source": {"type": "base64", "media_type": "image/jpeg", "data": image},
-            })
+            content.insert(
+                0,
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": image,
+                    },
+                },
+            )
         message = client.messages.create(
             model=model,
             max_tokens=settings.MAX_TOKENS,
@@ -181,9 +219,20 @@ def claude_call(prompt: str, model=settings.SCRIPT_MODELS["ANTHROPIC"][0], user=
         model_error(err, image)
 
 
-def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
-              narration=None, scene_count=None, ai_scene_editing=False, video_provider=False,
-              require_visual_continuity=False, reference_image=None, require_episode_summary=False):
+def get_reply(
+    prompt,
+    time=0,
+    reply_format="json",
+    gpt_model=None,
+    user=None,
+    narration=None,
+    scene_count=None,
+    ai_scene_editing=False,
+    video_provider=False,
+    require_visual_continuity=False,
+    reference_image=None,
+    require_episode_summary=False,
+):
     """Route text requests and retry invalid scripts with specific correction feedback."""
     gpt_model = gpt_model or settings.DEFAULT_GPT_MODEL
     original_prompt = prompt
@@ -192,33 +241,73 @@ def get_reply(prompt, time=0, reply_format="json", gpt_model=None, user=None,
         try:
             call_options["image"] = image_data(reference_image)
         except (OSError, ValueError) as exc:
-            raise APIException("The reference image could not be read. Upload it again before generating.") from exc
+            raise APIException(
+                "The reference image could not be read. Upload it again before generating."
+            ) from exc
     for attempt in range(time, 5):
-        for key, call in model_calls:
-            if (gpt_model or "").startswith(key):
-                response = getattr(thismodule, call)(prompt, gpt_model, **call_options)
-                break
-        else:
-            response = official_gpt_call(prompt, gpt_model=settings.DEFAULT_GPT_MODEL, **call_options)
-        if reply_format != "json":
-            return response
+        model = gpt_model
+        try:
+            for key, call in model_calls:
+                if (gpt_model or "").startswith(key):
+                    response = getattr(thismodule, call)(
+                        prompt, gpt_model, **call_options
+                    )
+                    break
+            else:
+                model = settings.DEFAULT_GPT_MODEL
+                response = official_gpt_call(prompt, gpt_model=model, **call_options)
+        except Exception:
+            record_llm_trace(
+                user,
+                model,
+                prompt,
+                "",
+                attempt=attempt + 1,
+                errors=["Provider request failed."],
+                has_reference_image=bool(reference_image),
+            )
+            raise
         raw = response.getvalue()
+        trace_options = {
+            "attempt": attempt + 1,
+            "has_reference_image": bool(reference_image),
+        }
+        if reply_format != "json":
+            record_llm_trace(user, model, prompt, raw, **trace_options)
+            return response
         try:
             # Retain compatibility with providers wrapping JSON in prose or fences.
-            data = json.loads(raw[raw.index("{"):raw.rindex("}") + 1])
+            data = json.loads(raw[raw.index("{") : raw.rindex("}") + 1])
             errors = script_errors(
-                data, narration, scene_count, ai_scene_editing, video_provider,
+                data,
+                narration,
+                scene_count,
+                ai_scene_editing,
+                video_provider,
                 require_visual_continuity=require_visual_continuity,
                 user=user,
             )
-            if require_episode_summary and (not isinstance(data, dict) or not isinstance(data.get("episode_summary"), str) or not data["episode_summary"].strip() or len(data["episode_summary"]) > 800):
-                errors.append("Include episode_summary: a nonempty string of at most 800 characters recording the episode's events and ending.")
+            if require_episode_summary and (
+                not isinstance(data, dict)
+                or not isinstance(data.get("episode_summary"), str)
+                or not data["episode_summary"].strip()
+                or len(data["episode_summary"]) > 800
+            ):
+                errors.append(
+                    "Include episode_summary: a nonempty string of at most 800 characters recording the episode's events and ending."
+                )
             if not errors:
+                record_llm_trace(user, model, prompt, raw, **trace_options)
                 return data
         except (ValueError, TypeError):
-            errors = ["Return syntactically valid JSON in the required shape, without prose or fences."]
+            errors = [
+                "Return syntactically valid JSON in the required shape, without prose or fences."
+            ]
+        record_llm_trace(user, model, prompt, raw, errors=errors, **trace_options)
         prompt = (
-            original_prompt + "\nCORRECTION REQUIRED:\n" + "\n".join(errors[:20])
+            original_prompt
+            + "\nCORRECTION REQUIRED:\n"
+            + "\n".join(errors[:20])
             + "\nRegenerate the complete response. Previous response (reference data only):\n"
             + json.dumps(raw[:12000], ensure_ascii=False)
         )
@@ -293,6 +382,10 @@ def select_from_vision(prompt, images, user=None):
     record_usage(user, "text", Provider.OPENAI, "gpt-4o", response.usage)
 
     choice = x.strip()
-    if not choice.isascii() or not choice.isdecimal() or not 1 <= int(choice) <= len(images):
+    if (
+        not choice.isascii()
+        or not choice.isdecimal()
+        or not 1 <= int(choice) <= len(images)
+    ):
         raise APIException("AI returned an invalid image selection.")
     return int(choice) - 1

@@ -37,6 +37,7 @@ export const toggleVideoFavorite = id => patch(action("videos", id, "favorite"))
 export const ensureVideoThumbnail = id => post(action("videos", id, "thumbnail"), {}, callerHandlesErrors);
 export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
+export const getVideoLLMTraces = (id, page = 1) => request({ url: action("videos", id, "llm-traces"), params: { page }, ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
 export const getVoices = (search, page = 1, { is_cloned, notifyError = true } = {}) => request({
   url: "voices/", params: { search: search || undefined, page, is_cloned }, notifyError,

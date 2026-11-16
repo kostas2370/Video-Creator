@@ -35,6 +35,43 @@ class ExportFreshnessTests(TestCase):
         self.video.save()
         self.assertEqual(export_freshness(self.video)["status"], "current")
 
+    def test_generation_preferences_and_unused_visuals_do_not_stale_an_export(self):
+        self.video.settings = {
+            **(self.video.settings or {}),
+            "provider": "another-provider",
+            "style": "animation",
+            "narration_language": "Greek",
+        }
+        self.scene.shot_plan = {"target_duration": 8}
+        self.scene.save(update_fields=["shot_plan"])
+        scene_image.make(scene=self.scene)
+        self.assertEqual(export_freshness(self.video)["status"], "current")
+        active = self.scene.scene_images.all()[0]
+        active.asset.file = "changed-active-visual.png"
+        active.asset.save(update_fields=["file"])
+        self.assertEqual(export_freshness(self.video)["status"], "stale")
+
+    def test_render_settings_still_stale_an_export(self):
+        original = dict(self.video.settings or {})
+        for key, value in (
+            ("video_format", "SQUARE"),
+            ("export_fps", 30),
+            ("music_volume", 0.5),
+            ("subtitles", True),
+            ("creation_mode", "SERIES"),
+        ):
+            with self.subTest(key=key):
+                self.video.settings = {**original, key: value}
+                self.assertEqual(export_freshness(self.video)["status"], "stale")
+
+    def test_overridden_speech_does_not_stale_an_export(self):
+        self.scene.voiceover = "voiceover.wav"
+        self.scene.save(update_fields=["voiceover"])
+        self.video.export_source_key = export_source_key(self.video)
+        self.scene.file = "unused-speech.wav"
+        self.scene.save(update_fields=["file"])
+        self.assertEqual(export_freshness(self.video)["status"], "current")
+
     def test_music_and_scene_order_change_freshness(self):
         self.video.music = baker.make(Music, name="Music", file="music.mp3")
         self.assertEqual(export_freshness(self.video)["status"], "stale")

@@ -5,7 +5,12 @@ import json
 
 from django.core.exceptions import SuspiciousFileOperation
 
+from apps.videomanagement.export_settings import export_settings
+from apps.videomanagement.utils.audio_editing import narration_enabled, narration_file
+from apps.videomanagement.utils.captions.styles import video_caption_style
 from apps.videomanagement.utils.composer.scene_cache import file_identity
+from apps.videomanagement.utils.transitions import default_transition
+from apps.videomanagement.video_formats import output_size
 
 SCENE_FIELDS = (
     "text",
@@ -20,18 +25,47 @@ SCENE_FIELDS = (
     "cuts",
     "transition_after",
     "transition_duration",
-    "shot_plan",
+    "is_last",
 )
-# These guide future generation and do not alter saved media playback.
-GENERATION_SETTINGS = {
-    "narration_language",
-    "gpt_model",
-    "generation_mode",
-    "creation_mode",
-    "character_profiles",
-    "reference_images",
-    "visual_continuity",
-}
+RENDER_SETTINGS = (
+    "narration",
+    "subtitles",
+    "avatar_position",
+    "loop_visual",
+    "video_audio_enabled",
+    "transition_duration",
+    "intro_transition",
+    "intro_transition_duration",
+    "music_volume",
+    "music_ducking",
+    "music_fade_in",
+    "music_fade_out",
+    "duck_level",
+    "duck_attack",
+    "duck_release",
+)
+
+
+def render_settings(video):
+    choices = video.settings or {}
+    return {
+        **{key: choices[key] for key in RENDER_SETTINGS if key in choices},
+        "size": output_size(choices.get("video_format")),
+        "export": export_settings(choices),
+        "transition_default": default_transition(choices),
+        "captions": video_caption_style(video).to_dict()
+        if choices.get("subtitles")
+        else None,
+    }
+
+
+def scene_visual(scene):
+    image = next(iter(scene.scene_images.all()), None)
+    return (
+        {"file": media_identity(image.file), "with_audio": image.with_audio}
+        if image
+        else None
+    )
 
 
 def media_identity(file):
@@ -46,11 +80,7 @@ def media_identity(file):
 def export_source_key(video, *, scenes=None):
     rows = video.scenes.all() if scenes is None else scenes
     value = {
-        "settings": {
-            key: value
-            for key, value in (video.settings or {}).items()
-            if key not in GENERATION_SETTINGS
-        },
+        "settings": render_settings(video),
         "video_type": video.video_type,
         "cuts": video.cuts,
         "music": media_identity(video.music.file) if video.music_id else None,
@@ -61,13 +91,11 @@ def export_source_key(video, *, scenes=None):
             {
                 "id": str(scene.pk),
                 **{key: getattr(scene, key) for key in SCENE_FIELDS},
-                "speech": media_identity(scene.file),
-                "voiceover": media_identity(scene.voiceover),
+                "narration": media_identity(narration_file(scene))
+                if narration_enabled(scene)
+                else None,
                 "logo": media_identity(scene.overlay_logo),
-                "visuals": [
-                    {"file": media_identity(image.file), "with_audio": image.with_audio}
-                    for image in scene.scene_images.all()
-                ],
+                "visual": scene_visual(scene),
             }
             for scene in rows
         ],

@@ -1,3 +1,4 @@
+import { DeveloperPrompts } from "../components/DeveloperPrompts";
 import { VideoEditorLoading } from "../components/VideoEditorLoading";
 import { useDraftOwner } from "../hooks/useCreationDraft";
 import { libraryReturnUrl } from "../utils/videoLibraryNavigation";
@@ -372,6 +373,7 @@ export const Video = () => {
           {videoInfo && <ProjectCosts videoId={videoInfo.id} refresh={`${videoInfo.updated_at}:${videoInfo.status}:${refresh}`} />}
           {videoInfo && <RecentlyDeletedScenes key={`deleted-${videoId}`} videoId={videoId} refresh={videoInfo.updated_at} disabled={sceneChangePending || renderPending || !["READY", "COMPLETED", "FAILED"].includes(videoInfo.status)} onRestore={recoverScene} />}
           </RememberedDetails>
+          {videoInfo && <DeveloperPrompts key={videoInfo.id} videoId={videoInfo.id} />}
       </main>
     </>
   );
