@@ -251,8 +251,20 @@ See [visual continuity](visual-continuity.md) for the complete reference behavio
 | `format_sora_prompt()` | Adapter-specific video prompt helper; availability depends on the configured provider |
 | `format_cover_prompt()` | Create a thumbnail brief from video content, exact title, reference, and user direction |
 
-The main prompt builders live in
-[`utils/prompt_utils.py`](../backend/apps/videomanagement/utils/prompt_utils.py).
+Prompt builders are grouped by workflow:
+
+- [`prompts/storyboard.py`](../backend/apps/videomanagement/prompts/storyboard.py): storyboard generation, scene drafting, and revision.
+- [`prompts/visuals.py`](../backend/apps/videomanagement/prompts/visuals.py): shared visual briefs, generated audio direction, image/video prompts, and starting-frame review.
+- [`prompts/writing.py`](../backend/apps/videomanagement/prompts/writing.py): creative ideas, rewriting, story narration, and cover briefs.
+- [`series/prompts.py`](../backend/apps/series/prompts.py): cast and character design, episode ideas, continuity context, and episode memory.
+
+Shared language and story progression rules live in
+[`prompts/rules.py`](../backend/apps/videomanagement/prompts/rules.py).
+Saved storyboard parsing lives separately in
+[`utils/storyboard.py`](../backend/apps/videomanagement/utils/storyboard.py).
+These builders format supplied data; services retain provider calls, database access,
+and response validation.
+
 Request routing and retries live in
 [`integrations/llm.py`](../backend/apps/videomanagement/integrations/llm.py).
 Generation calls originate in

@@ -25,11 +25,12 @@ from apps.videomanagement.models import (
     VideoStatus,
     VoiceModel,
 )
-from apps.videomanagement.services.media.downloads import download_music
+from apps.videomanagement.prompts.storyboard import build_script_prompt
 from apps.videomanagement.services.media.catalog import (
     create_catalog_music,
     select_music_track,
 )
+from apps.videomanagement.services.media.downloads import download_music
 from apps.videomanagement.services.media.icons import icon_candidates
 from apps.videomanagement.services.media.music_search import import_search_music
 from apps.videomanagement.services.media.selection import available_voice, owned_asset
@@ -40,7 +41,6 @@ from apps.videomanagement.services.scenes.narration import (
 from apps.videomanagement.services.scenes.visual_planning import apply_visual_plans
 from apps.videomanagement.services.scenes.visuals import create_image_scenes
 from apps.videomanagement.utils.file_utils import generate_directory
-from apps.videomanagement.utils.prompt_utils import build_script_prompt
 
 logger = logging.getLogger(__name__)
 

@@ -4,11 +4,12 @@ from django.test import SimpleTestCase, TestCase
 
 from apps.videomanagement.baker_recipes import video
 from apps.videomanagement.integrations.llm import script_errors
+from apps.videomanagement.prompts.storyboard import build_script_prompt
+from apps.videomanagement.prompts.visuals import with_shot_plan
 from apps.videomanagement.serializers.requests import StoryboardSerializer
 from apps.videomanagement.services.scenes.narration import ensure_scene_rows
 from apps.videomanagement.services.scenes.visual_planning import apply_visual_plans
 from apps.videomanagement.tests.test_ai_scene_editing import PLAN, storyboard
-from apps.videomanagement.utils.prompt_utils import build_script_prompt, with_shot_plan
 
 LABEL = {"text": "A tiny hiding place", "position": "top-center", "start_fraction": .25, "end_fraction": .75}
 EDITING = {**PLAN, "animation_preset": "EXPLAINER", "animation_accents": False, "overlays": [LABEL]}

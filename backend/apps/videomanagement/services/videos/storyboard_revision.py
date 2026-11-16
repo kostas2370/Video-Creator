@@ -5,8 +5,8 @@ from apps.usage.services import video_usage
 from apps.videomanagement.integrations.llm import get_reply, script_errors
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import VideoStatus
+from apps.videomanagement.prompts.storyboard import build_storyboard_revision_prompt
 from apps.videomanagement.serializers.requests import StoryboardSerializer
-from apps.videomanagement.utils.prompt_utils import build_storyboard_revision_prompt
 
 
 def revise_storyboard(video, *, storyboard, instructions):

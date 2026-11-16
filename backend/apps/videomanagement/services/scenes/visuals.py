@@ -1,16 +1,16 @@
 import hashlib
 import json
 import logging
-from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
 from pathlib import Path
 
 from django.core.files import File
-from PIL import Image
 from django.db import close_old_connections
+from PIL import Image
 
-from apps.usage.services import video_usage
 from apps.apikeysmanagement.models import Provider
+from apps.usage.services import video_usage
 from apps.videomanagement.integrations.visuals import (
     ImageProviderRegistry,
     openai_images,
@@ -23,15 +23,12 @@ from apps.videomanagement.models import (
     Video,
     VideoType,
 )
+from apps.videomanagement.prompts.visuals import with_shot_plan, with_visual_continuity
 from apps.videomanagement.services.scenes.narration import ensure_scene_rows
 from apps.videomanagement.utils.audio_editing import duration_override
 from apps.videomanagement.utils.diagrams import full_scene_diagram
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.frames import still_from_video
-from apps.videomanagement.utils.prompt_utils import (
-    with_shot_plan,
-    with_visual_continuity,
-)
 from apps.videomanagement.utils.timing import file_timing
 from apps.videomanagement.utils.video_audio import (
     audio_mode as resolve_audio_mode,

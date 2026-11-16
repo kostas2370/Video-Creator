@@ -1,5 +1,3 @@
-from apps.videomanagement.integrations.base import ImageProvider
-from apps.usage.pricing import image_estimate
 import logging
 import os
 import urllib.request
@@ -8,9 +6,11 @@ import uuid
 import requests
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
-from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage
-from apps.videomanagement.utils.prompt_utils import format_image_prompt
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.videomanagement.prompts.visuals import format_image_prompt
 
 logger = logging.getLogger(__name__)
 

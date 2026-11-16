@@ -6,9 +6,13 @@ from django.urls import reverse
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.baker_recipes import scene, scene_image, video
+from apps.videomanagement.prompts.storyboard import build_script_prompt
+from apps.videomanagement.prompts.visuals import with_visual_continuity
+from apps.videomanagement.serializers.requests import (
+    GenerateSerializer,
+    VideoUpdateSerializer,
+)
 from apps.videomanagement.services.scenes import visuals
-from apps.videomanagement.serializers.requests import GenerateSerializer, VideoUpdateSerializer
-from apps.videomanagement.utils.prompt_utils import build_script_prompt, with_visual_continuity
 from apps.videomanagement.tests.api.base import ApiTestCase
 
 BRIEF = "Milo: orange fox, white muzzle, green scarf. Watercolor forest."

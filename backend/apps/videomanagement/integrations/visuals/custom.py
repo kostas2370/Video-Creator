@@ -1,5 +1,3 @@
-from apps.videomanagement.integrations.base import ImageProvider
-from apps.usage.pricing import estimate_line, image_estimate
 import logging
 import os
 import shutil
@@ -14,9 +12,11 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider, VisualOutputType
 from apps.common.media import run_ffmpeg
-from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.usage.pricing import estimate_line, image_estimate
 from apps.usage.services import record_usage
-from apps.videomanagement.utils.prompt_utils import audio_direction
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.videomanagement.prompts.visuals import audio_direction
 from apps.videomanagement.utils.timing import video_metadata
 
 logger = logging.getLogger(__name__)

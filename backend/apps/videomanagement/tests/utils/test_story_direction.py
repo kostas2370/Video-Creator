@@ -4,8 +4,15 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from apps.videomanagement.integrations.visuals.video_http import shot_prompt
-from apps.videomanagement.utils.prompt_utils import build_script_prompt, build_scene_draft_prompt
-from apps.videomanagement.utils.transitions import default_transition, intro_transition, scene_transition
+from apps.videomanagement.prompts.storyboard import (
+    build_scene_draft_prompt,
+    build_script_prompt,
+)
+from apps.videomanagement.utils.transitions import (
+    default_transition,
+    intro_transition,
+    scene_transition,
+)
 
 
 class StoryDirectionTests(SimpleTestCase):

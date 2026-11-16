@@ -13,10 +13,10 @@ from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.integrations.visuals import openai_images
 from apps.videomanagement.models import SceneImage, Video
+from apps.videomanagement.prompts.writing import format_cover_prompt
 from apps.videomanagement.utils.file_utils import check_if_video, stored_file_exists
 from apps.videomanagement.utils.fonts import FONT_DIRECTORY
 from apps.videomanagement.utils.frames import extract_video_frame
-from apps.videomanagement.utils.prompt_utils import format_cover_prompt
 from apps.videomanagement.utils.timing import file_timing, media_timing
 
 FONT_FILES = {

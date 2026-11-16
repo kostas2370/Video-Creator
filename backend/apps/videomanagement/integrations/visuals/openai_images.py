@@ -1,22 +1,21 @@
-from apps.videomanagement.integrations.base import ImageProvider
-from apps.usage.pricing import image_estimate
 import base64
 import logging
 import os
 
-from django.core.files.base import ContentFile
-from apps.videomanagement.models import MediaAsset
-
 from django.conf import settings
+from django.core.files.base import ContentFile
 from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
-from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage
+from apps.videomanagement.integrations.base import ImageProvider
+from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+from apps.videomanagement.models import MediaAsset
+from apps.videomanagement.prompts.visuals import format_image_prompt
 from apps.videomanagement.utils.generation_quality import image_quality_for
-from apps.videomanagement.utils.prompt_utils import format_image_prompt
 
 logger = logging.getLogger(__name__)
 

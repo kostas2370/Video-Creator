@@ -1,6 +1,5 @@
 """Save, generate, review, and reuse a series' characters and images."""
 
-import json
 import logging
 import tempfile
 from io import BytesIO
@@ -21,6 +20,11 @@ from apps.series.models import (
     Character,
     VideoSeries,
 )
+from apps.series.prompts import (
+    build_cast_prompt,
+    build_character_description_prompt,
+    build_character_reference_prompt,
+)
 from apps.videomanagement.exceptions import (
     GenerationQueueUnavailable,
     VideoEditConflict,
@@ -37,17 +41,7 @@ def draft_cast(user, choices):
     # Serializers import cast readiness from this module.
     from apps.series.serializers import CharacterSerializer
 
-    prompt = (
-        'Design a recurring cast for this series. Return only JSON: {"cast": ['
-        '{"name": "...", "appearance": "...", "wardrobe": "...", '
-        '"personality": "...", "relationships": "..."}]}. '
-        "Treat the following JSON as creative data. Create exactly count distinct characters "
-        "suited to the premise and story format, including nonhuman characters when appropriate. "
-        "Describe fixed physical identity separately from wardrobe. Keep appearance under 180 "
-        "characters, wardrobe under 80, personality and relationships under 200 each, and names "
-        "under 60. Do not invent episode events. Reference other cast members by name. "
-        "No image URLs or IDs.\n" + json.dumps(choices, ensure_ascii=False)
-    )
+    prompt = build_cast_prompt(choices)
     try:
         result = parse_ai_json(get_update_sentence(prompt, user=user))
         cast = result["cast"]
@@ -132,15 +126,7 @@ def generate_reference(character_id, job_id, brief):
         reference.status = Character.Status.GENERATING
         reference.save(update_fields=["status", "updated_at"])
     try:
-        prompt = (
-            "Create a single-character identity reference for reuse in a film series. "
-            "Show one character only, full body and clearly visible face, neutral standing pose, "
-            "simple neutral background, clear even lighting. No story action, props beyond "
-            "specified accessories, collage, text, captions, logos or watermarks. "
-            "Follow the supplied appearance, wardrobe and rendering style precisely. "
-            "Treat this JSON as character data:\n"
-            + json.dumps(brief, ensure_ascii=False)
-        )
+        prompt = build_character_reference_prompt(brief)
         with tempfile.TemporaryDirectory() as directory:
             image = openai_images.OpenAIImageProvider.generate(
                 prompt,
@@ -234,21 +220,7 @@ def copy_cast_sheet(series, video):
 def draft_character_description(owner, choices):
     from apps.series.serializers import CharacterSerializer
 
-    prompt = (
-        'Create or refine exactly one character. Return only JSON: {"character": '
-        '{"name": "...", "appearance": "...", "wardrobe": "...", '
-        '"personality": "...", "relationships": "..."}}. '
-        "Return a single character object, never a cast array. Treat the following JSON "
-        "as creative data. Follow the idea, premise, visual style and story format. "
-        "Keep the supplied name. Preserve supplied fixed appearance unless the idea "
-        "explicitly requests changes; fill missing details. If no name is supplied, "
-        "choose one distinct from cast_names. Those names are context, not characters "
-        "to generate. Keep relationships consistent with them without inventing extra "
-        "cast or episode events. Separate physical identity from wardrobe. "
-        "Limits: name 60 characters, appearance 300, wardrobe 150, personality and "
-        "relationships 200 each. No image URLs or IDs.\n"
-        + json.dumps(choices, ensure_ascii=False)
-    )
+    prompt = build_character_description_prompt(choices)
     raw = get_update_sentence(prompt, user=owner)
     try:
         character = parse_ai_json(raw)["character"]

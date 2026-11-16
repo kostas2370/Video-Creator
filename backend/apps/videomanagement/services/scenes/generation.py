@@ -1,13 +1,15 @@
 import logging
 
-from apps.usage.services import video_usage
-
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.common.ai_json import parse_ai_json
+from apps.usage.services import video_usage
 from apps.videomanagement.integrations.llm import get_update_sentence
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import Scene, SceneImage, Video
+from apps.videomanagement.prompts.storyboard import build_scene_draft_prompt
+from apps.videomanagement.prompts.visuals import with_visual_continuity
+from apps.videomanagement.prompts.writing import format_update_form
 from apps.videomanagement.schemas.drafts import SceneDraftResultSerializer
 from apps.videomanagement.serializers.overlays import OverlaySerializer
 from apps.videomanagement.services.scenes.narration import make_scene_speech
@@ -15,11 +17,6 @@ from apps.videomanagement.services.scenes.narration import update_scene as updat
 from apps.videomanagement.services.scenes.visuals import (
     create_image_scene,
     scene_reference,
-)
-from apps.videomanagement.utils.prompt_utils import (
-    build_scene_draft_prompt,
-    format_update_form,
-    with_visual_continuity,
 )
 
 logger = logging.getLogger(__name__)
