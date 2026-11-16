@@ -7,7 +7,6 @@ from django.core.exceptions import SuspiciousFileOperation
 
 from apps.videomanagement.utils.composer.scene_cache import file_identity
 
-
 SCENE_FIELDS = (
     "text",
     "caption_alignment",

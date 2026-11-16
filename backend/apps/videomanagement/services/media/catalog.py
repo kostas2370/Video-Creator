@@ -12,7 +12,6 @@ from apps.videomanagement.models import Music, MusicCatalogTrack
 from apps.videomanagement.services.media.music import set_music
 from apps.videomanagement.utils.file_utils import stored_file_exists
 
-
 CATEGORY_HINTS = {
     "educational": "educational education explain explainer tutorial science history learning lesson documentary facts study",
     "suspense": "suspense suspenseful mystery mysterious thriller tension crime detective investigation dramatic",

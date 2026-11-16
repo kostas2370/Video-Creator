@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.utils import timezone
 from model_bakery import baker
 
-from apps.videomanagement.baker_recipes import scene, video, scene_image
+from apps.videomanagement.baker_recipes import scene, scene_image, video
 from apps.videomanagement.models import Music, MusicCatalogTrack, Video
 from apps.videomanagement.serializers.models import VideoNestedSerializer
 from apps.videomanagement.services.videos.export_freshness import (

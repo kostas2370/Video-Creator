@@ -4,7 +4,11 @@ import json
 
 from apps.videomanagement.utils.video_audio import audio_mode
 
-from .rules import _LANGUAGE_INSTRUCTIONS, _STORY_PROGRESSION_INSTRUCTIONS, narration_language_instruction
+from .rules import (
+    _LANGUAGE_INSTRUCTIONS,
+    _STORY_PROGRESSION_INSTRUCTIONS,
+    narration_language_instruction,
+)
 from .visuals import (
     _CONNECTED_VIDEO_INSTRUCTIONS,
     _VISUAL_BRIEFS,

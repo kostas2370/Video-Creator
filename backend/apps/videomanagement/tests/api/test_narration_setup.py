@@ -2,8 +2,8 @@ import json
 from io import StringIO
 from unittest.mock import patch
 
-from rest_framework.exceptions import ValidationError
 from django.urls import reverse
+from rest_framework.exceptions import ValidationError
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement import draft_tasks

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.videomanagement.serializers.requests import StoryboardSerializer
+
 
 class UsageMetricsSerializer(serializers.Serializer):
     cost_usd = serializers.DecimalField(
@@ -44,8 +46,6 @@ class CostEstimateRequestSerializer(serializers.Serializer):
     )
 
     def validate_storyboard(self, value):
-        from apps.videomanagement.serializers.requests import StoryboardSerializer
-
         serializer = StoryboardSerializer(data=value, context={"narration": False})
         serializer.is_valid(raise_exception=True)
         return serializer.validated_data

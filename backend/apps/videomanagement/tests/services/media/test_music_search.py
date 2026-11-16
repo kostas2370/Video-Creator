@@ -10,13 +10,13 @@ from rest_framework.exceptions import ValidationError
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import video
-from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.services.media import music_search
+from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.serializers.music_search import (
     MusicBriefSerializer,
     MusicSearchSerializer,
 )
+from apps.videomanagement.services.media import music_search
 from apps.videomanagement.services.videos.ideas import creative_reply
 
 BRIEF = {

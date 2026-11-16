@@ -2,7 +2,11 @@
 
 import json
 
-from .rules import _LANGUAGE_INSTRUCTIONS, _STORY_PROGRESSION_INSTRUCTIONS, narration_language_instruction
+from .rules import (
+    _LANGUAGE_INSTRUCTIONS,
+    _STORY_PROGRESSION_INSTRUCTIONS,
+    narration_language_instruction,
+)
 
 
 def format_update_form(text: str, prompt: str) -> str:

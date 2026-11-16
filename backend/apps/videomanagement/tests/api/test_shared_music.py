@@ -10,8 +10,8 @@ from django.urls import reverse
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.services.media.catalog import (
-    select_music_track,
     create_catalog_music,
+    select_music_track,
 )
 
 from .base import ApiTestCase

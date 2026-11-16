@@ -23,7 +23,12 @@ from ..services.scenes.starting_frames import (
 )
 from ..services.videos.preview import preview_timeline
 from ..utils.audio_editing import narration_enabled, narration_file
-from ..utils.cuts import joined_duration, scene_sections, video_cut_source, video_sections
+from ..utils.cuts import (
+    joined_duration,
+    scene_sections,
+    video_cut_source,
+    video_sections,
+)
 from ..utils.file_utils import stored_file_exists
 from ..utils.timing import file_timing, scene_timing
 from .audio import MusicDetailsSerializer

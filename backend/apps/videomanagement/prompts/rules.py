@@ -1,5 +1,7 @@
 """Language and story progression shared by video prompt builders."""
 
+import json
+
 _LANGUAGE_INSTRUCTIONS = (
     "Use the language explicitly requested by the user; otherwise use the user's language. "
     "Keep titles, character dialogue and narration in that language. Do not translate existing narration "
@@ -23,8 +25,6 @@ _STORY_PROGRESSION_INSTRUCTIONS = (
 def narration_language_instruction(language):
     if not language:
         return ""
-    import json
-
     return (
         "\nNARRATION LANGUAGE: " + json.dumps(language, ensure_ascii=False) + ". "
         "Write all narration, spoken dialogue and the video title in this selected language. "

@@ -7,7 +7,14 @@ from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import UserCustomVisualProvider
 from apps.usermanagement.baker_recipes import user
-from apps.videomanagement.baker_recipes import avatar, intro, outro, video, voice_model, music
+from apps.videomanagement.baker_recipes import (
+    avatar,
+    intro,
+    music,
+    outro,
+    video,
+    voice_model,
+)
 from apps.videomanagement.services.videos import generation as VideoGenerationServices
 from apps.videomanagement.services.videos.generation import (
     create_pending_video,
