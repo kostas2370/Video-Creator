@@ -251,6 +251,17 @@ Removed scenes can be restored from **Project extras → Recently deleted** for 
 days. Reusable scene assets remain in the media library after their project is
 deleted; assets still used by a scene cannot be deleted from the library.
 
+### Turn a script into a video
+
+Choose **Text to video** from the creation tools. Paste narration or upload a UTF-8
+`.txt` file, up to 2,000 characters. Choose visuals, a narrator, and a frame, then
+review the storyboard before generating media. Imported narration keeps its original
+words and language; a draft that changes the wording is rejected before media
+requests. Scene breaks may change whitespace. You can edit the script and visual
+prompts during review, then use the same video editor and export controls as other
+AI videos. Text-import drafts recover separately from idea-based creation.
+Audio-file import is planned as the next step.
+
 ### Add captions to an existing video
 
 Choose **Add captions** from the creation tools. Upload an MP4, MOV, WebM, or M4V

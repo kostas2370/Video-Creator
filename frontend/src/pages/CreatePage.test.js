@@ -15,7 +15,7 @@ it("features two starting points while keeping all specialist tools reachable", 
   const featured = within(screen.getByRole("region", { name: "Start a new video" }));
   expect(featured.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/ai/", "/manual/"]);
   const tools = within(screen.getByRole("region", { name: "More ways to create" }));
-  expect(tools.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/clips/", "/series/", "/story/", "/captions/"]);
+  expect(tools.getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/text/", "/clips/", "/series/", "/story/", "/captions/"]);
   expect(await screen.findByText("Start a video below. Your recent projects will appear here.")).toBeTruthy();
 });
 

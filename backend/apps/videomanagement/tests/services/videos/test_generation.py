@@ -96,6 +96,36 @@ class GenerateVideoTests(TestCase):
         params.update(kwargs)
         return generate_video(video=self.video, **params)
 
+    def test_text_import_preserves_words_and_waits_for_review(self):
+        draft = self.generate(source_text="hello", review_script=True)
+        self.assertEqual(draft.status, "REVIEW")
+        self.assertIn("EXACT SCRIPT IMPORT", self.get_reply.call_args.args[0])
+        self.make_scenes_speech.assert_not_called()
+        self.create_image_scenes.assert_not_called()
+
+    def test_text_import_rejects_rewritten_narration_before_media(self):
+        for source in ("Hello", "hello hello", "goodbye", "hello!"):
+            with self.subTest(source=source), self.assertRaises(APIException):
+                self.generate(source_text=source, review_script=True)
+        self.video.refresh_from_db()
+        self.assertIsNone(self.video.gpt_answer)
+        self.make_scenes_speech.assert_not_called()
+        self.create_image_scenes.assert_not_called()
+        self.generate_directory.assert_not_called()
+
+    def test_text_import_accepts_whitespace_and_later_user_edits(self):
+        self.get_reply.return_value = {**A_SCRIPT, "scenes": [
+            {"scene": "One", "sentences": [{"sentence": "Hello.", "image_description": "A cat"}]},
+            {"scene": "Two", "sentences": [{"sentence": "Goodbye!", "image_description": "A forest"}]},
+        ]}
+        draft = self.generate(source_text="Hello.\n\nGoodbye!", review_script=True)
+        self.assertEqual(draft.status, "REVIEW")
+        draft.gpt_answer = A_SCRIPT
+        draft.save()
+        finished = self.generate(source_text="Hello.\n\nGoodbye!")
+        self.assertEqual(finished.status, "READY")
+        self.get_reply.assert_called_once()
+
     def test_starting_frame_option_survives_storyboard_and_media_generation(self):
         draft = self.generate(review_script=True, review_starting_frames=True, image_mode="AI", provider="gemini-video")
         self.assertTrue(draft.settings["review_starting_frames"])

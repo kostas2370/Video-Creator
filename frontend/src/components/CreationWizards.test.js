@@ -152,3 +152,16 @@ it("updates the project summary and preserves choices when editing from it", () 
   expect(screen.getByRole("radio", { name: /Portrait/ }).checked).toBe(true);
   expect(api.generateVideo).not.toHaveBeenCalled();
 });
+
+it("imports exact text using the shared storyboard workflow", async () => {
+  render(<MemoryRouter><Home inputMode="text" /></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText("Your script"), { target: { value: "A fox waits. Then the sun rises." } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+  expect(screen.queryByRole("combobox", { name: "Narration language" })).toBeNull();
+  expect(screen.getByRole("checkbox", { name: /Narration/ }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Review video" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Draft storyboard" }).disabled).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Draft storyboard" }));
+  await waitFor(() => expect(api.generateVideo).toHaveBeenCalledOnce());
+  expect(api.generateVideo.mock.calls[0][0]).toMatchObject({ source_text: "A fox waits. Then the sun rises.", image_mode: "AI", provider: "OPENAI", narration: true, narration_language: "", review_script: true, scene_count: null });
+});

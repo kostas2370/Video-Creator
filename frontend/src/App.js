@@ -84,7 +84,8 @@ function App() {
                 <Route path="/clips/:projectId/" element={<ClipsPage key={location.pathname} />} />
                 <Route path="/series/" element={<SeriesPage key={location.pathname} />} />
                 <Route path="/series/:seriesId/" element={<SeriesPage key={location.pathname} />} />
-                <Route path="/ai/" element={<Home />} />
+                <Route path="/ai/" element={<Home key="idea" />} />
+                <Route path="/text/" element={<Home key="text" inputMode="text" />} />
                 <Route path="/story/" element={<StoryVideo />} />
                 <Route path="/captions/" element={<Captions key={location.pathname} />} />
                 <Route path="/captions/:captionId/" element={<Captions key={location.pathname} />} />

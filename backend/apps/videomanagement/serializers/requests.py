@@ -72,6 +72,7 @@ class GenerateSerializer(serializers.Serializer):
         required=False,
         default="both",
     )
+    source_text = serializers.CharField(required=False, max_length=2000)
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
         required=False, choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT
@@ -122,6 +123,11 @@ class GenerateSerializer(serializers.Serializer):
         return validate_reference_image(value)
 
     def validate(self, attrs):
+        if attrs.get("source_text"):
+            if not attrs.get("narration", True):
+                raise serializers.ValidationError({"narration": "Keep narration enabled when importing a script."})
+            attrs["review_script"] = True
+            attrs["narration_language"] = ""
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != ImageMode.AI
             or not ImageProviderRegistry.supports_reference(

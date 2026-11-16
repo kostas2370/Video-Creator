@@ -2,6 +2,12 @@ import { HiOutlineScissors, HiOutlineBookOpen, HiOutlineSparkles, HiOutlineFilm,
 
 export const creationModes = [
   {
+    to: "/text/", label: "Text to video", eyebrow: "Start with your script", icon: HiOutlineBookOpen,
+    description: "Paste or upload your script. Turn your words into narrated scenes with matching images.",
+    requirement: "Your script + connected AI providers", action: "Use your script",
+    color: "text-blue-600 dark:text-blue-300", background: "bg-blue-50 dark:bg-blue-950/40", preview: "text",
+  },
+  {
     to: "/clips/", label: "Long video → Shorts", eyebrow: "Find your best moments", icon: HiOutlineScissors,
     description: "Turn a podcast, interview, or talk into short clips with portrait framing and captions.",
     requirement: "A video with speech + connected AI providers", action: "Find short clips",

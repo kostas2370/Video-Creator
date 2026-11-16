@@ -16,6 +16,22 @@ from .base import ApiTestCase
 
 
 class GenerateViewTests(ApiTestCase):
+    def test_script_import_forces_review_and_keeps_source_in_settings(self):
+        source = "The cat left. The forest was quiet."
+        response, delay = self.post(source_text=source, review_script=False, narration_language="Greek")
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertEqual(delay.call_args.kwargs["source_text"], source)
+        self.assertTrue(delay.call_args.kwargs["review_script"])
+        self.assertEqual(delay.call_args.kwargs["narration_language"], "")
+        saved = Video.objects.get(pk=response.data["video"]["id"])
+        self.assertEqual(saved.settings["generation_params"]["source_text"], source)
+
+    def test_script_import_rejects_empty_long_or_silent_scripts(self):
+        for choices in ({"source_text": "   "}, {"source_text": "x" * 2001}, {"source_text": "Hello", "narration": False}):
+            response, delay = self.post(**choices)
+            self.assertEqual(response.status_code, 400, response.data)
+            delay.assert_not_called()
+
     def test_ai_scene_editing_opt_in_reaches_the_worker(self):
         response, delay = self.post(ai_scene_editing=True)
         self.assertEqual(response.status_code, 202, response.data)
