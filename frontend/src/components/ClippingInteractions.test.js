@@ -55,6 +55,26 @@ it("rebases captions after trimming and keeps unsaved edits when saving fails", 
   expect(screen.getByLabelText("Clip title").value).toBe("My edited title");
 });
 
+it("shows at most two decimals without rounding saved clip or caption timings", async () => {
+  const words = [{ text: "Hello", start: 0.123456, end: 0.987654 }];
+  const clip = clipFixture({ start: 1.234567, end: 160.6, words });
+  api.saveClip.mockResolvedValue({ ok: true, data: clip });
+  render(<ClipEditor project={projectFixture({ duration: 160.6 })} clip={clip} onSaved={vi.fn()} onClose={vi.fn()} />);
+  expect(screen.getByLabelText("Start (minutes)").value).toBe("0.02");
+  const end = screen.getByLabelText("End (minutes)");
+  expect(end.value).toBe("2.68");
+  expect(end.validity.rangeOverflow).toBe(false);
+  expect(screen.getByLabelText("Start of word 1").value).toBe("0.12");
+  expect(screen.getByLabelText("End of word 1").value).toBe("0.99");
+  fireEvent.change(screen.getByLabelText("Clip title"), { target: { value: "Updated title" } });
+  fireEvent.submit(screen.getByRole("button", { name: "Save clip", exact: true }).closest("form"));
+  await waitFor(() => expect(api.saveClip).toHaveBeenCalled());
+  const saved = api.saveClip.mock.calls[0][2];
+  expect(saved.start).toBe(clip.start);
+  expect(saved.end).toBe(clip.end);
+  expect(saved.words).toEqual(words);
+});
+
 it("reconciles server events without overwriting an open editor or polling the full transcript", async () => {
   render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
   await screen.findByRole("heading", { name: "Interview", exact: true });
