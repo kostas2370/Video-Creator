@@ -26,6 +26,8 @@ from ..utils.audio_editing import narration_enabled, narration_file
 from ..utils.cuts import joined_duration, scene_sections, video_cut_source, video_sections
 from ..utils.file_utils import stored_file_exists
 from ..utils.timing import file_timing, scene_timing
+from .audio import MusicDetailsSerializer
+from .export_freshness import ExportFreshnessSerializer
 
 
 class TemplatePromptsSerializer(serializers.ModelSerializer):
@@ -231,26 +233,8 @@ class VideoSerializer(VideoResponseSerializer):
 
 
 class VideoNestedSerializer(VideoResponseSerializer):
-    export_freshness = serializers.SerializerMethodField()
-    music_details = serializers.SerializerMethodField()
-
-    def get_export_freshness(self, obj):
-        from ..services.videos.export_freshness import export_freshness
-        return export_freshness(obj)
-
-    def get_music_details(self, obj):
-        if not obj.music_id:
-            return None
-        music = obj.music
-        track = music.catalog_track
-        return {
-            "title": track.title if track else music.name,
-            "artist": (track.metadata.get("artist") or track.metadata.get("channel_title") or "") if track else "",
-            "file": music.file.url if music.file else None,
-            "source_url": track.source_url if track else "",
-            "license_url": track.license_url if track else "",
-            "attribution": track.attribution if track else "",
-        }
+    export_freshness = ExportFreshnessSerializer(source="*", read_only=True)
+    music_details = MusicDetailsSerializer(source="music", read_only=True)
 
     cut_summary = serializers.SerializerMethodField()
 

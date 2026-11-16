@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.utils import timezone
 from model_bakery import baker
 
 from apps.videomanagement.baker_recipes import scene, video, scene_image
@@ -70,3 +71,28 @@ class ExportFreshnessTests(TestCase):
         self.assertEqual(data["music_details"]["artist"], "Composer")
         self.assertEqual(data["music_details"]["license_url"], track.license_url)
         self.assertEqual(data["export_freshness"]["status"], "stale")
+
+    def test_editor_serializes_missing_music_and_catalog_metadata(self):
+        self.video.music = None
+        self.assertIsNone(VideoNestedSerializer(self.video).data["music_details"])
+        self.video.music = baker.make(Music, name="Uploaded piano", file="")
+        self.assertEqual(
+            VideoNestedSerializer(self.video).data["music_details"],
+            {
+                "title": "Uploaded piano",
+                "artist": "",
+                "file": None,
+                "source_url": "",
+                "license_url": "",
+                "attribution": "",
+            },
+        )
+
+    def test_export_timestamp_uses_the_serializer_datetime_format(self):
+        self.video.exported_at = timezone.now()
+        data = VideoNestedSerializer(self.video).data["export_freshness"]
+        self.assertEqual(data["status"], "current")
+        self.assertEqual(
+            data["exported_at"],
+            self.video.exported_at.isoformat().replace("+00:00", "Z"),
+        )
