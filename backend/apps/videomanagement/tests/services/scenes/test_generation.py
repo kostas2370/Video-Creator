@@ -26,7 +26,7 @@ class GenerateSceneTests(TestCase):
         line = scene.make(text="the old line")
 
         with patch.object(
-            SceneServices, "get_update_sentence", return_value="a new line"
+            SceneServices, "get_raw_reply", return_value="a new line"
         ) as rewrite:
             self.assertEqual(generate_scene("make it funnier", line), "a new line")
 
@@ -35,7 +35,7 @@ class GenerateSceneTests(TestCase):
     def test_does_not_call_the_model_when_the_text_is_unchanged(self):
         line = scene.make(text=" the old line ")
 
-        with patch.object(SceneServices, "get_update_sentence") as rewrite:
+        with patch.object(SceneServices, "get_raw_reply") as rewrite:
             self.assertEqual(generate_scene("the old line", line), "the old line")
 
         rewrite.assert_not_called()
@@ -143,7 +143,7 @@ class DraftSceneTests(TestCase):
         ):
             with self.subTest(mode=mode, provider=provider):
                 vid = video.make(mode=mode, settings={"provider": provider, "style": "watercolor"})
-                with patch.object(SceneServices, "get_update_sentence", return_value='{"text":"A cat.","image_description":"A cat"}') as generate:
+                with patch.object(SceneServices, "get_raw_reply", return_value='{"text":"A cat.","image_description":"A cat"}') as generate:
                     draft_scene(vid, "A cat")
                 prompt = generate.call_args.args[0]
                 self.assertIn(expected, prompt)
@@ -156,7 +156,7 @@ class DraftSceneTests(TestCase):
 
         vid = video.make()
         drafts = [{"text": f"Sentence {index}.", "image_description": "A path"} for index in range(3)]
-        with patch.object(SceneServices, "get_update_sentence", return_value=json.dumps({"scenes": drafts})) as generate:
+        with patch.object(SceneServices, "get_raw_reply", return_value=json.dumps({"scenes": drafts})) as generate:
             result = draft_scene(vid, "Continue", draft_type="section", sentence_count=3)
         self.assertEqual(result["scenes"], drafts)
         self.assertIn("exactly 3", generate.call_args.args[0])
@@ -172,7 +172,7 @@ class DraftSceneTests(TestCase):
             {"scenes": [None, {}, 42]},
             [],
         ):
-            with self.subTest(result=result), patch.object(SceneServices, "get_update_sentence", return_value=json.dumps(result)):
+            with self.subTest(result=result), patch.object(SceneServices, "get_raw_reply", return_value=json.dumps(result)):
                 with self.assertRaises(APIException):
                     draft_scene(vid, "Continue", draft_type="story", sentence_count=3)
         self.assertFalse(vid.scenes.exists())
@@ -184,7 +184,7 @@ class DraftSceneTests(TestCase):
         scene.make(video=vid, text="Current ending")
         SceneImage.objects.create(scene=first, prompt="Mountain sunrise")
         other = scene.make(text="Another user's story")
-        with patch.object(SceneServices, "get_update_sentence", return_value='{"text":"Next line","image_description":"A trail"}') as generate:
+        with patch.object(SceneServices, "get_raw_reply", return_value='{"text":"Next line","image_description":"A trail"}') as generate:
             result = draft_scene(vid, "Continue the journey", True)
         prompt = generate.call_args.args[0]
         for text in ("Journey", "Edited opening", "Current ending", "Mountain sunrise"):
@@ -199,7 +199,7 @@ class DraftSceneTests(TestCase):
 
         vid = video.make(title="Private title")
         scene.make(video=vid, text="Private dialogue")
-        with patch.object(SceneServices, "get_update_sentence", return_value='```json\n{"text":"New line","image_description":"A trail"}\n```') as generate:
+        with patch.object(SceneServices, "get_raw_reply", return_value='```json\n{"text":"New line","image_description":"A trail"}\n```') as generate:
             draft_scene(vid, "An independent scene", False)
         prompt = generate.call_args.args[0]
         self.assertIn("An independent scene", prompt)
@@ -215,7 +215,7 @@ class DraftSceneTests(TestCase):
             '{"text":"A line.","image_description":false}',
             '{"text":" ","image_description":"sky"}',
         ):
-            with self.subTest(reply=reply), patch.object(SceneServices, "get_update_sentence", return_value=reply):
+            with self.subTest(reply=reply), patch.object(SceneServices, "get_raw_reply", return_value=reply):
                 with self.assertRaises(APIException):
                     draft_scene(vid, "Next scene")
         self.assertFalse(vid.scenes.exists())
@@ -233,7 +233,7 @@ class DiagramSceneDraftTests(TestCase):
         for length in (601, 2000, 2001):
             draft = {"text": "A detailed view.", "image_description": "x" * length}
             with self.subTest(length=length), patch.object(
-                SceneServices, "get_update_sentence", return_value=json.dumps(draft)
+                SceneServices, "get_raw_reply", return_value=json.dumps(draft)
             ) as generate:
                 if length > 2000:
                     with self.assertRaises(APIException):
@@ -245,7 +245,7 @@ class DiagramSceneDraftTests(TestCase):
     def test_drafts_a_graph_without_a_photographic_description(self):
         vid = video.make()
         draft = {"text": "Sunlight feeds the plant.", "diagram": self.diagram}
-        with patch.object(SceneServices, "get_update_sentence", return_value=json.dumps(draft)):
+        with patch.object(SceneServices, "get_raw_reply", return_value=json.dumps(draft)):
             result = draft_scene(vid, "Use an icon graph")
         self.assertEqual(result["diagram"], self.diagram)
         self.assertEqual(result["image_description"], "")
@@ -254,7 +254,7 @@ class DiagramSceneDraftTests(TestCase):
     def test_rejects_invalid_graph_connections(self):
         vid = video.make()
         diagram = {**self.diagram, "connections": [{"source": 0, "target": 0}]}
-        with patch.object(SceneServices, "get_update_sentence", return_value=json.dumps({
+        with patch.object(SceneServices, "get_raw_reply", return_value=json.dumps({
             "text": "A graph.", "diagram": diagram,
         })):
             with self.assertRaises(APIException):

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   HiOutlineArrowPath, HiOutlineArrowUturnLeft, HiOutlineArrowUpTray, HiOutlineClock,
-  HiOutlineAdjustmentsHorizontal, HiOutlineChevronDown, HiOutlineCog6Tooth, HiOutlinePhoto, HiOutlinePlay, HiOutlineSquares2X2,
+  HiOutlineCodeBracket, HiOutlineAdjustmentsHorizontal, HiOutlineChevronDown, HiOutlineCog6Tooth, HiOutlinePhoto, HiOutlinePlay, HiOutlineSquares2X2,
 } from "react-icons/hi2";
 import { formatDuration } from "../utils/timing";
 
@@ -10,7 +10,7 @@ const actionFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visib
 
 export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, processing,
   canPreview, canExport, renderPending, saving, isResumable,
-  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onSettings, onCover, onExport, onResume, tagsAction, cutAction }) {
+  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onDeveloperPrompts, onSettings, onCover, onExport, onResume, tagsAction, cutAction }) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const exporting = renderPending || video?.status === "RENDERING";
   const exportHint = canExport ? "Export your current edit" : saving ? "Wait for your changes to save" : !sceneCount ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`;
@@ -20,7 +20,7 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
     <div aria-label="Video actions" className="grid grid-cols-2 items-center gap-1.5 sm:flex sm:flex-wrap">
       <button type="button" disabled={!canPreview} aria-label="Preview video" title={canPreview ? "Preview your full video with saved edits" : "Preview is available after processing and saving scenes"} onClick={onPreview} className={`order-1 inline-flex min-h-11 sm:min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-blue-50 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20 ${actionFocus}`}><HiOutlinePlay aria-hidden="true" className="h-4 w-4" />Preview video</button>
       {cutAction && <div className="order-1">{cutAction}</div>}
-      {onViewRendered && <button type="button" title="Watch your latest rendered export" onClick={onViewRendered} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction}`}><HiOutlinePlay aria-hidden="true" className="h-4 w-4" />Watch export</button>}
+      {onViewRendered && <button type="button" title="Watch your latest rendered export" onClick={onViewRendered} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction}`}><HiOutlinePlay aria-hidden="true" className="h-4 w-4" />{["stale", "unknown"].includes(video?.export_freshness?.status) ? "Watch previous export" : "Watch export"}</button>}
       <button type="button" aria-expanded={toolsOpen} aria-controls="video-project-tools" onClick={() => setToolsOpen(open => !open)} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} ${toolsOpen ? "bg-gray-100 dark:bg-gray-700/60" : ""}`}><HiOutlineAdjustmentsHorizontal aria-hidden="true" className="h-4 w-4" />More actions<HiOutlineChevronDown aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`} /></button>
         {isResumable && <button type="button" onClick={onResume} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} text-amber-700 dark:text-amber-300`}><HiOutlineArrowPath aria-hidden="true" className="h-4 w-4" />Retry<span className="sr-only"> generation</span></button>}
       <button type="button" disabled={!canExport} aria-label={renderPending ? "Starting export" : video?.status === "RENDERING" ? "Exporting video" : "Export video"} title={exportHint} onClick={onExport} className={`order-2 inline-flex min-h-11 sm:min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:order-3 sm:ml-auto ${actionFocus}`}>
@@ -32,6 +32,7 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
         <button type="button" disabled={!video || video.status === "REVIEW"} aria-label="Video settings" title="Video format, narration and appearance" onClick={onSettings} className={toolbarAction}><HiOutlineCog6Tooth aria-hidden="true" className="h-4 w-4" />Settings</button>
         <button type="button" disabled={!video || processing || renderPending} title="Generate an AI thumbnail, choose a frame, or upload a cover" onClick={onCover} className={toolbarAction}><HiOutlinePhoto aria-hidden="true" className="h-4 w-4" />Cover</button>
         {tagsAction}
+        {onDeveloperPrompts && <button type="button" disabled={!video} onClick={onDeveloperPrompts} className={toolbarAction}><HiOutlineCodeBracket aria-hidden="true" className="h-4 w-4" />Developer prompts</button>}
       </div>
     <div aria-label="Project overview" className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 px-2 pb-1 pt-2 text-[11px] text-gray-500 dark:border-gray-700/70 dark:text-gray-400">
       {onUndo && <button type="button" disabled={!canUndo} title={undoStale ? "Scene order changed. Undo is unavailable for this earlier action." : undoLabel} aria-label={undoLabel} onClick={onUndo} className="inline-flex items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-blue-600 disabled:text-gray-400 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300"><HiOutlineArrowUturnLeft aria-hidden="true" className="h-3.5 w-3.5" />Undo</button>}
@@ -39,6 +40,8 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
       <span className="inline-flex items-center gap-1.5"><HiOutlineSquares2X2 aria-hidden="true" className="h-3.5 w-3.5" />{sceneCount} {sceneCount === 1 ? "scene" : "scenes"}</span>
       <span className="inline-flex items-center gap-1.5"><HiOutlineClock aria-hidden="true" className="h-3.5 w-3.5" />{formatDuration(runtime)}</span>
       {format && <span title={`${format.label} video`}>{format.ratio}</span>}
+      {video?.output && video.export_freshness?.status === "stale" && <span className="text-amber-600 dark:text-amber-300">Changes since last export</span>}
+      {video?.output && video.export_freshness?.status === "unknown" && <span>Export freshness unknown</span>}
       {video?.cut_summary?.stale && <span className="text-amber-600 dark:text-amber-300">Full-video cuts need review</span>}
       {saving ? <span role="status" className="inline-flex items-center gap-1.5 text-blue-600 sm:ml-auto dark:text-blue-300"><HiOutlineArrowPath aria-hidden="true" className="h-3 w-3 motion-safe:animate-spin" />Saving changes…</span> : !sceneCount && <span className="sm:ml-auto">Add a scene to get started</span>}
     </div>

@@ -2,7 +2,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.common.ai_json import parse_ai_json
 from apps.usage.services import video_usage
-from apps.videomanagement.integrations.llm import get_reply, script_errors
+from apps.videomanagement.integrations.llm import get_raw_reply, script_errors
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 from apps.videomanagement.models import VideoStatus
 from apps.videomanagement.prompts.storyboard import build_storyboard_revision_prompt
@@ -31,14 +31,13 @@ def revise_storyboard(video, *, storyboard, instructions):
         video_provider=video_provider,
     )
     with video_usage(video):
-        response = get_reply(
+        response = get_raw_reply(
             prompt,
-            reply_format="text",
             gpt_model=video.script_model,
             user=video.created_by,
         )
     try:
-        data = parse_ai_json(response.getvalue())
+        data = parse_ai_json(response)
         # Models sometimes express an unused optional diagram as {} instead of null.
         if isinstance(data, dict) and isinstance(data.get("scenes"), list):
             for scene in data["scenes"]:

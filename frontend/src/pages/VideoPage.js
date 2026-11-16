@@ -28,6 +28,7 @@ import { VideoToolbar } from "../components/VideoToolbar";
 import { MusicAudio } from "../components/MusicAudio";
 import { BulkAutoMotion, hasStillImage } from "../components/SceneMotion";
 
+const DeveloperPrompts = lazy(() => import("../components/DeveloperPrompts").then(module => ({ default: module.DeveloperPrompts })));
 const VideoCuts = lazy(() => import("../components/SceneCuts").then(module => ({ default: module.VideoCuts })));
 const ManualSceneModal = lazy(() => import("../components/ManualSceneModal").then(module => ({ default: module.ManualSceneModal })));
 const SceneCreationModal = lazy(() => import("../components/CreateSceneModal").then(module => ({ default: module.SceneCreationModal })));
@@ -44,6 +45,7 @@ export const Video = () => {
   const [videoInfo, setVideoInfo] = useState(null);
   const [updateError, setUpdateError] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [showDeveloperPrompts, setShowDeveloperPrompts] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRenderModal, setShowRenderModal] = useState(false);
@@ -75,7 +77,7 @@ export const Video = () => {
   const processing = ["GENERATION", "RENDERING"].includes(videoInfo?.status);
 
   useEffect(() => subscribeUpdates(`videos/${encodeURIComponent(videoId)}/events/`, {
-    load: () => getVideo(videoId, { notifyError: false }),
+    load: (options = {}) => getVideo(videoId, { ...options, notifyError: false }),
     onUpdate: response => {
       setUpdateError(false);
       if (!savingSceneChangeRef.current) setVideoInfo(response);
@@ -88,6 +90,11 @@ export const Video = () => {
     setUpdated();
   }, [setUpdated]);
 
+  // Review is the next action for these projects; fetch its code before the click.
+  useEffect(() => {
+    if (videoInfo?.status === "REVIEW") import("../components/StoryboardModal").catch(() => {});
+  }, [videoInfo?.status]);
+
   const manual = videoInfo?.video_type === "MANUAL";
   const story = videoInfo?.settings?.creation_mode === "STORY";
   const CreationModal = manual ? ManualSceneModal : SceneCreationModal;
@@ -96,7 +103,7 @@ export const Video = () => {
   const focusedScene = rememberedScene(scenes, selectedSceneId);
   const selectScene = id => setSelectedSceneId(id);
   const format = videoFormats.find(item => item.value === videoInfo?.settings?.video_format);
-  const statusLabel = renderPending ? "Starting export" : sceneChangePending ? "Saving changes" : ({ REVIEW: "Review storyboard", GENERATION: "Preparing scenes", RENDERING: "Exporting video", READY: "Ready to edit", COMPLETED: "Export available", FAILED: "Needs attention" }[videoInfo?.status] || "Loading project");
+  const statusLabel = renderPending ? "Starting export" : sceneChangePending ? "Saving changes" : ({ REVIEW: "Review storyboard", GENERATION: "Preparing scenes", RENDERING: "Exporting video", READY: "Ready to edit", COMPLETED: videoInfo?.export_freshness?.status === "stale" ? "Export needs updating" : videoInfo?.export_freshness?.status === "unknown" ? "Previous export available" : "Export available", FAILED: "Needs attention" }[videoInfo?.status] || "Loading project");
   const isRenderable =
     !sceneChangePending && !renderPending && videoInfo?.scenes?.length > 0 && (videoInfo?.status === "READY" || videoInfo?.status === "COMPLETED" || (videoInfo?.status === "FAILED" && !!videoInfo?.render_error?.message));
   const saveSceneChange = async (pending, apply, save, fallbackMessage, replaceVideo = false) => {
@@ -249,13 +256,14 @@ export const Video = () => {
 
   return (
     <>
-      <EditorDialog open={showRenderedVideo && !!renderedUrl} onClose={() => setShowRenderedVideo(false)} title="Watch export" description={videoInfo?.status === "RENDERING" ? "Your previous export is available while the new video renders." : "Watch your latest export. Export again to include any new edits."} maxWidth="max-w-4xl" footer={<div className="flex justify-end"><button type="button" onClick={() => setShowRenderedVideo(false)} className="min-h-11 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold dark:border-gray-600">Done</button></div>}>
+      <EditorDialog open={showRenderedVideo && !!renderedUrl} onClose={() => setShowRenderedVideo(false)} title="Watch export" description={videoInfo?.status === "RENDERING" ? "Your previous export is available while the new video renders." : videoInfo?.export_freshness?.status === "stale" ? "This export does not include your latest saved changes. Export again to update it." : videoInfo?.export_freshness?.status === "unknown" ? "This export predates edit tracking. Its freshness is unknown." : "Watch your latest export. It includes your saved edit."} maxWidth="max-w-4xl" footer={<div className="flex justify-end"><button type="button" onClick={() => setShowRenderedVideo(false)} className="min-h-11 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold dark:border-gray-600">Done</button></div>}>
         {showRenderedVideo && renderedUrl && <>
           <video key={renderedUrl} src={renderedUrl} controls playsInline preload="metadata" aria-label="Latest rendered video" onError={() => setPlaybackError(true)} onCanPlay={() => setPlaybackError(false)} className="mx-auto max-h-[60vh] w-full rounded-xl bg-black" />
           {playbackError && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">Could not play this export. Try opening the video using the link below.</p>}
           <a href={renderedUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex rounded-lg px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-300 dark:hover:bg-gray-700">Open video in new tab ↗</a>
         </>}
       </EditorDialog>
+      <DeferredDialog open={showDeveloperPrompts} onClose={() => setShowDeveloperPrompts(false)}><DeveloperPrompts key={videoId} videoId={videoId} open={showDeveloperPrompts} onClose={() => setShowDeveloperPrompts(false)} /></DeferredDialog>
       <DeferredDialog open={showCover} onClose={() => setShowCover(false)}><ThumbnailCreator open={showCover} onClose={() => setShowCover(false)} video={videoInfo} onSaved={changes => setVideoInfo(current => ({ ...current, ...changes }))} /></DeferredDialog>
       <DeferredDialog open={showPreview} onClose={() => setShowPreview(false)}><VideoPreviewModal open={showPreview} onClose={() => setShowPreview(false)} video={videoInfo} disabled={sceneChangePending || renderPending} /></DeferredDialog>
       <DeferredDialog open={showStoryboard} onClose={() => setShowStoryboard(false)}><StoryboardModal open={showStoryboard} video={videoInfo} onClose={() => setShowStoryboard(false)} onApproved={() => { setShowStoryboard(false); onSceneQueued(); }} /></DeferredDialog>
@@ -329,7 +337,7 @@ export const Video = () => {
         }} />
         <ExportFailure video={videoInfo} disabled={!isRenderable} onRetry={() => setShowRenderModal(true)} />
         {videoInfo?.can_retry_narration && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Narration stopped before finishing. Your saved scenes are preserved. <button type="button" onClick={() => setShowConfigModal(true)} className="ml-2 font-semibold underline">Open narration retry</button></div>}
-        <VideoToolbar video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
+        <VideoToolbar onDeveloperPrompts={() => setShowDeveloperPrompts(true)} video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
           statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
           renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}
           onUndo={undo} canUndo={canUndo} undoLabel={undoEntry ? `Undo ${undoEntry.label}` : "Nothing to undo yet"} undoStale={!!undoEntry && !undoMatches}

@@ -15,9 +15,10 @@ from django.conf import settings
 from django.test import TestCase, override_settings
 from PIL import Image
 
-from apps.videomanagement.exceptions import RenderFailedException
-from apps.videomanagement.utils.frames import still_from_video
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.exceptions import RenderFailedException
+from apps.videomanagement.services.videos.export_freshness import export_freshness
+from apps.videomanagement.utils.frames import still_from_video
 
 from ...baker_recipes import (
     avatar,
@@ -28,13 +29,13 @@ from ...baker_recipes import (
     scene_image,
     video,
 )
-from ...serializers.overlays import OverlaySerializer
 from ...models import Icon
-from ...utils.cuts import video_cut_source
+from ...serializers.overlays import OverlaySerializer
 from ...services.videos.preview import preview_timeline
-from ...utils.diagrams import diagram_plan
 from ...utils.composer.captions import write_ass
 from ...utils.composer.render import Graph, make_video, render_scene_clip
+from ...utils.cuts import video_cut_source
+from ...utils.diagrams import diagram_plan
 
 
 @skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg tools required")
@@ -632,6 +633,8 @@ class FFmpegRenderTests(TestCase):
         data = self.metadata()
         self.assertEqual(self.row.status, "COMPLETED")
         self.row.refresh_from_db()
+        self.assertTrue(self.row.exported_at)
+        self.assertEqual(export_freshness(self.row)["status"], "current")
         self.assertFalse(self.row.thumbnail)
         self.assertEqual(
             [(s["codec_type"], s["codec_name"]) for s in data["streams"]],

@@ -55,6 +55,7 @@ it("walks through video steps without generating until final review and preserve
   fireEvent.change(screen.getByLabelText("Your prompt"), { target: { value: "A fox solves a mystery" } });
   fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
   expect(screen.getByRole("heading", { name: "Choose the look & sound" })).toBeTruthy();
+  fireEvent.change(screen.getByRole("combobox", { name: "Narration language" }), { target: { value: "Greek" } });
   fireEvent.click(screen.getByRole("radio", { name: /Portrait/ }));
   fireEvent.click(screen.getByRole("button", { name: "Review video" }));
   expect(screen.getByRole("heading", { name: "Review your video" })).toBeTruthy();
@@ -65,7 +66,7 @@ it("walks through video steps without generating until final review and preserve
   await waitFor(() => expect(screen.getByRole("button", { name: "Draft storyboard" }).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Draft storyboard" }));
   await waitFor(() => expect(api.generateVideo).toHaveBeenCalledOnce());
-  expect(api.generateVideo.mock.calls[0][0]).toMatchObject({ message: "A fox solves a mystery", video_format: "PORTRAIT", review_script: true });
+  expect(api.generateVideo.mock.calls[0][0]).toMatchObject({ message: "A fox solves a mystery", video_format: "PORTRAIT", narration_language: "Greek", review_script: true });
 });
 
 it("keeps series production choices until the final step and preserves them across navigation", async () => {
@@ -78,12 +79,13 @@ it("keeps series production choices until the final step and preserves them acro
   expect(screen.getByRole("heading", { name: "Meet your characters" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Continue to finish" }));
   fireEvent.change(screen.getByRole("spinbutton", { name: "Shots per episode" }), { target: { value: "9" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "Narration language" }), { target: { value: "Greek" } });
   fireEvent.click(screen.getByRole("button", { name: "Back" }));
   fireEvent.click(screen.getByRole("button", { name: "Continue to finish" }));
   expect(screen.getByRole("spinbutton", { name: "Shots per episode" }).value).toBe("9");
   expect(onSave).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Create series" }));
-  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Fox mysteries", scene_count: 9, narration: false }));
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Fox mysteries", scene_count: 9, narration: false, narration_language: "Greek" }));
 });
 
 it("reviews an AI character description before applying it and sends the existing identity as context", async () => {

@@ -4,7 +4,7 @@ import math
 
 from rest_framework.exceptions import APIException, ValidationError
 
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.services.videos.preview import preview_timeline
 
 
@@ -39,7 +39,7 @@ def youtube_description(video, user, mode):
         details = "\n".join(f"• {text[:200]}" for text in texts[:10])
         return f"{video.title}\n\nIn this video:\n{details}\n\nThanks for watching!".encode("utf-8")[:4500].decode("utf-8", errors="ignore")
     content = {"title": video.title, "scenes": texts}
-    reply = get_update_sentence(
+    reply = get_raw_reply(
         "Write a YouTube description for the following video. Return ONLY plain text, "
         "at most 3500 UTF-8 bytes. Use the language of the script. Start with a clear, engaging "
         "summary, followed by useful details supported by the script. Do not invent facts, links, "

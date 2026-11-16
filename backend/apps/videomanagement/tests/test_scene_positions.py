@@ -148,7 +148,7 @@ class ScenePositionTests(TestCase):
             )
         frame.assert_called_once_with(made, first.text, image.file.path, scene=first)
         with patch(
-            "apps.videomanagement.services.scenes.generation.get_update_sentence",
+            "apps.videomanagement.services.scenes.generation.get_raw_reply",
             return_value='{"text":"New", "image_description":"A forest"}',
         ) as generate:
             draft_scene(made, "Continue", use_context=True)

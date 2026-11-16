@@ -1,15 +1,14 @@
 import json
 from copy import deepcopy
-from io import StringIO
 from unittest.mock import patch
 
 from django.urls import reverse
 from rest_framework.exceptions import ValidationError
 
+from apps.usage.services import current_video
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement import draft_tasks
 from apps.videomanagement.models import Icon
-from apps.usage.services import current_video
 
 from .base import ApiTestCase
 
@@ -49,8 +48,8 @@ class StoryboardRevisionTests(ApiTestCase):
         self.url = reverse("video-revise-storyboard", args=[self.video.pk])
         self.proposal = {**deepcopy(self.storyboard), "title": "Revised"}
         provider = patch(
-            "apps.videomanagement.services.videos.storyboard_revision.get_reply",
-            return_value=StringIO(json.dumps(self.proposal)),
+            "apps.videomanagement.services.videos.storyboard_revision.get_raw_reply",
+            return_value=json.dumps(self.proposal),
         )
         self.provider = provider.start()
         self.addCleanup(provider.stop)
@@ -118,7 +117,7 @@ class StoryboardRevisionTests(ApiTestCase):
             missing_narration,
         ]:
             with self.subTest(result=result):
-                self.provider.return_value = StringIO(json.dumps(result))
+                self.provider.return_value = json.dumps(result)
                 self.request_revision()
                 with self.assertRaises(ValidationError):
                     self.run_draft_task()
@@ -128,7 +127,7 @@ class StoryboardRevisionTests(ApiTestCase):
         self.video.save()
         self.proposal["generation_mode"] = "STANDARD"
         self.proposal["scenes"][0]["sentences"][0].pop("sentence")
-        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.provider.return_value = json.dumps(self.proposal)
         self.request_revision()
         result = self.run_draft_task()
         self.assertEqual(result["generation_mode"], "ECONOMY")
@@ -151,7 +150,7 @@ class StoryboardRevisionTests(ApiTestCase):
         self.video.save(update_fields=["settings"])
         self.storyboard.pop("generation_mode")
         self.proposal["generation_mode"] = "STANDARD"
-        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.provider.return_value = json.dumps(self.proposal)
         self.assertEqual(self.request_revision().status_code, 202)
         self.assertEqual(self.run_draft_task()["generation_mode"], "ECONOMY")
 
@@ -178,7 +177,7 @@ class StoryboardRevisionTests(ApiTestCase):
                 ],
             },
         }
-        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.provider.return_value = json.dumps(self.proposal)
         with patch(
             "apps.videomanagement.services.media.icons.stored_file_exists",
             return_value=True,
@@ -194,7 +193,7 @@ class StoryboardRevisionTests(ApiTestCase):
         self.video.settings["ai_scene_editing"] = True
         self.video.save()
         self.proposal["scenes"][0]["sentences"][0]["editing"] = {**PLAN, "diagram": {}}
-        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.provider.return_value = json.dumps(self.proposal)
         self.request_revision()
         result = self.run_draft_task()
         self.assertIsNone(result["scenes"][0]["sentences"][0]["editing"]["diagram"])
@@ -209,7 +208,7 @@ class StoryboardRevisionTests(ApiTestCase):
             **PLAN,
             "diagram": {"title": "Incomplete"},
         }
-        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.provider.return_value = json.dumps(self.proposal)
         self.request_revision()
         with self.assertRaises(ValidationError):
             self.run_draft_task()
@@ -226,7 +225,7 @@ class StoryboardRevisionTests(ApiTestCase):
                 "items": [{"label": "First"}, {"label": "Second"}, {"label": "Third"}],
             },
         }
-        self.provider.return_value = StringIO(json.dumps(self.proposal))
+        self.provider.return_value = json.dumps(self.proposal)
         self.request_revision()
         result = self.run_draft_task()
         self.assertEqual(

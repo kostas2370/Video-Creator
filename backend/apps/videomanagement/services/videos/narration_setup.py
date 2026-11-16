@@ -5,7 +5,7 @@ from rest_framework.exceptions import ValidationError
 from apps.common.ai_json import parse_ai_json
 from apps.usage.services import video_usage
 from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.integrations.llm import get_reply
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.models import VideoStatus
 from apps.videomanagement.prompts.writing import build_narration_prompt
 from apps.videomanagement.serializers.requests import NarrationSceneSerializer
@@ -49,16 +49,16 @@ def draft_narration(video):
         title=video.title,
         brief=video.prompt.prompt if video.prompt_id else "",
         sources=sources,
+        narration_language=(video.settings or {}).get("narration_language", ""),
     )
     with video_usage(video):
-        reply = get_reply(
+        reply = get_raw_reply(
             prompt,
-            reply_format="text",
             gpt_model=video.script_model,
             user=video.created_by,
         )
     try:
-        payload = parse_ai_json(reply.getvalue())
+        payload = parse_ai_json(reply)
         rows = payload["scenes"]
         if not isinstance(rows, list) or len(rows) != len(sources):
             raise ValueError()
@@ -83,19 +83,25 @@ def apply_reviewed_narration(video, rows):
     if rows is None:
         if scenes:
             raise ValidationError(
-                {"narration_scenes": "Review narration for each scene before generating speech."}
+                {
+                    "narration_scenes": "Review narration for each scene before generating speech."
+                }
             )
         return
     if [str(row["scene_id"]) for row in rows] != [str(scene.pk) for scene in scenes]:
         raise ValidationError(
-            {"narration_scenes": "The scene list changed. Refresh and review narration again."}
+            {
+                "narration_scenes": "The scene list changed. Refresh and review narration again."
+            }
         )
     if any(
         row["before"] != scene.text or row["before_visual"] != visual_description(scene)
         for scene, row in zip(scenes, rows)
     ):
         raise ValidationError(
-            {"narration_scenes": "A scene changed while you were reviewing. Refresh and review narration again."}
+            {
+                "narration_scenes": "A scene changed while you were reviewing. Refresh and review narration again."
+            }
         )
     for scene, row in zip(scenes, rows):
         scene.text = row["text"]

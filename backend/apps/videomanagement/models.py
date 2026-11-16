@@ -202,6 +202,9 @@ class TemplatePrompt(AbstractModel):
     )
     style = models.CharField(max_length=20, default="vivid", blank=True)
     music = models.CharField(max_length=500, blank=True, default="")
+    narration_language = models.CharField(
+        max_length=80, blank=True, default="", db_default=""
+    )
     target_audience = models.CharField(max_length=30, blank=True, default="")
     subtitles = models.BooleanField(default=False)
     narration = models.BooleanField(default=True)
@@ -254,6 +257,9 @@ class TemplatePrompt(AbstractModel):
 
 
 class Music(AbstractModel):
+    catalog_track = models.ForeignKey(
+        "MusicCatalogTrack", null=True, blank=True, on_delete=models.SET_NULL
+    )
     youtube_video_id = models.CharField(max_length=11, blank=True, db_index=True)
     name = models.CharField(max_length=140, blank=False)
     file = models.FileField(upload_to="media/music", blank=False)
@@ -476,6 +482,10 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel, NarrationAsset
     operation_id = models.UUIDField(null=True, editable=False)
     narration_retry_status = models.CharField(max_length=12, blank=True, default="", db_default="", editable=False)
     render_error = models.JSONField(default=dict, blank=True)
+    export_source_key = models.CharField(
+        max_length=64, blank=True, default="", db_default="", editable=False
+    )
+    exported_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(
         default=timezone.now, editable=False, db_index=True
     )

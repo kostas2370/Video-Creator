@@ -66,3 +66,20 @@ it("keeps the existing music and explains failed automatic selection", async () 
   expect(screen.getByText("Current song")).toBeTruthy();
   expect(onSaved).not.toHaveBeenCalled();
 });
+
+it("shows track metadata, an on-demand preview and saved attribution", () => {
+  render(<MusicAudio video={{ id: "video", music: "f22e597b-8bd7-4aa4-801d-ca4f25ebcaf9", music_details: { title: "Quiet morning", artist: "Piano artist", file: "/media/music/song.mp3", source_url: "https://example.test/song", license_url: "https://example.test/license", attribution: "Credit Piano artist" } }} onSaved={vi.fn()} />);
+  expect(screen.getByText("Quiet morning")).toBeTruthy();
+  expect(screen.getByText("Piano artist")).toBeTruthy();
+  const audio = screen.getByLabelText("Preview soundtrack: Quiet morning");
+  expect(audio.getAttribute("preload")).toBe("none");
+  expect(audio.getAttribute("src")).toBe("/media/music/song.mp3");
+  expect(screen.getByRole("link", { name: "License information", hidden: true }).getAttribute("href")).toBe("https://example.test/license");
+  expect(screen.queryByText("f22e597b-8bd7-4aa4-801d-ca4f25ebcaf9")).toBeNull();
+});
+
+it("explains missing license metadata without exposing the music identifier", () => {
+  render(<MusicAudio video={{ id: "video", music: "f22e597b-8bd7-4aa4-801d-ca4f25ebcaf9" }} onSaved={vi.fn()} />);
+  expect(screen.getByText("Selected soundtrack")).toBeTruthy();
+  expect(screen.getByText(/No license information saved/)).toBeTruthy();
+});

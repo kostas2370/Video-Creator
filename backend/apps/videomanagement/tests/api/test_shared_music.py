@@ -10,8 +10,8 @@ from django.urls import reverse
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.services.media.catalog import (
-    select_music_track,
     create_catalog_music,
+    select_music_track,
 )
 
 from .base import ApiTestCase
@@ -108,7 +108,8 @@ class SharedMusicTests(ApiTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         video.refresh_from_db()
         self.assertTrue(video.music.file)
-        self.assertEqual(video.music.name, "general-music")
+        self.assertEqual(video.music.name, track.title)
+        self.assertEqual(video.music.catalog_track_id, track.pk)
         self.assertNotEqual(video.music.file.name, track.file.name)
         self.assertFalse(MediaAsset.objects.exists())
         url = reverse("musiccatalogtrack-detail", args=[track.pk])

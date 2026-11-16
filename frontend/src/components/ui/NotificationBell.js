@@ -15,7 +15,7 @@ export function NotificationBell() {
   const navigate = useNavigate();
 
   useEffect(() => subscribeUpdates("notifications/events/", {
-    load: () => getNotifications({ notifyError: false }),
+    load: (options = {}) => getNotifications({ ...options, notifyError: false }),
     onUpdate: response => {
       setItems(response.results ?? []);
       setUnread(response.unread ?? 0);

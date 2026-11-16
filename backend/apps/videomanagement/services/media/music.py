@@ -13,14 +13,18 @@ from apps.videomanagement.services.scenes.audio import playable_voiceover
 from apps.videomanagement.services.scenes.editing import changed, editable_video
 
 
-def set_music(video, upload=None, *, library_title=None):
+def set_music(
+    video, upload=None, *, library_title=None, catalog_track=None, title=None
+):
     saved = []
     try:
         with playable_voiceover(upload) as audio, editable_video(video.pk) as locked:
             old_music = locked.music
             if audio:
                 music = Music(
-                    created_by=video.created_by, name=Path(upload.name).stem[:140]
+                    created_by=video.created_by,
+                    name=(title or library_title or Path(upload.name).stem)[:140],
+                    catalog_track=catalog_track,
                 )
                 music.file.save(audio.name, audio, save=False)
                 saved.append(music.file)
@@ -58,7 +62,7 @@ def set_music(video, upload=None, *, library_title=None):
     return locked
 
 
-def set_music_from_youtube(video, url):
+def set_music_from_youtube(video, url, *, catalog_track=None):
     # Check before downloading; set_music checks again when storing the result.
     with editable_video(video.pk):
         pass
@@ -86,4 +90,5 @@ def set_music_from_youtube(video, url):
                 video,
                 File(audio, name=f"{name}{path.suffix}"),
                 library_title=title,
+                catalog_track=catalog_track,
             )

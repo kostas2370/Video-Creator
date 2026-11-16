@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.videomanagement.serializers.requests import StoryboardSerializer
+
 
 class UsageMetricsSerializer(serializers.Serializer):
     cost_usd = serializers.DecimalField(
@@ -44,14 +46,13 @@ class CostEstimateRequestSerializer(serializers.Serializer):
     )
 
     def validate_storyboard(self, value):
-        from apps.videomanagement.serializers.requests import StoryboardSerializer
-
         serializer = StoryboardSerializer(data=value, context={"narration": False})
         serializer.is_valid(raise_exception=True)
         return serializer.validated_data
 
 
 class ScenarioEstimateRequestSerializer(serializers.Serializer):
+    narration_language = serializers.CharField(max_length=80, required=False, allow_blank=True)
     message = serializers.CharField(max_length=2000)
     gpt_model = serializers.CharField(max_length=100, required=False, allow_blank=True)
     scene_count = serializers.IntegerField(

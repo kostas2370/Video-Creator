@@ -51,3 +51,19 @@ class GenerationEstimate(models.Model):
     video = models.OneToOneField("videomanagement.Video", on_delete=models.CASCADE)
     created_at = models.DateTimeField(default=timezone.now)
     estimate = models.JSONField(default=dict)
+
+
+class LLMTrace(models.Model):
+    video = models.ForeignKey(
+        "videomanagement.Video", on_delete=models.CASCADE, related_name="llm_traces"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    model = models.CharField(max_length=100)
+    attempt = models.PositiveSmallIntegerField()
+    prompt = models.TextField()
+    response = models.TextField(blank=True)
+    validation_errors = models.JSONField(default=list, blank=True)
+    has_reference_image = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]

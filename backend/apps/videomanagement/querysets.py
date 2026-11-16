@@ -10,7 +10,7 @@ from . import models as video_models
 class VideoQuerySet(models.QuerySet):
     def with_editor_media(self):
         """Load scene visuals and their assets together instead of a query per relation."""
-        return self.select_related("music", "prompt", "intro", "outro").prefetch_related(
+        return self.select_related("music__catalog_track", "prompt", "intro", "outro").prefetch_related(
             Prefetch("scenes", queryset=video_models.Scene.objects.with_media())
         )
 

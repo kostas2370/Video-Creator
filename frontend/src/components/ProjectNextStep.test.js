@@ -43,3 +43,11 @@ it("blocks export until edits are saved and the project is renderable", () => {
   fireEvent.click(screen.getByRole("button"));
   expect(onAction).toHaveBeenCalledOnce();
 });
+
+it("asks for a new export after saved edits, while legacy exports have unknown freshness", () => {
+  const exported = { ...video, status: "COMPLETED", output: "/export.mp4" };
+  expect(projectNextStep({ ...exported, export_freshness: { status: "stale" } })).toMatchObject({ title: "Changes since last export", action: "export" });
+  expect(projectNextStep({ ...exported, export_freshness: { status: "unknown" } })).toMatchObject({ title: "Previous export available", action: "export" });
+  expect(projectNextStep({ ...exported, export_freshness: { status: "current" } }).action).toBe("watch");
+  expect(projectNextStep({ ...exported, status: "RENDERING", export_freshness: { status: "stale" } }).action).toBeUndefined();
+});

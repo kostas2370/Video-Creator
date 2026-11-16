@@ -351,7 +351,7 @@ class ClipsTests(ApiTestCase):
             ]
         }
         with patch(
-            "apps.clips.highlights.get_update_sentence", return_value=json.dumps(raw)
+            "apps.clips.highlights.get_raw_reply", return_value=json.dumps(raw)
         ):
             candidates = suggest_clips(project)
         self.assertEqual(len(candidates), 1)
@@ -722,13 +722,13 @@ class ClipsTests(ApiTestCase):
             "indices": [1],
         }
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[json.dumps(first), json.dumps(second), json.dumps(ranking)],
         ):
             result = suggest_clips(project)
         self.assertEqual([item["title"] for item in result], ["Second"])
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[json.dumps(first), json.dumps(second)]
             + ['{"indices": [200]}'] * RANKING_ATTEMPTS,
         ):
@@ -911,7 +911,7 @@ class ClipsTests(ApiTestCase):
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])
         with patch(
-            "apps.clips.hashtags.get_update_sentence",
+            "apps.clips.hashtags.get_raw_reply",
             return_value='{"hashtags": ["#Interview", "interview", "Discussion"]}',
         ) as generate:
             response = self.client.post(self.hashtags_url(clip), {}, format="json")
@@ -990,7 +990,7 @@ class ClipsTests(ApiTestCase):
         )
         self.assertEqual(response.status_code, 409)
         with patch(
-            "apps.clips.hashtags.get_update_sentence",
+            "apps.clips.hashtags.get_raw_reply",
             return_value='{"hashtags": ["invalid!"]}',
         ):
             response = self.client.post(self.hashtags_url(clip), {}, format="json")
@@ -1005,7 +1005,7 @@ class ClipsTests(ApiTestCase):
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])
         self.client.force_authenticate(user.make())
-        with patch("apps.clips.hashtags.get_update_sentence") as generate:
+        with patch("apps.clips.hashtags.get_raw_reply") as generate:
             self.assertEqual(
                 self.client.post(
                     self.hashtags_url(clip), {}, format="json"
@@ -1041,7 +1041,7 @@ class ClipsTests(ApiTestCase):
             )
         project = self.project(extraction_prompt="Focus on business advice")
         with patch(
-            "apps.clips.highlights.get_update_sentence", return_value='{"clips": []}'
+            "apps.clips.highlights.get_raw_reply", return_value='{"clips": []}'
         ) as generate:
             suggest_clips(project)
         self.assertIn(
@@ -1138,7 +1138,7 @@ class ClipsTests(ApiTestCase):
         project = self.project()
         clip = Clip.objects.get(pk=self.add(project).data["id"])
         with patch(
-            "apps.clips.hashtags.get_update_sentence",
+            "apps.clips.hashtags.get_raw_reply",
             side_effect=[
                 '{"hashtags": ["Συζήτηση"]}',
                 '{"hashtags": ["Discussion", "HarryPotter"]}',
@@ -1152,7 +1152,7 @@ class ClipsTests(ApiTestCase):
         self.assertEqual(generate.call_count, 2)
         self.assertIn("Translate topic words", generate.call_args.args[0])
         with patch(
-            "apps.clips.hashtags.get_update_sentence",
+            "apps.clips.hashtags.get_raw_reply",
             return_value='{"hashtags": ["Συζήτηση"]}',
         ) as generate:
             response = self.client.post(self.hashtags_url(clip), {}, format="json")
@@ -1178,7 +1178,7 @@ class ClipsTests(ApiTestCase):
         clip.title = "Harry Potter meets Hermione Granger"
         clip.save(update_fields=["title"])
         with patch(
-            "apps.clips.hashtags.get_update_sentence",
+            "apps.clips.hashtags.get_raw_reply",
             return_value='{"hashtags": ["HarryPotter", "HermioneGranger", "WizardingWorld"]}',
         ) as generate:
             response = self.client.post(self.hashtags_url(clip), {}, format="json")
@@ -1636,7 +1636,7 @@ class ClipsTests(ApiTestCase):
         project = self.project(extraction_prompt="Original brief")
         url = reverse("clipproject-search-transcript", args=[project.pk])
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             return_value=json.dumps(
                 {
                     "clips": [
@@ -1672,7 +1672,7 @@ class ClipsTests(ApiTestCase):
     def test_ai_transcript_search_validates_query_and_requires_saved_words(self):
         project = self.project()
         url = reverse("clipproject-search-transcript", args=[project.pk])
-        with patch("apps.clips.highlights.get_update_sentence") as provider:
+        with patch("apps.clips.highlights.get_raw_reply") as provider:
             for prompt in ("", " ", "x" * 2001):
                 self.assertEqual(
                     self.client.post(

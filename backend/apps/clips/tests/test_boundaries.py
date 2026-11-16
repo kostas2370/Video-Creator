@@ -84,7 +84,7 @@ class ClipBoundaryTests(SimpleTestCase):
             }
         )
         with patch(
-            "apps.clips.highlights.get_update_sentence", return_value=response
+            "apps.clips.highlights.get_raw_reply", return_value=response
         ) as provider:
             result = suggest_clips(project)
         self.assertEqual((result[0]["start"], result[0]["end"]), (10.125, 27.875))
@@ -113,7 +113,7 @@ class ClipBoundaryTests(SimpleTestCase):
             }
         )
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=['{"clips": []}', response],
         ):
             result = suggest_clips(project)
@@ -134,7 +134,7 @@ class ClipBoundaryTests(SimpleTestCase):
             "first_word": 1000, "last_word": 1015, "title": "A", "reason": "B",
         }]})
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=['{"clips": []}', response],
         ):
             result = suggest_clips(project)
@@ -155,7 +155,7 @@ class ClipBoundaryTests(SimpleTestCase):
             "first_word": 1184, "last_word": 1199, "title": "A", "reason": "B",
         }]})
         with patch(
-            "apps.clips.highlights.get_update_sentence",
+            "apps.clips.highlights.get_raw_reply",
             side_effect=[response, '{"clips": []}'],
         ):
             result = suggest_clips(project)
@@ -179,7 +179,7 @@ class ClipBoundaryTests(SimpleTestCase):
                 ]
             }
         )
-        with patch("apps.clips.highlights.get_update_sentence", return_value=response):
+        with patch("apps.clips.highlights.get_raw_reply", return_value=response):
             result = suggest_clips(project)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["title"], "A")
@@ -200,5 +200,5 @@ class ClipBoundaryTests(SimpleTestCase):
                 ]
             }
         )
-        with patch("apps.clips.highlights.get_update_sentence", return_value=response):
+        with patch("apps.clips.highlights.get_raw_reply", return_value=response):
             self.assertEqual(suggest_clips(project), [])

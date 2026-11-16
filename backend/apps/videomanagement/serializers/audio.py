@@ -1,8 +1,37 @@
 from rest_framework import serializers
 
 from apps.common.youtube import youtube_url
+from apps.videomanagement.models import Music
 
 from .fields import FiniteFloat as FiniteFloat
+
+
+class MusicDetailsSerializer(serializers.ModelSerializer):
+    title = serializers.SerializerMethodField()
+    artist = serializers.SerializerMethodField()
+    source_url = serializers.URLField(
+        source="catalog_track.source_url", default="", read_only=True
+    )
+    license_url = serializers.URLField(
+        source="catalog_track.license_url", default="", read_only=True
+    )
+    attribution = serializers.CharField(
+        source="catalog_track.attribution", default="", read_only=True
+    )
+
+    class Meta:
+        model = Music
+        fields = ("title", "artist", "file", "source_url", "license_url", "attribution")
+        read_only_fields = fields
+
+    def get_title(self, obj):
+        return obj.catalog_track.title if obj.catalog_track else obj.name
+
+    def get_artist(self, obj):
+        if not obj.catalog_track:
+            return ""
+        metadata = obj.catalog_track.metadata
+        return metadata.get("artist") or metadata.get("channel_title") or ""
 
 
 class SceneAudioSerializer(serializers.Serializer):

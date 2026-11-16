@@ -73,7 +73,7 @@ export default function ClipsPage() {
     if (!projectId) return;
     let active = true;
     const unsubscribe = subscribeUpdates(`clips/${encodeURIComponent(projectId)}/events/`, {
-      load: () => getClipProjectProgress(projectId),
+      load: (options = {}) => getClipProjectProgress(projectId, options),
       onUpdate: async progress => {
         const requestRevision = ++revision.current;
         try {

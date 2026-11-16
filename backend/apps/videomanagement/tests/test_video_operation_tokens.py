@@ -8,8 +8,9 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.series.models import VideoSeries
 from apps.videomanagement.baker_recipes import scene, voice_model
-from apps.videomanagement.models import Video
+from apps.videomanagement.models import TemplatePrompt, Video
 from apps.videomanagement.services.scenes.jobs import queue_scene_job, restore_video
 from apps.videomanagement.services.videos.recovery import _refresh_heartbeat
 from apps.videomanagement.tasks import (
@@ -47,6 +48,35 @@ class VideoOperationTokenTests(ApiTestCase):
         current = Video.objects.get(pk=legacy.pk)
         self.assertEqual(current.narration_retry_status, "")
         self.assertIsNone(current.operation_id)
+        self.assertEqual(current.export_source_key, "")
+        self.assertIsNone(current.exported_at)
+
+    def test_old_web_models_can_insert_after_the_language_migrations(self):
+        old_apps = (
+            MigrationExecutor(connection)
+            .loader.project_state(
+                [
+                    ("videomanagement", "0062_export_freshness_music_details"),
+                    ("series", "0007_videoseries_generation_mode"),
+                ]
+            )
+            .apps
+        )
+        old_template = old_apps.get_model("videomanagement", "TemplatePrompt")
+        template = old_template.objects.create(
+            title="Legacy template", created_by_id=self.user.pk
+        )
+        self.assertEqual(
+            TemplatePrompt.objects.get(pk=template.pk).narration_language, ""
+        )
+        old_series = old_apps.get_model("series", "VideoSeries")
+        series = old_series.objects.create(
+            title="Legacy series",
+            premise="A fox explores",
+            visual_style="Animation",
+            created_by_id=self.user.pk,
+        )
+        self.assertEqual(VideoSeries.objects.get(pk=series.pk).narration_language, "")
 
     def queue_narration(self):
         with patch.object(regenerate_narration_task, "delay") as queue:

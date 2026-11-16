@@ -23,9 +23,16 @@ from ..services.scenes.starting_frames import (
 )
 from ..services.videos.preview import preview_timeline
 from ..utils.audio_editing import narration_enabled, narration_file
-from ..utils.cuts import joined_duration, scene_sections, video_cut_source, video_sections
+from ..utils.cuts import (
+    joined_duration,
+    scene_sections,
+    video_cut_source,
+    video_sections,
+)
 from ..utils.file_utils import stored_file_exists
 from ..utils.timing import file_timing, scene_timing
+from .audio import MusicDetailsSerializer
+from .export_freshness import ExportFreshnessSerializer
 
 
 class TemplatePromptsSerializer(serializers.ModelSerializer):
@@ -231,6 +238,9 @@ class VideoSerializer(VideoResponseSerializer):
 
 
 class VideoNestedSerializer(VideoResponseSerializer):
+    export_freshness = ExportFreshnessSerializer(source="*", read_only=True)
+    music_details = MusicDetailsSerializer(source="music", read_only=True)
+
     cut_summary = serializers.SerializerMethodField()
 
     def get_cut_summary(self, obj):
@@ -262,7 +272,7 @@ class VideoNestedSerializer(VideoResponseSerializer):
         return sum(durations) if all(value is not None for value in durations) else None
 
     class Meta(VideoResponseSerializer.Meta):
-        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes", "can_retry_narration", "cut_summary")
+        fields = (*VIDEO_RESPONSE_FIELDS, "scenes", "extra_duration", "notes", "can_retry_narration", "cut_summary", "export_freshness", "music_details")
         read_only_fields = fields
 
     def get_scenes(self, obj):

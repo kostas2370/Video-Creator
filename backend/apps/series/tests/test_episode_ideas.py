@@ -18,7 +18,7 @@ class EpisodeIdeaTests(ApiTestCase):
         )
         self.url = reverse("series-episode-idea", args=[self.series.pk])
 
-    @patch("apps.series.services.episodes.get_update_sentence", return_value="  Milo discovers a frozen pond.  ")
+    @patch("apps.series.services.episodes.get_raw_reply", return_value="  Milo discovers a frozen pond.  ")
     def test_queues_reviewable_idea_without_creating_an_episode(self, generate):
         response = self.client.post(self.url, {"idea": "Explore winter"}, format="json")
         self.assertEqual(response.status_code, 202)
@@ -47,13 +47,13 @@ class EpisodeIdeaTests(ApiTestCase):
     def test_invalid_provider_output_never_becomes_an_idea(self):
         for result in (None, {}, "  ", "x" * 2001):
             with self.subTest(result=str(result)[:20]), patch(
-                "apps.series.services.episodes.get_update_sentence", return_value=result
+                "apps.series.services.episodes.get_raw_reply", return_value=result
             ):
                 with self.assertRaises(APIException):
                     draft_episode_idea(self.series, owner=self.user)
         self.assertFalse(self.series.episodes.exists())
 
-    @patch("apps.series.services.episodes.get_update_sentence", return_value="A fresh discovery")
+    @patch("apps.series.services.episodes.get_raw_reply", return_value="A fresh discovery")
     def test_uses_only_reviewed_canon_memories(self, generate):
         for number, summary, canon, reviewed in (
             (1, "Reviewed discovery", True, True),

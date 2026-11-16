@@ -55,6 +55,7 @@ def normalize_avatar_position(value):
 
 
 class GenerateSerializer(serializers.Serializer):
+    narration_language = serializers.CharField(max_length=80, required=False, allow_blank=True, default="")
     generation_mode = serializers.ChoiceField(choices=("STANDARD", "ECONOMY"), required=False, default="STANDARD")
     visual_continuity = serializers.CharField(
         required=False, allow_blank=True, max_length=3000

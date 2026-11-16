@@ -52,7 +52,7 @@ def use_media_asset(asset, video, *, purpose, scene_id=None, **options):
             save_cover(video, choices.validated_data)
             return None
         if purpose == "music":
-            set_music(video, upload)
+            set_music(video, upload, title=asset.title)
             return None
 
 

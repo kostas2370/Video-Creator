@@ -15,7 +15,7 @@ TAGS = {
     "youtube": ["ocean life", "marine animals"],
     "search": ["ocean", "wildlife"],
 }
-MODEL = "apps.videomanagement.services.videos.tags.get_update_sentence"
+MODEL = "apps.videomanagement.services.videos.tags.get_raw_reply"
 
 
 class VideoTagsTests(ApiTestCase):

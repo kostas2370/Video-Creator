@@ -1,7 +1,6 @@
 import json
 import os
 import tempfile
-from io import StringIO
 from unittest.mock import Mock, patch
 
 from django.core.files.base import ContentFile
@@ -10,13 +9,13 @@ from rest_framework.exceptions import ValidationError
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import video
-from apps.videomanagement.models import MediaAsset, MusicCatalogTrack
 from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.services.media import music_search
+from apps.videomanagement.models import MediaAsset, Music, MusicCatalogTrack
 from apps.videomanagement.serializers.music_search import (
     MusicBriefSerializer,
     MusicSearchSerializer,
 )
+from apps.videomanagement.services.media import music_search
 from apps.videomanagement.services.videos.ideas import creative_reply
 
 BRIEF = {
@@ -100,18 +99,16 @@ class MusicSearchTests(TestCase):
     def test_verbose_ai_brief_produces_preferences_that_can_be_searched(self):
         self.reply.side_effect = creative_reply
         with patch(
-            "apps.videomanagement.services.videos.ideas.get_reply",
-            return_value=StringIO(
-                json.dumps(
-                    {
-                        **BRIEF,
-                        "instruments": ["soft acoustic piano", "gentle ambient strings"]
-                        * 8,
-                        "mood": "calm and curious " * 15,
-                        "tempo": "a relaxed medium pace " * 10,
-                        "query": "curious educational piano background music " * 10,
-                    }
-                )
+            "apps.videomanagement.services.videos.ideas.get_raw_reply",
+            return_value=json.dumps(
+                {
+                    **BRIEF,
+                    "instruments": ["soft acoustic piano", "gentle ambient strings"]
+                    * 8,
+                    "mood": "calm and curious " * 15,
+                    "tempo": "a relaxed medium pace " * 10,
+                    "query": "curious educational piano background music " * 10,
+                }
             ),
         ):
             result = music_search.recommend_music_preferences(
@@ -307,14 +304,50 @@ class MusicSearchTests(TestCase):
         ) as save:
             result = music_search.import_search_music(self.video, "ai:abcdefghijk")
         self.assertEqual(result, self.video)
-        save.assert_called_once_with(
-            self.video, "https://www.youtube.com/watch?v=abcdefghijk"
-        )
         source = MusicCatalogTrack.objects.get(source_id="youtube:abcdefghijk")
+        save.assert_called_once_with(
+            self.video,
+            "https://www.youtube.com/watch?v=abcdefghijk",
+            catalog_track=source,
+        )
         self.assertFalse(source.approved)
         self.assertFalse(source.file)
         self.assertIn("Piano uploader", source.attribution)
         self.assertEqual(source.metadata["declared_license"], "creativeCommon")
+
+    def test_reimported_music_does_not_resave_an_unchanged_catalog_link(self):
+        track = MusicCatalogTrack.objects.create(
+            source_id="youtube:abcdefghijk", title="Piano"
+        )
+        music = Music.objects.create(
+            name="Piano", catalog_track=track, created_by=self.user
+        )
+        music.file.save("piano.mp3", ContentFile(b"audio"))
+        self.client.get.side_effect = [{"items": [youtube_video()]}]
+        with (
+            patch.object(music_search, "download_music", return_value=music),
+            patch.object(music, "save") as save,
+        ):
+            result = music_search.import_search_music(
+                self.video, "ai:abcdefghijk", editing=False
+            )
+        self.assertEqual(result.pk, music.pk)
+        save.assert_not_called()
+        self.assertTrue(MediaAsset.objects.filter(source_video=self.video).exists())
+
+    def test_oversized_music_does_not_change_the_catalog_link(self):
+        music = Mock(catalog_track_id=None)
+        music.file.size = 50 * 1024 * 1024 + 1
+        self.client.get.side_effect = [{"items": [youtube_video()]}]
+        with (
+            patch.object(music_search, "download_music", return_value=music),
+            self.assertRaisesMessage(ValidationError, "smaller than 50 MB"),
+        ):
+            music_search.import_search_music(
+                self.video, "ai:abcdefghijk", editing=False
+            )
+        music.save.assert_not_called()
+        self.assertIsNone(music.catalog_track_id)
 
     def test_rendering_video_cannot_import_a_result(self):
         self.video.status = "RENDERING"

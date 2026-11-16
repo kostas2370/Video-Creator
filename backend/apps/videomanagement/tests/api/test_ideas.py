@@ -1,5 +1,4 @@
 import json
-from io import StringIO
 from unittest.mock import patch
 
 from django.conf import settings
@@ -29,8 +28,8 @@ class IdeaTests(ApiTestCase):
             ]
         ]
         provider = patch(
-            "apps.videomanagement.services.videos.ideas.get_reply",
-            return_value=StringIO(json.dumps({"ideas": self.ideas})),
+            "apps.videomanagement.services.videos.ideas.get_raw_reply",
+            return_value=json.dumps({"ideas": self.ideas}),
         )
         self.provider = provider.start()
         self.addCleanup(provider.stop)
@@ -116,14 +115,14 @@ class IdeaTests(ApiTestCase):
         ]
         for reply in replies:
             with self.subTest(reply=reply):
-                self.provider.return_value = StringIO(json.dumps(reply))
+                self.provider.return_value = json.dumps(reply)
                 self.request_ideas()
                 with self.assertRaises(ValidationError):
                     self.run_draft_task()
         self.assertFalse(Video.objects.exists())
 
     def test_accepts_fenced_json_without_repeating_a_provider_call(self):
-        self.provider.return_value = StringIO(
+        self.provider.return_value = (
             "```json\n" + json.dumps({"ideas": self.ideas}) + "\n```"
         )
         self.request_ideas()

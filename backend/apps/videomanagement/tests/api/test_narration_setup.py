@@ -1,9 +1,8 @@
 import json
-from io import StringIO
 from unittest.mock import patch
 
-from rest_framework.exceptions import ValidationError
 from django.urls import reverse
+from rest_framework.exceptions import ValidationError
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement import draft_tasks
@@ -61,13 +60,14 @@ class NarrationSetupTests(ApiTestCase):
 
     def test_generated_draft_is_read_only_and_preserves_original_source_text(self):
         self.video.settings["gpt_model"] = "selected-model"
+        self.video.settings["narration_language"] = "Greek"
         rows = [
             {"scene_id": row["scene_id"], "text": row["text"]}
             for row in self.reviewed()
         ]
         with patch(
-            "apps.videomanagement.services.videos.narration_setup.get_reply",
-            return_value=StringIO(json.dumps({"scenes": rows})),
+            "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
+            return_value=json.dumps({"scenes": rows}),
         ) as write:
             result = draft_narration(self.video)
         self.first.refresh_from_db()
@@ -77,6 +77,7 @@ class NarrationSetupTests(ApiTestCase):
         self.assertEqual(self.video.status, "READY")
         self.assertEqual(result["scenes"], self.reviewed())
         self.assertIn("never camera", write.call_args.args[0])
+        self.assertIn('NARRATION LANGUAGE: "Greek"', write.call_args.args[0])
         self.assertEqual(write.call_args.kwargs["gpt_model"], "selected-model")
 
     def test_malformed_or_incomplete_ai_drafts_do_not_change_the_project(self):
@@ -91,8 +92,8 @@ class NarrationSetupTests(ApiTestCase):
             with (
                 self.subTest(rows=rows),
                 patch(
-                    "apps.videomanagement.services.videos.narration_setup.get_reply",
-                    return_value=StringIO(json.dumps({"scenes": rows})),
+                    "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
+                    return_value=json.dumps({"scenes": rows}),
                 ),
             ):
                 with self.assertRaises(ValidationError):
@@ -102,10 +103,12 @@ class NarrationSetupTests(ApiTestCase):
 
     def test_missing_provider_response_is_reported_as_invalid_draft(self):
         with patch(
-            "apps.videomanagement.services.videos.narration_setup.get_reply",
+            "apps.videomanagement.services.videos.narration_setup.get_raw_reply",
             return_value=None,
         ):
-            with self.assertRaisesMessage(ValidationError, "AI returned an incomplete narration draft"):
+            with self.assertRaisesMessage(
+                ValidationError, "AI returned an incomplete narration draft"
+            ):
                 draft_narration(self.video)
         self.first.refresh_from_db()
         self.assertEqual(self.first.text, "Camera pans across a bank.")
@@ -178,8 +181,12 @@ class NarrationSetupTests(ApiTestCase):
         self.first.refresh_from_db()
         self.assertEqual(self.first.text, "Camera pans across a bank.")
 
-    def test_audio_mix_settings_preserve_individual_clip_choices_without_regeneration(self):
-        audible = scene_image.make(scene=self.second, file="audible.mp4", with_audio=True)
+    def test_audio_mix_settings_preserve_individual_clip_choices_without_regeneration(
+        self,
+    ):
+        audible = scene_image.make(
+            scene=self.second, file="audible.mp4", with_audio=True
+        )
         with patch(
             "apps.videomanagement.tasks.regenerate_narration_task.delay"
         ) as speech:

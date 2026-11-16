@@ -53,6 +53,25 @@ and reusable intro and outro clips.
 | Create recurring episodes | [Series setup, character profiles, and episode memory](docs/screenshots.md#series) |
 | Rework existing footage | [Long video → Shorts](docs/screenshots.md#clips) and [Caption studio](docs/screenshots.md#captions) |
 
+### Responsive background updates
+
+Progress and notifications use short background requests instead of holding a
+connection open for every project and browser tab. At most two background refreshes
+run at once per page. Active work refreshes about every three seconds; idle projects
+and notifications refresh less often. Hidden tabs pause updates, and returning to
+the tab refreshes immediately. Timed-out requests release their connection and retry.
+Editor tools offer recovery if their download stalls or fails.
+
+### Narration language
+
+Choose **Narration language** under **Look & sound** when creating an AI video,
+or under production settings when creating or editing a series. Choose a suggested
+language or type a regional variant. Leaving it blank matches the prompt's language.
+The choice guides the generated narration, spoken dialogue, and title, even when
+the premise is written in another language. Select a narrator that supports it.
+Series episodes inherit the saved language; existing scripts and audio stay as saved.
+The choice is retained in browser drafts and generation templates.
+
 ### Resume unfinished work
 
 AI video and series creation forms also recover unfinished work automatically in
@@ -210,6 +229,17 @@ cookies stay on the same site.
    Download the result or use **Publish** with a configured destination account.
 
 ![Video preview and scene timeline in dark theme](docs/screenshots/preview-timeline.png)
+
+The editor marks **Changes since last export** when saved scenes, timing, captions,
+music, or render settings differ from the latest successful export. Notes and
+publishing metadata do not affect this check. Older exports show unknown freshness
+until exported again. A failed export keeps the previous successful export available.
+
+**Project extras → Generation costs** expands into request counts and known subtotals
+by service, provider, and model. Unpriced requests are excluded from the subtotal;
+their cost remains unknown. Background music shows its saved title, available artist
+or channel, original-track preview, and source, license, and attribution when recorded.
+The original-track preview is separate from the saved video mix.
 
 Export choices are remembered per project. Standard at 24 fps matches previous
 exports. Draft favors faster encoding and more compression; High preserves more

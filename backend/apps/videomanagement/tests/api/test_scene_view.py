@@ -118,7 +118,7 @@ class SceneViewTests(ApiTestCase):
         self.assertEqual(result["text"], "a new line")
 
     def test_asks_the_model_for_a_rewrite(self):
-        with patch("apps.videomanagement.services.scenes.generation.get_update_sentence", return_value="a funnier line"):
+        with patch("apps.videomanagement.services.scenes.generation.get_raw_reply", return_value="a funnier line"):
             response = self.client.patch(reverse("scene-generate", args=[self.scene.pk]), {"text": "make it funnier"}, format="json")
             result = self.complete(response)
         self.assertEqual(result["text"], "a funnier line")

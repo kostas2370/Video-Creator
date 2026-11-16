@@ -2,8 +2,7 @@ import json
 import logging
 
 from apps.common.ai_json import parse_ai_json
-
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 
 from .boundaries import refine_boundaries
 from .choices import ClipFocus, ClipSelectionMode
@@ -160,7 +159,7 @@ def rank_candidates(project, candidates):
         )
     )
     for attempt in range(RANKING_ATTEMPTS):
-        raw = get_update_sentence(prompt, user=project.created_by)
+        raw = get_raw_reply(prompt, user=project.created_by)
         try:
             data = parse_ai_json(raw)
             indices = validate_ranking(
@@ -231,7 +230,7 @@ def suggest_clips(project, *, is_current=lambda: True):
                 ensure_ascii=False,
             )
         )
-        data = parse_ai_json(get_update_sentence(prompt, user=project.created_by))
+        data = parse_ai_json(get_raw_reply(prompt, user=project.created_by))
         if not isinstance(data, dict) or not isinstance(data.get("clips"), list):
             raise ValueError("Invalid highlight response")
         for item in data["clips"][: project.clip_count]:

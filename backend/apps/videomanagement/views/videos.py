@@ -22,13 +22,16 @@ from apps.videomanagement.serializers.audio import (
     MusicAudioSerializer,
     MusicUploadSerializer,
 )
-from apps.videomanagement.serializers.ideas import IdeaRequestSerializer, PromptRewriteRequestSerializer
+from apps.videomanagement.serializers.ideas import (
+    IdeaRequestSerializer,
+    PromptRewriteRequestSerializer,
+)
+from apps.videomanagement.serializers.llm_traces import LLMTraceSerializer
 from apps.videomanagement.serializers.models import (
     VideoNestedSerializer,
     VideoSerializer,
 )
 from apps.videomanagement.serializers.preview import PreviewTimelineSerializer
-from apps.videomanagement.serializers.storyboard_revision import StoryboardRevisionSerializer
 from apps.videomanagement.serializers.requests import (
     AddSceneSerializer,
     AddScenesSerializer,
@@ -41,9 +44,12 @@ from apps.videomanagement.serializers.requests import (
     StoryboardSerializer,
     StoryDraftSerializer,
     StoryVideoSerializer,
+    VideoCutsSerializer,
     VideoNotesSerializer,
     VideoUpdateSerializer,
-    VideoCutsSerializer,
+)
+from apps.videomanagement.serializers.storyboard_revision import (
+    StoryboardRevisionSerializer,
 )
 from apps.videomanagement.services.captions.subtitles import export_subtitles
 from apps.videomanagement.services.draft_jobs import queue_draft
@@ -127,6 +133,12 @@ class VideoView(
     permission_classes = [IsAuthenticated, IsOwnerPermission]
     pagination_class = StandardResultsSetPagination
 
+    @action(detail=True, methods=["GET"], url_path="llm-traces")
+    def llm_traces(self, request, pk=None):
+        traces = self.get_object().llm_traces.all()
+        page = self.paginate_queryset(traces)
+        return self.get_paginated_response(LLMTraceSerializer(page, many=True).data)
+
     @action(detail=True, methods=["PATCH"])
     def favorite(self, request, pk=None):
         video = self.get_object()
@@ -160,24 +172,36 @@ class VideoView(
             headers={"Cache-Control": "no-store"},
         )
 
-    @swagger_auto_schema(request_body=IdeaRequestSerializer, responses={202: DraftJobSerializer})
+    @swagger_auto_schema(
+        request_body=IdeaRequestSerializer, responses={202: DraftJobSerializer}
+    )
     @action(detail=False, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
     def ideas(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
-            queue_draft(request.user, draft_tasks.generate_ideas_task, **serializer.validated_data),
+            queue_draft(
+                request.user,
+                draft_tasks.generate_ideas_task,
+                **serializer.validated_data,
+            ),
             status=202,
             headers={"Cache-Control": "no-store"},
         )
 
-    @swagger_auto_schema(request_body=PromptRewriteRequestSerializer, responses={202: DraftJobSerializer})
+    @swagger_auto_schema(
+        request_body=PromptRewriteRequestSerializer, responses={202: DraftJobSerializer}
+    )
     @action(detail=False, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
     def rewrite_prompt(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(
-            queue_draft(request.user, draft_tasks.rewrite_prompt_task, **serializer.validated_data),
+            queue_draft(
+                request.user,
+                draft_tasks.rewrite_prompt_task,
+                **serializer.validated_data,
+            ),
             status=202,
             headers={"Cache-Control": "no-store"},
         )
@@ -276,14 +300,20 @@ class VideoView(
         response["Cache-Control"] = "private, no-store"
         return response
 
-    @swagger_auto_schema(request_body=VideoCutsSerializer, responses={200: VideoNestedSerializer})
+    @swagger_auto_schema(
+        request_body=VideoCutsSerializer, responses={200: VideoNestedSerializer}
+    )
     @action(detail=True, methods=["PATCH"])
     def cuts(self, request, pk=None):
         video = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         video = update_video_cuts(video, **serializer.validated_data)
-        return Response(VideoNestedSerializer(load_video_detail(video.pk), context={"request": request}).data)
+        return Response(
+            VideoNestedSerializer(
+                load_video_detail(video.pk), context={"request": request}
+            ).data
+        )
 
     @swagger_auto_schema(
         request_body=VideoUpdateSerializer,
@@ -308,10 +338,18 @@ class VideoView(
     @action(detail=True, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
     def draft_narration(self, request, pk=None):
         video = self.get_object()
-        if video.status not in (VideoStatus.READY, VideoStatus.COMPLETED, VideoStatus.FAILED):
-            raise ValidationError("Wait for this project to finish processing before drafting narration.")
+        if video.status not in (
+            VideoStatus.READY,
+            VideoStatus.COMPLETED,
+            VideoStatus.FAILED,
+        ):
+            raise ValidationError(
+                "Wait for this project to finish processing before drafting narration."
+            )
         return Response(
-            queue_draft(request.user, draft_tasks.draft_narration_task, video_id=str(video.pk)),
+            queue_draft(
+                request.user, draft_tasks.draft_narration_task, video_id=str(video.pk)
+            ),
             status=202,
             headers={"Cache-Control": "no-store"},
         )
@@ -324,19 +362,31 @@ class VideoView(
         video = update_notes(video, **serializer.validated_data)
         return Response({"notes": video.notes})
 
-    @swagger_auto_schema(request_body=StoryboardRevisionSerializer, responses={202: DraftJobSerializer})
+    @swagger_auto_schema(
+        request_body=StoryboardRevisionSerializer, responses={202: DraftJobSerializer}
+    )
     @action(detail=True, methods=["POST"], throttle_classes=[StoryDraftRateThrottle])
     def revise_storyboard(self, request, pk=None):
         video = self.get_object()
         if video.status != VideoStatus.REVIEW:
-            raise ValidationError("This project is no longer awaiting storyboard review.")
+            raise ValidationError(
+                "This project is no longer awaiting storyboard review."
+            )
         serializer = self.get_serializer(
             data=request.data,
-            context={**self.get_serializer_context(), "narration": (video.settings or {}).get("narration", True)},
+            context={
+                **self.get_serializer_context(),
+                "narration": (video.settings or {}).get("narration", True),
+            },
         )
         serializer.is_valid(raise_exception=True)
         return Response(
-            queue_draft(request.user, draft_tasks.revise_storyboard_task, video_id=str(video.pk), **serializer.validated_data),
+            queue_draft(
+                request.user,
+                draft_tasks.revise_storyboard_task,
+                video_id=str(video.pk),
+                **serializer.validated_data,
+            ),
             status=202,
             headers={"Cache-Control": "no-store"},
         )

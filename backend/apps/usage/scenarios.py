@@ -6,6 +6,7 @@ from apps.videomanagement.integrations.visuals.registry import ImageProviderRegi
 from apps.videomanagement.prompts.storyboard import build_script_prompt
 from apps.videomanagement.services.media.icons import icon_candidates
 
+from .estimates import media_estimate
 from .models import AIUsage
 from .pricing import estimate_line, money, total_estimate
 
@@ -33,6 +34,7 @@ def scenario_estimate(data, user):
         ),
         style=data.get("style", "natural"),
         narration=data.get("narration", True),
+        narration_language=data.get("narration_language", ""),
         ai_scene_editing=data.get("ai_scene_editing", False),
         diagram_icons=icon_candidates(data["message"], user=user) if data.get("ai_scene_editing") else (),
         visual_continuity=data.get("visual_continuity", ""),
@@ -131,8 +133,6 @@ def include_scenario(estimate, line):
 
 
 def project_estimate(video, storyboard=None):
-    from .estimates import media_estimate
-
     estimate = media_estimate(video, storyboard)
     return (
         include_scenario(estimate, recorded_scenario_line(video))

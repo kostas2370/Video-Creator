@@ -2,7 +2,11 @@
 
 import json
 
-from .rules import _LANGUAGE_INSTRUCTIONS, _STORY_PROGRESSION_INSTRUCTIONS
+from .rules import (
+    _LANGUAGE_INSTRUCTIONS,
+    _STORY_PROGRESSION_INSTRUCTIONS,
+    narration_language_instruction,
+)
 
 
 def format_update_form(text: str, prompt: str) -> str:
@@ -108,7 +112,7 @@ def build_ideas_prompt(brief):
     )
 
 
-def build_narration_prompt(*, title, brief, sources):
+def build_narration_prompt(*, title, brief, sources, narration_language=""):
     """Build narration instructions from scene sources without changing media."""
     return (
         "Write a coherent spoken narration for this existing video's scenes. "
@@ -122,6 +126,7 @@ def build_narration_prompt(*, title, brief, sources):
         'Return only JSON: {"scenes": [{"scene_id": "unchanged UUID", '
         '"text": "spoken narration, 1–2000 characters"}]}. '
         "Return exactly one entry for every supplied scene, with no additional entries.\n"
+        + narration_language_instruction(narration_language)
         + json.dumps(
             {
                 "title": title,

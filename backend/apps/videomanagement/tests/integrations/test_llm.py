@@ -1,8 +1,8 @@
 """Every call out to a model provider is stubbed — no test here reaches the network."""
 
+import base64
 import io
 import json
-import base64
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
@@ -10,12 +10,11 @@ from rest_framework.exceptions import APIException
 
 from apps.videomanagement.integrations import llm as llm
 from apps.videomanagement.integrations.llm import (
-    script_errors,
     claude_call,
     gemini_call,
     get_reply,
-    get_update_sentence,
     official_gpt_call,
+    script_errors,
     select_from_vision,
     token_limit_kwarg,
 )
@@ -68,7 +67,11 @@ class ScriptErrorsTests(SimpleTestCase):
         self.assertTrue(script_errors(data, require_visual_continuity=True))
         for invalid in (None, [], "x" * 3001):
             self.assertTrue(script_errors({**data, "visual_continuity": invalid}))
-        self.assertFalse(script_errors({**data, "visual_continuity": ""}, require_visual_continuity=True))
+        self.assertFalse(
+            script_errors(
+                {**data, "visual_continuity": ""}, require_visual_continuity=True
+            )
+        )
 
     def test_rejects_a_reply_with_no_scenes_key(self):
         self.assertTrue(script_errors({"title": "t"}))
@@ -91,14 +94,21 @@ class ScriptErrorsTests(SimpleTestCase):
 
     def test_rejects_a_later_scene_that_is_malformed(self):
         self.assertTrue(
-            script_errors(a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []}))
+            script_errors(
+                a_reply(a_scene(A_SENTENCE), {"scene": "two", "sentences": []})
+            )
         )
 
     def test_rejects_invalid_types_and_empty_values(self):
-        for value in (None, [], {"title": "t", "scenes": "oops"},
-                      a_reply(None), a_reply(a_scene(None)),
-                      a_reply(a_scene({"image_description": " "})),
-                      a_reply(a_scene({"image_description": 1}))):
+        for value in (
+            None,
+            [],
+            {"title": "t", "scenes": "oops"},
+            a_reply(None),
+            a_reply(a_scene(None)),
+            a_reply(a_scene({"image_description": " "})),
+            a_reply(a_scene({"image_description": 1})),
+        ):
             with self.subTest(value=value):
                 self.assertTrue(script_errors(value))
 
@@ -109,7 +119,9 @@ class ScriptErrorsTests(SimpleTestCase):
         self.assertTrue(script_errors(silent, narration=True))
         self.assertTrue(script_errors(spoken, narration=False))
         self.assertTrue(script_errors(spoken, scene_count=2))
-        self.assertTrue(script_errors(a_reply(a_scene(A_SENTENCE, A_SENTENCE)), scene_count=1))
+        self.assertTrue(
+            script_errors(a_reply(a_scene(A_SENTENCE, A_SENTENCE)), scene_count=1)
+        )
 
 
 class OfficialGptCallTests(SimpleTestCase):
@@ -151,13 +163,23 @@ class OfficialGptCallTests(SimpleTestCase):
         client.chat.completions.create.return_value = a_stream("hello")
         with patch.object(llm, "OpenAI", return_value=client):
             official_gpt_call("describe visible details", image="encoded-jpeg")
-        content = client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
-        self.assertEqual(content[0], {"type": "text", "text": "describe visible details"})
-        self.assertEqual(content[1]["image_url"]["url"], "data:image/jpeg;base64,encoded-jpeg")
+        content = client.chat.completions.create.call_args.kwargs["messages"][0][
+            "content"
+        ]
+        self.assertEqual(
+            content[0], {"type": "text", "text": "describe visible details"}
+        )
+        self.assertEqual(
+            content[1]["image_url"]["url"], "data:image/jpeg;base64,encoded-jpeg"
+        )
 
     def test_image_failure_has_clear_guidance_without_exposing_payload(self):
-        with patch.object(llm, "OpenAI", side_effect=RuntimeError("private-image-data")):
-            with self.assertRaisesRegex(APIException, "model that accepts images") as caught:
+        with patch.object(
+            llm, "OpenAI", side_effect=RuntimeError("private-image-data")
+        ):
+            with self.assertRaisesRegex(
+                APIException, "model that accepts images"
+            ) as caught:
                 official_gpt_call("prompt", image="encoded-jpeg")
         self.assertNotIn("private-image-data", str(caught.exception))
 
@@ -177,9 +199,14 @@ class ClaudeCallTests(SimpleTestCase):
         with patch.object(llm.anthropic, "Anthropic", return_value=client):
             claude_call("prompt", image="encoded-jpeg")
         content = client.messages.create.call_args.kwargs["messages"][0]["content"]
-        self.assertEqual(content[0]["source"], {
-            "type": "base64", "media_type": "image/jpeg", "data": "encoded-jpeg",
-        })
+        self.assertEqual(
+            content[0]["source"],
+            {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": "encoded-jpeg",
+            },
+        )
         self.assertEqual(content[1], {"type": "text", "text": "prompt"})
 
     @override_settings(ANTHROPIC_API_KEY="key")
@@ -203,12 +230,18 @@ class GeminiCallTests(SimpleTestCase):
     def test_sends_reference_as_a_gemini_image_blob(self):
         model = MagicMock()
         model.generate_content.return_value = MagicMock(text="hello")
-        with patch.object(llm.genai, "configure"), patch.object(llm.genai, "GenerativeModel", return_value=model):
+        with (
+            patch.object(llm.genai, "configure"),
+            patch.object(llm.genai, "GenerativeModel", return_value=model),
+        ):
             gemini_call("prompt", image=base64.b64encode(b"jpeg-bytes").decode())
         content = model.generate_content.call_args.args[0]
-        self.assertEqual(content, ["prompt", {"mime_type": "image/jpeg", "data": b"jpeg-bytes"}])
+        self.assertEqual(
+            content, ["prompt", {"mime_type": "image/jpeg", "data": b"jpeg-bytes"}]
+        )
         # Validate the shape against the installed legacy SDK's actual converter.
         from google.generativeai.types.content_types import to_part
+
         self.assertEqual(to_part(content[1]).inline_data.data, b"jpeg-bytes")
 
     @override_settings(GEMINI_API_KEY="key")
@@ -253,11 +286,15 @@ class GetReplyRoutingTests(SimpleTestCase):
         }
 
     def test_omitted_model_uses_configured_default_and_matching_provider(self):
-        for model, provider in (("gpt-5.4-mini", "official_gpt_call"),
-                                ("claude-test", "claude_call"),
-                                ("gemini-test", "gemini_call")):
+        for model, provider in (
+            ("gpt-5.4-mini", "official_gpt_call"),
+            ("claude-test", "claude_call"),
+            ("gemini-test", "gemini_call"),
+        ):
             with self.subTest(model=model), override_settings(DEFAULT_GPT_MODEL=model):
-                with patch.object(llm, provider, return_value=io.StringIO(A_SCRIPT)) as call:
+                with patch.object(
+                    llm, provider, return_value=io.StringIO(A_SCRIPT)
+                ) as call:
                     get_reply("a prompt")
                 call.assert_called_once_with("a prompt", model, user=None)
 
@@ -271,6 +308,19 @@ class GetReplyRoutingTests(SimpleTestCase):
 
     def test_sends_gemini_models_to_google(self):
         self.assertTrue(self.route("gemini-1.5-pro")["gemini"])
+
+    def test_unknown_model_uses_the_configured_defaults_provider(self):
+        for model, provider in (
+            ("gpt-test", "official_gpt_call"),
+            ("claude-test", "claude_call"),
+            ("gemini-test", "gemini_call"),
+        ):
+            with self.subTest(model=model), override_settings(DEFAULT_GPT_MODEL=model):
+                with patch.object(
+                    llm, provider, return_value=io.StringIO(A_SCRIPT)
+                ) as call:
+                    get_reply("a prompt", gpt_model="unknown-model")
+                call.assert_called_once_with("a prompt", model, user=None)
 
     @override_settings(DEFAULT_GPT_MODEL="gpt-4")
     def test_falls_back_to_openai_for_an_unknown_name(self):
@@ -291,18 +341,30 @@ class GetReplyParsingTests(SimpleTestCase):
 
     def test_retries_keep_the_image_and_encode_it_only_once(self):
         with patch.object(llm, "image_data", return_value="encoded-jpeg") as encode:
-            parsed, call = self.reply('{"title":"incomplete"}', A_SCRIPT, reference_image="local-reference.png")
+            parsed, call = self.reply(
+                '{"title":"incomplete"}',
+                A_SCRIPT,
+                reference_image="local-reference.png",
+            )
         self.assertEqual(parsed["title"], "Cats")
         encode.assert_called_once_with("local-reference.png")
-        self.assertEqual([item.kwargs["image"] for item in call.call_args_list], ["encoded-jpeg", "encoded-jpeg"])
+        self.assertEqual(
+            [item.kwargs["image"] for item in call.call_args_list],
+            ["encoded-jpeg", "encoded-jpeg"],
+        )
 
     def test_missing_reference_fails_before_any_model_request(self):
-        with patch.object(llm, "official_gpt_call") as call, self.assertRaisesRegex(APIException, "could not be read"):
+        with (
+            patch.object(llm, "official_gpt_call") as call,
+            self.assertRaisesRegex(APIException, "could not be read"),
+        ):
             get_reply("prompt", reference_image="/missing/reference.png")
         call.assert_not_called()
 
     def test_missing_ai_continuity_is_retried_in_the_same_storyboard_flow(self):
-        corrected = json.dumps({**json.loads(A_SCRIPT), "visual_continuity": "Orange cat, green scarf."})
+        corrected = json.dumps(
+            {**json.loads(A_SCRIPT), "visual_continuity": "Orange cat, green scarf."}
+        )
         parsed, call = self.reply(A_SCRIPT, corrected, require_visual_continuity=True)
         self.assertEqual(parsed["visual_continuity"], "Orange cat, green scarf.")
         self.assertEqual(call.call_count, 2)
@@ -344,24 +406,21 @@ class GetReplyParsingTests(SimpleTestCase):
 
     def test_retry_explains_count_and_narration_errors(self):
         import json
+
         fixed = json.loads(A_SCRIPT)
         fixed["scenes"] *= 2
-        parsed, call = self.reply(A_SCRIPT, json.dumps(fixed), scene_count=2, narration=True)
+        parsed, call = self.reply(
+            A_SCRIPT, json.dumps(fixed), scene_count=2, narration=True
+        )
         self.assertEqual(len(parsed["scenes"]), 2)
         self.assertIn("exactly 2 scenes", call.call_args.args[0])
 
-    def test_returns_the_raw_stream_when_no_json_was_asked_for(self):
-        stream = io.StringIO("just words")
+    def test_raw_reply_returns_trimmed_provider_text(self):
+        stream = io.StringIO("  just words\n")
         with patch.object(llm, "official_gpt_call", return_value=stream):
-            result = get_reply("a prompt", reply_format="text", gpt_model="gpt-4")
+            result = llm.get_raw_reply("a prompt", gpt_model="gpt-4")
 
-        self.assertIs(result, stream)
-
-
-class GetUpdateSentenceTests(SimpleTestCase):
-    def test_joins_the_streamed_rewrite(self):
-        with patch.object(llm, "get_reply", return_value=io.StringIO("a rewrite")):
-            self.assertEqual(get_update_sentence("a prompt"), "a rewrite")
+        self.assertEqual(result, "just words")
 
 
 class SelectFromVisionTests(SimpleTestCase):
@@ -397,7 +456,9 @@ class SelectFromVisionTests(SimpleTestCase):
         client.chat.completions.create.return_value.choices[0].message.content = "2"
         with patch.object(llm, "OpenAI", return_value=client):
             self.assertEqual(select_from_vision("cat", ["a", "b"]), 1)
-        content = client.chat.completions.create.call_args.kwargs["messages"][0]["content"][0]["text"]
+        content = client.chat.completions.create.call_args.kwargs["messages"][0][
+            "content"
+        ][0]["text"]
         self.assertIn("these 2 images", content)
         self.assertIn("1 to 2", content)
 

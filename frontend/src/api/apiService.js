@@ -37,6 +37,7 @@ export const toggleVideoFavorite = id => patch(action("videos", id, "favorite"))
 export const ensureVideoThumbnail = id => post(action("videos", id, "thumbnail"), {}, callerHandlesErrors);
 export const getVideoSubtitles = id => request({ url: action("videos", id, "subtitles"), ...callerHandlesErrors });
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
+export const getVideoLLMTraces = (id, page = 1) => request({ url: action("videos", id, "llm-traces"), params: { page }, ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
 export const getVoices = (search, page = 1, { is_cloned, notifyError = true } = {}) => request({
   url: "voices/", params: { search: search || undefined, page, is_cloned }, notifyError,
@@ -193,7 +194,7 @@ export const downloadClip = (id, clipId) => request({ url: `${action("clips", id
 
 export const draftClipHashtags = (id, clipId) => runBackgroundDraft(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, {});
 export const saveClipHashtags = (id, clipId, hashtags, previousHashtags) => patch(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/hashtags/`, { hashtags, previous_hashtags: previousHashtags }, callerHandlesErrors);
-export const getClipProjectProgress = id => request({ url: action("clips", id, "progress"), ...callerHandlesErrors });
+export const getClipProjectProgress = (id, options = {}) => request({ ...options, url: action("clips", id, "progress"), ...callerHandlesErrors });
 export const getClip = (id, clipId) => request({ url: `${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, ...callerHandlesErrors });
 
 export const searchClipTranscript = (id, prompt) => runBackgroundDraft(action("clips", id, "search-transcript"), { prompt });

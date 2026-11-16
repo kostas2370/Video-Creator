@@ -24,7 +24,7 @@ from apps.series.prompts import (
 from apps.series.serializers import serialize_cast, validate_episode_generation
 from apps.videomanagement import tasks
 from apps.videomanagement.exceptions import VideoEditConflict
-from apps.videomanagement.integrations.llm import get_update_sentence
+from apps.videomanagement.integrations.llm import get_raw_reply
 from apps.videomanagement.models import Video, VideoStatus
 from apps.videomanagement.services.videos.generation import create_pending_video
 from apps.videomanagement.services.videos.jobs import dispatch_video_job
@@ -43,6 +43,7 @@ PROFILE_FIELDS = (
     "provider",
     "generation_mode",
     "narration",
+    "narration_language",
     "subtitles",
     "video_format",
     "platform",
@@ -68,10 +69,10 @@ def draft_episode_idea(series, *, owner, idea=""):
     profile = _snapshot_series_profile(series)
     brief = {
         key: profile[key]
-        for key in ("title", "premise", "characters", "story_format", "visual_style", "cast")
+        for key in ("title", "premise", "characters", "story_format", "visual_style", "cast", "narration_language")
     }
     prompt = build_episode_idea_prompt(brief, reviewed_episode_history(series), idea)
-    result = get_update_sentence(prompt, user=owner)
+    result = get_raw_reply(prompt, user=owner)
     if not isinstance(result, str) or not result.strip() or len(result.strip()) > 2000:
         raise APIException("AI returned an invalid episode idea. Please try again.")
     return {"idea": result.strip()}
@@ -166,7 +167,7 @@ def draft_episode_memory(episode, *, owner, summary=None):
             "This script is too long for an automatic memory update. Edit the memory manually."
         )
     prompt = build_episode_memory_prompt(data)
-    draft = get_update_sentence(prompt, user=owner)
+    draft = get_raw_reply(prompt, user=owner)
     if not isinstance(draft, str) or not draft.strip() or len(draft.strip()) > 800:
         raise APIException(
             "AI returned an invalid episode memory. Your saved memory is unchanged."

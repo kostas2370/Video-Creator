@@ -43,6 +43,9 @@ class VideoSeries(AbstractModel, TimestampedModel, NarrationAssetsModel):
         choices=[("STANDARD", "Standard"), ("ECONOMY", "Economy")],
         default="STANDARD",
     )
+    narration_language = models.CharField(
+        max_length=80, blank=True, default="", db_default=""
+    )
     narration = models.BooleanField(default=True)
     subtitles = models.BooleanField(default=True)
     video_format = models.CharField(

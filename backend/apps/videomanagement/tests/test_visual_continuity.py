@@ -64,7 +64,7 @@ class ContinuityGenerationTests(TestCase):
     def test_new_scene_draft_receives_brief_without_existing_scene_context(self):
         from apps.videomanagement.services.scenes.generation import draft_scene
         project = video.make(mode="AI", settings={"visual_continuity": BRIEF})
-        with patch("apps.videomanagement.services.scenes.generation.get_update_sentence",
+        with patch("apps.videomanagement.services.scenes.generation.get_raw_reply",
                    return_value='{"text":"Milo runs.","image_description":"Fox running"}') as draft:
             draft_scene(project, "Next action", use_context=False)
         self.assertIn(BRIEF, draft.call_args.args[0])
