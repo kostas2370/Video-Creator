@@ -291,6 +291,10 @@ as a tie-breaker when clarity is equal. Educational videos may use mostly or ent
 diagrams where suitable. Explicit visual preferences and subjects that require appearance,
 performance, or scenery still take priority.
 
+Generation and exact-script prompts include a compact alternative diagram-shot JSON
+example with neutral settings and no image description. Narration and shot-plan fields
+follow the active mode; example content is explicitly illustrative, not extra story content.
+
 Diagram shots use `editing.diagram` as their complete visual. Generation, exact-script
 imports, scene drafts, and storyboard revisions instruct the model to omit
 `image_description`. Validation accepts an omitted or blank description for a valid

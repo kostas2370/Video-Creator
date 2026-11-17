@@ -24,6 +24,35 @@ sentence, write {parts}.
 """
 
 
+def _diagram_shot_example(narration, *, shot_plan=False, ai_scene_editing=False):
+    shot = {}
+    if narration:
+        shot["sentence"] = "Complete the first step, then move to the next."
+    if shot_plan:
+        shot["shot_plan"] = {
+            "shot_size": "MEDIUM", "camera_movement": "STATIC",
+            "subject_action": "Reveal the steps in order", "target_duration": 5,
+        }
+        if ai_scene_editing:
+            shot["shot_plan"].update(role="EXPLANATION", visual_focus="The step order")
+    shot["editing"] = {
+        "motion_style": "NONE", "motion_intensity": "SUBTLE",
+        "transition_after": "CUT", "transition_duration": 0.1, "pause_after": 0,
+        "animation_preset": "NONE", "animation_accents": False, "overlays": [],
+        "diagram": {
+            "template": "steps", "title": "Process",
+            "items": [{"label": "First step", "detail": ""}, {"label": "Next step", "detail": ""}],
+        },
+    }
+    return (
+        "\nAlternative diagram shot example (one sentences entry, not an extra shot). "
+        "Illustrates format only: adapt content, language, template and duration to the request; "
+        "do not copy these example steps into the story:\n"
+        + json.dumps(shot, separators=(",", ":"))
+        + "\n"
+    )
+
+
 def _script_structure(brief, narration, ai_scene_editing=False):
     video = brief is _VISUAL_BRIEFS[VisualType.VIDEO]
     parts = f"one visual: {brief.description} for a non-diagram shot, or editing.diagram"
@@ -71,6 +100,10 @@ def _script_structure(brief, narration, ai_scene_editing=False):
         + ":\n"
         + json.dumps(shape, indent=2)
         + "\n"
+        + _diagram_shot_example(
+            narration, shot_plan=brief.generated or ai_scene_editing,
+            ai_scene_editing=ai_scene_editing,
+        )
     )
 
 

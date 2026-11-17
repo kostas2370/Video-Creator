@@ -106,6 +106,31 @@ class DiagramStoryboardValidationTests(SimpleTestCase):
         model.assert_called_once()
         self.assertNotIn("image_description", result["scenes"][0]["sentences"][0])
 
+    def test_diagram_prompt_example_validates_in_each_generation_mode(self):
+        for mode in ("AI", "WEB"):
+            for moving in (True, False):
+                for planning in (True, False):
+                    for narration in (True, False):
+                        prompt = build_script_prompt(
+                            image_mode=mode, video=moving, ai_scene_editing=planning,
+                            narration=narration,
+                        )
+                        alternative = prompt.split("Alternative diagram shot example", 1)[1]
+                        shot = json.JSONDecoder().raw_decode(alternative[alternative.index("{"):])[0]
+                        script = {"title": "Process", "scenes": [{"scene": "Steps", "sentences": [shot]}]}
+                        with self.subTest(mode=mode, moving=moving, planning=planning, narration=narration):
+                            self.assertNotIn("image_description", shot)
+                            self.assertEqual("sentence" in shot, narration)
+                            self.assertFalse(script_errors(
+                                script, narration=narration, ai_scene_editing=planning,
+                                video_provider=moving and mode == "AI",
+                            ))
+                            serializer = StoryboardSerializer(data=script, context={"narration": narration})
+                            self.assertTrue(serializer.is_valid(), serializer.errors)
+        prompt = build_text_storyboard_prompt("Keep these exact words.")
+        self.assertIn("Alternative diagram shot example", prompt)
+        self.assertIn("do not copy these example steps into the story", prompt)
+
     def test_diagram_only_plan_is_valid_with_editing_disabled(self):
         script = diagram_script()
         shot = script["scenes"][0]["sentences"][0]
