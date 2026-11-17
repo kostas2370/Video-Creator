@@ -21,8 +21,8 @@ from apps.videomanagement.tests.api.base import ApiTestCase
 
 WORDS = [
     {"text": "Hello", "start": 0.3, "end": 0.6},
-    {"text": "there.", "start": 0.7, "end": 1.0},
-    {"text": "Goodbye", "start": 2.3, "end": 2.6},
+    {"text": "there.", "start": 0.7, "end": 1.00003},
+    {"text": "Goodbye", "start": 2.30004, "end": 2.6},
     {"text": "now.", "start": 3.0, "end": 3.4},
 ]
 SCRIPT = {
@@ -168,7 +168,7 @@ class AudioVideoTests(ApiTestCase):
             )
             self.assertAlmostEqual(durations[0], 1.65, delta=0.02)
             self.assertAlmostEqual(
-                clips[1].caption_alignment["words"][0]["start"], 0.65
+                clips[1].caption_alignment["words"][0]["start"], 0.65, delta=0.0001
             )
             transcribe.assert_called_once()
             speech.assert_not_called()

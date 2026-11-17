@@ -31,10 +31,6 @@ def transcribe_source_audio(video):
                     "-map",
                     "0:a:0",
                     "-vn",
-                    "-ac",
-                    "1",
-                    "-ar",
-                    "16000",
                     "-c:a",
                     "pcm_s16le",
                     str(decoded),
@@ -106,34 +102,60 @@ def prepare_audio_scenes(video):
 
     ranges = audio_scene_ranges(video)
     _, rows = ensure_scene_rows(video)
-    for index, (start, end, captions) in enumerate(ranges):
-        scene = rows[index]
-        if stored_file_exists(scene.file):
-            continue
-        with tempfile.TemporaryDirectory(prefix="scene-narration-") as directory:
-            output = Path(directory, "narration.wav")
-            run_ffmpeg(
-                [
-                    "-i",
-                    video.source_audio.path,
-                    "-ss",
-                    str(start),
-                    "-t",
-                    str(end - start),
-                    "-map",
-                    "0:a:0",
-                    "-vn",
-                    "-c:a",
-                    "pcm_s16le",
-                    str(output),
-                ],
-                timeout=120,
-            )
-            with output.open("rb") as audio:
-                scene.file.save(f"{scene.pk}-imported.wav", File(audio), save=False)
-            scene.save(update_fields=["file"])
-        scene.caption_alignment = {
-            "source": narration_identity(scene),
-            "words": captions,
-        }
-        scene.save(update_fields=["caption_alignment"])
+    pending = [
+        (index, bounds)
+        for index, bounds in enumerate(ranges)
+        if not stored_file_exists(rows[index].file)
+    ]
+    if not pending:
+        return
+    # Decode once, then partition native PCM samples. Rounded frame boundaries are
+    # shared by neighboring clips, avoiding missing or duplicated samples at cuts.
+    with tempfile.TemporaryDirectory(prefix="scene-narration-") as directory:
+        decoded = Path(directory, "original.wav")
+        run_ffmpeg(
+            [
+                "-i",
+                video.source_audio.path,
+                "-map",
+                "0:a:0",
+                "-vn",
+                "-c:a",
+                "pcm_s16le",
+                str(decoded),
+            ],
+            timeout=120,
+        )
+        with wave.open(str(decoded)) as original:
+            rate = original.getframerate()
+            for index, (start, end, captions) in pending:
+                scene = rows[index]
+                first = round(start * rate)
+                last = min(original.getnframes(), round(end * rate))
+                original.setpos(first)
+                output = Path(directory, "scene.wav")
+                with wave.open(str(output), "wb") as clip:
+                    clip.setnchannels(original.getnchannels())
+                    clip.setsampwidth(original.getsampwidth())
+                    clip.setframerate(rate)
+                    remaining = last - first
+                    while remaining:
+                        count = min(65536, remaining)
+                        clip.writeframesraw(original.readframes(count))
+                        remaining -= count
+                with output.open("rb") as audio:
+                    scene.file.save(f"{scene.pk}-imported.wav", File(audio), save=False)
+                # Caption times follow the actual sample boundary of this clip.
+                shift = start - first / rate
+                scene.caption_alignment = {
+                    "source": narration_identity(scene),
+                    "words": [
+                        {
+                            **word,
+                            "start": max(0, word["start"] + shift),
+                            "end": min((last - first) / rate, word["end"] + shift),
+                        }
+                        for word in captions
+                    ],
+                }
+                scene.save(update_fields=["file", "caption_alignment"])
