@@ -21,8 +21,8 @@ from apps.videomanagement.integrations.base import ImageProvider
 from apps.videomanagement.prompts.visuals import audio_direction
 from apps.videomanagement.utils.image_inputs import image_data
 
-from .errors import VideoProviderError
 from .custom import save_video
+from .errors import VideoProviderError, generation_error, provider_error
 from .registry import ImageProviderRegistry
 
 logger = logging.getLogger(__name__)
@@ -219,143 +219,13 @@ def json_request(method, url, *, headers, body=None, timeout=60):
     return payload
 
 
-# Only these codes and application-authored hints can reach logs or the UI.
-ERROR_HINTS = {
-    "INVALID_ARGUMENT": "Check the video request parameters and input image before retrying.",
-    "INVALID_REQUEST": "Check the video request parameters and input image before retrying.",
-    "FAILED_PRECONDITION": "Check billing and eligibility for the API key's project before retrying.",
-    "PAYMENT_REQUIRED": "Restore credits on the API key's provider project before retrying.",
-    "UNAUTHENTICATED": "Check the configured provider API key before retrying.",
-    "PERMISSION_DENIED": "Check the API key's permissions and model access before retrying.",
-    "RESOURCE_EXHAUSTED": "Check the provider project's quota, rate limits and balance before retrying.",
-    "NOT_FOUND": "Check that the configured model is available to this API key.",
-    "CONTENT_BLOCKED": "The provider's safety filters blocked the prompt or reference image. Edit the shot description or replace the starting frame before retrying.",
-    "RECITATION": "The provider blocked generation because of copyright or recitation restrictions. Change the shot description or reference image before retrying.",
-    "LANGUAGE": "The provider rejected an unsupported language. Change the shot description to a supported language before retrying.",
-    "SPII": "The provider blocked generation because of sensitive personal information. Remove personal details or replace the reference image before retrying.",
-    "INTERNAL": "The provider had an internal error. Try again later.",
-    "UNAVAILABLE": "The provider is temporarily unavailable. Try again later.",
-    "DEADLINE_EXCEEDED": "The provider timed out. Check its dashboard before retrying; generation may still finish and incur charges.",
-}
-ERROR_ALIASES = {
-    "INVALID_REQUEST_ERROR": "INVALID_REQUEST",
-    "BAD_REQUEST": "INVALID_REQUEST",
-    "AUTHENTICATION": "UNAUTHENTICATED",
-    "AUTHENTICATION_ERROR": "UNAUTHENTICATED",
-    "RATE_LIMIT": "RESOURCE_EXHAUSTED",
-    "RATE_LIMIT_ERROR": "RESOURCE_EXHAUSTED",
-    "RATE_LIMIT_EXCEEDED": "RESOURCE_EXHAUSTED",
-    "INSUFFICIENT_QUOTA": "RESOURCE_EXHAUSTED",
-    "CONTENT_POLICY_VIOLATION": "CONTENT_BLOCKED",
-    "SAFETY_VIOLATION": "CONTENT_BLOCKED",
-    "SAFETY": "CONTENT_BLOCKED",
-    "PROHIBITED_CONTENT": "CONTENT_BLOCKED",
-    "BLOCKLIST": "CONTENT_BLOCKED",
-    "IMAGE_SAFETY": "CONTENT_BLOCKED",
-    "INTERNAL_SERVER_ERROR": "INTERNAL",
-    "SERVER_ERROR": "INTERNAL",
-}
-
-
-def error_reason(payload):
-    """Recognize structured codes and narrow message patterns without echoing text."""
-    error = payload.get("error") if isinstance(payload, dict) else None
-    if not isinstance(error, dict):
-        return None, None
-    code = None
-    # A numeric code or unknown status must not hide a recognized type/reason.
-    values = [error.get(key) for key in ("status", "type", "code", "reason")]
-    details = error.get("details")
-    if isinstance(details, list):
-        values.extend(item.get("reason") for item in details if isinstance(item, dict))
-    for value in values:
-        if isinstance(value, str):
-            candidate = ERROR_ALIASES.get(value.upper(), value.upper())
-            if candidate in ERROR_HINTS and (
-                code is None or candidate not in ("INVALID_REQUEST", "INVALID_ARGUMENT")
-            ):
-                code = candidate
-                if code not in ("INVALID_REQUEST", "INVALID_ARGUMENT"):
-                    break
-    # Some endpoints supply only a numeric code and a message. Match known phrases
-    # to static categories; never copy even part of an upstream message or field.
-    message = error.get("message")
-    message = message[:8192].lower() if isinstance(message, str) else ""
-    if code in (None, "INVALID_REQUEST", "INVALID_ARGUMENT"):
-        if re.search(
-            r"blocked by (?:the |our )?(?:safety|content filters)|blocked for (?:an? )?(?:unspecified )?policy reason|violates? (?:the |our )?(?:content|safety) policy|content policy violation|safety filters? (?:blocked|rejected)",
-            message,
-        ):
-            code = "CONTENT_BLOCKED"
-        elif re.search(
-            r"billing (?:is |has been )?(?:disabled|not enabled)|billing must be enabled",
-            message,
-        ):
-            code = "FAILED_PRECONDITION"
-        elif re.search(
-            r"(?:quota|rate limit) (?:has been )?exceeded|insufficient (?:credits|quota)",
-            message,
-        ):
-            code = "RESOURCE_EXHAUSTED"
-    if code in ("INVALID_ARGUMENT", "INVALID_REQUEST"):
-        # Translate recognized field names into useful wording, not arbitrary
-        # upstream descriptions that may contain the prompt or signed URLs.
-        fields = []
-        for detail in details if isinstance(details, list) else []:
-            violations = (
-                detail.get("fieldViolations", []) if isinstance(detail, dict) else []
-            )
-            if isinstance(violations, list):
-                fields.extend(
-                    item.get("field") for item in violations if isinstance(item, dict)
-                )
-        field_hints = {
-            "response_format.duration": "The provider rejected the requested video length. Choose a supported length before retrying.",
-            "response_format.aspect_ratio": "The provider rejected the video aspect ratio. Choose a supported format before retrying.",
-            "response_format.resolution": "The provider rejected the output resolution. Choose a supported resolution before retrying.",
-            "model": "The provider rejected the selected model. Check model availability and access before retrying.",
-        }
-        for field in fields:
-            if isinstance(field, str) and field in field_hints:
-                return code, field_hints[field]
-    return code, ERROR_HINTS.get(code)
-
-
-def provider_error(response):
-    try:
-        payload = response.json()
-    except ValueError:
-        payload = None
-    code, hint = error_reason(payload)
-    prefix = f"Video provider rejected the request (HTTP {response.status_code})"
-    if code:
-        return f"{prefix} [{code}]. {hint}"
-    fallback = {
-        401: "UNAUTHENTICATED",
-        402: "PAYMENT_REQUIRED",
-        403: "PERMISSION_DENIED",
-    }.get(response.status_code)
-    if fallback:
-        return f"{prefix}. {ERROR_HINTS[fallback]}"
-    if response.status_code == 429:
-        return f"{prefix}. The provider is rate limiting requests. Wait and check your quota before retrying."
-    if response.status_code >= 500:
-        return f"{prefix}. The provider is having a server problem. Try again later."
-    return f"{prefix}. The provider did not supply a recognized reason. Check the request settings and provider dashboard before retrying."
-
-
 def poll(fetch, *, field="status", completed, pending, label):
     deadline = time.monotonic() + settings.VIDEO_GENERATION_TIMEOUT
     while time.monotonic() < deadline:
         payload = fetch()
         state = payload.get(field)
         if payload.get("error"):
-            code, hint = error_reason(payload)
-            raise VideoProviderError(
-                f"{label} generation failed [{code}]. {hint}"
-                if code
-                else f"{label} generation failed. The provider did not supply a recognized reason. Check its dashboard before retrying."
-            )
+            raise generation_error(label, payload)
         if state in completed:
             return payload
         if state not in pending:

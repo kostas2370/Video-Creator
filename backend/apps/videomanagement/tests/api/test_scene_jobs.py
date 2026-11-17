@@ -2,9 +2,9 @@ from unittest.mock import Mock, patch
 
 from django.core import signing
 from django.urls import reverse
-from apps.videomanagement.integrations.visuals.errors import VideoProviderError
 
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.integrations.visuals.errors import VideoProviderError
 from apps.videomanagement.services.scenes.jobs import JOB_SALT
 
 from ...baker_recipes import scene, scene_image

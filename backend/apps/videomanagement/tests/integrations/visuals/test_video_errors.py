@@ -3,14 +3,15 @@
 import logging
 from unittest.mock import MagicMock, patch
 
+import requests
 from celery import Celery
 from celery.backends.base import Backend
 from django.test import SimpleTestCase
-import requests
 
 from apps.videomanagement.integrations.visuals import video_http as http
 from apps.videomanagement.integrations.visuals.errors import (
     VideoProviderError,
+    provider_error,
     public_video_error,
 )
 
@@ -32,7 +33,7 @@ class VideoErrorTests(SimpleTestCase):
                 }
             }
         )
-        message = http.provider_error(response)
+        message = provider_error(response)
         self.assertIn("CONTENT_BLOCKED", message)
         self.assertIn("replace the starting frame", message)
         self.assertNotIn("secret-key", message)
@@ -51,7 +52,7 @@ class VideoErrorTests(SimpleTestCase):
             ("Rate limit exceeded for private account", "RESOURCE_EXHAUSTED"),
         ):
             with self.subTest(expected=expected):
-                result = http.provider_error(
+                result = provider_error(
                     self.response({"error": {"code": 400, "message": message}})
                 )
                 self.assertIn(expected, result)
@@ -76,7 +77,7 @@ class VideoErrorTests(SimpleTestCase):
                 }
             }
         )
-        message = http.provider_error(response)
+        message = provider_error(response)
         self.assertIn("requested video length", message)
         self.assertNotIn("private prompt", message)
         self.assertNotIn("secret-key", message)
@@ -89,22 +90,22 @@ class VideoErrorTests(SimpleTestCase):
             [{"fieldViolations": [{"field": ["secret"]}]}],
         ):
             with self.subTest(details=details):
-                message = http.provider_error(
+                message = provider_error(
                     self.response(
                         {"error": {"status": "INVALID_ARGUMENT", "details": details}}
                     )
                 )
                 self.assertIn("request parameters", message)
                 self.assertNotIn("secret", message)
-        message = http.provider_error(
+        message = provider_error(
             self.response({"error": {"message": "private prompt secret-key"}})
         )
         self.assertIn("did not supply a recognized reason", message)
         self.assertNotIn("private prompt", message)
 
     def test_http_fallbacks_distinguish_rate_limits_and_server_failures(self):
-        self.assertIn("rate limiting", http.provider_error(self.response({}, 429)))
-        self.assertIn("server problem", http.provider_error(self.response({}, 503)))
+        self.assertIn("rate limiting", provider_error(self.response({}, 429)))
+        self.assertIn("server problem", provider_error(self.response({}, 503)))
 
     def test_http_error_reference_is_logged_without_raw_response_or_credentials(self):
         response = self.response(
@@ -165,7 +166,7 @@ class VideoErrorTests(SimpleTestCase):
             )
 
     def test_specific_structured_reason_takes_priority_over_generic_status(self):
-        message = http.provider_error(
+        message = provider_error(
             self.response(
                 {
                     "error": {
@@ -197,7 +198,7 @@ class VideoErrorTests(SimpleTestCase):
             ("spii", "sensitive personal information"),
         ):
             with self.subTest(code=code):
-                result = http.provider_error(
+                result = provider_error(
                     self.response(
                         {
                             "error": {

@@ -80,11 +80,10 @@ class GeminiVideoProvider(http.DurationVideoProvider):
             timeout=600,
         )
         if result.get("status") != "completed":
-            code, hint = http.error_reason(result)
-            raise http.VideoProviderError(
-                f"Gemini generation failed [{code}]. {hint}"
-                if code
-                else "Gemini did not complete video generation. Check the provider dashboard before retrying."
+            raise http.generation_error(
+                "Gemini",
+                result,
+                fallback="Gemini did not complete video generation. Check the provider dashboard before retrying.",
             )
         output = video_output(result)
         if output.get("uri"):

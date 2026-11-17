@@ -7,11 +7,11 @@ from uuid import uuid4
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
-from apps.videomanagement.integrations.visuals.errors import VideoProviderError
 from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import scene, scene_image
+from apps.videomanagement.integrations.visuals.errors import VideoProviderError
 from apps.videomanagement.services.scenes.visuals import create_image_scene
 
 from .base import ApiTestCase
