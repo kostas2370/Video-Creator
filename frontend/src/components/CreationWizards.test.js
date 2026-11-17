@@ -176,14 +176,14 @@ it("uploads an MP3 through the same tool without requesting new narration", asyn
   try {
     render(<MemoryRouter><Home inputMode="text" /></MemoryRouter>);
     fireEvent.change(screen.getByLabelText("Your script"), { target: { value: "Keep my text draft" } });
-    fireEvent.click(screen.getByRole("button", { name: "MP3", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Audio", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
-    expect(screen.getByRole("alert").textContent).toContain("Choose an MP3");
+    expect(screen.getByRole("alert").textContent).toContain("Choose an MP3 or WAV");
     fireEvent.click(screen.getByRole("button", { name: "Text", exact: true }));
     expect(screen.getByLabelText("Your script").value).toBe("Keep my text draft");
-    fireEvent.click(screen.getByRole("button", { name: "MP3", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Audio", exact: true }));
     const file = new File(["mp3 bytes"], "my-voice.mp3", { type: "audio/mpeg" });
-    fireEvent.change(screen.getByLabelText("Your MP3"), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText("Your audio file"), { target: { files: [file] } });
     fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
     expect(screen.queryByRole("combobox", { name: "Voice" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Review video" }));

@@ -2,9 +2,9 @@ import { HiOutlineScissors, HiOutlineBookOpen, HiOutlineSparkles, HiOutlineFilm,
 
 export const creationModes = [
   {
-    to: "/text/", label: "Text or MP3 to video", eyebrow: "Start with your script", icon: HiOutlineBookOpen,
-    description: "Paste a script or upload an MP3. Create scenes with matching images and editable audio.",
-    requirement: "A script or spoken MP3 + connected AI providers", action: "Use text or MP3",
+    to: "/text/", label: "Text or audio to video", eyebrow: "Start with your script", icon: HiOutlineBookOpen,
+    description: "Paste a script or upload an MP3 or WAV. Create scenes with matching images and editable audio.",
+    requirement: "A script or spoken MP3/WAV + connected AI providers", action: "Use text or audio",
     color: "text-blue-600 dark:text-blue-300", background: "bg-blue-50 dark:bg-blue-950/40", preview: "text",
   },
   {

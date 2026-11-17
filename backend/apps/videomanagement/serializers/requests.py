@@ -186,10 +186,10 @@ class AudioVideoGenerateSerializer(NarratedVideoGenerateSerializer):
         from pathlib import Path
         from apps.videomanagement.services.media.uploads import inspect_media_upload
 
-        if Path(upload.name).suffix.lower() != ".mp3":
-            raise serializers.ValidationError("Choose an MP3 file.")
+        if Path(upload.name).suffix.lower() not in {".mp3", ".wav"}:
+            raise serializers.ValidationError("Choose an MP3 or WAV file.")
         if upload.size > 25 * 1024 * 1024:
-            raise serializers.ValidationError("Choose an MP3 up to 25 MB.")
+            raise serializers.ValidationError("Choose an MP3 or WAV up to 25 MB.")
         metadata = inspect_media_upload(upload, allow_audio=True)
         self.audio_duration = metadata["duration"]
         return upload

@@ -44,14 +44,14 @@ def transcribe_source_audio(video):
             )
         if not words:
             raise ValidationError(
-                "No speech was detected in this MP3. Choose a recording with clear spoken narration."
+                "No speech was detected in this recording. Choose a recording with clear spoken narration."
             )
         video.source_audio_words = words
         video.save(update_fields=["source_audio_words", "source_audio_duration"])
     text = " ".join(word["text"] for word in video.source_audio_words)
     if len(text) > 20000:
         raise ValidationError(
-            "This recording has too much speech. Choose a shorter MP3 (up to 20,000 transcript characters)."
+            "This recording has too much speech. Choose a shorter recording (up to 20,000 transcript characters)."
         )
     return text
 
@@ -61,7 +61,7 @@ def validate_audio_storyboard(video, storyboard):
     actual = " ".join(line.narration for line in script_lines(storyboard))
     if not source.strip() or actual.split() != source.split():
         raise ValidationError(
-            "Keep the recorded words in their original order. You can change scene breaks and visuals; the MP3 supplies the narration."
+            "Keep the recorded words in their original order. You can change scene breaks and visuals; the recording supplies the narration."
         )
 
 

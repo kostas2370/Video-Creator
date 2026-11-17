@@ -251,16 +251,16 @@ Removed scenes can be restored from **Project extras → Recently deleted** for 
 days. Reusable scene assets remain in the media library after their project is
 deleted; assets still used by a scene cannot be deleted from the library.
 
-### Turn text or an MP3 into a video
+### Turn text or audio into a video
 
-Choose **Text or MP3 to video** from the creation tools, then choose **Text** or
-**MP3**. Paste narration or upload a UTF-8 `.txt` file, up to 2,000 characters,
-to generate a voice-over. For an existing recording, upload a spoken MP3 up to
-25 MB and 15 minutes (up to 20,000 transcript characters). MP3 mode transcribes
+Choose **Text or audio to video** from the creation tools, then choose **Text** or
+**Audio**. Paste narration or upload a UTF-8 `.txt` file, up to 2,000 characters,
+to generate a voice-over. For an existing recording, upload a spoken MP3 or WAV up to
+25 MB and 15 minutes (up to 20,000 transcript characters). Audio mode transcribes
 speech with the configured local Whisper or OpenAI provider and keeps your original
 recording: it does **not** generate new narration.
 
-Review the storyboard and visual prompts before generating media. The original MP3
+Review the storyboard and visual prompts before generating media. The original recording
 is split at transcript timestamps into an independent audio clip for each scene,
 including pauses at scene boundaries and the recording’s beginning and ending.
 Word captions reuse the transcript timing. The clips stay with their scenes when

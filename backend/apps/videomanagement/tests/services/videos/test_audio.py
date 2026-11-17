@@ -201,7 +201,11 @@ class AudioVideoTests(ApiTestCase):
         self.assertFalse(project.source_audio)
         self.assertEqual(project.status, "FAILED")
         self.assertFalse(
-            list(Path(self.directory.name, "media", "narration").rglob("*.mp3"))
+            [
+                path
+                for path in Path(self.directory.name, "media", "narration").rglob("*")
+                if path.is_file()
+            ]
         )
 
     def test_silent_transcription_stops_before_generating_media(self):
@@ -283,3 +287,18 @@ class AudioVideoTests(ApiTestCase):
         tts.assert_not_called()
         with self.assertRaises(ValidationError):
             video_update(project, voice_id="another-voice")
+
+
+class WavVideoTests(AudioVideoTests):
+    """WAV follows the same original-audio workflow, including exact split samples."""
+
+    def setUp(self):
+        super().setUp()
+        wav = Path(self.directory.name, "original.wav")
+        run_ffmpeg(["-i", str(self.path), "-c:a", "pcm_s16le", str(wav)])
+        self.path = wav
+
+    def upload(self):
+        return SimpleUploadedFile(
+            "recording.WAV", self.path.read_bytes(), content_type="audio/wav"
+        )

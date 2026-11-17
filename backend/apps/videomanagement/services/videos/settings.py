@@ -66,7 +66,7 @@ def video_update(video: Video, **changes) -> Video:
 
 def _apply_video_changes(video, changes):
     if video.source_audio and (changes.get("voice_id") or changes.get("avatar") or changes.get("retry_narration")):
-        raise ValidationError("This project uses your original MP3. Replace scene audio in the editor instead of generating a new narrator.")
+        raise ValidationError("This project uses your original recording. Replace scene audio in the editor instead of generating a new narrator.")
     enabling_narration = not video.source_audio and changes.get("narration") is True and not (
         video.settings or {}
     ).get("narration", True)

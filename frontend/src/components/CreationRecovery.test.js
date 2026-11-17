@@ -193,7 +193,7 @@ it("recovers the MP3 and source choice without automatically generating", async 
   savedFiles.set(`${key}:audio`, new File(["audio"], "saved.mp3", { type: "audio/mpeg" }));
   render(wrap(<Home inputMode="text" />));
   await screen.findAllByText("saved.mp3");
-  expect(screen.getByRole("button", { name: "MP3", exact: true }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "Audio", exact: true }).getAttribute("aria-pressed")).toBe("true");
   expect(api.generateAudioVideo).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Text", exact: true }));
   expect(screen.getByLabelText("Your script").value).toBe("Separate text draft");
