@@ -152,10 +152,8 @@ class GenerateSerializer(serializers.Serializer):
         return attrs
 
 
-class TextVideoGenerateSerializer(GenerateSerializer):
-    """Adapt an exact script to the shared generation service parameters."""
-
-    source_text = serializers.CharField(max_length=2000)
+class NarratedVideoGenerateSerializer(GenerateSerializer):
+    """Shared production defaults for imported text or recorded narration."""
     message = serializers.CharField(read_only=True)
     image_mode = serializers.ChoiceField(choices=ImageMode.choices, default=ImageMode.AI)
 
@@ -164,11 +162,44 @@ class TextVideoGenerateSerializer(GenerateSerializer):
             raise serializers.ValidationError(
                 {"narration": "Keep narration enabled when importing a script."}
             )
-        attrs["message"] = attrs["source_text"]
         attrs["review_script"] = True
         attrs["narration_language"] = ""
         if not attrs.get("provider"):
             attrs["provider"] = "OPENAI" if attrs["image_mode"] == ImageMode.AI else "bing"
+        return super().validate(attrs)
+
+
+class TextVideoGenerateSerializer(NarratedVideoGenerateSerializer):
+    source_text = serializers.CharField(max_length=2000)
+
+    def validate(self, attrs):
+        attrs["message"] = attrs["source_text"]
+        return super().validate(attrs)
+
+
+class AudioVideoGenerateSerializer(NarratedVideoGenerateSerializer):
+    source_audio = serializers.FileField()
+    avatar_selection = serializers.CharField(read_only=True)
+    voice_id = serializers.CharField(read_only=True)
+
+    def validate_source_audio(self, upload):
+        from pathlib import Path
+        from apps.videomanagement.services.media.uploads import inspect_media_upload
+
+        if Path(upload.name).suffix.lower() != ".mp3":
+            raise serializers.ValidationError("Choose an MP3 file.")
+        if upload.size > 25 * 1024 * 1024:
+            raise serializers.ValidationError("Choose an MP3 up to 25 MB.")
+        metadata = inspect_media_upload(upload, allow_audio=True)
+        self.audio_duration = metadata["duration"]
+        return upload
+
+    def validate(self, attrs):
+        # The transcript is created by the worker; never accept caller-supplied narration.
+        attrs["message"] = "Uploaded audio"
+        attrs["source_audio_duration"] = self.audio_duration
+        attrs["avatar_selection"] = ""
+        attrs["voice_id"] = None
         return super().validate(attrs)
 
 

@@ -27,7 +27,7 @@ def narrate_scene(scene: Scene, voice_model, dir_name: str, user=None) -> Scene:
     Narrates an existing scene and updates its file path in the database.
     Supports both standard API providers and user custom providers.
     """
-    if not voice_model:
+    if not voice_model or scene.video.source_audio:
         return scene
 
     syn = ApiSyn(

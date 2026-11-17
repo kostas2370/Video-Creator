@@ -31,7 +31,7 @@ def authorized_file(user, name):
     sources = [
         (
             Video.objects.filter(owned),
-            ("output", "reference_image", "cover", "thumbnail"),
+            ("output", "reference_image", "source_audio", "cover", "thumbnail"),
         ),
         (
             Scene.all_objects.filter(video__created_by=user),

@@ -20,7 +20,7 @@ import { MoreAssetOptions } from "../components/ui/MoreAssetOptions";
 import React, { lazy, useState, useEffect, useRef } from "react";
 import { getAvatars, getTemplates, getVoices, getCustomVisualProviders, getGenerationModels } from "../api/apiService";
 import { toast } from "react-toastify";
-import { deleteTemplate, generateVideo, generateTextVideo } from "../api/apiService";
+import { deleteTemplate, generateVideo, generateTextVideo, generateAudioVideo } from "../api/apiService";
 import { waitForVideo } from "../api/waitForVideo";
 import { Link } from "react-router-dom";
 import { RiSparkling2Line, RiArrowRightLine, RiVolumeUpLine, RiImageLine, RiSettings3Line, RiArrowDownSLine } from "react-icons/ri";
@@ -74,6 +74,7 @@ const Home = ({ inputMode = "idea" }) => {
   const referenceInput = useRef(null);
 
   const draft = useCreationDraft(textMode ? "text-video" : "ai-video", { form: {
+    input_source: "text",
     genre: "",
     template: "",
     avatar_selection: "",
@@ -97,8 +98,9 @@ const Home = ({ inputMode = "idea" }) => {
     subtitles: true,
     narration: true,
     avatar_position: "left,top",
-  }, step: 0, settings: false, pendingVideoId: null, hasReferenceFile: false, ui: {} }, restoreWizardDraft);
+  }, step: 0, settings: false, pendingVideoId: null, hasReferenceFile: false, hasAudioFile: false, ui: {} }, restoreWizardDraft);
   const { form: formData, step, settings, pendingVideoId } = draft.value;
+  const audioMode = textMode && formData.input_source === "audio";
   const setFormData = action => draft.update(previous => ({ ...previous, form: typeof action === "function" ? action(previous.form) : action }));
   const setStep = value => draft.update(previous => ({ ...previous, step: value }));
   const setSettings = action => draft.update(previous => ({ ...previous, settings: typeof action === "function" ? action(previous.settings) : action }));
@@ -106,6 +108,9 @@ const Home = ({ inputMode = "idea" }) => {
   const referenceImage = referenceFile.file;
   const setReferenceImage = referenceFile.change;
   const referencePreview = useObjectUrl(referenceImage);
+  const audioFile = useDraftFile(draft.key && `${draft.key}:audio`, draft.value.hasAudioFile, value => draft.update(previous => ({ ...previous, hasAudioFile: value })), "MP3");
+  const audioPreview = useObjectUrl(audioFile.file);
+  const sourceReady = audioMode ? !!audioFile.file && !audioFile.loading && !audioFile.error : !!formData.message.trim();
 
   const supportsReference = supportsVisualReference(formData.provider, formData.image_mode);
   useEffect(() => {
@@ -262,23 +267,25 @@ const Home = ({ inputMode = "idea" }) => {
       toast.error("Choose an available visual provider before generating.");
       return;
     }
-    if (formData.message.trim() === "") {
-      toast.error(textMode ? "Add your script to continue." : "You need to add a prompt!");
+    if (!sourceReady) {
+      toast.error(audioMode ? "Choose an MP3 to continue." : textMode ? "Add your script to continue." : "You need to add a prompt!");
       return;
     }
     setIsLoading(true);
 
-    const generationData = { ...formData, ...(textMode ? { source_text: formData.message, narration: true, narration_language: "" } : {}), review_starting_frames: !!formData.review_starting_frames && supportsReference && isBuiltinVideoProvider(formData.provider), review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
+    const generationData = { ...formData, ...(textMode ? { ...(audioMode ? { voice_id: "", avatar_selection: "" } : { source_text: formData.message }), narration: true, narration_language: "" } : {}), review_starting_frames: !!formData.review_starting_frames && supportsReference && isBuiltinVideoProvider(formData.provider), review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
     if (textMode) delete generationData.message;
+    delete generationData.input_source;
     let payload = generationData;
-    if (supportsReference && referenceImage) {
+    if ((supportsReference && referenceImage) || audioMode) {
       payload = new FormData();
       Object.entries(generationData).forEach(([key, value]) => {
         if (value !== null && value !== undefined) payload.append(key, value);
       });
-      payload.append("reference_image", referenceImage);
+      if (supportsReference && referenceImage) payload.append("reference_image", referenceImage);
+      if (audioMode) payload.append("source_audio", audioFile.file);
     }
-    const result = await (textMode ? generateTextVideo(payload) : generateVideo(payload));
+    const result = await (audioMode ? generateAudioVideo(payload) : textMode ? generateTextVideo(payload) : generateVideo(payload));
     if (!result.ok) { setIsLoading(false); return; }
     const response = result.data;
 
@@ -338,7 +345,7 @@ const Home = ({ inputMode = "idea" }) => {
 
   const navigateStep = target => {
     setValidation("");
-    if (target > 0 && !formData.message.trim()) { setStep(0); setValidation(textMode ? "Add your script to continue." : "Describe your video idea to continue."); return; }
+    if (target > 0 && !sourceReady) { setStep(0); setValidation(audioMode ? "Choose an MP3 to continue." : textMode ? "Add your script to continue." : "Describe your video idea to continue."); return; }
     if (target > 1 && unavailableVisualProvider) { setStep(1); setValidation("Choose an available visual provider to continue."); return; }
     setStep(target);
   };
@@ -347,7 +354,7 @@ const Home = ({ inputMode = "idea" }) => {
     if (isLoading || pendingVideoId) return;
     if (step < 2) { navigateStep(step + 1); return; }
     if (referenceFile.loading || (referenceFile.error && !referenceImage)) return;
-    if (!formData.message.trim()) { navigateStep(1); return; }
+    if (!sourceReady) { navigateStep(0); return; }
     const invalid = Array.from(event.currentTarget.elements).find(element => element.willValidate && !element.checkValidity());
     if (invalid) {
       setStep(invalid.name === "message" ? 0 : 2);
@@ -368,20 +375,20 @@ const Home = ({ inputMode = "idea" }) => {
       <header className="mx-auto mb-6 max-w-6xl">
         <Link to="/" className="studio-text-link mb-4 flex w-fit text-xs">← All creation tools</Link>
         <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl dark:text-white">{textMode ? "Turn your text into a video" : "Turn your idea into a video"}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl dark:text-white">{textMode ? "Turn text or audio into a video" : "Turn your idea into a video"}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">Start with the essentials. Fine-tune the details whenever you’re ready.</p>
       </header>
 
       <form noValidate onSubmit={submitWizard} className="mx-auto max-w-6xl">
-        <CreationDraftNotice onProjectDeleted={draftProjectDeleted} draft={draft} pendingVideoId={pendingVideoId} disabled={isLoading} onReset={() => { setReferenceImage(null); draft.reset(); setValidation(""); setDraftVideo(null); }} />
+        <CreationDraftNotice onProjectDeleted={draftProjectDeleted} draft={draft} pendingVideoId={pendingVideoId} disabled={isLoading} onReset={() => { setReferenceImage(null); audioFile.change(null); draft.reset(); setValidation(""); setDraftVideo(null); }} />
         {referenceFile.error && <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-200">{referenceFile.error} <button type="button" onClick={() => setReferenceImage(null)} className="underline">Remove this reference</button></p>}
-        <CreationSteps steps={[textMode ? "Script" : "Idea", "Look & sound", "Review"]} current={step} onSelect={navigateStep} disabled={isLoading} />
+        <CreationSteps steps={[textMode ? "Text or MP3" : "Idea", "Look & sound", "Review"]} current={step} onSelect={navigateStep} disabled={isLoading} />
         {validation && <p role="alert" className="mb-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">{validation}</p>}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <fieldset disabled={isLoading || !!pendingVideoId} className="min-w-0 space-y-6">
           <div hidden={step !== 0}>
           <CreationDraftContext.Provider key={`${draft.key}:${draft.epoch}`} value={draft}>
-            <GenerationIdeaStep textMode={textMode} form={formData} disabled={isLoading || !!pendingVideoId} onChange={message => { setFormData(previous => ({ ...previous, message, template: "" })); setValidation(""); }} templateControl={<>
+            <GenerationIdeaStep audioProps={{ mode: formData.input_source, onModeChange: input_source => { setFormData(previous => ({ ...previous, input_source })); setValidation(""); }, file: audioFile.file, onFileChange: audioFile.change, preview: audioPreview, error: audioFile.error, loading: audioFile.loading }} textMode={textMode} form={formData} disabled={isLoading || !!pendingVideoId} onChange={message => { setFormData(previous => ({ ...previous, message, template: "" })); setValidation(""); }} templateControl={<>
               <label htmlFor="template" className="block text-sm font-medium">Start from a template</label>
               <div className="flex items-center gap-2">
                 {select("template", <><option value="">Start fresh</option>{templates.map(template => <option key={template.id} value={template.id}>{template.title}</option>)}</>, optionsLoading)}
@@ -396,11 +403,11 @@ const Home = ({ inputMode = "idea" }) => {
           <section aria-labelledby="look-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-5"><h2 id="look-heading" className="text-lg font-semibold">Choose the look &amp; sound</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose your voice, visuals, and frame. The rest is optional.</p></div>
             {!textMode && <div className="mb-5"><NarrationLanguage value={formData.narration_language} onChange={narration_language => setFormData(previous => ({ ...previous, narration_language }))} disabled={isLoading} className={inputClassName} /></div>}
-            <label className="mb-5 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><input id="narration" name="narration" type="checkbox" disabled={textMode} checked={textMode || formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium">Narration</span><span className="block text-xs text-gray-500 dark:text-gray-400">Add a voice-over to tell your story.</span></span></label>
+            <label className="mb-5 flex cursor-pointer items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-900/40"><input id="narration" name="narration" type="checkbox" disabled={textMode} checked={textMode || formData.narration} onChange={handleInputChange} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" /><span><span className="block text-sm font-medium">Narration</span><span className="block text-xs text-gray-500 dark:text-gray-400">{audioMode ? "Use your MP3, split between scenes. No new narration is generated." : "Add a voice-over to tell your story."}</span></span></label>
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-              {!formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
-              {!formData.avatar_selection && <><MoreAssetOptions options={voiceOptions} label="voices" /><VoicePreview voice={selectedVoice} disabled={!formData.narration} /></>}
+              {audioMode ? <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">Your original MP3 supplies every scene’s narration.</div> : !formData.avatar_selection ? field("voice_id", "Voice", select("voice_id", <><option value="">{optionsLoading ? "Loading voices..." : "Any available voice"}</option>{Object.entries(voiceGroups).map(([provider, group]) => <optgroup key={provider} label={provider}>{group.map((voice) => <option key={voice.id} value={voice.id}>{voice.name}</option>)}</optgroup>)}</>, optionsLoading || !formData.narration), !formData.narration ? "Narration is off. Your video will use clips only." : !optionsLoading && voices.length === 0 ? <span>No voices available. <Link to="/api-keys/" className="text-blue-600 underline dark:text-blue-400">Check your provider settings</Link>.</span> : "Choose a voice or let us pick from your available voices.") : <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">{selectedAvatar?.name || "Your presenter"} will narrate using its assigned voice.</div>}
+              {!audioMode && !formData.avatar_selection && <><MoreAssetOptions options={voiceOptions} label="voices" /><VoicePreview voice={selectedVoice} disabled={!formData.narration} /></>}
               </div>
               {field("image_mode", "Visuals", select("image_mode", <><option value="WEB">Web images</option><option value="AI">AI-generated visuals</option></>))}
 
@@ -424,7 +431,7 @@ const Home = ({ inputMode = "idea" }) => {
                 {!visualProvidersLoading && !visualProvidersError && !isBuiltinVisualProvider(formData.provider) && !visualProviders.some((provider) => provider.name === formData.provider) ? <span className="text-amber-700 dark:text-amber-400">This saved provider is unavailable. Choose another provider. </span> : null}
                 <Link to="/api-keys/?section=visual" className="text-blue-600 underline dark:text-blue-400">Manage custom images and videos</Link>
               </span> : null)}
-              {field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration), "An avatar uses its assigned voice.")}
+              {field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration || audioMode), "An avatar uses its assigned voice.")}
               <MoreAssetOptions options={avatarOptions} label="presenters" />
             </div></details>
             <StartingFrameOption mode={formData.image_mode} provider={formData.provider} checked={!!formData.review_starting_frames} onChange={value => setFormData(previous => ({ ...previous, review_starting_frames: value }))} disabled={isLoading} />
@@ -447,12 +454,12 @@ const Home = ({ inputMode = "idea" }) => {
           <div hidden={step !== 2}><div className="space-y-5">
         <aside aria-labelledby="summary-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-4 flex items-center justify-between gap-3"><div><h2 id="summary-heading" className="text-xl font-semibold">Review your video</h2><p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Check your choices before drafting the storyboard.</p></div><button type="button" onClick={() => navigateStep(0)} className="shrink-0 text-xs font-semibold text-blue-600 dark:text-blue-300">{textMode ? "Edit script" : "Edit idea"}</button></div>
-          <p className="mb-5 whitespace-pre-line text-sm leading-relaxed text-gray-600 dark:text-gray-300">{formData.message}</p>
+          <p className="mb-5 whitespace-pre-line text-sm leading-relaxed text-gray-600 dark:text-gray-300">{audioMode ? audioFile.file?.name || "Choose an MP3" : formData.message}</p>
           <GenerationModeSelect value={formData.generation_mode} onChange={value => setFormData(previous => ({ ...previous, generation_mode: value }))} disabled={isLoading} />
           <p className="mb-5 text-xs text-gray-500">{videoFormatOptions.find(format => format.value === formData.video_format)?.label} · {formData.scene_count || "AI-selected"} scenes</p>
             <div className="mt-4 max-w-xs">{field("scene_count", "Number of scenes", <input id="scene_count" name="scene_count" type="number" min={1} max={60} value={formData.scene_count} onChange={handleInputChange} className={inputClassName} placeholder="Let AI choose" />, "One short sentence per scene. Choose 1–60, or leave blank to let AI choose.")}</div>
           <div className="mb-3 mt-5 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">Look &amp; sound</h3><button type="button" onClick={() => navigateStep(1)} className="text-xs font-semibold text-blue-600 dark:text-blue-300">Edit look &amp; sound</button></div><dl className="grid gap-4 rounded-xl bg-gray-50 p-4 text-sm sm:grid-cols-2 dark:bg-gray-900/40">
-            <div className="flex items-start gap-3"><RiVolumeUpLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-medium">{!formData.narration ? "Clips only" : selectedAvatar ? selectedAvatar.name : selectedVoice ? `${selectedVoice.name} · ${ttsProviderNames[selectedVoice.provider] || selectedVoice.provider}` : "Any available voice"}</dd></div></div>
+            <div className="flex items-start gap-3"><RiVolumeUpLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Narration</dt><dd className="mt-1 font-medium">{audioMode ? "Original MP3 · split between scenes" : !formData.narration ? "Clips only" : selectedAvatar ? selectedAvatar.name : selectedVoice ? `${selectedVoice.name} · ${ttsProviderNames[selectedVoice.provider] || selectedVoice.provider}` : "Any available voice"}</dd></div></div>
             <div className="flex items-start gap-3"><RiImageLine aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" /><div><dt className="text-xs text-gray-500 dark:text-gray-400">Visuals</dt><dd className="mt-1 font-medium">{formData.image_mode === "AI" ? (isBuiltinVisualProvider(formData.provider) ? visualProviderNames[formData.provider] : `${formData.provider} · ${selectedVisualProvider?.output_type === "VIDEO" ? "Video clips" : "Images"}`) : "Web images"}</dd></div></div>
           </dl>
         </aside>          <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -490,9 +497,9 @@ const Home = ({ inputMode = "idea" }) => {
         <aside aria-labelledby="video-summary-heading" className="creation-summary studio-panel hidden p-5 lg:block">
           <p className="studio-eyebrow mb-2">Your project</p><h2 id="video-summary-heading" className="text-base font-semibold">Your video at a glance</h2>
           <p className="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Your choices stay with you as you go.</p>
-          <div className="my-5 border-y border-gray-100 py-4 dark:border-gray-700"><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">{textMode ? "Script" : "Idea"}</h3><button type="button" disabled={isLoading || !!pendingVideoId} onClick={() => navigateStep(0)} aria-label="Edit idea in project summary" className="studio-text-link text-xs">Edit</button></div><p className="line-clamp-4 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{formData.message.trim() || "Your next story starts with an idea."}</p></div>
+          <div className="my-5 border-y border-gray-100 py-4 dark:border-gray-700"><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">{textMode ? "Script" : "Idea"}</h3><button type="button" disabled={isLoading || !!pendingVideoId} onClick={() => navigateStep(0)} aria-label="Edit idea in project summary" className="studio-text-link text-xs">Edit</button></div><p className="line-clamp-4 text-sm leading-relaxed text-gray-700 dark:text-gray-200">{audioMode ? audioFile.file?.name || "Choose an MP3" : formData.message.trim() || "Your next story starts with an idea."}</p></div>
           <dl className="space-y-4 text-sm">
-            {[["Format", videoFormatOptions.find(format => format.value === formData.video_format)?.label], ["Visuals", formData.image_mode === "AI" ? "AI-generated visuals" : "Web images"], ["Narration", !formData.narration ? "Off" : selectedAvatar?.name || selectedVoice?.name || "Any available voice"], ["Language", formData.narration_language || "Automatic (match prompt)"], ["Scenes", formData.scene_count || "AI-selected"]].map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3"><dt className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{label}</dt><dd className="text-right text-xs font-medium">{value}</dd></div>)}
+            {[["Format", videoFormatOptions.find(format => format.value === formData.video_format)?.label], ["Visuals", formData.image_mode === "AI" ? "AI-generated visuals" : "Web images"], ["Narration", audioMode ? "Original MP3" : !formData.narration ? "Off" : selectedAvatar?.name || selectedVoice?.name || "Any available voice"], ["Language", formData.narration_language || "Automatic (match prompt)"], ["Scenes", formData.scene_count || "AI-selected"]].map(([label, value]) => <div key={label} className="flex items-start justify-between gap-3"><dt className="shrink-0 text-xs text-gray-500 dark:text-gray-400">{label}</dt><dd className="text-right text-xs font-medium">{value}</dd></div>)}
           </dl>
           <button type="button" disabled={isLoading || !!pendingVideoId} onClick={() => navigateStep(1)} aria-label="Edit look and sound in project summary" className="studio-text-link mt-5 text-xs">Edit look &amp; sound<RiArrowRightLine aria-hidden="true" className="h-3 w-3" /></button>
           <p className="mt-5 rounded-xl bg-gray-50 p-3 text-xs leading-relaxed text-gray-500 dark:bg-gray-900/40 dark:text-gray-400">Every scene is editable. You’ll review the storyboard before generating media.</p>
@@ -500,10 +507,11 @@ const Home = ({ inputMode = "idea" }) => {
         </div>
         <div className={`mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gray-200 bg-white/95 p-4 backdrop-blur dark:border-gray-700 dark:bg-gray-800/95 ${step < 2 ? "sticky bottom-4 z-20 shadow-lg shadow-gray-900/5" : ""}`}>
           <div>{step > 0 ? <button type="button" disabled={isLoading} onClick={() => navigateStep(step - 1)} className="studio-secondary-button">Back</button> : <span className="text-xs text-gray-500">You can edit every scene later.</span>}</div>
-          {step === 2 && !pendingVideoId && <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost scenario={{ ...formData, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count), has_reference: !!referenceImage }} /></div>}
-          {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || modelsLoading || Boolean(modelsError) || unavailableVisualProvider))} className="studio-primary-button justify-center">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }
+          {step === 2 && !pendingVideoId && !audioMode && <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto"><GenerationCost scenario={{ ...formData, ...(audioMode ? { message: "Storyboard visuals for uploaded speech", narration: false } : {}), scene_count: formData.scene_count === "" ? null : Number(formData.scene_count), has_reference: !!referenceImage }} /></div>}
+          {pendingVideoId ? <Link to={`/videos/${encodeURIComponent(pendingVideoId)}/`} className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white">Open saved project</Link> : <button type="submit" disabled={isLoading || (step === 2 && (!sourceReady || referenceFile.loading || (!!referenceFile.error && !referenceImage) || optionsLoading || modelsLoading || Boolean(modelsError) || unavailableVisualProvider))} className="studio-primary-button justify-center">{isLoading ? "Drafting storyboard…" : step === 0 ? "Continue to look & sound" : step === 1 ? "Review video" : "Draft storyboard"}<RiArrowRightLine aria-hidden="true" className="h-4 w-4" /></button> }
         </div>
-        {step === 2 && <p role={isLoading ? "status" : undefined} className="mt-3 text-center text-xs text-gray-500">{isLoading ? "Drafting your storyboard. This can take a few minutes." : "Review the storyboard before generating voice and visuals."}</p>}
+        {step === 2 && audioMode && !pendingVideoId && <p className="mt-3 text-center text-xs text-gray-500">Transcription and storyboard drafting may incur provider charges. Review visual generation costs after transcription.</p>}
+        {step === 2 && <p role={isLoading ? "status" : undefined} className="mt-3 text-center text-xs text-gray-500">{isLoading ? "Drafting your storyboard. This can take a few minutes." : audioMode ? "Your MP3 will be split between scenes. Review the visuals before generating." : "Review the storyboard before generating voice and visuals."}</p>}
       </form>
     </main>
   );

@@ -61,7 +61,12 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
     clip's final frame as an input to the next scene.
     """
     GenerationEstimate.objects.get_or_create(video=video, defaults={"estimate": project_estimate(video)})
-    if not image_mode or ImageProviderRegistry.is_video(
+    if video.source_audio:
+        from apps.videomanagement.services.videos.audio import prepare_audio_scenes
+        prepare_audio_scenes(video)
+        if image_mode:
+            create_image_scenes(video, mode=image_mode, style=style, provider=provider)
+    elif not image_mode or ImageProviderRegistry.is_video(
         provider, user=video.created_by, mode=image_mode
     ):
         make_scenes_speech(video)
@@ -196,10 +201,13 @@ def generate_video(
     - It retrieves a template, formats a prompt, and generates video content using various sources for text, images,
       and audio.
     """
+    if video.source_audio:
+        from apps.videomanagement.services.videos.audio import transcribe_source_audio
+        source_text = transcribe_source_audio(video)
     selected_avatar = owned_asset(Avatar, avatar_selection, video.created_by)
     intro = owned_asset(Intro, intro, video.created_by)
     outro = owned_asset(Outro, outro, video.created_by)
-    voice_model = (
+    voice_model = None if video.source_audio else (
         selected_avatar.voice
         if selected_avatar
         else available_voice(voice_id, video.created_by)
@@ -306,6 +314,8 @@ def generate_video(
         gpt_model=gpt_model or settings.DEFAULT_GPT_MODEL,
     )
     vid.settings.update(audio_settings)
+    if vid.source_audio:
+        vid.settings["creation_mode"] = "AUDIO"
     if music == "auto":
         vid.settings["auto_music"] = True
     elif music and music.startswith(("ai:", "catalog:")):

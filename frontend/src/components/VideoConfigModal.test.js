@@ -182,3 +182,19 @@ it("opens Audio when an enabled narrator needs a voice before saving", async () 
   await waitFor(() => expect(screen.getByRole("tab", { name: "Audio" }).getAttribute("aria-selected")).toBe("true"));
   expect(updateVideo).not.toHaveBeenCalled();
 });
+
+it("uses imported MP3 clips when narration is unmuted and hides voice generation", async () => {
+  updateVideo.mockResolvedValue({ ok: true, status: 200, data: { video: {} } });
+  const options = props();
+  options.info.source_audio = "/media/original.mp3";
+  options.info.settings = { narration: false, creation_mode: "AUDIO" };
+  options.info.scenes = [{ id: "scene", text: "Recorded words" }];
+  render(<VideoConfigModal {...options} />);
+  fireEvent.click(screen.getByRole("tab", { name: "Audio" }));
+  expect(screen.queryByLabelText("Narration voice")).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Narration / }));
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  await waitFor(() => expect(updateVideo).toHaveBeenCalledWith("video", expect.objectContaining({ narration: true })));
+  expect(updateVideo.mock.calls[0][1]).not.toHaveProperty("voice_id");
+  expect(updateVideo.mock.calls[0][1]).not.toHaveProperty("narration_scenes");
+});

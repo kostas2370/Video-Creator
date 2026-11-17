@@ -14,6 +14,12 @@ from apps.usage.services import record_usage, video_usage, current_video
 
 @override_settings(IMAGE_MODEL="gpt-image-2", IMAGE_QUALITY="high", AI_COST_RATES={})
 class GenerationCostTests(TestCase):
+    def test_uploaded_narration_has_no_planned_tts_requests(self):
+        self.project.source_audio = "media/narration/original.mp3"
+        result = media_estimate(self.project, self.storyboard)
+        self.assertNotIn("tts", [line["service"] for line in result["lines"]])
+        self.assertIn("images", [line["service"] for line in result["lines"]])
+
     def test_image_estimates_use_the_registered_provider_calculator(self):
         from apps.videomanagement.integrations.base import ImageCostRequest
         from apps.videomanagement.integrations.visuals.openai_images import OpenAIImageProvider

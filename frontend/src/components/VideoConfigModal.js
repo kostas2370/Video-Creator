@@ -39,7 +39,8 @@ const normalizeAvatarPosition = (position) => {
 };
 
 export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => {
-  const avatarsOptions = useAssetOptions(getAvatars, showModal && info?.video_type !== "MANUAL");
+  const importedAudio = !!info?.source_audio || info?.settings?.creation_mode === "AUDIO";
+  const avatarsOptions = useAssetOptions(getAvatars, showModal && !importedAudio && info?.video_type !== "MANUAL");
   const avatars = avatarsOptions.items;
   const [selectedTab, setSelectedTab] = useState(0);
   const voiceSelect = useRef(null);
@@ -49,13 +50,13 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   const [narration, setNarration] = useState(true);
   const [narrationScenes, setNarrationScenes] = useState(null);
   const [writingNarration, setWritingNarration] = useState(false);
-  const enablingNarration = info?.video_type !== "MANUAL" && info?.settings?.narration === false && narration;
+  const enablingNarration = !importedAudio && info?.video_type !== "MANUAL" && info?.settings?.narration === false && narration;
   const needsNarrationReview = enablingNarration && !!info?.scenes?.length;
   const [videoAudioMode, setVideoAudioMode] = useState("AUTO");
   const [clipAudio, setClipAudio] = useState(false);
   const [clipAudioTouched, setClipAudioTouched] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.07);
-  const voicesOptions = useAssetOptions(getVoices, showModal && !avatar && info?.video_type !== "MANUAL");
+  const voicesOptions = useAssetOptions(getVoices, showModal && !importedAudio && !avatar && info?.video_type !== "MANUAL");
   const voices = voicesOptions.items;
   const introsOptions = useAssetOptions(getIntro, showModal);
   const intros = introsOptions.items;
@@ -259,12 +260,12 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
             </fieldset></TabPanel>
             <TabPanel unmount={false}><fieldset disabled={selectedTab !== 2} className="min-w-0 space-y-6">
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
-              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>{info?.video_type === "MANUAL" ? "Audio" : "Narration and audio"}</h3><p className={sectionDescription}>{info?.video_type === "MANUAL" ? "Choose which audio is included in your video." : "Choose a voice, presenter, and the sound the audience hears."}</p></div></div>
-              {info?.video_type !== "MANUAL" && <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />}
-              {info?.video_type !== "MANUAL" && <MoreAssetOptions options={avatarsOptions} label="avatars" />}
+              <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>{info?.video_type === "MANUAL" ? "Audio" : "Narration and audio"}</h3><p className={sectionDescription}>{importedAudio ? "Keep your original narration clips and adjust the sound the audience hears." : info?.video_type === "MANUAL" ? "Choose which audio is included in your video." : "Choose a voice, presenter, and the sound the audience hears."}</p></div></div>
+              {!importedAudio && info?.video_type !== "MANUAL" && <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />}
+              {!importedAudio && info?.video_type !== "MANUAL" && <MoreAssetOptions options={avatarsOptions} label="avatars" />}
               {info?.video_type !== "MANUAL" && <label htmlFor="video-narration" className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-800">
                 <input id="video-narration" type="checkbox" checked={narration} onChange={(event) => { setNarration(event.target.checked); if (!clipAudioTouched && info?.settings?.video_audio_enabled === undefined) setClipAudio(!event.target.checked); }} className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                <span><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">Read your scene text aloud using the selected voice. Enabling narration generates speech in the background. Turning it off keeps saved recordings.</span></span>
+                <span><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">{importedAudio ? "Play your original MP3 clips. Turning this off mutes them; turning it on keeps the same recordings. No speech is generated." : "Read your scene text aloud using the selected voice. Enabling narration generates speech in the background. Turning it off keeps saved recordings."}</span></span>
               </label>}
               {showModal && needsNarrationReview && <NarrationSetup video={info} disabled={saving} onChange={setNarrationScenes} onBusyChange={setWritingNarration} />}
               <fieldset className="mt-5 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
@@ -280,7 +281,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
                 {narration && clipAudio && (videoAudioMode === "DIALOGUE") && <p className="text-xs text-amber-700 dark:text-amber-300">Narration and character dialogue will both be heard. Keep spoken lines separate to avoid overlapping speech.</p>}
                 <label className="block text-sm font-medium">Background music volume — {Math.round(musicVolume * 100)}%<input aria-label="Background music volume" type="range" min="0" max="100" step="1" value={Math.round(musicVolume * 100)} onChange={event => setMusicVolume(Number(event.target.value) / 100)} className="mt-3 block w-full accent-blue-600" /><span className="mt-1 block text-xs font-normal text-gray-500 dark:text-gray-400">{info?.music ? "Set to 0% to mute the soundtrack. More music controls are in Project extras." : "Add a soundtrack in Project extras to hear background music."}</span></label>
               </fieldset>
-              {!avatar && info?.video_type !== "MANUAL" && (
+              {!importedAudio && !avatar && info?.video_type !== "MANUAL" && (
                 <div className="mt-5">
                   <label htmlFor="video-voice" className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration voice</label>
                   <select ref={voiceSelect} id="video-voice" value={voice} onChange={(event) => setVoice(event.target.value)} disabled={saving || !narration || selectedTab !== 2} required={narration} className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white">

@@ -251,16 +251,26 @@ Removed scenes can be restored from **Project extras → Recently deleted** for 
 days. Reusable scene assets remain in the media library after their project is
 deleted; assets still used by a scene cannot be deleted from the library.
 
-### Turn a script into a video
+### Turn text or an MP3 into a video
 
-Choose **Text to video** from the creation tools. Paste narration or upload a UTF-8
-`.txt` file, up to 2,000 characters. Choose visuals, a narrator, and a frame, then
-review the storyboard before generating media. Imported narration keeps its original
-words and language; a draft that changes the wording is rejected before media
-requests. Scene breaks may change whitespace. You can edit the script and visual
-prompts during review, then use the same video editor and export controls as other
-AI videos. Text-import drafts recover separately from idea-based creation.
-Audio-file import is planned as the next step.
+Choose **Text or MP3 to video** from the creation tools, then choose **Text** or
+**MP3**. Paste narration or upload a UTF-8 `.txt` file, up to 2,000 characters,
+to generate a voice-over. For an existing recording, upload a spoken MP3 up to
+25 MB and 15 minutes (up to 20,000 transcript characters). MP3 mode transcribes
+speech with the configured local Whisper or OpenAI provider and keeps your original
+recording: it does **not** generate new narration.
+
+Review the storyboard and visual prompts before generating media. The original MP3
+is split at transcript timestamps into an independent audio clip for each scene,
+including pauses at scene boundaries and the recording’s beginning and ending.
+Word captions reuse the transcript timing. The clips stay with their scenes when
+reordered, and the usual audio, scene, image, and export controls remain available.
+Recorded words stay in order during storyboard review; replace or edit audio in the
+editor when changing what is spoken. For text mode, wording and language are
+preserved in the initial draft, and you can edit narration during review.
+
+Text and MP3 share one creation workspace, with browser draft recovery for the
+chosen input and uploaded recording. It is separate from idea-based creation.
 
 ### Add captions to an existing video
 

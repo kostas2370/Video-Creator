@@ -74,6 +74,7 @@ export const uploadMusic = (id, data) => post(action("videos", id, "music"), dat
 export const removeMusic = id => remove(action("videos", id, "music"), callerHandlesErrors);
 export const generateVideo = data => post("generate/", data);
 export const generateTextVideo = data => post("generate/text/", data);
+export const generateAudioVideo = data => post("generate/audio/", data);
 export const approveScript = (id, data) => post(action("videos", id, "approve_script"), data, callerHandlesErrors);
 export const reorderScenes = (id, sceneIds, expectedSceneIds) => post(action("videos", id, "reorder_scenes"), { scene_ids: sceneIds, ...(expectedSceneIds ? { expected_scene_ids: expectedSceneIds } : {}) }, callerHandlesErrors);
 export const getDeletedScenes = (id, page = 1) => request({ url: action("videos", id, "deleted_scenes"), params: { page }, ...callerHandlesErrors });

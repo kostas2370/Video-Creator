@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { readDraftFile, writeDraftFile } from "../utils/draftFiles";
 
-export function useDraftFile(key, expected, onExpectedChange) {
+export function useDraftFile(key, expected, onExpectedChange, label = "reference image") {
   const [frame, setFrame] = useState({ key, file: null });
   const [loading, setLoading] = useState(!!expected);
   const [error, setError] = useState("");
@@ -13,8 +13,8 @@ export function useDraftFile(key, expected, onExpectedChange) {
     if (!key || !expected) return;
     readDraftFile(key).then(restored => {
       if (sequence.current !== token) return;
-      if (restored) setFrame({ key, file: restored }); else setError("Reattach your reference image before continuing; the browser could not recover it.");
-    }).catch(() => { if (sequence.current === token) setError("Reattach your reference image before continuing; file recovery is unavailable."); }).finally(() => { if (sequence.current === token) setLoading(false); });
+      if (restored) setFrame({ key, file: restored }); else setError(`Reattach your ${label} before continuing; the browser could not recover it.`);
+    }).catch(() => { if (sequence.current === token) setError(`Reattach your ${label} before continuing; file recovery is unavailable.`); }).finally(() => { if (sequence.current === token) setLoading(false); });
     return () => { sequence.current += 1; };
   }, [key]);
   const change = next => {
@@ -26,7 +26,7 @@ export function useDraftFile(key, expected, onExpectedChange) {
     pending.current = pending.current.catch(() => {}).then(() => writeDraftFile(key, next)).then(() => {
       if (sequence.current === token) setLoading(false);
     }).catch(() => {
-      if (sequence.current === token) { setLoading(false); setError("The reference image could not be saved for recovery. Choose it again or remove it before continuing."); }
+      if (sequence.current === token) { setLoading(false); setError(`The ${label} could not be saved for recovery. Choose it again or remove it before continuing.`); }
     });
   };
   useEffect(() => {
