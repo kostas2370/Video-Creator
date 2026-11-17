@@ -251,9 +251,9 @@ Removed scenes can be restored from **Project extras → Recently deleted** for 
 days. Reusable scene assets remain in the media library after their project is
 deleted; assets still used by a scene cannot be deleted from the library.
 
-### Turn text or audio into a video
+### Narration to video
 
-Choose **Text or audio to video** from the creation tools, then choose **Text** or
+Choose **Narration to video** from the creation tools, then choose **Text** or
 **Audio**. Paste narration or upload a UTF-8 `.txt` file, up to 2,000 characters,
 to generate a voice-over. For an existing recording, upload a spoken MP3 or WAV up to
 25 MB and 15 minutes (up to 20,000 transcript characters). Audio mode transcribes

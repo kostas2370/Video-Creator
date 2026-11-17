@@ -1,3 +1,4 @@
+import { HiOutlineSpeakerWave } from "react-icons/hi2";
 import { NarrationLanguage } from "../components/NarrationLanguage";
 import { VoicePreview } from "../components/VoicePreview";
 import { StartingFrameOption } from "../components/StartingFrameOption";
@@ -374,8 +375,8 @@ const Home = ({ inputMode = "idea" }) => {
       <DeleteModal showModal={deletingTemplate} setShowModal={setDeletingTemplate} id={selectedTemplate?.id} name={selectedTemplate?.title} setItems={dropTemplate} deleteFunction={deleteTemplate} />
       <header className="mx-auto mb-6 max-w-6xl">
         <Link to="/" className="studio-text-link mb-4 flex w-fit text-xs">← All creation tools</Link>
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"><RiSparkling2Line aria-hidden="true" />VIDEO STUDIO</div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl dark:text-white">{textMode ? "Turn text or audio into a video" : "Turn your idea into a video"}</h1>
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">{textMode ? <HiOutlineSpeakerWave aria-hidden="true" /> : <RiSparkling2Line aria-hidden="true" />}{textMode ? "NARRATION STUDIO" : "VIDEO STUDIO"}</div>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl dark:text-white">{textMode ? "Narration to video" : "Turn your idea into a video"}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">Start with the essentials. Fine-tune the details whenever you’re ready.</p>
       </header>
 
