@@ -1,4 +1,5 @@
 import React from "react";
+import { DiagramFields } from "./DiagramFields";
 import { ShotPlanFields } from "./ShotPlanFields";
 import { VisualEditingFields } from "./VisualEditingFields";
 import { isBuiltinVideoProvider } from "../utils/visualProviders";
@@ -39,6 +40,10 @@ export function StoryboardScene({ scene, index, video, narration, disabled, onCh
             {shot.editing?.diagram ? <p className="text-sm text-gray-500">This scene uses a diagram. No visual prompt is needed.</p> : <label className="block text-sm font-medium">Visual prompt
               <textarea required maxLength={2000} rows={3} disabled={disabled} value={shot.image_description || ""} onChange={event => onChange(shotIndex, "image_description", event.target.value)} className={inputClass} />
             </label>}
+            {!video.settings?.ai_scene_editing && shot.editing?.diagram && <fieldset disabled={disabled}><DiagramFields
+              value={shot.editing.diagram}
+              onChange={diagram => onChange(shotIndex, "editing", { ...shot.editing, diagram })}
+            /></fieldset>}
             {(video.mode === "AI" || video.settings?.ai_scene_editing) && (
               <details className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900/50">
                 <summary className="cursor-pointer text-xs font-medium text-gray-500">Motion, diagrams &amp; shot settings</summary>

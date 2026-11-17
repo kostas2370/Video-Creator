@@ -26,15 +26,11 @@ sentence, write {parts}.
 
 def _script_structure(brief, narration, ai_scene_editing=False):
     video = brief is _VISUAL_BRIEFS[VisualType.VIDEO]
-    parts = f"the narration and {brief.description}"
-    if not narration:
-        parts = f"only {brief.description} — omit the sentence field because voice-over narration is off"
-    if ai_scene_editing:
-        parts = "one visual: a non-diagram description or editing.diagram"
-        if narration:
-            parts = "the narration and " + parts
-        else:
-            parts += " — omit sentence because voice-over narration is off"
+    parts = "one visual: a non-diagram description or editing.diagram"
+    if narration:
+        parts = "the narration and " + parts
+    else:
+        parts += " — omit sentence because voice-over narration is off"
     shot = {"image_description": brief.placeholder}
     if narration:
         shot = {"sentence": "<the narration to be spoken>", **shot}
@@ -71,10 +67,58 @@ def _script_structure(brief, narration, ai_scene_editing=False):
     return (
         _STILL_BRIEF.format(parts=parts)
         + "\nAnswer with JSON only — no prose, no markdown, no code fences — using this shape"
-        + (" (image_description is only for non-diagram shots)" if ai_scene_editing else "")
+        + " (image_description is only for non-diagram shots)"
         + ":\n"
         + json.dumps(shape, indent=2)
         + "\n"
+    )
+
+
+def diagram_instructions(diagram_icons=()):
+    """Diagram visuals are available independently of automatic editing."""
+    instructions = (
+        "Use diagrams for explanations, comparisons, lists, processes or cause and effect "
+        "when the subject itself need not be seen. In supported explainers, aim for 1–2 diagram "
+        "scenes out of 4–6, or 2–3 out of 7–10; these are not quotas. Never force diagrams "
+        "into character drama or scenic footage. If editing is present on other shots, use diagram null. "
+        "For diagram shots, omit image_description entirely: the diagram is the complete "
+        "visual and needs no image, video, or search prompt. Keep overlays empty, motion_style "
+        "NONE, animation_preset NONE, animation_accents false and shot_plan.camera_movement "
+        "STATIC; diagram animation is built in. "
+        "A diagram has template, title (max 60 characters), items with label (max 40) and "
+        "detail (max 90, may be empty). Templates: comparison for exactly two alternatives; "
+        "timeline for 2–4 chronological events (date/time in labels); steps for 2–4 ordered stages; "
+        "flow for 2–4 genuinely connected stages transferring material, energy or signals. "
+        "Flow shows all stages with directional arrows and moving markers; it is not a timeline. "
+        "Use graph for 2–6 icon nodes with branches/merges and no cards; prefer 2–4 in portrait, "
+        "short labels and empty detail. Optional connections: at most 8 objects with zero-based "
+        "source, target and optional label (max 30). No self-connections, duplicate arrows or "
+        "cycles. Omit connections for a horizontal chain; [] means no arrows. "
+        "Other diagrams reveal cards sequentially. Keep content readable within the shot's "
+        "duration; never invent dates, measurements, claims or intermediate stages. "
+    )
+    if diagram_icons:
+        instructions += (
+            "Optional item icon: an ID from this topic-based shortlist, or empty when none fits. "
+            "Choose by meaning; never invent IDs or URLs. AVAILABLE DIAGRAM ICONS:\n"
+            + "\n".join(f"- {icon['id']}: {icon['name']} — {icon['description']}" for icon in diagram_icons)
+            + "\n"
+        )
+    else:
+        instructions += "No icons are installed for this request; omit icon fields. "
+    return instructions
+
+
+def diagram_only_instructions(diagram_icons=()):
+    return (
+        "DIAGRAM VISUALS (available with AI scene editing off):\n"
+        + diagram_instructions(diagram_icons)
+        + 'For diagram shots only, return editing with motion_style "NONE", '
+        'motion_intensity "SUBTLE", transition_after "CUT", transition_duration 0.1, '
+        'pause_after 0, animation_preset "NONE", animation_accents false, overlays [], '
+        'and diagram containing the structured visual. Omit editing on non-diagram shots. '
+        'Do not add automatic effects, labels, pauses or transitions. '
+        'If shot_plan is present on a diagram, use camera_movement STATIC. '
     )
 
 
@@ -99,36 +143,9 @@ def scene_editing_instructions(visual_type, diagram_icons=()):
         "text (max 80 characters, ideally 2–6 words), position (top-left, top-center, top-right, "
         "middle-center), start_fraction and end_fraction (0–1, end > start, no overlap). "
         "Time labels to the relevant thought; keep the bottom clear for captions. "
-        "Use diagrams for explanations, comparisons, lists, processes or cause and effect "
-        "when the subject itself need not be seen. In supported explainers, aim for 1–2 diagram "
-        "scenes out of 4–6, or 2–3 out of 7–10; these are not quotas. Never force diagrams "
-        "into character drama or scenic footage. Use diagram null for other shots. "
-        "For diagram shots, omit image_description entirely: the diagram is the complete "
-        "visual and needs no image, video, or search prompt. Keep overlays empty, motion_style "
-        "NONE, animation_preset NONE, animation_accents false and shot_plan.camera_movement "
-        "STATIC; diagram animation is built in. "
-        "A diagram has template, title (max 60 characters), items with label (max 40) and "
-        "detail (max 90, may be empty). Templates: comparison for exactly two alternatives; "
-        "timeline for 2–4 chronological events (date/time in labels); steps for 2–4 ordered stages; "
-        "flow for 2–4 genuinely connected stages transferring material, energy or signals. "
-        "Flow shows all stages with directional arrows and moving markers; it is not a timeline. "
-        "Use graph for 2–6 icon nodes with branches/merges and no cards; prefer 2–4 in portrait, "
-        "short labels and empty detail. Optional connections: at most 8 objects with zero-based "
-        "source, target and optional label (max 30). No self-connections, duplicate arrows or "
-        "cycles. Omit connections for a horizontal chain; [] means no arrows. "
-        "Other diagrams reveal cards sequentially. Keep content readable within the shot's "
-        "duration; never invent dates, measurements, claims or intermediate stages. "
         "Timings are reviewable estimates. Keep editing directions out of narration. "
     )
-    if diagram_icons:
-        instructions += (
-            "Optional item icon: an ID from this topic-based shortlist, or empty when none fits. "
-            "Choose by meaning; never invent IDs or URLs. AVAILABLE DIAGRAM ICONS:\n"
-            + "\n".join(f"- {icon['id']}: {icon['name']} — {icon['description']}" for icon in diagram_icons)
-            + "\n"
-        )
-    else:
-        instructions += "No icons are installed for this request; omit icon fields. "
+    instructions += diagram_instructions(diagram_icons)
     if visual_type == VisualType.VIDEO:
         return instructions + (
             "Use motion_style NONE and animation_preset NONE for every shot. "
@@ -202,8 +219,10 @@ def build_text_storyboard_prompt(
         output += "\n" + audio_direction(
             audio_mode({"narration": True, "video_audio_mode": video_audio_mode})
         )
-    if ai_scene_editing:
-        output += "\n" + scene_editing_instructions(visual_type, diagram_icons)
+    output += "\n" + (
+        scene_editing_instructions(visual_type, diagram_icons)
+        if ai_scene_editing else diagram_only_instructions(diagram_icons)
+    )
     return output + "\nSupplied narration (JSON string):\n" + json.dumps(source_text, ensure_ascii=False)
 
 
@@ -307,6 +326,8 @@ def build_script_prompt(
         output += "\nAI SCENE EDITING:\n" + scene_editing_instructions(
             visual_type, diagram_icons
         )
+    else:
+        output += "\n" + diagram_only_instructions(diagram_icons)
     if narration:
         output += " Each spoken entry is one short sentence, ideally 8–25 words, never a paragraph."
     else:
@@ -448,7 +469,7 @@ def build_storyboard_revision_prompt(
                 resolve_visual_type(image_mode, video_provider)
             )
             if settings.get("ai_scene_editing")
-            else ""
+            else "\n" + diagram_only_instructions()
         )
         + "\nProject context:\n"
         + json.dumps(project_context)

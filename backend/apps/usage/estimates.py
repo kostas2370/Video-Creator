@@ -86,7 +86,7 @@ def media_estimate(video, storyboard=None, *, scene=None, operation="all", text=
     if narration and not getattr(video, "source_audio", None) and operation in ("all", "narration") and count:
         lines.append(voice_estimate(video, "".join(texts), requests=count))
     if operation == "all":
-        if scene is None and options.get("ai_scene_editing"):
+        if scene is None:
             durations = [duration for shot, duration in zip(shots, durations)
                          if not (shot.get("editing") or {}).get("diagram")]
         elif scene is not None and full_scene_diagram(scene):

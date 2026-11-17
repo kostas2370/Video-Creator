@@ -292,7 +292,12 @@ diagram, removes unused legacy descriptions during generation/review, and still
 requires descriptions for ordinary visual shots. Silent diagram shots use their title
 or item labels internally instead of inventing an image prompt. The review form shows
 diagram content without requiring a visual-prompt field. Diagram backgrounds remain
-local and make no image/video provider request.
+local and make no image/video provider request. Diagram instructions and icon shortlists
+are included whether AI scene editing is on or off, including exact-script imports and
+storyboard revisions. With editing off, only diagram shots receive a neutral editing
+container; ordinary shots receive no automatic editing plan. Diagram content remains
+reviewable, and project estimates exclude diagram visuals in either mode while retaining
+narration costs.
 
 The storyboard instruction review resolved these conflicts:
 
@@ -304,7 +309,7 @@ The storyboard instruction review resolved these conflicts:
 
 Repeated editing advice was condensed while preserving supported fields, enum values,
 numeric limits, label timing, diagram shapes, graph constraints, and icon restrictions.
-With the same six-scene plant-growth brief, no icon catalog, and AI scene editing enabled,
+Before separating diagram instructions from the AI-editing toggle, with the same six-scene plant-growth brief, no icon catalog, and AI scene editing enabled,
 the storyboard templates measured as follows:
 
 | Template | Before (characters) | After (characters) | Reduction |

@@ -15,6 +15,7 @@ from apps.videomanagement.prompts.storyboard import (
     build_script_prompt,
     build_scene_draft_prompt,
     build_text_storyboard_prompt,
+    build_storyboard_revision_prompt,
 )
 from apps.videomanagement.schemas.drafts import SceneDraftResultSerializer
 from apps.videomanagement.serializers.requests import StoryboardSerializer
@@ -105,6 +106,43 @@ class DiagramStoryboardValidationTests(SimpleTestCase):
         model.assert_called_once()
         self.assertNotIn("image_description", result["scenes"][0]["sentences"][0])
 
+    def test_diagram_only_plan_is_valid_with_editing_disabled(self):
+        script = diagram_script()
+        shot = script["scenes"][0]["sentences"][0]
+        shot["editing"] = {
+            "motion_style": "NONE", "motion_intensity": "SUBTLE",
+            "transition_after": "CUT", "transition_duration": 0.1,
+            "pause_after": 0, "animation_preset": "NONE",
+            "animation_accents": False, "overlays": [], "diagram": DIAGRAM,
+        }
+        for moving in (True, False):
+            self.assertFalse(script_errors(script, ai_scene_editing=False, video_provider=moving))
+            serializer = StoryboardSerializer(data=script, context={"video_provider": moving})
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_diagram_instructions_are_available_without_automatic_effects(self):
+        for mode in ("AI", "WEB"):
+            for moving in (True, False):
+                for narration in (True, False):
+                    prompt = build_script_prompt(
+                        image_mode=mode, video=moving, narration=narration,
+                        ai_scene_editing=False,
+                    )
+                    self.assertIn("For diagram shots, omit image_description entirely", prompt)
+                    self.assertIn("Omit editing on non-diagram shots", prompt)
+                    self.assertNotIn("Return editing on every sentences entry", prompt)
+        prompts = [
+            build_text_storyboard_prompt("A seed grows.", ai_scene_editing=False),
+            build_storyboard_revision_prompt(
+                diagram_script(), "Explain growth", field_specification="",
+                project_context={}, settings={"ai_scene_editing": False},
+                image_mode="AI", video_provider=False,
+            ),
+        ]
+        for prompt in prompts:
+            self.assertIn("For diagram shots, omit image_description entirely", prompt)
+            self.assertIn("Omit editing on non-diagram shots", prompt)
+
     def test_scene_draft_removes_an_unused_image_description(self):
         for description in (None, "", "Unused photo"):
             data = {"text": "A seed grows into a plant.", "diagram": DIAGRAM}
@@ -139,6 +177,21 @@ class DiagramStoryboardValidationTests(SimpleTestCase):
 
 
 class DiagramStoryboardGenerationTests(TestCase):
+    def test_icon_shortlist_is_available_when_ai_editing_is_disabled(self):
+        from apps.videomanagement.services.videos.generation import _planning_options
+
+        project = video.make(mode="AI")
+        candidates = [{"id": "test:plant", "name": "Plant", "description": "A plant"}]
+        with (
+            patch("apps.videomanagement.services.videos.generation.icon_candidates", return_value=candidates) as icons,
+            patch("apps.videomanagement.services.videos.generation.ImageProviderRegistry.is_video", return_value=False),
+        ):
+            options = _planning_options(project, {"message": "Plant growth", "image_mode": "AI", "ai_scene_editing": False})
+        icons.assert_called_once_with("Plant growth", user=project.created_by_id)
+        self.assertEqual(options["diagram_icons"], candidates)
+        prompt = build_script_prompt(**options)
+        self.assertIn("test:plant", prompt)
+
     def test_silent_diagram_without_description_generates_only_a_local_background_and_resumes(
         self,
     ):

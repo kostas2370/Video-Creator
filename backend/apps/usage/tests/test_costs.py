@@ -14,6 +14,27 @@ from apps.usage.services import record_usage, video_usage, current_video
 
 @override_settings(IMAGE_MODEL="gpt-image-2", IMAGE_QUALITY="high", AI_COST_RATES={})
 class GenerationCostTests(TestCase):
+    def test_diagram_estimates_skip_paid_visuals_with_editing_on_or_off(self):
+        from copy import deepcopy
+        from apps.videomanagement.tests.test_diagram_storyboards import diagram_script
+        from apps.videomanagement.integrations.visuals.openai_images import OpenAIImageProvider
+
+        for planning in (True, False):
+            for narration in (True, False):
+                self.project.settings.update(ai_scene_editing=planning, narration=narration)
+                for mixed in (True, False):
+                    script = diagram_script(narration)
+                    if mixed:
+                        script["scenes"].extend(deepcopy(self.storyboard["scenes"]))
+                    with self.subTest(planning=planning, narration=narration, mixed=mixed):
+                        with patch.object(OpenAIImageProvider, "calculate", wraps=OpenAIImageProvider.calculate) as calculate:
+                            result = media_estimate(self.project, script)
+                        if mixed:
+                            self.assertEqual(calculate.call_args.args[0].count, 1)
+                        else:
+                            calculate.assert_not_called()
+                        self.assertEqual("tts" in [line["service"] for line in result["lines"]], narration)
+
     def test_uploaded_narration_has_no_planned_tts_requests(self):
         self.project.source_audio = "media/narration/original.mp3"
         result = media_estimate(self.project, self.storyboard)
