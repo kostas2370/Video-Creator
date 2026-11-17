@@ -4,14 +4,22 @@ from dataclasses import dataclass
 from typing import Iterator
 
 
-def scene_text(sentence: dict) -> str:
-    """The text that identifies a scene.
+def shot_diagram(shot: dict):
+    editing = shot.get("editing")
+    return editing.get("diagram") if isinstance(editing, dict) else None
 
-    Normally the narration. With narration switched off the script is not asked for a
-    spoken line at all, so the shot description stands in — Scene rows are looked up by
-    this text later, so it has to come from somewhere.
-    """
-    return (sentence.get("sentence") or sentence["image_description"]).strip()
+
+def scene_text(sentence: dict) -> str:
+    """Use narration, or a visual's own text to identify a silent shot."""
+    if sentence.get("sentence"):
+        return sentence["sentence"].strip()
+    diagram = shot_diagram(sentence)
+    if diagram:
+        return (
+            diagram.get("title")
+            or " → ".join(item["label"] for item in diagram["items"])
+        ).strip()
+    return sentence.get("image_description", "").strip()
 
 
 @dataclass(frozen=True)
@@ -30,7 +38,9 @@ def script_lines(gpt_answer: dict) -> Iterator[ScriptLine]:
         for index, sentence in enumerate(sentences):
             yield ScriptLine(
                 text=scene_text(sentence),
-                image_description=sentence["image_description"],
+                image_description=""
+                if shot_diagram(sentence)
+                else sentence.get("image_description", ""),
                 is_last=index == len(sentences) - 1,
                 editing=sentence.get("editing"),
                 shot_plan=sentence.get("shot_plan"),

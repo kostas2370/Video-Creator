@@ -151,7 +151,10 @@ def ensure_scene_rows(video: Video):
             existing[index] = row
         if index not in existing:
             editing = {}
-            if choices.get("ai_scene_editing") and line.editing is not None:
+            if line.editing is not None and (
+                choices.get("ai_scene_editing")
+                or (isinstance(line.editing, dict) and line.editing.get("diagram"))
+            ):
                 plan = SceneEditingPlanSerializer(
                     data=line.editing, context={"video_provider": video_provider, "user": video.created_by_id}
                 )

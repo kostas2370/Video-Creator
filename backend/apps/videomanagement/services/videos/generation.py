@@ -171,9 +171,7 @@ def _planning_options(video, choices):
         style=choices.get("style", "natural"),
         video_audio_mode=(video.settings or {}).get("video_audio_mode", "AUTO"),
         ai_scene_editing=choices.get("ai_scene_editing", False),
-        diagram_icons=icon_candidates(choices["message"], user=video.created_by_id)
-        if choices.get("ai_scene_editing")
-        else (),
+        diagram_icons=icon_candidates(choices["message"], user=video.created_by_id),
         visual_continuity=choices.get("visual_continuity", ""),
         reference_role=choices.get("reference_role", "both") if has_reference else None,
     )

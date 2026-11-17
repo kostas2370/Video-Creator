@@ -94,7 +94,14 @@ class ShotPlanValidationTests(SimpleTestCase):
             shape = json.loads(prompt[prompt.index("{") : prompt.rindex("}") + 1])
             self.assertIn("shot_plan", shape["scenes"][0]["sentences"][0])
             self.assertIn("Actual narration controls", prompt)
-        self.assertNotIn("shot_plan", build_script_prompt(image_mode="WEB"))
+        prompt = build_script_prompt(image_mode="WEB")
+        shape = json.loads(prompt[prompt.index("{") : prompt.rindex("}") + 1])
+        shot = shape["scenes"][0]["sentences"][0]
+        self.assertNotIn("shot_plan", shot)
+        self.assertNotIn("editing", shot)
+        self.assertIn("concise image search query", prompt)
+        self.assertIn("If shot_plan is present on a diagram", prompt)
+        self.assertIn("Omit editing on non-diagram shots", prompt)
 
     def test_script_lines_keep_the_original_prompt_and_plan_separate(self):
         line = next(script_lines(storyboard()))

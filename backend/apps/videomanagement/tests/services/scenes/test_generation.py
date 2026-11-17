@@ -248,7 +248,7 @@ class DiagramSceneDraftTests(TestCase):
         with patch.object(SceneServices, "get_raw_reply", return_value=json.dumps(draft)):
             result = draft_scene(vid, "Use an icon graph")
         self.assertEqual(result["diagram"], self.diagram)
-        self.assertEqual(result["image_description"], "")
+        self.assertNotIn("image_description", result)
         self.assertFalse(vid.scenes.exists())
 
     def test_rejects_invalid_graph_connections(self):

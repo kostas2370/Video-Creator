@@ -37,7 +37,7 @@ _WEB_IMAGE_INSTRUCTIONS = (
 
 
 _IMAGE_INSTRUCTIONS = (
-    "Provide vivid, highly detailed visual descriptions for every shot. "
+    "Provide vivid, highly detailed visual descriptions only for non-diagram still shots. "
     "Describe the subject, setting, composition, and relevant lighting."
 )
 
