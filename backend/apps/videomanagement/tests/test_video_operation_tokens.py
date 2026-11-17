@@ -51,6 +51,31 @@ class VideoOperationTokenTests(ApiTestCase):
         self.assertEqual(current.export_source_key, "")
         self.assertIsNone(current.exported_at)
 
+    def test_old_web_model_can_insert_after_the_source_audio_migration(self):
+        old_apps = (
+            MigrationExecutor(connection)
+            .loader.project_state(
+                [
+                    (
+                        "videomanagement",
+                        "0064_alter_templateprompt_narration_language_and_more",
+                    )
+                ]
+            )
+            .apps
+        )
+        old_video = old_apps.get_model("videomanagement", "Video")
+        legacy = old_video.objects.create(
+            title="Legacy video without audio",
+            created_by_id=self.user.pk,
+            prompt_id=self.video.prompt_id,
+            status="READY",
+        )
+        current = Video.objects.get(pk=legacy.pk)
+        self.assertEqual(current.source_audio.name, "")
+        self.assertEqual(current.source_audio_words, [])
+        self.assertIsNone(current.source_audio_duration)
+
     def test_old_web_models_can_insert_after_the_language_migrations(self):
         old_apps = (
             MigrationExecutor(connection)
