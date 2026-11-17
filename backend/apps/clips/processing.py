@@ -30,7 +30,6 @@ from .youtube_captions import youtube_transcript
 
 logger = logging.getLogger(__name__)
 CHUNK_SECONDS = 600
-TRANSCRIPTION_WORKERS = 2
 
 
 def make_preview(project, directory):
@@ -124,7 +123,8 @@ def transcribe_source(project, rows, directory):
     count = math.ceil((project.range_stop - project.range_start) / CHUNK_SECONDS)
     remaining = iter(index for index in range(count) if str(index) not in parts)
     pending, failure, current = {}, None, True
-    with ThreadPoolExecutor(max_workers=TRANSCRIPTION_WORKERS) as executor:
+    workers = min(count, max(1, min(8, settings.CLIP_TRANSCRIPTION_WORKERS)))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
 
         def submit_next():
             nonlocal current
@@ -144,7 +144,7 @@ def transcribe_source(project, rows, directory):
                     )
                 ] = index
 
-        for _ in range(TRANSCRIPTION_WORKERS):
+        for _ in range(workers):
             if current:
                 submit_next()
         while pending:

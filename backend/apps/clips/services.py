@@ -81,7 +81,7 @@ def create_project(user, source=None, metadata=None, **options):
     return project
 
 
-def queue_project(project):
+def queue_project(project, *, resume=False, revision=None):
     # Tasks import processing, which imports this service module.
     from .tasks import process_project_task
 
@@ -93,8 +93,11 @@ def queue_project(project):
             raise ClipConflict(
                 "Highlights are already prepared. Add or edit clips in the workspace."
             )
+        if resume and project.updated_at != revision:
+            raise ClipConflict("Processing changed. Refresh progress before resuming.")
         if (
-            project.status in PROJECT_BUSY
+            not resume
+            and project.status in PROJECT_BUSY
             and project.job_id
             and project.updated_at > timezone.now() - PROJECT_STALE_AFTER
         ):

@@ -169,8 +169,12 @@ Open **Transcript & AI search** and use **Find clips with AI**. Describe a topic
 for example, “Find a clip where they explain how to start a business”. Search uses
 the saved transcript and the project's preferred clip lengths. It returns up to
 three candidate excerpts without changing the original extraction brief or adding
-clips automatically. Choose **Add and edit clip** to create a result and open it
-in the editor. No match and provider errors leave the query available for retry.
+clips automatically. Choose **Add clip** to save a result while keeping the search open, or select
+several results and choose **Add selected**. Successfully added results are marked
+and cannot be added again from that search. If an addition fails, previous additions
+remain saved and the remaining selection can be retried. **Add and edit clip** saves
+one result and opens it in the editor. Search results remain available when switching
+between the transcript and clips views, until a new search or leaving the project. No match and provider errors leave the query available for retry.
 Text-provider usage is charged; no transcription request is made for search.
 
 You can switch between clip editors while keeping each unsaved draft. A successful
@@ -198,7 +202,13 @@ Existing clips start with an empty list. Suggestions do not claim current trend 
 ## Recovery and storage
 
 Transcription is processed in ten-minute chunks with a small overlap and saved
-checkpoints. Up to two requests run concurrently per project. Completed chunks are
+checkpoints. By default, up to four OpenAI requests or two local Whisper requests
+run concurrently per project. Set `CLIP_TRANSCRIPTION_WORKERS` in the backend environment
+to an integer from 1 to 8 to override this limit, then restart workers. Each project
+has its own limit; multiple projects multiply total concurrency. Higher concurrency
+can reduce transcription time for long sources, but does not speed up preview creation,
+YouTube downloading, or highlight selection. Provider rate limits and available CPU
+can limit the gain; lower the setting if requests are rate limited. Completed chunks are
 saved by index even when they finish out of order, and the final transcript is
 merged in source order. If one request fails, no further chunks are dispatched;
 requests already running finish and their successful results are saved. Retries
@@ -215,7 +225,16 @@ A failure while finding highlights does not remove manual clips or the upload.
 Retry suggestions add non-overlapping clips while preserving existing edits.
 Exports have independent statuses, job tokens, and retries. Batch dispatch reports
 per-clip queue failures. Duplicate deliveries and superseded tokens cannot commit
-results. Source processing idle for three hours can be retried. Exports become retryable
+results. Failed jobs show **Resume processing**, which reuses the source, preview, transcript,
+and completed chunks. Only missing chunks are requested again; a chunk interrupted
+before its checkpoint is saved must be transcribed again. Source processing idle
+for three hours can also be resumed. If a job was interrupted but still appears
+active, expand **Processing stopped?** and choose **Resume interrupted processing**.
+This replaces the job token immediately, preventing the previous worker from saving
+results or dispatching more transcription chunks once it sees the new token. In-flight
+requests may finish and incur charges; their unsaved results are not reused. Recovery
+requires the current project revision, so a repeated recovery request cannot replace
+the new job. Refresh progress if the job changed before your request. Exports become retryable
 after 30 minutes, with a scheduled reaper checking once a minute and publishing
 status changes. Old job tokens cannot commit results after recovery.
 

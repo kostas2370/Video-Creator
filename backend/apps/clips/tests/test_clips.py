@@ -350,9 +350,7 @@ class ClipsTests(ApiTestCase):
                 },
             ]
         }
-        with patch(
-            "apps.clips.highlights.get_raw_reply", return_value=json.dumps(raw)
-        ):
+        with patch("apps.clips.highlights.get_raw_reply", return_value=json.dumps(raw)):
             candidates = suggest_clips(project)
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0]["start"], 0)
@@ -1713,6 +1711,7 @@ class ClipsTests(ApiTestCase):
         self.assertEqual(processing.data["count"], 1)
         self.assertEqual(processing.data["results"][0]["id"], str(unrelated.pk))
 
+    @override_settings(CLIP_TRANSCRIPTION_WORKERS=2)
     def test_transcription_runs_two_chunks_concurrently_and_merges_in_source_order(
         self,
     ):
@@ -1794,3 +1793,113 @@ class ClipsTests(ApiTestCase):
             words = transcribe_source(project, rows, directory)
         self.assertEqual(transcribe.call_count, 1)
         self.assertEqual([word["start"] for word in words], [0, 600])
+
+    def test_explicit_resume_preserves_checkpoints_and_supersedes_interrupted_job(self):
+        project = self.project()
+        clip = self.add(project).data
+        checkpoint = {"1": [{"text": "Saved", "start": 600, "end": 601}]}
+        project.duration = 1200
+        project.words = []
+        project.transcript_parts = checkpoint
+        project.transcript_source = "OpenAI Whisper"
+        project.status = "TRANSCRIBING"
+        project.job_id = uuid4()
+        project.save()
+        token = project.job_id
+        preview = project.preview.name
+        url = reverse("clipproject-retry", args=[project.pk])
+        self.assertEqual(self.client.post(url).status_code, 409)
+        response = self.client.post(
+            url,
+            {
+                "resume": True,
+                "revision": project.updated_at.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 202, response.data)
+        project.refresh_from_db()
+        self.assertNotEqual(project.job_id, token)
+        self.assertEqual(project.status, "QUEUED")
+        self.assertEqual(project.transcript_parts, checkpoint)
+        self.assertEqual(project.preview.name, preview)
+        self.assertTrue(project.clips.filter(pk=clip["id"]).exists())
+        self.assertEqual(
+            update_jobs(
+                ClipProject.objects.filter(pk=project.pk, job_id=token),
+                status="FAILED",
+                transcript_parts={},
+            ),
+            0,
+        )
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("apps.clips.processing.run_ffmpeg"),
+            patch(
+                "apps.clips.processing.transcribe_prepared_audio",
+                return_value=[{"text": "Resumed", "start": 0, "end": 1}],
+            ) as transcribe,
+        ):
+            update_jobs(
+                ClipProject.objects.filter(pk=project.pk), status="TRANSCRIBING"
+            )
+            words = transcribe_source(
+                project,
+                ClipProject.objects.filter(pk=project.pk, job_id=project.job_id),
+                directory,
+            )
+        transcribe.assert_called_once()
+        self.assertEqual([word["text"] for word in words], ["Resumed", "Saved"])
+
+    def test_resume_requires_current_revision_and_cannot_restart_ready_projects(self):
+        project = self.project()
+        url = reverse("clipproject-retry", args=[project.pk])
+        response = self.client.post(
+            url,
+            {
+                "resume": True,
+                "revision": project.updated_at.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 409)
+        project.status, project.job_id = "TRANSCRIBING", uuid4()
+        project.save()
+        revision = project.updated_at.isoformat()
+        self.assertEqual(
+            self.client.post(url, {"resume": True}, format="json").status_code, 400
+        )
+        self.assertEqual(
+            self.client.post(url, {"resume": "invalid"}, format="json").status_code, 400
+        )
+        payload = {"resume": True, "revision": revision}
+        self.assertEqual(self.client.post(url, payload, format="json").status_code, 202)
+        self.assertEqual(self.client.post(url, payload, format="json").status_code, 409)
+        self.project_queue.assert_called_once()
+
+    @override_settings(CLIP_TRANSCRIPTION_WORKERS=4)
+    def test_four_transcription_requests_run_concurrently_and_merge_in_order(self):
+        project = self.project()
+        project.duration, project.words, project.status = 2400, [], "TRANSCRIBING"
+        project.save()
+        barrier = Barrier(4, timeout=5)
+
+        def transcribe(path, *args):
+            index = int(path.stem.split("-")[1])
+            barrier.wait()
+            return [{"text": str(index), "start": 2, "end": 3}]
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch("apps.clips.processing.run_ffmpeg"),
+            patch(
+                "apps.clips.processing.transcribe_prepared_audio",
+                side_effect=transcribe,
+            ),
+        ):
+            words = transcribe_source(
+                project, ClipProject.objects.filter(pk=project.pk), directory
+            )
+        self.assertEqual([word["text"] for word in words], ["0", "1", "2", "3"])
+        project.refresh_from_db()
+        self.assertEqual(set(project.transcript_parts), {"0", "1", "2", "3"})

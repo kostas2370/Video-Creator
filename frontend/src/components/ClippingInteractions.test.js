@@ -315,3 +315,39 @@ it("previews cuts, saves joined captions, and restores removed sections with und
   expect(position.max).toBe("12");
   expect(screen.getByRole("button", { name: /Section 3/ })).toBeTruthy();
 });
+
+
+it("adds multiple search results without leaving search and preserves them across views", async () => {
+  const results = [
+    { title: "First match", reason: "First", start: 0, end: 10 },
+    { title: "Second match", reason: "Second", start: 2, end: 14 },
+  ];
+  api.searchClipTranscript.mockResolvedValue({ ok: true, data: { clips: results } });
+  api.createClip.mockResolvedValue({ ok: true, data: clipFixture() });
+  render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  await screen.findByText("Full video transcript");
+  await userEvent.click(screen.getByRole("button", { name: "Transcript & AI search" }));
+  fireEvent.change(screen.getByLabelText("Describe the moment you want"), { target: { value: "Advice" } });
+  await userEvent.click(screen.getByRole("button", { name: "Find matching clips" }));
+  await userEvent.click(await screen.findByLabelText("Select First match"));
+  await userEvent.click(screen.getByLabelText("Select Second match"));
+  await userEvent.click(screen.getByRole("button", { name: "Add selected (2)" }));
+  await waitFor(() => expect(screen.getAllByText("Added")).toHaveLength(2));
+  expect(api.createClip).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("button", { name: "Transcript & AI search" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.queryByLabelText("Clip title")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: /^Clips/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Transcript & AI search" }));
+  expect(screen.getAllByText("Added")).toHaveLength(2);
+  expect(api.searchClipTranscript).toHaveBeenCalledTimes(1);
+});
+
+it("lets users resume an interrupted job with the displayed revision", async () => {
+  const project = projectFixture({ status: "TRANSCRIBING", words: [], updated_at: new Date().toISOString() });
+  api.getClipProject.mockResolvedValue({ ok: true, data: project });
+  api.retryClipProject.mockResolvedValue({ ok: true, data: project });
+  render(<MemoryRouter initialEntries={["/clips/project-1/"]}><Routes><Route path="/clips/:projectId/" element={<ClipsPage />} /></Routes></MemoryRouter>);
+  await userEvent.click(await screen.findByText("Processing stopped?"));
+  await userEvent.click(screen.getByRole("button", { name: "Resume interrupted processing" }));
+  await waitFor(() => expect(api.retryClipProject).toHaveBeenCalledWith(project.id, { resume: true, revision: project.updated_at }));
+});

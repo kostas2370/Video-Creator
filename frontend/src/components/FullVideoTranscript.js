@@ -23,7 +23,7 @@ export function transcriptText(paragraphs) {
   return paragraphs.map(paragraph => `[${formatTime(paragraph.start)}] ${paragraph.text}`).join("\n\n");
 }
 
-export function FullVideoTranscript({ title, words = [], partial = false, projectId, onCreateClip, disabled = false, expanded = false }) {
+export function FullVideoTranscript({ title, words = [], partial = false, projectId, onCreateClip, disabled = false, expanded = false, remainingSlots = 20 }) {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -46,7 +46,7 @@ export function FullVideoTranscript({ title, words = [], partial = false, projec
   return <details open={expanded || undefined} className="clip-panel mb-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
     <summary className="cursor-pointer text-lg font-semibold">{partial ? "Selected range transcript" : "Full video transcript"}</summary>
     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{partial ? "The selected section’s saved transcript, with original video timestamps." : "The source video’s complete saved transcript, with timestamps."} Edits to individual clip captions do not change this text.</p>
-    {!!words.length && onCreateClip && <TranscriptClipSearch projectId={projectId} disabled={disabled} onCreateClip={onCreateClip} />}
+    {!!words.length && onCreateClip && <TranscriptClipSearch remainingSlots={remainingSlots} projectId={projectId} disabled={disabled} onCreateClip={onCreateClip} />}
     {!words.length ? <p role="status" className="mt-4 text-sm text-gray-500">The transcript will appear here when transcription finishes.</p> : <>
       <div className="my-4 flex flex-wrap items-center gap-3"><label className="w-full min-w-0 sm:w-auto sm:flex-1"><span className="sr-only">Search full video transcript</span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search the full transcript…" className={editorInput} /></label><button type="button" onClick={copy} className="min-h-11 text-sm font-semibold text-blue-600 dark:text-blue-300">Copy full transcript</button><button type="button" onClick={download} className="min-h-11 text-sm font-semibold text-blue-600 dark:text-blue-300">Download TXT</button></div>
       {query.trim() && <p role="status" className="mb-3 text-xs text-gray-500">{matches.length} matching passages. Copy and download always include the full transcript.</p>}

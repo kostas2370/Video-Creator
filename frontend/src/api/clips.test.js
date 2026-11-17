@@ -24,3 +24,9 @@ it("keeps hashtag drafting separate from saving with conflict protection", async
   saveClipHashtags("p", "c", ["Topic"], ["Previous"]);
   expect(request).toHaveBeenLastCalledWith({ method: "patch", url: "clips/p/clips/c/hashtags/", data: { hashtags: ["Topic"], previous_hashtags: ["Previous"] }, notifyError: false });
 });
+
+
+it("sends the current revision when explicitly resuming interrupted processing", () => {
+  retryClipProject("p", { resume: true, revision: "current-revision" });
+  expect(request).toHaveBeenLastCalledWith({ method: "post", url: "clips/p/retry/", data: { resume: true, revision: "current-revision" }, notifyError: false });
+});
