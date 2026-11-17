@@ -318,6 +318,12 @@ def get_reply(
                 for scene in data["scenes"]:
                     for shot in scene["sentences"]:
                         if shot_diagram(shot):
+                            plan = SceneEditingPlanSerializer(
+                                data=shot["editing"],
+                                context={"video_provider": video_provider, "user": user},
+                            )
+                            plan.is_valid(raise_exception=True)
+                            shot["editing"] = dict(plan.validated_data)
                             shot.pop("image_description", None)
                 record_llm_trace(user, model, prompt, raw, **trace_options)
                 return data

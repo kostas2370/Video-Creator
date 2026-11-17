@@ -285,6 +285,16 @@ Changing the inputs or prompt-building code can change that text.
 
 ## Diagram descriptions and instruction consistency
 
+Diagram selection has no count or percentage target. Prefer diagrams when they explain
+an idea clearly without photographic detail, and use their lower visual-generation cost
+as a tie-breaker when clarity is equal. Educational videos may use mostly or entirely
+diagrams where suitable. Explicit visual preferences and subjects that require appearance,
+performance, or scenery still take priority.
+
+Generation and exact-script prompts include a compact alternative diagram-shot JSON
+example with only `editing.diagram` and no image description. Narration and shot-plan fields
+follow the active mode; example content is explicitly illustrative, not extra story content.
+
 Diagram shots use `editing.diagram` as their complete visual. Generation, exact-script
 imports, scene drafts, and storyboard revisions instruct the model to omit
 `image_description`. Validation accepts an omitted or blank description for a valid
@@ -294,8 +304,10 @@ or item labels internally instead of inventing an image prompt. The review form 
 diagram content without requiring a visual-prompt field. Diagram backgrounds remain
 local and make no image/video provider request. Diagram instructions and icon shortlists
 are included whether AI scene editing is on or off, including exact-script imports and
-storyboard revisions. With editing off, only diagram shots receive a neutral editing
-container; ordinary shots receive no automatic editing plan. Diagram content remains
+storyboard revisions. Diagram plans may return only `editing.diagram`; backend validation fills missing
+neutral motion, intensity, effects, transition, pause, and overlay settings. Explicit
+values are preserved and validated, and non-diagram plans retain their required fields.
+With editing off, ordinary shots receive no automatic editing plan. Diagram content remains
 reviewable, and project estimates exclude diagram visuals in either mode while retaining
 narration costs.
 

@@ -214,12 +214,9 @@ class StoryboardRevisionTests(ApiTestCase):
             self.run_draft_task()
 
     def test_revision_prompt_includes_supported_editing_schema_and_diagram_rules(self):
-        from ..test_ai_scene_editing import PLAN
-
         self.video.settings["ai_scene_editing"] = True
         self.video.save()
         self.proposal["scenes"][0]["sentences"][0]["editing"] = {
-            **PLAN,
             "diagram": {
                 "template": "steps",
                 "items": [{"label": "First"}, {"label": "Second"}, {"label": "Third"}],
@@ -236,4 +233,8 @@ class StoryboardRevisionTests(ApiTestCase):
         self.assertIn("steps for 2–4 ordered stages", prompt)
         self.assertIn("ChoiceField(choices=", prompt)
         self.assertIn("template = ChoiceField", prompt)
-        self.assertIn("Keep overlays empty", prompt)
+        self.assertIn("only diagram inside editing", prompt)
+        editing = result["scenes"][0]["sentences"][0]["editing"]
+        self.assertEqual(editing["overlays"], [])
+        self.assertEqual(editing["motion_style"], "NONE")
+        self.assertEqual(editing["pause_after"], 0)

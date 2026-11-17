@@ -25,7 +25,7 @@ class ScriptFormatTests(SimpleTestCase):
     def test_drops_the_spoken_line_when_there_is_no_narration(self):
         brief = build_script_prompt(narration=False)
 
-        shape = json.loads(brief[brief.index("{") : brief.rindex("}") + 1])
+        shape = json.JSONDecoder().raw_decode(brief[brief.index("{"):])[0]
         shot = shape["scenes"][0]["sentences"][0]
         self.assertNotIn("sentence", shot)
         self.assertIn("image_description", shot)
@@ -40,8 +40,7 @@ class ScriptFormatTests(SimpleTestCase):
                             video=video,
                             narration=narration,
                         )
-                        shape = brief[brief.index("{") : brief.rindex("}") + 1]
-                        parsed = json.loads(shape)
+                        parsed = json.JSONDecoder().raw_decode(brief[brief.index("{"):])[0]
                         keys = ["title", "target_audience", "topic"]
                         if mode == "AI":
                             keys.append("visual_continuity")

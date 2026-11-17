@@ -24,6 +24,32 @@ sentence, write {parts}.
 """
 
 
+def _diagram_shot_example(narration, *, shot_plan=False, ai_scene_editing=False):
+    shot = {}
+    if narration:
+        shot["sentence"] = "Complete the first step, then move to the next."
+    if shot_plan:
+        shot["shot_plan"] = {
+            "shot_size": "MEDIUM", "camera_movement": "STATIC",
+            "subject_action": "Reveal the steps in order", "target_duration": 5,
+        }
+        if ai_scene_editing:
+            shot["shot_plan"].update(role="EXPLANATION", visual_focus="The step order")
+    shot["editing"] = {
+        "diagram": {
+            "template": "steps", "title": "Process",
+            "items": [{"label": "First step", "detail": ""}, {"label": "Next step", "detail": ""}],
+        },
+    }
+    return (
+        "\nAlternative diagram shot example (one sentences entry, not an extra shot). "
+        "Illustrates format only: adapt content, language, template and duration to the request; "
+        "do not copy these example steps into the story:\n"
+        + json.dumps(shot, separators=(",", ":"))
+        + "\n"
+    )
+
+
 def _script_structure(brief, narration, ai_scene_editing=False):
     video = brief is _VISUAL_BRIEFS[VisualType.VIDEO]
     parts = f"one visual: {brief.description} for a non-diagram shot, or editing.diagram"
@@ -71,20 +97,29 @@ def _script_structure(brief, narration, ai_scene_editing=False):
         + ":\n"
         + json.dumps(shape, indent=2)
         + "\n"
+        + _diagram_shot_example(
+            narration, shot_plan=brief.generated or ai_scene_editing,
+            ai_scene_editing=ai_scene_editing,
+        )
     )
 
 
 def diagram_instructions(diagram_icons=()):
     """Diagram visuals are available independently of automatic editing."""
     instructions = (
-        "Use diagrams for explanations, comparisons, lists, processes or cause and effect "
-        "when the subject itself need not be seen. In supported explainers, aim for 1–2 diagram "
-        "scenes out of 4–6, or 2–3 out of 7–10; these are not quotas. Never force diagrams "
-        "into character drama or scenic footage. If editing is present on other shots, use diagram null. "
+        "Prefer a diagram when it clearly explains the idea without needing photographic detail, "
+        "especially for explanations, comparisons, lists, processes or cause and effect. "
+        "Diagrams render locally without image/video generation requests; when clarity is equal, "
+        "prefer them to reduce generation cost. Choose each scene's visual by its content, "
+        "without a diagram count or percentage target. An educational video may use mostly "
+        "or entirely diagrams when suitable. Honor the user's visual preferences; use images "
+        "or footage when appearance, character performance or scenery is essential. "
+        "If editing is present on other shots, use diagram null. "
         "For diagram shots, omit image_description entirely: the diagram is the complete "
-        "visual and needs no image, video, or search prompt. Keep overlays empty, motion_style "
-        "NONE, animation_preset NONE, animation_accents false and shot_plan.camera_movement "
-        "STATIC; diagram animation is built in. "
+        "visual and needs no image, video, or search prompt. For new diagram shots, return "
+        "only diagram inside editing; the backend supplies neutral motion, effects, labels, "
+        "transition and pause defaults. Preserve explicitly reviewed settings during revisions. "
+        "Diagram animation is built in; if shot_plan is present, set camera_movement STATIC. "
         "A diagram has template, title (max 60 characters), items with label (max 40) and "
         "detail (max 90, may be empty). Templates: comparison for exactly two alternatives; "
         "timeline for 2–4 chronological events (date/time in labels); steps for 2–4 ordered stages; "
@@ -113,12 +148,8 @@ def diagram_only_instructions(diagram_icons=()):
     return (
         "DIAGRAM VISUALS (available with AI scene editing off):\n"
         + diagram_instructions(diagram_icons)
-        + 'For diagram shots only, return editing with motion_style "NONE", '
-        'motion_intensity "SUBTLE", transition_after "CUT", transition_duration 0.1, '
-        'pause_after 0, animation_preset "NONE", animation_accents false, overlays [], '
-        'and diagram containing the structured visual. Omit editing on non-diagram shots. '
-        'Do not add automatic effects, labels, pauses or transitions. '
-        'If shot_plan is present on a diagram, use camera_movement STATIC. '
+        + "Omit editing on non-diagram shots. "
+        "If shot_plan is present on a diagram, use camera_movement STATIC. "
     )
 
 
@@ -129,7 +160,7 @@ def scene_editing_instructions(visual_type, diagram_icons=()):
         "recurring subjects. Vary WIDE, MEDIUM, CLOSE_UP and DETAIL; avoid repeated framing. "
         "Each shot_plan needs role (HOOK, CONTEXT, EXPLANATION, COMPARISON, REACTION, REVEAL, "
         "PAYOFF) and visual_focus (what viewers should notice, max 200 characters). "
-        "Return editing on every sentences entry with these fields: "
+        "Return editing on every sentences entry; non-diagram shots use these fields: "
         "motion_style (NONE, AUTO, ZOOM_IN, ZOOM_OUT, PAN_LEFT, PAN_RIGHT, PAN_UP, PAN_DOWN); "
         "motion_intensity (SUBTLE preferred, MEDIUM, STRONG only when requested); "
         "transition_after (CUT, FADE, DISSOLVE, DEFAULT); transition_duration (0.1–0.6 seconds); "
@@ -148,7 +179,7 @@ def scene_editing_instructions(visual_type, diagram_icons=()):
     instructions += diagram_instructions(diagram_icons)
     if visual_type == VisualType.VIDEO:
         return instructions + (
-            "Use motion_style NONE and animation_preset NONE for every shot. "
+            "Use motion_style NONE and animation_preset NONE for non-diagram shots. "
             "For non-diagram shots, camera movement comes from generated video."
         )
     return instructions + (

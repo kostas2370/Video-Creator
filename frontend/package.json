@@ -22,7 +22,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "audit": "npm audit --audit-level=high"
+    "audit": "node --test scripts/audit-policy.check.mjs && node scripts/audit.mjs",
+    "audit:raw": "npm audit --audit-level=high"
   },
   "browserslist": {
     "production": [

@@ -32,10 +32,12 @@ class SceneEditingPlanTests(SimpleTestCase):
         for mode, provider_video in (("WEB", True), ("AI", False), ("AI", True)):
             with self.subTest(mode=mode, video=provider_video):
                 prompt = build_script_prompt(image_mode=mode, video=provider_video, ai_scene_editing=True)
-                shape = json.loads(prompt[prompt.index("{"):prompt.rindex("}") + 1])
+                shape = json.JSONDecoder().raw_decode(prompt[prompt.index("{"):])[0]
                 self.assertIn("editing", shape["scenes"][0]["sentences"][0])
                 self.assertEqual("Use motion_style NONE" in prompt, mode == "AI" and provider_video)
-        self.assertNotIn('"editing"', build_script_prompt())
+        prompt = build_script_prompt()
+        shape = json.JSONDecoder().raw_decode(prompt[prompt.index("{"):])[0]
+        self.assertNotIn("editing", shape["scenes"][0]["sentences"][0])
 
     def test_invalid_or_missing_plan_produces_corrective_errors_only_when_enabled(self):
         self.assertFalse(script_errors(storyboard(), ai_scene_editing=True))
