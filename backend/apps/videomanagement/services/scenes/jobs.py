@@ -9,6 +9,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from apps.videomanagement import tasks
+from apps.videomanagement.integrations.visuals.errors import public_video_error
 from apps.videomanagement.events import publish_update
 from apps.videomanagement.models import Scene, Video, VideoStatus, VideoType
 from apps.videomanagement.services.scenes.editing import (
@@ -88,9 +89,10 @@ def scene_job_result(scene, token):
     if state == "SUCCESS":
         return {"status": "SUCCEEDED", "result": job.result}
     if state in ("FAILURE", "REVOKED"):
+        reason = public_video_error(job.result) if state == "FAILURE" else None
         return {
             "status": "FAILED",
-            "error": "Could not finish the scene job. Please try again.",
+            "error": reason or "Could not finish the scene job. Please try again.",
         }
     return {"status": "RUNNING" if state == "STARTED" else "QUEUED"}
 

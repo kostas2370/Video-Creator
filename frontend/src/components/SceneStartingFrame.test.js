@@ -98,3 +98,12 @@ it("offers frame preparation without marking the initial description as unsaved"
   expect(screen.queryByText(/Unsaved changes/)).toBeNull();
   expect(screen.getByRole("button", { name: "Generate starting frame" }).disabled).toBe(false);
 });
+
+
+it("shows the saved provider explanation and preserves the approved frame for retry", () => {
+  const message = "Animation failed. Gemini: Video provider rejected the request (HTTP 400) [CONTENT_BLOCKED]. Edit the shot description or replace the starting frame before retrying. Your starting frame and existing clip are saved.";
+  render(<Scene scene={{ ...reviewScene, starting_frame_status: "approved", starting_frame_context: { animation_error: message } }} manual setUpdated={vi.fn()} />);
+  expect(screen.getByRole("alert").textContent).toBe(message);
+  expect(screen.getByAltText("Scene 1 starting frame to review")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Retry animation" })).toBeTruthy();
+});

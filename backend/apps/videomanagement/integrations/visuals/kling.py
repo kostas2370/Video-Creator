@@ -46,7 +46,9 @@ class KlingProvider(http.DurationVideoProvider):
         )
         result = request.get(result_url)
         if result.get("error"):
-            raise http.APIException("Kling generation failed. Try a different prompt.")
+            raise http.VideoProviderError(
+                "Kling generation failed. Try a different prompt."
+            )
         record_usage(
             request.user, "video", Provider.FAL, MODEL, seconds=request.seconds
         )
