@@ -496,6 +496,13 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel, NarrationAsset
     reference_image = models.ImageField(
         upload_to="media/references/%Y/%m/%d", blank=True
     )
+    source_audio = models.FileField(
+        upload_to="media/narration/%Y/%m/%d", blank=True, db_default=""
+    )
+    source_audio_duration = models.FloatField(null=True, blank=True, editable=False)
+    source_audio_words = models.JSONField(
+        default=list, db_default=[], blank=True, editable=False
+    )
     cover = models.ImageField(upload_to="media/covers/%Y/%m/%d", blank=True)
     thumbnail = models.ImageField(upload_to="media/thumbnails/%Y/%m/%d", blank=True)
     cover_settings = models.JSONField(default=dict, blank=True)

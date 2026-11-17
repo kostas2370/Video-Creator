@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../hooks/useAxiosPrivate", () => ({ useAxiosPrivate: () => ({}) }));
-vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), deleteDraftVideo: vi.fn(), draftCharacterDescription: vi.fn(), draftSeriesCast: vi.fn(), createCharacterReference: vi.fn(), getCharacterReference: vi.fn() }));
+vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), generateAudioVideo: vi.fn(), deleteDraftVideo: vi.fn(), draftCharacterDescription: vi.fn(), draftSeriesCast: vi.fn(), createCharacterReference: vi.fn(), getCharacterReference: vi.fn() }));
 vi.mock("../utils/draftFiles", () => ({ readDraftFile: vi.fn(), writeDraftFile: vi.fn() }));
 import * as api from "../api/apiService";
 import * as files from "../utils/draftFiles";
@@ -26,6 +26,7 @@ beforeEach(() => {
   api.getGenerationModels.mockResolvedValue({ ok: true, data: { script_models: { OPENAI: ["gpt-5.4-mini"] }, default_script_model: "gpt-5.4-mini" } });
   api.getCustomVisualProviders.mockResolvedValue({ ok: true, data: [] });
   api.generateVideo.mockResolvedValue({ ok: false });
+  api.generateAudioVideo.mockResolvedValue({ ok: false });
   files.readDraftFile.mockImplementation(async key => savedFiles.get(key) || null);
   files.writeDraftFile.mockImplementation(async (key, file) => { if (file) savedFiles.set(key, file); else savedFiles.delete(key); });
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:restored-reference");
@@ -184,4 +185,16 @@ it("deletes a saved draft project without losing the creation settings", async (
   expect(saved.pendingVideoId).toBeNull();
   expect(saved.form.message).toBe("My existing story");
   expect(api.generateVideo).not.toHaveBeenCalled();
+});
+
+it("recovers the MP3 and source choice without automatically generating", async () => {
+  const key = creationDraftKey("alice", "text-video");
+  localStorage.setItem(key, JSON.stringify({ version: 1, value: { form: { input_source: "audio", message: "Separate text draft" }, step: 0, hasAudioFile: true } }));
+  savedFiles.set(`${key}:audio`, new File(["audio"], "saved.mp3", { type: "audio/mpeg" }));
+  render(wrap(<Home inputMode="text" />));
+  await screen.findAllByText("saved.mp3");
+  expect(screen.getByRole("button", { name: "Audio", exact: true }).getAttribute("aria-pressed")).toBe("true");
+  expect(api.generateAudioVideo).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Text", exact: true }));
+  expect(screen.getByLabelText("Your script").value).toBe("Separate text draft");
 });

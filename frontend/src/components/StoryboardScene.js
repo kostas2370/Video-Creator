@@ -34,7 +34,7 @@ export function StoryboardScene({ scene, index, video, narration, disabled, onCh
           <div key={shotIndex} className="space-y-3">
             {scene.sentences.length > 1 && <p className="text-xs font-semibold text-gray-500">Shot {shotIndex + 1}</p>}
             {narration && <label className="block text-sm font-medium">Narration
-              <textarea required maxLength={2000} rows={2} disabled={disabled} value={shot.sentence || ""} onChange={event => onChange(shotIndex, "sentence", event.target.value)} className={inputClass} />
+              <textarea required maxLength={2000} rows={2} disabled={disabled} readOnly={video.settings?.creation_mode === "AUDIO"} value={shot.sentence || ""} onChange={event => onChange(shotIndex, "sentence", event.target.value)} className={inputClass} />
             </label>}
             <label className="block text-sm font-medium">Visual prompt
               <textarea required maxLength={2000} rows={3} disabled={disabled} value={shot.image_description || ""} onChange={event => onChange(shotIndex, "image_description", event.target.value)} className={inputClass} />

@@ -176,6 +176,8 @@ VIDEO_RESPONSE_FIELDS = (
     "url",
     "gpt_answer",
     "reference_image",
+    "source_audio",
+    "source_audio_duration",
     "prompt",
     "genre",
     "output",

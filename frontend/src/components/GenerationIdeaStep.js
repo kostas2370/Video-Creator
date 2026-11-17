@@ -1,4 +1,5 @@
 import React from "react";
+import { NarrationInput } from "./NarrationInput";
 import { PromptTools } from "./PromptTools";
 
 const examples = [
@@ -7,7 +8,8 @@ const examples = [
   ["Product intro", "Introduce a reusable water bottle for people who love the outdoors. Focus on durability, everyday use, and reducing waste."],
 ];
 
-export function GenerationIdeaStep({ form, onChange, disabled, templateControl }) {
+export function GenerationIdeaStep({ form, onChange, disabled, templateControl, textMode = false, audioProps }) {
+  if (textMode) return <NarrationInput value={form.message} onChange={onChange} disabled={disabled} {...audioProps} />;
   return <section aria-labelledby="story-heading" className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7 dark:border-gray-700 dark:bg-gray-800">
     <div className="mb-5"><h2 id="story-heading" className="text-xl font-semibold tracking-tight">Start with your idea</h2><p id="prompt-help" className="mt-1 text-sm text-gray-500 dark:text-gray-400">Describe the topic, what happens, and the tone you want.</p></div>
     <div className="overflow-hidden rounded-2xl border border-gray-300 bg-gray-50 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-900/50">

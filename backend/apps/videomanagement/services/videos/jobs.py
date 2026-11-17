@@ -18,7 +18,7 @@ from apps.videomanagement.models import Video, VideoStatus, VideoType
 from apps.videomanagement.services.videos.generation import create_pending_video
 
 
-def queue_video_generation(*, created_by, reference_image=None, **params):
+def queue_video_generation(*, created_by, reference_image=None, source_audio=None, source_audio_duration=None, **params):
     video = create_pending_video(
         message=params["message"],
         created_by=created_by,
@@ -30,6 +30,11 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
         video.save(update_fields=["settings"])
 
     try:
+        if source_audio:
+            video.source_audio.save(source_audio.name, source_audio, save=False)
+            video.source_audio_duration = source_audio_duration
+            video.settings = {**(video.settings or {}), "creation_mode": "AUDIO"}
+            video.save(update_fields=["source_audio", "source_audio_duration", "settings"])
         if reference_image:
             # The worker needs the reference path before dispatch.
             video.reference_image.save(
@@ -43,9 +48,11 @@ def queue_video_generation(*, created_by, reference_image=None, **params):
         )
     except Exception as exc:
         video.reference_image.delete(save=False)
+        video.source_audio.delete(save=False)
         video.reference_image = ""
+        video.source_audio = ""
         video.status = VideoStatus.FAILED
-        video.save(update_fields=["reference_image", "status"])
+        video.save(update_fields=["reference_image", "source_audio", "status"])
         raise GenerationQueueUnavailable() from exc
 
     return video
@@ -163,6 +170,9 @@ def approve_script(video, storyboard):
         params = (video.settings or {}).get("generation_params")
         if not params:
             raise VideoEditConflict("Generation settings are missing.")
+        if video.source_audio:
+            from apps.videomanagement.services.videos.audio import validate_audio_storyboard
+            validate_audio_storyboard(video, storyboard)
         generation_mode = storyboard.get(
             "generation_mode", (video.settings or {}).get("generation_mode", "STANDARD")
         )

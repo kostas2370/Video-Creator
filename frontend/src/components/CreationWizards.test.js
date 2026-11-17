@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../hooks/useAxiosPrivate", () => ({ useAxiosPrivate: () => ({}) }));
-vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), draftCharacterDescription: vi.fn() }));
+vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), generateTextVideo: vi.fn(), generateAudioVideo: vi.fn(), draftCharacterDescription: vi.fn() }));
 import * as api from "../api/apiService";
 import Home from "../pages/HomePage";
 import { SeriesProfileForm } from "./SeriesProfileForm";
@@ -16,6 +16,8 @@ beforeEach(() => {
   api.getGenerationModels.mockResolvedValue({ ok: true, data: { script_models: { OPENAI: ["server-script-model"] }, default_script_model: "server-script-model" } });
   api.getCustomVisualProviders.mockResolvedValue({ ok: true, data: [] });
   api.generateVideo.mockResolvedValue({ ok: false });
+  api.generateTextVideo.mockResolvedValue({ ok: false });
+  api.generateAudioVideo.mockResolvedValue({ ok: false });
 });
 afterEach(cleanup);
 
@@ -151,4 +153,49 @@ it("updates the project summary and preserves choices when editing from it", () 
   fireEvent.click(summary.getByRole("button", { name: "Edit look and sound in project summary" }));
   expect(screen.getByRole("radio", { name: /Portrait/ }).checked).toBe(true);
   expect(api.generateVideo).not.toHaveBeenCalled();
+});
+
+it("imports exact text using the shared storyboard workflow", async () => {
+  render(<MemoryRouter><Home inputMode="text" /></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText("Your script"), { target: { value: "A fox waits. Then the sun rises." } });
+  fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+  expect(screen.queryByRole("combobox", { name: "Narration language" })).toBeNull();
+  expect(screen.getByRole("checkbox", { name: /Narration/ }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Review video" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Draft storyboard" }).disabled).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Draft storyboard" }));
+  await waitFor(() => expect(api.generateTextVideo).toHaveBeenCalledOnce());
+  expect(api.generateTextVideo.mock.calls[0][0]).toMatchObject({ source_text: "A fox waits. Then the sun rises.", image_mode: "AI", provider: "OPENAI", narration: true, narration_language: "", review_script: true, scene_count: null });
+  expect(api.generateVideo).not.toHaveBeenCalled();
+  expect(api.generateTextVideo.mock.calls[0][0]).not.toHaveProperty("message");
+});
+
+it("uploads an MP3 through the same tool without requesting new narration", async () => {
+  const preview = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:mp3");
+  const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  try {
+    render(<MemoryRouter><Home inputMode="text" /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText("Your script"), { target: { value: "Keep my text draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Audio", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+    expect(screen.getByRole("alert").textContent).toContain("Choose an MP3 or WAV");
+    fireEvent.click(screen.getByRole("button", { name: "Text", exact: true }));
+    expect(screen.getByLabelText("Your script").value).toBe("Keep my text draft");
+    fireEvent.click(screen.getByRole("button", { name: "Audio", exact: true }));
+    const file = new File(["mp3 bytes"], "my-voice.mp3", { type: "audio/mpeg" });
+    fireEvent.change(screen.getByLabelText("Your audio file"), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue to look & sound" }));
+    expect(screen.queryByRole("combobox", { name: "Voice" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Review video" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Draft storyboard" }).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Draft storyboard" }));
+    await waitFor(() => expect(api.generateAudioVideo).toHaveBeenCalledOnce());
+    const payload = api.generateAudioVideo.mock.calls[0][0];
+    expect(payload.get("source_audio").name).toBe("my-voice.mp3");
+    expect(payload.has("source_text")).toBe(false);
+    expect(payload.has("message")).toBe(false);
+    expect(payload.get("voice_id")).toBe("");
+    expect(api.generateTextVideo).not.toHaveBeenCalled();
+    expect(api.generateVideo).not.toHaveBeenCalled();
+  } finally { cleanup(); preview.mockRestore(); revoke.mockRestore(); }
 });

@@ -95,6 +95,7 @@ export function StoryboardModal({ open, video, onClose, onApproved, onDeleted })
           <p className="mt-2 text-xs text-gray-500">{script.scenes.length} scenes · {narration ? "With narration" : "Visual story"} · Edit only what you want to change</p>
         </div>
 
+        {video.settings?.creation_mode === "AUDIO" && <p className="rounded-xl bg-blue-50 p-3 text-sm dark:bg-blue-950">Your original recording will be split between scenes. Keep the recorded words in order; edit visuals here and adjust each audio clip in the editor.</p>}
         <details className="group rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-semibold text-indigo-700 dark:text-indigo-100">
             <span>Revise storyboard with AI</span>

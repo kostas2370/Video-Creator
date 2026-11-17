@@ -1,6 +1,12 @@
-import { HiOutlineScissors, HiOutlineBookOpen, HiOutlineSparkles, HiOutlineFilm, HiOutlineMicrophone, HiOutlineChatBubbleBottomCenterText } from "react-icons/hi2";
+import { HiOutlineScissors, HiOutlineBookOpen, HiOutlineSparkles, HiOutlineFilm, HiOutlineMicrophone, HiOutlineChatBubbleBottomCenterText, HiOutlineSpeakerWave } from "react-icons/hi2";
 
 export const creationModes = [
+  {
+    to: "/text/", label: "Narration to video", eyebrow: "Bring your words to life", icon: HiOutlineSpeakerWave,
+    description: "Paste a script or upload an MP3 or WAV. Create scenes with matching images and editable audio.",
+    requirement: "A script or spoken MP3/WAV + connected AI providers", action: "Create from narration",
+    color: "text-cyan-600 dark:text-cyan-300", background: "bg-cyan-50 dark:bg-cyan-950/40", preview: "text",
+  },
   {
     to: "/clips/", label: "Long video → Shorts", eyebrow: "Find your best moments", icon: HiOutlineScissors,
     description: "Turn a podcast, interview, or talk into short clips with portrait framing and captions.",

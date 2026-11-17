@@ -1,4 +1,5 @@
 import logging
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal, Union
 from uuid import uuid4
@@ -7,7 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
 from rest_framework import status
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 from slugify import slugify
 
 from apps.usage.models import GenerationEstimate
@@ -25,7 +26,11 @@ from apps.videomanagement.models import (
     VideoStatus,
     VoiceModel,
 )
-from apps.videomanagement.prompts.storyboard import build_script_prompt
+from apps.videomanagement.prompts.storyboard import (
+    build_script_prompt,
+    build_text_storyboard_prompt,
+)
+from apps.videomanagement.services.captions.transcription import transcribe_audio
 from apps.videomanagement.services.media.catalog import (
     create_catalog_music,
     select_music_track,
@@ -60,8 +65,16 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
     Video providers stay sequential: they can use narration duration and a previous
     clip's final frame as an input to the next scene.
     """
-    GenerationEstimate.objects.get_or_create(video=video, defaults={"estimate": project_estimate(video)})
-    if not image_mode or ImageProviderRegistry.is_video(
+    GenerationEstimate.objects.get_or_create(
+        video=video, defaults={"estimate": project_estimate(video)}
+    )
+    if video.source_audio:
+        from apps.videomanagement.services.videos.audio import prepare_audio_scenes
+
+        prepare_audio_scenes(video)
+        if image_mode:
+            create_image_scenes(video, mode=image_mode, style=style, provider=provider)
+    elif not image_mode or ImageProviderRegistry.is_video(
         provider, user=video.created_by, mode=image_mode
     ):
         make_scenes_speech(video)
@@ -72,7 +85,9 @@ def generate_scene_assets(video, image_mode=None, style="natural", provider=None
         # worker starts. Two workers overlap the independent provider requests without
         # adding unbounded load to TTS, image providers, or the database.
         ensure_scene_rows(video)
-        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="video-assets") as pool:
+        with ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="video-assets"
+        ) as pool:
             narration = pool.submit(
                 _run_with_thread_db_cleanup, lambda: make_scenes_speech(video)
             )
@@ -95,7 +110,7 @@ def create_pending_video(
     genre: str = "",
 ) -> Video:
     """
-    Create the Video row that `generate_video` will later fill in.
+    Create the pending Video row for its selected generation flow.
 
     This is the only part of generation that is cheap enough to run inside a request:
     it gives the caller an id to poll while the real work happens on a worker. The
@@ -116,7 +131,170 @@ def create_pending_video(
     )
 
 
-def generate_video(
+def generate_video(video: Video, **params) -> Video:
+    """Route existing queued jobs to the appropriate input flow."""
+    if video.source_audio:
+        return generate_audio_video(video, **params)
+    if "source_text" in params:
+        return generate_text_video(video, **params)
+    return generate_idea_video(video, **params)
+
+
+def _generation_assets(video, choices):
+    """Resolve owned assets before any paid storyboard or transcription request."""
+    avatar = owned_asset(Avatar, choices.get("avatar_selection"), video.created_by)
+    intro = owned_asset(Intro, choices.get("intro"), video.created_by)
+    outro = owned_asset(Outro, choices.get("outro"), video.created_by)
+    voice = (
+        None
+        if video.source_audio
+        else (
+            avatar.voice
+            if avatar
+            else available_voice(choices["voice_id"], video.created_by)
+            if choices.get("voice_id")
+            else VoiceModel.select_voice(video.created_by)
+        )
+    )
+    return avatar, intro, outro, voice
+
+
+def _planning_options(video, choices):
+    image_mode = choices.get("image_mode")
+    has_reference = bool(image_mode == "AI" and video.reference_image)
+    return dict(
+        scene_count=choices.get("scene_count"),
+        image_mode=image_mode,
+        video=ImageProviderRegistry.is_video(
+            choices.get("provider"), user=video.created_by, mode=image_mode
+        ),
+        style=choices.get("style", "natural"),
+        video_audio_mode=(video.settings or {}).get("video_audio_mode", "AUTO"),
+        ai_scene_editing=choices.get("ai_scene_editing", False),
+        diagram_icons=icon_candidates(choices["message"], user=video.created_by_id)
+        if choices.get("ai_scene_editing")
+        else (),
+        visual_continuity=choices.get("visual_continuity", ""),
+        reference_role=choices.get("reference_role", "both") if has_reference else None,
+    )
+
+
+def _request_storyboard(video, prompt, choices, planning):
+    with video_usage(video):
+        return get_reply(
+            prompt,
+            gpt_model=choices.get("gpt_model"),
+            user=video.created_by,
+            narration=choices.get("narration", True),
+            scene_count=choices.get("scene_count"),
+            ai_scene_editing=choices.get("ai_scene_editing", False),
+            video_provider=planning["video"],
+            require_visual_continuity=choices.get("image_mode") == "AI",
+            **(
+                {"require_episode_summary": True}
+                if choices.get("series_context")
+                else {}
+            ),
+            **(
+                {"reference_image": video.reference_image.path}
+                if planning["reference_role"]
+                else {}
+            ),
+        )
+
+
+def _narration_storyboard(video, source_text, choices):
+    """Text and recorded narration share exact-word visual planning."""
+    planning = _planning_options(video, choices)
+    prompt = build_text_storyboard_prompt(source_text, **planning)
+    storyboard = _request_storyboard(video, prompt, choices, planning)
+    imported = " ".join(
+        shot.get("sentence", "")
+        for scene in storyboard["scenes"]
+        for shot in scene["sentences"]
+    )
+    if imported.split() != source_text.split():
+        raise APIException(
+            "The storyboard changed your script. Please try again; no media was generated."
+        )
+    return storyboard
+
+
+def generate_idea_video(video: Video, **choices) -> Video:
+    """Write a storyboard from an idea, then use the shared production pipeline."""
+    assets = _generation_assets(video, choices)
+    storyboard = None
+    if not (video.gpt_answer and video.dir_name):
+        planning = _planning_options(video, choices)
+        prompt = build_script_prompt(
+            genre=choices.get("genre", ""),
+            userprompt=choices["message"],
+            target_audience=choices.get("target_audience", ""),
+            narration_language=choices.get("narration_language", ""),
+            platform=choices.get("platform", "GENERAL"),
+            narration=choices.get("narration", True),
+            **planning,
+        )
+        prompt += choices.get("series_context", "")
+        storyboard = _request_storyboard(video, prompt, choices, planning)
+    return _complete_video_generation(
+        video, storyboard=storyboard, assets=assets, **choices
+    )
+
+
+def generate_text_video(video: Video, *, source_text: str, **choices) -> Video:
+    """Plan visuals around supplied text and preserve intentional review edits."""
+    if not source_text.strip():
+        raise ValidationError("Add your script to continue.")
+    assets = _generation_assets(video, choices)
+    storyboard = None
+    if not (video.gpt_answer and video.dir_name):
+        storyboard = _narration_storyboard(video, source_text, choices)
+    return _complete_video_generation(
+        video, storyboard=storyboard, assets=assets, **choices
+    )
+
+
+def generate_audio_video(video: Video, **choices) -> Video:
+    """Transcribe a recording directly, plan its visuals, and keep its original voice."""
+    if not video.source_audio:
+        raise ValidationError("Upload an MP3 or WAV recording to continue.")
+    choices.pop("source_text", None)
+    choices.update(
+        avatar_selection="", voice_id=None, narration=True, narration_language=""
+    )
+    assets = _generation_assets(video, choices)
+    if not video.source_audio_words:
+        with (
+            tempfile.TemporaryDirectory(prefix="audio-storyboard-") as directory,
+            video_usage(video),
+        ):
+            words = transcribe_audio(
+                video.source_audio.path,
+                video.created_by,
+                video.source_audio_duration,
+                directory,
+            )
+        if not words:
+            raise ValidationError(
+                "No speech was detected in this recording. Choose a recording with clear spoken narration."
+            )
+        video.source_audio_words = words
+        video.save(update_fields=["source_audio_words"])
+    source_text = " ".join(word["text"] for word in video.source_audio_words)
+    if len(source_text) > 20000:
+        raise ValidationError(
+            "This recording has too much speech. Choose a shorter recording (up to 20,000 transcript characters)."
+        )
+    storyboard = None
+    if not (video.gpt_answer and video.dir_name):
+        storyboard = _narration_storyboard(video, source_text, choices)
+    return _complete_video_generation(
+        video, storyboard=storyboard, assets=assets, **choices
+    )
+
+
+def _complete_video_generation(
     video: Video,
     message: str,
     gpt_model: Union[str, None],
@@ -144,67 +322,11 @@ def generate_video(
     series_context: str = "",
     generation_mode: str = "STANDARD",
     narration_language: str = "",
+    storyboard: dict = None,
+    assets: tuple = (),
 ) -> Video:
-    """
-    Generate a video based on the provided parameters.
-
-    Parameters:
-    -----------
-    video : Video
-        The pending video created by `create_pending_video`, filled in here.
-    genre :str
-        The genre for the video.
-    message : str
-        The main message or prompt for the video.
-    gpt_model : Union[str, None]
-        The GPT model to use for generating text.
-    image_mode : Union[str, bool, Literal["WEB", "AI"]]
-        The source of images for the video.
-    avatar_selection : Union[str]
-        The selection of an avatar for the video.
-    style : Literal["vivid", "natural"]
-        The style of the video.
-    target_audience : str
-        The target audience for the video.
-    music : Union[str, None], optional
-        The music to be included in the video.
-    intro : str, optional
-        The ID of the intro to be included in the video.
-    outro : str, optional
-        The ID of the outro to be included in the video.
-    voice_id : Union[str, None], optional
-        The ID of the voice model to be used.
-    subtitles : bool, optional
-        Whether to include subtitles in the video.
-    narration : bool, optional
-        Whether to speak the script. With narration off no voice track is produced and
-        the scene visuals are concatenated at their own length.
-    provider : Union[str, None], optional
-        The provider for generating images.
-    avatar_position : str, optional
-        The position of the avatar in horizontal,vertical order (default is "right,top").
-
-    Returns:
-    --------
-    Videos
-        The generated video object.
-
-    Notes:
-    ------
-    - This function generates a video based on the provided parameters.
-    - It retrieves a template, formats a prompt, and generates video content using various sources for text, images,
-      and audio.
-    """
-    selected_avatar = owned_asset(Avatar, avatar_selection, video.created_by)
-    intro = owned_asset(Intro, intro, video.created_by)
-    outro = owned_asset(Outro, outro, video.created_by)
-    voice_model = (
-        selected_avatar.voice
-        if selected_avatar
-        else available_voice(voice_id, video.created_by)
-        if voice_id
-        else VoiceModel.select_voice(video.created_by)
-    )
+    """Persist a prepared storyboard, stop for review, or generate its media."""
+    selected_avatar, intro, outro, voice_model = assets
 
     logger.info("Retrieved template")
     video_provider = ImageProviderRegistry.is_video(
@@ -212,47 +334,14 @@ def generate_video(
     )
     has_reference = bool(image_mode == "AI" and video.reference_image)
     new_script = not (video.gpt_answer and video.dir_name)
-    prompt = build_script_prompt(
-        genre=genre,
-        userprompt=message,
-        target_audience=target_audience,
-        narration_language=narration_language,
-        platform=platform,
-        scene_count=scene_count,
-        image_mode=image_mode,
-        video=video_provider,
-        style=style,
-        narration=narration,
-        video_audio_mode=(video.settings or {}).get("video_audio_mode", "AUTO"),
-        ai_scene_editing=ai_scene_editing,
-        diagram_icons=icon_candidates(message, user=video.created_by_id) if ai_scene_editing else (),
-        visual_continuity=visual_continuity,
-        reference_role=reference_role if has_reference else None,
-    )
-
-    if series_context:
-        prompt += series_context
-
-    if video.gpt_answer and video.dir_name:
-        logger.info("Resuming video %s from the script it already has", video.id)
+    if not new_script:
+        logger.info("Resuming video %s from its saved storyboard", video.id)
         x = video.gpt_answer
         dir_name = video.dir_name
     else:
-        with video_usage(video):
-            x = get_reply(
-                prompt,
-                gpt_model=gpt_model,
-                user=video.created_by,
-                narration=narration,
-                scene_count=scene_count,
-                ai_scene_editing=ai_scene_editing,
-                video_provider=video_provider,
-                require_visual_continuity=image_mode == "AI",
-                **({"require_episode_summary": True} if series_context else {}),
-                **(
-                    {"reference_image": video.reference_image.path} if has_reference else {}
-                ),
-            )
+        if storyboard is None:
+            raise APIException("No storyboard was prepared for this video.")
+        x = storyboard
         dir_name = generate_directory(f"media/videos/{slugify(x['title'])}")
 
     if image_mode == "AI":
@@ -278,7 +367,11 @@ def generate_video(
     creation_mode = (vid.settings or {}).get("creation_mode")
     character_references = (vid.settings or {}).get("character_references", False)
     generation_params = (vid.settings or {}).get("generation_params")
-    audio_settings = {key: vid.settings[key] for key in ("video_audio_mode", "video_audio_enabled", "music_volume") if key in (vid.settings or {})}
+    audio_settings = {
+        key: vid.settings[key]
+        for key in ("video_audio_mode", "video_audio_enabled", "music_volume")
+        if key in (vid.settings or {})
+    }
     vid.settings = dict(
         subtitles=subtitles,
         narration=narration,
@@ -292,6 +385,8 @@ def generate_video(
         gpt_model=gpt_model or settings.DEFAULT_GPT_MODEL,
     )
     vid.settings.update(audio_settings)
+    if vid.source_audio:
+        vid.settings["creation_mode"] = "AUDIO"
     if music == "auto":
         vid.settings["auto_music"] = True
     elif music and music.startswith(("ai:", "catalog:")):
@@ -400,7 +495,9 @@ def resume_video(video: Video) -> Video:
         except Exception as exc:
             logger.error(exc)
     elif choices.get("music_selection") and not video.music_id:
-        video.music = import_search_music(video, choices["music_selection"], editing=False)
+        video.music = import_search_music(
+            video, choices["music_selection"], editing=False
+        )
 
     video.status = VideoStatus.READY
     video.save()
