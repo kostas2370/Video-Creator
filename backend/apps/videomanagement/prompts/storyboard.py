@@ -77,10 +77,14 @@ def _script_structure(brief, narration, ai_scene_editing=False):
 def diagram_instructions(diagram_icons=()):
     """Diagram visuals are available independently of automatic editing."""
     instructions = (
-        "Use diagrams for explanations, comparisons, lists, processes or cause and effect "
-        "when the subject itself need not be seen. In supported explainers, aim for 1–2 diagram "
-        "scenes out of 4–6, or 2–3 out of 7–10; these are not quotas. Never force diagrams "
-        "into character drama or scenic footage. If editing is present on other shots, use diagram null. "
+        "Prefer a diagram when it clearly explains the idea without needing photographic detail, "
+        "especially for explanations, comparisons, lists, processes or cause and effect. "
+        "Diagrams render locally without image/video generation requests; when clarity is equal, "
+        "prefer them to reduce generation cost. Choose each scene's visual by its content, "
+        "without a diagram count or percentage target. An educational video may use mostly "
+        "or entirely diagrams when suitable. Honor the user's visual preferences; use images "
+        "or footage when appearance, character performance or scenery is essential. "
+        "If editing is present on other shots, use diagram null. "
         "For diagram shots, omit image_description entirely: the diagram is the complete "
         "visual and needs no image, video, or search prompt. Keep overlays empty, motion_style "
         "NONE, animation_preset NONE, animation_accents false and shot_plan.camera_movement "

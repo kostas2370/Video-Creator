@@ -285,6 +285,12 @@ Changing the inputs or prompt-building code can change that text.
 
 ## Diagram descriptions and instruction consistency
 
+Diagram selection has no count or percentage target. Prefer diagrams when they explain
+an idea clearly without photographic detail, and use their lower visual-generation cost
+as a tie-breaker when clarity is equal. Educational videos may use mostly or entirely
+diagrams where suitable. Explicit visual preferences and subjects that require appearance,
+performance, or scenery still take priority.
+
 Diagram shots use `editing.diagram` as their complete visual. Generation, exact-script
 imports, scene drafts, and storyboard revisions instruct the model to omit
 `image_description`. Validation accepts an omitted or blank description for a valid
