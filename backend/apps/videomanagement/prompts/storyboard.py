@@ -26,7 +26,7 @@ sentence, write {parts}.
 
 def _script_structure(brief, narration, ai_scene_editing=False):
     video = brief is _VISUAL_BRIEFS[VisualType.VIDEO]
-    parts = "one visual: a non-diagram description or editing.diagram"
+    parts = f"one visual: {brief.description} for a non-diagram shot, or editing.diagram"
     if narration:
         parts = "the narration and " + parts
     else:
