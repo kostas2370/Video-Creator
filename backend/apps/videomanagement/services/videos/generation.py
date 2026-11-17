@@ -1,4 +1,5 @@
 import logging
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal, Union
 from uuid import uuid4
@@ -7,7 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
 from rest_framework import status
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 from slugify import slugify
 
 from apps.usage.models import GenerationEstimate
@@ -26,6 +27,7 @@ from apps.videomanagement.models import (
     VoiceModel,
 )
 from apps.videomanagement.prompts.storyboard import build_script_prompt, build_text_storyboard_prompt
+from apps.videomanagement.services.captions.transcription import transcribe_audio
 from apps.videomanagement.services.media.catalog import (
     create_catalog_music,
     select_music_track,
@@ -202,8 +204,19 @@ def generate_video(
       and audio.
     """
     if video.source_audio:
-        from apps.videomanagement.services.videos.audio import transcribe_source_audio
-        source_text = transcribe_source_audio(video)
+        if not video.source_audio_words:
+            with tempfile.TemporaryDirectory(prefix="audio-storyboard-") as directory, video_usage(video):
+                words = transcribe_audio(
+                    video.source_audio.path, video.created_by,
+                    video.source_audio_duration, directory,
+                )
+            if not words:
+                raise ValidationError("No speech was detected in this recording. Choose a recording with clear spoken narration.")
+            video.source_audio_words = words
+            video.save(update_fields=["source_audio_words"])
+        source_text = " ".join(word["text"] for word in video.source_audio_words)
+        if len(source_text) > 20000:
+            raise ValidationError("This recording has too much speech. Choose a shorter recording (up to 20,000 transcript characters).")
     selected_avatar = owned_asset(Avatar, avatar_selection, video.created_by)
     intro = owned_asset(Intro, intro, video.created_by)
     outro = owned_asset(Outro, outro, video.created_by)

@@ -8,52 +8,9 @@ from django.core.files import File
 from rest_framework.exceptions import ValidationError
 
 from apps.common.media import run_ffmpeg
-from apps.usage.services import video_usage
 from apps.videomanagement.services.captions.alignment import narration_identity
-from apps.videomanagement.services.captions.transcription import transcribe_audio
 from apps.videomanagement.utils.file_utils import stored_file_exists
 from apps.videomanagement.utils.storyboard import script_lines
-
-
-def transcribe_source_audio(video):
-    if not video.source_audio_words:
-        with (
-            tempfile.TemporaryDirectory(prefix="audio-storyboard-") as directory,
-            video_usage(video),
-        ):
-            # MP3 container duration includes encoder padding. Measure decoded samples
-            # so scene clips cover the recording exactly, without synthetic padding.
-            decoded = Path(directory, "original.wav")
-            run_ffmpeg(
-                [
-                    "-i",
-                    video.source_audio.path,
-                    "-map",
-                    "0:a:0",
-                    "-vn",
-                    "-c:a",
-                    "pcm_s16le",
-                    str(decoded),
-                ],
-                timeout=120,
-            )
-            with wave.open(str(decoded)) as audio:
-                video.source_audio_duration = audio.getnframes() / audio.getframerate()
-            words = transcribe_audio(
-                decoded, video.created_by, video.source_audio_duration, directory
-            )
-        if not words:
-            raise ValidationError(
-                "No speech was detected in this recording. Choose a recording with clear spoken narration."
-            )
-        video.source_audio_words = words
-        video.save(update_fields=["source_audio_words", "source_audio_duration"])
-    text = " ".join(word["text"] for word in video.source_audio_words)
-    if len(text) > 20000:
-        raise ValidationError(
-            "This recording has too much speech. Choose a shorter recording (up to 20,000 transcript characters)."
-        )
-    return text
 
 
 def validate_audio_storyboard(video, storyboard):
@@ -100,11 +57,11 @@ def prepare_audio_scenes(video):
     # Local import avoids the narration/alignment import cycle. This never calls TTS.
     from apps.videomanagement.services.scenes.narration import ensure_scene_rows
 
-    ranges = audio_scene_ranges(video)
+    validate_audio_storyboard(video, video.gpt_answer)
     _, rows = ensure_scene_rows(video)
     pending = [
-        (index, bounds)
-        for index, bounds in enumerate(ranges)
+        index
+        for index, _ in enumerate(script_lines(video.gpt_answer))
         if not stored_file_exists(rows[index].file)
     ]
     if not pending:
@@ -128,7 +85,13 @@ def prepare_audio_scenes(video):
         )
         with wave.open(str(decoded)) as original:
             rate = original.getframerate()
-            for index, (start, end, captions) in pending:
+            # Measure duration during the decode already needed for scene splitting.
+            # MP3 container durations can include encoder padding.
+            video.source_audio_duration = original.getnframes() / rate
+            video.save(update_fields=["source_audio_duration"])
+            ranges = audio_scene_ranges(video)
+            for index in pending:
+                start, end, captions = ranges[index]
                 scene = rows[index]
                 first = round(start * rate)
                 last = min(original.getnframes(), round(end * rate))

@@ -13,7 +13,6 @@ from apps.common.media import run_ffmpeg
 from apps.videomanagement.models import Video
 from apps.videomanagement.services.videos.audio import (
     prepare_audio_scenes,
-    transcribe_source_audio,
 )
 from apps.videomanagement.services.videos.generation import generate_video
 from apps.videomanagement.services.videos.jobs import approve_script
@@ -106,7 +105,7 @@ class AudioVideoTests(ApiTestCase):
         }
         with (
             patch(
-                "apps.videomanagement.services.videos.audio.transcribe_audio",
+                "apps.videomanagement.services.videos.generation.transcribe_audio",
                 return_value=WORDS,
             ) as transcribe,
             patch(
@@ -209,15 +208,20 @@ class AudioVideoTests(ApiTestCase):
         )
 
     def test_silent_transcription_stops_before_generating_media(self):
-        project, _ = self.queue()
+        project, delay = self.queue()
+        params = {
+            key: value
+            for key, value in delay.call_args.kwargs.items()
+            if key not in ("video_id", "operation_id")
+        }
         with patch(
-            "apps.videomanagement.services.videos.audio.transcribe_audio",
+            "apps.videomanagement.services.videos.generation.transcribe_audio",
             return_value=[],
         ):
             from rest_framework.exceptions import ValidationError
 
             with self.assertRaises(ValidationError):
-                transcribe_source_audio(project)
+                generate_video(project, **params)
         self.assertFalse(project.scenes.exists())
 
     def test_source_recording_is_private(self):
