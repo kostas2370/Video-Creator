@@ -6,6 +6,7 @@ from apps.series.prompts import episode_context
 from apps.videomanagement.prompts.storyboard import (
     build_scene_draft_prompt,
     build_script_prompt,
+    build_text_storyboard_prompt,
 )
 from apps.videomanagement.prompts.visuals import format_image_prompt, format_sora_prompt
 from apps.videomanagement.prompts.writing import (
@@ -263,3 +264,35 @@ class CoverPromptTests(SimpleTestCase):
         self.assertIn("Style: watercolor", plain)
         self.assertNotIn("Preserve recurring characters", plain)
         self.assertIn("Preserve recurring characters", anchored)
+
+
+class TextStoryboardPromptTests(SimpleTestCase):
+    def test_script_is_only_supplied_once_without_creative_writing_rules(self):
+        text = "A fox waits. Then the sun rises."
+        prompt = build_text_storyboard_prompt(text)
+        self.assertEqual(prompt.count(text), 1)
+        self.assertIn("Do not rewrite", prompt)
+        self.assertIn("visual_continuity", prompt)
+        self.assertIn("shot_plan", prompt)
+        self.assertNotIn("STORY PROGRESSION", prompt)
+        self.assertNotIn("TIKTOK SHORT-FORM", prompt)
+        self.assertNotIn("8–25 words", prompt)
+        self.assertLess(len(prompt), len(build_script_prompt(image_mode="AI", userprompt=text)))
+
+    def test_optional_production_preferences_still_apply(self):
+        prompt = build_text_storyboard_prompt("Hello.", scene_count=2, style="watercolor", visual_continuity="Blue fox", reference_role="style", video=True)
+        self.assertIn("exactly 2 scenes", prompt)
+        self.assertIn("watercolor", prompt)
+        self.assertIn("Blue fox", prompt)
+        self.assertIn("do not copy pictured subjects", prompt)
+        self.assertIn("No character speech", prompt)
+
+    def test_web_images_use_search_queries_without_character_invention(self):
+        prompt = build_text_storyboard_prompt("Hello.", image_mode="WEB")
+        self.assertIn("search query", prompt)
+        self.assertNotIn("Include shot_plan", prompt)
+
+    def test_optional_editing_still_has_the_required_schema(self):
+        prompt = build_text_storyboard_prompt("Hello.", ai_scene_editing=True)
+        self.assertIn('"editing"', prompt)
+        self.assertIn("motion_style", prompt)

@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.videomanagement.serializers.models import VideoSerializer
-from apps.videomanagement.serializers.requests import GenerateSerializer
+from apps.videomanagement.serializers.requests import GenerateSerializer, TextVideoGenerateSerializer
 from apps.videomanagement.services.videos.jobs import queue_video_generation
 from apps.videomanagement.throttling import GenerateRateThrottle
 
@@ -32,6 +32,10 @@ class GenerateView(GenericAPIView):
             },
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+class TextVideoGenerateView(GenerateView):
+    serializer_class = TextVideoGenerateSerializer
 
 
 class GenerationModelsView(APIView):

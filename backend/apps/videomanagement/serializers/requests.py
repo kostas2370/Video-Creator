@@ -72,7 +72,6 @@ class GenerateSerializer(serializers.Serializer):
         required=False,
         default="both",
     )
-    source_text = serializers.CharField(required=False, max_length=2000)
     message = serializers.CharField(required=True, max_length=2000)
     video_format = serializers.ChoiceField(
         required=False, choices=VIDEO_FORMAT_CHOICES, default=DEFAULT_VIDEO_FORMAT
@@ -123,11 +122,6 @@ class GenerateSerializer(serializers.Serializer):
         return validate_reference_image(value)
 
     def validate(self, attrs):
-        if attrs.get("source_text"):
-            if not attrs.get("narration", True):
-                raise serializers.ValidationError({"narration": "Keep narration enabled when importing a script."})
-            attrs["review_script"] = True
-            attrs["narration_language"] = ""
         if attrs.get("reference_image") and (
             attrs.get("image_mode") != ImageMode.AI
             or not ImageProviderRegistry.supports_reference(
@@ -156,6 +150,26 @@ class GenerateSerializer(serializers.Serializer):
         if not attrs.get("avatar_selection"):
             available_voice(attrs.get("voice_id"), attrs["created_by"])
         return attrs
+
+
+class TextVideoGenerateSerializer(GenerateSerializer):
+    """Adapt an exact script to the shared generation service parameters."""
+
+    source_text = serializers.CharField(max_length=2000)
+    message = serializers.CharField(read_only=True)
+    image_mode = serializers.ChoiceField(choices=ImageMode.choices, default=ImageMode.AI)
+
+    def validate(self, attrs):
+        if not attrs.get("narration", True):
+            raise serializers.ValidationError(
+                {"narration": "Keep narration enabled when importing a script."}
+            )
+        attrs["message"] = attrs["source_text"]
+        attrs["review_script"] = True
+        attrs["narration_language"] = ""
+        if not attrs.get("provider"):
+            attrs["provider"] = "OPENAI" if attrs["image_mode"] == ImageMode.AI else "bing"
+        return super().validate(attrs)
 
 
 class ManualVideoSerializer(serializers.Serializer):

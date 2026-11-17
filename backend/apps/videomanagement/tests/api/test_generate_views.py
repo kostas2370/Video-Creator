@@ -16,22 +16,6 @@ from .base import ApiTestCase
 
 
 class GenerateViewTests(ApiTestCase):
-    def test_script_import_forces_review_and_keeps_source_in_settings(self):
-        source = "The cat left. The forest was quiet."
-        response, delay = self.post(source_text=source, review_script=False, narration_language="Greek")
-        self.assertEqual(response.status_code, 202, response.data)
-        self.assertEqual(delay.call_args.kwargs["source_text"], source)
-        self.assertTrue(delay.call_args.kwargs["review_script"])
-        self.assertEqual(delay.call_args.kwargs["narration_language"], "")
-        saved = Video.objects.get(pk=response.data["video"]["id"])
-        self.assertEqual(saved.settings["generation_params"]["source_text"], source)
-
-    def test_script_import_rejects_empty_long_or_silent_scripts(self):
-        for choices in ({"source_text": "   "}, {"source_text": "x" * 2001}, {"source_text": "Hello", "narration": False}):
-            response, delay = self.post(**choices)
-            self.assertEqual(response.status_code, 400, response.data)
-            delay.assert_not_called()
-
     def test_ai_scene_editing_opt_in_reaches_the_worker(self):
         response, delay = self.post(ai_scene_editing=True)
         self.assertEqual(response.status_code, 202, response.data)
@@ -383,3 +367,48 @@ class StoryboardApprovalTests(ApiTestCase):
         video.save()
         script = {"title": "Title", "scenes": [{"scene": "One", "sentences": [{"image_description": "A cat"}]}]}
         self.assertEqual(self.approve(video, script).status_code, 202)
+
+
+class TextVideoGenerateViewTests(ApiTestCase):
+    def test_script_import_forces_review_and_keeps_source_in_settings(self):
+        source = "The cat left. The forest was quiet."
+        response, delay = self.post(source_text=source, review_script=False, narration_language="Greek")
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertEqual(delay.call_args.kwargs["source_text"], source)
+        self.assertTrue(delay.call_args.kwargs["review_script"])
+        self.assertEqual(delay.call_args.kwargs["narration_language"], "")
+        saved = Video.objects.get(pk=response.data["video"]["id"])
+        self.assertEqual(saved.settings["generation_params"]["source_text"], source)
+
+    def test_script_import_rejects_empty_long_or_silent_scripts(self):
+        for choices in ({"source_text": "   "}, {"source_text": "x" * 2001}, {"source_text": "Hello", "narration": False}):
+            response, delay = self.post(**choices)
+            self.assertEqual(response.status_code, 400, response.data)
+            delay.assert_not_called()
+
+    def post(self, **choices):
+        with patch("apps.videomanagement.tasks.generate_video_task.delay") as delay:
+            response = self.client.post(reverse("generate-text-video"), choices, format="json")
+        return response, delay
+
+    def test_requires_script_and_ignores_a_conflicting_creative_prompt(self):
+        response, delay = self.post(message="An idea without a script")
+        self.assertEqual(response.status_code, 400)
+        delay.assert_not_called()
+        response, delay = self.post(source_text="Exact narration.", message="Rewrite everything")
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertEqual(delay.call_args.kwargs["message"], "Exact narration.")
+        self.assertEqual(delay.call_args.kwargs["image_mode"], "AI")
+        self.assertEqual(delay.call_args.kwargs["provider"], "OPENAI")
+
+    def test_requires_authentication(self):
+        self.client.force_authenticate(None)
+        response, delay = self.post(source_text="Exact narration.")
+        self.assertIn(response.status_code, (401, 403))
+        delay.assert_not_called()
+
+    def test_reuses_queue_failure_recovery(self):
+        with patch("apps.videomanagement.tasks.generate_video_task.delay", side_effect=RuntimeError("offline")):
+            response = self.client.post(reverse("generate-text-video"), {"source_text": "Exact narration."}, format="json")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(Video.objects.get().status, "FAILED")

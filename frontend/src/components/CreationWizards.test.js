@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("../hooks/useAxiosPrivate", () => ({ useAxiosPrivate: () => ({}) }));
-vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), draftCharacterDescription: vi.fn() }));
+vi.mock("../api/apiService", async importOriginal => ({ ...await importOriginal(), getGenerationModels: vi.fn(), getAvatars: vi.fn(), getTemplates: vi.fn(), getVoices: vi.fn(), getIntro: vi.fn(), getOutro: vi.fn(), getCustomVisualProviders: vi.fn(), generateVideo: vi.fn(), generateTextVideo: vi.fn(), draftCharacterDescription: vi.fn() }));
 import * as api from "../api/apiService";
 import Home from "../pages/HomePage";
 import { SeriesProfileForm } from "./SeriesProfileForm";
@@ -16,6 +16,7 @@ beforeEach(() => {
   api.getGenerationModels.mockResolvedValue({ ok: true, data: { script_models: { OPENAI: ["server-script-model"] }, default_script_model: "server-script-model" } });
   api.getCustomVisualProviders.mockResolvedValue({ ok: true, data: [] });
   api.generateVideo.mockResolvedValue({ ok: false });
+  api.generateTextVideo.mockResolvedValue({ ok: false });
 });
 afterEach(cleanup);
 
@@ -162,6 +163,8 @@ it("imports exact text using the shared storyboard workflow", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Review video" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Draft storyboard" }).disabled).toBe(false));
   fireEvent.click(screen.getByRole("button", { name: "Draft storyboard" }));
-  await waitFor(() => expect(api.generateVideo).toHaveBeenCalledOnce());
-  expect(api.generateVideo.mock.calls[0][0]).toMatchObject({ source_text: "A fox waits. Then the sun rises.", image_mode: "AI", provider: "OPENAI", narration: true, narration_language: "", review_script: true, scene_count: null });
+  await waitFor(() => expect(api.generateTextVideo).toHaveBeenCalledOnce());
+  expect(api.generateTextVideo.mock.calls[0][0]).toMatchObject({ source_text: "A fox waits. Then the sun rises.", image_mode: "AI", provider: "OPENAI", narration: true, narration_language: "", review_script: true, scene_count: null });
+  expect(api.generateVideo).not.toHaveBeenCalled();
+  expect(api.generateTextVideo.mock.calls[0][0]).not.toHaveProperty("message");
 });

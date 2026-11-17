@@ -9,7 +9,7 @@ from apps.videomanagement.views.assets import (
     TemplatePromptView,
     VoiceView,
 )
-from apps.videomanagement.views.generation import GenerateView, GenerationModelsView
+from apps.videomanagement.views.generation import GenerateView, GenerationModelsView, TextVideoGenerateView
 from apps.videomanagement.views.scenes import SceneView
 from apps.videomanagement.views.videos import VideoView
 
@@ -45,4 +45,5 @@ urlpatterns = [
     ),
     path("videos/<uuid:video_id>/events/", event_updates, name="video_events"),
     path("generate/", GenerateView.as_view(), name="generate"),
+    path("generate/text/", TextVideoGenerateView.as_view(), name="generate-text-video"),
 ]

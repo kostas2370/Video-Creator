@@ -20,7 +20,7 @@ import { MoreAssetOptions } from "../components/ui/MoreAssetOptions";
 import React, { lazy, useState, useEffect, useRef } from "react";
 import { getAvatars, getTemplates, getVoices, getCustomVisualProviders, getGenerationModels } from "../api/apiService";
 import { toast } from "react-toastify";
-import { deleteTemplate, generateVideo } from "../api/apiService";
+import { deleteTemplate, generateVideo, generateTextVideo } from "../api/apiService";
 import { waitForVideo } from "../api/waitForVideo";
 import { Link } from "react-router-dom";
 import { RiSparkling2Line, RiArrowRightLine, RiVolumeUpLine, RiImageLine, RiSettings3Line, RiArrowDownSLine } from "react-icons/ri";
@@ -269,6 +269,7 @@ const Home = ({ inputMode = "idea" }) => {
     setIsLoading(true);
 
     const generationData = { ...formData, ...(textMode ? { source_text: formData.message, narration: true, narration_language: "" } : {}), review_starting_frames: !!formData.review_starting_frames && supportsReference && isBuiltinVideoProvider(formData.provider), review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
+    if (textMode) delete generationData.message;
     let payload = generationData;
     if (supportsReference && referenceImage) {
       payload = new FormData();
@@ -277,7 +278,7 @@ const Home = ({ inputMode = "idea" }) => {
       });
       payload.append("reference_image", referenceImage);
     }
-    const result = await generateVideo(payload);
+    const result = await (textMode ? generateTextVideo(payload) : generateVideo(payload));
     if (!result.ok) { setIsLoading(false); return; }
     const response = result.data;
 
