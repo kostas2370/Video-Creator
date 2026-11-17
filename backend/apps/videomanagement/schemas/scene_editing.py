@@ -35,6 +35,19 @@ class SceneEditingPlanSerializer(MotionSettingsSerializer):
     overlays = PlannedOverlaySerializer(many=True, required=False, max_length=2)
     diagram = DiagramSerializer(required=False, allow_null=True)
 
+    def to_internal_value(self, data):
+        # Only diagram plans may omit the ordinary editing fields. Supplied values
+        # still pass through field and cross-field validation unchanged.
+        if isinstance(data, dict) and data.get("diagram"):
+            data = {
+                "motion_style": "NONE", "motion_intensity": "SUBTLE",
+                "transition_after": "CUT", "transition_duration": 0.1,
+                "pause_after": 0, "animation_preset": "NONE",
+                "animation_accents": False, "overlays": [],
+                **data,
+            }
+        return super().to_internal_value(data)
+
     def validate(self, attrs):
         if self.context.get("video_provider") and attrs["motion_style"] != MotionStyle.NONE:
             raise serializers.ValidationError("Use NONE motion for video providers.")

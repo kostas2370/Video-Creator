@@ -18,6 +18,7 @@ from apps.videomanagement.prompts.storyboard import (
     build_storyboard_revision_prompt,
 )
 from apps.videomanagement.schemas.drafts import SceneDraftResultSerializer
+from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.serializers.requests import StoryboardSerializer
 from apps.videomanagement.services.scenes.narration import ensure_scene_rows
 from apps.videomanagement.services.scenes.visuals import create_image_scene
@@ -95,6 +96,7 @@ class DiagramStoryboardValidationTests(SimpleTestCase):
     ):
         script = diagram_script()
         script["scenes"][0]["sentences"][0]["image_description"] = "Unused photo"
+        script["scenes"][0]["sentences"][0]["editing"] = {"diagram": DIAGRAM}
         with (
             patch(
                 "apps.videomanagement.integrations.llm.model_reply",
@@ -105,6 +107,8 @@ class DiagramStoryboardValidationTests(SimpleTestCase):
             result = get_reply("Plan a diagram", narration=True, ai_scene_editing=True)
         model.assert_called_once()
         self.assertNotIn("image_description", result["scenes"][0]["sentences"][0])
+        self.assertEqual(result["scenes"][0]["sentences"][0]["editing"]["motion_style"], "NONE")
+        self.assertEqual(result["scenes"][0]["sentences"][0]["editing"]["pause_after"], 0)
 
     def test_diagram_prompt_example_validates_in_each_generation_mode(self):
         for mode in ("AI", "WEB"):
@@ -120,6 +124,7 @@ class DiagramStoryboardValidationTests(SimpleTestCase):
                         script = {"title": "Process", "scenes": [{"scene": "Steps", "sentences": [shot]}]}
                         with self.subTest(mode=mode, moving=moving, planning=planning, narration=narration):
                             self.assertNotIn("image_description", shot)
+                            self.assertEqual(set(shot["editing"]), {"diagram"})
                             self.assertEqual("sentence" in shot, narration)
                             self.assertFalse(script_errors(
                                 script, narration=narration, ai_scene_editing=planning,
@@ -134,16 +139,46 @@ class DiagramStoryboardValidationTests(SimpleTestCase):
     def test_diagram_only_plan_is_valid_with_editing_disabled(self):
         script = diagram_script()
         shot = script["scenes"][0]["sentences"][0]
-        shot["editing"] = {
-            "motion_style": "NONE", "motion_intensity": "SUBTLE",
-            "transition_after": "CUT", "transition_duration": 0.1,
-            "pause_after": 0, "animation_preset": "NONE",
-            "animation_accents": False, "overlays": [], "diagram": DIAGRAM,
-        }
+        shot["editing"] = {"diagram": DIAGRAM}
         for moving in (True, False):
             self.assertFalse(script_errors(script, ai_scene_editing=False, video_provider=moving))
             serializer = StoryboardSerializer(data=script, context={"video_provider": moving})
             self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_defaults_are_diagram_only_and_do_not_mutate_input(self):
+        payload = {"diagram": deepcopy(DIAGRAM)}
+        original = deepcopy(payload)
+        serializer = SceneEditingPlanSerializer(data=payload)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(payload, original)
+        self.assertEqual(dict(serializer.validated_data), {
+            **original, "motion_style": "NONE", "motion_intensity": "SUBTLE",
+            "transition_after": "CUT", "transition_duration": 0.1,
+            "pause_after": 0, "animation_preset": "NONE",
+            "animation_accents": False, "overlays": [],
+        })
+        for data in ({}, {"diagram": None}, {"diagram": {}}, {"diagram": {"title": "Invalid"}}):
+            self.assertFalse(SceneEditingPlanSerializer(data=data).is_valid())
+
+    def test_explicit_diagram_settings_are_preserved_and_validated(self):
+        serializer = SceneEditingPlanSerializer(data={
+            "diagram": DIAGRAM, "transition_after": "DISSOLVE",
+            "transition_duration": 0.4, "pause_after": 0.5,
+        })
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["transition_after"], "DISSOLVE")
+        self.assertEqual(serializer.validated_data["transition_duration"], 0.4)
+        self.assertEqual(serializer.validated_data["pause_after"], 0.5)
+        for changes in (
+            {"transition_after": "INVALID"}, {"transition_duration": 9},
+            {"pause_after": None}, {"motion_style": "SPIN"},
+            {"overlays": [{"text": "Label", "start_fraction": 0, "end_fraction": 1}]},
+        ):
+            self.assertFalse(SceneEditingPlanSerializer(data={"diagram": DIAGRAM, **changes}).is_valid())
+        self.assertFalse(SceneEditingPlanSerializer(
+            data={"diagram": DIAGRAM, "motion_style": "ZOOM_IN"},
+            context={"video_provider": True},
+        ).is_valid())
 
     def test_diagram_instructions_are_available_without_automatic_effects(self):
         for mode in ("AI", "WEB"):
@@ -226,15 +261,20 @@ class DiagramStoryboardGenerationTests(TestCase):
                 tempfile.TemporaryDirectory() as directory,
                 override_settings(MEDIA_ROOT=directory),
             ):
+                script = diagram_script(False)
+                script["scenes"][0]["sentences"][0]["editing"] = {"diagram": DIAGRAM}
                 project = video.make(
                     mode="AI",
-                    gpt_answer=diagram_script(False),
+                    gpt_answer=script,
                     settings={"ai_scene_editing": planning, "narration": False},
                 )
                 lines, rows = ensure_scene_rows(project)
                 row = rows[0]
                 self.assertEqual(lines[0].image_description, "")
                 self.assertEqual(row.text, "")
+                self.assertEqual(row.motion_style, "NONE")
+                self.assertEqual(row.transition_after, "CUT")
+                self.assertEqual(row.pause_after, 0)
                 self.assertEqual(row.overlays[0]["diagram"], DIAGRAM)
                 with patch(
                     "apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve"

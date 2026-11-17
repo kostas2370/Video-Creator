@@ -292,7 +292,7 @@ diagrams where suitable. Explicit visual preferences and subjects that require a
 performance, or scenery still take priority.
 
 Generation and exact-script prompts include a compact alternative diagram-shot JSON
-example with neutral settings and no image description. Narration and shot-plan fields
+example with only `editing.diagram` and no image description. Narration and shot-plan fields
 follow the active mode; example content is explicitly illustrative, not extra story content.
 
 Diagram shots use `editing.diagram` as their complete visual. Generation, exact-script
@@ -304,8 +304,10 @@ or item labels internally instead of inventing an image prompt. The review form 
 diagram content without requiring a visual-prompt field. Diagram backgrounds remain
 local and make no image/video provider request. Diagram instructions and icon shortlists
 are included whether AI scene editing is on or off, including exact-script imports and
-storyboard revisions. With editing off, only diagram shots receive a neutral editing
-container; ordinary shots receive no automatic editing plan. Diagram content remains
+storyboard revisions. Diagram plans may return only `editing.diagram`; backend validation fills missing
+neutral motion, intensity, effects, transition, pause, and overlay settings. Explicit
+values are preserved and validated, and non-diagram plans retain their required fields.
+With editing off, ordinary shots receive no automatic editing plan. Diagram content remains
 reviewable, and project estimates exclude diagram visuals in either mode while retaining
 narration costs.
 
