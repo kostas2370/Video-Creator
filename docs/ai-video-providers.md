@@ -65,3 +65,27 @@ no paid generation or visual-quality comparison is part of the test suite.
 - [Runway API reference](https://docs.dev.runwayml.com/api/)
 - [Runway getting started](https://docs.dev.runwayml.com/guides/using-the-api/)
 - [Gemini Omni Flash](https://ai.google.dev/gemini-api/docs/omni)
+
+
+## Animation failures
+
+Gemini, Kling, and Runway video adapters preserve safe provider explanations in the scene's
+saved animation error and background-job result. Recognized reasons distinguish
+request settings, billing, permissions, quotas, content restrictions, temporary
+provider failures, and timeouts. Recognized Google field violations identify video
+length, aspect ratio, resolution, or model settings. Unknown responses explicitly
+say that no recognized reason was supplied; HTTP 400 alone does not establish a
+safety or billing problem.
+
+HTTP failures include a short reference also written to the worker log, alongside
+the existing request/task context. Only application-authored hints and allowlisted
+codes are exposed. Raw provider bodies, prompts, credentials, signed URLs, and
+arbitrary exception messages are excluded from these diagnostics. Narrow matches
+on message-only responses select static hints without copying upstream text.
+
+An animation failure retains the approved starting frame and previous clip. A
+successful retry clears the saved error. Follow the displayed guidance before
+retrying; a timed-out generation may still finish and incur provider charges.
+Previously saved generic errors cannot recover details that were discarded; new
+attempts use the improved handling. No provider requests are retried automatically.
+Restart the API and general worker when deploying; no migration is required.

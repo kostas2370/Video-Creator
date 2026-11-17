@@ -25,7 +25,7 @@ def video_output(payload):
             for content in step.get("content", []):
                 if content.get("type") == "video":
                     return content
-    raise http.APIException("Gemini returned no video. Try a different prompt.")
+    raise http.VideoProviderError("Gemini returned no video. Try a different prompt.")
 
 
 @ImageProviderRegistry.register(
@@ -80,7 +80,11 @@ class GeminiVideoProvider(http.DurationVideoProvider):
             timeout=600,
         )
         if result.get("status") != "completed":
-            raise http.APIException("Gemini did not complete video generation.")
+            raise http.generation_error(
+                "Gemini",
+                result,
+                fallback="Gemini did not complete video generation. Check the provider dashboard before retrying.",
+            )
         output = video_output(result)
         if output.get("uri"):
             uri = output["uri"]
@@ -92,7 +96,9 @@ class GeminiVideoProvider(http.DurationVideoProvider):
                     r"/v1beta/files/([A-Za-z0-9_-]+)(?::download)?", urlparse(uri).path
                 )
                 if not match:
-                    raise http.APIException("Gemini returned an invalid video file.")
+                    raise http.VideoProviderError(
+                        "Gemini returned an invalid video file."
+                    )
                 file_id = match.group(1)
             request.wait(
                 f"{BASE}/files/{file_id}",
@@ -109,14 +115,14 @@ class GeminiVideoProvider(http.DurationVideoProvider):
         elif output.get("data"):
             encoded = output["data"]
             if len(encoded) > http.MAX_VIDEO_BYTES * 4 // 3 + 4:
-                raise http.APIException(
+                raise http.VideoProviderError(
                     "Generated video exceeds the 200 MB download limit."
                 )
             path = http.save_stream(
                 BytesIO(base64.b64decode(encoded, validate=True)), request.directory
             )
         else:
-            raise http.APIException("Gemini returned no downloadable video.")
+            raise http.VideoProviderError("Gemini returned no downloadable video.")
         # Record the actual output length rather than the requested duration.
         seconds = math.ceil(video_metadata(path)["duration"])
         record_usage(

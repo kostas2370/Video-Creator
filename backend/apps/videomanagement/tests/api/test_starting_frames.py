@@ -11,6 +11,7 @@ from PIL import Image
 
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.baker_recipes import scene, scene_image
+from apps.videomanagement.integrations.visuals.errors import VideoProviderError
 from apps.videomanagement.services.scenes.visuals import create_image_scene
 
 from .base import ApiTestCase
@@ -111,6 +112,43 @@ class StartingFrameTests(ApiTestCase):
         )
         self.assertNotIn("private upstream", str(self.scene.starting_frame_context))
         self.assertEqual(self.post("animate").status_code, 202)
+
+    def test_safe_provider_error_is_saved_with_frame_and_clip_preserved_and_cleared_on_success(
+        self,
+    ):
+        self.post("approve")
+        self.post("animate")
+        message = "Gemini: Video provider rejected the request (HTTP 400) [CONTENT_BLOCKED]. Edit the shot description or replace the starting frame before retrying."
+        with patch(
+            "apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve",
+            side_effect=VideoProviderError(message),
+        ):
+            with self.assertRaises(VideoProviderError):
+                self.run_scene_job()
+        self.scene.refresh_from_db()
+        self.old.refresh_from_db()
+        self.assertIn(message, self.scene.starting_frame_context["animation_error"])
+        self.assertEqual(self.old.file.name, "images/old.mp4")
+        self.assertEqual(
+            self.scene.starting_frame_context["approved_asset"],
+            str(self.scene.starting_asset_id),
+        )
+        response = self.client.get(reverse("video-detail", args=[self.video.pk]))
+        self.assertEqual(response.status_code, 200)
+        saved_scene = next(
+            item
+            for item in response.data["scenes"]
+            if str(item["id"]) == str(self.scene.pk)
+        )
+        self.assertIn(message, saved_scene["starting_frame_context"]["animation_error"])
+        self.post("animate")
+        with patch(
+            "apps.videomanagement.services.scenes.visuals.ImageProviderRegistry.resolve",
+            return_value=Mock(return_value="images/recovered.mp4"),
+        ):
+            self.run_scene_job()
+        self.scene.refresh_from_db()
+        self.assertNotIn("animation_error", self.scene.starting_frame_context)
 
     def test_upload_requires_review_and_preserves_current_clip(self):
         self.post("approve")

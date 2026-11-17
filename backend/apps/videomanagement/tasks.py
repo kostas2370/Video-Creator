@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
 from apps.videomanagement.integrations import tts as tts_utils
+from apps.videomanagement.integrations.visuals.errors import public_video_error
 from apps.videomanagement.services.captions.projects import process_caption_project
 from apps.videomanagement.services.media import covers
 from apps.videomanagement.services.media.archive import archive_generated_cover
@@ -74,10 +75,15 @@ def generate_scene_image_task(
         if isinstance(image_description, dict):
             try:
                 animate_starting_frame(scene, image_description["asset_id"])
-            except Exception:
+            except Exception as exc:
+                reason = public_video_error(exc)
                 scene.starting_frame_context = {
                     **scene.starting_frame_context,
-                    "animation_error": "Animation failed. Your starting frame and existing clip are saved. Retry when ready.",
+                    "animation_error": (
+                        f"Animation failed. {reason} Your starting frame and existing clip are saved."
+                        if reason
+                        else "Animation failed. Your starting frame and existing clip are saved. Retry when ready."
+                    ),
                 }
                 scene.save(update_fields=["starting_frame_context"])
                 raise

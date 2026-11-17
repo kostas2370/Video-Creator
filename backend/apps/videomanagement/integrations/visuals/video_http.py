@@ -22,6 +22,7 @@ from apps.videomanagement.prompts.visuals import audio_direction
 from apps.videomanagement.utils.image_inputs import image_data
 
 from .custom import save_video
+from .errors import VideoProviderError, generation_error, provider_error
 from .registry import ImageProviderRegistry
 
 logger = logging.getLogger(__name__)
@@ -52,16 +53,30 @@ def guarded(label):
         def call(*args, **kwargs):
             try:
                 return fn(*args, **kwargs)
+            except VideoProviderError as exc:
+                raise VideoProviderError(f"{label}: {exc}") from None
             except APIException:
                 raise
+            except requests.Timeout:
+                raise VideoProviderError(
+                    f"{label} request timed out. Check the provider dashboard before retrying; generation may still finish and incur charges."
+                ) from None
+            except requests.ConnectionError:
+                raise VideoProviderError(
+                    f"Could not connect to {label}. Check connectivity and try again later."
+                ) from None
             except Exception as exc:
                 # Requests errors may embed signed download URLs or credentials.
+                reference = uuid.uuid4().hex[:12]
                 logger.warning(
-                    "%s video generation failed (%s)", label, type(exc).__name__
+                    "%s video generation failed (%s). Reference: %s",
+                    label,
+                    type(exc).__name__,
+                    reference,
                 )
-                raise APIException(
-                    f"{label} could not generate this video. Check your API key, "
-                    "provider balance and access, then try again."
+                raise VideoProviderError(
+                    f"{label} could not complete video generation. The cause could not "
+                    f"be determined. Check the worker logs before retrying. Reference: {reference}."
                 ) from None
 
         return call
@@ -173,7 +188,7 @@ def video_provider(
 def key_for(user, provider):
     key = ApiKeys.key_for(user, provider)
     if not key:
-        raise APIException(
+        raise VideoProviderError(
             f"Add a {provider.label} API key or enable configured service keys."
         )
     return key
@@ -189,41 +204,19 @@ def json_request(method, url, *, headers, body=None, timeout=60):
         allow_redirects=False,
     ) as response:
         if not 200 <= response.status_code < 300:
-            raise APIException(provider_error(response))
-        payload = response.json()
+            reference = uuid.uuid4().hex[:12]
+            message = f"{provider_error(response)} Reference: {reference}."
+            logger.warning("Video provider request failed: %s", message)
+            raise VideoProviderError(message)
+        try:
+            payload = response.json()
+        except ValueError:
+            raise VideoProviderError(
+                "Video provider returned an unreadable response. Check its dashboard before retrying."
+            ) from None
     if not isinstance(payload, dict):
-        raise APIException("Video provider returned an invalid response.")
+        raise VideoProviderError("Video provider returned an invalid response.")
     return payload
-
-
-def provider_error(response):
-    # Never expose raw provider messages: they can echo prompts, keys or URLs.
-    hints = {
-        "INVALID_ARGUMENT": "Check the video request parameters and input image.",
-        "FAILED_PRECONDITION": "Check billing and eligibility for the API key's project.",
-        "PAYMENT_REQUIRED": "Restore credits on the API key's provider project.",
-        "UNAUTHENTICATED": "Check the configured provider API key.",
-        "PERMISSION_DENIED": "Check the API key's permissions and model access.",
-        "RESOURCE_EXHAUSTED": "Check the provider project's quota, rate limits and balance.",
-        "NOT_FOUND": "Check that the configured model is available to this API key.",
-        "INVALID_REQUEST": "Check the video request parameters and input image.",
-        "CONTENT_BLOCKED": "The provider's safety filters blocked the prompt or reference image.",
-    }
-    try:
-        payload = response.json()
-    except ValueError:
-        payload = None
-    error = payload.get("error") if isinstance(payload, dict) else None
-    status = (
-        error.get("status") or error.get("type") or error.get("code")
-        if isinstance(error, dict)
-        else None
-    )
-    status = status.upper() if isinstance(status, str) else None
-    prefix = f"Video provider rejected the request (HTTP {response.status_code})"
-    if status in hints:
-        return f"{prefix} [{status}]. {hints[status]}"
-    return f"{prefix}. Check your key, balance, model access, and prompt."
 
 
 def poll(fetch, *, field="status", completed, pending, label):
@@ -231,16 +224,14 @@ def poll(fetch, *, field="status", completed, pending, label):
     while time.monotonic() < deadline:
         payload = fetch()
         state = payload.get(field)
+        if payload.get("error"):
+            raise generation_error(label, payload)
         if state in completed:
-            if payload.get("error"):
-                raise APIException(
-                    f"{label} generation failed. Try a different prompt."
-                )
             return payload
         if state not in pending:
-            raise APIException(f"{label} generation failed or was cancelled.")
+            raise VideoProviderError(f"{label} generation failed or was cancelled.")
         time.sleep(settings.VIDEO_POLL_INTERVAL)
-    raise APIException(
+    raise VideoProviderError(
         f"{label} generation timed out. The provider may still finish and charge "
         "for the request; check its dashboard before retrying."
     )
@@ -248,7 +239,7 @@ def poll(fetch, *, field="status", completed, pending, label):
 
 def identifier(value):
     if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,256}", value):
-        raise APIException("Video provider returned an invalid job identifier.")
+        raise VideoProviderError("Video provider returned an invalid job identifier.")
     return value
 
 
@@ -262,7 +253,7 @@ def api_url(value, host):
         or parsed.username
         or parsed.password
     ):
-        raise APIException("Video provider returned an invalid API URL.")
+        raise VideoProviderError("Video provider returned an invalid API URL.")
     return value
 
 
@@ -300,7 +291,7 @@ def save_download(url, directory, *, headers=None, auth_host=None):
             or parsed.username
             or parsed.password
         ):
-            raise APIException("Video provider returned an invalid download URL.")
+            raise VideoProviderError("Video provider returned an invalid download URL.")
         with requests.get(
             url,
             headers=download_headers,
@@ -311,7 +302,9 @@ def save_download(url, directory, *, headers=None, auth_host=None):
             if response.status_code in (301, 302, 303, 307, 308):
                 target = urljoin(url, response.headers.get("Location", ""))
                 if target == url:
-                    raise APIException("Video download returned an invalid redirect.")
+                    raise VideoProviderError(
+                        "Video download returned an invalid redirect."
+                    )
                 if (urlparse(target).hostname, urlparse(target).port) != (
                     parsed.hostname,
                     parsed.port,
@@ -320,19 +313,19 @@ def save_download(url, directory, *, headers=None, auth_host=None):
                 url = target
                 continue
             if not 200 <= response.status_code < 300:
-                raise APIException("Could not download the generated video.")
+                raise VideoProviderError("Could not download the generated video.")
             with tempfile.SpooledTemporaryFile(max_size=1024 * 1024) as stream:
                 count = 0
                 for chunk in response.iter_content(chunk_size=64 * 1024):
                     count += len(chunk)
                     if count > MAX_VIDEO_BYTES:
-                        raise APIException(
+                        raise VideoProviderError(
                             "Generated video exceeds the 200 MB download limit."
                         )
                     stream.write(chunk)
                 stream.seek(0)
                 return save_stream(stream, directory)
-    raise APIException("Video download returned too many redirects.")
+    raise VideoProviderError("Video download returned too many redirects.")
 
 
 def save_stream(stream, directory):

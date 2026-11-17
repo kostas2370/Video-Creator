@@ -4,6 +4,7 @@ from django.core import signing
 from django.urls import reverse
 
 from apps.usermanagement.baker_recipes import user
+from apps.videomanagement.integrations.visuals.errors import VideoProviderError
 from apps.videomanagement.services.scenes.jobs import JOB_SALT
 
 from ...baker_recipes import scene, scene_image
@@ -79,6 +80,17 @@ class SceneJobTests(ApiTestCase):
                 self.assertNotIn("private provider detail", str(response.data))
                 if state == "SUCCESS":
                     self.assertEqual(response.data["result"], {"text": "A rewrite"})
+
+    def test_failed_job_returns_only_explicitly_safe_video_errors(self):
+        token = self.queue()
+        url = reverse("scene-operation", args=[self.scene.pk])
+        message = "Gemini: Check billing and eligibility before retrying."
+        with patch(
+            "apps.videomanagement.services.scenes.jobs.AsyncResult",
+            return_value=Mock(state="FAILURE", result=VideoProviderError(message)),
+        ):
+            response = self.client.get(url, {"job": token})
+        self.assertEqual(response.data["error"], message)
 
     def test_queue_failure_restores_video(self):
         self.scene_queue.side_effect = RuntimeError("Broker unavailable")

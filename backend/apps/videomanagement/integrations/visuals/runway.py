@@ -31,7 +31,7 @@ class RunwayProvider(http.DurationVideoProvider):
     )
     def generate(request):
         if len(request.prompt.encode("utf-16-le")) // 2 > 1000:
-            raise http.APIException(
+            raise http.VideoProviderError(
                 "Runway allows 1,000 characters including shared continuity and shot "
                 "instructions. Shorten the visual prompt or continuity description."
             )
