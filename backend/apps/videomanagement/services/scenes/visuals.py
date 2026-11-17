@@ -306,7 +306,7 @@ def create_image_scene(
         Image.new("RGB", (64, 64), "#0f172a").save(data, format="PNG")
         data.seek(0)
         saved = scene.scene_images.filter(asset__isnull=True).first() or SceneImage(scene=scene)
-        saved.prompt = image
+        saved.prompt = ""
         saved.with_audio = False
         saved.file = File(data, name="diagram-background.png")
         saved.save()

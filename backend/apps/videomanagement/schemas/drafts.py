@@ -14,7 +14,9 @@ class SceneDraftResultSerializer(serializers.Serializer):
     diagram = DiagramSerializer(required=False, allow_null=True)
 
     def validate(self, attrs):
-        if not attrs.get("diagram") and not attrs["image_description"]:
+        if attrs.get("diagram"):
+            attrs.pop("image_description", None)
+        elif not attrs["image_description"]:
             raise serializers.ValidationError("Provide a visual description or a diagram.")
         return attrs
 

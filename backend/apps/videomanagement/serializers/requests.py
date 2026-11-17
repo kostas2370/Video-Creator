@@ -380,7 +380,18 @@ class StoryboardSentenceSerializer(serializers.Serializer):
     shot_plan = ShotPlanSerializer(required=False)
     editing = SceneEditingPlanSerializer(required=False)
     sentence = serializers.CharField(required=False, allow_blank=True, max_length=2000)
-    image_description = serializers.CharField(max_length=2000)
+    image_description = serializers.CharField(
+        required=False, allow_blank=True, max_length=2000
+    )
+
+    def validate(self, attrs):
+        if (attrs.get("editing") or {}).get("diagram"):
+            attrs.pop("image_description", None)
+        elif not attrs.get("image_description"):
+            raise serializers.ValidationError(
+                "Add a visual description for each non-diagram shot."
+            )
+        return attrs
 
 
 class StoryboardSceneSerializer(serializers.Serializer):

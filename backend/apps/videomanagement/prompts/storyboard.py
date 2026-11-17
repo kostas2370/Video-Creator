@@ -29,6 +29,12 @@ def _script_structure(brief, narration, ai_scene_editing=False):
     parts = f"the narration and {brief.description}"
     if not narration:
         parts = f"only {brief.description} — omit the sentence field because voice-over narration is off"
+    if ai_scene_editing:
+        parts = "one visual: a non-diagram description or editing.diagram"
+        if narration:
+            parts = "the narration and " + parts
+        else:
+            parts += " — omit sentence because voice-over narration is off"
     shot = {"image_description": brief.placeholder}
     if narration:
         shot = {"sentence": "<the narration to be spoken>", **shot}
@@ -64,7 +70,9 @@ def _script_structure(brief, narration, ai_scene_editing=False):
     shape["scenes"] = [{"scene": "<short label for the scene>", "sentences": [shot]}]
     return (
         _STILL_BRIEF.format(parts=parts)
-        + "\nAnswer with JSON only — no prose, no markdown, no code fences — in exactly this shape:\n"
+        + "\nAnswer with JSON only — no prose, no markdown, no code fences — using this shape"
+        + (" (image_description is only for non-diagram shots)" if ai_scene_editing else "")
+        + ":\n"
         + json.dumps(shape, indent=2)
         + "\n"
     )
@@ -72,100 +80,67 @@ def _script_structure(brief, narration, ai_scene_editing=False):
 
 def scene_editing_instructions(visual_type, diagram_icons=()):
     instructions = (
-        "Plan the whole visual story before choosing edits. Open with a clear visual question or "
-        "surprising situation, build through explanation and evidence, and end with a payoff. "
-        "Each shot_plan needs a role: HOOK, CONTEXT, EXPLANATION, COMPARISON, REACTION, REVEAL, or PAYOFF; "
-        "and visual_focus: what viewers should notice, at most 200 characters. "
-        "Vary WIDE, MEDIUM, CLOSE_UP, and DETAIL shots deliberately; avoid repeated framing "
-        "when a detail, reaction, or comparison would explain the next thought better. "
-        "Keep one main idea per shot and make the image show the meaning of the narration. "
-        "For a comparison, describe both subjects clearly in one readable composition. "
-        "Never add unsupported facts or change the script's meaning just to make a visual exciting. "
-        "Use the same palette, medium, and recurring subject details across the video. "
-        "Return an editing object on every sentences entry using only these settings. "
-        "motion_style: NONE, AUTO, ZOOM_IN, ZOOM_OUT, PAN_LEFT, PAN_RIGHT, PAN_UP, PAN_DOWN. "
-        "motion_intensity: SUBTLE, MEDIUM, or STRONG; prefer SUBTLE and avoid STRONG unless "
-        "explicitly requested. transition_after: CUT, FADE, DISSOLVE, or DEFAULT. "
-        "transition_duration: 0.1–0.6 seconds. pause_after: 0–0.8 seconds. "
-        "Create a visibly animated sequence rather than a static slideshow. Choose settings "
-        "to support each idea, with deliberate variation between neighboring shots. "
-        "Prefer cuts for momentum, and use short fades or dissolves only for meaningful "
-        "changes in time or mood. Use zero pause by default, with a short pause for an "
-        "important reveal or final takeaway. Avoid repetitive motion. "
-        "animation_preset: NONE, PLAYFUL, DRAMATIC, CALM, or EXPLAINER. "
-        "Prefer EXPLAINER for explanations and comparisons, DRAMATIC for a reveal, CALM for "
-        "context, and PLAYFUL only for a lighthearted reaction or punchline. Use NONE where "
-        "a plain shot communicates best; do not default every still shot to NONE. "
-        "Use an appropriate animation preset on most photographic stills, while keeping "
-        "diagram shots free of photo effects. Avoid repeating the same effect throughout the video. "
-        "animation_accents: false by default; use decorative particles only when they fit the tone. "
-        "overlays: default to an empty array. Leave most scenes unlabeled. Add a label only when "
-        "it materially clarifies a key number, comparison, or reveal that the visuals and captions "
-        "do not already communicate clearly. Do not label every scene, repeat captions, or add "
-        "text just to decorate a shot. When needed, use one short label; two is the maximum, "
-        "not a target. Each label has text (at most 80 characters, ideally 2–6 words), position "
-        "(top-left, top-center, top-right, or middle-center), start_fraction, and end_fraction "
-        "(0–1 fractions of the finished scene, end strictly after start). Labels must not overlap "
-        "in time. Place a label near the corresponding thought, number, comparison, or reveal; "
-        "do not duplicate the full narration or invent a claim. Keep the bottom clear for captions. "
-        "Actively plan animated diagrams for explanations, comparisons, lists, processes and "
-        "cause-and-effect relationships instead of relying only on photographs. For a 4–6 "
-        "scene explainer, aim for 1–2 useful diagram scenes; for 7–10 scenes, aim for 2–3 "
-        "when the content supports them. These are editorial targets, not mandatory quotas: "
-        "do not invent facts or force diagrams into character drama, scenic footage, or "
-        "a shot whose subject must be seen. Use diagram null for other scenes. "
-        "Represent each animated diagram as an object with "
-        "template, title, and items fields. Each items entry has label and detail text fields. "
-        "Templates: comparison for exactly two subjects or alternatives; timeline for 2–4 "
-        "chronological events (put the date or time in each label); steps for 2–4 ordered stages "
-        "of a process; flow for 2–4 connected stages showing transfer of water, energy, signals, "
-        "or material. Flow shows all stages together with directional arrows and moving markers; "
-        "use it only for a real directed connection, not merely a chronological list. "
-        "Use graph for 2–6 icon nodes linked horizontally with arrows, including branches and "
-        "merges. Graph has no cards. Prefer 2–4 nodes on portrait video; keep node labels very "
-        "short and detail empty unless it is essential. A graph may include connections: an "
-        "array of at most 8 arrows, each with source and target (zero-based indices into items) "
-        "and an optional label of at most 30 characters. For example, source 0 to targets 1 "
-        "and 2 creates a branch. No self-connections, duplicate arrows, or loops. Omitting "
-        "connections creates a simple horizontal chain; an empty array means no arrows. "
-        "Title maximum 60 characters, item label maximum 40, detail maximum 90. "
-        "Other diagram cards appear sequentially over the scene; use a diagram only when its items fit "
-        "this scene's narration and duration. Keep descriptions concise enough to read. "
-        "Do not invent dates, measurements, facts, or intermediate stages. Keep overlays empty "
-        "when a diagram is selected. A diagram replaces the visible photo with a dark graphic "
-        "background; keep diagram null when the subject itself needs to be seen. Use these "
-        "selectively, never on every scene. They do not require generated video. "
-        "Timings are planning estimates which users can review before generation. "
-        "These are editor settings; keep them out of narration and visual descriptions. "
-        "For the final shot, use CUT and transition_duration 0.1; it has no following shot. "
+        "Plan visuals that support the script's existing structure and meaning. Keep one main "
+        "idea per shot, preserve facts, and maintain palette, medium and "
+        "recurring subjects. Vary WIDE, MEDIUM, CLOSE_UP and DETAIL; avoid repeated framing. "
+        "Each shot_plan needs role (HOOK, CONTEXT, EXPLANATION, COMPARISON, REACTION, REVEAL, "
+        "PAYOFF) and visual_focus (what viewers should notice, max 200 characters). "
+        "Return editing on every sentences entry with these fields: "
+        "motion_style (NONE, AUTO, ZOOM_IN, ZOOM_OUT, PAN_LEFT, PAN_RIGHT, PAN_UP, PAN_DOWN); "
+        "motion_intensity (SUBTLE preferred, MEDIUM, STRONG only when requested); "
+        "transition_after (CUT, FADE, DISSOLVE, DEFAULT); transition_duration (0.1–0.6 seconds); "
+        "pause_after (0–0.8 seconds, default 0); animation_preset (NONE, PLAYFUL, DRAMATIC, "
+        "CALM, EXPLAINER); animation_accents (false unless appropriate); overlays; diagram. "
+        "Vary motivated motion rather than repeating effects. Prefer cuts; reserve fades "
+        "and dissolves for changes in time or mood, pauses for reveals or takeaways. "
+        "For the final shot, use CUT and transition_duration 0.1. "
+        "Leave most scenes unlabeled: overlays defaults to []. Use at most two short labels "
+        "only to clarify information not already conveyed by visuals or captions. Each has "
+        "text (max 80 characters, ideally 2–6 words), position (top-left, top-center, top-right, "
+        "middle-center), start_fraction and end_fraction (0–1, end > start, no overlap). "
+        "Time labels to the relevant thought; keep the bottom clear for captions. "
+        "Use diagrams for explanations, comparisons, lists, processes or cause and effect "
+        "when the subject itself need not be seen. In supported explainers, aim for 1–2 diagram "
+        "scenes out of 4–6, or 2–3 out of 7–10; these are not quotas. Never force diagrams "
+        "into character drama or scenic footage. Use diagram null for other shots. "
+        "For diagram shots, omit image_description entirely: the diagram is the complete "
+        "visual and needs no image, video, or search prompt. Keep overlays empty, motion_style "
+        "NONE, animation_preset NONE, animation_accents false and shot_plan.camera_movement "
+        "STATIC; diagram animation is built in. "
+        "A diagram has template, title (max 60 characters), items with label (max 40) and "
+        "detail (max 90, may be empty). Templates: comparison for exactly two alternatives; "
+        "timeline for 2–4 chronological events (date/time in labels); steps for 2–4 ordered stages; "
+        "flow for 2–4 genuinely connected stages transferring material, energy or signals. "
+        "Flow shows all stages with directional arrows and moving markers; it is not a timeline. "
+        "Use graph for 2–6 icon nodes with branches/merges and no cards; prefer 2–4 in portrait, "
+        "short labels and empty detail. Optional connections: at most 8 objects with zero-based "
+        "source, target and optional label (max 30). No self-connections, duplicate arrows or "
+        "cycles. Omit connections for a horizontal chain; [] means no arrows. "
+        "Other diagrams reveal cards sequentially. Keep content readable within the shot's "
+        "duration; never invent dates, measurements, claims or intermediate stages. "
+        "Timings are reviewable estimates. Keep editing directions out of narration. "
     )
-    instructions += (
-        "Each diagram item may optionally include icon: an ID from the available catalog below, "
-        "or an empty string for no icon. Choose icons by meaning, not decoration. Never invent "
-        "an ID or a URL; leave icon empty when nothing fits. The list is a topic-based shortlist "
-        "from the installed library, not every icon that exists.\nAVAILABLE DIAGRAM ICONS:\n"
-        + (
-            "\n".join(
-                f"- {icon['id']}: {icon['name']} — {icon['description']}"
-                for icon in diagram_icons
-            )
-            if diagram_icons
-            else "No icons are installed for this request; omit icon fields."
+    if diagram_icons:
+        instructions += (
+            "Optional item icon: an ID from this topic-based shortlist, or empty when none fits. "
+            "Choose by meaning; never invent IDs or URLs. AVAILABLE DIAGRAM ICONS:\n"
+            + "\n".join(f"- {icon['id']}: {icon['name']} — {icon['description']}" for icon in diagram_icons)
+            + "\n"
         )
-        + "\n"
-    )
+    else:
+        instructions += "No icons are installed for this request; omit icon fields. "
     if visual_type == VisualType.VIDEO:
-        return (
-            instructions
-            + "Use motion_style NONE and animation_preset NONE for every shot; camera movement comes from the generated video."
+        return instructions + (
+            "Use motion_style NONE and animation_preset NONE for every shot. "
+            "For non-diagram shots, camera movement comes from generated video."
         )
     return instructions + (
-        "For still images, give most photographic shots a gentle zoom or pan, motivated by "
-        "the visual focus. Match shot_plan.camera_movement to motion_style: PUSH_IN/ZOOM_IN, "
-        "PULL_OUT/ZOOM_OUT, PAN_LEFT/PAN_LEFT, PAN_RIGHT/PAN_RIGHT, TILT_UP/PAN_UP, "
-        "TILT_DOWN/PAN_DOWN. Alternate directions and shot sizes rather than repeating "
-        "the same move. Reserve STATIC/NONE for deliberate pauses, readable diagrams or "
-        "a composition that needs to stay fixed. Honor requests for calm or static visuals."
+        "For photographic stills, use motivated gentle zooms/pans and vary direction: "
+        "PUSH_IN/ZOOM_IN, PULL_OUT/ZOOM_OUT, PAN_LEFT/PAN_LEFT, PAN_RIGHT/PAN_RIGHT, "
+        "TILT_UP/PAN_UP, TILT_DOWN/PAN_DOWN (shot_plan.camera_movement/motion_style). "
+        "Honor calm/static requests. Prefer EXPLAINER for explanations/comparisons, DRAMATIC "
+        "for reveals, CALM for context, PLAYFUL for lighthearted reactions; use NONE for "
+        "deliberate stillness or when the composition needs to stay fixed."
     )
 
 
@@ -391,10 +366,10 @@ def build_scene_draft_prompt(
         + " "
         + "For a section, develop one focused moment. For a story, include a beginning, "
         "development, and ending within the requested sentence count. "
-        f"Return only JSON in this shape: {shape}. "
+        f"Return only JSON using this base shape: {shape}. "
         "Text must be a nonempty string. For a photographic scene, image_description must be nonempty. "
         "An optional diagram field can replace the photo for explanations or when requested. "
-        "Use diagram null for photographic scenes. For a diagram, image_description may be empty. "
+        "Use diagram null for photographic scenes. For a diagram, omit image_description entirely. "
         "A diagram has template, title (max 60 characters), and items with label (max 40) and "
         "detail (max 90, may be empty). Templates: comparison (exactly 2 items), timeline, steps, "
         "flow (2–4 items), graph (2–6 nodes). Graph supports branches and merges using optional "
@@ -448,7 +423,8 @@ def build_storyboard_revision_prompt(
         "setting, generation_mode, shot_plan and editing fields. You may change the scene "
         "count when requested. Use 1–60 scenes and at most 120 shots total. "
         "Each scene has a scene label (max 200 characters) and a nonempty sentences array. "
-        "Each shot has image_description (max 2000 characters) and sentence (max 2000). "
+        "Non-diagram shots require image_description (max 2000 characters); omit it entirely for diagram shots. "
+        "Narration, when enabled, uses sentence (max 2000 characters). "
         "The title must be at most 50 characters. "
         "For editing.diagram, use null or omit the field when no educational diagram "
         "is needed. Never use an empty object. If a diagram is needed, preserve its "

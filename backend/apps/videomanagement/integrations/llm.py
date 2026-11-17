@@ -16,6 +16,7 @@ from apps.usage.services import record_usage
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
 from apps.videomanagement.schemas.shot_planning import ShotPlanSerializer
 from apps.videomanagement.utils.image_inputs import image_data
+from apps.videomanagement.utils.storyboard import shot_diagram
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +75,13 @@ def script_errors(
             if not isinstance(entry, dict):
                 errors.append(f"{label} sentences entries must be objects.")
                 continue
-            if not nonempty(entry.get("image_description")):
+            if not shot_diagram(entry) and not nonempty(entry.get("image_description")):
                 errors.append(f"{label} image_description must be a nonempty string.")
             if "shot_plan" in entry:
                 shot_plan = ShotPlanSerializer(data=entry["shot_plan"])
                 if not shot_plan.is_valid():
                     errors.append(f"{label} shot_plan: {shot_plan.errors}")
-            if ai_scene_editing:
+            if ai_scene_editing or shot_diagram(entry):
                 plan = SceneEditingPlanSerializer(
                     data=entry.get("editing"),
                     context={"video_provider": video_provider, "user": user},
@@ -314,6 +315,10 @@ def get_reply(
                     "Include episode_summary: a nonempty string of at most 800 characters recording the episode's events and ending."
                 )
             if not errors:
+                for scene in data["scenes"]:
+                    for shot in scene["sentences"]:
+                        if shot_diagram(shot):
+                            shot.pop("image_description", None)
                 record_llm_trace(user, model, prompt, raw, **trace_options)
                 return data
         except (ValueError, TypeError):

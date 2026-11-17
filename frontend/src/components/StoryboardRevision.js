@@ -52,7 +52,7 @@ export function StoryboardRevision({ videoId, storyboard, disabled, onApply }) {
                 {scene.sentences.map((shot, shotIndex) => (
                   <div key={shotIndex} className="mt-2 space-y-1">
                     {shot.sentence && <p><strong>Narration:</strong> {shot.sentence}</p>}
-                    <p><strong>Visual:</strong> {shot.image_description}</p>
+                    {shot.editing?.diagram ? <p><strong>Diagram:</strong> {shot.editing.diagram.title || shot.editing.diagram.template}</p> : <p><strong>Visual:</strong> {shot.image_description}</p>}
                     {shot.shot_plan && <p className="text-xs text-gray-500">{shot.shot_plan.shot_size} · {shot.shot_plan.camera_movement} · {shot.shot_plan.subject_action} · {shot.shot_plan.target_duration}s</p>}
                   </div>
                 ))}

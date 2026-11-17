@@ -24,7 +24,7 @@ export function StoryboardScene({ scene, index, video, narration, disabled, onCh
             </span>
           </div>
           <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-            {scene.sentences.map(shot => narration ? shot.sentence : shot.image_description).filter(Boolean).join(" ")}
+            {scene.sentences.map(shot => narration ? shot.sentence : shot.editing?.diagram?.title || shot.image_description).filter(Boolean).join(" ")}
           </p>
         </div>
         <span aria-hidden="true" className="mt-1 text-gray-400 transition group-open:rotate-180">⌄</span>
@@ -36,9 +36,9 @@ export function StoryboardScene({ scene, index, video, narration, disabled, onCh
             {narration && <label className="block text-sm font-medium">Narration
               <textarea required maxLength={2000} rows={2} disabled={disabled} readOnly={video.settings?.creation_mode === "AUDIO"} value={shot.sentence || ""} onChange={event => onChange(shotIndex, "sentence", event.target.value)} className={inputClass} />
             </label>}
-            <label className="block text-sm font-medium">Visual prompt
+            {shot.editing?.diagram ? <p className="text-sm text-gray-500">This scene uses a diagram. No visual prompt is needed.</p> : <label className="block text-sm font-medium">Visual prompt
               <textarea required maxLength={2000} rows={3} disabled={disabled} value={shot.image_description || ""} onChange={event => onChange(shotIndex, "image_description", event.target.value)} className={inputClass} />
-            </label>
+            </label>}
             {(video.mode === "AI" || video.settings?.ai_scene_editing) && (
               <details className="rounded-xl bg-gray-50 p-3 dark:bg-gray-900/50">
                 <summary className="cursor-pointer text-xs font-medium text-gray-500">Motion, diagrams &amp; shot settings</summary>

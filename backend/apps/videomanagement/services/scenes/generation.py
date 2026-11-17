@@ -95,7 +95,7 @@ def create_scene(video: Video, data: dict, files: dict) -> Scene:
         scene.overlays = [diagram_overlay]
         scene.save(update_fields=["overlays"])
         create_image_scene(
-            video=video, scene=scene, image=data.get("image_description", ""),
+            video=video, scene=scene, image="",
             text=scene.text, dir_name=video.dir_name, mode=video.mode,
             user=video.created_by,
         )

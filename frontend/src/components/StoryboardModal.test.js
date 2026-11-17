@@ -55,3 +55,18 @@ it("opens collapsed fields when browser validation finds an error", () => {
   fireEvent.invalid(input);
   expect(input.closest("details").open).toBe(true);
 });
+
+
+it("approves diagram shots without requiring a visual prompt", async () => {
+  const approve = vi.spyOn(api, "approveScript").mockResolvedValue({ ok: true, data: { video } });
+  const { image_description, ...diagramShot } = shot;
+  diagramShot.editing = { diagram: { template: "steps", title: "The process", items: [{ label: "Start" }, { label: "Finish" }] } };
+  const diagramVideo = { ...video, gpt_answer: { ...video.gpt_answer, scenes: [{ scene: "Process", sentences: [diagramShot] }] } };
+  render(<MemoryRouter><StoryboardModal open video={diagramVideo} onClose={vi.fn()} onApproved={vi.fn()} /></MemoryRouter>);
+  fireEvent.click(screen.getByText("Scene 1: Process").closest("summary"));
+  expect(screen.queryByLabelText("Visual prompt")).toBeNull();
+  expect(screen.getByText("This scene uses a diagram. No visual prompt is needed.")).toBeTruthy();
+  fireEvent.submit(screen.getByLabelText("Video title").closest("form"));
+  await waitFor(() => expect(approve).toHaveBeenCalledOnce());
+  expect(approve.mock.calls[0][1].scenes[0].sentences[0]).not.toHaveProperty("image_description");
+});
