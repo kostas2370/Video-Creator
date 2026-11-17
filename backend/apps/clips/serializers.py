@@ -325,5 +325,15 @@ class ProjectProgressSerializer(ProjectSerializer):
         read_only_fields = fields
 
 
+class ProjectRetrySerializer(serializers.Serializer):
+    resume = serializers.BooleanField(default=False)
+    revision = serializers.DateTimeField(required=False)
+
+    def validate(self, data):
+        if data["resume"] and "revision" not in data:
+            raise serializers.ValidationError("Refresh progress before resuming.")
+        return data
+
+
 class TranscriptSearchSerializer(serializers.Serializer):
     prompt = serializers.CharField(max_length=2000)

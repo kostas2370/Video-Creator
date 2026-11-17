@@ -29,6 +29,7 @@ from .serializers import (
     ClipSerializer,
     ExportClipsSerializer,
     ProjectProgressSerializer,
+    ProjectRetrySerializer,
     ProjectSerializer,
     ProjectSummarySerializer,
     ProjectUploadSerializer,
@@ -85,9 +86,10 @@ class ClipProjectView(
 
     @action(detail=True, methods=["post"])
     def retry(self, request, pk=None):
-        return Response(
-            self.get_serializer(queue_project(self.get_object())).data, status=202
-        )
+        serializer = ProjectRetrySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        project = queue_project(self.get_object(), **serializer.validated_data)
+        return Response(self.get_serializer(project).data, status=202)
 
     @action(detail=True, methods=["post"])
     def clips(self, request, pk=None):

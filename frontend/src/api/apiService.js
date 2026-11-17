@@ -186,7 +186,7 @@ export const draftEpisodeMemory = (seriesId, episodeId, summary) => runBackgroun
 export const getClipProjects = (page = 1, filters = {}) => request({ url: "clips/", params: { page, ...filters }, ...callerHandlesErrors });
 export const getClipProject = id => request({ url: detail("clips", id), ...callerHandlesErrors });
 export const createClipProject = data => post("clips/", data, callerHandlesErrors);
-export const retryClipProject = id => post(action("clips", id, "retry"), {}, callerHandlesErrors);
+export const retryClipProject = (id, options = {}) => post(action("clips", id, "retry"), options, callerHandlesErrors);
 export const deleteClipProject = id => remove(detail("clips", id), callerHandlesErrors);
 export const createClip = (id, data) => post(action("clips", id, "clips"), data, callerHandlesErrors);
 export const saveClip = (id, clipId, data) => patch(`${action("clips", id, "clips")}${encodeURIComponent(clipId)}/`, data, callerHandlesErrors);

@@ -13,6 +13,12 @@ from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SPEECH_TRANSCRIPTION_PROVIDER = os.getenv("SPEECH_TRANSCRIPTION_PROVIDER") or "openai"
+CLIP_TRANSCRIPTION_WORKERS = int(
+    os.getenv("CLIP_TRANSCRIPTION_WORKERS")
+    or (2 if SPEECH_TRANSCRIPTION_PROVIDER == "local" else 4)
+)
+if not 1 <= CLIP_TRANSCRIPTION_WORKERS <= 8:
+    raise ImproperlyConfigured("CLIP_TRANSCRIPTION_WORKERS must be between 1 and 8.")
 LOCAL_WHISPER_URL = os.getenv("LOCAL_WHISPER_URL") or "http://whisper:9000"
 AI_COST_RATES = json.loads(os.getenv("AI_COST_RATES") or "{}")
 LOCAL_WHISPER_TIMEOUT = int(os.getenv("LOCAL_WHISPER_TIMEOUT") or 1800)
