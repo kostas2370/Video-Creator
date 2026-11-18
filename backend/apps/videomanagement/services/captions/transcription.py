@@ -8,7 +8,7 @@ from openai import OpenAI
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.common.media import run_ffmpeg
-from apps.common.provider_errors import openai_errors
+from apps.common.provider_errors import openai_request
 from apps.usage.services import record_usage
 from apps.videomanagement.services.captions.local_whisper import (
     TranscriptionError,
@@ -39,26 +39,26 @@ def transcribe_audio(source, user, duration, directory, *, api_key=None):
     return transcribe_prepared_audio(audio, user, duration, api_key=api_key)
 
 
-@openai_errors
 def transcribe_prepared_audio(audio, user, duration, *, api_key=None):
-    if settings.SPEECH_TRANSCRIPTION_PROVIDER == "local":
-        return transcribe_local(audio, duration)
-    if settings.SPEECH_TRANSCRIPTION_PROVIDER != "openai":
-        raise TranscriptionError(
-            "Choose local or openai as the transcription provider."
+    with openai_request():
+        if settings.SPEECH_TRANSCRIPTION_PROVIDER == "local":
+            return transcribe_local(audio, duration)
+        if settings.SPEECH_TRANSCRIPTION_PROVIDER != "openai":
+            raise TranscriptionError(
+                "Choose local or openai as the transcription provider."
+            )
+        audio = Path(audio)
+        client = OpenAI(
+            api_key=api_key or ApiKeys.key_for(user, Provider.OPENAI),
+            timeout=180,
+            max_retries=1,
         )
-    audio = Path(audio)
-    client = OpenAI(
-        api_key=api_key or ApiKeys.key_for(user, Provider.OPENAI),
-        timeout=180,
-        max_retries=1,
-    )
-    with audio.open("rb") as file:
-        result = client.audio.transcriptions.create(
-            file=file,
-            model="whisper-1",
-            response_format="verbose_json",
-            timestamp_granularities=["word"],
-        )
-    record_usage(user, "stt", Provider.OPENAI, "whisper-1", seconds=math.ceil(duration))
-    return normalize_words(result.words, duration)
+        with audio.open("rb") as file:
+            result = client.audio.transcriptions.create(
+                file=file,
+                model="whisper-1",
+                response_format="verbose_json",
+                timestamp_granularities=["word"],
+            )
+        record_usage(user, "stt", Provider.OPENAI, "whisper-1", seconds=math.ceil(duration))
+        return normalize_words(result.words, duration)

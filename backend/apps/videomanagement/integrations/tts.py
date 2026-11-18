@@ -10,7 +10,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
-from apps.common.provider_errors import openai_errors
+from apps.common.provider_errors import openai_request
 from apps.usage.pricing import tts_estimate
 from apps.usage.services import record_usage
 from apps.videomanagement.integrations.base import TTSProvider
@@ -43,20 +43,20 @@ def write_audio(response, path):
 @TTSRegistry.register(Provider.OPENAI)
 class OpenAITTSProvider(TTSProvider):
     @staticmethod
-    @openai_errors
     def generate(
         text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
     ) -> Any:
-        logger.warning("API CALL IN OpenAI TTS")
+        with openai_request():
+            logger.warning("API CALL IN OpenAI TTS")
 
-        client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
-        response = client.audio.speech.create(
-            model="tts-1", voice=voice, input=text, response_format="wav"
-        )
-        record_usage(user, "tts", Provider.OPENAI, "tts-1", characters=len(text))
-        response.stream_to_file(save_path)
+            client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
+            response = client.audio.speech.create(
+                model="tts-1", voice=voice, input=text, response_format="wav"
+            )
+            record_usage(user, "tts", Provider.OPENAI, "tts-1", characters=len(text))
+            response.stream_to_file(save_path)
 
-        return response
+            return response
 
     @staticmethod
     def calculate(request):

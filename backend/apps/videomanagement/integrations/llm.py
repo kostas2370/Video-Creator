@@ -10,7 +10,7 @@ from openai import OpenAI
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
-from apps.common.provider_errors import openai_errors
+from apps.common.provider_errors import openai_request
 from apps.usage.llm_traces import record_llm_trace
 from apps.usage.services import record_usage
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
@@ -110,46 +110,46 @@ def model_error(error, image):
     raise APIException("The script provider could not complete the request. Please try again.") from error
 
 
-@openai_errors
 def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
-    x = io.StringIO()
-    logger.warning("API CALL IN OFFICIAL GPT")
-    model = gpt_model or settings.DEFAULT_GPT_MODEL
-    try:
-        client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
-        content = (
-            prompt
-            if image is None
-            else [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{image}"},
-                },
-            ]
-        )
-        stream = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "user", "content": content},
-            ],
-            stream=True,
-            stream_options={"include_usage": True},
-            **token_limit_kwarg(model),
-        )
+    with openai_request():
+        x = io.StringIO()
+        logger.warning("API CALL IN OFFICIAL GPT")
+        model = gpt_model or settings.DEFAULT_GPT_MODEL
+        try:
+            client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
+            content = (
+                prompt
+                if image is None
+                else [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image}"},
+                    },
+                ]
+            )
+            stream = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "user", "content": content},
+                ],
+                stream=True,
+                stream_options={"include_usage": True},
+                **token_limit_kwarg(model),
+            )
 
-        usage = None
-        for chunk in stream:
-            if getattr(chunk, "usage", None) is not None:
-                usage = chunk.usage
-            if chunk.choices:
-                x.write(chunk.choices[0].delta.content or "")
-        record_usage(user, "text", Provider.OPENAI, model, usage)
+            usage = None
+            for chunk in stream:
+                if getattr(chunk, "usage", None) is not None:
+                    usage = chunk.usage
+                if chunk.choices:
+                    x.write(chunk.choices[0].delta.content or "")
+            record_usage(user, "text", Provider.OPENAI, model, usage)
 
-    except Exception as err:
-        model_error(err, image)
+        except Exception as err:
+            model_error(err, image)
 
-    return x
+        return x
 
 
 def gemini_call(

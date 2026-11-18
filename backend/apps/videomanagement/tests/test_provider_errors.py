@@ -4,11 +4,17 @@ from unittest.mock import Mock, patch
 from celery import current_app
 from celery.backends.base import Backend
 from django.test import SimpleTestCase, TestCase
-from openai import AuthenticationError, RateLimitError
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    RateLimitError,
+)
 
 from apps.common.provider_errors import (
     ProviderRequestError,
-    openai_errors,
+    openai_request,
     provider_failure,
 )
 from apps.videomanagement.baker_recipes import video
@@ -48,6 +54,51 @@ class ProviderErrorTests(SimpleTestCase):
             )
             self.assertEqual(provider_failure(error)["code"], expected)
 
+    def test_http_statuses_use_known_messages_and_leave_other_errors_unclassified(self):
+        for status, expected in [
+            (401, "credentials"),
+            (403, "access"),
+            (429, "rate_limit"),
+            (503, "unavailable"),
+            (400, None),
+        ]:
+            with self.subTest(status=status):
+                error = APIStatusError(
+                    "private", response=Mock(status_code=status, headers={}), body=None
+                )
+                failure = provider_failure(error)
+                self.assertEqual(failure["code"] if failure else None, expected)
+
+    def test_nested_quota_details_take_precedence_over_http_status(self):
+        error = APIStatusError(
+            "private",
+            response=Mock(status_code=429, headers={}),
+            body={"error": {"code": "insufficient_quota"}},
+        )
+        self.assertEqual(provider_failure(error)["code"], "quota")
+
+    def test_timeouts_are_distinct_from_connection_failures(self):
+        for error, expected in [
+            (APITimeoutError(request=Mock()), "timeout"),
+            (APIConnectionError(request=Mock()), "connection"),
+        ]:
+            with self.subTest(expected=expected):
+                self.assertEqual(provider_failure(error)["code"], expected)
+
+    def test_exception_chains_are_followed_without_looping_on_cycles(self):
+        outer = RuntimeError("private")
+        outer.__cause__ = rejected_key()
+        self.assertEqual(provider_failure(outer)["code"], "credentials")
+        outer.__cause__ = outer
+        self.assertIsNone(provider_failure(outer))
+
+    def test_request_context_preserves_an_already_normalized_error(self):
+        error = ProviderRequestError("credentials")
+        with self.assertRaises(ProviderRequestError) as raised:
+            with openai_request():
+                raise error
+        self.assertIs(raised.exception, error)
+
     def test_safe_errors_survive_celery_and_pickle_serialization(self):
         error = ProviderRequestError("credentials")
         backend = Backend(app=current_app)
@@ -74,9 +125,9 @@ class ProviderErrorTests(SimpleTestCase):
         self.assertNotIn("sk-private", _task_error(RuntimeError("sk-private-secret")))
 
     def test_provider_boundary_preserves_unknown_exceptions(self):
-        operation = openai_errors(Mock(side_effect=ValueError("invalid local input")))
         with self.assertRaisesMessage(ValueError, "invalid local input"):
-            operation()
+            with openai_request():
+                raise ValueError("invalid local input")
 
 
 class SavedProviderErrorTests(TestCase):
