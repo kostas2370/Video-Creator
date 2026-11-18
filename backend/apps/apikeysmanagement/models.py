@@ -53,7 +53,7 @@ class ApiKeys(LifecycleModelMixin, UUIDModel):
     )
 
     openai_key = EncryptedCharField(max_length=255, blank=True, default="")
-    openai_warning = models.CharField(max_length=20, blank=True, default="", db_default="", editable=False)
+    key_warnings = models.JSONField(default=dict, db_default={}, blank=True, editable=False)
     anthropic_key = EncryptedCharField(max_length=255, blank=True, default="")
     gemini_key = EncryptedCharField(max_length=255, blank=True, default="")
     fal_key = EncryptedCharField(max_length=255, blank=True, default="")

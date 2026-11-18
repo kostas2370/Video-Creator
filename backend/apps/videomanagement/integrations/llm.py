@@ -9,7 +9,7 @@ from django.conf import settings
 from openai import OpenAI
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.key_health import key_request, openai_request
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.llm_traces import record_llm_trace
 from apps.usage.services import record_usage
@@ -155,59 +155,61 @@ def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
 def gemini_call(
     prompt: str, model=settings.SCRIPT_MODELS["GEMINI"][0], user=None, image=None
 ):
-    x = io.StringIO()
-    try:
-        genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
-        client = genai.GenerativeModel(model)
-        content = (
-            prompt
-            if image is None
-            else [
-                prompt,
-                {"mime_type": "image/jpeg", "data": base64.b64decode(image)},
-            ]
-        )
-        response = client.generate_content(content)
-        record_usage(user, "text", Provider.GEMINI, model, response.usage_metadata)
-        x.write(response.text)
+    with key_request(user, Provider.GEMINI):
+        x = io.StringIO()
+        try:
+            genai.configure(api_key=ApiKeys.key_for(user, Provider.GEMINI))
+            client = genai.GenerativeModel(model)
+            content = (
+                prompt
+                if image is None
+                else [
+                    prompt,
+                    {"mime_type": "image/jpeg", "data": base64.b64decode(image)},
+                ]
+            )
+            response = client.generate_content(content)
+            record_usage(user, "text", Provider.GEMINI, model, response.usage_metadata)
+            x.write(response.text)
 
-    except Exception as err:
-        model_error(err, image)
+        except Exception as err:
+            model_error(err, image)
 
-    return x
+        return x
 
 
 def claude_call(
     prompt: str, model=settings.SCRIPT_MODELS["ANTHROPIC"][0], user=None, image=None
 ):
-    x = io.StringIO()
-    try:
-        client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))
-        content = [{"type": "text", "text": prompt}]
-        if image is not None:
-            content.insert(
-                0,
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/jpeg",
-                        "data": image,
+    with key_request(user, Provider.ANTHROPIC):
+        x = io.StringIO()
+        try:
+            client = anthropic.Anthropic(api_key=ApiKeys.key_for(user, Provider.ANTHROPIC))
+            content = [{"type": "text", "text": prompt}]
+            if image is not None:
+                content.insert(
+                    0,
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": image,
+                        },
                     },
-                },
+                )
+            message = client.messages.create(
+                model=model,
+                max_tokens=settings.MAX_TOKENS,
+                temperature=0,
+                messages=[{"role": "user", "content": content}],
             )
-        message = client.messages.create(
-            model=model,
-            max_tokens=settings.MAX_TOKENS,
-            temperature=0,
-            messages=[{"role": "user", "content": content}],
-        )
 
-        record_usage(user, "text", Provider.ANTHROPIC, model, message.usage)
-        x.write(message.content[0].text)
-        return x
-    except Exception as err:
-        model_error(err, image)
+            record_usage(user, "text", Provider.ANTHROPIC, model, message.usage)
+            x.write(message.content[0].text)
+            return x
+        except Exception as err:
+            model_error(err, image)
 
 
 def reference_data(reference_image):

@@ -5,6 +5,7 @@ import uuid
 
 import requests
 
+from apps.apikeysmanagement.key_health import record_response
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage
@@ -33,23 +34,24 @@ class MidjourneyProvider(ImageProvider):
             "https://api.mymidjourney.ai/api/v1/midjourney/imagine",
             headers=headers,
             json=payload,
-        ).json()
+        )
+        record_response(user, Provider.MIDJOURNEY, response)
+        response = response.json()
 
         if not response.get("success"):
             logger.error("Failed to generate image with midjourney: %s", response)
             return
 
-        image = (
-            requests.get(
-                f"https://api.mymidjourney.ai/api/v1/midjourney/message/{response['messageId']}",
-                headers=headers,
-            )
-            .json()
-            .get("uri")
+        job_id = response["messageId"]
+        response = requests.get(
+            f"https://api.mymidjourney.ai/api/v1/midjourney/message/{job_id}",
+            headers=headers,
         )
+        record_response(user, Provider.MIDJOURNEY, response)
+        image = response.json().get("uri")
 
         if not image:
-            logger.error("Midjourney returned no image for %s", response["messageId"])
+            logger.error("Midjourney returned no image for %s", job_id)
             return
 
         saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")

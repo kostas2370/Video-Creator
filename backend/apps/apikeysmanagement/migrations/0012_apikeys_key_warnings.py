@@ -7,9 +7,9 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="apikeys",
-            name="openai_warning",
-            field=models.CharField(
-                blank=True, db_default="", default="", editable=False, max_length=20
+            name="key_warnings",
+            field=models.JSONField(
+                blank=True, db_default={}, default=dict, editable=False
             ),
         ),
     ]

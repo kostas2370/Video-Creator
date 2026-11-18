@@ -9,7 +9,7 @@ from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 
-from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.key_health import openai_request, record_response
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
 from apps.usage.pricing import tts_estimate
 from apps.usage.services import record_usage
@@ -106,6 +106,7 @@ class ElevenLabsTTSProvider(TTSProvider):
             response = requests.post(
                 url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
             )
+            record_response(user, Provider.ELEVENLABS, response)
             response.raise_for_status()
             record_usage(user, "tts", Provider.ELEVENLABS, model, characters=len(text))
             write_audio(response, save_path)
@@ -150,6 +151,7 @@ class SixtyDbTTSProvider(TTSProvider):
             response = requests.post(
                 url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
             )
+            record_response(user, Provider.SIXTYDB, response)
             response.raise_for_status()
             payload = response.json()
             audio_base64 = payload.get("audio_base64")
@@ -276,6 +278,7 @@ def get_voices_from_elevenlabs(user=None, **kwargs) -> list:
         "Content-Type": "application/json",
     }
     response = requests.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+    record_response(user, Provider.ELEVENLABS, response)
     response.raise_for_status()
     return response.json().get("voices", [])
 
@@ -288,6 +291,7 @@ def get_voices_from_sixtydb(user=None, **kwargs) -> list:
         "Content-Type": "application/json",
     }
     response = requests.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+    record_response(user, Provider.SIXTYDB, response)
     response.raise_for_status()
     return response.json().get("data", [])
 

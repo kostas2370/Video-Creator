@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from apps.common.provider_errors import MESSAGES
-
 from .models import (
     ApiKeys,
     AuthType,
@@ -26,20 +24,14 @@ KEY_FIELDS = (
 
 
 class ApiKeysSerializer(serializers.ModelSerializer):
-    openai_warning = serializers.SerializerMethodField()
-
-    def get_openai_warning(self, instance):
-        code = instance.openai_warning
-        return {"code": code, "message": MESSAGES[code]} if code in MESSAGES else None
-
     use_service_api_keys = serializers.BooleanField(
         source="user.use_service_api_keys", required=False
     )
 
     class Meta:
         model = ApiKeys
-        fields = ("id", "updated_at", "use_service_api_keys", "openai_warning", *KEY_FIELDS)
-        read_only_fields = ("id", "updated_at")
+        fields = ("id", "updated_at", "use_service_api_keys", "key_warnings", *KEY_FIELDS)
+        read_only_fields = ("id", "updated_at", "key_warnings")
         extra_kwargs = {
             field: {
                 "write_only": True,
@@ -61,8 +53,13 @@ class ApiKeysSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
-        if "openai_key" in validated_data or "use_service_api_keys" in user_data:
-            validated_data["openai_warning"] = ""
+        warnings = dict(instance.key_warnings)
+        for provider, (field, _) in ApiKeys.FIELDS.items():
+            if field in validated_data and validated_data[field] != getattr(instance, field):
+                warnings.pop(provider, None)
+        if "use_service_api_keys" in user_data:
+            warnings = {}
+        validated_data["key_warnings"] = warnings
         if "use_service_api_keys" in user_data:
             instance.user.use_service_api_keys = user_data["use_service_api_keys"]
             instance.user.save(update_fields=["use_service_api_keys"])

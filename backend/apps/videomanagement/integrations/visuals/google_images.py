@@ -1,5 +1,3 @@
-from apps.videomanagement.integrations.base import ImageProvider
-from apps.usage.pricing import image_estimate
 import logging
 import os
 import urllib.request
@@ -11,7 +9,10 @@ import requests
 from django.conf import settings
 from requests import Response
 
+from apps.apikeysmanagement.key_health import record_response
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.usage.pricing import image_estimate
+from apps.videomanagement.integrations.base import ImageProvider
 from apps.videomanagement.integrations.llm import select_from_vision
 from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
 
@@ -41,10 +42,11 @@ def build_payload(
     return payload
 
 
-def make_request(payload: dict) -> Response:
+def make_request(payload: dict, user=None) -> Response:
     response = requests.get(
         "https://www.googleapis.com/customsearch/v1", params=payload
     )
+    record_response(user, Provider.GOOGLE_SEARCH, response)
     if response.status_code != 200:
         raise Exception("Request Failed")
     return response
@@ -53,7 +55,7 @@ def make_request(payload: dict) -> Response:
 def download(q: str, amt: int = 1, path: str = "", user=None) -> Union[str, None]:
     payload = build_payload(q, num=amt, user=user)
     try:
-        response = make_request(payload)
+        response = make_request(payload, user=user)
 
     except Exception as exc:
         logger.error(exc)

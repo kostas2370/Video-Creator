@@ -10,28 +10,65 @@ from .models import ApiKeys, Provider
 logger = logging.getLogger(__name__)
 
 
-def save_warning(user, code=""):
-    if user is None or code not in ("", "credentials", "quota", "access"):
+def save_warning(user, provider, rejected):
+    if user is None or provider not in ApiKeys.FIELDS:
         return
     try:
         with transaction.atomic():
-            if code:
-                ApiKeys.objects.get_or_create(user=user)
-            ApiKeys.objects.filter(user=user).update(openai_warning=code)
+            keys, _ = ApiKeys.objects.select_for_update().get_or_create(user=user)
+            warnings = {**keys.key_warnings, provider: True}
+            if not rejected:
+                warnings.pop(provider)
+            ApiKeys.objects.filter(pk=keys.pk).update(key_warnings=warnings)
     except DatabaseError:
-        logger.warning("Could not save the OpenAI key warning")
+        logger.warning("Could not save the provider key warning")
+
+
+def record_response(user, provider, response):
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int) and (status == 401 or 200 <= status < 300):
+        save_warning(user, provider, status == 401)
+    return response
+
+
+def unauthorized(error):
+    seen = set()
+    while isinstance(error, BaseException) and id(error) not in seen:
+        seen.add(id(error))
+        status = (
+            getattr(error, "status_code", None)
+            or getattr(getattr(error, "response", None), "status_code", None)
+            or getattr(error, "code", None)
+        )
+        if (
+            status == 401
+            or isinstance(error, ProviderRequestError)
+            and error.code == "credentials"
+        ):
+            return True
+        error = error.__cause__ or error.__context__
+    return False
+
+
+@contextmanager
+def key_request(user, provider, api_key=None):
+    try:
+        yield api_key or ApiKeys.key_for(user, provider)
+    except Exception as error:
+        if unauthorized(error):
+            save_warning(user, provider, True)
+        raise
+    else:
+        save_warning(user, provider, False)
 
 
 @contextmanager
 def openai_request(user=None, api_key=None):
-    try:
-        yield api_key or ApiKeys.key_for(user, Provider.OPENAI)
-    except Exception as error:
-        failure = provider_failure(error)
-        if failure:
-            save_warning(user, failure["code"])
-        if failure is None or isinstance(error, ProviderRequestError):
-            raise
-        raise ProviderRequestError(failure["code"]) from error
-    else:
-        save_warning(user)
+    with key_request(user, Provider.OPENAI, api_key) as key:
+        try:
+            yield key
+        except Exception as error:
+            failure = provider_failure(error)
+            if failure is None or isinstance(error, ProviderRequestError):
+                raise
+            raise ProviderRequestError(failure["code"]) from error

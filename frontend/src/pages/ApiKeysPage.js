@@ -14,28 +14,28 @@ const KEY_GROUPS = [
     title: "Text and voice",
     description: "Script writing and voice-over.",
     fields: [
-      { name: "openai_key", label: "OpenAI" },
-      { name: "anthropic_key", label: "Anthropic" },
-      { name: "gemini_key", label: "Google Gemini", hint: "Used for scripts and Gemini Omni video generation." },
-      { name: "elevenlabs_key", label: "ElevenLabs" },
-      { name: "sixtydb_key", label: "60dB" },
+      { name: "openai_key", provider: "OPENAI", label: "OpenAI" },
+      { name: "anthropic_key", provider: "ANTHROPIC", label: "Anthropic" },
+      { name: "gemini_key", provider: "GEMINI", label: "Google Gemini", hint: "Used for scripts and Gemini Omni video generation." },
+      { name: "elevenlabs_key", provider: "ELEVENLABS", label: "ElevenLabs" },
+      { name: "sixtydb_key", provider: "SIXTYDB", label: "60dB" },
     ],
   },
   {
     title: "AI video",
     description: "Kling uses a fal.ai key. Gemini video uses your Google Gemini key above.",
     fields: [
-      { name: "fal_key", label: "fal.ai · Kling" },
-      { name: "runway_key", label: "Runway" },
+      { name: "fal_key", provider: "FAL", label: "fal.ai · Kling" },
+      { name: "runway_key", provider: "RUNWAY", label: "Runway" },
     ],
   },
   {
     title: "Images",
     description: "The pictures behind each scene.",
     fields: [
-      { name: "diffusion_key", label: "Stable Diffusion" },
-      { name: "midjourney_key", label: "Midjourney" },
-      { name: "google_search_key", label: "Google Custom Search" },
+      { name: "diffusion_key", provider: "STABLE_DIFFUSION", label: "Stable Diffusion" },
+      { name: "midjourney_key", provider: "MIDJOURNEY", label: "Midjourney" },
+      { name: "google_search_key", provider: "GOOGLE_SEARCH", label: "Google Custom Search" },
       {
         name: "google_search_engine_id",
         label: "Google Search engine id",
@@ -63,7 +63,7 @@ export const ApiKeys = () => {
   const [revealed, setRevealed] = useState({});
   const [useServiceKeys, setUseServiceKeys] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
-  const [openaiWarning, setOpenaiWarning] = useState(null);
+  const [keyWarnings, setKeyWarnings] = useState({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,7 +79,7 @@ export const ApiKeys = () => {
     );
     setUseServiceKeys(Boolean(data.use_service_api_keys));
     setUpdatedAt(data.updated_at ?? null);
-    setOpenaiWarning(data.openai_warning ?? null);
+    setKeyWarnings(data.key_warnings ?? {});
   };
 
   useEffect(() => {
@@ -180,7 +180,7 @@ export const ApiKeys = () => {
     setDrafts({});
     setRevealed({});
     setUpdatedAt(null);
-    if (!useServiceKeys) setOpenaiWarning(null);
+    if (!useServiceKeys) setKeyWarnings({});
     setShowClearModal(false);
     toast.success("Every key was removed");
   };
@@ -257,7 +257,7 @@ export const ApiKeys = () => {
       </div>
 
       <div role="tabpanel" id="settings-panel-keys" aria-labelledby="settings-tab-keys" hidden={activeSection !== "keys"}>
-        {useServiceKeys && openaiWarning && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200"><strong>OpenAI service key needs attention. </strong>{openaiWarning.message} Contact the administrator to fix the service key.</p>}
+        {useServiceKeys && KEY_GROUPS.flatMap(group => group.fields).filter(field => keyWarnings[field.provider]).map(field => <p key={field.name} role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200"><strong>{field.label} service key needs attention. </strong>The provider rejected the last request (401). Contact the administrator to check or replace the key.</p>)}
       <form className="px-4 pb-6 md:px-6 max-w-3xl mx-auto" onSubmit={handleSave}>
         {KEY_GROUPS.map((group) => (
           <div
@@ -275,7 +275,7 @@ export const ApiKeys = () => {
                   key={field.name}
                   field={field}
                   saved={saved[field.name]}
-                  warning={field.name === "openai_key" && !useServiceKeys ? openaiWarning : null}
+                  warning={!useServiceKeys && keyWarnings[field.provider] ? { message: `${field.label} rejected the last request (401). The key may be invalid, expired, or revoked. Check or replace it.` } : null}
                   draft={drafts[field.name]}
                   isRevealed={Boolean(revealed[field.name])}
                   onChange={(value) => handleChange(field.name, value)}
