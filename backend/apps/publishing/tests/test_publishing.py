@@ -237,6 +237,28 @@ class PublishingTests(ApiTestCase):
         self.assertEqual(cookie["samesite"], "Lax")
         self.assertNotIn("app-secret", response.data["url"])
 
+    @override_settings(DEBUG=True, ENV="dev", FRONTEND_URL="http://localhost:3000",
+                       SOCIAL_PUBLIC_BASE_URL="http://localhost:3000")
+    def test_local_youtube_connection_keeps_browser_binding_and_returns_to_localhost(self):
+        start_url = reverse("publishing-connect", args=["youtube"])
+        rejected = self.client.post(start_url, {}, HTTP_HOST="127.0.0.1:3000")
+        self.assertEqual(rejected.status_code, 400)
+        self.assertFalse(OAuthAttempt.objects.exists())
+        response = self.client.post(start_url, {}, HTTP_HOST="localhost:3000")
+        self.assertEqual(response.status_code, 200)
+        cookie = response.cookies[oauth.COOKIE_NAME]
+        self.assertFalse(cookie["secure"])
+        self.assertTrue(cookie["httponly"])
+        self.assertEqual(cookie["samesite"], "Lax")
+        state = parse_qs(urlparse(response.data["url"]).query)["state"][0]
+        with patch("apps.publishing.oauth.finish") as finish:
+            callback = self.client.get(reverse("publishing-callback", args=["youtube"]),
+                                       {"state": state, "code": "code"}, HTTP_HOST="localhost:3000")
+        finish.assert_called_once()
+        self.assertEqual(callback.url, "http://localhost:3000/connections/?publishing=connected")
+        with self.assertRaises(ValidationError):
+            oauth.consume("youtube", state, cookie.value)
+
     def test_connect_without_video_returns_to_connections(self):
         response = self.client.post(reverse("publishing-connect", args=["youtube"]), {})
         self.assertEqual(response.status_code, 200)

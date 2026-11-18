@@ -114,3 +114,24 @@ TikTok's `non_sandbox_target` login error means the TikTok account has not been 
 - The first release supports exports up to 4 GB. Instagram enforces the Reel limits documented by Meta's collection (including a 1 GB maximum). It does not transcode incompatible exports automatically.
 - Snapshots use `PUBLISHING_SNAPSHOT_ROOT` (default `backend/private-publishing/`), outside public media routes. Mount durable private storage there for backend and workers. Upload snapshots, thumbnail snapshots and job history remain until their job/project is deleted; factor their storage into retention planning. Scheduling, public webhooks, and analytics are future work.
 - Automated tests mock provider calls. Credentials and platform approval are required for real end-to-end validation; passing tests does not imply an app has been reviewed by a platform.
+
+
+### YouTube on localhost without a tunnel
+
+For local development only (`ENV` other than `prod` and `DEBUG=True`), YouTube
+connections can use HTTP on literal `localhost`. Set both `FRONTEND_URL` and
+`SOCIAL_PUBLIC_BASE_URL` to `http://localhost:3000`, restart the API and workers,
+and register this exact authorized redirect URI in the Google OAuth client:
+
+```
+http://localhost:3000/api/publishing/oauth/youtube/callback/
+```
+
+Open `http://localhost:3000/connections/` and sign in there before connecting.
+Do not start from `127.0.0.1` or a tunnel: the OAuth state cookie belongs to the
+initiating host. The local YouTube state cookie remains HttpOnly, SameSite=Lax,
+short-lived and bound to a one-use state; only its Secure flag is disabled for
+this HTTP-localhost flow. Explicit consent on Google is still required.
+Production and TikTok/Instagram connections continue to require HTTPS. Other
+HTTP hosts, including LAN addresses and localhost lookalike domains, are rejected.
+The HTTPS tunnel workflow remains available when needed for other platforms.

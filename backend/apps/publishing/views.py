@@ -1,5 +1,5 @@
 from datetime import timedelta
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from django.conf import settings
 from django.core import signing
@@ -19,7 +19,7 @@ from apps.common.ranges import parse_byte_range
 from apps.videomanagement.models import Video
 
 from . import oauth
-from .config import setup_message
+from .config import setup_message, local_youtube_origin
 from .diagnostics import log_failure
 from .filters import PublishJobFilter
 from .http import ProviderError
@@ -88,11 +88,13 @@ class ConnectView(CreatorView):
     throttle_classes = [ConnectionThrottle]
 
     def post(self, request, platform):
+        if local_youtube_origin(platform) and request.get_host() != urlparse(settings.SOCIAL_PUBLIC_BASE_URL).netloc:
+            raise ValidationError("Start the YouTube connection from the configured localhost address.")
         video_id = serializers.UUIDField(required=False, allow_null=True).run_validation(request.data.get("video"))
         video = get_object_or_404(Video, pk=video_id, created_by=request.user) if video_id else None
         url, browser = oauth.begin(request.user, platform, video)
         response = Response({"url": url})
-        response.set_cookie(oauth.COOKIE_NAME, browser, max_age=600, secure=True, httponly=True,
+        response.set_cookie(oauth.COOKIE_NAME, browser, max_age=600, secure=not local_youtube_origin(platform), httponly=True,
                             samesite="Lax", path=oauth.COOKIE_PATH)
         return response
 
