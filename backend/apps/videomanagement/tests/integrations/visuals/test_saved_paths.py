@@ -18,7 +18,7 @@ class SavedPathTests(SimpleTestCase):
         self.assertEqual(os.path.dirname(saved), self.DIR.rstrip("/"))
 
     def test_diffusion_saves_into_the_directory_it_was_given(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {"output": ["https://img.test/a.png"]}
 
         with (
@@ -31,9 +31,9 @@ class SavedPathTests(SimpleTestCase):
         self.assertEqual(retrieve.call_args.args[1], saved)
 
     def test_midjourney_saves_into_the_directory_it_was_given(self):
-        queued = MagicMock()
+        queued = MagicMock(status_code=200)
         queued.json.return_value = {"success": True, "messageId": "m1"}
-        finished = MagicMock()
+        finished = MagicMock(status_code=200)
         finished.json.return_value = {"uri": "https://img.test/a.png"}
 
         with (
@@ -46,7 +46,7 @@ class SavedPathTests(SimpleTestCase):
         self.assertEqual(retrieve.call_args.args[1], saved)
 
     def test_google_saves_into_the_directory_it_was_given(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.status_code = 200
         response.json.return_value = {"items": [{"link": "https://img.test/a.jpg"}]}
 

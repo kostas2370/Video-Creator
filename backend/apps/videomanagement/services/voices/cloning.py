@@ -120,9 +120,9 @@ def normalized_sample(upload):
 
 
 def create_clone(user, name, upload):
-    with key_request(user, Provider.ELEVENLABS):
-        key = voice_key(user)
-        audio = normalized_sample(upload)
+    key = voice_key(user)
+    audio = normalized_sample(upload)
+    with key_request(user, Provider.ELEVENLABS, api_key=key):
         with transaction.atomic():
             get_user_model().objects.select_for_update().get(pk=user.pk)
             if (

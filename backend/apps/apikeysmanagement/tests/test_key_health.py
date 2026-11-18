@@ -275,3 +275,10 @@ class KeyHealthTests(TestCase):
         self.assertEqual(
             self.client.get(self.url).data["key_warnings"], {"ELEVENLABS": True}
         )
+
+    def test_resaving_the_same_credential_mode_preserves_warnings(self):
+        save_warning(self.user, Provider.OPENAI, True)
+        response = self.client.patch(
+            self.url, {"use_service_api_keys": False}, format="json"
+        )
+        self.assertEqual(response.data["key_warnings"], {"OPENAI": True})

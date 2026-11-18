@@ -140,7 +140,7 @@ class ElevenLabsTtsTests(TestCase):
 
     @override_settings(XI_API_KEY="key")
     def test_streams_the_response_body_to_disk(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.iter_content.return_value = [b"RIFF", b"", b"data"]
 
         with patch.object(tts_utils.requests, "request", return_value=response) as post:
@@ -152,7 +152,7 @@ class ElevenLabsTtsTests(TestCase):
 
     @override_settings(XI_API_KEY="key")
     def test_swallows_a_provider_failure_rather_than_failing_generation(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.raise_for_status.side_effect = RuntimeError("429")
 
         with patch.object(tts_utils.requests, "request", return_value=response):
@@ -172,7 +172,7 @@ class SixtyDbTtsTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_decodes_the_base64_payload_to_disk(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {
             "audio_base64": base64.b64encode(b"RIFFdata").decode()
         }
@@ -186,7 +186,7 @@ class SixtyDbTtsTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_writes_nothing_when_the_payload_carries_no_audio(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {"message": "out of credits"}
 
         with patch.object(tts_utils.requests, "request", return_value=response):
@@ -197,7 +197,7 @@ class SixtyDbTtsTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_swallows_a_provider_failure_rather_than_failing_generation(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.raise_for_status.side_effect = RuntimeError("500")
 
         with patch.object(tts_utils.requests, "request", return_value=response):
@@ -214,7 +214,7 @@ class VoiceListingTests(TestCase):
 
     @override_settings(XI_API_KEY="key")
     def test_reads_the_voices_out_of_the_eleven_labs_payload(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {"voices": [{"voice_id": "abc"}]}
 
         with patch.object(tts_utils.requests, "request", return_value=response) as get:
@@ -226,7 +226,7 @@ class VoiceListingTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_reads_the_voices_out_of_the_60db_payload(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {"data": [{"voice_id": "abc"}]}
 
         with patch.object(tts_utils.requests, "request", return_value=response) as get:

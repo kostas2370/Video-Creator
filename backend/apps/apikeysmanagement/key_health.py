@@ -20,15 +20,16 @@ def save_warning(user, provider, rejected):
             warnings = {**keys.key_warnings, provider: True}
             if not rejected:
                 warnings.pop(provider)
-            ApiKeys.objects.filter(pk=keys.pk).update(key_warnings=warnings)
+            if warnings != keys.key_warnings:
+                ApiKeys.objects.filter(pk=keys.pk).update(key_warnings=warnings)
     except DatabaseError:
         logger.warning("Could not save the provider key warning")
 
 
 def provider_request(method, url, *, user, provider, **kwargs):
     response = requests.request(method, url, **kwargs)
-    status = getattr(response, "status_code", None)
-    if isinstance(status, int) and (status == 401 or 200 <= status < 300):
+    status = response.status_code
+    if status == 401 or 200 <= status < 300:
         save_warning(user, provider, status == 401)
     return response
 

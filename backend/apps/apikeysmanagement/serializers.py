@@ -57,12 +57,12 @@ class ApiKeysSerializer(serializers.ModelSerializer):
         for provider, (field, _) in ApiKeys.FIELDS.items():
             if field in validated_data and validated_data[field] != getattr(instance, field):
                 warnings.pop(provider, None)
-        if "use_service_api_keys" in user_data:
+        use_service_keys = user_data.get("use_service_api_keys", instance.user.use_service_api_keys)
+        if use_service_keys != instance.user.use_service_api_keys:
             warnings = {}
-        validated_data["key_warnings"] = warnings
-        if "use_service_api_keys" in user_data:
-            instance.user.use_service_api_keys = user_data["use_service_api_keys"]
+            instance.user.use_service_api_keys = use_service_keys
             instance.user.save(update_fields=["use_service_api_keys"])
+        validated_data["key_warnings"] = warnings
 
         return super().update(instance, validated_data)
 

@@ -362,8 +362,8 @@ class VideoHTTPTests(SimpleTestCase):
 
     def test_json_requests_block_redirects_and_sanitize_http_errors(self):
         response = MagicMock(status_code=401)
-        with patch.object(http.requests, "request") as request:
-            request.return_value.__enter__.return_value = response
+        with patch.object(http.requests, "request", return_value=response) as request:
+            response.__enter__.return_value = response
             with self.assertRaisesRegex(APIException, "HTTP 401"):
                 http.json_request(
                     "POST", "https://api.example/", headers={"Authorization": "secret"}
@@ -381,8 +381,8 @@ class VideoHTTPTests(SimpleTestCase):
                 response.json.return_value = {
                     "error": {"status": status, "message": "secret-key private prompt"}
                 }
-                with patch.object(http.requests, "request") as request:
-                    request.return_value.__enter__.return_value = response
+                with patch.object(http.requests, "request", return_value=response):
+                    response.__enter__.return_value = response
                     with self.assertRaises(APIException) as caught:
                         http.json_request("POST", "https://api.example/", headers={})
                 message = str(caught.exception)
