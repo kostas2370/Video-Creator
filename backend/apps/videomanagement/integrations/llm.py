@@ -7,10 +7,10 @@ import anthropic
 import google.generativeai as genai
 from django.conf import settings
 from openai import OpenAI
-from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.common.provider_errors import openai_errors
 from apps.usage.llm_traces import record_llm_trace
 from apps.usage.services import record_usage
 from apps.videomanagement.schemas.scene_editing import SceneEditingPlanSerializer
@@ -105,11 +105,12 @@ def model_error(error, image):
         raise APIException(
             "The script model could not analyze the reference image. Choose a script "
             "model that accepts images and check your provider access, then retry."
-        ) from None
+        ) from error
     logger.error(error)
-    raise APIException(detail=error, code=status.HTTP_400_BAD_REQUEST)
+    raise APIException("The script provider could not complete the request. Please try again.") from error
 
 
+@openai_errors
 def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
     x = io.StringIO()
     logger.warning("API CALL IN OFFICIAL GPT")

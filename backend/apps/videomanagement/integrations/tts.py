@@ -1,5 +1,3 @@
-from apps.videomanagement.integrations.base import TTSProvider
-from apps.usage.pricing import tts_estimate
 import base64
 import logging
 import os
@@ -12,9 +10,12 @@ from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
+from apps.common.provider_errors import openai_errors
+from apps.usage.pricing import tts_estimate
+from apps.usage.services import record_usage
+from apps.videomanagement.integrations.base import TTSProvider
 from apps.videomanagement.integrations.registry import ProviderRegistry
 from apps.videomanagement.models import VoiceModel
-from apps.usage.services import record_usage
 from apps.videomanagement.services.voices.credentials import voice_key
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ def write_audio(response, path):
 @TTSRegistry.register(Provider.OPENAI)
 class OpenAITTSProvider(TTSProvider):
     @staticmethod
+    @openai_errors
     def generate(
         text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
     ) -> Any:

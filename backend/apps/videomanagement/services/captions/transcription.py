@@ -8,11 +8,12 @@ from openai import OpenAI
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.common.media import run_ffmpeg
+from apps.common.provider_errors import openai_errors
+from apps.usage.services import record_usage
 from apps.videomanagement.services.captions.local_whisper import (
     TranscriptionError,
     transcribe_local,
 )
-from apps.usage.services import record_usage
 from apps.videomanagement.utils.captions.timing import normalize_words
 
 
@@ -38,6 +39,7 @@ def transcribe_audio(source, user, duration, directory, *, api_key=None):
     return transcribe_prepared_audio(audio, user, duration, api_key=api_key)
 
 
+@openai_errors
 def transcribe_prepared_audio(audio, user, duration, *, api_key=None):
     if settings.SPEECH_TRANSCRIPTION_PROVIDER == "local":
         return transcribe_local(audio, duration)

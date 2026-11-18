@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.common.provider_errors import openai_errors
 from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage
 from apps.videomanagement.integrations.base import ImageProvider
@@ -46,6 +47,7 @@ def image_size_for_frame(video_format):
 @ImageProviderRegistry.register("OPENAI", supports_reference=True)
 class OpenAIImageProvider(ImageProvider):
     @staticmethod
+    @openai_errors
     def generate(
         prompt: str,
         dir_name: str,

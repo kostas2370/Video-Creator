@@ -5,6 +5,7 @@ from celery.result import AsyncResult
 from django.core import signing
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
+from apps.common.provider_errors import provider_failure
 from apps.videomanagement.exceptions import VideoEditConflict
 
 SALT = "ai-draft-job-v1"
@@ -44,6 +45,9 @@ def _validation_message(detail):
 
 
 def _task_error(error):
+    failure = provider_failure(error)
+    if failure:
+        return failure["message"]
     if isinstance(error, (ValidationError, VideoEditConflict)):
         return _validation_message(error.detail)
     if isinstance(error, (SoftTimeLimitExceeded, TimeLimitExceeded)):

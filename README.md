@@ -654,6 +654,13 @@ restart the API, both workers and Beat together so routing and consumers change 
 For manual installations, run both worker commands above. Older workers that consume
 only the default queue cannot process the new export queue.
 
+OpenAI request failures show specific guidance for rejected API keys (including invalid,
+expired or revoked keys), quota or billing limits, rate limits, access restrictions,
+and connection failures. Failed video generation keeps this message in the project
+after refresh, with a link to API key settings. Service-key users may need their
+administrator to update credentials. Provider responses and key values stay private.
+Apply the generation-error migration and restart the API and workers when updating.
+
 Failed exports show a saved message and reference in the editor, with **Retry export**.
 The reference can be searched in worker logs. Errors do not expose provider responses,
 file paths or tracebacks. Ordinary exports retain the one-per-day limit; failed export

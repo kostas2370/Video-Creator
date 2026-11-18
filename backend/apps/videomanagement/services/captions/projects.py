@@ -10,6 +10,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
 from apps.common.media import run_ffmpeg
+from apps.common.provider_errors import provider_failure
 from apps.videomanagement import tasks
 from apps.videomanagement.models import CaptionProject, CaptionProjectStatus
 from apps.videomanagement.services.captions.transcription import transcribe_audio
@@ -222,6 +223,9 @@ def process_caption_project(project_id, token, render=False):
             if render
             else "Could not finish processing. Check your transcription provider and retry."
         )
+        failure = provider_failure(exc)
+        if failure:
+            message = failure["message"]
         rows.filter(status=running).update(
             status=CaptionProjectStatus.READY
             if project.words

@@ -10,6 +10,7 @@ from rest_framework import status
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.common.provider_errors import openai_errors
 from apps.usage.pricing import estimate_line
 from apps.usage.services import record_usage
 from apps.videomanagement.integrations.base import ImageProvider
@@ -24,6 +25,7 @@ SORA_ALLOWED_SECONDS = (4, 8, 12)
 @ImageProviderRegistry.register("sora", output_type="VIDEO", supports_reference=True)
 class SoraProvider(ImageProvider):
     @staticmethod
+    @openai_errors
     def generate(
         prompt: str,
         dir_name: str,

@@ -7,6 +7,7 @@ from celery.result import AsyncResult
 from django.core import signing
 from rest_framework.exceptions import NotFound
 
+from apps.common.provider_errors import provider_failure
 from apps.videomanagement import tasks
 from apps.videomanagement.exceptions import CoverQueueUnavailable
 from apps.videomanagement.models import MediaAsset
@@ -40,9 +41,10 @@ def cover_result(video, user, token, image=False):
     job = AsyncResult(task_id)
     state = job.state
     if state in ("FAILURE", "REVOKED"):
+        failure = provider_failure(job.result) if state == "FAILURE" else None
         return {
             "status": "FAILED",
-            "error": "Could not generate the thumbnail. Please try again. Your saved cover is unchanged.",
+            "error": failure["message"] if failure else "Could not generate the thumbnail. Please try again. Your saved cover is unchanged.",
         }
     if state != "SUCCESS":
         return {"status": "RUNNING" if state == "STARTED" else "QUEUED"}
