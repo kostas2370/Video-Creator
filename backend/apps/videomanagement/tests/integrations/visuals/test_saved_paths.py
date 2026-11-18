@@ -22,7 +22,7 @@ class SavedPathTests(SimpleTestCase):
         response.json.return_value = {"output": ["https://img.test/a.png"]}
 
         with (
-            patch.object(diffusion.requests, "post", return_value=response),
+            patch("apps.apikeysmanagement.key_health.requests.request", return_value=response),
             patch.object(diffusion.urllib.request, "urlretrieve") as retrieve,
         ):
             saved = diffusion.StableDiffusionProvider.generate("a cat", self.DIR)
@@ -37,8 +37,7 @@ class SavedPathTests(SimpleTestCase):
         finished.json.return_value = {"uri": "https://img.test/a.png"}
 
         with (
-            patch.object(midjourney.requests, "post", return_value=queued),
-            patch.object(midjourney.requests, "get", return_value=finished),
+            patch("apps.apikeysmanagement.key_health.requests.request", side_effect=[queued, finished]),
             patch.object(midjourney.urllib.request, "urlretrieve") as retrieve,
         ):
             saved = midjourney.MidjourneyProvider.generate("a cat", self.DIR)

@@ -235,7 +235,7 @@ class CustomVoiceTests(TestCase):
 
     def test_saved_video_cannot_bypass_clone_ownership_or_verification(self):
         voice = self.clone()
-        with patch("apps.videomanagement.integrations.tts.requests.post") as speech:
+        with patch("apps.videomanagement.integrations.tts.requests.request") as speech:
             with self.assertRaises(PermissionDenied):
                 ElevenLabsTTSProvider.generate("Hello", "/tmp/unused.wav", voice.path, user=user.make())
             voice.requires_verification = True

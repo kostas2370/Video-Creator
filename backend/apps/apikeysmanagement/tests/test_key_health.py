@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import requests
 from django.db import DatabaseError
@@ -10,7 +10,7 @@ from apps.common.provider_errors import ProviderRequestError
 from apps.usermanagement.baker_recipes import user
 
 from ..baker_recipes import api_keys
-from ..key_health import key_request, openai_request, record_response, save_warning
+from ..key_health import key_request, openai_request, provider_request, save_warning
 from ..models import ApiKeys, Provider
 
 
@@ -22,10 +22,19 @@ class KeyHealthTests(TestCase):
         self.client.force_authenticate(self.user)
         self.url = reverse("api-keys")
 
+    def response(self, provider, status):
+        with patch(
+            "apps.apikeysmanagement.key_health.requests.request",
+            return_value=Mock(status_code=status),
+        ):
+            return provider_request(
+                "POST", "https://provider.invalid/", user=self.user, provider=provider
+            )
+
     def test_401_responses_set_a_separate_warning_for_each_builtin_key(self):
         providers = set(ApiKeys.FIELDS) - {Provider.GOOGLE_SEARCH_ENGINE_ID}
         for provider in providers:
-            record_response(self.user, provider, Mock(status_code=401))
+            self.response(provider, 401)
         response = self.client.get(self.url)
         self.assertEqual(response.data["key_warnings"], dict.fromkeys(providers, True))
         self.assertNotIn(self.keys.openai_key, str(response.data))
@@ -45,7 +54,7 @@ class KeyHealthTests(TestCase):
 
     def test_other_statuses_do_not_mark_keys_as_revoked(self):
         for status in [400, 403, 429, 500]:
-            record_response(self.user, Provider.OPENAI, Mock(status_code=status))
+            self.response(Provider.OPENAI, status)
             with self.assertRaises(requests.HTTPError):
                 with key_request(self.user, Provider.GEMINI):
                     raise requests.HTTPError(response=Mock(status_code=status))
@@ -59,7 +68,7 @@ class KeyHealthTests(TestCase):
         self.assertEqual(
             self.client.get(self.url).data["key_warnings"], {"GEMINI": True}
         )
-        record_response(self.user, Provider.GEMINI, Mock(status_code=200))
+        self.response(Provider.GEMINI, 200)
         self.assertEqual(self.client.get(self.url).data["key_warnings"], {})
 
     def test_replacing_a_key_clears_only_that_providers_warning(self):
@@ -149,7 +158,7 @@ class KeyHealthTests(TestCase):
                 response.raise_for_status.side_effect = requests.HTTPError(
                     response=response
                 )
-                with patch.object(tts.requests, "post", return_value=response):
+                with patch.object(tts.requests, "request", return_value=response):
                     implementation.generate(
                         "Hello", "unused.wav", "test-voice", user=self.user
                     )
@@ -174,12 +183,12 @@ class KeyHealthTests(TestCase):
             with self.subTest(provider=provider):
                 response = Mock(status_code=401)
                 response.json.return_value = {}
-                with patch.object(requests, "post", return_value=response):
+                with patch.object(requests, "request", return_value=response):
                     implementation.generate("Hello", "/tmp/", user=self.user)
                 self.assertTrue(
                     self.client.get(self.url).data["key_warnings"][provider]
                 )
-        with patch.object(requests, "get", return_value=Mock(status_code=401)):
+        with patch.object(requests, "request", return_value=Mock(status_code=401)):
             with self.assertRaises(Exception):
                 google_images.make_request({}, user=self.user)
         self.assertTrue(
@@ -191,10 +200,10 @@ class KeyHealthTests(TestCase):
 
         for provider in [Provider.FAL, Provider.RUNWAY, Provider.GEMINI]:
             with self.subTest(provider=provider):
-                response = Mock(status_code=401, headers={})
+                response = MagicMock(status_code=401, headers={})
                 response.json.return_value = {}
-                with patch.object(requests, "request") as request:
-                    request.return_value.__enter__.return_value = response
+                response.__enter__.return_value = response
+                with patch.object(requests, "request", return_value=response):
                     with self.assertRaises(Exception):
                         video_http.json_request(
                             "POST",
@@ -206,3 +215,63 @@ class KeyHealthTests(TestCase):
                 self.assertTrue(
                     self.client.get(self.url).data["key_warnings"][provider]
                 )
+
+    def test_shared_request_forwards_options_and_returns_the_original_response(self):
+        response = Mock(status_code=401)
+        with patch(
+            "apps.apikeysmanagement.key_health.requests.request", return_value=response
+        ) as send:
+            result = provider_request(
+                "POST",
+                "https://provider.invalid/",
+                user=self.user,
+                provider=Provider.GEMINI,
+                headers={"x-key": "private"},
+                json={"prompt": "Hello"},
+                timeout=30,
+            )
+        self.assertIs(result, response)
+        send.assert_called_once_with(
+            "POST",
+            "https://provider.invalid/",
+            headers={"x-key": "private"},
+            json={"prompt": "Hello"},
+            timeout=30,
+        )
+        self.assertEqual(
+            self.client.get(self.url).data["key_warnings"], {"GEMINI": True}
+        )
+
+    def test_shared_request_preserves_network_errors_without_marking_the_key(self):
+        with patch(
+            "apps.apikeysmanagement.key_health.requests.request",
+            side_effect=requests.ConnectionError("offline"),
+        ):
+            with self.assertRaises(requests.ConnectionError):
+                provider_request(
+                    "GET",
+                    "https://provider.invalid/",
+                    user=self.user,
+                    provider=Provider.GEMINI,
+                )
+        self.assertEqual(self.client.get(self.url).data["key_warnings"], {})
+
+    def test_voice_clone_401_warning_survives_rolling_back_clone_creation(self):
+        from apps.videomanagement.exceptions import VoiceProviderError
+        from apps.videomanagement.services.voices import cloning
+
+        ApiKeys.objects.filter(user=self.user).update(elevenlabs_key="elevenlabs-key")
+        response = Mock(status_code=401)
+        response.raise_for_status.side_effect = requests.HTTPError(response=response)
+        with (
+            patch(
+                "apps.apikeysmanagement.key_health.requests.request",
+                return_value=response,
+            ),
+            patch.object(cloning, "normalized_sample", return_value=b"audio"),
+        ):
+            with self.assertRaises(VoiceProviderError):
+                cloning.create_clone(self.user, "Narrator", Mock())
+        self.assertEqual(
+            self.client.get(self.url).data["key_warnings"], {"ELEVENLABS": True}
+        )

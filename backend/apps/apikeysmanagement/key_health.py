@@ -1,6 +1,7 @@
 import logging
 from contextlib import contextmanager
 
+import requests
 from django.db import DatabaseError, transaction
 
 from apps.common.provider_errors import ProviderRequestError, provider_failure
@@ -24,7 +25,8 @@ def save_warning(user, provider, rejected):
         logger.warning("Could not save the provider key warning")
 
 
-def record_response(user, provider, response):
+def provider_request(method, url, *, user, provider, **kwargs):
+    response = requests.request(method, url, **kwargs)
     status = getattr(response, "status_code", None)
     if isinstance(status, int) and (status == 401 or 200 <= status < 300):
         save_warning(user, provider, status == 401)

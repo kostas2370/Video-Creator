@@ -15,7 +15,7 @@ import requests
 from django.conf import settings
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.key_health import record_response
+from apps.apikeysmanagement.key_health import provider_request
 from apps.apikeysmanagement.models import ApiKeys
 from apps.usage.pricing import estimate_line
 from apps.videomanagement.integrations.base import ImageProvider
@@ -110,11 +110,19 @@ class VideoRequest:
         return "1:1" if square and self.video_format == "SQUARE" else "16:9"
 
     def get(self, url):
-        return json_request("GET", url, headers=self.headers, user=self.user, provider=self.provider)
+        return json_request(
+            "GET", url, headers=self.headers, user=self.user, provider=self.provider
+        )
 
     def post(self, url, body, *, timeout=60):
         return json_request(
-            "POST", url, headers=self.headers, body=body, timeout=timeout, user=self.user, provider=self.provider
+            "POST",
+            url,
+            headers=self.headers,
+            body=body,
+            timeout=timeout,
+            user=self.user,
+            provider=self.provider,
         )
 
     def wait(self, url, *, completed, pending, field="status"):
@@ -197,16 +205,19 @@ def key_for(user, provider):
     return key
 
 
-def json_request(method, url, *, headers, body=None, timeout=60, user=None, provider=None):
-    with requests.request(
+def json_request(
+    method, url, *, headers, body=None, timeout=60, user=None, provider=None
+):
+    with provider_request(
         method,
         url,
         headers=headers,
         json=body,
         timeout=(10, timeout),
         allow_redirects=False,
+        user=user,
+        provider=provider,
     ) as response:
-        record_response(user, provider, response)
         if not 200 <= response.status_code < 300:
             reference = uuid.uuid4().hex[:12]
             message = f"{provider_error(response)} Reference: {reference}."

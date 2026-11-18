@@ -3,9 +3,7 @@ import os
 import urllib.request
 import uuid
 
-import requests
-
-from apps.apikeysmanagement.key_health import record_response
+from apps.apikeysmanagement.key_health import provider_request
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage
@@ -41,8 +39,9 @@ class StableDiffusionProvider(ImageProvider):
             "guidance_scale": 7.5,
         }
 
-        response = requests.post(url, json=payload)
-        record_response(user, Provider.STABLE_DIFFUSION, response)
+        response = provider_request(
+            "POST", url, json=payload, user=user, provider=Provider.STABLE_DIFFUSION
+        )
         body = response.json()
         output = body.get("output") or []
 

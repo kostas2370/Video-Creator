@@ -664,7 +664,9 @@ is rejected with HTTP 401. A successful request or replacing that provider's key
 clears its warning; switching between personal and service keys clears the previous
 mode's warnings. Other failures, including quota limits and connection problems, do
 not mark a key as rejected. Custom provider keys are excluded. Warnings reflect
-requests already made, without extra provider checks.
+requests already made, without extra provider checks. Built-in HTTP adapters use a
+shared provider request function to record these results; SDK clients use the
+shared request context.
 Apply the generation-error and key-warning migrations, restart the API and workers,
 and rebuild the frontend when updating.
 

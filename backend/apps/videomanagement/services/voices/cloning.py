@@ -11,6 +11,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.apikeysmanagement.key_health import key_request
+from apps.apikeysmanagement.key_health import provider_request as send_request
 from apps.apikeysmanagement.models import Provider
 from apps.common.media import run_ffmpeg
 from apps.usage.services import record_usage
@@ -39,13 +40,15 @@ PROVIDER_ERROR_MESSAGES = {
 }
 
 
-def provider_request(method, path, key, **kwargs):
+def provider_request(method, path, key, *, user=None, **kwargs):
     try:
-        response = requests.request(
+        response = send_request(
             method,
             f"{BASE_URL}/{path}",
             headers={"xi-api-key": key},
             timeout=(10, 90),
+            user=user,
+            provider=Provider.ELEVENLABS,
             **kwargs,
         )
         if method == "DELETE" and response.status_code == HTTPStatus.NOT_FOUND:
@@ -136,6 +139,7 @@ def create_clone(user, name, upload):
                     key,
                     data={"name": name},
                     files=[("files", ("sample.wav", audio, "audio/wav"))],
+                    user=user,
                 )
             )
             remote_id = data.get("voice_id")
@@ -157,57 +161,58 @@ def create_clone(user, name, upload):
                     clone_key_source=key_source(user),
                     clone_key_fingerprint=key_fingerprint(key),
                     consented_at=timezone.now(),
-                    requires_verification=data.get("requires_verification") is not False,
+                    requires_verification=data.get("requires_verification")
+                    is not False,
                 )
             except Exception:
                 try:
-                    provider_request("DELETE", f"voices/{remote_id}", key)
+                    provider_request("DELETE", f"voices/{remote_id}", key, user=user)
                 except VoiceProviderError:
                     logger.error("Could not remove orphaned custom voice %s", remote_id)
                 raise
 
 
 def preview_clone(user, voice):
-    with key_request(user, Provider.ELEVENLABS):
-        key = voice_key(user, voice)
-        if voice.requires_verification:
-            raise ValidationError(
-                "This voice requires verification in ElevenLabs before it can be used."
-            )
-        response = provider_request(
-            "POST",
-            f"text-to-speech/{voice.path}",
-            key,
-            json={"text": PREVIEW_TEXT, "model_id": "eleven_multilingual_v2"},
+    key = voice_key(user, voice)
+    if voice.requires_verification:
+        raise ValidationError(
+            "This voice requires verification in ElevenLabs before it can be used."
         )
-        if not response.content or "audio/" not in response.headers.get("Content-Type", ""):
-            raise VoiceProviderError()
-        record_usage(
-            user,
-            "tts",
-            Provider.ELEVENLABS,
-            "eleven_multilingual_v2",
-            characters=len(PREVIEW_TEXT),
-        )
-        return response.content
+    response = provider_request(
+        "POST",
+        f"text-to-speech/{voice.path}",
+        key,
+        json={"text": PREVIEW_TEXT, "model_id": "eleven_multilingual_v2"},
+        user=user,
+    )
+    if not response.content or "audio/" not in response.headers.get("Content-Type", ""):
+        raise VoiceProviderError()
+    record_usage(
+        user,
+        "tts",
+        Provider.ELEVENLABS,
+        "eleven_multilingual_v2",
+        characters=len(PREVIEW_TEXT),
+    )
+    return response.content
 
 
 def refresh_clone(user, voice):
-    with key_request(user, Provider.ELEVENLABS):
-        key = voice_key(user, voice)
-        data = provider_json(provider_request("GET", f"voices/{voice.path}", key))
-        verification = data.get("voice_verification") or {}
-        if not isinstance(verification, dict):
-            raise VoiceProviderError()
-        if "requires_verification" in verification:
-            voice.requires_verification = bool(verification["requires_verification"])
-        elif verification.get("is_verified") is True:
-            voice.requires_verification = False
-        voice.save(update_fields=["requires_verification"])
+    key = voice_key(user, voice)
+    data = provider_json(
+        provider_request("GET", f"voices/{voice.path}", key, user=user)
+    )
+    verification = data.get("voice_verification") or {}
+    if not isinstance(verification, dict):
+        raise VoiceProviderError()
+    if "requires_verification" in verification:
+        voice.requires_verification = bool(verification["requires_verification"])
+    elif verification.get("is_verified") is True:
+        voice.requires_verification = False
+    voice.save(update_fields=["requires_verification"])
 
 
 def delete_clone(user, voice):
-    with key_request(user, Provider.ELEVENLABS):
-        key = voice_key(user, voice)
-        provider_request("DELETE", f"voices/{voice.path}", key)
-        voice.delete()
+    key = voice_key(user, voice)
+    provider_request("DELETE", f"voices/{voice.path}", key, user=user)
+    voice.delete()

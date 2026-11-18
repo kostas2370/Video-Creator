@@ -5,11 +5,10 @@ import uuid
 from typing import Union
 from urllib.parse import urlparse
 
-import requests
 from django.conf import settings
 from requests import Response
 
-from apps.apikeysmanagement.key_health import record_response
+from apps.apikeysmanagement.key_health import provider_request
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.pricing import image_estimate
 from apps.videomanagement.integrations.base import ImageProvider
@@ -43,10 +42,13 @@ def build_payload(
 
 
 def make_request(payload: dict, user=None) -> Response:
-    response = requests.get(
-        "https://www.googleapis.com/customsearch/v1", params=payload
+    response = provider_request(
+        "GET",
+        "https://www.googleapis.com/customsearch/v1",
+        params=payload,
+        user=user,
+        provider=Provider.GOOGLE_SEARCH,
     )
-    record_response(user, Provider.GOOGLE_SEARCH, response)
     if response.status_code != 200:
         raise Exception("Request Failed")
     return response
