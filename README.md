@@ -660,7 +660,7 @@ and connection failures. Failed video generation keeps this message in the proje
 after refresh, with a link to API key settings. Service-key users may need their
 administrator to update credentials. Provider responses and key values stay private.
 API key settings also retain warnings for the active OpenAI key after rejected
-credentials, quota or access failures. Replacing the key or a successful request
+credentials, quota or access failures. Replacing the key, switching credential mode, or a successful request
 clears the warning; service-key warnings identify the administrator action needed.
 Warnings reflect requests already made, without extra provider checks.
 Apply the generation-error and key-warning migrations, restart the API and workers,

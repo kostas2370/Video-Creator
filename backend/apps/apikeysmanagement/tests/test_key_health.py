@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from django.db import DatabaseError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -8,8 +9,8 @@ from apps.common.provider_errors import ProviderRequestError
 from apps.usermanagement.baker_recipes import user
 
 from ..baker_recipes import api_keys
-from ..key_health import key_fingerprint, openai_request, openai_warning, save_warning
-from ..models import ProviderKeyWarning
+from ..key_health import openai_request, save_warning
+from ..models import ApiKeys
 
 
 class KeyHealthTests(TestCase):
@@ -28,18 +29,17 @@ class KeyHealthTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.data["openai_warning"]["code"], "credentials")
         self.assertNotIn(self.keys.openai_key, str(response.data))
-        self.assertNotIn(key_fingerprint(self.keys.openai_key), str(response.data))
-        warning = ProviderKeyWarning.objects.get()
-        self.assertNotIn(self.keys.openai_key, str(warning.__dict__))
+        self.keys.refresh_from_db()
+        self.assertEqual(self.keys.openai_warning, "credentials")
 
-    def test_replacing_or_removing_the_key_hides_the_old_warning(self):
-        save_warning(self.keys.openai_key, "credentials")
+    def test_replacing_or_removing_the_key_clears_the_warning(self):
         for key in ["sk-new-key", ""]:
+            save_warning(self.user, "credentials")
             response = self.client.patch(self.url, {"openai_key": key}, format="json")
             self.assertIsNone(response.data["openai_warning"])
 
-    def test_success_clears_the_warning_for_the_key_used(self):
-        save_warning(self.keys.openai_key, "credentials")
+    def test_success_clears_the_warning(self):
+        save_warning(self.user, "credentials")
         with openai_request(user=self.user):
             pass
         self.assertIsNone(self.client.get(self.url).data["openai_warning"])
@@ -50,53 +50,41 @@ class KeyHealthTests(TestCase):
                 raise ProviderRequestError("rate_limit")
         self.assertIsNone(self.client.get(self.url).data["openai_warning"])
 
-    def test_other_users_keys_do_not_inherit_the_warning(self):
-        save_warning(self.keys.openai_key, "credentials")
-        stranger = user.make(use_service_api_keys=False)
-        api_keys.make(user=stranger, openai_key="sk-other-key")
-        self.client.force_authenticate(stranger)
+    def test_other_users_do_not_inherit_the_warning(self):
+        save_warning(self.user, "credentials")
+        self.client.force_authenticate(user.make())
         self.assertIsNone(self.client.get(self.url).data["openai_warning"])
 
     @override_settings(OPEN_API_KEY="sk-shared-service-key")
-    def test_service_key_warnings_follow_the_active_credential_mode(self):
-        save_warning("sk-shared-service-key", "quota")
-        self.assertIsNone(self.client.get(self.url).data["openai_warning"])
+    def test_switching_credential_mode_clears_the_old_warning(self):
+        save_warning(self.user, "credentials")
         response = self.client.patch(
             self.url, {"use_service_api_keys": True}, format="json"
         )
-        self.assertEqual(response.data["openai_warning"]["code"], "quota")
-
-    def test_old_in_flight_requests_cannot_change_a_replacement_keys_warning(self):
-        old_key = self.keys.openai_key
+        self.assertIsNone(response.data["openai_warning"])
         with self.assertRaises(ProviderRequestError):
-            with openai_request(user=self.user):
-                self.client.patch(
-                    self.url, {"openai_key": "sk-replacement"}, format="json"
-                )
-                save_warning("sk-replacement", "access")
-                raise ProviderRequestError("credentials")
-        self.assertEqual(openai_warning(old_key)["code"], "credentials")
+            with openai_request(user=ApiKeys.objects.get(user=self.user).user) as key:
+                self.assertEqual(key, "sk-shared-service-key")
+                raise ProviderRequestError("quota")
         self.assertEqual(
-            self.client.get(self.url).data["openai_warning"]["code"], "access"
+            self.client.get(self.url).data["openai_warning"]["code"], "quota"
         )
 
-    def test_an_earlier_success_does_not_clear_a_more_recent_rejection(self):
-        with openai_request(user=self.user):
-            save_warning(self.keys.openai_key, "credentials")
-        self.assertEqual(
-            self.client.get(self.url).data["openai_warning"]["code"], "credentials"
+    def test_service_users_without_a_key_record_can_save_a_warning(self):
+        actor = user.make(use_service_api_keys=True)
+        save_warning(actor, "credentials")
+        self.assertEqual(ApiKeys.objects.get(user=actor).openai_warning, "credentials")
+
+    def test_warnings_cannot_be_changed_through_the_api(self):
+        save_warning(self.user, "credentials")
+        response = self.client.patch(
+            self.url, {"openai_warning": "quota"}, format="json"
         )
+        self.assertEqual(response.data["openai_warning"]["code"], "credentials")
 
-    def test_missing_credentials_do_not_create_a_warning(self):
-        save_warning(None, "credentials")
-        self.assertIsNone(openai_warning(None))
-        self.assertFalse(ProviderKeyWarning.objects.exists())
-
-    def test_failed_status_storage_preserves_the_original_provider_error(self):
-        from django.db import DatabaseError
-
+    def test_failed_warning_storage_preserves_the_provider_error(self):
         with patch(
-            "apps.apikeysmanagement.key_health.ProviderKeyWarning.objects.update_or_create",
+            "apps.apikeysmanagement.key_health.ApiKeys.objects.get_or_create",
             side_effect=DatabaseError("unavailable"),
         ):
             with self.assertRaises(ProviderRequestError) as raised:

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-from .key_health import openai_warning
+from apps.common.provider_errors import MESSAGES
+
 from .models import (
     ApiKeys,
     AuthType,
@@ -28,7 +29,8 @@ class ApiKeysSerializer(serializers.ModelSerializer):
     openai_warning = serializers.SerializerMethodField()
 
     def get_openai_warning(self, instance):
-        return openai_warning(ApiKeys.key_for(instance.user, Provider.OPENAI))
+        code = instance.openai_warning
+        return {"code": code, "message": MESSAGES[code]} if code in MESSAGES else None
 
     use_service_api_keys = serializers.BooleanField(
         source="user.use_service_api_keys", required=False
@@ -59,6 +61,8 @@ class ApiKeysSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
+        if "openai_key" in validated_data or "use_service_api_keys" in user_data:
+            validated_data["openai_warning"] = ""
         if "use_service_api_keys" in user_data:
             instance.user.use_service_api_keys = user_data["use_service_api_keys"]
             instance.user.save(update_fields=["use_service_api_keys"])

@@ -34,12 +34,6 @@ class Provider(models.TextChoices):
     GOOGLE_SEARCH_ENGINE_ID = "GOOGLE_SEARCH_ENGINE_ID", "Google Search engine id"
 
 
-class ProviderKeyWarning(models.Model):
-    fingerprint = models.CharField(max_length=64, primary_key=True)
-    code = models.CharField(max_length=20)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
 class AuthType(models.TextChoices):
     BEARER = "bearer", "Bearer Token"
     HEADER = "header", "Custom Header Key"
@@ -59,6 +53,7 @@ class ApiKeys(LifecycleModelMixin, UUIDModel):
     )
 
     openai_key = EncryptedCharField(max_length=255, blank=True, default="")
+    openai_warning = models.CharField(max_length=20, blank=True, default="", db_default="", editable=False)
     anthropic_key = EncryptedCharField(max_length=255, blank=True, default="")
     gemini_key = EncryptedCharField(max_length=255, blank=True, default="")
     fal_key = EncryptedCharField(max_length=255, blank=True, default="")
