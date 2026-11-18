@@ -12,9 +12,9 @@ from openai import (
     RateLimitError,
 )
 
+from apps.apikeysmanagement.key_health import openai_request
 from apps.common.provider_errors import (
     ProviderRequestError,
-    openai_request,
     provider_failure,
 )
 from apps.videomanagement.baker_recipes import video

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from .key_health import openai_warning
 from .models import (
     ApiKeys,
     AuthType,
@@ -24,13 +25,18 @@ KEY_FIELDS = (
 
 
 class ApiKeysSerializer(serializers.ModelSerializer):
+    openai_warning = serializers.SerializerMethodField()
+
+    def get_openai_warning(self, instance):
+        return openai_warning(ApiKeys.key_for(instance.user, Provider.OPENAI))
+
     use_service_api_keys = serializers.BooleanField(
         source="user.use_service_api_keys", required=False
     )
 
     class Meta:
         model = ApiKeys
-        fields = ("id", "updated_at", "use_service_api_keys", *KEY_FIELDS)
+        fields = ("id", "updated_at", "use_service_api_keys", "openai_warning", *KEY_FIELDS)
         read_only_fields = ("id", "updated_at")
         extra_kwargs = {
             field: {
@@ -149,7 +155,9 @@ class UserCustomTTSProviderSerializer(CustomProviderSerializer):
 
 class UserCustomVisualProviderSerializer(CustomProviderSerializer):
     def get_reserved_provider_names(self):
-        from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+        from apps.videomanagement.integrations.visuals.registry import (
+            ImageProviderRegistry,
+        )
 
         # Keep the legacy underscore spelling reserved alongside registered IDs.
         return ImageProviderRegistry.names() | {Provider.STABLE_DIFFUSION}

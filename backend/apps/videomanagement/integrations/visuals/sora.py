@@ -9,8 +9,8 @@ from PIL import Image, ImageOps
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.models import ApiKeys, Provider
-from apps.common.provider_errors import openai_request
+from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.models import Provider
 from apps.usage.pricing import estimate_line
 from apps.usage.services import record_usage
 from apps.videomanagement.integrations.base import ImageProvider
@@ -36,7 +36,7 @@ class SoraProvider(ImageProvider):
         *args,
         **kwargs,
     ) -> str:
-        with openai_request():
+        with openai_request(user=user) as api_key:
             logger.warning("API CALL IN SORA")
 
             # No narration to fit means no duration is passed; fall back to the configured
@@ -56,7 +56,7 @@ class SoraProvider(ImageProvider):
                 size=settings.SORA_SIZE,
             )
 
-            client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
+            client = OpenAI(api_key=api_key)
             if reference and os.path.isfile(reference):
                 request["prompt"] += (
                     " Continue from the supplied opening frame into the action described "

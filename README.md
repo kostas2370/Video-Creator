@@ -659,7 +659,12 @@ expired or revoked keys), quota or billing limits, rate limits, access restricti
 and connection failures. Failed video generation keeps this message in the project
 after refresh, with a link to API key settings. Service-key users may need their
 administrator to update credentials. Provider responses and key values stay private.
-Apply the generation-error migration and restart the API and workers when updating.
+API key settings also retain warnings for the active OpenAI key after rejected
+credentials, quota or access failures. Replacing the key or a successful request
+clears the warning; service-key warnings identify the administrator action needed.
+Warnings reflect requests already made, without extra provider checks.
+Apply the generation-error and key-warning migrations, restart the API and workers,
+and rebuild the frontend when updating.
 
 Failed exports show a saved message and reference in the editor, with **Retry export**.
 The reference can be searched in worker logs. Errors do not expose provider responses,

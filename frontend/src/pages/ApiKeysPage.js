@@ -63,6 +63,7 @@ export const ApiKeys = () => {
   const [revealed, setRevealed] = useState({});
   const [useServiceKeys, setUseServiceKeys] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [openaiWarning, setOpenaiWarning] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -78,6 +79,7 @@ export const ApiKeys = () => {
     );
     setUseServiceKeys(Boolean(data.use_service_api_keys));
     setUpdatedAt(data.updated_at ?? null);
+    setOpenaiWarning(data.openai_warning ?? null);
   };
 
   useEffect(() => {
@@ -178,6 +180,7 @@ export const ApiKeys = () => {
     setDrafts({});
     setRevealed({});
     setUpdatedAt(null);
+    if (!useServiceKeys) setOpenaiWarning(null);
     setShowClearModal(false);
     toast.success("Every key was removed");
   };
@@ -254,6 +257,7 @@ export const ApiKeys = () => {
       </div>
 
       <div role="tabpanel" id="settings-panel-keys" aria-labelledby="settings-tab-keys" hidden={activeSection !== "keys"}>
+        {useServiceKeys && openaiWarning && <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200"><strong>OpenAI service key needs attention. </strong>{openaiWarning.message} Contact the administrator to fix the service key.</p>}
       <form className="px-4 pb-6 md:px-6 max-w-3xl mx-auto" onSubmit={handleSave}>
         {KEY_GROUPS.map((group) => (
           <div
@@ -271,6 +275,7 @@ export const ApiKeys = () => {
                   key={field.name}
                   field={field}
                   saved={saved[field.name]}
+                  warning={field.name === "openai_key" && !useServiceKeys ? openaiWarning : null}
                   draft={drafts[field.name]}
                   isRevealed={Boolean(revealed[field.name])}
                   onChange={(value) => handleChange(field.name, value)}
@@ -341,6 +346,7 @@ export const ApiKeys = () => {
 const KeyField = ({
   field,
   saved,
+  warning,
   draft,
   isRevealed,
   onChange,
@@ -368,6 +374,8 @@ const KeyField = ({
           <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
             Not saved yet
           </span>
+        ) : warning ? (
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Needs attention</span>
         ) : saved ? (
           <span className="text-xs font-medium text-green-600 dark:text-green-400">
             Saved
@@ -418,6 +426,7 @@ const KeyField = ({
         ) : null}
       </div>
 
+      {warning && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">{warning.message}</p>}
       {field.hint ? (
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           {field.hint}

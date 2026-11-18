@@ -6,9 +6,9 @@ from pathlib import Path
 from django.conf import settings
 from openai import OpenAI
 
-from apps.apikeysmanagement.models import ApiKeys, Provider
+from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.models import Provider
 from apps.common.media import run_ffmpeg
-from apps.common.provider_errors import openai_request
 from apps.usage.services import record_usage
 from apps.videomanagement.services.captions.local_whisper import (
     TranscriptionError,
@@ -40,16 +40,14 @@ def transcribe_audio(source, user, duration, directory, *, api_key=None):
 
 
 def transcribe_prepared_audio(audio, user, duration, *, api_key=None):
-    with openai_request():
-        if settings.SPEECH_TRANSCRIPTION_PROVIDER == "local":
-            return transcribe_local(audio, duration)
-        if settings.SPEECH_TRANSCRIPTION_PROVIDER != "openai":
-            raise TranscriptionError(
-                "Choose local or openai as the transcription provider."
-            )
+    if settings.SPEECH_TRANSCRIPTION_PROVIDER == "local":
+        return transcribe_local(audio, duration)
+    if settings.SPEECH_TRANSCRIPTION_PROVIDER != "openai":
+        raise TranscriptionError("Choose local or openai as the transcription provider.")
+    with openai_request(user=user, api_key=api_key) as api_key:
         audio = Path(audio)
         client = OpenAI(
-            api_key=api_key or ApiKeys.key_for(user, Provider.OPENAI),
+            api_key=api_key,
             timeout=180,
             max_retries=1,
         )
