@@ -9,7 +9,7 @@ from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 
-from apps.apikeysmanagement.provider_requests import openai_request, provider_request
+from apps.apikeysmanagement.provider_requests import key_request, provider_request
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
 from apps.usage.pricing import tts_estimate
 from apps.usage.services import record_usage
@@ -46,7 +46,7 @@ class OpenAITTSProvider(TTSProvider):
     def generate(
         text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
     ) -> Any:
-        with openai_request(user=user) as api_key:
+        with key_request(user, Provider.OPENAI) as api_key:
             logger.warning("API CALL IN OpenAI TTS")
 
             client = OpenAI(api_key=api_key)

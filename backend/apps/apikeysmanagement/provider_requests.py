@@ -66,7 +66,3 @@ def key_request(user, provider, api_key=None):
         raise
     else:
         save_warning(user, provider, False)
-
-
-def openai_request(user=None, api_key=None):
-    return key_request(user, Provider.OPENAI, api_key)

@@ -12,7 +12,8 @@ from openai import (
     RateLimitError,
 )
 
-from apps.apikeysmanagement.provider_requests import openai_request
+from apps.apikeysmanagement.models import Provider
+from apps.apikeysmanagement.provider_requests import key_request
 from apps.common.provider_errors import (
     ProviderRequestError,
     provider_failure,
@@ -95,7 +96,7 @@ class ProviderErrorTests(SimpleTestCase):
     def test_request_context_preserves_an_already_normalized_error(self):
         error = ProviderRequestError("credentials")
         with self.assertRaises(ProviderRequestError) as raised:
-            with openai_request():
+            with key_request(None, Provider.OPENAI):
                 raise error
         self.assertIs(raised.exception, error)
 
@@ -126,7 +127,7 @@ class ProviderErrorTests(SimpleTestCase):
 
     def test_provider_boundary_preserves_unknown_exceptions(self):
         with self.assertRaisesMessage(ValueError, "invalid local input"):
-            with openai_request():
+            with key_request(None, Provider.OPENAI):
                 raise ValueError("invalid local input")
 
 

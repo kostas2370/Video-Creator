@@ -8,7 +8,7 @@ from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.provider_requests import openai_request
+from apps.apikeysmanagement.provider_requests import key_request
 from apps.apikeysmanagement.models import Provider
 from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage
@@ -61,7 +61,7 @@ class OpenAIImageProvider(ImageProvider):
         **kwargs,
     ) -> str:
         """Generate or edit an image using the configured GPT image model."""
-        with openai_request(user=user) as api_key:
+        with key_request(user, Provider.OPENAI) as api_key:
             logger.warning("API CALL IN OPENAI IMAGES")
 
             client = OpenAI(api_key=api_key)

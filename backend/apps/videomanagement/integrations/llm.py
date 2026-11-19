@@ -9,7 +9,7 @@ from django.conf import settings
 from openai import OpenAI
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.provider_requests import key_request, openai_request
+from apps.apikeysmanagement.provider_requests import key_request
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.llm_traces import record_llm_trace
 from apps.usage.services import record_usage
@@ -111,7 +111,7 @@ def model_error(error, image):
 
 
 def official_gpt_call(prompt: str, gpt_model=None, user=None, image=None):
-    with openai_request(user=user) as api_key:
+    with key_request(user, Provider.OPENAI) as api_key:
         x = io.StringIO()
         logger.warning("API CALL IN OFFICIAL GPT")
         model = gpt_model or settings.DEFAULT_GPT_MODEL
@@ -346,7 +346,7 @@ def get_reply(
 
 
 def select_from_vision(prompt, images, user=None):
-    with openai_request(user=user) as api_key:
+    with key_request(user, Provider.OPENAI) as api_key:
         logger.warning("API CALL IN OFFICIAL GPT vision")
 
         if not images:

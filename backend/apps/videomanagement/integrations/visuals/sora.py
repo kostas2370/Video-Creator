@@ -9,7 +9,7 @@ from PIL import Image, ImageOps
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.provider_requests import openai_request
+from apps.apikeysmanagement.provider_requests import key_request
 from apps.apikeysmanagement.models import Provider
 from apps.usage.pricing import estimate_line
 from apps.usage.services import record_usage
@@ -36,7 +36,7 @@ class SoraProvider(ImageProvider):
         *args,
         **kwargs,
     ) -> str:
-        with openai_request(user=user) as api_key:
+        with key_request(user, Provider.OPENAI) as api_key:
             logger.warning("API CALL IN SORA")
 
             # No narration to fit means no duration is passed; fall back to the configured

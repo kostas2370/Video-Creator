@@ -6,7 +6,7 @@ from pathlib import Path
 from django.conf import settings
 from openai import OpenAI
 
-from apps.apikeysmanagement.provider_requests import openai_request
+from apps.apikeysmanagement.provider_requests import key_request
 from apps.apikeysmanagement.models import Provider
 from apps.common.media import run_ffmpeg
 from apps.usage.services import record_usage
@@ -44,7 +44,7 @@ def transcribe_prepared_audio(audio, user, duration, *, api_key=None):
         return transcribe_local(audio, duration)
     if settings.SPEECH_TRANSCRIPTION_PROVIDER != "openai":
         raise TranscriptionError("Choose local or openai as the transcription provider.")
-    with openai_request(user=user, api_key=api_key) as api_key:
+    with key_request(user, Provider.OPENAI, api_key=api_key) as api_key:
         audio = Path(audio)
         client = OpenAI(
             api_key=api_key,

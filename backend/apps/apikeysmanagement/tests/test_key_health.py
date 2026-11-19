@@ -10,7 +10,7 @@ from apps.common.provider_errors import ProviderRequestError
 from apps.usermanagement.baker_recipes import user
 
 from ..baker_recipes import api_keys
-from ..provider_requests import key_request, openai_request, provider_request, save_warning
+from ..provider_requests import key_request, provider_request, save_warning
 from ..models import ApiKeys, Provider
 
 
@@ -45,7 +45,7 @@ class KeyHealthTests(TestCase):
             with key_request(self.user, Provider.ANTHROPIC):
                 raise error
         with self.assertRaises(ProviderRequestError):
-            with openai_request(self.user):
+            with key_request(self.user, Provider.OPENAI):
                 raise ProviderRequestError("credentials")
         self.assertEqual(
             self.client.get(self.url).data["key_warnings"],
@@ -63,7 +63,7 @@ class KeyHealthTests(TestCase):
     def test_success_clears_only_the_matching_providers_warning(self):
         save_warning(self.user, Provider.OPENAI, True)
         save_warning(self.user, Provider.GEMINI, True)
-        with openai_request(self.user):
+        with key_request(self.user, Provider.OPENAI):
             pass
         self.assertEqual(
             self.client.get(self.url).data["key_warnings"], {"GEMINI": True}
@@ -122,7 +122,7 @@ class KeyHealthTests(TestCase):
             side_effect=DatabaseError("unavailable"),
         ):
             with self.assertRaises(ProviderRequestError) as raised:
-                with openai_request(self.user):
+                with key_request(self.user, Provider.OPENAI):
                     raise ProviderRequestError("credentials")
         self.assertEqual(raised.exception.code, "credentials")
 
