@@ -17,6 +17,7 @@ class PreparedTranscriptionTests(SimpleTestCase):
         self.audio = self.directory / "part-0.mp3"
         self.audio.write_bytes(b"prepared audio")
         self.owner = object()
+        self.enterContext(patch("apps.apikeysmanagement.provider_requests.save_warning"))
         self.client = self.enterContext(patch.object(transcription, "OpenAI"))
         self.usage = self.enterContext(patch.object(transcription, "record_usage"))
         self.encode = self.enterContext(patch.object(transcription, "run_ffmpeg"))
