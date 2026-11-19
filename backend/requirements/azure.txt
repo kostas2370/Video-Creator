@@ -1,3 +1,0 @@
-# Azure copy/backup tooling; active application storage remains local.
-azure-storage-blob>=12.25,<13
-azure-identity>=1.21,<2

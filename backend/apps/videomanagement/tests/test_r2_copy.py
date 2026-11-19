@@ -1,19 +1,24 @@
 import io
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.core.files.storage import FileSystemStorage
 from django.core.management.base import CommandError
+from django.db.models import FileField
 from django.test import SimpleTestCase, override_settings
 
-from apps.common.test_azure_archive import MemoryArchive
-from apps.videomanagement.management.commands.copy_media_to_r2 import Command
+from apps.clips.storage import ClipStorage
+from apps.common.test_media_archive import MemoryArchive
+from apps.publishing.storage import PrivateExportStorage
+from apps.videomanagement.management.commands.copy_media_to_r2 import (
+    Command,
+    registered_files,
+)
 
 COMMAND = "apps.videomanagement.management.commands.copy_media_to_r2"
-INVENTORY = (
-    "apps.videomanagement.management.commands.copy_media_to_azure.registered_files"
-)
+INVENTORY = f"{COMMAND}.registered_files"
 
 
 @override_settings(
@@ -28,6 +33,10 @@ class R2CopyCommandTests(SimpleTestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         root = Path(self.directory.name)
+        self.root = root
+        # Only registered files may be copied, even when MEDIA_ROOT includes secrets.
+        (root / ".env").write_text("secret")
+        self.storage = FileSystemStorage(location=root)
         self.source = root / "video.mp4"
         self.source.write_bytes(b"video")
         self.files = [("media", FileSystemStorage(location=root), "video.mp4")]
@@ -95,3 +104,29 @@ class R2CopyCommandTests(SimpleTestCase):
             with self.assertRaises(CommandError):
                 self.command.handle(execute=True, workers=0)
         factory.assert_not_called()
+
+    def test_missing_files_fail_the_dry_run(self):
+        with patch(INVENTORY, return_value=[("media", self.storage, "missing")]):
+            with self.assertRaises(CommandError):
+                self.command.handle(execute=False)
+        self.assertIn("1 failed", self.output.getvalue())
+
+    def test_inventory_deduplicates_each_storage_and_uses_base_manager(self):
+        models = []
+        for storage in (self.storage, ClipStorage(), PrivateExportStorage()):
+            field = FileField(storage=storage, name="file")
+            manager = Mock()
+            manager.exclude.return_value.exclude.return_value.values_list.return_value.iterator.return_value = iter(
+                ["video.mp4", "video.mp4"]
+            )
+            models.append(
+                SimpleNamespace(
+                    _meta=SimpleNamespace(app_label="videomanagement", fields=[field]),
+                    _base_manager=manager,
+                )
+            )
+        with patch(f"{COMMAND}.apps.get_models", return_value=models):
+            entries = list(registered_files())
+        self.assertEqual(
+            [entry[0] for entry in entries], ["media", "clips", "publishing"]
+        )

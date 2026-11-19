@@ -1,14 +1,11 @@
-import io
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 from django.core.files.storage import FileSystemStorage
 
-from apps.common.azure_archive import (
+from apps.common.media_archive import (
     ArchiveError,
-    AzureArchive,
     blob_name,
     copy_verified,
     local_path,
@@ -32,7 +29,7 @@ class MemoryArchive:
         yield data[3:]
 
 
-class AzureArchiveTests(unittest.TestCase):
+class MediaArchiveTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -115,61 +112,3 @@ class AzureArchiveTests(unittest.TestCase):
         for name in ("link.mp4", "linked/video.mp4", "missing.mp4"):
             with self.subTest(name=name), self.assertRaises(ArchiveError):
                 local_path(storage, name)
-
-    def test_remote_connection_rejects_non_https_and_embedded_credentials(self):
-        for url in (
-            "",
-            "http://account.blob.core.windows.net",
-            "https://host/?sig=secret",
-            "https://user:password@host",
-        ):
-            with self.subTest(url=url), self.assertRaises(ArchiveError):
-                AzureArchive(url, "private-media")
-
-
-class AzureSDKTests(unittest.TestCase):
-    """Run when the optional Azure requirements are installed; no network calls."""
-
-    def setUp(self):
-        try:
-            import azure.storage.blob  # noqa: F401
-            import azure.identity  # noqa: F401
-        except ImportError:
-            self.skipTest("Optional Azure SDK is not installed")
-
-    def test_refuses_public_container_and_closes_clients(self):
-        with (
-            patch("azure.storage.blob.BlobServiceClient") as service,
-            patch("azure.identity.DefaultAzureCredential") as identity,
-        ):
-            service.return_value.get_container_client.return_value.get_container_properties.return_value = {
-                "public_access": "blob"
-            }
-            with self.assertRaisesRegex(ArchiveError, "public access"):
-                AzureArchive("https://example.blob.core.windows.net", "media")
-            service.return_value.close.assert_called_once()
-            identity.return_value.close.assert_called_once()
-
-    def test_existing_blob_upload_does_not_overwrite_and_download_is_etag_bound(self):
-        from azure.core import MatchConditions
-        from azure.core.exceptions import ResourceExistsError
-
-        with (
-            patch("azure.storage.blob.BlobServiceClient") as service,
-            patch("azure.identity.DefaultAzureCredential"),
-        ):
-            container = service.return_value.get_container_client.return_value
-            container.get_container_properties.return_value = {"public_access": None}
-            archive = AzureArchive("https://example.blob.core.windows.net", "media")
-            self.addCleanup(archive.close)
-            blob = container.get_blob_client.return_value
-            blob.upload_blob.side_effect = ResourceExistsError("Already exists")
-            self.assertFalse(
-                archive.upload_if_missing("media/a", io.BytesIO(b"a"), 1, "hash")
-            )
-            self.assertIs(blob.upload_blob.call_args.kwargs["overwrite"], False)
-            blob.get_blob_properties.return_value = Mock(etag="version-1")
-            archive.chunks("media/a")
-            blob.download_blob.assert_called_once_with(
-                etag="version-1", match_condition=MatchConditions.IfNotModified
-            )

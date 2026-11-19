@@ -206,10 +206,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "")
 MEDIA_URL = ""
 MEDIA_ACCEL_REDIRECT = (os.getenv("MEDIA_ACCEL_REDIRECT") or "false").lower() == "true"
 
-# Optional private archive; does not switch Django's active local storage.
-AZURE_STORAGE_ACCOUNT_URL = (os.getenv("AZURE_STORAGE_ACCOUNT_URL") or "").strip()
-AZURE_STORAGE_CONTAINER = (os.getenv("AZURE_STORAGE_CONTAINER") or "").strip()
-
 # Private R2 media with retained local processing files.
 R2_ACCOUNT_ID = (os.getenv("R2_ACCOUNT_ID") or "").strip()
 R2_BUCKET_NAME = (os.getenv("R2_BUCKET_NAME") or "").strip()
