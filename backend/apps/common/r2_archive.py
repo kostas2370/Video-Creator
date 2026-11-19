@@ -29,7 +29,7 @@ class R2Archive:
             from botocore.config import Config
         except ImportError:
             raise ArchiveError(
-                "Install requirements/r2.txt before copying to R2."
+                "Install requirements/requirements.txt before using R2 storage."
             ) from None
         suffix = f".{jurisdiction}" if jurisdiction else ""
         self.bucket = bucket

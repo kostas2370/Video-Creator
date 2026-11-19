@@ -45,7 +45,7 @@ The endpoint is derived from the account ID and jurisdiction; arbitrary endpoint
 are not accepted. Credentials are server-side only and never sent to the frontend.
 
 New backend builds include the S3 client. For an existing Python environment,
-install `requirements/r2.txt` from the `backend/` directory. For Docker, rebuild
+install `requirements/requirements.txt` from the `backend/` directory. For Docker, rebuild
 the backend image and recreate the API and all Celery containers after configuring
 their environment. All processes need the same R2 configuration and SDK dependency.
 Do not commit `.env` or keys to version control.
