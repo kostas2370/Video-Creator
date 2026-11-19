@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from django.conf import settings
 from requests import Response
 
-from apps.apikeysmanagement.key_health import provider_request
+from apps.apikeysmanagement.provider_requests import provider_request
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.pricing import image_estimate
 from apps.videomanagement.integrations.base import ImageProvider

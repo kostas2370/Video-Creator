@@ -6,7 +6,7 @@ from pathlib import Path
 from django.conf import settings
 from openai import OpenAI
 
-from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.provider_requests import openai_request
 from apps.apikeysmanagement.models import Provider
 from apps.common.media import run_ffmpeg
 from apps.usage.services import record_usage

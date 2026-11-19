@@ -10,7 +10,7 @@ from apps.common.provider_errors import ProviderRequestError
 from apps.usermanagement.baker_recipes import user
 
 from ..baker_recipes import api_keys
-from ..key_health import key_request, openai_request, provider_request, save_warning
+from ..provider_requests import key_request, openai_request, provider_request, save_warning
 from ..models import ApiKeys, Provider
 
 
@@ -24,7 +24,7 @@ class KeyHealthTests(TestCase):
 
     def response(self, provider, status):
         with patch(
-            "apps.apikeysmanagement.key_health.requests.request",
+            "apps.apikeysmanagement.provider_requests.requests.request",
             return_value=Mock(status_code=status),
         ):
             return provider_request(
@@ -118,7 +118,7 @@ class KeyHealthTests(TestCase):
 
     def test_failed_warning_storage_preserves_the_provider_error(self):
         with patch(
-            "apps.apikeysmanagement.key_health.ApiKeys.objects.select_for_update",
+            "apps.apikeysmanagement.provider_requests.ApiKeys.objects.select_for_update",
             side_effect=DatabaseError("unavailable"),
         ):
             with self.assertRaises(ProviderRequestError) as raised:
@@ -219,7 +219,7 @@ class KeyHealthTests(TestCase):
     def test_shared_request_forwards_options_and_returns_the_original_response(self):
         response = Mock(status_code=401)
         with patch(
-            "apps.apikeysmanagement.key_health.requests.request", return_value=response
+            "apps.apikeysmanagement.provider_requests.requests.request", return_value=response
         ) as send:
             result = provider_request(
                 "POST",
@@ -244,7 +244,7 @@ class KeyHealthTests(TestCase):
 
     def test_shared_request_preserves_network_errors_without_marking_the_key(self):
         with patch(
-            "apps.apikeysmanagement.key_health.requests.request",
+            "apps.apikeysmanagement.provider_requests.requests.request",
             side_effect=requests.ConnectionError("offline"),
         ):
             with self.assertRaises(requests.ConnectionError):
@@ -265,7 +265,7 @@ class KeyHealthTests(TestCase):
         response.raise_for_status.side_effect = requests.HTTPError(response=response)
         with (
             patch(
-                "apps.apikeysmanagement.key_health.requests.request",
+                "apps.apikeysmanagement.provider_requests.requests.request",
                 return_value=response,
             ),
             patch.object(cloning, "normalized_sample", return_value=b"audio"),

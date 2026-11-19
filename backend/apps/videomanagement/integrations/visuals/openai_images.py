@@ -8,7 +8,7 @@ from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.provider_requests import openai_request
 from apps.apikeysmanagement.models import Provider
 from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage

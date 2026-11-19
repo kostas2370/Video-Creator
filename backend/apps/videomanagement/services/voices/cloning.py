@@ -10,8 +10,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from apps.apikeysmanagement.key_health import key_request
-from apps.apikeysmanagement.key_health import provider_request as send_request
+from apps.apikeysmanagement.provider_requests import key_request
+from apps.apikeysmanagement.provider_requests import provider_request as send_request
 from apps.apikeysmanagement.models import Provider
 from apps.common.media import run_ffmpeg
 from apps.usage.services import record_usage

@@ -9,7 +9,7 @@ from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 
-from apps.apikeysmanagement.key_health import openai_request, provider_request
+from apps.apikeysmanagement.provider_requests import openai_request, provider_request
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
 from apps.usage.pricing import tts_estimate
 from apps.usage.services import record_usage

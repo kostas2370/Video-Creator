@@ -60,18 +60,13 @@ def key_request(user, provider, api_key=None):
     except Exception as error:
         if unauthorized(error):
             save_warning(user, provider, True)
+        failure = provider_failure(error) if provider == Provider.OPENAI else None
+        if failure and not isinstance(error, ProviderRequestError):
+            raise ProviderRequestError(failure["code"]) from error
         raise
     else:
         save_warning(user, provider, False)
 
 
-@contextmanager
 def openai_request(user=None, api_key=None):
-    with key_request(user, Provider.OPENAI, api_key) as key:
-        try:
-            yield key
-        except Exception as error:
-            failure = provider_failure(error)
-            if failure is None or isinstance(error, ProviderRequestError):
-                raise
-            raise ProviderRequestError(failure["code"]) from error
+    return key_request(user, Provider.OPENAI, api_key)

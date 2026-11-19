@@ -12,7 +12,7 @@ from openai import (
     RateLimitError,
 )
 
-from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.provider_requests import openai_request
 from apps.common.provider_errors import (
     ProviderRequestError,
     provider_failure,

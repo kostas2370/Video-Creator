@@ -9,7 +9,7 @@ from django.conf import settings
 from openai import OpenAI
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.key_health import key_request, openai_request
+from apps.apikeysmanagement.provider_requests import key_request, openai_request
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.llm_traces import record_llm_trace
 from apps.usage.services import record_usage

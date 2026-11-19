@@ -15,7 +15,7 @@ import requests
 from django.conf import settings
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.key_health import provider_request
+from apps.apikeysmanagement.provider_requests import provider_request
 from apps.apikeysmanagement.models import ApiKeys
 from apps.usage.pricing import estimate_line
 from apps.videomanagement.integrations.base import ImageProvider

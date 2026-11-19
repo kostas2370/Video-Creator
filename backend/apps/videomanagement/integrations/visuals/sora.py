@@ -9,7 +9,7 @@ from PIL import Image, ImageOps
 from rest_framework import status
 from rest_framework.exceptions import APIException
 
-from apps.apikeysmanagement.key_health import openai_request
+from apps.apikeysmanagement.provider_requests import openai_request
 from apps.apikeysmanagement.models import Provider
 from apps.usage.pricing import estimate_line
 from apps.usage.services import record_usage
