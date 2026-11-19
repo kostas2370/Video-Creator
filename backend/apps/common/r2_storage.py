@@ -65,10 +65,12 @@ class R2StorageMixin:
             raise
 
     def path(self, name):
+        if not self.r2_enabled:
+            return super().path(name)
         name = relative_name(self, name)
         self.object_key(name)
         path = Path(super().path(name))
-        if not self.r2_enabled or path.exists():
+        if path.exists():
             return str(path)
         info = self.remote_info(name)
         if info is None:

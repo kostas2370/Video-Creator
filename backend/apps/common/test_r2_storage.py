@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from botocore.exceptions import ClientError
+from django.core.exceptions import SuspiciousFileOperation
 from django.core.files.base import ContentFile
 from django.test import RequestFactory, override_settings
 
@@ -153,6 +154,20 @@ class R2StorageTests(unittest.TestCase):
             self.assertEqual(self.archive.objects, {})
             self.storage.delete(name)
             self.assertFalse(Path(self.directory.name, name).exists())
+
+    def test_local_mode_uses_django_path_validation_without_r2_checks(self):
+        outside = str(Path(self.directory.name).parent / "outside-media.mp4")
+        with (
+            override_settings(R2_STORAGE_ENABLED=False),
+            patch.object(self.storage, "object_key") as object_key,
+        ):
+            with self.assertRaises(SuspiciousFileOperation):
+                self.storage.path(outside)
+            self.assertEqual(
+                self.storage.path("local.mp4"),
+                str(Path(self.directory.name, "local.mp4")),
+            )
+        object_key.assert_not_called()
 
     def test_unsafe_names_cannot_access_remote_objects(self):
         for name in ("../secret", "a/../secret", "a\\secret"):
