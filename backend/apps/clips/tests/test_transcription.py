@@ -32,7 +32,8 @@ class ChunkEncodingTests(SimpleTestCase):
             patch("apps.clips.processing.connections.close_all"),
             patch("apps.clips.processing.run_ffmpeg", side_effect=encode) as prepare,
             patch.object(transcription, "run_ffmpeg") as reencode,
-            patch.object(transcription.ApiKeys, "key_for", return_value="test-key"),
+            patch("apps.apikeysmanagement.provider_requests.ApiKeys.key_for", return_value="test-key"),
+            patch("apps.apikeysmanagement.provider_requests.save_warning"),
             patch.object(transcription, "OpenAI") as client,
             patch.object(transcription, "record_usage") as usage,
         ):

@@ -39,7 +39,7 @@ class LocalWhisperTests(SimpleTestCase):
                 ),
             ) as send,
             patch.object(transcription, "OpenAI") as client,
-            patch.object(transcription.ApiKeys, "key_for") as key,
+            patch("apps.apikeysmanagement.provider_requests.ApiKeys.key_for") as key,
             patch.object(transcription, "record_usage") as usage,
             patch.object(transcription, "run_ffmpeg") as encode,
         ):

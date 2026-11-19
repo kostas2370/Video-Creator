@@ -140,22 +140,22 @@ class ElevenLabsTtsTests(TestCase):
 
     @override_settings(XI_API_KEY="key")
     def test_streams_the_response_body_to_disk(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.iter_content.return_value = [b"RIFF", b"", b"data"]
 
-        with patch.object(tts_utils.requests, "post", return_value=response) as post:
+        with patch.object(tts_utils.requests, "request", return_value=response) as post:
             ElevenLabsTTSProvider.generate("hello", self.out, "a-voice-id", user=self.user)
 
         self.assertEqual(open(self.out, "rb").read(), b"RIFFdata")
-        self.assertIn("a-voice-id", post.call_args.args[0])
+        self.assertIn("a-voice-id", post.call_args.args[1])
         self.assertEqual(post.call_args.kwargs["headers"]["xi-api-key"], "key")
 
     @override_settings(XI_API_KEY="key")
     def test_swallows_a_provider_failure_rather_than_failing_generation(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.raise_for_status.side_effect = RuntimeError("429")
 
-        with patch.object(tts_utils.requests, "post", return_value=response):
+        with patch.object(tts_utils.requests, "request", return_value=response):
             self.assertIs(
                 ElevenLabsTTSProvider.generate("hello", self.out, "v", user=self.user), response
             )
@@ -172,12 +172,12 @@ class SixtyDbTtsTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_decodes_the_base64_payload_to_disk(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {
             "audio_base64": base64.b64encode(b"RIFFdata").decode()
         }
 
-        with patch.object(tts_utils.requests, "post", return_value=response) as post:
+        with patch.object(tts_utils.requests, "request", return_value=response) as post:
             SixtyDbTTSProvider.generate("hello", self.out, "a-voice-id", user=self.user)
 
         self.assertEqual(open(self.out, "rb").read(), b"RIFFdata")
@@ -186,10 +186,10 @@ class SixtyDbTtsTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_writes_nothing_when_the_payload_carries_no_audio(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {"message": "out of credits"}
 
-        with patch.object(tts_utils.requests, "post", return_value=response):
+        with patch.object(tts_utils.requests, "request", return_value=response):
             with patch("builtins.open", mock_open()) as opened:
                 SixtyDbTTSProvider.generate("hello", self.out, "v", user=self.user)
 
@@ -197,10 +197,10 @@ class SixtyDbTtsTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_swallows_a_provider_failure_rather_than_failing_generation(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.raise_for_status.side_effect = RuntimeError("500")
 
-        with patch.object(tts_utils.requests, "post", return_value=response):
+        with patch.object(tts_utils.requests, "request", return_value=response):
             self.assertIs(
                 SixtyDbTTSProvider.generate("hello", self.out, "v", user=self.user), response
             )
@@ -214,10 +214,10 @@ class VoiceListingTests(TestCase):
 
     @override_settings(XI_API_KEY="key")
     def test_reads_the_voices_out_of_the_eleven_labs_payload(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {"voices": [{"voice_id": "abc"}]}
 
-        with patch.object(tts_utils.requests, "get", return_value=response) as get:
+        with patch.object(tts_utils.requests, "request", return_value=response) as get:
             self.assertEqual(
                 get_voices_from_elevenlabs(user=self.user), [{"voice_id": "abc"}]
             )
@@ -226,10 +226,10 @@ class VoiceListingTests(TestCase):
 
     @override_settings(SIXTYDB_API_KEY="key")
     def test_reads_the_voices_out_of_the_60db_payload(self):
-        response = MagicMock()
+        response = MagicMock(status_code=200)
         response.json.return_value = {"data": [{"voice_id": "abc"}]}
 
-        with patch.object(tts_utils.requests, "get", return_value=response) as get:
+        with patch.object(tts_utils.requests, "request", return_value=response) as get:
             self.assertEqual(
                 get_voices_from_sixtydb(user=self.user), [{"voice_id": "abc"}]
             )

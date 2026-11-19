@@ -117,10 +117,10 @@ class VideoErrorTests(SimpleTestCase):
             }
         )
         with (
-            patch.object(http.requests, "request") as request,
+            patch.object(http.requests, "request", return_value=response),
             self.assertLogs(http.logger, logging.WARNING) as logs,
         ):
-            request.return_value.__enter__.return_value = response
+            response.__enter__.return_value = response
             with self.assertRaises(VideoProviderError) as caught:
                 http.json_request(
                     "POST",

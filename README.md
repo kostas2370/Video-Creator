@@ -654,6 +654,22 @@ restart the API, both workers and Beat together so routing and consumers change 
 For manual installations, run both worker commands above. Older workers that consume
 only the default queue cannot process the new export queue.
 
+OpenAI request failures show specific guidance for rejected API keys (including invalid,
+expired or revoked keys), quota or billing limits, rate limits, access restrictions,
+and connection failures. Failed video generation keeps this message in the project
+after refresh, with a link to API key settings. Service-key users may need their
+administrator to update credentials. Provider responses and key values stay private.
+API key settings retain a separate warning for each built-in provider when a request
+is rejected with HTTP 401. A successful request or replacing that provider's key
+clears its warning; switching between personal and service keys clears the previous
+mode's warnings. Other failures, including quota limits and connection problems, do
+not mark a key as rejected. Custom provider keys are excluded. Warnings reflect
+requests already made, without extra provider checks. Built-in HTTP adapters use a
+shared provider request function to record these results; SDK clients use the
+shared request context.
+Apply the generation-error and key-warning migrations, restart the API and workers,
+and rebuild the frontend when updating.
+
 Failed exports show a saved message and reference in the editor, with **Retry export**.
 The reference can be searched in worker logs. Errors do not expose provider responses,
 file paths or tracebacks. Ordinary exports retain the one-per-day limit; failed export

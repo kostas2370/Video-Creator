@@ -10,11 +10,13 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from apps.apikeysmanagement.provider_requests import key_request
+from apps.apikeysmanagement.provider_requests import provider_request as send_request
 from apps.apikeysmanagement.models import Provider
 from apps.common.media import run_ffmpeg
+from apps.usage.services import record_usage
 from apps.videomanagement.exceptions import VoiceProviderError
 from apps.videomanagement.models import VoiceModel, VoiceModelType
-from apps.usage.services import record_usage
 from apps.videomanagement.services.voices.credentials import (
     key_fingerprint,
     key_source,
@@ -38,13 +40,15 @@ PROVIDER_ERROR_MESSAGES = {
 }
 
 
-def provider_request(method, path, key, **kwargs):
+def provider_request(method, path, key, *, user=None, **kwargs):
     try:
-        response = requests.request(
+        response = send_request(
             method,
             f"{BASE_URL}/{path}",
             headers={"xi-api-key": key},
             timeout=(10, 90),
+            user=user,
+            provider=Provider.ELEVENLABS,
             **kwargs,
         )
         if method == "DELETE" and response.status_code == HTTPStatus.NOT_FOUND:
@@ -118,51 +122,54 @@ def normalized_sample(upload):
 def create_clone(user, name, upload):
     key = voice_key(user)
     audio = normalized_sample(upload)
-    with transaction.atomic():
-        get_user_model().objects.select_for_update().get(pk=user.pk)
-        if (
-            VoiceModel.objects.filter(created_by=user, is_cloned=True).count()
-            >= MAX_VOICES
-        ):
-            raise ValidationError(
-                f"You can keep up to {MAX_VOICES} custom voices. Delete one to add another."
+    with key_request(user, Provider.ELEVENLABS, api_key=key):
+        with transaction.atomic():
+            get_user_model().objects.select_for_update().get(pk=user.pk)
+            if (
+                VoiceModel.objects.filter(created_by=user, is_cloned=True).count()
+                >= MAX_VOICES
+            ):
+                raise ValidationError(
+                    f"You can keep up to {MAX_VOICES} custom voices. Delete one to add another."
+                )
+            data = provider_json(
+                provider_request(
+                    "POST",
+                    "voices/add",
+                    key,
+                    data={"name": name},
+                    files=[("files", ("sample.wav", audio, "audio/wav"))],
+                    user=user,
+                )
             )
-        data = provider_json(
-            provider_request(
-                "POST",
-                "voices/add",
-                key,
-                data={"name": name},
-                files=[("files", ("sample.wav", audio, "audio/wav"))],
-            )
-        )
-        remote_id = data.get("voice_id")
-        if (
-            not isinstance(remote_id, str)
-            or not remote_id
-            or len(remote_id) > 255
-            or not remote_id.isalnum()
-        ):
-            raise VoiceProviderError()
-        try:
-            return VoiceModel.objects.create(
-                created_by=user,
-                name=name,
-                provider=Provider.ELEVENLABS,
-                type=VoiceModelType.API,
-                path=remote_id,
-                is_cloned=True,
-                clone_key_source=key_source(user),
-                clone_key_fingerprint=key_fingerprint(key),
-                consented_at=timezone.now(),
-                requires_verification=data.get("requires_verification") is not False,
-            )
-        except Exception:
+            remote_id = data.get("voice_id")
+            if (
+                not isinstance(remote_id, str)
+                or not remote_id
+                or len(remote_id) > 255
+                or not remote_id.isalnum()
+            ):
+                raise VoiceProviderError()
             try:
-                provider_request("DELETE", f"voices/{remote_id}", key)
-            except VoiceProviderError:
-                logger.error("Could not remove orphaned custom voice %s", remote_id)
-            raise
+                return VoiceModel.objects.create(
+                    created_by=user,
+                    name=name,
+                    provider=Provider.ELEVENLABS,
+                    type=VoiceModelType.API,
+                    path=remote_id,
+                    is_cloned=True,
+                    clone_key_source=key_source(user),
+                    clone_key_fingerprint=key_fingerprint(key),
+                    consented_at=timezone.now(),
+                    requires_verification=data.get("requires_verification")
+                    is not False,
+                )
+            except Exception:
+                try:
+                    provider_request("DELETE", f"voices/{remote_id}", key, user=user)
+                except VoiceProviderError:
+                    logger.error("Could not remove orphaned custom voice %s", remote_id)
+                raise
 
 
 def preview_clone(user, voice):
@@ -176,6 +183,7 @@ def preview_clone(user, voice):
         f"text-to-speech/{voice.path}",
         key,
         json={"text": PREVIEW_TEXT, "model_id": "eleven_multilingual_v2"},
+        user=user,
     )
     if not response.content or "audio/" not in response.headers.get("Content-Type", ""):
         raise VoiceProviderError()
@@ -191,7 +199,9 @@ def preview_clone(user, voice):
 
 def refresh_clone(user, voice):
     key = voice_key(user, voice)
-    data = provider_json(provider_request("GET", f"voices/{voice.path}", key))
+    data = provider_json(
+        provider_request("GET", f"voices/{voice.path}", key, user=user)
+    )
     verification = data.get("voice_verification") or {}
     if not isinstance(verification, dict):
         raise VoiceProviderError()
@@ -204,5 +214,5 @@ def refresh_clone(user, voice):
 
 def delete_clone(user, voice):
     key = voice_key(user, voice)
-    provider_request("DELETE", f"voices/{voice.path}", key)
+    provider_request("DELETE", f"voices/{voice.path}", key, user=user)
     voice.delete()

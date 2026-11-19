@@ -30,8 +30,8 @@ class ApiKeysSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ApiKeys
-        fields = ("id", "updated_at", "use_service_api_keys", *KEY_FIELDS)
-        read_only_fields = ("id", "updated_at")
+        fields = ("id", "updated_at", "use_service_api_keys", "key_warnings", *KEY_FIELDS)
+        read_only_fields = ("id", "updated_at", "key_warnings")
         extra_kwargs = {
             field: {
                 "write_only": True,
@@ -53,9 +53,16 @@ class ApiKeysSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
-        if "use_service_api_keys" in user_data:
-            instance.user.use_service_api_keys = user_data["use_service_api_keys"]
+        warnings = dict(instance.key_warnings)
+        for provider, (field, _) in ApiKeys.FIELDS.items():
+            if field in validated_data and validated_data[field] != getattr(instance, field):
+                warnings.pop(provider, None)
+        use_service_keys = user_data.get("use_service_api_keys", instance.user.use_service_api_keys)
+        if use_service_keys != instance.user.use_service_api_keys:
+            warnings = {}
+            instance.user.use_service_api_keys = use_service_keys
             instance.user.save(update_fields=["use_service_api_keys"])
+        validated_data["key_warnings"] = warnings
 
         return super().update(instance, validated_data)
 
@@ -149,7 +156,9 @@ class UserCustomTTSProviderSerializer(CustomProviderSerializer):
 
 class UserCustomVisualProviderSerializer(CustomProviderSerializer):
     def get_reserved_provider_names(self):
-        from apps.videomanagement.integrations.visuals.registry import ImageProviderRegistry
+        from apps.videomanagement.integrations.visuals.registry import (
+            ImageProviderRegistry,
+        )
 
         # Keep the legacy underscore spelling reserved alongside registered IDs.
         return ImageProviderRegistry.names() | {Provider.STABLE_DIFFUSION}

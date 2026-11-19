@@ -13,6 +13,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.apikeysmanagement.models import Provider
+from apps.common.provider_errors import provider_failure
 from apps.videomanagement.integrations import tts as tts_utils
 from apps.videomanagement.integrations.visuals.errors import public_video_error
 from apps.videomanagement.services.captions.projects import process_caption_project
@@ -127,8 +128,8 @@ def regenerate_narration_task(video_id, previous_status, operation_id=None):
         try:
             for scene in video.scenes.all():
                 regenerate_scene_narration(scene)
-        except Exception:
-            _mark_failed(video_id, operation_id=operation_id)
+        except Exception as exc:
+            _mark_failed(video_id, operation_id=operation_id, error=exc)
             raise
         else:
             Video.objects.filter(
@@ -136,6 +137,7 @@ def regenerate_narration_task(video_id, previous_status, operation_id=None):
             ).update(
                 status=previous_status,
                 narration_retry_status="",
+                generation_error={},
                 updated_at=timezone.now(),
             )
         finally:
@@ -148,7 +150,9 @@ VOICE_IMPORTS = {
 }
 
 
-def _mark_failed(video_id: str | UUID, render_error=None, operation_id=None) -> None:
+def _mark_failed(
+    video_id: str | UUID, render_error=None, operation_id=None, error=None
+) -> None:
     with transaction.atomic():
         video = (
             Video.objects.select_for_update()
@@ -168,9 +172,16 @@ def _mark_failed(video_id: str | UUID, render_error=None, operation_id=None) -> 
                 video_id,
                 render_error["reference"],
             )
+        video.generation_error = {}
+        if not render_error:
+            video.generation_error = provider_failure(error) or {
+                "message": "Generation could not finish. Your saved progress is preserved. Please try again."
+            }
         video.render_error = render_error or {}
         video.status = VideoStatus.FAILED
-        video.save(update_fields=["render_error", "status", "updated_at"])
+        video.save(
+            update_fields=["render_error", "generation_error", "status", "updated_at"]
+        )
 
 
 @shared_task(bind=True)
@@ -179,12 +190,14 @@ def generate_video_task(self, video_id: str | UUID, operation_id=None, **params)
         if not active:
             return
         video = Video.objects.get(pk=video_id)
+        video.generation_error = {}
+        video.save(update_fields=["generation_error"])
 
         try:
             video_generation.generate_video(video=video, **params)
-        except Exception:
+        except Exception as exc:
             logger.exception("Generation failed for video %s", video_id)
-            _mark_failed(video_id, operation_id=operation_id)
+            _mark_failed(video_id, operation_id=operation_id, error=exc)
             raise
 
         logger.info("Generation finished for video %s", video_id)
@@ -197,12 +210,14 @@ def resume_video_task(self, video_id: str | UUID, operation_id=None):
         if not active:
             return
         video = Video.objects.get(pk=video_id)
+        video.generation_error = {}
+        video.save(update_fields=["generation_error"])
 
         try:
             video_generation.resume_video(video)
-        except Exception:
+        except Exception as exc:
             logger.exception("Resume failed for video %s", video_id)
-            _mark_failed(video_id, operation_id=operation_id)
+            _mark_failed(video_id, operation_id=operation_id, error=exc)
             raise
 
         logger.info("Resume finished for video %s", video_id)
@@ -215,6 +230,8 @@ def render_video_task(self, video_id: str | UUID, operation_id=None):
         if not active:
             return
         video = Video.objects.get(pk=video_id)
+        video.generation_error = {}
+        video.save(update_fields=["generation_error"])
         video.render_error = {}
         video.save(update_fields=["render_error"])
 
@@ -272,16 +289,16 @@ def create_scene_task(
                         created = scene_generation.create_scene(video, item, files)
                         if next_position is not None:
                             next_position = created.position + 1
-            except Exception:
+            except Exception as exc:
                 logger.exception("Scene creation failed for video %s", video_id)
-                _mark_failed(video_id, operation_id=operation_id)
+                _mark_failed(video_id, operation_id=operation_id, error=exc)
                 raise
             else:
                 Video.objects.filter(
                     pk=video_id,
                     status=VideoStatus.GENERATION,
                     operation_id=operation_id,
-                ).update(status=VideoStatus.READY)
+                ).update(status=VideoStatus.READY, generation_error={})
                 publish_update(f"video.{video_id}", video_id=video_id)
     finally:
         if upload_path:

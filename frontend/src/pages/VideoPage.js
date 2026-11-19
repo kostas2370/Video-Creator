@@ -23,6 +23,7 @@ import { FaPlus } from "react-icons/fa6";
 import { ReorderableScenes } from "../components/ReorderableScenes";
 import { toast } from "react-toastify";
 import { FaDownload } from "react-icons/fa";
+import { GenerationFailure } from "../components/GenerationFailure";
 import { ExportFailure } from "../components/ExportFailure";
 import { VideoToolbar } from "../components/VideoToolbar";
 import { MusicAudio } from "../components/MusicAudio";
@@ -335,6 +336,7 @@ export const Video = () => {
             requestAnimationFrame(() => document.getElementById(`scene-${next.sceneId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
           }
         }} />
+        <GenerationFailure video={videoInfo} />
         <ExportFailure video={videoInfo} disabled={!isRenderable} onRetry={() => setShowRenderModal(true)} />
         {videoInfo?.can_retry_narration && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Narration stopped before finishing. Your saved scenes are preserved. <button type="button" onClick={() => setShowConfigModal(true)} className="ml-2 font-semibold underline">Open narration retry</button></div>}
         <VideoToolbar onDeveloperPrompts={() => setShowDeveloperPrompts(true)} video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}

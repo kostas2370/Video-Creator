@@ -1,5 +1,3 @@
-from apps.videomanagement.integrations.base import TTSProvider
-from apps.usage.pricing import tts_estimate
 import base64
 import logging
 import os
@@ -11,10 +9,13 @@ from openai import OpenAI
 from rest_framework import status
 from rest_framework.exceptions import APIException, ValidationError
 
+from apps.apikeysmanagement.provider_requests import key_request, provider_request
 from apps.apikeysmanagement.models import ApiKeys, Provider, UserCustomTTSProvider
+from apps.usage.pricing import tts_estimate
+from apps.usage.services import record_usage
+from apps.videomanagement.integrations.base import TTSProvider
 from apps.videomanagement.integrations.registry import ProviderRegistry
 from apps.videomanagement.models import VoiceModel
-from apps.usage.services import record_usage
 from apps.videomanagement.services.voices.credentials import voice_key
 
 logger = logging.getLogger(__name__)
@@ -45,16 +46,17 @@ class OpenAITTSProvider(TTSProvider):
     def generate(
         text: str, save_path: str, voice: str = "onyx", user=None, **kwargs
     ) -> Any:
-        logger.warning("API CALL IN OpenAI TTS")
+        with key_request(user, Provider.OPENAI) as api_key:
+            logger.warning("API CALL IN OpenAI TTS")
 
-        client = OpenAI(api_key=ApiKeys.key_for(user, Provider.OPENAI))
-        response = client.audio.speech.create(
-            model="tts-1", voice=voice, input=text, response_format="wav"
-        )
-        record_usage(user, "tts", Provider.OPENAI, "tts-1", characters=len(text))
-        response.stream_to_file(save_path)
+            client = OpenAI(api_key=api_key)
+            response = client.audio.speech.create(
+                model="tts-1", voice=voice, input=text, response_format="wav"
+            )
+            record_usage(user, "tts", Provider.OPENAI, "tts-1", characters=len(text))
+            response.stream_to_file(save_path)
 
-        return response
+            return response
 
     @staticmethod
     def calculate(request):
@@ -101,8 +103,14 @@ class ElevenLabsTTSProvider(TTSProvider):
 
         response = None
         try:
-            response = requests.post(
-                url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+            response = provider_request(
+                "POST",
+                url,
+                json=data,
+                headers=headers,
+                timeout=DEFAULT_TIMEOUT,
+                user=user,
+                provider=Provider.ELEVENLABS,
             )
             response.raise_for_status()
             record_usage(user, "tts", Provider.ELEVENLABS, model, characters=len(text))
@@ -145,8 +153,14 @@ class SixtyDbTTSProvider(TTSProvider):
 
         response = None
         try:
-            response = requests.post(
-                url, json=data, headers=headers, timeout=DEFAULT_TIMEOUT
+            response = provider_request(
+                "POST",
+                url,
+                json=data,
+                headers=headers,
+                timeout=DEFAULT_TIMEOUT,
+                user=user,
+                provider=Provider.SIXTYDB,
             )
             response.raise_for_status()
             payload = response.json()
@@ -273,7 +287,14 @@ def get_voices_from_elevenlabs(user=None, **kwargs) -> list:
         "xi-api-key": ApiKeys.key_for(user, Provider.ELEVENLABS),
         "Content-Type": "application/json",
     }
-    response = requests.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+    response = provider_request(
+        "GET",
+        url,
+        headers=headers,
+        timeout=DEFAULT_TIMEOUT,
+        user=user,
+        provider=Provider.ELEVENLABS,
+    )
     response.raise_for_status()
     return response.json().get("voices", [])
 
@@ -285,7 +306,14 @@ def get_voices_from_sixtydb(user=None, **kwargs) -> list:
         "Authorization": f"Bearer {ApiKeys.key_for(user, Provider.SIXTYDB)}",
         "Content-Type": "application/json",
     }
-    response = requests.get(url, headers=headers, timeout=DEFAULT_TIMEOUT)
+    response = provider_request(
+        "GET",
+        url,
+        headers=headers,
+        timeout=DEFAULT_TIMEOUT,
+        user=user,
+        provider=Provider.SIXTYDB,
+    )
     response.raise_for_status()
     return response.json().get("data", [])
 

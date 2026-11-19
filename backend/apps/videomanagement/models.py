@@ -481,6 +481,7 @@ class NarrationAssetsModel(models.Model):
 class Video(LifecycleModelMixin, AbstractModel, TimestampedModel, NarrationAssetsModel):
     operation_id = models.UUIDField(null=True, editable=False)
     narration_retry_status = models.CharField(max_length=12, blank=True, default="", db_default="", editable=False)
+    generation_error = models.JSONField(default=dict, blank=True, editable=False, db_default={})
     render_error = models.JSONField(default=dict, blank=True)
     export_source_key = models.CharField(
         max_length=64, blank=True, default="", db_default="", editable=False

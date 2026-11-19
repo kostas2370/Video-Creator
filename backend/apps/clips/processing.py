@@ -11,6 +11,7 @@ from django.db import close_old_connections, connections, transaction
 from rest_framework.exceptions import ValidationError
 
 from apps.common.media import run_ffmpeg
+from apps.common.provider_errors import provider_failure
 from apps.videomanagement.services.captions.local_whisper import TranscriptionError
 from apps.videomanagement.services.captions.transcription import (
     transcribe_prepared_audio,
@@ -335,6 +336,7 @@ def process_project(project_id, token):
                 )
     except Exception as exc:
         logger.exception("Clip project processing failed for %s", project_id)
+        failure = provider_failure(exc)
         update_jobs(
             rows.filter(
                 status__in=[
@@ -344,7 +346,7 @@ def process_project(project_id, token):
                 ]
             ),
             status=ClipProjectStatus.FAILED,
-            error=str(exc)
+            error=failure["message"] if failure else str(exc)
             if isinstance(
                 exc, (SourceImportError, HighlightRankingError, TranscriptionError)
             )

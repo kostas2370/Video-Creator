@@ -3,8 +3,7 @@ import os
 import urllib.request
 import uuid
 
-import requests
-
+from apps.apikeysmanagement.provider_requests import provider_request
 from apps.apikeysmanagement.models import ApiKeys, Provider
 from apps.usage.pricing import image_estimate
 from apps.usage.services import record_usage
@@ -29,27 +28,32 @@ class MidjourneyProvider(ImageProvider):
         logger.warning("Api call in midjourney")
         payload = {"prompt": format_image_prompt(title, prompt)}
         headers = {"Authorization": f"Bearer {midjourney_key}"}
-        response = requests.post(
+        response = provider_request(
+            "POST",
             "https://api.mymidjourney.ai/api/v1/midjourney/imagine",
             headers=headers,
             json=payload,
-        ).json()
+            user=user,
+            provider=Provider.MIDJOURNEY,
+        )
+        response = response.json()
 
         if not response.get("success"):
             logger.error("Failed to generate image with midjourney: %s", response)
             return
 
-        image = (
-            requests.get(
-                f"https://api.mymidjourney.ai/api/v1/midjourney/message/{response['messageId']}",
-                headers=headers,
-            )
-            .json()
-            .get("uri")
+        job_id = response["messageId"]
+        response = provider_request(
+            "GET",
+            f"https://api.mymidjourney.ai/api/v1/midjourney/message/{job_id}",
+            headers=headers,
+            user=user,
+            provider=Provider.MIDJOURNEY,
         )
+        image = response.json().get("uri")
 
         if not image:
-            logger.error("Midjourney returned no image for %s", response["messageId"])
+            logger.error("Midjourney returned no image for %s", job_id)
             return
 
         saved = os.path.join(dir_name, f"{uuid.uuid4()}.png")

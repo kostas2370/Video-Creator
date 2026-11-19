@@ -5,12 +5,32 @@ import logging
 from rest_framework.response import Response
 from rest_framework.views import exception_handler, set_rollback
 
+from apps.common.provider_errors import provider_failure
+
 from .observability import current_request_id
 
 logger = logging.getLogger(__name__)
 
 
 def api_exception_handler(exc, context):
+    failure = provider_failure(exc)
+    if failure:
+        set_rollback()
+        logger.warning(
+            "provider_request_failed",
+            extra={
+                "provider": failure["provider"],
+                "provider_error_code": failure["code"],
+            },
+        )
+        return Response(
+            {
+                "detail": failure["message"],
+                "provider_error": failure,
+                "request_id": current_request_id(),
+            },
+            status=502,
+        )
     response = exception_handler(exc, context)
     if response is not None and response.status_code < 500:
         return response
