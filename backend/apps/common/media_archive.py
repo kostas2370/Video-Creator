@@ -1,4 +1,4 @@
-"""Safe local media inventory and verification shared by remote copy adapters."""
+"""Safe local media paths and verified R2 transfers."""
 
 import hashlib
 import os

@@ -21,12 +21,11 @@ remain compatible. Without this flag, storage remains local.
    the server's secret configuration. Do not use a global Cloudflare API key or
    paste credentials into chat. Secret access keys are only shown once.
 5. Keep an automatic lifecycle rule to abort abandoned multipart uploads. The
-   command aborts failed uploads when possible, but a terminated process cannot
+   storage adapter aborts failed uploads when possible, but a terminated process cannot
    clean up its unfinished upload immediately.
 
-The command uses the S3 API, which does not inspect Cloudflare's public development
-URL or custom-domain settings. Verify privacy in the dashboard before copying.
-It checks that the configured bucket is accessible and never creates buckets,
+The backend uses the S3 API and checks that the configured bucket is accessible.
+Verify bucket privacy in the dashboard. The backend does not create buckets,
 credentials, public URLs, or access policies.
 
 ## Configure the backend
@@ -51,37 +50,14 @@ the backend image and recreate the API and all Celery containers after configuri
 their environment. All processes need the same R2 configuration and SDK dependency.
 Do not commit `.env` or keys to version control.
 
-## Preview the copy
+## Existing media
 
-From `backend/` with the existing Compose stack:
+For an existing installation, registered media must already be present in R2 and
+verified against the local files before enabling active storage. Keep the local
+originals and existing database references. Existing media is not automatically
+uploaded by enabling the setting.
 
-```sh
-docker compose exec video_creator python manage.py copy_media_to_r2
-```
-
-This is a local-only dry run. It requires no R2 credentials and performs no network
-requests. It checks registered FileField/ImageField references in video management,
-series, clips, and publishing. It includes records exposed by each model's base
-manager and deduplicates identical references in each storage namespace.
-
-`MEDIA_ROOT` currently includes backend source files. The command deliberately
-does not scan that directory recursively. It does not upload secrets, databases,
-model weights, caches, or unregistered intermediate media. Maintain a separate
-database/server backup and protect the provider-key encryption secret separately.
-
-## Copy and verify
-
-Back up the database and local media first. Pause uploads, generation, edits,
-publishing, and cleanup for a consistent source snapshot. Then explicitly execute:
-
-```sh
-docker compose exec video_creator python manage.py copy_media_to_r2 --execute
-```
-
-Without Docker, run `python manage.py copy_media_to_r2` with the same optional
-`--execute` argument in the configured backend environment.
-
-Original names are retained under storage namespaces:
+R2 objects use these storage namespaces:
 
 | Local storage | R2 key |
 | --- | --- |
@@ -89,28 +65,15 @@ Original names are retained under storage namespaces:
 | Private clips | `clips/<original relative name>` |
 | Private publishing snapshots | `publishing/<original relative name>` |
 
-For example, `media/output/example.mp4` in default storage is copied to
-`media/media/output/example.mp4`. Legacy absolute database paths inside their
-declared storage root are converted to relative keys without editing the database.
-Paths outside that root, symlinks, and missing files fail validation.
+For example, `media/output/example.mp4` in default storage maps to
+`media/media/output/example.mp4`. Object metadata must include the file's SHA-256
+under `sha256`, which is checked when restoring a missing local processing file.
+Legacy absolute file references inside their declared storage root map to relative
+R2 keys. Paths outside that root and symlinks fail validation when publishing files.
 
-Uploads use conditional writes, including at multipart completion, so an existing
-object is never overwritten. Larger files use multipart upload with bounded
-memory. Every copied or already-existing object is downloaded and checked against
-the local SHA-256 and byte count. Downloads use an ETag condition to detect remote
-changes during verification. A failed/interrupted run can be rerun: completed
-files are verified again, while incomplete files restart at the file boundary.
-Four files transfer concurrently by default. Use `--workers 1` for a constrained
-host or choose up to `--workers 16`; the file queue and per-transfer buffers are bounded.
-
-Verification adds read requests and transfer traffic. R2 does not charge download
-bandwidth, but storage and request charges may apply; your compute host may have
-its own transfer charges. Conflicting objects are reported as failures and need
-manual review. This command has no overwrite or delete option.
-
-The command reports totals and exits nonzero on failures. Errors omit credentials,
-raw SDK responses, and signed URLs. **Keep the local originals**. No local or
-committed R2 media is deleted by this command.
+`MEDIA_ROOT` includes backend source files. Transfer only database-backed media
+references; never upload that directory recursively. Keep independent backups of
+the database and encryption keys.
 
 ## Enable active storage
 
