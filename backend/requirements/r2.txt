@@ -1,0 +1,2 @@
+# Install separately when updating an existing backend environment.
+boto3>=1.40,<2

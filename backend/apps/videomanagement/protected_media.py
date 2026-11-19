@@ -9,6 +9,7 @@ from django.utils.cache import patch_vary_headers
 from rest_framework.decorators import api_view
 
 from apps.clips.protected_media import media_response
+from apps.common.r2_storage import R2StorageMixin
 from apps.series.models import Character, VideoSeries
 
 from .models import (
@@ -87,6 +88,8 @@ def protected_media(request, path):
     if str(PurePosixPath(name)) != name:
         raise Http404("Media is unavailable.")
     field = authorized_file(request.user, name)
+    if isinstance(field.storage, R2StorageMixin) and field.storage.r2_enabled:
+        return media_response(request, field)
     if not field.storage.exists(field.name):
         raise Http404("Media is unavailable.")
     if getattr(settings, "MEDIA_ACCEL_REDIRECT", False):

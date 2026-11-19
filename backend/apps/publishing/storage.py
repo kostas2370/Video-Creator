@@ -6,9 +6,13 @@ from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
 
+from apps.common.r2_storage import R2StorageMixin
+
 
 @deconstructible
-class PrivateExportStorage(FileSystemStorage):
+class PrivateExportStorage(R2StorageMixin, FileSystemStorage):
+    namespace = "publishing"
+
     @property
     def base_location(self):
         return settings.PUBLISHING_SNAPSHOT_ROOT
@@ -18,4 +22,6 @@ class PrivateExportStorage(FileSystemStorage):
         return os.path.abspath(self.base_location)
 
     def url(self, name):
-        raise ValueError("Publishing snapshots are available only through signed job URLs.")
+        raise ValueError(
+            "Publishing snapshots are available only through signed job URLs."
+        )

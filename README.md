@@ -592,6 +592,11 @@ including cleanup of expired deleted scenes. Start the frontend separately with
 
 ## Deployment and publishing
 
+For private Cloudflare R2 media storage with verified uploads, authorized streaming,
+and retained local processing files, see [R2 storage setup](docs/r2-storage.md).
+Copy and verify existing media before enabling active storage. An optional
+[Azure copy destination](docs/azure-storage.md) is also available.
+
 The quick start is a local development configuration. For a deployment, set
 `ENV=prod`, a unique `SECRET_KEY`, explicit `ALLOWED_HOSTS`, `FRONTEND_URL`, SMTP
 settings, and MySQL credentials. Serve the app over HTTPS; production authentication

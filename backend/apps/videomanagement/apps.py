@@ -9,3 +9,8 @@ class VideomanagementConfig(AppConfig):
 
     def ready(self):
         import_module("apps.videomanagement.signals")
+        from django.db.models.signals import pre_save
+
+        from apps.common.r2_storage import sync_model_files
+
+        pre_save.connect(sync_model_files, dispatch_uid="r2-sync-model-files")

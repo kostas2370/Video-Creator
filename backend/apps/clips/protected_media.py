@@ -6,6 +6,7 @@ from django.utils.cache import patch_vary_headers
 from django.utils.http import content_disposition_header
 
 from apps.common.ranges import parse_byte_range
+from apps.common.r2_storage import R2StorageMixin
 
 
 async def file_chunks(field, start, length):
@@ -20,9 +21,14 @@ async def file_chunks(field, start, length):
 
 
 def media_response(request, field, *, filename=None):
-    if not field or not field.storage.exists(field.name):
+    if not field:
         raise Http404("Media is unavailable.")
-    size = field.size
+    storage = field.storage
+    remote = isinstance(storage, R2StorageMixin) and storage.r2_enabled
+    info = storage.remote_info(field.name) if remote else None
+    if (remote and info is None) or (not remote and not storage.exists(field.name)):
+        raise Http404("Media is unavailable.")
+    size = info["ContentLength"] if remote else field.size
     start, end, partial = 0, size - 1, False
     try:
         requested = parse_byte_range(request.headers.get("Range"), size)
@@ -35,7 +41,11 @@ def media_response(request, field, *, filename=None):
     response = (
         HttpResponse()
         if request.method == "HEAD"
-        else StreamingHttpResponse(file_chunks(field, start, length))
+        else StreamingHttpResponse(
+            remote_file_chunks(storage, field.name, start, end, info["ETag"])
+            if remote
+            else file_chunks(field, start, length)
+        )
     )
     response.status_code = 206 if partial else 200
     response["Content-Type"] = (
@@ -51,6 +61,20 @@ def media_response(request, field, *, filename=None):
     response["X-Content-Type-Options"] = "nosniff"
     patch_vary_headers(response, ["Cookie", "Authorization"])
     return response
+
+
+async def remote_file_chunks(storage, name, start, end, etag):
+    if end < start:
+        return
+    chunks = storage.remote_chunks(name, start, end, etag)
+    sentinel = object()
+    try:
+        while (
+            chunk := await asyncio.to_thread(next, chunks, sentinel)
+        ) is not sentinel:
+            yield chunk
+    finally:
+        await asyncio.to_thread(chunks.close)
 
 
 def range_error(size):
