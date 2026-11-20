@@ -34,7 +34,7 @@ COPY requirements/requirements.txt requirements/constraints.txt ./
 RUN PIP_CONSTRAINT=constraints.txt pip install --no-build-isolation -r requirements.txt
 
 
-FROM python:3.11-slim
+FROM python:3.11-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
@@ -54,13 +54,40 @@ COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
 
+COPY scripts/release.sh /release
+COPY scripts/healthcheck.py /healthcheck.py
 COPY scripts/startdjango.sh /startdjango
 COPY scripts/setupdjango.sh /setupdjango
 COPY scripts/startceleryrender.sh /startceleryrender
 COPY scripts/startceleryworker.sh /startceleryworker
 COPY scripts/startcelerybeat.sh /startcelerybeat
 
-RUN sed -i 's/\r$//g' /startdjango /setupdjango /startceleryworker /startcelerybeat /startceleryrender \
-  && chmod +x /startdjango /setupdjango /startceleryworker /startcelerybeat /startceleryrender
+RUN sed -i 's/\r$//g' /release /startdjango /setupdjango /startceleryworker /startcelerybeat /startceleryrender \
+  && chmod +x /release /startdjango /setupdjango /startceleryworker /startcelerybeat /startceleryrender
 
 EXPOSE 8000
+
+# Production packages application code; development keeps its existing bind mount.
+FROM runtime AS production
+ENV ENV=prod \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TMPDIR=/app/private-render-cache/tmp \
+    XDG_CACHE_HOME=/app/private-render-cache/libraries \
+    HOME=/tmp
+COPY apps /app/apps
+COPY assets /app/assets
+COPY fixtures /app/fixtures
+COPY vendor /app/vendor
+COPY video_creator /app/video_creator
+COPY manage.py __init__.py /app/
+RUN groupadd --gid 10001 viddie \
+    && useradd --uid 10001 --gid viddie --no-create-home viddie \
+    && mkdir -p media private-clips private-publishing private-render-cache/tmp private-render-cache/libraries \
+        checkpoints gfpgan/weights results staticfiles \
+    && chown -R viddie:viddie media private-clips private-publishing \
+        private-render-cache checkpoints gfpgan results staticfiles
+USER viddie
+CMD ["/startdjango"]
+
+# Preserve the lightweight development image as the default build target.
+FROM runtime AS development

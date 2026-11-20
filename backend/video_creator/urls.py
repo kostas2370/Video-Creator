@@ -6,6 +6,8 @@ from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 from rest_framework import permissions, routers
 
+from video_creator.health import live, ready
+
 from apps.clips.urls import router as clips_router
 from apps.series.urls import router as series_router
 from apps.videomanagement.protected_media import protected_media
@@ -30,6 +32,8 @@ schema_view = get_schema_view(
 
 
 urlpatterns = [
+    path("api/health/live/", live, name="health-live"),
+    path("api/health/ready/", ready, name="health-ready"),
     path(
         "swagger<format>/", schema_view.without_ui(cache_timeout=0), name="schema-json"
     ),

@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
+from django.conf import settings
 from django.test import TestCase
 from PIL import Image
 from rest_framework.exceptions import NotFound, ValidationError
@@ -407,7 +408,11 @@ class CustomImageProviderTests(TestCase):
                 user=self.user,
             )
         self.assertTrue(os.path.isfile(path))
-        self.assertEqual(line.scene_images.get().file.name, path)
+        self.assertTrue(
+            os.path.samefile(
+                Path(settings.MEDIA_ROOT, line.scene_images.get().file.name), path
+            )
+        )
 
     def test_scene_regeneration_uses_the_owners_custom_provider(self):
         row = video.make(
@@ -652,7 +657,7 @@ class CustomVideoProviderTests(TestCase):
             )
         self.assert_video(path)
         visual = line.scene_images.get()
-        self.assertEqual(visual.file.name, path)
+        self.assertTrue(os.path.samefile(Path(settings.MEDIA_ROOT, visual.file.name), path))
         self.assertTrue(visual.with_audio)
 
     def test_scene_regeneration_saves_the_video_and_retains_it_on_failure(self):

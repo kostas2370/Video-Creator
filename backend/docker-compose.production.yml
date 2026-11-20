@@ -1,0 +1,181 @@
+name: ${PRODUCTION_PROJECT_NAME:-viddie-production}
+
+x-backend: &backend
+  image: ${BACKEND_IMAGE:-viddie-backend}:${RELEASE_TAG:?Set RELEASE_TAG to the release commit}
+  env_file:
+    - ${PRODUCTION_ENV_FILE:-.env.production}
+  environment:
+    ENV: prod
+    SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
+    FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?Preserve FIELD_ENCRYPTION_KEY}
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Set ALLOWED_HOSTS}
+    FRONTEND_URL: ${FRONTEND_URL:?Set the HTTPS FRONTEND_URL}
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?Set a URL-safe REDIS_PASSWORD}@redis-stack-server:6379/0
+    CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis-stack-server:6379/0
+    VIDEO_EVENTS_REDIS_URL: redis://:${REDIS_PASSWORD}@redis-stack-server:6379/0
+    CACHE_URL: redis://:${REDIS_PASSWORD}@redis-stack-server:6379/2
+    R2_STORAGE_ENABLED: "true"
+    R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:?Set R2_ACCOUNT_ID}
+    R2_BUCKET_NAME: ${R2_BUCKET_NAME:?Set R2_BUCKET_NAME}
+    R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID}
+    R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY}
+    MEDIA_ACCEL_REDIRECT: "false"
+    MUSIC_CATALOG_AUTO_SETUP: "false"
+  restart: unless-stopped
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  volumes:
+    # These are disposable working copies; private R2 holds published media.
+    - media-cache:/app/media
+    - clips-cache:/app/private-clips
+    - publishing-cache:/app/private-publishing
+    - render-cache:/app/private-render-cache
+    - checkpoints:/app/checkpoints
+    - face-weights:/app/gfpgan/weights
+    - presenter-results:/app/results
+    - staticfiles:/app/staticfiles
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis-stack-server:
+      condition: service_healthy
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-video_creator}
+      POSTGRES_USER: ${POSTGRES_USER:-video_creator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    logging: *logging
+
+  redis-stack-server:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    command: [sh, -c, 'exec redis-server --appendonly yes --appendfsync everysec --requirepass "$$REDIS_PASSWORD"']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [CMD-SHELL, 'test "$$(redis-cli ping)" = PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    logging: *logging
+
+  release:
+    <<: *backend
+    profiles: [release]
+    restart: "no"
+    command: /release
+
+  bootstrap:
+    <<: *backend
+    profiles: [bootstrap]
+    restart: "no"
+    command: /setupdjango
+
+  presenter-models:
+    <<: *backend
+    profiles: [bootstrap]
+    restart: "no"
+    command: python manage.py setup_checkpoints
+
+  video_creator:
+    <<: *backend
+    build:
+      context: .
+      target: production
+    command: /startdjango
+    healthcheck:
+      test: [CMD, python, /healthcheck.py]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+    stop_grace_period: 30s
+
+  celery:
+    <<: *backend
+    command: celery -A video_creator worker -l INFO --pool=prefork --concurrency=${GENERAL_WORKER_CONCURRENCY:-2} -Q celery -n general@%h
+    stop_grace_period: 2h
+    healthcheck:
+      test: [CMD-SHELL, 'celery -A video_creator inspect ping --destination "general@$$HOSTNAME" --timeout=5']
+      interval: 60s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+
+  celery-render:
+    <<: *backend
+    command: celery -A video_creator worker -l INFO --pool=prefork --concurrency=${RENDER_WORKER_CONCURRENCY:-1} -Q renders -n renders@%h
+    stop_grace_period: 2h
+    healthcheck:
+      test: [CMD-SHELL, 'celery -A video_creator inspect ping --destination "renders@$$HOSTNAME" --timeout=5']
+      interval: 60s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+
+  celery-beat:
+    <<: *backend
+    command: celery -A video_creator beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler --pidfile=/tmp/celerybeat.pid
+    healthcheck:
+      test: [CMD, python, -c, 'import os; from pathlib import Path; os.kill(int(Path("/tmp/celerybeat.pid").read_text()), 0)']
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-viddie-frontend}:${RELEASE_TAG:?Set RELEASE_TAG to the release commit}
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    ports:
+      # A host-local HTTPS edge forwards to this port. No API/DB/Redis host ports.
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
+    volumes:
+      - staticfiles:/usr/share/nginx/django/static:ro
+    depends_on:
+      video_creator:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1/healthz]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+
+volumes:
+  postgres-data:
+  redis-data:
+  media-cache:
+  clips-cache:
+  publishing-cache:
+  render-cache:
+  checkpoints:
+  face-weights:
+  presenter-results:
+  staticfiles:

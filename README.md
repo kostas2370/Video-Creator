@@ -593,6 +593,9 @@ including cleanup of expired deleted scenes. Start the frontend separately with
 
 ## Deployment and publishing
 
+For packaged production images, health checks, a separate release step, and rollback,
+see [Production deployment](docs/production-deployment.md).
+
 For private Cloudflare R2 media storage with verified uploads, authorized streaming,
 and retained local processing files, see [R2 storage setup](docs/r2-storage.md).
 Copy and verify existing media before enabling active storage.
