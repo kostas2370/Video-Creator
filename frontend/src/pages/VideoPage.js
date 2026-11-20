@@ -11,6 +11,7 @@ import { useUndoHistory } from "../hooks/useUndoHistory";
 import { rememberedScene, sameSceneOrder } from "../utils/editorWorkspace";
 import { EditorDialog } from "../components/ui/EditorDialog";
 import { PublishVideo } from "../components/PublishVideo";
+import { ShareVideo } from "../components/ShareVideo";
 import { VideoDetails } from "../components/VideoDetails";
 import { VideoNotes } from "../components/VideoNotes";
 import { API_HOST } from "../endpoints";
@@ -347,7 +348,7 @@ export const Video = () => {
           onPreview={() => setShowPreview(true)} onSettings={() => setShowConfigModal(true)}
           onCover={() => setShowCover(true)} onExport={() => setShowRenderModal(true)} onResume={() => setShowResumeModal(true)}
           cutAction={videoInfo && <React.Suspense fallback={null}><VideoCuts video={videoInfo} disabled={!canPreview} onSaved={setUpdated} /></React.Suspense>}
-          tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} onEditDetails={() => setShowDetails(true)} disabled={processing || renderPending || sceneChangePending} /><VideoDetails key={`details-${videoInfo.id}`} video={videoInfo} open={showDetails} onOpenChange={setShowDetails} onSaved={details => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, ...details } : current)} /></>}
+          tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><ShareVideo key={`share-${videoInfo.id}`} video={videoInfo} /><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} onEditDetails={() => setShowDetails(true)} disabled={processing || renderPending || sceneChangePending} /><VideoDetails key={`details-${videoInfo.id}`} video={videoInfo} open={showDetails} onOpenChange={setShowDetails} onSaved={details => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, ...details } : current)} /></>}
         />
         {updateError && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p>{videoInfo ? "Could not refresh your project. Reconnecting…" : "Could not load this project. Check your connection and try again."}</p><button type="button" onClick={setUpdated} className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-700">Try again</button></div>}
         {missingNarration.length > 0 && <div role="status" className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">

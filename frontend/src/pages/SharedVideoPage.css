@@ -1,0 +1,43 @@
+.shared-page { min-height:calc(100vh - 110px); padding:0 28px 48px; background:radial-gradient(ellipse at 50% 0%, #818cf810, transparent 55%); }
+.shared-header { max-width:1200px; margin:auto; min-height:100px; display:flex; align-items:center; justify-content:space-between; gap:20px; border-bottom:1px solid var(--auth-line); }
+.shared-brand { display:flex; gap:10px; align-items:center; font-size:25px; font-weight:800; letter-spacing:-1px; }
+.shared-brand img { width:34px; height:34px; }
+.shared-brand span { margin-left:12px; padding-left:22px; border-left:1px solid var(--auth-line); color:var(--auth-muted); font-size:9px; font-weight:600; letter-spacing:1.6px; }
+.shared-header-actions { display:flex; gap:20px; align-items:center; }
+.shared-theme { display:grid; place-items:center; width:44px; height:44px; border:1px solid var(--auth-line); border-radius:50%; color:var(--auth-muted); cursor:pointer; }
+.shared-theme svg { width:18px; height:18px; }
+.shared-create { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; }
+.shared-content { max-width:1000px; margin:48px auto 0; }
+.shared-eyebrow { margin:0 0 20px; color:var(--auth-muted); font-size:10px; font-weight:600; letter-spacing:2px; }
+.shared-player { overflow:hidden; border:1px solid var(--auth-line); border-radius:20px; background:#080c14; box-shadow:0 18px 60px #101a2b12; }
+.shared-player video { display:block; width:100%; height:auto; max-height:68vh; min-height:200px; margin:auto; }
+.shared-details { padding:28px 0 36px; }
+.shared-title-row { display:flex; align-items:flex-start; gap:24px; justify-content:space-between; }
+.shared-title-row h1 { font-size:clamp(24px,4vw,36px); line-height:1.2; font-weight:700; overflow-wrap:anywhere; }
+.shared-badge { display:flex; align-items:center; gap:6px; flex-shrink:0; margin-top:8px; font-size:10px; color:var(--auth-muted); }
+.shared-badge img { width:17px; height:17px; }
+.shared-description { max-width:760px; margin-top:16px; font-size:15px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
+.shared-tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; list-style:none; }
+.shared-tags li { max-width:100%; overflow-wrap:anywhere; border:1px solid var(--auth-line); border-radius:8px; padding:5px 10px; font-size:12px; color:var(--auth-accent); background:var(--auth-input); }
+.shared-invite { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:28px 0 0; border-top:1px solid var(--auth-line); }
+.shared-invite h2 { font-size:16px; font-weight:600; letter-spacing:-.3px; }
+.shared-invite p { margin-top:5px; font-size:13px; }
+.shared-invite a { display:flex; align-items:center; gap:10px; font-size:13px; font-weight:600; white-space:nowrap; }
+.shared-message { border:1px solid; border-radius:20px; padding:64px 28px; text-align:center; }
+.shared-message h1 { margin:12px 0; font-size:28px; font-weight:700; }
+.shared-message p { max-width:450px; margin:auto; font-size:15px; line-height:1.7; }
+.shared-message-icon { color:var(--auth-accent); font-size:32px; }
+.shared-playback-error { margin-top:12px; color:var(--auth-muted); font-size:14px; }
+@media(max-width:640px) {
+  .shared-page { padding:0 18px 32px; }
+  .shared-header { min-height:80px; gap:12px; }
+  .shared-brand span { display:none; }
+  .shared-header-actions { gap:12px; }
+  .shared-create { font-size:11px; }
+  .shared-content { margin-top:32px; }
+  .shared-eyebrow { font-size:9px; letter-spacing:1.3px; }
+  .shared-player { border-radius:14px; }
+  .shared-title-row { flex-direction:column; gap:8px; }
+  .shared-badge { margin-top:0; }
+  .shared-invite { align-items:flex-start; flex-direction:column; gap:18px; }
+}

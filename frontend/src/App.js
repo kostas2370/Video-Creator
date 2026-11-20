@@ -13,6 +13,7 @@ import { PageLoading } from "./components/PageLoading";
 import { isVideoEditorPath, pageLayout } from "./utils/pageLayout";
 
 const ContactPage = lazy(() => import("./pages/ContactPage"));
+const SharedVideoPage = lazy(() => import("./pages/SharedVideoPage"));
 const Login = lazy(() => import("./pages/LoginPage"));
 const Home = lazy(() => import("./pages/HomePage"));
 const ClipsPage = lazy(() => import("./pages/ClipsPage"));
@@ -64,6 +65,7 @@ function App() {
       <PageLoadBoundary resetKey={location.pathname}>
         <Suspense fallback={isVideoEditorPath(location.pathname) ? <VideoEditorLoading /> : <PageLoading />}>
           <Routes>
+            <Route path="/share/:token/" element={<SharedVideoPage theme={theme} toggleTheme={toggleTheme} />} />
             <Route path="/guide/" element={<GuidePage />} />
             <Route path="/whats-new/" element={<WhatsNewPage />} />
             <Route path="/contact/" element={<ContactPage />} />

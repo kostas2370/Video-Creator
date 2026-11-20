@@ -478,6 +478,18 @@ class NarrationAssetsModel(models.Model):
         abstract = True
 
 
+class VideoShare(models.Model):
+    token = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    video = models.OneToOneField(
+        "Video", on_delete=models.CASCADE, related_name="public_share"
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def active(self):
+        return self.expires_at is None or self.expires_at > timezone.now()
+
+
 class Video(LifecycleModelMixin, AbstractModel, TimestampedModel, NarrationAssetsModel):
     operation_id = models.UUIDField(null=True, editable=False)
     narration_retry_status = models.CharField(max_length=12, blank=True, default="", db_default="", editable=False)
