@@ -479,6 +479,11 @@ class NarrationAssetsModel(models.Model):
 
 
 class VideoShare(models.Model):
+    class ExpiryDays(models.IntegerChoices):
+        ONE_DAY = 1, "In 1 day"
+        ONE_WEEK = 7, "In 7 days"
+        ONE_MONTH = 30, "In 30 days"
+
     token = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     video = models.OneToOneField(
         "Video", on_delete=models.CASCADE, related_name="public_share"
