@@ -15,6 +15,10 @@ from apps.videomanagement.services.videos.sharing import (
     get_shared_video,
     revoke_video_share,
 )
+from apps.videomanagement.throttling import (
+    PublicShareMediaThrottle,
+    PublicShareMetadataThrottle,
+)
 
 
 class VideoShareMixin:
@@ -41,6 +45,14 @@ class PublicVideoShareView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     http_method_names = ["get", "head", "options"]
+
+    def get_throttles(self):
+        throttle = (
+            PublicShareMediaThrottle
+            if self.kwargs.get("media")
+            else PublicShareMetadataThrottle
+        )
+        return [throttle()]
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)

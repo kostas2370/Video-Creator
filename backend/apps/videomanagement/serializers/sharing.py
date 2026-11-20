@@ -14,6 +14,16 @@ class VideoShareSerializer(serializers.Serializer):
     active = serializers.BooleanField()
     path = serializers.CharField(allow_null=True)
     expires_at = serializers.DateTimeField(allow_null=True)
+    expiry_options = serializers.SerializerMethodField()
+
+    def get_expiry_options(self, share):
+        return [
+            {"value": None, "label": "Never"},
+            *(
+                {"value": value, "label": label}
+                for value, label in VideoShare.ExpiryDays.choices
+            ),
+        ]
 
 
 def share_details(share):

@@ -1,6 +1,12 @@
 from rest_framework.exceptions import APIException
 
 
+class ShareLinkExpired(APIException):
+    status_code = 410
+    default_detail = "This share link has expired. Ask the creator for a new link."
+    default_code = "share_link_expired"
+
+
 class VoiceProviderError(APIException):
     status_code = 502
     default_detail = "ElevenLabs could not complete the request. Please try again."

@@ -1,11 +1,11 @@
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from apps.videomanagement.exceptions import ShareLinkExpired
 from apps.videomanagement.models import Video, VideoShare
 
 
@@ -34,13 +34,19 @@ def revoke_video_share(video):
 
 
 def get_shared_video(token):
-    return get_object_or_404(
-        Video.objects.only("title", "description", "tags", "output")
-        .filter(
-            Q(public_share__expires_at__isnull=True)
-            | Q(public_share__expires_at__gt=timezone.now())
+    share = get_object_or_404(
+        VideoShare.objects.select_related("video")
+        .only(
+            "expires_at",
+            "video__title",
+            "video__description",
+            "video__tags",
+            "video__output",
         )
-        .exclude(output="")
-        .exclude(output__isnull=True),
-        public_share__token=token,
+        .exclude(video__output="")
+        .exclude(video__output__isnull=True),
+        token=token,
     )
+    if not share.active:
+        raise ShareLinkExpired
+    return share.video

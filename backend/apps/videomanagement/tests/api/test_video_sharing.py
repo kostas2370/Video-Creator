@@ -4,6 +4,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from asgiref.sync import async_to_sync
+from django.core.cache import caches
 from django.core.files.base import ContentFile
 from django.test import override_settings
 from django.urls import reverse
@@ -13,6 +14,10 @@ from rest_framework.test import APIClient
 from apps.common.tests.test_r2_storage import MemoryR2
 from apps.usermanagement.baker_recipes import user
 from apps.videomanagement.models import VideoShare
+from apps.videomanagement.throttling import (
+    PublicShareMediaThrottle,
+    PublicShareMetadataThrottle,
+)
 
 from .base import ApiTestCase
 
@@ -21,10 +26,20 @@ async def response_body(response):
     return b"".join([chunk async for chunk in response.streaming_content])
 
 
-@override_settings(R2_STORAGE_ENABLED=False)
+@override_settings(
+    R2_STORAGE_ENABLED=False,
+    CACHES={
+        "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+        "public_shares": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "video-sharing-tests",
+        },
+    },
+)
 class VideoSharingTests(ApiTestCase):
     def setUp(self):
         super().setUp()
+        caches["public_shares"].clear()
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         media = override_settings(MEDIA_ROOT=directory.name)
@@ -54,12 +69,51 @@ class VideoSharingTests(ApiTestCase):
     def test_sharing_defaults_off_and_requires_an_export(self):
         self.assertEqual(
             self.client.get(self.url).json(),
-            {"active": False, "path": None, "expires_at": None},
+            {
+                "active": False,
+                "path": None,
+                "expires_at": None,
+                "expiry_options": [
+                    {"value": None, "label": "Never"},
+                    *(
+                        {"value": value, "label": label}
+                        for value, label in VideoShare.ExpiryDays.choices
+                    ),
+                ],
+            },
         )
         self.video.output = ""
         self.video.save(update_fields=["output"])
         self.assertEqual(self.client.post(self.url, {}, format="json").status_code, 400)
         self.assertFalse(VideoShare.objects.exists())
+
+    def test_public_metadata_limits_are_per_ip_across_links_and_separate_from_media(
+        self,
+    ):
+        share = self.create_link()
+        url, media = self.public_urls(share.token)
+        with patch.object(PublicShareMetadataThrottle, "rate", "2/minute"):
+            for _ in range(2):
+                self.assertEqual(self.public.get(url).status_code, 200)
+            response = self.public.get(self.public_urls(uuid4())[0])
+            self.assertEqual(response.status_code, 429)
+            self.assertGreater(int(response["Retry-After"]), 0)
+            self.assertIn("no-store", response["Cache-Control"])
+            self.assertEqual(
+                self.public.get(url, REMOTE_ADDR="198.51.100.2").status_code, 200
+            )
+            self.assertEqual(self.public.head(media).status_code, 200)
+
+    def test_public_media_limits_count_head_and_ranges_without_blocking_metadata(self):
+        share = self.create_link()
+        url, media = self.public_urls(share.token)
+        with patch.object(PublicShareMediaThrottle, "rate", "2/minute"):
+            self.assertEqual(self.public.head(media).status_code, 200)
+            response = self.public.get(media, HTTP_RANGE="bytes=2-5")
+            self.assertEqual(response.status_code, 206)
+            self.assertEqual(async_to_sync(response_body)(response), b"2345")
+            self.assertEqual(self.public.get(media).status_code, 429)
+            self.assertEqual(self.public.get(url).status_code, 200)
 
     def test_only_owner_can_manage_links(self):
         self.client.force_authenticate(user.make())
@@ -121,9 +175,19 @@ class VideoSharingTests(ApiTestCase):
         VideoShare.objects.filter(pk=share.pk).update(
             expires_at=timezone.now() - timedelta(seconds=1)
         )
-        for token in (share.token, uuid4()):
+        for token, status in ((share.token, 410), (uuid4(), 404)):
             for url in self.public_urls(token):
-                self.assertEqual(self.public.get(url).status_code, 404)
+                response = self.public.get(url)
+                self.assertEqual(response.status_code, status)
+                self.assertEqual(self.public.head(url).status_code, status)
+                self.assertIn("no-store", response["Cache-Control"])
+                if status == 410:
+                    self.assertEqual(
+                        response.json(),
+                        {
+                            "detail": "This share link has expired. Ask the creator for a new link."
+                        },
+                    )
         self.assertFalse(self.client.get(self.url).json()["active"])
         renewed = self.create_link(1)
         self.assertNotEqual(renewed.token, share.token)
