@@ -186,3 +186,6 @@ backend/private-clips/
 
 # Private database migration snapshots and verification reports.
 backend/.db-backups/
+
+# Private production deployment configuration.
+backend/.env.production

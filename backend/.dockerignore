@@ -88,3 +88,13 @@ venv/
 
 # Private database migration snapshots and verification reports.
 .db-backups/
+
+# Never send private runtime data or credentials into a build context.
+.env*
+media/
+private-clips/
+private-publishing/
+private-render-cache/
+results/
+staticfiles/
+extensions/
