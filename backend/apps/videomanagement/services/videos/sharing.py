@@ -9,17 +9,13 @@ from rest_framework.exceptions import ValidationError
 from apps.videomanagement.models import Video, VideoShare
 
 
-def get_video_share(video):
-    return VideoShare.objects.filter(video=video).first()
-
-
 @transaction.atomic
 def create_video_share(video, *, expires_in_days):
     # Lock the parent to serialize creation, including when no share exists yet.
     video = Video.objects.select_for_update().get(pk=video.pk)
     if not video.output:
         raise ValidationError("Export your video before creating a share link.")
-    share = get_video_share(video)
+    share = VideoShare.objects.filter(video=video).first()
     if share is not None and share.active:
         return share
     VideoShare.objects.filter(video=video).delete()

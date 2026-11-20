@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.clips.protected_media import media_response
+from apps.videomanagement.models import VideoShare
 from apps.videomanagement.serializers.sharing import (
     PublicVideoSerializer,
     ShareOptionsSerializer,
@@ -12,7 +13,6 @@ from apps.videomanagement.serializers.sharing import (
 from apps.videomanagement.services.videos.sharing import (
     create_video_share,
     get_shared_video,
-    get_video_share,
     revoke_video_share,
 )
 
@@ -20,7 +20,7 @@ from apps.videomanagement.services.videos.sharing import (
 class VideoShareMixin:
     @action(detail=True, methods=["GET"], url_path="share")
     def share(self, request, pk=None):
-        share = get_video_share(self.get_object())
+        share = VideoShare.objects.filter(video=self.get_object()).first()
         return Response(share_details(share), headers={"Cache-Control": "no-store"})
 
     @share.mapping.post
