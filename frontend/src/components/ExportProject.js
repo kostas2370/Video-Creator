@@ -59,8 +59,8 @@ export function ExportProject({ video, disabled = false }) {
         </span>
       </label>
       <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-        Keep this ZIP as a portable backup. Project import will be added
-        separately. API credentials and public share links are excluded.
+        Keep this ZIP as a portable backup. Restore it from Import project in My
+        videos. API credentials and public share links are excluded.
       </p>
       {error && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-300">

@@ -89,7 +89,7 @@ from apps.videomanagement.throttling import (
 )
 from apps.videomanagement.utils.captions.styles import style_catalog
 from apps.videomanagement.views.covers import VideoCoverMixin
-from apps.videomanagement.views.project_export import ProjectExportMixin
+from apps.videomanagement.views.project_archive import ProjectArchiveMixin
 from apps.videomanagement.views.sharing import VideoShareMixin
 from apps.videomanagement.views.tags import VideoTagsMixin
 from apps.videomanagement.views.thumbnails import VideoThumbnailMixin
@@ -98,7 +98,7 @@ logger = logging.getLogger(__name__)
 
 
 class VideoView(
-    ProjectExportMixin,
+    ProjectArchiveMixin,
     VideoShareMixin,
     VideoThumbnailMixin,
     VideoTagsMixin,

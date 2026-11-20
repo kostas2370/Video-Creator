@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { HiOutlinePlus, HiOutlineFilm, HiOutlineChevronLeft, HiOutlineChevronRight } from "react-icons/hi2";
 import { VideoLibraryToolbar } from "../components/VideoLibraryToolbar";
+import { ImportProject } from "../components/ImportProject";
 import { DefaultTable } from "../components/Table";
 import { getVideos } from "../api/apiService";
 import { libraryEmptyState } from "../utils/videoLibrary";
@@ -51,7 +52,7 @@ function VideoLibrary({ owner }) {
   return <main className="video-library mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
     <header className="library-header mb-9 flex flex-wrap items-center justify-between gap-5">
       <div><p className="library-eyebrow mb-3"><HiOutlineFilm aria-hidden="true" className="h-4 w-4" />Your creative collection</p><h1 className="library-title text-gray-900 dark:text-white">My videos</h1><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Your stories, all in one place. Pick up where you left off.</p></div>
-      <Link to="/" className="library-new-video inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"><HiOutlinePlus aria-hidden="true" className="h-4 w-4" />New video</Link>
+      <div className="flex flex-wrap items-center gap-3"><ImportProject /><Link to="/" className="library-new-video inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"><HiOutlinePlus aria-hidden="true" className="h-4 w-4" />New video</Link></div>
     </header>
     <section aria-label="Video library" aria-busy={isLoading}>
       {failed && loaded && <p role="alert" className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><span>Could not update your videos. Your previous results are still shown.</span><button type="button" onClick={fetchVideos} className="font-semibold underline">Try again</button></p>}

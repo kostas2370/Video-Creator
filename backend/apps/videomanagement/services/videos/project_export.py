@@ -128,7 +128,11 @@ def prepare_project_export(video, *, include_output=False):
         for name in ("avatar", "intro", "outro", "music"):
             resource = getattr(video, name)
             project[name] = (
-                {"name": resource.name, "file": archive.media(resource.file)}
+                {
+                    "id": str(resource.pk),
+                    "name": resource.name,
+                    "file": archive.media(resource.file),
+                }
                 if resource
                 else None
             )
