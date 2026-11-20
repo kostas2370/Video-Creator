@@ -69,10 +69,6 @@ def finite_number(value):
     return result
 
 
-def reject_constant(value):
-    raise ValueError("Non-finite numbers are not supported.")
-
-
 def validate_media(path):
     """Reject active content and ensure packaged bytes are actual media."""
     try:
@@ -142,7 +138,7 @@ def read_archive(bundle, directory):
             raise ValidationError("The project manifest is too large.")
         raw = json.loads(
             bundle.read("project.json"),
-            parse_constant=reject_constant,
+            parse_constant=finite_number,
             parse_float=finite_number,
         )
     except (KeyError, ValueError, UnicodeError, RecursionError) as exc:
