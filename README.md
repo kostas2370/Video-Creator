@@ -137,8 +137,7 @@ Open **[localhost:3000](http://localhost:3000)** when the services are ready.
 | ReDoc | [localhost:3000/redoc/](http://localhost:3000/redoc/) |
 
 The stack starts the React frontend, Django API, Redis, Celery worker, Celery Beat,
-and PostgreSQL. Development and production use PostgreSQL by default; SQLite is
-an explicit local fallback with `DATABASE_ENGINE=sqlite`. nginx serves the frontend
+and PostgreSQL. Development and production use PostgreSQL. nginx serves the frontend
 and proxies API and authorized media requests on the same origin.
 
 The API applies migrations, loads the voice catalogue, and prepares bundled media

@@ -5,7 +5,6 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401,F403
 from .base import BASE_DIR, FRONTEND_URL, SECRET_KEY, SIMPLE_JWT
-from .database import database_config
 
 DEBUG = False
 
@@ -59,8 +58,6 @@ CSRF_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 SESSION_COOKIE_SECURE = COOKIES_SECURE
 SESSION_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 
-
-DATABASES = {"default": database_config(BASE_DIR, production=True)}
 
 EMAIL_BACKEND = (
     os.getenv("EMAIL_BACKEND") or "django.core.mail.backends.smtp.EmailBackend"

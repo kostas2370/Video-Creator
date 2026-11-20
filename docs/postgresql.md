@@ -8,7 +8,6 @@ host port mapping; API and workers connect on the private Compose network.
 Set these values in the ignored `backend/.env` before starting:
 
 ```dotenv
-DATABASE_ENGINE=postgresql
 POSTGRES_DB=video_creator
 POSTGRES_USER=video_creator
 POSTGRES_PASSWORD=YOUR_UNIQUE_PASSWORD
@@ -25,9 +24,8 @@ settings, normally `verify-full` with a trusted CA. Use a dedicated application 
 with access to its own database. Persistent Django connections are disabled for the
 ASGI API.
 
-Both production and development use the shared database configuration. Local-only
-SQLite remains available explicitly with `DATABASE_ENGINE=sqlite`; production
-rejects SQLite. CI uses a fresh PostgreSQL service and its own test database.
+Development and production inherit the PostgreSQL settings from `base.py`.
+CI uses a fresh PostgreSQL service and its own test database.
 
 ## Existing SQLite installations
 
@@ -51,6 +49,6 @@ Private local snapshots and verification reports belong in the ignored
 PostgreSQL independently after cutover. Avoid `docker compose down -v`, which
 removes database volumes.
 
-Rollback before accepting new writes can point local settings at the preserved
+A rollback requires restoring the previous application version and its preserved
 SQLite file. After PostgreSQL accepts new writes, reconcile those changes before
-returning to SQLite; switching settings alone would lose the newer records.
+rolling back; restoring the old database alone would lose the newer records.
