@@ -18,19 +18,23 @@ from apps.videomanagement.services.videos.sharing import (
 
 
 class VideoShareMixin:
-    @action(detail=True, methods=["GET", "POST", "DELETE"], url_path="share")
+    @action(detail=True, methods=["GET"], url_path="share")
     def share(self, request, pk=None):
-        video = self.get_object()
-        if request.method == "DELETE":
-            revoke_video_share(video)
-            return Response(status=204)
-        if request.method == "POST":
-            options = ShareOptionsSerializer(data=request.data)
-            options.is_valid(raise_exception=True)
-            share = create_video_share(video, **options.validated_data)
-        else:
-            share = get_video_share(video)
+        share = get_video_share(self.get_object())
         return Response(share_details(share), headers={"Cache-Control": "no-store"})
+
+    @share.mapping.post
+    def create_share(self, request, pk=None):
+        video = self.get_object()
+        options = ShareOptionsSerializer(data=request.data)
+        options.is_valid(raise_exception=True)
+        share = create_video_share(video, **options.validated_data)
+        return Response(share_details(share), headers={"Cache-Control": "no-store"})
+
+    @share.mapping.delete
+    def revoke_share(self, request, pk=None):
+        revoke_video_share(self.get_object())
+        return Response(status=204)
 
 
 class PublicVideoShareView(APIView):
