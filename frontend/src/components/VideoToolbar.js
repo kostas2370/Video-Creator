@@ -10,7 +10,7 @@ const actionFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visib
 
 export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, processing,
   canPreview, canExport, renderPending, saving, isResumable,
-  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onDeveloperPrompts, onSettings, onCover, onExport, onResume, tagsAction, cutAction }) {
+  onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onDeveloperPrompts, onSettings, onCover, onExport, onResume, tagsAction, cutAction, shareAction }) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const exporting = renderPending || video?.status === "RENDERING";
   const exportHint = canExport ? "Export your current edit" : saving ? "Wait for your changes to save" : !sceneCount ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`;
@@ -23,7 +23,8 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
       {onViewRendered && <button type="button" title="Watch your latest rendered export" onClick={onViewRendered} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction}`}><HiOutlinePlay aria-hidden="true" className="h-4 w-4" />{["stale", "unknown"].includes(video?.export_freshness?.status) ? "Watch previous export" : "Watch export"}</button>}
       <button type="button" aria-expanded={toolsOpen} aria-controls="video-project-tools" onClick={() => setToolsOpen(open => !open)} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} ${toolsOpen ? "bg-gray-100 dark:bg-gray-700/60" : ""}`}><HiOutlineAdjustmentsHorizontal aria-hidden="true" className="h-4 w-4" />More actions<HiOutlineChevronDown aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`} /></button>
         {isResumable && <button type="button" onClick={onResume} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} text-amber-700 dark:text-amber-300`}><HiOutlineArrowPath aria-hidden="true" className="h-4 w-4" />Retry<span className="sr-only"> generation</span></button>}
-      <button type="button" disabled={!canExport} aria-label={renderPending ? "Starting export" : video?.status === "RENDERING" ? "Exporting video" : "Export video"} title={exportHint} onClick={onExport} className={`order-2 inline-flex min-h-11 sm:min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:order-3 sm:ml-auto ${actionFocus}`}>
+      {shareAction && <div className="order-2 flex justify-end sm:order-3 sm:ml-auto">{shareAction}</div>}
+      <button type="button" disabled={!canExport} aria-label={renderPending ? "Starting export" : video?.status === "RENDERING" ? "Exporting video" : "Export video"} title={exportHint} onClick={onExport} className={`order-2 inline-flex min-h-11 sm:min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${shareAction ? "sm:order-4" : "sm:order-3 sm:ml-auto"} ${actionFocus}`}>
         {exporting ? <HiOutlineArrowPath aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" /> : <HiOutlineArrowUpTray aria-hidden="true" className="h-4 w-4" />}
         {renderPending ? "Starting…" : exporting ? "Exporting…" : "Export video"}
       </button>

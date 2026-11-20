@@ -148,6 +148,16 @@ CELERY_BROKER_URL = (
 )
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
 
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "public_shares": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": CELERY_BROKER_URL,
+        "KEY_PREFIX": "viddie:public-shares",
+        "OPTIONS": {"socket_connect_timeout": 1, "socket_timeout": 1},
+    },
+}
+
 VIDEO_EVENTS_REDIS_URL = os.getenv("VIDEO_EVENTS_REDIS_URL") or CELERY_BROKER_URL
 event_redis_url = urlparse(VIDEO_EVENTS_REDIS_URL)
 EVENTSTREAM_REDIS = {
