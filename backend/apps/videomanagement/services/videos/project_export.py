@@ -5,13 +5,19 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlencode
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import Q
+from django.http import StreamingHttpResponse
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import content_disposition_header
+from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
 
 from apps.common.r2_storage import R2StorageMixin
 from apps.videomanagement.models import IN_FLIGHT_STATUSES, Icon, Video
@@ -258,3 +264,32 @@ async def project_zip_chunks(manifest, archive):
             yield chunk
     finally:
         await asyncio.to_thread(chunks.close)
+
+
+def project_export_response(request, video, *, include_output=False, check_only=False):
+    manifest, archive = prepare_project_export(video, include_output=include_output)
+    filename = f"{slugify(video.title, allow_unicode=True)[:80] or 'video'}-project.zip"
+    if check_only:
+        url = reverse("video-export-project", args=[video.pk])
+        return Response(
+            {
+                "download_url": request.build_absolute_uri(url)
+                + "?"
+                + urlencode({"include_output": str(include_output).lower()}),
+                "filename": filename,
+                "media_count": len(archive.files),
+                "media_bytes": sum(
+                    entry["size"] for _, entry in archive.files.values()
+                ),
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+    response = StreamingHttpResponse(
+        project_zip_chunks(manifest, archive), content_type="application/zip"
+    )
+    response["Content-Disposition"] = content_disposition_header(True, filename)
+    response["Cache-Control"] = "private, no-store"
+    response["Referrer-Policy"] = "no-referrer"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["X-Accel-Buffering"] = "no"
+    return response
