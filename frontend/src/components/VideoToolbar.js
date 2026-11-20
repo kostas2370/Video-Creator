@@ -13,7 +13,7 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
   onUndo, canUndo, undoLabel, undoStale, onPreview, onViewRendered, onDeveloperPrompts, onSettings, onCover, onExport, onResume, tagsAction, cutAction, shareAction }) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const exporting = renderPending || video?.status === "RENDERING";
-  const exportHint = canExport ? "Export your current edit" : saving ? "Wait for your changes to save" : !sceneCount ? "Add a scene before exporting" : `Export is unavailable while ${statusLabel.toLowerCase()}`;
+  const exportHint = canExport ? "Export a video or project ZIP" : saving ? "Wait for your changes to save" : `Export is unavailable while ${statusLabel.toLowerCase()}`;
   const statusColor = video?.status === "FAILED" ? "bg-amber-500" : video?.status === "COMPLETED" ? "bg-emerald-500" : "bg-blue-500";
 
   return <div className="editor-toolbar sm:sticky top-2 z-20 mb-5 rounded-2xl border border-gray-200/80 bg-white/95 p-2 shadow-lg shadow-gray-900/5 backdrop-blur-xl dark:border-gray-700/80 dark:bg-gray-900/95">
@@ -24,9 +24,9 @@ export function VideoToolbar({ video, sceneCount, runtime, format, statusLabel, 
       <button type="button" aria-expanded={toolsOpen} aria-controls="video-project-tools" onClick={() => setToolsOpen(open => !open)} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} ${toolsOpen ? "bg-gray-100 dark:bg-gray-700/60" : ""}`}><HiOutlineAdjustmentsHorizontal aria-hidden="true" className="h-4 w-4" />More actions<HiOutlineChevronDown aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`} /></button>
         {isResumable && <button type="button" onClick={onResume} className={`order-1 w-full sm:w-auto !px-2 sm:!px-3 !text-xs sm:!text-sm ${toolbarAction} text-amber-700 dark:text-amber-300`}><HiOutlineArrowPath aria-hidden="true" className="h-4 w-4" />Retry<span className="sr-only"> generation</span></button>}
       {shareAction && <div className="order-2 flex justify-end sm:order-3 sm:ml-auto">{shareAction}</div>}
-      <button type="button" disabled={!canExport} aria-label={renderPending ? "Starting export" : video?.status === "RENDERING" ? "Exporting video" : "Export video"} title={exportHint} onClick={onExport} className={`order-2 inline-flex min-h-11 sm:min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${shareAction ? "sm:order-4" : "sm:order-3 sm:ml-auto"} ${actionFocus}`}>
+      <button type="button" disabled={!canExport} aria-label={renderPending ? "Starting export" : video?.status === "RENDERING" ? "Exporting video" : "Export"} title={exportHint} onClick={onExport} className={`order-2 inline-flex min-h-11 sm:min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 ${shareAction ? "sm:order-4" : "sm:order-3 sm:ml-auto"} ${actionFocus}`}>
         {exporting ? <HiOutlineArrowPath aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" /> : <HiOutlineArrowUpTray aria-hidden="true" className="h-4 w-4" />}
-        {renderPending ? "Starting…" : exporting ? "Exporting…" : "Export video"}
+        {renderPending ? "Starting…" : exporting ? "Exporting…" : "Export"}
       </button>
     </div>
       <div role="group" aria-label="Project tools" id="video-project-tools" hidden={!toolsOpen} className={`${toolsOpen ? "flex" : "hidden"} flex-wrap items-center gap-1 border-t border-gray-100 pt-2 mt-2 dark:border-gray-700/70`}>

@@ -1,6 +1,6 @@
 # Project ZIP exports
 
-In the video editor, open **More actions → Export project**. The ZIP contains the editable project and its referenced media. The finished video is optional and is excluded by default. Project import is not implemented yet.
+In the video editor, open **Export → Project ZIP**. The ZIP contains the editable project and its referenced media. The finished video is optional and is excluded by default. Project import is not implemented yet.
 
 ## Format version 1
 

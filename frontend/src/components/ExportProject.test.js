@@ -32,7 +32,6 @@ it("preflights on an explicit click and starts a native download with the select
     },
   );
   render(<ExportProject video={video} />);
-  fireEvent.click(screen.getByRole("button", { name: "Export project" }));
   expect(prepareProjectExport).not.toHaveBeenCalled();
   fireEvent.click(
     screen.getByRole("checkbox", { name: /Include the finished video/ }),
@@ -56,7 +55,6 @@ it("shows preflight errors without starting an incomplete download", async () =>
     .spyOn(HTMLAnchorElement.prototype, "click")
     .mockImplementation(() => {});
   render(<ExportProject video={video} />);
-  fireEvent.click(screen.getByRole("button", { name: "Export project" }));
   fireEvent.click(screen.getByRole("button", { name: "Download project ZIP" }));
   expect((await screen.findByRole("alert")).textContent).toContain("missing");
   expect(prepareProjectExport).toHaveBeenCalledWith("project-1", false);
@@ -65,7 +63,6 @@ it("shows preflight errors without starting an incomplete download", async () =>
 
 it("allows draft exports while disabling the absent finished video", () => {
   render(<ExportProject video={{ id: "draft", title: "Draft" }} />);
-  fireEvent.click(screen.getByRole("button", { name: "Export project" }));
   expect(screen.getByRole("checkbox").disabled).toBe(true);
   expect(
     screen.getByRole("button", { name: "Download project ZIP" }).disabled,
