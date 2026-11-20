@@ -5,9 +5,13 @@ from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
 from django.utils.functional import cached_property
 
+from apps.common.r2_storage import R2StorageMixin
+
 
 @deconstructible
-class ClipStorage(FileSystemStorage):
+class ClipStorage(R2StorageMixin, FileSystemStorage):
+    namespace = "clips"
+
     def _clear_cached_properties(self, setting, **kwargs):
         if setting == "CLIP_STORAGE_ROOT":
             self.__dict__.pop("base_location", None)

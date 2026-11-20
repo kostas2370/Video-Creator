@@ -227,6 +227,18 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "")
 MEDIA_URL = ""
 MEDIA_ACCEL_REDIRECT = (os.getenv("MEDIA_ACCEL_REDIRECT") or "false").lower() == "true"
 
+# Private R2 media with retained local processing files.
+R2_ACCOUNT_ID = (os.getenv("R2_ACCOUNT_ID") or "").strip()
+R2_BUCKET_NAME = (os.getenv("R2_BUCKET_NAME") or "").strip()
+R2_ACCESS_KEY_ID = (os.getenv("R2_ACCESS_KEY_ID") or "").strip()
+R2_SECRET_ACCESS_KEY = (os.getenv("R2_SECRET_ACCESS_KEY") or "").strip()
+R2_JURISDICTION = (os.getenv("R2_JURISDICTION") or "").strip()
+R2_STORAGE_ENABLED = (os.getenv("R2_STORAGE_ENABLED") or "false").lower() == "true"
+STORAGES = {
+    "default": {"BACKEND": "apps.common.r2_storage.MediaStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+
 # Templates
 TEMPLATES = [
     {

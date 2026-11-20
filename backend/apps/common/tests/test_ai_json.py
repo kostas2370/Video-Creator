@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from .ai_json import parse_ai_json
+from apps.common.ai_json import parse_ai_json
 
 
 class AIJSONTests(SimpleTestCase):

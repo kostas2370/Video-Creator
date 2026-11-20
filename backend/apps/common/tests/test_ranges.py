@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from .ranges import parse_byte_range
+from apps.common.ranges import parse_byte_range
 
 
 class ByteRangeTests(SimpleTestCase):
