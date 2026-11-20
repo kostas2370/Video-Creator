@@ -55,11 +55,14 @@ class R2StorageMixin:
     def object_key(self, name):
         return blob_name(self.namespace, relative_name(self, name))
 
-    def remote_info(self, name):
+    def remote_info(self, name, *, include_body=False):
         try:
-            return self.archive.client.head_object(
-                Bucket=self.archive.bucket, Key=self.object_key(name)
+            operation = (
+                self.archive.client.get_object
+                if include_body
+                else self.archive.client.head_object
             )
+            return operation(Bucket=self.archive.bucket, Key=self.object_key(name))
         except ClientError as exc:
             if exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 404:
                 return None

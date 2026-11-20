@@ -47,11 +47,6 @@ class R2Archive:
                 response_checksum_validation="when_required",
             ),
         )
-        try:
-            self.client.head_bucket(Bucket=bucket)
-        except Exception:
-            self.close()
-            raise
 
     def upload_if_missing(self, name, source, size, digest):
         # Avoid re-uploading large, already copied videos on subsequent runs.

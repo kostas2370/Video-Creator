@@ -175,8 +175,5 @@ class R2SDKTests(unittest.TestCase):
         )
         body.close.assert_called_once()
 
-    def test_failed_connection_closes_client(self):
-        self.client.head_bucket.side_effect = RuntimeError("Unavailable")
-        with self.assertRaises(RuntimeError):
-            R2Archive("a" * 32, "viddie-media", "key", "secret")
-        self.client.close.assert_called_once()
+    def test_client_creation_does_not_add_a_bucket_probe_before_the_first_request(self):
+        self.client.head_bucket.assert_not_called()

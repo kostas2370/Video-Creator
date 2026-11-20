@@ -91,6 +91,9 @@ and every Celery worker/beat process with the rebuilt image. Keep the bucket pri
   They stream byte ranges from R2, including HEAD and video seeking. Local nginx
   acceleration is bypassed in R2 mode. No public bucket or browser credentials are
   needed, and browser requests remain on the application's origin.
+  Ordinary downloads use one R2 GET for both headers and bytes. HEAD requests and
+  byte-range downloads retain their metadata checks; creating an R2 client does
+  not make a separate bucket-probe request.
 - Accessing a missing local `.path` downloads the R2 object into the existing local
   storage root, checks SHA-256 and size, and publishes it atomically. This supports
   workers on a fresh host. Existing local processing files remain in use.
@@ -111,7 +114,13 @@ This design moves media delivery and persistence to R2; it does not yet reduce l
 disk usage. A separately verified cache-eviction policy is needed for that. Normal
 writes and cache restores perform extra read requests for verification.
 
+The S3 endpoint does not provide CDN caching. For production edge caching, use an
+authenticated Worker bound to the private bucket, with a custom domain or route.
+Cloudflare's Cache API does not cache on `workers.dev` deployments. This is separate
+from the local processing cache and does not require media on the application host.
+
 References: [Cloudflare S3 setup](https://developers.cloudflare.com/r2/get-started/s3/),
 [Python integration](https://developers.cloudflare.com/r2/examples/aws/boto3/),
 [conditional write compatibility](https://developers.cloudflare.com/r2/api/s3/api/),
+[Worker cache setup](https://developers.cloudflare.com/r2/examples/cache-api/),
 [current R2 pricing](https://developers.cloudflare.com/r2/pricing/).
