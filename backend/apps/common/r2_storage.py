@@ -4,6 +4,7 @@ import hashlib
 import os
 import shutil
 import tempfile
+from contextlib import closing
 from functools import lru_cache
 from pathlib import Path
 from threading import RLock
@@ -21,6 +22,7 @@ from .media_archive import (
     copy_verified,
     fingerprint,
     local_path,
+    path_state,
     relative_name,
 )
 from .r2_archive import R2Archive
@@ -80,41 +82,31 @@ class R2StorageMixin:
             raise ArchiveError("Media path escapes its storage root.")
         path.parent.mkdir(parents=True, exist_ok=True)
         digest, size = hashlib.sha256(), 0
-        descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".r2-")
-        try:
-            response = self.archive.client.get_object(
-                Bucket=self.archive.bucket,
-                Key=self.object_key(name),
-                IfMatch=info["ETag"],
-            )
-            body = response["Body"]
-            try:
-                with os.fdopen(descriptor, "wb") as destination:
-                    descriptor = None
-                    for chunk in body.iter_chunks(chunk_size=4 * 1024 * 1024):
-                        destination.write(chunk)
-                        digest.update(chunk)
-                        size += len(chunk)
-            finally:
-                body.close()
-            expected = info.get("Metadata", {}).get("sha256")
-            if (
-                size != info["ContentLength"]
-                or not expected
-                or digest.hexdigest() != expected
-            ):
+        response = self.archive.client.get_object(
+            Bucket=self.archive.bucket,
+            Key=self.object_key(name),
+            IfMatch=info["ETag"],
+        )
+        with (
+            closing(response["Body"]) as body,
+            tempfile.NamedTemporaryFile(dir=path.parent, prefix=".r2-") as destination,
+        ):
+            for chunk in body.iter_chunks(chunk_size=4 * 1024 * 1024):
+                destination.write(chunk)
+                digest.update(chunk)
+                size += len(chunk)
+            if size != info["ContentLength"] or digest.hexdigest() != info.get(
+                "Metadata", {}
+            ).get("sha256"):
                 raise ArchiveError(
                     "R2 download failed verification; local files retained."
                 )
-            # Link atomically without replacing another worker's existing file.
+            destination.flush()
+            # Publish the verified file without replacing another worker's cache.
             try:
-                os.link(temporary, path)
+                os.link(destination.name, path)
             except FileExistsError:
                 pass
-        finally:
-            if descriptor is not None:
-                os.close(descriptor)
-            os.unlink(temporary)
         return str(path)
 
     def exists(self, name):
@@ -147,33 +139,25 @@ class R2StorageMixin:
         """Publish directly generated files too; never replace an existing object."""
         name = relative_name(self, name)
         path = local_path(self, name)
-        stat = path.stat()
-        state = (stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+        state = path_state(path)
         cache_key = (self.archive.bucket, self.namespace, str(path))
         with _verified_lock:
             if _verified.get(cache_key) == state:
                 return name
-        with path.open("rb") as source:
-            size, digest = fingerprint(source)
-        after_hash = path.stat()
-        if (
-            after_hash.st_size,
-            after_hash.st_mtime_ns,
-            after_hash.st_ctime_ns,
-        ) != state:
-            raise ArchiveError("Local media changed while being read.")
         original_path = path
         info = self.remote_info(name)
-        if info and (info.get("Metadata", {}).get("sha256"), info["ContentLength"]) == (
-            digest,
-            size,
-        ):
-            # Existing migration objects were verified byte for byte on upload.
-            pass
-        else:
-            if info:
-                # A renderer reused a local filename. Keep the previous remote
-                # version and local original; point this field at a fresh copy.
+        matches = False
+        if info:
+            with path.open("rb") as source:
+                size, digest = fingerprint(source)
+            if path_state(path) != state:
+                raise ArchiveError("Local media changed while being read.")
+            matches = (
+                info.get("Metadata", {}).get("sha256"),
+                info["ContentLength"],
+            ) == (digest, size)
+            if not matches:
+                # Keep the previous remote version when a renderer reuses a filename.
                 original = Path(name)
                 name = str(
                     original.with_name(
@@ -184,22 +168,16 @@ class R2StorageMixin:
                 with path.open("rb") as source, destination.open("xb") as target:
                     shutil.copyfileobj(source, target, length=4 * 1024 * 1024)
                 path = destination
+        if not matches:
+            # This hashes a new file once and verifies the remote bytes after upload.
             copy_verified(path, self.object_key(name), self.archive)
-        final_stat = path.stat()
-        original_stat = original_path.stat()
-        if (
-            original_stat.st_size,
-            original_stat.st_mtime_ns,
-            original_stat.st_ctime_ns,
-        ) != state:
+        if path_state(original_path) != state:
             raise ArchiveError("Local media changed during upload.")
         with _verified_lock:
             if len(_verified) >= 2048:
                 _verified.clear()
-            _verified[(self.archive.bucket, self.namespace, str(path))] = (
-                final_stat.st_size,
-                final_stat.st_mtime_ns,
-                final_stat.st_ctime_ns,
+            _verified[(self.archive.bucket, self.namespace, str(path))] = path_state(
+                path
             )
         return name
 

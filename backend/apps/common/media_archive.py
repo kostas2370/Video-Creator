@@ -68,6 +68,11 @@ def fingerprint(stream):
     return size, digest.hexdigest()
 
 
+def path_state(path):
+    stat = path.stat()
+    return stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+
+
 def file_state(stream):
     stat = os.fstat(stream.fileno())
     return stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
@@ -83,7 +88,7 @@ def copy_verified(path, name, archive):
         source.seek(0)
         uploaded = archive.upload_if_missing(name, source, size, digest)
         # Read the actual remote bytes on every run, rather than trusting metadata
-        # or file size. This also verifies uploads left by interrupted commands.
+        # or file size. This also verifies uploads left by interrupted saves.
         remote_size = 0
         remote_digest = hashlib.sha256()
         for chunk in archive.chunks(name):
