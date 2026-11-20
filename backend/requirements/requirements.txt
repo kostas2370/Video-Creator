@@ -51,6 +51,7 @@ basicsr @ git+https://github.com/XPixelGroup/BasicSR@8d56e3a045f9fb3e1d8872f92ee
 gdown
 
 # AI providers
+pydantic>=2.4,<3
 openai
 curl_cffi
 google-generativeai
