@@ -33,12 +33,12 @@ it("saves inline through the existing scene API and locks export until it comple
   fireEvent.change(input, { target: { value: "Updated script" } });
   fireEvent.click(screen.getByRole("button", { name: "Save text" }));
   expect(api.updateScene).toHaveBeenCalledWith("first", { text: "Updated script" });
-  expect(screen.getByRole("button", { name: "Export video" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Export" }).disabled).toBe(true);
   await act(async () => {
     project = { ...project, scenes: [{ ...project.scenes[0], text: "Updated script" }] };
     complete({ ok: true, data: project.scenes[0] });
   });
-  await waitFor(() => expect(screen.getByRole("button", { name: "Export video" }).disabled).toBe(false));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Export" }).disabled).toBe(false));
   expect(screen.getByLabelText("Script for scene 1").value).toBe("Updated script");
   expect(screen.queryByRole("button", { name: "Discard changes" })).toBeNull();
 });

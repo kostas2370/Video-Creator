@@ -49,12 +49,13 @@ export function DefaultTable({ data, setVideos, view = "grid", onUpdated, favori
     }
   };
   const compact = view === "list";
+  const exportVideo = data?.find(video => video.id === id);
   const showDetails = video => { setVideoInfo(video); setShowVideoModal(true); };
 
   return <>
     {favoriteError && <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">{favoriteError}</p>}
     <DeleteModal showModal={showDeleteModal} setShowModal={setShowDeleteModal} id={id} setItems={setVideos} deleteFunction={deleteVideo} name="video" />
-    <DeferredDialog open={showRenderModal} onClose={() => setShowRenderModal(false)}><RenderModal showModal={showRenderModal} setShowModal={setShowRenderModal} id={id} setItems={setVideos} name="video" onPendingChange={setRenderPending} onFinished={onUpdated} /></DeferredDialog>
+    <DeferredDialog open={showRenderModal} onClose={() => setShowRenderModal(false)}><RenderModal showModal={showRenderModal} setShowModal={setShowRenderModal} id={id} video={exportVideo} setItems={setVideos} name={exportVideo?.title} onPendingChange={setRenderPending} onFinished={onUpdated} /></DeferredDialog>
     <DeferredDialog open={showResumeModal} onClose={() => setShowResumeModal(false)}><ResumeModal showModal={showResumeModal} setShowModal={setShowResumeModal} id={id} setItems={setVideos} name="this video" onFinished={onUpdated} /></DeferredDialog>
     <DeferredDialog open={showVideoModal} onClose={() => setShowVideoModal(false)}><VideoInfoModal showModal={showVideoModal} setShowModal={setShowVideoModal} videoInfo={videoInfo} /></DeferredDialog>
     <ul className={compact ? "divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-800" : "library-grid grid gap-5 sm:grid-cols-2 lg:grid-cols-3"}>
