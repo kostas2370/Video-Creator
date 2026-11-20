@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ShareVideo } from "./ShareVideo";
+import { VideoToolbar } from "./VideoToolbar";
 import { createVideoShare, getVideoShare, revokeVideoShare } from "../api/apiService";
 
 vi.mock("../api/apiService", () => ({ createVideoShare: vi.fn(), getVideoShare: vi.fn(), revokeVideoShare: vi.fn() }));
@@ -13,6 +14,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const exportedVideo = { id: "video-1", title: "Ocean stories", output: "/media/output.mp4" };
+
+it("opens sharing from the main toolbar while More actions is closed", async () => {
+  render(<VideoToolbar video={exportedVideo} sceneCount={1} runtime={6} statusLabel="Ready" shareAction={<ShareVideo video={exportedVideo} />} />);
+  const share = screen.getByRole("button", { name: "Share link" });
+  expect(share.closest("#video-project-tools")).toBeNull();
+  expect(screen.getByRole("button", { name: "More actions" }).getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(share);
+  await screen.findByRole("dialog", { name: "Share your video" });
+  await screen.findByRole("button", { name: "Create share link" });
+});
 
 it("creates sharing only after an explicit action, copies the link and revokes it", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
