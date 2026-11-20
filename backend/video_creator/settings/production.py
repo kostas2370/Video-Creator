@@ -5,6 +5,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401,F403
 from .base import BASE_DIR, FRONTEND_URL, SECRET_KEY, SIMPLE_JWT
+from .database import database_config
 
 DEBUG = False
 
@@ -59,16 +60,7 @@ SESSION_COOKIE_SECURE = COOKIES_SECURE
 SESSION_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("MYSQL_DATABASE", "db"),
-        "USER": os.getenv("MYSQL_USER"),
-        "PASSWORD": os.getenv("MYSQL_PASSWORD"),
-        "HOST": os.getenv("MYSQL_HOST"),
-        "PORT": os.getenv("MYSQL_PORT") or "3306",
-    }
-}
+DATABASES = {"default": database_config(BASE_DIR, production=True)}
 
 EMAIL_BACKEND = (
     os.getenv("EMAIL_BACKEND") or "django.core.mail.backends.smtp.EmailBackend"

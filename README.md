@@ -118,7 +118,8 @@ Edit `backend/.env` and add credentials for the providers you want to use. For a
 OpenAI-based workflow, set `OPEN_API_KEY` (the variable is named exactly this).
 Leave `ENV` blank for local development. Set `SECRET_KEY` to a persistent random
 value generated with `python -c "import secrets; print(secrets.token_urlsafe(64))"`.
-Startup fails if it is missing, blank, or the retired placeholder.
+Startup fails if it is missing, blank, or the retired placeholder. Set a separate
+random `POSTGRES_PASSWORD` and retain it with the PostgreSQL data volume.
 
 ```sh
 cd backend
@@ -136,9 +137,9 @@ Open **[localhost:3000](http://localhost:3000)** when the services are ready.
 | ReDoc | [localhost:3000/redoc/](http://localhost:3000/redoc/) |
 
 The stack starts the React frontend, Django API, Redis, Celery worker, Celery Beat,
-and MySQL. **Local settings use SQLite by default**; MySQL is used with production
-settings. nginx serves the frontend and media and proxies API requests on the same
-origin.
+and PostgreSQL. Development and production use PostgreSQL by default; SQLite is
+an explicit local fallback with `DATABASE_ENGINE=sqlite`. nginx serves the frontend
+and proxies API and authorized media requests on the same origin.
 
 The API applies migrations, loads the voice catalogue, and prepares bundled media
 on startup. The worker downloads SadTalker and GFPGAN weights before accepting jobs.
@@ -537,12 +538,13 @@ build and test commands.
 
 Use **Python 3.11**, Redis, and FFmpeg with `ffprobe` and the `subtitles` filter
 (libass). Install a subtitle font such as DejaVu Sans. On Debian or Ubuntu, Python
-dependencies also require `default-libmysqlclient-dev` and `pkg-config`, along with
-the system libraries listed in the [Dockerfile](backend/Dockerfile).
+dependencies use the binary Psycopg driver. Install the media system libraries
+listed in the [Dockerfile](backend/Dockerfile), and run PostgreSQL locally.
 
 Create `backend/.env` from the example if you have not already done so, then set:
 
 ```dotenv
+POSTGRES_HOST=localhost
 CELERY_BROKER_URL=redis://localhost:6379/0
 ```
 
@@ -594,11 +596,11 @@ including cleanup of expired deleted scenes. Start the frontend separately with
 
 The quick start is a local development configuration. For a deployment, set
 `ENV=prod`, a unique `SECRET_KEY`, explicit `ALLOWED_HOSTS`, `FRONTEND_URL`, SMTP
-settings, and MySQL credentials. Serve the app over HTTPS; production authentication
+settings, and PostgreSQL credentials. Serve the app over HTTPS; production authentication
 uses secure cookies, HTTPS redirects, and HSTS. Production rejects weak signing
 secrets and non-HTTPS frontend origins.
 
-Compose binds the frontend (3000) and backend (8000) to loopback; MySQL and Redis
+Compose binds the frontend (3000) and backend (8000) to loopback; PostgreSQL and Redis
 have no host ports. Put a TLS reverse proxy on the host in front of
 `127.0.0.1:3000`, preserve `Host`, and **overwrite** `X-Forwarded-Proto` with the
 external scheme. Keep port 8000 private. The bundled nginx forwards the sanitized
@@ -627,11 +629,12 @@ up securely. If unset, it is derived from `SECRET_KEY`; changing that secret the
 makes existing provider keys unreadable. Preserve the database, media storage, and
 private publishing snapshots across deployments.
 
-Set the database port explicitly for your installation. The supplied MySQL container
-listens on port 3306, which is also the production default. Host connections use
-an explicitly configured loopback-only mapping if needed for maintenance. For an API container
-connecting to the Compose database, use `MYSQL_HOST=db` and `MYSQL_PORT=3306`.
-Review database persistence before deploying the Compose stack.
+PostgreSQL uses the persistent `postgres-data` volume and is available only on the
+Compose network. Set a unique `POSTGRES_PASSWORD` in `backend/.env` before starting.
+API and worker containers use `POSTGRES_HOST=postgres` and `POSTGRES_PORT=5432`.
+For a remote production database, use its connection details and TLS verification.
+See [PostgreSQL setup and migration](docs/postgresql.md) before upgrading an existing
+SQLite installation; changing the engine does not transfer data automatically.
 
 Creator publishing requires registered developer applications and platform-specific
 configuration. The [publishing guide](docs/social-publishing.md) covers credentials,

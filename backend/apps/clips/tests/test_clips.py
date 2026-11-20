@@ -657,7 +657,10 @@ class ClipsTests(ApiTestCase):
                 )
             )
             self.assertEqual(response.status_code, 200)
-            response.close()
+            async def content():
+                return b"".join([chunk async for chunk in response.streaming_content])
+
+            self.assertEqual(asyncio.run(content()), Path(clip.output.path).read_bytes())
 
     def test_failed_export_preserves_previous_output_and_can_retry(self):
         project = self.project()

@@ -88,7 +88,7 @@ class CaptionProjectTests(ApiTestCase):
         self.assertGreater(green_pixels, 2)
         response = self.client.get(reverse("captionproject-download", args=[project.pk]))
         self.assertEqual(response.status_code, 200)
-        response.close()
+        self.assertEqual(b"".join(response.streaming_content), Path(project.output.path).read_bytes())
         previous_output = project.output.path
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.patch(reverse("captionproject-detail", args=[project.pk]), {"revision": self.client.get(reverse("captionproject-detail", args=[project.pk])).data["revision"], "style": {"position": "top"}}, format="json")

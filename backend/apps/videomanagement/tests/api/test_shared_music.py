@@ -137,7 +137,7 @@ class SharedMusicTests(ApiTestCase):
             reverse("musiccatalogtrack-download", args=[track.pk])
         )
         self.assertEqual(response.status_code, 200)
-        response.close()
+        self.assertGreater(len(b"".join(response.streaming_content)), 0)
 
     def test_uploads_cannot_create_or_publish_catalog_tracks(self):
         response = self.client.post(

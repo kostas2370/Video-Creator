@@ -1,5 +1,6 @@
 from django.db import migrations, models
 from django.db.models import Count, Min, Sum
+from django.db.models.functions import Cast
 
 
 def merge_duplicate_logins(apps, schema_editor):
@@ -10,7 +11,7 @@ def merge_duplicate_logins(apps, schema_editor):
         logins.values("user_id", "ip")
         .annotate(
             row_count=Count("pk"),
-            first_id=Min("pk"),
+            first_id=Min(Cast("pk", output_field=models.CharField(max_length=36))),
             total_count=Sum("count"),
             first_seen=Min("date"),
         )

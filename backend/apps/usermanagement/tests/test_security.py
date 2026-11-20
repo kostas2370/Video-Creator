@@ -1,3 +1,4 @@
+import asyncio
 import os
 import runpy
 import tempfile
@@ -320,7 +321,10 @@ class ProtectedMediaTests(TestCase):
         self.assertEqual(response.status_code, 206)
         self.assertEqual(response["Content-Range"], "bytes 2-5/10")
         self.assertEqual(response["Cache-Control"], "private, no-store")
-        response.close()
+        async def content():
+            return b"".join([chunk async for chunk in response.streaming_content])
+
+        self.assertEqual(asyncio.run(content()), b"2345")
         self.assertEqual(self.client.head(self.url)["Content-Length"], "10")
 
     def test_unregistered_files_and_traversal_are_denied(self):

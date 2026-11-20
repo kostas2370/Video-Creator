@@ -12,6 +12,27 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: video_creator
+          POSTGRES_USER: video_creator
+          POSTGRES_PASSWORD: ci-only-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U video_creator -d video_creator"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_ENGINE: postgresql
+      POSTGRES_DB: video_creator
+      POSTGRES_USER: video_creator
+      POSTGRES_PASSWORD: ci-only-postgres-password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
     strategy:
       max-parallel: 4
       matrix:
@@ -30,7 +51,7 @@ jobs:
       timeout-minutes: 10
       run: |
         apt_options=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
-        sudo apt-get "${apt_options[@]}" install -y --no-install-recommends ffmpeg fonts-dejavu-core libgl1 libglib2.0-0 default-libmysqlclient-dev pkg-config
+        sudo apt-get "${apt_options[@]}" install -y --no-install-recommends ffmpeg fonts-dejavu-core libgl1 libglib2.0-0
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -80,7 +101,7 @@ jobs:
     # third-party test_options.py files that match the default pattern and cannot be
     # imported on their own.
     - name: Run tests
-      run: python backend/manage.py test apps.common apps.usage apps.videomanagement apps.series apps.clips apps.apikeysmanagement apps.usermanagement apps.publishing apps.news
+      run: python backend/manage.py test video_creator.tests apps.common apps.usage apps.videomanagement apps.series apps.clips apps.apikeysmanagement apps.usermanagement apps.publishing apps.news
 
     - name: Audit Python dependencies
       run: |

@@ -3,16 +3,12 @@ import sys
 
 from .base import *  # noqa: F401,F403
 from .base import BASE_DIR
+from .database import database_config
 
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+DATABASES = {"default": database_config(BASE_DIR)}
 
 EMAIL_BACKEND = (
     os.getenv("EMAIL_BACKEND") or "django.core.mail.backends.console.EmailBackend"
