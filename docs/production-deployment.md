@@ -62,7 +62,8 @@ Only after the release and any required first-install setup succeed, start servi
 docker compose --env-file backend/.env.production -f backend/docker-compose.production.yml up -d --wait --wait-timeout 180 video_creator celery celery-render celery-beat frontend
 ```
 
-The API starts directly; it does not generate migrations, replay fixtures, download
+The API checks that required migrations are already applied, then starts. It does
+not generate migrations, replay fixtures, download
 catalog media, or contact provider setup APIs on a restart. Workers use prefork with
 explicit concurrency; start conservatively and measure render memory/CPU usage.
 There must be exactly one Beat scheduler per deployment.

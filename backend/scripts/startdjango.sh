@@ -5,7 +5,9 @@ set -o nounset
 
 
 # Production uses /release once before restarting services.
-if [ "${ENV:-dev}" != "prod" ]; then
+if [ "${ENV:-dev}" = "prod" ]; then
+  python manage.py migrate --check --verbosity 0
+else
   /setupdjango
 fi
 
