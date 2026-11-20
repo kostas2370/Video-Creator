@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import re
+from contextlib import closing
 from pathlib import Path
 from urllib.parse import urlencode
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile
@@ -226,15 +227,12 @@ def zip_chunks(manifest, archive):
             digest, size = hashlib.sha256(), 0
             with bundle.open(entry["path"], "w", force_zip64=True) as target:
                 yield from buffer.drain()
-                chunks = source_chunks(field, entry)
-                try:
+                with closing(source_chunks(field, entry)) as chunks:
                     for chunk in chunks:
                         digest.update(chunk)
                         size += len(chunk)
                         target.write(chunk)
                         yield from buffer.drain()
-                finally:
-                    chunks.close()
                 if size != entry["size"] or (
                     entry.get("expected_hash")
                     and digest.hexdigest() != entry["expected_hash"]
@@ -277,10 +275,6 @@ def project_export_response(request, video, *, include_output=False, check_only=
                 + "?"
                 + urlencode({"include_output": str(include_output).lower()}),
                 "filename": filename,
-                "media_count": len(archive.files),
-                "media_bytes": sum(
-                    entry["size"] for _, entry in archive.files.values()
-                ),
             },
             headers={"Cache-Control": "no-store"},
         )

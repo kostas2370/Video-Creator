@@ -146,7 +146,6 @@ class ProjectExportTests(ApiTestCase):
                 self.url, {"check_only": "true", "include_output": "true"}
             )
         self.assertEqual(response.status_code, 200, getattr(response, "data", None))
-        self.assertEqual(response.json()["media_count"], 3)
         self.assertTrue(
             response.json()["download_url"].endswith("?include_output=true")
         )

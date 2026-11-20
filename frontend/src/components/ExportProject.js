@@ -5,14 +5,13 @@ import { editorButton } from "./ui/EditorDialog";
 
 export function ExportProject({ video, disabled = false }) {
   const [includeOutput, setIncludeOutput] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("idle");
+  const busy = status === "checking";
   const [error, setError] = useState("");
-  const [started, setStarted] = useState(false);
 
   const download = async () => {
-    setBusy(true);
+    setStatus("checking");
     setError("");
-    setStarted(false);
     // Preflight reports missing media and refreshes the session before a native download.
     const result = await prepareProjectExport(video.id, includeOutput);
     if (result.ok) {
@@ -23,13 +22,13 @@ export function ExportProject({ video, disabled = false }) {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      setStarted(true);
+      setStatus("started");
     } else {
+      setStatus("idle");
       setError(
         result.message || "The project could not be exported. Try again.",
       );
     }
-    setBusy(false);
   };
 
   return (
@@ -68,7 +67,7 @@ export function ExportProject({ video, disabled = false }) {
           {error}
         </p>
       )}
-      {started && (
+      {status === "started" && (
         <p
           role="status"
           className="flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-300"

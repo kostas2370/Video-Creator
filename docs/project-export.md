@@ -19,7 +19,7 @@ A future importer should validate the format/version and file hashes, reject uns
 
 ## Delivery
 
-`GET /api/videos/{id}/export-project/?check_only=true&include_output=false` performs the same permission and media availability checks as a download and returns its authenticated download URL, filename, media count, and media bytes. The UI uses this to report preparation errors and refresh authentication before starting a native browser download.
+`GET /api/videos/{id}/export-project/?check_only=true&include_output=false` performs the same permission and media availability checks as a download and returns its authenticated download URL and filename. The UI uses this to report preparation errors and refresh authentication before starting a native browser download.
 
 `GET /api/videos/{id}/export-project/?include_output=false` streams a ZIP64-capable attachment. Both requests require the project owner. Browser downloads use the existing access-token cookie; the URL grants no access by itself. Export is unavailable while the video is generating/rendering.
 
