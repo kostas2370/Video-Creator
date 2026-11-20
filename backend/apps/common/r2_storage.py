@@ -9,6 +9,7 @@ from pathlib import Path
 from threading import RLock
 from uuid import uuid4
 
+from botocore.exceptions import ClientError
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.db.models import FileField
@@ -53,8 +54,6 @@ class R2StorageMixin:
         return blob_name(self.namespace, relative_name(self, name))
 
     def remote_info(self, name):
-        from botocore.exceptions import ClientError
-
         try:
             return self.archive.client.head_object(
                 Bucket=self.archive.bucket, Key=self.object_key(name)

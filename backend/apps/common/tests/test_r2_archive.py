@@ -2,6 +2,10 @@ import io
 import unittest
 from unittest.mock import Mock, patch
 
+import boto3
+from botocore.exceptions import ClientError
+from botocore.stub import Stubber
+
 from apps.common.media_archive import ArchiveError
 from apps.common.r2_archive import R2Archive
 
@@ -18,11 +22,6 @@ class R2ArchiveTests(unittest.TestCase):
                 R2Archive(*args)
 
     def test_real_sdk_accepts_conditional_single_and_multipart_requests(self):
-        try:
-            import boto3
-            from botocore.stub import Stubber
-        except ImportError:
-            self.skipTest("R2 SDK not installed")
         client = boto3.client(
             "s3",
             region_name="auto",
@@ -58,12 +57,6 @@ class R2ArchiveTests(unittest.TestCase):
 
 class R2SDKTests(unittest.TestCase):
     def setUp(self):
-        try:
-            import boto3  # noqa: F401
-            from botocore.exceptions import ClientError
-        except ImportError:
-            self.skipTest("R2 SDK not installed")
-        self.ClientError = ClientError
         self.client_patch = patch("boto3.client")
         self.factory = self.client_patch.start()
         self.addCleanup(self.client_patch.stop)
@@ -72,7 +65,7 @@ class R2SDKTests(unittest.TestCase):
         self.addCleanup(self.archive.close)
 
     def error(self, status):
-        return self.ClientError(
+        return ClientError(
             {
                 "Error": {"Code": str(status)},
                 "ResponseMetadata": {"HTTPStatusCode": status},
@@ -125,7 +118,7 @@ class R2SDKTests(unittest.TestCase):
 
     def test_permission_error_does_not_attempt_upload(self):
         self.client.head_object.side_effect = self.error(403)
-        with self.assertRaises(self.ClientError):
+        with self.assertRaises(ClientError):
             self.archive.upload_if_missing("media/a", io.BytesIO(b"a"), 1, "hash")
         self.client.put_object.assert_not_called()
 

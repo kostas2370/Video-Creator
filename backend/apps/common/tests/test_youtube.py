@@ -65,7 +65,9 @@ class SharedYouTubeDownloadTests(SimpleTestCase):
                 type(youtube.return_value).streams = PropertyMock(
                     side_effect=BotDetection(video_id="abcdefghijk")
                 )
-                with self.assertRaisesMessage(SourceImportError, "YouTube is blocking downloads"):
+                with self.assertRaisesMessage(
+                    SourceImportError, "YouTube is blocking downloads"
+                ):
                     download_youtube_video(
                         "https://youtu.be/abcdefghijk", "/unused", audio_only=audio_only
                     )

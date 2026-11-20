@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.common.r2_storage import _verified
-from apps.common.test_r2_storage import MemoryR2
+from apps.common.tests.test_r2_storage import MemoryR2
 from apps.usermanagement.models import User
 from apps.videomanagement.models import MediaAsset
 

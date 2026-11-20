@@ -3,6 +3,10 @@
 import mimetypes
 import re
 
+import boto3
+from botocore.config import Config
+from botocore.exceptions import ClientError
+
 from apps.common.media_archive import ArchiveError
 
 
@@ -24,13 +28,6 @@ class R2Archive:
             raise ArchiveError(
                 "Set R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY in the server environment."
             )
-        try:
-            import boto3
-            from botocore.config import Config
-        except ImportError:
-            raise ArchiveError(
-                "Install requirements/requirements.txt before using R2 storage."
-            ) from None
         suffix = f".{jurisdiction}" if jurisdiction else ""
         self.bucket = bucket
         self.client = boto3.client(
@@ -57,8 +54,6 @@ class R2Archive:
             raise
 
     def upload_if_missing(self, name, source, size, digest):
-        from botocore.exceptions import ClientError
-
         # Avoid re-uploading large, already copied videos on subsequent runs.
         # Conditional writes below close the race between this read and commit.
         try:

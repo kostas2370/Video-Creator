@@ -1,8 +1,10 @@
+import asyncio
 import hashlib
 import io
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from botocore.exceptions import ClientError
@@ -176,9 +178,6 @@ class R2StorageTests(unittest.TestCase):
         self.assertEqual(self.archive.requests, [])
 
     def test_authorized_response_streams_remote_range_without_local_download(self):
-        import asyncio
-        from types import SimpleNamespace
-
         self.archive.objects["media/remote.mp4"] = b"0123456789"
         field = SimpleNamespace(storage=self.storage, name="remote.mp4")
         response = media_response(
