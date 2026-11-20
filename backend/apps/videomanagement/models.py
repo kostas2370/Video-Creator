@@ -518,7 +518,7 @@ class Video(LifecycleModelMixin, AbstractModel, TimestampedModel, NarrationAsset
     prompt = models.ForeignKey(
         UserPrompt, related_name="video_prompt", on_delete=models.CASCADE
     )
-    genre = models.CharField(blank=True, null=True, max_length=20)
+    genre = models.CharField(blank=True, null=True, max_length=50)
     output = models.FileField(
         upload_to="media/output", blank=True, null=True, max_length=2000
     )

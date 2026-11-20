@@ -11,7 +11,7 @@ django-cleanup
 djangorestframework-simplejwt==5.5.1
 django-taggit
 python-dotenv~=1.2.2
-mysqlclient==2.3.0
+psycopg[binary]>=3.2,<4
 django-axes[ipware]
 g4f
 django-cors-headers
@@ -51,6 +51,7 @@ basicsr @ git+https://github.com/XPixelGroup/BasicSR@8d56e3a045f9fb3e1d8872f92ee
 gdown
 
 # AI providers
+pydantic>=2.4,<3
 openai
 curl_cffi
 google-generativeai

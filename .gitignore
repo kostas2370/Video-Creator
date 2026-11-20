@@ -183,3 +183,6 @@ backend/.local-tunnel/
 .DS_Store
 
 backend/private-clips/
+
+# Private database migration snapshots and verification reports.
+backend/.db-backups/

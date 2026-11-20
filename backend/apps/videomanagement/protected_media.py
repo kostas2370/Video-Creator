@@ -70,7 +70,7 @@ def authorized_file(user, name):
             .values_list("media_source", "media_field", "media_name")
         )
     match = next(iter(lookups[0].union(*lookups[1:], all=True)[:1]), None)
-    # MySQL may compare names case-insensitively; filesystem names must still
+    # Database collations may compare names case-insensitively; media names must still
     # match exactly so another user's differently cased file cannot be served.
     if match is None or match[2] != name:
         raise Http404("Media is unavailable.")

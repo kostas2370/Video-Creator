@@ -59,17 +59,6 @@ SESSION_COOKIE_SECURE = COOKIES_SECURE
 SESSION_COOKIE_SAMESITE = CROSS_SITE_SAMESITE
 
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("MYSQL_DATABASE", "db"),
-        "USER": os.getenv("MYSQL_USER"),
-        "PASSWORD": os.getenv("MYSQL_PASSWORD"),
-        "HOST": os.getenv("MYSQL_HOST"),
-        "PORT": os.getenv("MYSQL_PORT") or "3306",
-    }
-}
-
 EMAIL_BACKEND = (
     os.getenv("EMAIL_BACKEND") or "django.core.mail.backends.smtp.EmailBackend"
 )

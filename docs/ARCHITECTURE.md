@@ -15,7 +15,7 @@ flowchart LR
     Browser[React frontend] --> Nginx[nginx]
     Nginx -->|API, admin, Swagger| Django[Django and DRF]
     Nginx -->|Media files and range requests| Media[(Shared media directory)]
-    Django --> DB[(MySQL)]
+    Django --> DB[(PostgreSQL)]
     Django -->|Queue tasks| Redis[(Redis)]
     Beat[Celery beat] --> Redis
     Redis --> Worker[Celery worker]

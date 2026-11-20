@@ -14,7 +14,7 @@ fixes below. Production throughput and concurrency have not been load-tested.
 
 These are database query counts from isolated Django tests on SQLite, with an
 already authenticated user. The reorder scenario includes one query to prepare
-the submitted scene IDs. They are not HTTP latency or production MySQL benchmarks.
+the submitted scene IDs. They are not HTTP latency or production database benchmarks.
 After the changes, counts remain constant between 2 and 20 scenes. Rendering still
 performs CPU work and file processing proportional to scene count.
 

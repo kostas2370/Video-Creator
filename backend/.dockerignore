@@ -85,3 +85,6 @@ venv/
 /media/other/backgrounds/**
 /media/other/intros/**
 /media/other/outros/**
+
+# Private database migration snapshots and verification reports.
+.db-backups/

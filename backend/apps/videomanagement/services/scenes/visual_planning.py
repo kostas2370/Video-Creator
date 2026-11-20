@@ -15,7 +15,7 @@ def apply_visual_plans(video):
         return
     for scene_id in video.scenes.values_list("pk", flat=True):
         with transaction.atomic():
-            scene = Scene.objects.select_for_update().select_related("video").with_media().get(pk=scene_id)
+            scene = Scene.objects.select_for_update(of=("self",)).select_related("video").with_media().get(pk=scene_id)
             shot_plan = dict(scene.shot_plan or {})
             plan = shot_plan.get("overlay_plan")
             if not plan or plan.get("applied"):

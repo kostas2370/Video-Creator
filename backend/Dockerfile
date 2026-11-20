@@ -25,10 +25,6 @@ RUN pip install \
       torchvision==0.29.1 \
       --index-url https://download.pytorch.org/whl/cpu
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      default-libmysqlclient-dev pkg-config \
-  && rm -rf /var/lib/apt/lists/*
-
 COPY requirements/build.txt ./
 RUN pip install -r build.txt
 
@@ -52,9 +48,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libsm6 \
       libxext6 \
       libxrender1 \
-  && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y --no-install-recommends libmariadb3 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv

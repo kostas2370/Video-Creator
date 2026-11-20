@@ -95,6 +95,27 @@ INTERNAL_IPS = ["127.0.0.1", "::1"]
 # URL configuration
 ROOT_URLCONF = "video_creator.urls"
 
+# Database
+if not os.getenv("POSTGRES_PASSWORD"):
+    raise ImproperlyConfigured("Set POSTGRES_PASSWORD before starting PostgreSQL.")
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB") or "video_creator",
+        "USER": os.getenv("POSTGRES_USER") or "video_creator",
+        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+        "HOST": os.getenv("POSTGRES_HOST") or "postgres",
+        "PORT": os.getenv("POSTGRES_PORT") or "5432",
+        # The API uses ASGI; let requests close their database connections.
+        "CONN_MAX_AGE": 0,
+        "OPTIONS": {
+            "connect_timeout": 10,
+            "sslmode": os.getenv("POSTGRES_SSLMODE") or "prefer",
+        },
+    }
+}
+
 # Authentication
 AUTH_USER_MODEL = "usermanagement.User"
 AUTHENTICATION_BACKENDS = [

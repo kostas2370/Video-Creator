@@ -81,7 +81,7 @@ def apply_auto_motion(video, intensity, animation_preset="NONE", animation_accen
     with editable_video(video.pk) as locked_video:
         scenes = (
             locked_video.scenes.exclude(**settings)
-            .select_for_update()
+            .select_for_update(of=("self",))
             .with_media()
         )
         scene_ids = []
@@ -107,7 +107,7 @@ def update_scene_motion(scene, **changes):
 
 def update_scene_cuts(scene, *, source_duration, sections, previous):
     with editable_video(scene.video_id) as video:
-        scene = get_object_or_404(Scene.objects.select_for_update().with_media(), pk=scene.pk)
+        scene = get_object_or_404(Scene.objects.select_for_update(of=("self",)).with_media(), pk=scene.pk)
         current_duration = scene_timing(scene, next(iter(scene.scene_images.all()), None))["duration"]
         if scene.cuts != previous or not math.isclose(source_duration, current_duration, abs_tol=0.001):
             raise VideoEditConflict("This scene changed in another session. Reopen Cut scene before saving.")
