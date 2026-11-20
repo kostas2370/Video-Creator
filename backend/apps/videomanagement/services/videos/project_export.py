@@ -22,7 +22,7 @@ from rest_framework.response import Response
 
 from apps.common.r2_storage import R2StorageMixin
 from apps.videomanagement.models import IN_FLIGHT_STATUSES, Icon, Video
-from apps.videomanagement.serializers.project_export import (
+from apps.videomanagement.serializers.project_archive import (
     ProjectSceneSerializer,
     ProjectVideoSerializer,
 )

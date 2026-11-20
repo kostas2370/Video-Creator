@@ -1,17 +1,146 @@
-"""Input schema for portable project archives; archive IDs are references only."""
+"""Shared portable project schemas for export and validated import."""
+
+import json
 
 from rest_framework import serializers
 
-from apps.videomanagement.models import MediaAsset, Video
+from apps.videomanagement.models import MediaAsset, Scene, Video
+from apps.videomanagement.schemas.shot_planning import ShotPlanSerializer
 
-from .audio import MusicAudioSerializer
+from .audio import MusicAudioSerializer, SceneAudioSerializer
 from .caption_words import CaptionWordSerializer
-from .covers import CoverSerializer
+from .covers import CoverSettingsSerializer
 from .fields import FiniteFloat
-from .project_export import ProjectSceneAudioSerializer, ProjectSceneSerializer
-from .requests import SceneCutsSerializer, StoryboardSerializer, VideoUpdateSerializer
+from .overlays import OverlaySerializer
+from .requests import (
+    RenderVideoSerializer,
+    SceneCutsSerializer,
+    StoryboardSerializer,
+    VideoUpdateSerializer,
+)
 
 MAX_PROJECT_BYTES = 1024 * 1024 * 1024
+MEDIA_PATH_PATTERN = r"\Amedia/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]{1,10}\Z"
+
+
+class ArchiveCutsSerializer(SceneCutsSerializer):
+    previous = None
+    source_key = serializers.RegexField(r"\A[a-f0-9]{64}\Z", required=False)
+
+
+class ProjectCutsField(serializers.JSONField):
+    def to_internal_value(self, data):
+        return {} if data == {} else ArchiveCutsSerializer().run_validation(data)
+
+
+class ProjectSettingsSerializer(
+    VideoUpdateSerializer, MusicAudioSerializer, RenderVideoSerializer
+):
+    voice_id = None
+    narration_scenes = None
+    retry_narration = None
+
+    gpt_model = serializers.CharField(max_length=200, required=False)
+    image_model = serializers.CharField(max_length=200, required=False)
+    provider = serializers.CharField(max_length=100, required=False)
+    style = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    target_audience = serializers.CharField(
+        max_length=100, required=False, allow_blank=True
+    )
+    narration_language = serializers.CharField(
+        max_length=80, required=False, allow_blank=True
+    )
+    ai_scene_editing = serializers.BooleanField(required=False)
+
+
+class ProjectExportOptionsSerializer(serializers.Serializer):
+    include_output = serializers.BooleanField(default=False)
+    check_only = serializers.BooleanField(default=False)
+
+
+class ProjectSceneAudioSerializer(SceneAudioSerializer):
+    duration = FiniteFloat(
+        min_value=0.1, max_value=900, required=False, allow_null=True
+    )
+
+
+class ProjectSceneSerializer(serializers.ModelSerializer):
+    shot_plan = ShotPlanSerializer()
+    audio_settings = ProjectSceneAudioSerializer()
+    overlays = OverlaySerializer(many=True)
+    cuts = ProjectCutsField()
+
+    class Meta:
+        model = Scene
+        fields = (
+            "id",
+            "position",
+            "text",
+            "script_index",
+            "shot_plan",
+            "caption_alignment",
+            "audio_settings",
+            "motion_style",
+            "animation_preset",
+            "animation_accents",
+            "motion_intensity",
+            "pause_after",
+            "cuts",
+            "transition_after",
+            "transition_duration",
+            "overlays",
+        )
+
+
+class ProjectVideoSerializer(serializers.ModelSerializer):
+    settings = serializers.SerializerMethodField()
+    storyboard = serializers.SerializerMethodField()
+    prompt = serializers.CharField(source="prompt.prompt")
+    voice = serializers.SerializerMethodField()
+    cuts = ProjectCutsField()
+
+    class Meta:
+        model = Video
+        fields = (
+            "title",
+            "description",
+            "tags",
+            "notes",
+            "genre",
+            "video_type",
+            "mode",
+            "settings",
+            "prompt",
+            "storyboard",
+            "voice",
+            "cuts",
+            "cover_settings",
+            "source_audio_duration",
+            "source_audio_words",
+        )
+
+    def get_settings(self, video):
+        return ProjectSettingsSerializer(video.settings or {}).data
+
+    def get_storyboard(self, video):
+        data = video.gpt_answer
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except ValueError:
+                return None
+        if isinstance(data, dict) and "title" in data and "scenes" in data:
+            return StoryboardSerializer(data).data
+        return None
+
+    def get_voice(self, video):
+        if not video.voice_model:
+            return None
+        return {
+            "name": video.voice_model.name,
+            "provider": video.voice_model.provider,
+            "type": video.voice_model.type,
+        }
 
 
 class ProjectImportUploadSerializer(serializers.Serializer):
@@ -24,7 +153,7 @@ class ProjectImportUploadSerializer(serializers.Serializer):
 
 
 class ArchiveFileSerializer(serializers.Serializer):
-    path = serializers.RegexField(r"\Amedia/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]{1,10}\Z")
+    path = serializers.RegexField(MEDIA_PATH_PATTERN)
     size = serializers.IntegerField(min_value=0, max_value=MAX_PROJECT_BYTES)
     sha256 = serializers.RegexField(r"\A[a-f0-9]{64}\Z")
 
@@ -37,8 +166,12 @@ class ArchiveLicenseSerializer(serializers.Serializer):
 
 class ArchiveResourceSerializer(serializers.Serializer):
     id = serializers.UUIDField(required=False)
-    name = serializers.CharField(max_length=140, allow_blank=True)
+    name = serializers.CharField(max_length=100, allow_blank=True)
     file = serializers.CharField(allow_null=True)
+
+
+class ArchiveMusicSerializer(ArchiveResourceSerializer):
+    name = serializers.CharField(max_length=140, allow_blank=True)
     license = ArchiveLicenseSerializer(required=False)
 
 
@@ -63,17 +196,6 @@ class ArchiveAlignmentSerializer(serializers.Serializer):
     source = serializers.CharField(required=False, max_length=64)
 
 
-class ArchiveCutsSerializer(SceneCutsSerializer):
-    previous = serializers.JSONField(required=False)
-    source_key = serializers.RegexField(r"\A[a-f0-9]{64}\Z", required=False)
-
-
-class ArchiveAudioSerializer(ProjectSceneAudioSerializer):
-    duration = FiniteFloat(
-        min_value=0.1, max_value=900, required=False, allow_null=True
-    )
-
-
 class ArchiveSceneSerializer(ProjectSceneSerializer):
     id = serializers.UUIDField()
     position = serializers.IntegerField(min_value=1, max_value=2147483647)
@@ -82,10 +204,8 @@ class ArchiveSceneSerializer(ProjectSceneSerializer):
     )
     text = serializers.CharField(allow_blank=True, max_length=100000)
     caption_alignment = ArchiveAlignmentSerializer()
-    audio_settings = ArchiveAudioSerializer()
     pause_after = FiniteFloat(min_value=0, max_value=10)
     transition_duration = FiniteFloat(min_value=0, max_value=10, allow_null=True)
-    cuts = serializers.JSONField()
     narration = serializers.CharField(allow_null=True)
     voiceover = serializers.CharField(allow_null=True)
     overlay_logo = serializers.CharField(allow_null=True)
@@ -102,80 +222,28 @@ class ArchiveSceneSerializer(ProjectSceneSerializer):
             "visuals",
         )
 
-    def validate_cuts(self, value):
-        return validate_cuts(value)
 
-
-def validate_cuts(value):
-    if value == {}:
-        return {}
-    serializer = ArchiveCutsSerializer(data=value)
-    serializer.is_valid(raise_exception=True)
-    return {
-        key: data
-        for key, data in serializer.validated_data.items()
-        if key != "previous"
-    }
-
-
-class ArchiveSettingsSerializer(VideoUpdateSerializer, MusicAudioSerializer):
-    export_preset = serializers.ChoiceField(
-        choices=("DRAFT", "STANDARD", "HIGH"), required=False
-    )
-    export_fps = serializers.ChoiceField(choices=(24, 30), required=False)
-    gpt_model = serializers.CharField(max_length=200, required=False)
-    image_model = serializers.CharField(max_length=200, required=False)
-    provider = serializers.CharField(max_length=100, required=False)
-    style = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    target_audience = serializers.CharField(
-        max_length=100, required=False, allow_blank=True
-    )
-    narration_language = serializers.CharField(
-        max_length=80, required=False, allow_blank=True
-    )
-    ai_scene_editing = serializers.BooleanField(required=False)
-
-
-class ArchiveCoverSerializer(CoverSerializer):
-    def validate(self, data):
-        return data
-
-
-class ArchiveProjectSerializer(serializers.ModelSerializer):
+class ArchiveProjectSerializer(ProjectVideoSerializer):
     prompt = serializers.CharField(allow_blank=True, max_length=100000)
-    settings = serializers.JSONField()
+    settings = ProjectSettingsSerializer()
     storyboard = StoryboardSerializer(allow_null=True)
     source_audio_duration = FiniteFloat(min_value=0, allow_null=True)
     source_audio_words = CaptionWordSerializer(many=True, max_length=10000)
-    cuts = serializers.JSONField()
     cover_settings = serializers.JSONField()
     avatar = ArchiveResourceSerializer(allow_null=True)
     intro = ArchiveResourceSerializer(allow_null=True)
     outro = ArchiveResourceSerializer(allow_null=True)
-    music = ArchiveResourceSerializer(allow_null=True)
+    music = ArchiveMusicSerializer(allow_null=True)
     reference_image = serializers.CharField(allow_null=True)
     source_audio = serializers.CharField(allow_null=True)
     cover = serializers.CharField(allow_null=True)
     thumbnail = serializers.CharField(allow_null=True)
     output = serializers.CharField(allow_null=True)
 
-    class Meta:
-        model = Video
-        fields = (
-            "title",
-            "description",
-            "tags",
-            "notes",
-            "genre",
-            "video_type",
-            "mode",
-            "settings",
-            "prompt",
-            "storyboard",
-            "cuts",
-            "cover_settings",
-            "source_audio_duration",
-            "source_audio_words",
+    class Meta(ProjectVideoSerializer.Meta):
+        fields = tuple(
+            name for name in ProjectVideoSerializer.Meta.fields if name != "voice"
+        ) + (
             "avatar",
             "intro",
             "outro",
@@ -187,35 +255,8 @@ class ArchiveProjectSerializer(serializers.ModelSerializer):
             "output",
         )
 
-    def validate(self, data):
-        for key in ("avatar", "intro", "outro"):
-            if data[key] and len(data[key]["name"]) > 100:
-                raise serializers.ValidationError(
-                    {key: "Use a name of at most 100 characters."}
-                )
-        return data
-
-    def validate_settings(self, value):
-        editable = ArchiveSettingsSerializer(data=value)
-        editable.is_valid(raise_exception=True)
-        data = dict(editable.validated_data)
-        for key in ("voice_id", "narration_scenes", "retry_narration"):
-            data.pop(key, None)
-        return data
-
-    def validate_cuts(self, value):
-        return validate_cuts(value)
-
     def validate_cover_settings(self, value):
-        if value == {}:
-            return {}
-        serializer = ArchiveCoverSerializer(data=value, partial=True)
-        serializer.is_valid(raise_exception=True)
-        return {
-            key: data
-            for key, data in serializer.validated_data.items()
-            if key != "image"
-        }
+        return CoverSettingsSerializer(partial=True).run_validation(value)
 
 
 class ArchiveIconSerializer(serializers.Serializer):

@@ -167,6 +167,15 @@ class ProjectImportTests(ApiTestCase):
             lambda manifest, files: manifest["project"].update(
                 source_audio="/etc/passwd"
             ),
+            lambda manifest, files: manifest["scenes"][0].update(
+                cuts={"source_duration": 1, "sections": [{"start": 0, "end": 2}]}
+            ),
+            lambda manifest, files: manifest["project"]["settings"].update(
+                export_fps=120
+            ),
+            lambda manifest, files: manifest["project"].update(
+                cover_settings={"size": 999}
+            ),
         ):
             with (
                 self.subTest(edit=edit),
@@ -182,7 +191,18 @@ class ProjectImportTests(ApiTestCase):
         self.assertEqual(Video.objects.count(), 1)
 
     def test_untrusted_settings_are_not_restored(self):
+        self.video.settings.update(
+            voice_id=str(self.user.pk),
+            retry_narration=True,
+            narration_scenes=[
+                {"scene_id": str(self.scene.pk), "text": "Private action"}
+            ],
+        )
+        self.video.save(update_fields=["settings"])
+
         def edit(manifest, files):
+            for key in ("voice_id", "retry_narration", "narration_scenes"):
+                self.assertNotIn(key, manifest["project"]["settings"])
             manifest["project"]["settings"].update(
                 api_key="secret",
                 voice_id=str(self.user.pk),
@@ -239,7 +259,7 @@ class ProjectImportTests(ApiTestCase):
         self.assertIn(self.upload(b"invalid").status_code, (401, 403))
         self.client.force_authenticate(self.user)
         with patch(
-            "apps.videomanagement.serializers.project_import.MAX_PROJECT_BYTES", 2
+            "apps.videomanagement.serializers.project_archive.MAX_PROJECT_BYTES", 2
         ):
             self.assertEqual(self.upload(b"toolarge").status_code, 400)
 
@@ -332,6 +352,13 @@ class ProjectImportTests(ApiTestCase):
                 },
             }
         ]
+        self.video.cover = self.asset.file.name
+        self.video.thumbnail = self.asset.file.name
+        self.video.cover_settings = {
+            "source": "upload",
+            "title": "Cover title",
+            "size": 8,
+        }
         self.scene.overlay_logo = self.asset.file.name
         self.scene.voiceover = self.scene.file.name
         self.scene.save()
@@ -349,6 +376,9 @@ class ProjectImportTests(ApiTestCase):
         self.assertNotEqual(video.outro_id, self.video.outro_id)
         self.assertEqual(video.output.name, video.intro.file.name)
         self.assertEqual(video.intro.file.name, video.outro.file.name)
+        self.assertEqual(video.cover.name, video.scenes.get().starting_asset.file.name)
+        self.assertEqual(video.cover_settings["source"], "upload")
+        self.assertEqual(video.cover_settings["title"], "Cover title")
         self.assertEqual(video.music.catalog_track.attribution, "Test artist")
         self.assertFalse(video.music.catalog_track.approved)
         self.assertEqual(video.music.created_by, self.user)

@@ -2,10 +2,8 @@ from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
-from apps.videomanagement.serializers.project_export import (
+from apps.videomanagement.serializers.project_archive import (
     ProjectExportOptionsSerializer,
-)
-from apps.videomanagement.serializers.project_import import (
     ProjectImportUploadSerializer,
 )
 from apps.videomanagement.services.videos.project_export import project_export_response

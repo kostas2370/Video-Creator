@@ -8,9 +8,7 @@ import re
 import stat
 import subprocess
 import tempfile
-from dataclasses import replace
 from pathlib import Path
-from types import SimpleNamespace
 from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
 from zlib import error as ZipCompressionError
@@ -19,7 +17,7 @@ from django.conf import settings
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.db import transaction
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from rest_framework.exceptions import ValidationError
 
 from apps.videomanagement.models import (
@@ -36,8 +34,9 @@ from apps.videomanagement.models import (
     Video,
     VideoStatus,
 )
-from apps.videomanagement.serializers.project_import import (
+from apps.videomanagement.serializers.project_archive import (
     MAX_PROJECT_BYTES,
+    MEDIA_PATH_PATTERN,
     ProjectManifestSerializer,
 )
 from apps.videomanagement.services.captions.alignment import narration_identity
@@ -101,15 +100,13 @@ def validate_media(path):
             timeout=10,
         )
         streams = json.loads(result.stdout).get("streams", [])
-        if not streams or any(
-            stream.get("codec_type") not in {"audio", "video", "subtitle", "data"}
-            for stream in streams
+        if not any(
+            stream.get("codec_type") in {"audio", "video"} for stream in streams
         ):
             raise ValueError("No supported media streams")
     except (
         OSError,
         ValueError,
-        UnidentifiedImageError,
         Image.DecompressionBombError,
         subprocess.SubprocessError,
     ) as exc:
@@ -118,9 +115,8 @@ def validate_media(path):
 
 def read_archive(bundle, directory):
     members = bundle.infolist()
-    if len(members) > 10001 or len({entry.filename for entry in members}) != len(
-        members
-    ):
+    member_names = {entry.filename for entry in members}
+    if len(members) > 10001 or len(member_names) != len(members):
         raise ValidationError("The ZIP contains too many files or duplicate paths.")
     if sum(entry.file_size for entry in members) > MAX_PROJECT_BYTES:
         raise ValidationError("The unpacked project must be smaller than 1 GB.")
@@ -130,7 +126,7 @@ def read_archive(bundle, directory):
                 "Encrypted files and symbolic links are not supported."
             )
         if entry.filename != "project.json" and not re.fullmatch(
-            r"media/[a-zA-Z0-9_-]+\.[a-zA-Z0-9]{1,10}", entry.filename
+            MEDIA_PATH_PATTERN, entry.filename
         ):
             raise ValidationError("The ZIP contains an unsafe or unexpected path.")
     try:
@@ -170,7 +166,7 @@ def read_archive(bundle, directory):
                 raise ValidationError("A diagram icon is missing from the project ZIP.")
             pending.extend(item.values())
     files = manifest["files"]
-    if {entry.filename for entry in members} != {
+    if member_names != {
         "project.json",
         *(row["path"] for row in files),
     }:
@@ -191,8 +187,6 @@ def read_archive(bundle, directory):
             size = 0
             while chunk := source.read(256 * 1024):
                 size += len(chunk)
-                if size > entry["size"]:
-                    raise ValidationError("A project file exceeds its declared size.")
                 digest.update(chunk)
                 target.write(chunk)
         if size != entry["size"] or digest.hexdigest() != entry["sha256"]:
@@ -335,17 +329,7 @@ def restore_project(user, manifest, stored):
             scene.save(update_fields=["caption_alignment"])
     if video.cuts and rows:
         segments = preview_timeline(video).segments
-        old_segments = [
-            replace(
-                segment,
-                content=SimpleNamespace(
-                    pk=old_ids.get(str(segment.content.pk), str(segment.content.pk)),
-                    cuts=getattr(segment.content, "cuts", {}),
-                ),
-            )
-            for segment in segments
-        ]
-        old_source = video_cut_source(old_segments)
+        old_source = video_cut_source(segments, id_map=old_ids)
         if video.cuts.get("source_key") == old_source["key"] and math.isclose(
             video.cuts["source_duration"], old_source["duration"], abs_tol=0.001
         ):
