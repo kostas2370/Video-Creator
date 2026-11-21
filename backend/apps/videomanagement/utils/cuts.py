@@ -84,10 +84,11 @@ def map_sections(source, sections):
     return result
 
 
-def video_cut_source(segments):
+def video_cut_source(segments, *, id_map=None):
+    ids = id_map or {}
     sections = timeline_sections(segments)
     identity = [
-        [s.kind, str(s.content.pk), round(float(s.start), 6), round(float(s.duration), 6),
+        [s.kind, ids.get(str(s.content.pk), str(s.content.pk)), round(float(s.start), 6), round(float(s.duration), 6),
          getattr(s.content, "cuts", {}) if s.kind == "scene" else {}]
         for s in segments
     ]

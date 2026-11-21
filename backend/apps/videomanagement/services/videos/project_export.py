@@ -22,7 +22,7 @@ from rest_framework.response import Response
 
 from apps.common.r2_storage import R2StorageMixin
 from apps.videomanagement.models import IN_FLIGHT_STATUSES, Icon, Video
-from apps.videomanagement.serializers.project_export import (
+from apps.videomanagement.serializers.project_archive import (
     ProjectSceneSerializer,
     ProjectVideoSerializer,
 )
@@ -128,7 +128,11 @@ def prepare_project_export(video, *, include_output=False):
         for name in ("avatar", "intro", "outro", "music"):
             resource = getattr(video, name)
             project[name] = (
-                {"name": resource.name, "file": archive.media(resource.file)}
+                {
+                    "id": str(resource.pk),
+                    "name": resource.name,
+                    "file": archive.media(resource.file),
+                }
                 if resource
                 else None
             )
