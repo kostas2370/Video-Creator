@@ -24,9 +24,9 @@ checkout total before ordering. The server budget is approximately €10/month;
 domain registration, email delivery, and independent backup storage are separate.
 A Contabo Cloud VPS 6 has since been purchased for a one-month initial term.
 Verify its actual renewal price and billing terms in the customer panel. Domain
-purchase is pending. The initial server setup uses
-`84-54-23-130.sslip.io` for temporary HTTPS; replace `BETA_DOMAIN` after the final
-domain points at the server, then recreate all app services and Caddy.
+registration is complete at Porkbun: `viddiecreator.com`. It points to the VPS
+and is the canonical HTTPS hostname. `www.viddiecreator.com` and the original
+`84-54-23-130.sslip.io` address redirect to it, preserving request paths.
 
 ## Configure a new host
 
@@ -52,7 +52,9 @@ mkdir -p media staticfiles private-publishing private-clips private-render-cache
 
 Set these values in `.env`:
 
-- `BETA_DOMAIN`: the hostname only, without a scheme or path.
+- `BETA_DOMAIN`: the canonical hostname only, without a scheme or path.
+- `BETA_ALIASES`: optional space-separated HTTPS hostnames that redirect to the
+  canonical host. Point their DNS at the same server first; leave blank for none.
 - `SECRET_KEY`: a persistent random secret of at least 50 characters.
 - `FIELD_ENCRYPTION_KEY`: a persistent Fernet key. Preserve it with database backups.
 - `POSTGRES_PASSWORD`: a unique random database password.

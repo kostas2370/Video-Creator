@@ -103,6 +103,7 @@ services:
     restart: unless-stopped
     environment:
       BETA_DOMAIN: ${BETA_DOMAIN:?Set BETA_DOMAIN}
+      BETA_ALIASES: ${BETA_ALIASES:-}
     ports:
       - "80:80"
       - "443:443"

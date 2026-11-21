@@ -1,7 +1,8 @@
 VIDDIE BETA — DEPLOYMENT COMMANDS
 
 Server: 84.54.23.130 (Contabo, Ubuntu 24.04)
-Temporary URL: https://84-54-23-130.sslip.io
+App URL: https://viddiecreator.com
+The old temporary address redirects here.
 Current source: /opt/viddie-current
 Persistent environment/cache root: /opt/viddie/backend
 Compose directory: /opt/viddie-current/backend
@@ -149,8 +150,8 @@ If VPS YouTube downloads fail, reuse verified existing R2 objects and import the
 catalogue metadata. Do not copy private media or credentials with that metadata.
 
 curl -I http://84-54-23-130.sslip.io
-curl -I https://84-54-23-130.sslip.io
-curl -fsS https://84-54-23-130.sslip.io/api/deployment/
+curl -I https://viddiecreator.com
+curl -fsS https://viddiecreator.com/api/deployment/
 
 HTTP should redirect to HTTPS. The deployment endpoint should report false for
 sadtalker_enabled and service_keys_allowed, and true for invite_only.
@@ -158,25 +159,26 @@ Use the owner login stored privately on your Mac to sign in through the browser.
 Adding provider keys or generating media may incur your provider's charges;
 the setup checks do not make paid provider calls.
 
-8. SWITCH TO YOUR PURCHASED DOMAIN LATER
+8. DOMAIN DNS AND HTTPS
 
-At the domain registrar, set an A record for getviddie.app to 84.54.23.130.
+At the domain registrar, set an A record for viddiecreator.com to 84.54.23.130.
 Remove conflicting A/AAAA records for that hostname. Wait until DNS resolves to
 this server, then on SERVER:
 
 cd /opt/viddie-current/backend
 nano .env
 
-Replace the temporary hostname with:
+The configured canonical hostname and redirect aliases are:
 
-BETA_DOMAIN=getviddie.app
+BETA_DOMAIN=viddiecreator.com
+BETA_ALIASES="www.viddiecreator.com 84-54-23-130.sslip.io"
 
 Then:
 
 docker compose -f docker-compose.beta.yml config --quiet
 docker compose -f docker-compose.beta.yml up -d --force-recreate video_creator celery celery-render celery-beat caddy
 docker compose -f docker-compose.beta.yml logs --tail=80 caddy
-curl -I https://getviddie.app
+curl -I https://viddiecreator.com
 
 Caddy obtains the new HTTPS certificate. No frontend rebuild is needed. Log in
 again at the new hostname. Update email and any social-provider callback settings
