@@ -62,6 +62,9 @@ def stored_file_exists(field) -> bool:
         return False
 
     try:
+        storage = getattr(field, "storage", None)
+        if storage is not None:
+            return storage.exists(field.name)
         return os.path.exists(field.path)
     except (ValueError, SuspiciousFileOperation):
         return False
