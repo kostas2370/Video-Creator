@@ -4,6 +4,7 @@ import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
 
 import Navbar from "./components/ui/myNavBar";
 import useAuth from "./hooks/useAuth";
+import { useDeployment } from "./store/DeploymentContext";
 import PersistLogin from "./components/PersistLogin";
 import useTheme from "./hooks/useTheme";
 import { LegalFooter } from "./components/LegalFooter";
@@ -49,6 +50,7 @@ function RequireAuth() {
 }
 
 function App() {
+  const { sadtalker_enabled: presentersEnabled } = useDeployment();
   const location = useLocation();
   const { access_token } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -92,7 +94,7 @@ function App() {
                 <Route path="/captions/" element={<Captions key={location.pathname} />} />
                 <Route path="/captions/:captionId/" element={<Captions key={location.pathname} />} />
                 <Route path="/manual/" element={<ManualVideo />} />
-                <Route path="/avatars/" element={<Avatar />} />
+                <Route path="/avatars/" element={presentersEnabled ? <Avatar /> : <Navigate to="/" replace />} />
                 <Route path="/videos/" element={<Videos />} />
                 <Route
                   path="/videos/:videoId/"

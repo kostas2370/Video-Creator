@@ -38,7 +38,7 @@ from .services import (
     send_contact_message,
     verify_email,
 )
-from .throttling import ContactThrottle, LoginThrottle
+from .throttling import ContactThrottle, LoginThrottle, RegistrationThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ class UserRegisterView(generics.GenericAPIView):
     serializer_class = RegisterSerializer
     permission_classes = (AllowAny,)
     authentication_classes = []
+    throttle_classes = [RegistrationThrottle]
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -65,6 +66,21 @@ class VerifyEmail(generics.GenericAPIView):
     def get(self, request):
         verify_email(request.query_params.get("token"))
         return Response({"email": "Successfully Activated"}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def deployment(request):
+    response = Response(
+        {
+            "sadtalker_enabled": settings.SADTALKER_ENABLED,
+            "service_keys_allowed": settings.SERVICE_API_KEYS_ENABLED,
+            "invite_only": settings.SIGNUP_ALLOWED_EMAILS is not None,
+        }
+    )
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @api_view(["GET"])

@@ -1,4 +1,5 @@
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -12,6 +13,8 @@ PASSWORD = "a-Very-Good-1"
 @override_settings(USER_LIMIT=10)
 class UserRegisterViewTests(TestCase):
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.client = APIClient()
 
     def register(self, **overrides):

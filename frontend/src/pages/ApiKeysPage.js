@@ -64,6 +64,7 @@ export const ApiKeys = () => {
   const [useServiceKeys, setUseServiceKeys] = useState(true);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [keyWarnings, setKeyWarnings] = useState({});
+  const [serviceKeysAllowed, setServiceKeysAllowed] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -78,6 +79,7 @@ export const ApiKeys = () => {
       Object.fromEntries(KEY_FIELDS.map((name) => [name, data[name] ?? ""]))
     );
     setUseServiceKeys(Boolean(data.use_service_api_keys));
+    setServiceKeysAllowed(data.service_keys_allowed !== false);
     setUpdatedAt(data.updated_at ?? null);
     setKeyWarnings(data.key_warnings ?? {});
   };
@@ -240,7 +242,7 @@ export const ApiKeys = () => {
               </p>
             </div>
 
-            <label className="inline-flex items-center cursor-pointer shrink-0">
+            {serviceKeysAllowed && <label className="inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
                 className="sr-only peer"
@@ -250,7 +252,7 @@ export const ApiKeys = () => {
               />
               <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:opacity-60"></div>
               <span className="ms-3 text-sm font-medium">Use my own keys</span>
-            </label>
+            </label>}
           </div>
         </div>
 

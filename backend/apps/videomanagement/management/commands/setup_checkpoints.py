@@ -2,6 +2,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.core.management import BaseCommand
 
 try:
@@ -83,6 +84,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        if not settings.SADTALKER_ENABLED:
+            self.stdout.write("Presenters are disabled; skipping model downloads.")
+            return
         if gdown is None:
             self.stderr.write(
                 self.style.ERROR(

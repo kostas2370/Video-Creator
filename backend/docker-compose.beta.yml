@@ -1,0 +1,132 @@
+name: viddie-beta
+
+x-app: &app
+  image: viddie-beta-backend:local
+  restart: unless-stopped
+  init: true
+  env_file: .env
+  environment:
+    ENV: prod
+    ALLOWED_HOSTS: ${BETA_DOMAIN:?Set BETA_DOMAIN}
+    FRONTEND_URL: https://${BETA_DOMAIN:?Set BETA_DOMAIN}
+    FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?Set and preserve FIELD_ENCRYPTION_KEY}
+    POSTGRES_HOST: postgres
+    CACHE_URL: redis://redis-stack-server:6379/2
+    CELERY_BROKER_URL: redis://redis-stack-server:6379/0
+    CELERY_RESULT_BACKEND: redis://redis-stack-server:6379/0
+    CLIP_STORAGE_ROOT: /app/private-clips
+    RENDER_THREADS: ${RENDER_THREADS:-2}
+    SADTALKER_ENABLED: ${SADTALKER_ENABLED:-false}
+    SERVICE_API_KEYS_ENABLED: ${SERVICE_API_KEYS_ENABLED:-false}
+    INVITE_ONLY: ${INVITE_ONLY:-true}
+  volumes:
+    - .:/app:ro
+    - ./media:/app/media
+    - ./staticfiles:/app/staticfiles
+    - ./private-publishing:/app/private-publishing
+    - ./private-clips:/app/private-clips
+    - ./private-render-cache:/app/private-render-cache
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis-stack-server:
+      condition: service_healthy
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-video_creator}
+      POSTGRES_USER: ${POSTGRES_USER:-video_creator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging: *logging
+
+  redis-stack-server:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    logging: *logging
+
+  video_creator:
+    <<: *app
+    build:
+      context: .
+      args:
+        WITH_SADTALKER: ${SADTALKER_ENABLED:-false}
+    command: ["uvicorn", "video_creator.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--lifespan", "off", "--no-proxy-headers"]
+
+  celery:
+    <<: *app
+    command: ["celery", "-A", "video_creator", "worker", "--loglevel=info", "--pool=solo", "-Q", "celery", "-n", "general@%h"]
+
+  celery-render:
+    <<: *app
+    command: ["celery", "-A", "video_creator", "worker", "--loglevel=info", "--pool=solo", "-Q", "renders", "-n", "renders@%h"]
+
+  celery-beat:
+    <<: *app
+    command: ["celery", "-A", "video_creator", "beat", "--loglevel=info", "--pidfile=/tmp/celerybeat.pid", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+
+  frontend:
+    build: ../frontend
+    restart: unless-stopped
+    volumes:
+      - ./media:/usr/share/nginx/media:ro
+      - ./staticfiles:/usr/share/nginx/django/static:ro
+      - ./deploy/proxy-trust.conf:/etc/nginx/viddie/proxy-trust.conf:ro
+    depends_on:
+      - video_creator
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      BETA_DOMAIN: ${BETA_DOMAIN:?Set BETA_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      default:
+        ipv4_address: 172.30.230.2
+    depends_on:
+      - frontend
+    logging: *logging
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.230.0/24
+          ip_range: 172.30.230.128/25
+
+volumes:
+  postgres-data:
+  redis-data:
+  caddy-data:
+  caddy-config:

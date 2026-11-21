@@ -2,7 +2,9 @@ import logging
 from contextlib import contextmanager
 
 import requests
+from django.conf import settings
 from django.db import DatabaseError, transaction
+from rest_framework.exceptions import ValidationError
 
 from apps.common.provider_errors import ProviderRequestError, provider_failure
 
@@ -55,6 +57,12 @@ def unauthorized(error):
 
 @contextmanager
 def key_request(user, provider, api_key=None):
+    if not settings.SERVICE_API_KEYS_ENABLED:
+        api_key = ApiKeys.key_for(user, provider)
+        if not api_key:
+            raise ValidationError(
+                "Add your own provider key in API keys and providers before generating."
+            )
     try:
         yield api_key or ApiKeys.key_for(user, provider)
     except Exception as error:

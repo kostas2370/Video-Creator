@@ -65,7 +65,7 @@ def record_usage(
                 provider=provider,
                 model=model,
                 key_source="personal"
-                if custom or not user.use_service_api_keys
+                if custom or not user.uses_service_api_keys
                 else "service",
                 **tokens,
                 characters=characters,

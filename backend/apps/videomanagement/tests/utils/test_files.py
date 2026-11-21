@@ -35,6 +35,12 @@ class GenerateDirectoryTests(SimpleTestCase):
         self.assertNotEqual(first, second)
         self.assertEqual(second, self.path("a-video 1"))
 
+    def test_creates_missing_parent_folders_on_a_fresh_deployment(self):
+        created = generate_directory(self.path("media", "videos", "a-video"))
+
+        self.assertTrue(os.path.isdir(os.path.join(created, "dialogues")))
+        self.assertTrue(os.path.isdir(os.path.join(created, "images")))
+
     def test_keeps_counting_past_the_first_collision(self):
         for _ in range(3):
             generate_directory(self.path("a-video"))

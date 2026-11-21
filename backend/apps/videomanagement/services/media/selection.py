@@ -1,13 +1,18 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError as APIValidationError
 
-from apps.videomanagement.models import VoiceModel
+from apps.videomanagement.models import Avatar, VoiceModel
 
 
 def owned_asset(model, selection, owner):
     """Resolve a private asset before changing a video or starting generation."""
     if selection in (None, "", "None", "null"):
         return None
+    if model is Avatar and not settings.SADTALKER_ENABLED:
+        raise APIValidationError(
+            {"avatar": "Presenters are disabled on this deployment."}
+        )
     try:
         return model.objects.get(pk=selection, created_by=owner)
     except (model.DoesNotExist, ValueError, TypeError, ValidationError):

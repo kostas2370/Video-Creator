@@ -1,0 +1,46 @@
+Django==5.2.18
+boto3>=1.40,<2
+djangorestframework==3.18.3
+Pillow==13.0.0
+celery[redis]==5.6.3
+django-eventstream[drf]==5.3.4
+asgiref==3.12.1
+python-dateutil==2.8.2
+PyJWT>=2.10,<3
+django-celery-beat==2.9.0
+django-cleanup
+djangorestframework-simplejwt==5.5.1
+django-taggit
+python-dotenv~=1.2.2
+psycopg[binary]>=3.2,<4
+django-axes[ipware]
+django-cors-headers
+python-slugify==8.0.1
+drf-yasg
+django-resized
+django-filter
+django-lifecycle>=1.2
+django-encrypted-model-fields
+django-rest-passwordreset
+
+# Media and rendering
+numpy<2
+filelock==4.2.1
+ushlex
+bing_image_downloader
+pytubefix==11.2.1
+imageio==2.38.0
+imageio-ffmpeg==0.6.0
+pydub==0.25.1
+
+# AI providers
+pydantic>=2.4,<3
+openai
+curl_cffi
+google-generativeai
+anthropic
+
+model-bakery==1.24.2
+
+# ASGI HTTP server for streaming video updates
+uvicorn==0.30.6

@@ -1,4 +1,4 @@
 setuptools>=83
-wheel
+wheel>=0.46.2
 cython
 numpy<2

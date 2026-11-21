@@ -1,5 +1,6 @@
 import { HiOutlineSpeakerWave } from "react-icons/hi2";
 import { NarrationLanguage } from "../components/NarrationLanguage";
+import { useDeployment } from "../store/DeploymentContext";
 import { VoicePreview } from "../components/VoicePreview";
 import { StartingFrameOption } from "../components/StartingFrameOption";
 import { GenerationMusic } from "../components/GenerationMusic";
@@ -47,11 +48,12 @@ const inputClassName =
   "w-full p-3 mt-2 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60 dark:bg-gray-900/50 dark:border-gray-600 dark:text-white dark:placeholder-gray-400";
 
 const Home = ({ inputMode = "idea" }) => {
+  const { sadtalker_enabled: presentersEnabled } = useDeployment();
   const textMode = inputMode === "text";
   const isOpenFunction = (data) => {
     setOpen(data);
   };
-  const avatarOptions = useAssetOptions(getAvatars);
+  const avatarOptions = useAssetOptions(getAvatars, presentersEnabled);
   const templateOptions = useAssetOptions(getTemplates);
   const voiceOptions = useAssetOptions(getVoices);
   const avatars = avatarOptions.items;
@@ -202,7 +204,7 @@ const Home = ({ inputMode = "idea" }) => {
           genre: selectedTemplate.genre ?? "",
           target_audience: selectedTemplate.target_audience ?? "",
           narration_language: selectedTemplate.narration_language ?? "",
-          avatar_selection: selectedTemplate.avatar_selection ?? "",
+          avatar_selection: presentersEnabled ? selectedTemplate.avatar_selection ?? "" : "",
           voice_id: selectedTemplate.voice_id ?? "",
           gpt_model: selectedTemplate.gpt_model ?? prevData.gpt_model,
           platform: selectedTemplate.platform ?? prevData.platform,
@@ -274,7 +276,7 @@ const Home = ({ inputMode = "idea" }) => {
     }
     setIsLoading(true);
 
-    const generationData = { ...formData, ...(textMode ? { ...(audioMode ? { voice_id: "", avatar_selection: "" } : { source_text: formData.message }), narration: true, narration_language: "" } : {}), review_starting_frames: !!formData.review_starting_frames && supportsReference && isBuiltinVideoProvider(formData.provider), review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
+    const generationData = { ...formData, ...(!presentersEnabled ? { avatar_selection: "" } : {}), ...(textMode ? { ...(audioMode ? { voice_id: "", avatar_selection: "" } : { source_text: formData.message }), narration: true, narration_language: "" } : {}), review_starting_frames: !!formData.review_starting_frames && supportsReference && isBuiltinVideoProvider(formData.provider), review_script: true, scene_count: formData.scene_count === "" ? null : Number(formData.scene_count) };
     if (textMode) delete generationData.message;
     delete generationData.input_source;
     let payload = generationData;
@@ -334,6 +336,10 @@ const Home = ({ inputMode = "idea" }) => {
   const selectedVoice = voices.find((voice) => String(voice.id) === String(formData.voice_id));
   const selectedVisualProvider = visualProviders.find((provider) => provider.name === formData.provider);
   const unavailableVisualProvider = formData.image_mode === "AI" && !isBuiltinVisualProvider(formData.provider) && (visualProvidersLoading || Boolean(visualProvidersError) || !selectedVisualProvider);
+  useEffect(() => {
+    if (!presentersEnabled) setFormData(current => current.avatar_selection ? { ...current, avatar_selection: "" } : current);
+  }, [presentersEnabled, formData.avatar_selection]);
+
   const selectedAvatar = avatars.find((avatar) => String(avatar.id) === String(formData.avatar_selection));
   const field = (name, label, children, hint) => (
     <div>
@@ -432,8 +438,8 @@ const Home = ({ inputMode = "idea" }) => {
                 {!visualProvidersLoading && !visualProvidersError && !isBuiltinVisualProvider(formData.provider) && !visualProviders.some((provider) => provider.name === formData.provider) ? <span className="text-amber-700 dark:text-amber-400">This saved provider is unavailable. Choose another provider. </span> : null}
                 <Link to="/api-keys/?section=visual" className="text-blue-600 underline dark:text-blue-400">Manage custom images and videos</Link>
               </span> : null)}
-              {field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration || audioMode), "An avatar uses its assigned voice.")}
-              <MoreAssetOptions options={avatarOptions} label="presenters" />
+              {presentersEnabled && field("avatar_selection", "Presenter", select("avatar_selection", <><option value="">No avatar</option>{avatars.map((avatar) => <option key={avatar.id} value={avatar.id}>{avatar.name}</option>)}</>, optionsLoading || !formData.narration || audioMode), "An avatar uses its assigned voice.")}
+              {presentersEnabled && <MoreAssetOptions options={avatarOptions} label="presenters" />}
             </div></details>
             <StartingFrameOption mode={formData.image_mode} provider={formData.provider} checked={!!formData.review_starting_frames} onChange={value => setFormData(previous => ({ ...previous, review_starting_frames: value }))} disabled={isLoading} />
             {unavailableVisualProvider && <p role="alert" className="mt-3 text-sm text-amber-700 dark:text-amber-300">Your saved visual provider is unavailable. Open provider options and choose another.</p>}
