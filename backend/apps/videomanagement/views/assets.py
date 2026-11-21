@@ -1,10 +1,12 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from django.conf import settings
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -151,6 +153,11 @@ class AvatarView(viewsets.ModelViewSet):
     serializer_class = AvatarSerializer
     queryset = Avatar.objects.select_related("voice").order_by("id")
     permission_classes = [IsAuthenticated, IsOwnerPermission]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if not settings.SADTALKER_ENABLED:
+            raise NotFound("Presenters are disabled on this deployment.")
 
 
 class LimitedClipView(viewsets.ModelViewSet):

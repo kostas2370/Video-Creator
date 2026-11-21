@@ -1,0 +1,196 @@
+VIDDIE BETA — DEPLOYMENT COMMANDS
+
+Server: 84.54.23.130 (Contabo, Ubuntu 24.04)
+Temporary URL: https://84-54-23-130.sslip.io
+Server checkout: /opt/viddie
+Compose directory: /opt/viddie/backend
+
+Commands marked MAC run in Terminal on your Mac. Commands marked SERVER run
+after connecting to the VPS. Do not paste passwords into chat or commit .env.
+The current server source includes the beta release changes. Until the beta
+release PR is merged, pulling main alone will not reproduce this deployment.
+
+1. CONNECT TO THE EXISTING SERVER — MAC
+
+ssh -i ~/.ssh/viddie_beta_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/viddie_beta_known_hosts root@84.54.23.130
+
+The dedicated key is already installed. The old password shared in chat has been
+replaced. Your private recovery files on this Mac are:
+
+~/.ssh/viddie_beta_root_password
+~/.ssh/viddie_beta_owner_login.json
+
+Do not put either file in the project or upload them to GitHub.
+
+2. CHECK STATUS AND LOGS — SERVER
+
+cd /opt/viddie/backend
+docker compose -f docker-compose.beta.yml ps
+docker compose -f docker-compose.beta.yml logs --tail=100 video_creator celery celery-render celery-beat caddy
+
+Follow API logs live; press Control-C to stop following:
+
+docker compose -f docker-compose.beta.yml logs -f --tail=50 video_creator
+
+Logs can contain private application details. Review them before sharing.
+
+3. CHANGE FEATURE SWITCHES — SERVER
+
+cd /opt/viddie/backend
+nano .env
+
+Current preview values:
+
+SADTALKER_ENABLED=false
+SERVICE_API_KEYS_ENABLED=false
+INVITE_ONLY=true
+BETA_SIGNUP_EMAILS=
+RENDER_THREADS=2
+
+An empty invite list closes signup. Existing accounts can still log in.
+To invite testers later, first configure SMTP, then add comma-separated emails:
+
+BETA_SIGNUP_EMAILS=first@example.com,second@example.com
+
+INVITE_ONLY=false opens registration, still subject to USER_LIMIT and rate limits.
+SERVICE_API_KEYS_ENABLED=true allows accounts to opt into configured operator keys.
+Keep it false if everyone must use personal provider keys.
+
+After saving .env, recreate the API and all background services:
+
+docker compose -f docker-compose.beta.yml up -d --force-recreate video_creator celery celery-render celery-beat
+
+A plain restart does not load changed Compose environment variables. Reload the
+browser after recreation. These feature switches need no frontend rebuild.
+
+Enabling SadTalker additionally needs an image rebuild and model downloads:
+
+docker compose -f docker-compose.beta.yml build --pull video_creator
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py setup_checkpoints
+docker compose -f docker-compose.beta.yml up -d --force-recreate video_creator celery celery-render celery-beat
+
+Only run those SadTalker commands after setting SADTALKER_ENABLED=true. Model
+downloads use disk space and presenter generation requires more CPU/RAM.
+
+4. MAKE A CONSISTENT LOCAL SERVER BACKUP — SERVER
+
+First let active generation/export jobs finish. These commands temporarily stop
+the app and workers; the database stays running. Keep the same Terminal open so
+the backup_dir variable remains available.
+
+cd /opt/viddie/backend
+umask 077
+backup_dir="/var/backups/viddie/$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$backup_dir"
+docker compose -f docker-compose.beta.yml stop video_creator celery celery-render celery-beat
+docker compose -f docker-compose.beta.yml exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > "$backup_dir/database.dump"
+tar -czf "$backup_dir/files.tar.gz" .env media private-publishing private-clips
+test -s "$backup_dir/database.dump" && test -s "$backup_dir/files.tar.gz" && echo "Backup files created"
+docker compose -f docker-compose.beta.yml up -d video_creator celery celery-render celery-beat
+
+Check that each command succeeds. A backup on this server does not protect against
+loss of the server. Copy backups to separate private storage and encrypt them
+before off-site transfer. Keep FIELD_ENCRYPTION_KEY with the database backup;
+changing or losing it makes saved provider keys unreadable.
+
+5. UPLOAD THE CURRENT LOCAL SOURCE — MAC
+
+Run the tests first. Use a trusted checkout and review git status. The archive
+includes tracked and non-ignored new files, including uncommitted changes. It
+excludes .env, generated files, and local private media through Git's file list.
+
+cd /Users/kostas2372/video-creator/Video-Creator
+git status --short
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+import tarfile
+
+root = Path.cwd()
+files = subprocess.check_output([
+    "git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"
+]).split(b"\0")
+with tarfile.open("/tmp/viddie-beta-release.tar.gz", "w:gz") as archive:
+    for raw in files:
+        if not raw:
+            continue
+        name = raw.decode()
+        if any(part in {
+            ".git", ".env", ".aws", ".ssh", ".db-backups", "node_modules",
+            "__pycache__"
+        } for part in Path(name).parts):
+            raise SystemExit("Unsafe archive path; review the checkout")
+        path = root / name
+        if path.is_file() or path.is_symlink():
+            archive.add(path, arcname=name, recursive=False)
+print("Created /tmp/viddie-beta-release.tar.gz")
+PY
+scp -i ~/.ssh/viddie_beta_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/viddie_beta_known_hosts /tmp/viddie-beta-release.tar.gz root@84.54.23.130:/tmp/viddie-beta-release.tar.gz
+
+6. APPLY THAT SOURCE AND REBUILD — SERVER
+
+Make and verify a backup first, as above. Let active jobs finish before stopping.
+Do not extract a source update over actively running app processes.
+
+cd /opt/viddie/backend
+docker compose -f docker-compose.beta.yml stop video_creator celery celery-render celery-beat
+tar -xzf /tmp/viddie-beta-release.tar.gz -C /opt/viddie
+docker compose -f docker-compose.beta.yml config --quiet
+docker compose -f docker-compose.beta.yml build --pull video_creator frontend
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py migrate --noinput
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py collectstatic --noinput
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py check --deploy
+docker compose -f docker-compose.beta.yml up -d --force-recreate
+docker compose -f docker-compose.beta.yml ps
+
+Stop and inspect any failure before continuing. Do not generate migrations on the
+server. The source archive overlays the checkout; review obsolete source files
+when deploying a revision that removes files. Never delete .env or persistent
+storage to clean a checkout. Automatic CI/CD is not configured by these commands.
+
+7. BASIC LIVE CHECKS — MAC OR SERVER
+
+curl -I http://84-54-23-130.sslip.io
+curl -I https://84-54-23-130.sslip.io
+curl -fsS https://84-54-23-130.sslip.io/api/deployment/
+
+HTTP should redirect to HTTPS. The deployment endpoint should report false for
+sadtalker_enabled and service_keys_allowed, and true for invite_only.
+Use the owner login stored privately on your Mac to sign in through the browser.
+Adding provider keys or generating media may incur your provider's charges;
+the setup checks do not make paid provider calls.
+
+8. SWITCH TO YOUR PURCHASED DOMAIN LATER
+
+At the domain registrar, set an A record for getviddie.app to 84.54.23.130.
+Remove conflicting A/AAAA records for that hostname. Wait until DNS resolves to
+this server, then on SERVER:
+
+cd /opt/viddie/backend
+nano .env
+
+Replace the temporary hostname with:
+
+BETA_DOMAIN=getviddie.app
+
+Then:
+
+docker compose -f docker-compose.beta.yml config --quiet
+docker compose -f docker-compose.beta.yml up -d --force-recreate video_creator celery celery-render celery-beat caddy
+docker compose -f docker-compose.beta.yml logs --tail=80 caddy
+curl -I https://getviddie.app
+
+Caddy obtains the new HTTPS certificate. No frontend rebuild is needed. Log in
+again at the new hostname. Update email and any social-provider callback settings
+to use the new hostname too.
+
+9. IMPORTANT LIMITS OF THIS FIRST PREVIEW
+
+Signup is closed. Email delivery/password-reset emails are not configured yet.
+The owner account was verified directly during setup. SadTalker and shared
+provider keys are disabled. Keep the preview restricted to your owner account
+until the remaining image security findings and email setup are reviewed.
+See docs/beta-release.md for the detailed release and restore procedure.
+
+Do not run "docker compose down -v", "docker volume prune", or delete the server's
+data directories: those actions can destroy your database or media.

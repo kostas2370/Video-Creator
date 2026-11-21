@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import (
@@ -45,11 +46,20 @@ class ApiKeysSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        data["use_service_api_keys"] = instance.user.uses_service_api_keys
+        data["service_keys_allowed"] = settings.SERVICE_API_KEYS_ENABLED
 
         for field in KEY_FIELDS:
             data[field] = ApiKeys.mask(getattr(instance, field, ""))
 
         return data
+
+    def validate_use_service_api_keys(self, value):
+        if value and not settings.SERVICE_API_KEYS_ENABLED:
+            raise serializers.ValidationError(
+                "This deployment requires your own provider keys."
+            )
+        return value
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})

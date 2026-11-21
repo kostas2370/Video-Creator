@@ -105,6 +105,8 @@ class ApiKeys(LifecycleModelMixin, UUIDModel):
         """Resolve a set of providers from one fresh credential read, without caching secrets."""
         fields = {provider: cls.FIELDS[provider] for provider in providers}
         if user is None:
+            if not settings.SERVICE_API_KEYS_ENABLED:
+                return dict.fromkeys(fields)
             return {
                 provider: getattr(settings, setting, None) or None
                 for provider, (_, setting) in fields.items()
@@ -113,7 +115,7 @@ class ApiKeys(LifecycleModelMixin, UUIDModel):
         if not getattr(user, "is_authenticated", False):
             return dict.fromkeys(fields)
 
-        if user.use_service_api_keys:
+        if user.uses_service_api_keys:
             return {
                 provider: getattr(settings, setting, None) or None
                 for provider, (_, setting) in fields.items()

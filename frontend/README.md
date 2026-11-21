@@ -23,6 +23,14 @@ Production output goes to `build/`, with hashed assets under `static/`, matching
 the Docker nginx configuration. `npm run preview` serves a build locally; use
 `npm start` for development with the backend proxy.
 
+Builds also create lossless `.gz` copies of compressible web assets and preview
+fonts using Node's built-in compression. Docker nginx serves these when the browser
+accepts gzip, avoiding compression work on each request. Original files remain
+available for other clients. Hashed app assets retain their one-year cache policy;
+preview fonts are cached for seven days. Rebuild and recreate the frontend container
+to apply these changes. Vite's development and preview servers do not use this
+nginx configuration.
+
 The API host is relative by default. Existing `REACT_APP_API_HOST` settings in
 the environment or frontend `.env` files remain supported at build time. Only
 that setting is copied into the browser bundle; keep provider credentials in

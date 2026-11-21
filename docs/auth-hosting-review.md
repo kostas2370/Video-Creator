@@ -1,5 +1,11 @@
 # Authentication and public hosting review — 14 November 2026
 
+Historical review: subsequent code changes address the signing-secret, cookie-CSRF,
+login-limit, private-media, and port-exposure findings below. The beta preparation
+also adds personal-key enforcement, disabled presenters, invitation-only signup,
+and registration limits. See [the beta deployment guide](beta-release.md) for the
+current configuration and the remaining checks against the real public host.
+
 The current code is **not ready for public hosting without security work**. This is a focused source review, not a penetration test or a verification of a deployed host. No credentials were inspected or changed. The UI changes in this PR do not fix the findings below.
 
 ## Findings to address before release

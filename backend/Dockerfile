@@ -1,6 +1,10 @@
 # Two stages: the builder owns the compilers and the git checkouts, and only the
 # finished virtualenv is carried into the runtime image.
+FROM node:24.22.3-bookworm-slim AS node-runtime
+
 FROM python:3.11-slim AS builder
+
+ARG WITH_SADTALKER=true
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
@@ -20,18 +24,26 @@ WORKDIR /app
 RUN python -m pip install --upgrade pip
 
 
-RUN pip install \
+RUN if [ "$WITH_SADTALKER" = "true" ]; then pip install \
       torch==2.14.1 \
       torchvision==0.29.1 \
-      --index-url https://download.pytorch.org/whl/cpu
+      --index-url https://download.pytorch.org/whl/cpu; fi
 
 COPY requirements/build.txt ./
 RUN pip install -r build.txt
 
-COPY requirements/requirements.txt requirements/constraints.txt ./
+COPY requirements/ ./requirements/
 
 
-RUN PIP_CONSTRAINT=constraints.txt pip install --no-build-isolation -r requirements.txt
+RUN case "$WITH_SADTALKER" in \
+      true) requirements_file=requirements/requirements.txt ;; \
+      false) requirements_file=requirements/runtime.txt ;; \
+      *) exit 2 ;; \
+    esac \
+    && PIP_CONSTRAINT=requirements/constraints.txt pip install --no-build-isolation -r "$requirements_file"
+
+COPY --from=node-runtime /usr/local/bin/node /opt/venv/lib/python3.11/site-packages/nodejs_wheel/bin/node
+RUN rm -rf /opt/venv/lib/python3.11/site-packages/nodejs_wheel/lib/node_modules
 
 
 FROM python:3.11-slim
@@ -39,7 +51,9 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN /usr/local/bin/python -m pip install --no-cache-dir --upgrade pip 'setuptools>=83' 'wheel>=0.46.2'
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
       ffmpeg \
       fonts-dejavu-core \
       # opencv needs these; the slim image does not carry them

@@ -1,10 +1,13 @@
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.exceptions import APIException
 
 from apps.apikeysmanagement.baker_recipes import user_custom_tts_provider
 from apps.apikeysmanagement.models import UserCustomTTSProvider
+from apps.apikeysmanagement.models import Provider
 from apps.usermanagement.baker_recipes import user as user_recipe
 from apps.videomanagement.baker_recipes import scene, video, voice_model
 from apps.videomanagement.integrations.tts import CustomTTSProvider
@@ -111,6 +114,31 @@ class UpdateSceneTests(TestCase):
         line.refresh_from_db()
         self.assertEqual(line.file, "dialogues/new.wav")
         self.assertEqual(save_mock.call_args.args[1], line.text)
+
+    def test_project_without_a_directory_saves_narration_under_the_media_root(self):
+        voice = voice_model.make(provider=Provider.OPENAI, created_by=self.user)
+        project = video.make(created_by=self.user, voice_model=voice, dir_name="")
+        line = scene.make(video=project)
+
+        def write_audio(text, save_path, *args, **kwargs):
+            Path(save_path).write_bytes(b"RIFFtest")
+
+        with (
+            tempfile.TemporaryDirectory() as root,
+            override_settings(MEDIA_ROOT=root),
+            patch(
+                "apps.videomanagement.integrations.tts.OpenAITTSProvider.generate",
+                side_effect=write_audio,
+            ),
+            patch.object(audio_utils, "align_scene_narration"),
+        ):
+            update_scene(line)
+            project.refresh_from_db()
+            line.refresh_from_db()
+            directory = Path(root, "media", "videos", str(project.pk))
+            self.assertEqual(Path(project.dir_name), directory)
+            self.assertEqual(Path(line.file.name).parent, directory / "dialogues")
+            self.assertEqual(Path(line.file.name).read_bytes(), b"RIFFtest")
 
 
 class SilentProjectTextTests(TestCase):

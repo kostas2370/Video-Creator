@@ -1,5 +1,34 @@
 # Performance check — 11 October 2026
 
+## Frontend transfer optimization — 21 November 2026
+
+Production builds now precompress static web assets and TrueType preview fonts at
+gzip level 9. nginx serves the compressed copies to compatible clients, avoiding
+per-request compression, and caches preview fonts for seven days. Originals remain
+available; no glyphs, image quality, or application behavior were removed.
+
+Measured on the local production build:
+
+| Assets | Previous transfer bytes | Precompressed bytes | Reduction |
+| --- | ---: | ---: | ---: |
+| All preview fonts | 4,574,200 | 2,388,467 | 47.8% |
+| All JavaScript and CSS | 528,186 | 456,515 | 13.6% |
+
+The JavaScript/CSS baseline uses nginx's default gzip level 1 on the same build;
+fonts previously had no compression configured. These totals describe the complete
+asset set, not one page load. Pages and fonts still load on demand. Compressed copies
+add approximately 2.7 MiB to build storage. There are no new dependencies.
+
+Verified compression round trips against the built assets, nginx configuration,
+and actual compressed/uncompressed font responses plus uncached compressed HTML
+in an isolated frontend container. No page-load latency, concurrent-user capacity,
+or generation/rendering speed improvement is claimed from these byte counts.
+
+Rebuild and recreate the frontend container to enable the change. Development and
+Vite preview servers retain their existing serving behavior.
+
+## Backend query checks — 11 October 2026
+
 The query structure is suitable for further small-deployment testing after the
 fixes below. Production throughput and concurrency have not been load-tested.
 

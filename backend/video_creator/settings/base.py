@@ -8,6 +8,8 @@ from urllib.parse import unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 
+from video_creator.settings.environment import env_bool
+
 # Paths
 # settings/ is a package now, so BASE_DIR is three parents up rather than two.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -313,6 +315,18 @@ REST_FRAMEWORK = {
 
 # Custom Settings
 USER_LIMIT = int(os.getenv("USER_LIMIT", 10))
+SERVICE_API_KEYS_ENABLED = env_bool("SERVICE_API_KEYS_ENABLED", default=True)
+SADTALKER_ENABLED = env_bool("SADTALKER_ENABLED", default=True)
+RENDER_THREADS = max(1, min(8, int(os.getenv("RENDER_THREADS") or 8)))
+SIGNUP_ALLOWED_EMAILS = (
+    tuple(
+        email.strip().casefold()
+        for email in (os.getenv("BETA_SIGNUP_EMAILS") or "").split(",")
+        if email.strip()
+    )
+    if env_bool("INVITE_ONLY", default=False)
+    else None
+)
 TRUSTED_PROXY_HOPS = int(os.getenv("TRUSTED_PROXY_HOPS") or 0)
 TEST_RUNNER = "video_creator.test_runner.ServiceKeysRunner"
 

@@ -5,8 +5,22 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F401,F403
 from .base import BASE_DIR, FRONTEND_URL, SECRET_KEY, SIMPLE_JWT
+from .base import CACHES as BASE_CACHES
+from .environment import env_bool
 
 DEBUG = False
+SERVICE_API_KEYS_ENABLED = env_bool("SERVICE_API_KEYS_ENABLED", default=False)
+SADTALKER_ENABLED = env_bool("SADTALKER_ENABLED", default=False)
+RENDER_THREADS = max(1, min(8, int(os.getenv("RENDER_THREADS") or 2)))
+SIGNUP_ALLOWED_EMAILS = (
+    tuple(
+        email.strip().casefold()
+        for email in (os.getenv("BETA_SIGNUP_EMAILS") or "").split(",")
+        if email.strip()
+    )
+    if env_bool("INVITE_ONLY", default=True)
+    else None
+)
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -40,6 +54,7 @@ SECURE_HSTS_PRELOAD = False
 
 # Shared across API workers; keep rate-limit counters separate from Celery data.
 CACHES = {
+    **BASE_CACHES,
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": os.getenv("CACHE_URL") or "redis://redis-stack-server:6379/2",
