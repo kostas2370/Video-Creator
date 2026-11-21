@@ -2,8 +2,9 @@ VIDDIE BETA — DEPLOYMENT COMMANDS
 
 Server: 84.54.23.130 (Contabo, Ubuntu 24.04)
 Temporary URL: https://84-54-23-130.sslip.io
-Server checkout: /opt/viddie
-Compose directory: /opt/viddie/backend
+Current source: /opt/viddie-current
+Persistent environment/cache root: /opt/viddie/backend
+Compose directory: /opt/viddie-current/backend
 
 Commands marked MAC run in Terminal on your Mac. Commands marked SERVER run
 after connecting to the VPS. Do not paste passwords into chat or commit .env.
@@ -24,7 +25,7 @@ Do not put either file in the project or upload them to GitHub.
 
 2. CHECK STATUS AND LOGS — SERVER
 
-cd /opt/viddie/backend
+cd /opt/viddie-current/backend
 docker compose -f docker-compose.beta.yml ps
 docker compose -f docker-compose.beta.yml logs --tail=100 video_creator celery celery-render celery-beat caddy
 
@@ -36,7 +37,7 @@ Logs can contain private application details. Review them before sharing.
 
 3. CHANGE FEATURE SWITCHES — SERVER
 
-cd /opt/viddie/backend
+cd /opt/viddie-current/backend
 nano .env
 
 Current preview values:
@@ -46,6 +47,11 @@ SERVICE_API_KEYS_ENABLED=false
 INVITE_ONLY=true
 BETA_SIGNUP_EMAILS=
 RENDER_THREADS=2
+R2_STORAGE_ENABLED=true
+
+R2 connection credentials are configured privately in the server .env. Keep them
+out of Git and chat. R2 is the active private media store; rendering still uses a
+local working cache. See docs/r2-storage.md for verification and backup details.
 
 An empty invite list closes signup. Existing accounts can still log in.
 To invite testers later, first configure SMTP, then add comma-separated emails:
@@ -78,7 +84,7 @@ First let active generation/export jobs finish. These commands temporarily stop
 the app and workers; the database stays running. Keep the same Terminal open so
 the backup_dir variable remains available.
 
-cd /opt/viddie/backend
+cd /opt/viddie-current/backend
 umask 077
 backup_dir="/var/backups/viddie/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$backup_dir"
@@ -93,62 +99,54 @@ loss of the server. Copy backups to separate private storage and encrypt them
 before off-site transfer. Keep FIELD_ENCRYPTION_KEY with the database backup;
 changing or losing it makes saved provider keys unreadable.
 
-5. UPLOAD THE CURRENT LOCAL SOURCE — MAC
+5. RELEASE UPDATES THROUGH GITHUB — MAC
 
-Run the tests first. Use a trusted checkout and review git status. The archive
-includes tracked and non-ignored new files, including uncommitted changes. It
-excludes .env, generated files, and local private media through Git's file list.
+Feature work goes to develop through a PR. Releases reach main only through a PR
+from this repository's develop branch. Required checks must pass before merging.
+After the deployment workflow reaches main, successful backend and frontend checks
+for the current main commit trigger the production deployment automatically.
 
-cd /Users/kostas2372/video-creator/Video-Creator
-git status --short
-python3 - <<'PY'
-from pathlib import Path
-import subprocess
-import tarfile
+Inspect deployment runs:
 
-root = Path.cwd()
-files = subprocess.check_output([
-    "git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"
-]).split(b"\0")
-with tarfile.open("/tmp/viddie-beta-release.tar.gz", "w:gz") as archive:
-    for raw in files:
-        if not raw:
-            continue
-        name = raw.decode()
-        if any(part in {
-            ".git", ".env", ".aws", ".ssh", ".db-backups", "node_modules",
-            "__pycache__"
-        } for part in Path(name).parts):
-            raise SystemExit("Unsafe archive path; review the checkout")
-        path = root / name
-        if path.is_file() or path.is_symlink():
-            archive.add(path, arcname=name, recursive=False)
-print("Created /tmp/viddie-beta-release.tar.gz")
-PY
-scp -i ~/.ssh/viddie_beta_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/viddie_beta_known_hosts /tmp/viddie-beta-release.tar.gz root@84.54.23.130:/tmp/viddie-beta-release.tar.gz
+gh run list --workflow deploy-beta.yml --limit 5
 
-6. APPLY THAT SOURCE AND REBUILD — SERVER
+Retry a checked main release manually:
 
-Make and verify a backup first, as above. Let active jobs finish before stopping.
-Do not extract a source update over actively running app processes.
+gh workflow run deploy-beta.yml --ref main
 
-cd /opt/viddie/backend
-docker compose -f docker-compose.beta.yml stop video_creator celery celery-render celery-beat
-tar -xzf /tmp/viddie-beta-release.tar.gz -C /opt/viddie
-docker compose -f docker-compose.beta.yml config --quiet
-docker compose -f docker-compose.beta.yml build --pull video_creator frontend
-docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py migrate --noinput
-docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py collectstatic --noinput
-docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py check --deploy
-docker compose -f docker-compose.beta.yml up -d --force-recreate
-docker compose -f docker-compose.beta.yml ps
+Select a run to inspect its result:
 
-Stop and inspect any failure before continuing. Do not generate migrations on the
-server. The source archive overlays the checkout; review obsolete source files
-when deploying a revision that removes files. Never delete .env or persistent
-storage to clean a checkout. Automatic CI/CD is not configured by these commands.
+gh run view RUN_ID
+
+6. DEPLOYMENT AND RECOVERY NOTES
+
+The pipeline stages clean source, builds before stopping the app, waits for jobs,
+backs up the database and environment, applies migrations and collected static
+files, then checks HTTPS and both workers. R2 is the active private media store.
+It preserves the existing persistent cache directories and database volumes.
+
+After migrations begin, a failure does not automatically restore the database or
+start old code against an unknown schema. Read the workflow logs and the logged
+backup/release paths before recovery. See docs/ci-cd.md for details. Do not overlay
+source onto a running release or remove .env, database volumes or media to fix a
+failed deployment.
 
 7. BASIC LIVE CHECKS — MAC OR SERVER
+
+For an existing R2 catalogue, populate its database metadata from the trusted
+installation, retaining relative file names, approvals, licenses and attribution.
+The existing R2 files do not need downloading to the VPS. Do not import private
+accounts or projects along with shared catalogue metadata.
+
+Only when creating a new catalogue, run on SERVER:
+
+cd /opt/viddie-current/backend
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py download_icons
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py setup_music_catalog --best-effort
+
+Check the actual download/approval totals. Music metadata alone is not playable.
+If VPS YouTube downloads fail, reuse verified existing R2 objects and import their
+catalogue metadata. Do not copy private media or credentials with that metadata.
 
 curl -I http://84-54-23-130.sslip.io
 curl -I https://84-54-23-130.sslip.io
@@ -166,7 +164,7 @@ At the domain registrar, set an A record for getviddie.app to 84.54.23.130.
 Remove conflicting A/AAAA records for that hostname. Wait until DNS resolves to
 this server, then on SERVER:
 
-cd /opt/viddie/backend
+cd /opt/viddie-current/backend
 nano .env
 
 Replace the temporary hostname with:

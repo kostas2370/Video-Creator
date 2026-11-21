@@ -21,11 +21,11 @@ x-app: &app
     INVITE_ONLY: ${INVITE_ONLY:-true}
   volumes:
     - .:/app:ro
-    - ./media:/app/media
-    - ./staticfiles:/app/staticfiles
-    - ./private-publishing:/app/private-publishing
-    - ./private-clips:/app/private-clips
-    - ./private-render-cache:/app/private-render-cache
+    - ${VIDDIE_STATE_ROOT:-.}/media:/app/media
+    - ${VIDDIE_STATE_ROOT:-.}/staticfiles:/app/staticfiles
+    - ${VIDDIE_STATE_ROOT:-.}/private-publishing:/app/private-publishing
+    - ${VIDDIE_STATE_ROOT:-.}/private-clips:/app/private-clips
+    - ${VIDDIE_STATE_ROOT:-.}/private-render-cache:/app/private-render-cache
   depends_on:
     postgres:
       condition: service_healthy
@@ -91,8 +91,8 @@ services:
     build: ../frontend
     restart: unless-stopped
     volumes:
-      - ./media:/usr/share/nginx/media:ro
-      - ./staticfiles:/usr/share/nginx/django/static:ro
+      - ${VIDDIE_STATE_ROOT:-.}/media:/usr/share/nginx/media:ro
+      - ${VIDDIE_STATE_ROOT:-.}/staticfiles:/usr/share/nginx/django/static:ro
       - ./deploy/proxy-trust.conf:/etc/nginx/viddie/proxy-trust.conf:ro
     depends_on:
       - video_creator

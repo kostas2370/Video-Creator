@@ -56,6 +56,11 @@ Set these values in `.env`:
 - `SECRET_KEY`: a persistent random secret of at least 50 characters.
 - `FIELD_ENCRYPTION_KEY`: a persistent Fernet key. Preserve it with database backups.
 - `POSTGRES_PASSWORD`: a unique random database password.
+- `R2_STORAGE_ENABLED=true`: use private R2 for active media storage and delivery.
+- `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and
+  optional `R2_JURISDICTION`: the existing private bucket connection. Keep these
+  credentials in the server's private environment only. Verify existing media
+  objects before enabling R2; see [R2 storage](r2-storage.md).
 - `SADTALKER_ENABLED=false`: hide presenters and prevent their use by the API and
   render workers. Set `true` only on a host with the optional dependencies and
   model weights installed. The beta Compose build reads this value too; enabling
@@ -118,11 +123,40 @@ app, both workers, Beat, and frontend together. Do not generate migrations on th
 production host. The beta configuration bypasses the development startup script
 and does not download sample media, music catalogs, or presenter weights.
 
+Populate the shared asset catalogue records explicitly after the first migration.
+For an existing R2 installation, import the shared catalogue metadata from its
+trusted database, keeping the original relative file names, approvals, attribution
+and licenses. The media already in R2 does not need transferring to the VPS. Do
+not copy account records, credentials or private project metadata as part of a
+shared catalogue import. New VPS media must be published and verified before
+enabling R2, so existing project output continues to work.
+
+For a fresh catalogue without existing R2 objects, use:
+
+```sh
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py download_icons
+docker compose -f docker-compose.beta.yml run --rm video_creator python manage.py setup_music_catalog --best-effort
+```
+
+These commands are safe to rerun and retain existing catalogue records. Check the
+reported download and approval counts: successful music metadata setup alone does
+not make tracks playable. The VPS may be unable to download YouTube audio. Reuse
+verified existing R2 objects and import their metadata when available.
+`MUSIC_CATALOG_AUTO_SETUP` controls the development startup
+scripts; the beta stack uses the explicit setup step above.
+
 Caddy obtains and renews HTTPS certificates. Only Caddy's fixed internal address is
 trusted for the original client IP. nginx overwrites forwarding headers before
 passing them to Django. Keep nginx/API private; do not reuse the proxy-trust snippet
 on an unrelated public deployment. Collected Django admin and Swagger assets are
 served by nginx, with the development backend fallback retained.
+
+## Automatic releases
+
+Use the [CI/CD guide](ci-cd.md) for the protected feature → develop → main flow,
+restricted deployment access, persistent state paths and recovery procedure.
+Production deployment activates once the workflow files are merged through
+`develop` into `main`; it does not deploy feature PRs.
 
 ## Before inviting testers
 

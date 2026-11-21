@@ -1,0 +1,39 @@
+name: Release policy
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-policy:
+    name: Branch policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow main PRs only from this repository's develop branch
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ "$EVENT_NAME" == pull_request && "$BASE_REF" == main ]]; then
+            if [[ "$HEAD_REF" != develop || "$HEAD_REPO" != "$REPOSITORY" ]]; then
+              echo 'Open releases to main from this repository’s develop branch.' >&2
+              exit 1
+            fi
+          fi
+  release-tooling:
+    name: Release tooling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s scripts/tests -p 'test_beta_deploy.py'
