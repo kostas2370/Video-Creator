@@ -31,8 +31,14 @@ domain points at the server, then recreate all app services and Caddy.
 ## Configure a new host
 
 Use a supported x86 Ubuntu LTS installation with Docker Engine and Compose. Permit
-SSH only as needed, and public TCP ports 80/443 plus optional UDP 443. Database,
+SSH only as needed, and public TCP ports 80/443. Database,
 Redis, frontend, and API ports are not published by the beta Compose file.
+
+Caddy serves HTTPS over HTTP/1.1 and HTTP/2. HTTP/3 is disabled because Chrome
+received response headers but stalled downloading API bodies over that transport
+on the initial VPS deployment. `Alt-Svc: clear` clears cached HTTP/3 advertisements.
+After switching to HTTP/2, Chrome loaded recent projects in 248 ms and displayed
+the project cards. This measurement is one observed request, not a capacity test.
 
 Choose a domain or subdomain, point its DNS at the server, and check out the reviewed
 release revision. Keep this checkout private to the server operator. Run the

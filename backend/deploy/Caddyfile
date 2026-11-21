@@ -1,3 +1,10 @@
+{
+    servers {
+        protocols h1 h2
+    }
+}
+
 {$BETA_DOMAIN} {
+    header Alt-Svc "clear"
     reverse_proxy frontend:80
 }
