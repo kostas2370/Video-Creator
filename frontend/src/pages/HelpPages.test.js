@@ -77,3 +77,21 @@ it("preserves plain text news and separates its paragraphs", async () => {
   expect(within(article).getByText("Second paragraph.").tagName).toBe("P");
   expect(article.querySelector("script")).toBeNull();
 });
+
+it("groups loaded releases by month without repeating a heading across pages", async () => {
+  const current = update("one", "Series stories");
+  const sameMonth = update("two", "Storyboard changes");
+  const older = { ...update("three", "Earlier tools"), published_at: "2026-10-10T12:00:00Z" };
+  getNewsUpdates.mockResolvedValueOnce({ ok: true, data: { results: [current], next: "page-2" } })
+    .mockResolvedValueOnce({ ok: true, data: { results: [sameMonth, older], next: null } });
+  show(<WhatsNewPage />);
+  await screen.findByRole("heading", { name: "Series stories" });
+  fireEvent.click(screen.getByRole("button", { name: "Load older updates" }));
+  await screen.findByRole("heading", { name: "Earlier tools" });
+  const monthName = value => new Date(value).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  expect(screen.getAllByRole("heading", { name: monthName(current.published_at) })).toHaveLength(1);
+  expect(screen.getByRole("heading", { name: monthName(older.published_at) })).toBeTruthy();
+  expect(screen.getAllByText("Latest update")).toHaveLength(1);
+  const navigation = screen.getByRole("navigation", { name: "Try a creation tool" });
+  expect(within(navigation).getByRole("link", { name: "Create with AI" }).getAttribute("href")).toBe("/ai/");
+});
