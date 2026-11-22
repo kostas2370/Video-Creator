@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { HiOutlineBookOpen, HiOutlineSparkles } from "react-icons/hi2";
+import { HiOutlineArrowRight, HiOutlineBookOpen, HiOutlineMagnifyingGlass, HiOutlineSparkles } from "react-icons/hi2";
 import { creationModes } from "../utils/creationModes";
 import { getNewsUpdates } from "../api/apiService";
 
@@ -17,7 +17,7 @@ function HelpLayout({ title, description, children }) {
 
   return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
     <Link to="/" className={`text-sm ${linkStyle}`}>← Viddie home</Link>
-    <header className="mb-8 mt-7">
+    <header className="mb-8 mt-7 rounded-3xl border border-blue-100 bg-blue-50 p-6 sm:p-10 dark:border-gray-700 dark:bg-gray-800">
       <p className="text-xs font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-300">Learn & explore</p>
       <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
       <p className="mt-3 max-w-2xl leading-relaxed text-gray-500 dark:text-gray-400">{description}</p>
@@ -33,14 +33,14 @@ function HelpLayout({ title, description, children }) {
 }
 
 const guideSections = [
-  { id: "start", title: "Choose your starting point" },
-  { id: "providers", title: "Connect your providers" },
-  { id: "edit", title: "Build and edit your scenes" },
-  { id: "preview-export", title: "Preview and export" },
-  { id: "publish", title: "Publish your video" },
-  { id: "clips", title: "Turn a long video into Shorts" },
-  { id: "sharing", title: "Share a finished export" },
-  { id: "troubleshooting", title: "When something goes wrong" },
+  { id: "start", title: "Choose your starting point", keywords: "create manual ai script photos footage" },
+  { id: "providers", title: "Connect your providers", keywords: "api keys credit models openai presenter" },
+  { id: "edit", title: "Build and edit your scenes", keywords: "save narration music icons captions voiceover" },
+  { id: "preview-export", title: "Preview and export", keywords: "render download watch format" },
+  { id: "publish", title: "Publish your video", keywords: "connections social accounts" },
+  { id: "clips", title: "Turn a long video into Shorts", keywords: "youtube transcript highlights trim" },
+  { id: "sharing", title: "Share a finished export", keywords: "link expiry revoke private" },
+  { id: "troubleshooting", title: "When something goes wrong", keywords: "error failed retry recovery missing narration generation support" },
 ];
 
 function GuideSection({ id, title, children }) {
@@ -51,13 +51,29 @@ function GuideSection({ id, title, children }) {
 }
 
 export function GuidePage() {
+  const [query, setQuery] = useState("");
+  const matchingSections = guideSections.filter(section => `${section.title} ${section.keywords}`.toLowerCase().includes(query.trim().toLowerCase()));
   return <HelpLayout title="From your first idea to your final video" description="Choose a creation tool, shape your scenes, and export when you’re ready. Start here whenever you need a hand.">
+    <section aria-labelledby="quick-start-title" className="mb-8">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2"><h2 id="quick-start-title" className="text-xl font-bold">Your first video</h2><p className="text-sm text-gray-500 dark:text-gray-400">Start small. Try a few scenes first.</p></div>
+      <ol className="grid gap-3 sm:grid-cols-3">
+        {[
+          { href: "#start", title: "Choose a tool", text: "Start with an idea, a script, or media you already have." },
+          { href: "#edit", title: "Make it yours", text: "Review scenes, adjust the audio, and save your changes." },
+          { href: "#preview-export", title: "Preview, then export", text: "Check the edit before creating the video you’ll share." },
+        ].map(({ href, title, text }, index) => <li key={href}><a href={href} className={`${panelStyle} group block h-full transition hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}><span className="mb-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{index + 1}</span><h3 className="flex items-center justify-between gap-2 font-semibold">{title}<HiOutlineArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-blue-500" /></h3><p className="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{text}</p></a></li>)}
+      </ol>
+    </section>
     <div className="grid items-start gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className={`${panelStyle} lg:sticky lg:top-6`}>
         <h2 className="text-sm font-semibold">In this guide</h2>
+        <label htmlFor="guide-section-search" className="mt-4 block text-xs font-medium text-gray-600 dark:text-gray-300">Find a section</label>
+        <div className="relative mt-2"><HiOutlineMagnifyingGlass aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-gray-400" /><input id="guide-section-search" type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Try music or API keys" className="w-full min-w-0 rounded-lg border border-gray-300 bg-transparent py-2.5 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600" /></div>
         <nav aria-label="Guide contents" className="mt-4">
-          <ol className="space-y-3 text-sm">{guideSections.map((section, index) => <li key={section.id}><a href={`#${section.id}`} className="flex gap-3 rounded text-gray-500 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:text-blue-300"><span aria-hidden="true" className="text-blue-600 dark:text-blue-300">0{index + 1}</span>{section.title}</a></li>)}</ol>
+          <ol className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1">{matchingSections.map(section => <li key={section.id}><a href={`#${section.id}`} className="flex gap-3 rounded text-gray-500 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:text-blue-300"><span aria-hidden="true" className="text-blue-600 dark:text-blue-300">{String(guideSections.indexOf(section) + 1).padStart(2, "0")}</span>{section.title}</a></li>)}</ol>
+          {matchingSections.length === 0 && <p role="status" className="text-sm leading-6 text-gray-500 dark:text-gray-400">No matching section. Try “export”, “keys”, or “sharing”.</p>}
         </nav>
+        <div className="mt-5 border-t border-gray-200 pt-4 dark:border-gray-700"><a href="#troubleshooting" className={`text-sm ${linkStyle}`}>Need help with a problem?</a></div>
       </aside>
       <div className="min-w-0 space-y-5">
         <GuideSection {...guideSections[0]}>
@@ -146,7 +162,13 @@ export function WhatsNewPage() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    getNewsUpdates(page).then(response => {
+    async function loadUpdates() {
+      let response;
+      try {
+        response = await getNewsUpdates(page);
+      } catch {
+        response = { ok: false };
+      }
       if (cancelled) return;
       if (response.ok) {
         setUpdates(current => page === 1 ? response.data.results : [
@@ -158,25 +180,28 @@ export function WhatsNewPage() {
         setError("Could not load news updates. Please try again.");
       }
       setLoading(false);
-    });
+    }
+    loadUpdates();
     return () => { cancelled = true; };
   }, [page, attempt]);
 
-  return <HelpLayout title="What’s new" description="The latest features, improvements, and announcements from Viddie.">
-    <section aria-label="News updates" aria-busy={loading} className="space-y-5">
-      {updates.map(update => <article key={update.id} className={panelStyle}>
-        <time dateTime={update.published_at} className="text-xs font-semibold text-blue-600 dark:text-blue-300">{new Date(update.published_at).toLocaleDateString(undefined, { dateStyle: "long" })}</time>
-        <h2 className="mt-3 text-2xl font-bold tracking-tight">{update.title}</h2>
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-gray-600 dark:text-gray-300">{update.content}</p>
+  return <HelpLayout title="What’s new" description="Follow Viddie as it grows. Here’s what changed and what you can try next.">
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+    <section aria-label="News updates" aria-busy={loading} className="min-w-0 space-y-6">
+      {updates.map((update, index) => <article key={update.id} className={`${panelStyle} ${index === 0 ? "border-blue-200 dark:border-blue-800" : ""}`}>
+        <div className="flex flex-wrap items-center gap-3">{index === 0 && <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">Latest update</span>}<time dateTime={update.published_at} className="text-xs font-medium text-gray-500 dark:text-gray-400">{new Date(update.published_at).toLocaleDateString(undefined, { dateStyle: "long" })}</time></div>
+        <h2 className="mt-4 text-2xl font-bold leading-snug tracking-tight">{update.title}</h2>
+        <div className="mt-4 space-y-4 text-sm leading-7 text-gray-600 dark:text-gray-300">{update.content.split(/\n\s*\n/).map((paragraph, paragraphIndex) => <p key={paragraphIndex} className="whitespace-pre-wrap break-words">{paragraph}</p>)}</div>
       </article>)}
       {loading && <p role="status" className="py-6 text-sm text-gray-500 dark:text-gray-400">Loading updates…</p>}
       {error && <div role="alert" className={panelStyle}><p className="text-sm text-gray-600 dark:text-gray-300">{error}</p><button type="button" onClick={() => setAttempt(value => value + 1)} className={`mt-3 text-sm ${linkStyle}`}>Try again</button></div>}
       {!loading && !error && updates.length === 0 && <div className={panelStyle}><h2 className="text-xl font-bold">No updates yet</h2><p className="mt-3 text-sm text-gray-500 dark:text-gray-400">New features and announcements will appear here when they’re published.</p></div>}
-      {hasMore && !error && <button type="button" disabled={loading} onClick={() => setPage(value => value + 1)} className="rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800">Load older updates</button>}
+      {hasMore && !error && <button type="button" disabled={loading} onClick={() => setPage(value => value + 1)} className="rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800">{loading ? "Loading older updates…" : "Load older updates"}</button>}
     </section>
-    <section className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-blue-50 p-5 sm:p-7 dark:bg-blue-900/30">
-      <div><h2 className="font-bold">New here?</h2><p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Follow the guide from your first project through preview and export.</p></div>
-      <Link to="/guide/" className={`text-sm ${linkStyle}`}>Read the guide →</Link>
-    </section>
+    <aside aria-label="Explore Viddie" className="space-y-4 lg:sticky lg:top-6">
+      <section className="rounded-2xl bg-blue-50 p-5 sm:p-7 dark:bg-blue-900/30"><HiOutlineBookOpen aria-hidden="true" className="mb-4 h-6 w-6 text-blue-600 dark:text-blue-300" /><h2 className="font-bold">Put an update to work</h2><p className="mb-4 mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300">The guide takes you from choosing a tool to sharing your finished video.</p><Link to="/guide/" className={`text-sm ${linkStyle}`}>Explore the guide →</Link></section>
+      <section className={panelStyle}><h2 className="font-bold">Help shape Viddie</h2><p className="mb-4 mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">Found a problem or missing something? Tell us what you were trying to create.</p><Link to="/contact/" className={`text-sm ${linkStyle}`}>Send feedback →</Link></section>
+    </aside>
+    </div>
   </HelpLayout>;
 }
