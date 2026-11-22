@@ -720,6 +720,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Long video → Shorts](docs/clips.md) | Uploads, highlight suggestions, clip editing, exports, and recovery |
 | [AI usage](docs/ai-usage.md) | Usage records and cost estimates |
 | [Music TODOs](docs/music-todo.md) | Planned music search and AI-generated soundtracks |
+| [Monitoring TODOs](docs/monitoring-todo.md) | Planned job, application-error, and storage monitoring |
 | [Music catalog](docs/music-catalog.md) | Shared music setup, licensing metadata, and resumable downloads |
 | [Educational visuals TODOs](docs/educational-visuals-todo.md) | Planned local teaching visuals guided by storyboard instructions |
 | [Creator publishing](docs/social-publishing.md) | Social platform integrations and deployment setup |
