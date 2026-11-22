@@ -39,6 +39,18 @@ export const getVideoSubtitles = id => request({ url: action("videos", id, "subt
 export const getVideoPreview = id => request({ url: action("videos", id, "preview"), ...callerHandlesErrors });
 export const getVideoLLMTraces = (id, page = 1) => request({ url: action("videos", id, "llm-traces"), params: { page }, ...callerHandlesErrors });
 export const getVideo = (id, options = {}) => request({ url: detail("videos", id), ...options });
+export const importProject = data => post("videos/import-project/", data, { ...callerHandlesErrors, timeout: 600000 });
+export const prepareProjectExport = (id, includeOutput) => request({
+  url: action("videos", id, "export-project"),
+  params: { include_output: includeOutput, check_only: true },
+  ...callerHandlesErrors,
+});
+export const getVideoShare = id => request({ url: action("videos", id, "share"), ...callerHandlesErrors });
+export const createVideoShare = (id, data) => post(action("videos", id, "share"), data, callerHandlesErrors);
+export const revokeVideoShare = id => remove(action("videos", id, "share"), callerHandlesErrors);
+export const getSharedVideo = (token, signal) => request({
+  url: detail("shared-videos", token), client: axiosInstance, signal, ...callerHandlesErrors,
+});
 export const getVoices = (search, page = 1, { is_cloned, notifyError = true } = {}) => request({
   url: "voices/", params: { search: search || undefined, page, is_cloned }, notifyError,
 });

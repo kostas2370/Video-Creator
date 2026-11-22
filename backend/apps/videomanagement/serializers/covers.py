@@ -5,9 +5,8 @@ from apps.videomanagement.utils.captions.styles import FONTS
 from .fields import FiniteFloat, validate_image_upload
 
 
-class CoverSerializer(serializers.Serializer):
+class CoverSettingsSerializer(serializers.Serializer):
     source = serializers.ChoiceField(choices=("frame", "ai", "upload"), default="frame")
-    image = serializers.ImageField(required=False, write_only=True)
     time = FiniteFloat(min_value=0, max_value=86400, default=0)
     title = serializers.CharField(
         max_length=100, allow_blank=True, default="", trim_whitespace=False
@@ -19,6 +18,10 @@ class CoverSerializer(serializers.Serializer):
     )
     size = FiniteFloat(min_value=3, max_value=16, default=8)
     background = serializers.BooleanField(default=True)
+
+
+class CoverSerializer(CoverSettingsSerializer):
+    image = serializers.ImageField(required=False, write_only=True)
 
     def validate_image(self, image):
         return validate_image_upload(

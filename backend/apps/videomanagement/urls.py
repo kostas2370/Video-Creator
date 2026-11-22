@@ -19,6 +19,7 @@ from .views.draft_jobs import DraftJobView
 from .views.icons import IconDetailView, IconListView
 from .views.library import MediaAssetView
 from .views.music_catalog import MusicCatalogView
+from .views.sharing import PublicVideoShareView
 
 router = routers.DefaultRouter()
 
@@ -37,6 +38,15 @@ router.register("templates", TemplatePromptView)
 
 
 urlpatterns = [
+    path(
+        "shared-videos/<uuid:token>/", PublicVideoShareView.as_view(), name="shared-video"
+    ),
+    path(
+        "shared-videos/<uuid:token>/media/",
+        PublicVideoShareView.as_view(),
+        {"media": True},
+        name="shared-video-media",
+    ),
     path("draft-jobs/", DraftJobView.as_view(), name="draft-job"),
     path("icons/", IconListView.as_view(), name="icons"),
     path("icons/<str:pk>/", IconDetailView.as_view(), name="icon-detail"),

@@ -1,4 +1,19 @@
-from rest_framework.throttling import UserRateThrottle
+from django.core.cache import caches
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+
+
+class PublicShareMetadataThrottle(AnonRateThrottle):
+    scope = "public_share_metadata"
+    rate = "60/minute"
+
+    @property
+    def cache(self):
+        return caches["public_shares"]
+
+
+class PublicShareMediaThrottle(PublicShareMetadataThrottle):
+    scope = "public_share_media"
+    rate = "300/minute"
 
 
 class CloneVoiceThrottle(UserRateThrottle):

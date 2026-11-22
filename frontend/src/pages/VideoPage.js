@@ -11,6 +11,7 @@ import { useUndoHistory } from "../hooks/useUndoHistory";
 import { rememberedScene, sameSceneOrder } from "../utils/editorWorkspace";
 import { EditorDialog } from "../components/ui/EditorDialog";
 import { PublishVideo } from "../components/PublishVideo";
+import { ShareVideo } from "../components/ShareVideo";
 import { VideoDetails } from "../components/VideoDetails";
 import { VideoNotes } from "../components/VideoNotes";
 import { API_HOST } from "../endpoints";
@@ -299,6 +300,9 @@ export const Video = () => {
         setShowModal={setShowRenderModal}
         id={videoId}
         name={videoInfo?.title}
+        video={videoInfo}
+        canRender={isRenderable}
+        canExportProject={!processing && !renderPending && !sceneChangePending}
         onPendingChange={setRenderPending}
         onUpdate={changes => setVideoInfo(current =>
           String(current?.id) === String(videoId) ? { ...current, ...changes } : current
@@ -340,13 +344,14 @@ export const Video = () => {
         <ExportFailure video={videoInfo} disabled={!isRenderable} onRetry={() => setShowRenderModal(true)} />
         {videoInfo?.can_retry_narration && <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Narration stopped before finishing. Your saved scenes are preserved. <button type="button" onClick={() => setShowConfigModal(true)} className="ml-2 font-semibold underline">Open narration retry</button></div>}
         <VideoToolbar onDeveloperPrompts={() => setShowDeveloperPrompts(true)} video={videoInfo} sceneCount={scenes.length} runtime={runtime} format={format}
-          statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={isRenderable}
+          statusLabel={statusLabel} processing={processing} canPreview={canPreview} canExport={!!videoInfo && !processing && !renderPending && !sceneChangePending}
           renderPending={renderPending} saving={sceneChangePending} isResumable={isResumable}
           onUndo={undo} canUndo={canUndo} undoLabel={undoEntry ? `Undo ${undoEntry.label}` : "Nothing to undo yet"} undoStale={!!undoEntry && !undoMatches}
           onViewRendered={renderedUrl && String(videoInfo?.id) === String(videoId) ? () => setShowRenderedVideo(true) : undefined}
           onPreview={() => setShowPreview(true)} onSettings={() => setShowConfigModal(true)}
           onCover={() => setShowCover(true)} onExport={() => setShowRenderModal(true)} onResume={() => setShowResumeModal(true)}
           cutAction={videoInfo && <React.Suspense fallback={null}><VideoCuts video={videoInfo} disabled={!canPreview} onSaved={setUpdated} /></React.Suspense>}
+          shareAction={videoInfo && String(videoInfo.id) === String(videoId) && <ShareVideo key={`share-${videoInfo.id}`} video={videoInfo} />}
           tagsAction={videoInfo && String(videoInfo.id) === String(videoId) && <><PublishVideo key={`publish-${videoInfo.id}`} video={videoInfo} onEditDetails={() => setShowDetails(true)} disabled={processing || renderPending || sceneChangePending} /><VideoDetails key={`details-${videoInfo.id}`} video={videoInfo} open={showDetails} onOpenChange={setShowDetails} onSaved={details => setVideoInfo(current => current?.id === videoInfo.id ? { ...current, ...details } : current)} /></>}
         />
         {updateError && <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"><p>{videoInfo ? "Could not refresh your project. Reconnecting…" : "Could not load this project. Check your connection and try again."}</p><button type="button" onClick={setUpdated} className="rounded-lg border border-amber-300 px-3 py-2 font-semibold dark:border-amber-700">Try again</button></div>}
