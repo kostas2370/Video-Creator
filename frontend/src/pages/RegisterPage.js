@@ -6,8 +6,10 @@ import { register } from "../api/apiService";
 import { AuthLayout } from "../components/AuthLayout";
 import { PasswordField, SubmitButton, TextField } from "../components/AuthFields";
 import { useGuestRedirect } from "../hooks/useGuestRedirect";
+import { useDeployment } from "../store/DeploymentContext";
 
 export default function Register() {
+  const { invite_only: inviteOnly } = useDeployment();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,7 +67,7 @@ export default function Register() {
     <AuthLayout register>
       <p className="auth-eyebrow">LET’S MAKE SOMETHING</p>
       <h1 id="auth-title">Create your<br />account.</h1>
-      <p className="auth-subtitle">Create your account and bring your next story to life.</p>
+      <p className="auth-subtitle">{inviteOnly ? "This beta is by invitation. Register with the email address you were invited with." : "Create your account and bring your next story to life."}</p>
       <form className="auth-form auth-register-form" onSubmit={handleRegister} aria-busy={loading}>
         <TextField
           id="username"

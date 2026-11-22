@@ -1,0 +1,88 @@
+name: Deploy beta
+
+on:
+  workflow_run:
+    workflows: [Django CI, Frontend checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: viddie-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  checked-revision:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.checks.outputs.sha }}
+      ready: ${{ steps.checks.outputs.ready }}
+    steps:
+      - id: checks
+        name: Require both successful checks on the current main revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+          REF_NAME: ${{ github.ref }}
+        run: |
+          if [[ "$EVENT_NAME" == workflow_dispatch && "$REF_NAME" != refs/heads/main ]]; then
+            echo 'Manual production deployments must run from main.' >&2
+            exit 1
+          fi
+          sha=$(gh api "repos/$REPOSITORY/git/ref/heads/main" --jq .object.sha)
+          if [[ "$EVENT_NAME" == workflow_run && "$EVENT_SHA" != "$sha" ]]; then
+            echo 'A newer main revision exists; skipping this event.'
+            exit 0
+          fi
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
+          gh api "repos/$REPOSITORY/actions/runs?head_sha=$sha&branch=main&event=push&per_page=100" > runs.json
+          python3 - <<'PY'
+          import json
+          import os
+          runs = json.load(open('runs.json'))['workflow_runs']
+          latest = {}
+          for run in sorted(runs, key=lambda item: (item['run_number'], item['run_attempt']), reverse=True):
+              latest.setdefault(run['name'], run)
+          ready = all(latest.get(name, {}).get('conclusion') == 'success' for name in ('Django CI', 'Frontend checks'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'ready={str(ready).lower()}\n')
+          PY
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+  deploy:
+    needs: checked-revision
+    if: needs.checked-revision.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.checked-revision.outputs.sha }}
+          persist-credentials: false
+      - name: Deploy the checked revision using the restricted SSH endpoint
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          RELEASE_SHA: ${{ needs.checked-revision.outputs.sha }}
+        run: |
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          umask 077
+          mkdir -p "$RUNNER_TEMP/viddie-ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/viddie-ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/viddie-ssh/known_hosts"
+          trap 'rm -rf "$RUNNER_TEMP/viddie-ssh"' EXIT
+          git archive --format=tar.gz "$RELEASE_SHA" > "$RUNNER_TEMP/viddie-release.tar.gz"
+          ssh -i "$RUNNER_TEMP/viddie-ssh/key" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -o "UserKnownHostsFile=$RUNNER_TEMP/viddie-ssh/known_hosts" \
+            "root@$DEPLOY_HOST" "deploy $RELEASE_SHA" < "$RUNNER_TEMP/viddie-release.tar.gz"

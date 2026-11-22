@@ -28,14 +28,14 @@ def generate_directory(name: str, x: int = 0) -> str:
 
     while True:
         dir_name = (name + (" " + str(x) if x != 0 else "")).strip()
-        if not os.path.exists(dir_name):
-            os.mkdir(dir_name)
-            os.mkdir(f"{dir_name}/dialogues")
-            os.mkdir(f"{dir_name}/images")
-
-            return dir_name
-        else:
+        try:
+            os.makedirs(dir_name)
+        except FileExistsError:
             x += 1
+            continue
+        os.mkdir(f"{dir_name}/dialogues")
+        os.mkdir(f"{dir_name}/images")
+        return dir_name
 
 
 def check_if_image(path: str) -> bool:
@@ -62,6 +62,9 @@ def stored_file_exists(field) -> bool:
         return False
 
     try:
+        storage = getattr(field, "storage", None)
+        if storage is not None:
+            return storage.exists(field.name)
         return os.path.exists(field.path)
     except (ValueError, SuspiciousFileOperation):
         return False

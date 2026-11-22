@@ -2,8 +2,12 @@ name: Django CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   SECRET_KEY: ci-only-signing-key-for-isolated-tests-do-not-use-in-production

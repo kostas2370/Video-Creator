@@ -20,7 +20,7 @@ dynamic = ["dependencies"]
 packages = ["backend"]
 
 [tool.setuptools.dynamic]
-dependencies = { file = ["backend/requirements/requirements.txt"] }
+dependencies = { file = ["backend/requirements/runtime.txt", "backend/requirements/sadtalker.txt"] }
 
 [tool.ruff]
 exclude = ["backend/vendor"]

@@ -1,5 +1,8 @@
 """Generation, with the model, TTS and imagery all stubbed."""
 
+import tempfile
+from contextlib import chdir
+from pathlib import Path
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -100,6 +103,20 @@ class GenerateVideoTests(TestCase):
         draft = self.generate(source_text="hello", review_script=True)
         self.assertEqual(draft.status, "REVIEW")
         self.assertIn("EXACT SCRIPT IMPORT", self.get_reply.call_args.args[0])
+        self.make_scenes_speech.assert_not_called()
+        self.create_image_scenes.assert_not_called()
+
+    def test_fresh_media_storage_reaches_review_after_the_script_response(self):
+        from apps.videomanagement.utils.file_utils import generate_directory
+
+        self.generate_directory.side_effect = generate_directory
+        with tempfile.TemporaryDirectory() as root, chdir(root):
+            draft = self.generate(review_script=True)
+            draft.refresh_from_db()
+            self.assertEqual(draft.status, "REVIEW")
+            self.assertEqual(draft.gpt_answer, A_SCRIPT)
+            self.assertTrue(Path(draft.dir_name, "dialogues").is_dir())
+            self.assertTrue(Path(draft.dir_name, "images").is_dir())
         self.make_scenes_speech.assert_not_called()
         self.create_image_scenes.assert_not_called()
 

@@ -1,0 +1,12 @@
+{
+    servers {
+        protocols h1 h2
+    }
+}
+
+{$BETA_DOMAIN} {$BETA_ALIASES} {
+    header Alt-Svc "clear"
+    @alias not host {$BETA_DOMAIN}
+    redir @alias https://{$BETA_DOMAIN}{uri} permanent
+    reverse_proxy frontend:80
+}

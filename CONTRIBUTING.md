@@ -233,14 +233,17 @@ on, as `renderVideo` and the API-key calls do.
 
 ## Commits and pull requests
 
-- Branch off `main`. Branch names are free-form and descriptive (`fix-ci`,
+- Branch off `develop`. Branch names are free-form and descriptive (`fix-ci`,
   `queue-generation-and-render`).
 - Write commit subjects in the imperative mood, capitalised, no trailing period —
   `Add password reset`, `Serve media from nginx and keep the port in the proxied Host`.
 - Keep a commit to one change. A change spanning the API and the UI is one commit,
   since both live in this repository.
-- Open the PR against `main` and describe what changed and why. If it changes
+- Open feature PRs against `develop` and describe what changed and why. If it changes
   behaviour, say what a reviewer should click to see it.
+- Release PRs into `main` must come from this repository's `develop` branch.
+  Both branches require checks and PRs; direct and force pushes are blocked.
+  See [CI/CD](docs/ci-cd.md) for production deployment and recovery.
 - CI must be green. A PR with failing tests will not be reviewed.
 
 ---

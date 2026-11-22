@@ -65,7 +65,7 @@ class VoiceModelQuerySet(models.QuerySet):
         if user is None:
             return voices.filter(valid_providers)
 
-        if not user.use_service_api_keys:
+        if not user.uses_service_api_keys:
             voices = voices.exclude(
                 provider__in=video_models.ACCOUNT_SCOPED_VOICE_PROVIDERS
             )

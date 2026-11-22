@@ -5,6 +5,7 @@ import { RiMoonLine, RiSunLine } from "react-icons/ri";
 import { HiOutlineLink, HiOutlineBars3, HiOutlineXMark, HiOutlineUserCircle, HiOutlineChevronDown, HiOutlineArrowRightOnRectangle, HiOutlineKey, HiOutlineFilm, HiOutlinePlusCircle, HiOutlineSquares2X2, HiOutlineUserGroup, HiOutlineBookOpen, HiOutlineSparkles, HiOutlineScissors } from "react-icons/hi2";
 import { NotificationBell } from "./NotificationBell";
 import useLogout from "../../hooks/useLogout";
+import { useDeployment } from "../../store/DeploymentContext";
 import { isCreationPath } from "../../utils/creationModes";
 
 const destinations = [
@@ -15,7 +16,7 @@ const projects = [
   { to: "/series", label: "My series", icon: HiOutlineBookOpen },
   { to: "/clips", label: "My clips", icon: HiOutlineScissors },
 ];
-const resources = [
+const allResources = [
   { to: "/avatars", label: "Avatars", icon: HiOutlineUserGroup },
   { to: "/voices", label: "My voices", icon: HiOutlineUserCircle },
   { to: "/assets", label: "My assets", icon: HiOutlineSquares2X2 },
@@ -25,6 +26,8 @@ const resources = [
 const iconButton = "rounded-xl p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white";
 
 function Navbar({ theme, toggleTheme }) {
+  const { sadtalker_enabled: presentersEnabled } = useDeployment();
+  const resources = allResources.filter(item => presentersEnabled || item.to !== "/avatars");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
