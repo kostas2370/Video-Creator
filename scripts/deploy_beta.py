@@ -218,8 +218,22 @@ def deploy(sha, stream):
     backend = release / "backend"
     print(f"Staged release at {release}", flush=True)
     (backend / ".env").symlink_to(STATE / ".env")
+    for directory in DATA_DIRS:
+        (STATE / directory).mkdir(parents=True, exist_ok=True)
+        (backend / directory).mkdir(exist_ok=True)
     compose(backend, "config", "--quiet")
     compose(backend, "build", "--pull", "video_creator", "frontend")
+    compose(
+        backend,
+        "run",
+        "--rm",
+        "--no-deps",
+        "-T",
+        "video_creator",
+        "python",
+        "-c",
+        "pass",
+    )
     previous = CURRENT.resolve() / "backend"
     compose(previous, "stop", "video_creator", "celery-beat")
     try:
