@@ -712,6 +712,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Contributing](CONTRIBUTING.md) | Development conventions, checks, tests, and pull requests |
 | [Architecture](docs/ARCHITECTURE.md) | API and worker responsibilities, generation, and rendering |
 | [Rendering](docs/rendering.md) | Timing, composition, export quality, scene caching, and failure recovery |
+| [In-app guide](docs/guide.md) | Task walkthroughs, guide search, and maintaining user instructions |
 | [Frontend](frontend/README.md) | Development server, builds, and frontend checks |
 | [Screenshot gallery](docs/screenshots.md) | Current screens, editor panels, dialogs, and mobile audio |
 | [AI video providers](docs/ai-video-providers.md) | Provider setup, references, timing, and limitations |
