@@ -3,7 +3,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { GuidePage, WhatsNewPage } from "./HelpPages";
+import { WhatsNewPage } from "./HelpPages";
 import { getNewsUpdates } from "../api/apiService";
 
 vi.mock("../api/apiService", () => ({ getNewsUpdates: vi.fn() }));
@@ -18,28 +18,6 @@ afterEach(() => {
 });
 const show = page => render(<MemoryRouter>{page}</MemoryRouter>);
 const update = (id, title) => ({ id, title, content: "First paragraph.\n\nSecond paragraph.", published_at: "2026-11-22T12:00:00Z" });
-
-it("finds guide sections by topic while keeping their instructions available", () => {
-  show(<GuidePage />);
-  const contents = screen.getByRole("navigation", { name: "Guide contents" });
-  fireEvent.change(screen.getByRole("searchbox", { name: "Find a section" }), { target: { value: "  MUSIC " } });
-  expect(within(contents).getAllByRole("link")).toHaveLength(1);
-  expect(within(contents).getByRole("link").getAttribute("href")).toBe("#edit");
-  expect(screen.getByRole("heading", { name: "Share a finished export" })).toBeTruthy();
-  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "unknown section" } });
-  expect(within(contents).getByRole("status").textContent).toContain("No matching section");
-  fireEvent.change(screen.getByRole("searchbox"), { target: { value: "" } });
-  expect(within(contents).getAllByRole("link")).toHaveLength(8);
-});
-
-it("gives every guide jump link an existing destination", () => {
-  const { container } = show(<GuidePage />);
-  const links = [...container.querySelectorAll('a[href^="#"]')];
-  expect(links.length).toBeGreaterThan(8);
-  for (const link of links) {
-    expect(container.querySelector(link.getAttribute("href"))).toBeTruthy();
-  }
-});
 
 it("retains loaded news after a failure and retries the same older page without duplicates", async () => {
   const latest = update("latest", "Beta release");

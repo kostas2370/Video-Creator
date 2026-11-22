@@ -24,7 +24,7 @@ const Register = lazy(() => import("./pages/RegisterPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPassword = lazy(() => import("./pages/ResetPasswordPage"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
-const GuidePage = lazy(() => import("./pages/HelpPages").then(module => ({ default: module.GuidePage })));
+const GuidePage = lazy(() => import("./pages/GuidePage"));
 const WhatsNewPage = lazy(() => import("./pages/HelpPages").then(module => ({ default: module.WhatsNewPage })));
 const StoryVideo = lazy(() => import("./pages/StoryVideoPage").then(module => ({ default: module.StoryVideo })));
 const Captions = lazy(() => import("./pages/CaptionsPage").then(module => ({ default: module.Captions })));

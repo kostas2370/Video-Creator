@@ -712,6 +712,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Contributing](CONTRIBUTING.md) | Development conventions, checks, tests, and pull requests |
 | [Architecture](docs/ARCHITECTURE.md) | API and worker responsibilities, generation, and rendering |
 | [Rendering](docs/rendering.md) | Timing, composition, export quality, scene caching, and failure recovery |
+| [In-app guide](docs/guide.md) | Task walkthroughs, guide search, and maintaining user instructions |
 | [Frontend](frontend/README.md) | Development server, builds, and frontend checks |
 | [Screenshot gallery](docs/screenshots.md) | Current screens, editor panels, dialogs, and mobile audio |
 | [AI video providers](docs/ai-video-providers.md) | Provider setup, references, timing, and limitations |
@@ -720,6 +721,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Long video → Shorts](docs/clips.md) | Uploads, highlight suggestions, clip editing, exports, and recovery |
 | [AI usage](docs/ai-usage.md) | Usage records and cost estimates |
 | [Music TODOs](docs/music-todo.md) | Planned music search and AI-generated soundtracks |
+| [Monitoring TODOs](docs/monitoring-todo.md) | Planned job, application-error, and storage monitoring |
 | [Music catalog](docs/music-catalog.md) | Shared music setup, licensing metadata, and resumable downloads |
 | [Educational visuals TODOs](docs/educational-visuals-todo.md) | Planned local teaching visuals guided by storyboard instructions |
 | [Creator publishing](docs/social-publishing.md) | Social platform integrations and deployment setup |
