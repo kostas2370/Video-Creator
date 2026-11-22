@@ -39,6 +39,7 @@ const guideSections = [
   { id: "preview-export", title: "Preview and export" },
   { id: "publish", title: "Publish your video" },
   { id: "clips", title: "Turn a long video into Shorts" },
+  { id: "sharing", title: "Share a finished export" },
   { id: "troubleshooting", title: "When something goes wrong" },
 ];
 
@@ -67,6 +68,8 @@ export function GuidePage() {
         </GuideSection>
         <GuideSection {...guideSections[1]}>
           <p>For AI tools, open <Link to="/api-keys/" className={linkStyle}>API keys and providers</Link> from your account menu. Connect the providers required by your chosen tool before starting. Audio transcription uses OpenAI by default and requires an OpenAI API key.</p>
+          <p>The hosted beta uses your own saved provider keys. Check that each selected provider has a valid key, access to the chosen model, and enough credit. Provider usage may be billed to your provider account. Never paste a key into a script, visual prompt, or support message.</p>
+          <p>Presenter tools are available only in workspaces where they are enabled. Talking presenters are currently disabled in the hosted beta.</p>
           <p>You can create a manual project with your own photos, clips, and recorded voiceover without connecting an AI provider.</p>
         </GuideSection>
         <GuideSection {...guideSections[2]}>
@@ -78,6 +81,7 @@ export function GuidePage() {
             <li>Use Settings for the output format and appearance, and Project extras for music and other finishing touches.</li>
           </ol>
           <p>Wait for changes to finish saving before previewing or exporting. You can find reusable media in <Link to="/assets/" className={linkStyle}>My assets</Link>.</p>
+          <p>Use the music library in Project extras to choose background audio, and the icon picker in the scene controls to add icons. Preview your selection and save it before exporting. Your project files stay private unless you create a share link.</p>
         </GuideSection>
         <GuideSection {...guideSections[3]}>
           <ol className="list-decimal space-y-3 pl-5">
@@ -104,10 +108,21 @@ export function GuidePage() {
           <p>Each project supports up to 20 clips, each at most 180 seconds long. Exports are portrait MP4 files with the original audio. If processing fails, use the available retry action; saved transcription can be reused. Changing a saved clip’s timing, framing, or captions requires a new export.</p>
         </GuideSection>
         <GuideSection {...guideSections[6]}>
+          <ol className="list-decimal space-y-3 pl-5">
+            <li>Finish exporting your video, then open <strong>Share link</strong>. Choose an expiry if you want the link to stop working after a set time.</li>
+            <li>Choose <strong>Create share link</strong>, then use <strong>Copy link</strong> to send it to someone.</li>
+            <li>Anyone with the link can watch the shared export without signing in. Share it only with people you want to have access.</li>
+          </ol>
+          <p>A share link is for the rendered video, not access to your editor or provider keys. Export again after changing your scenes, and check the shared page before sending it. Choose <strong>Stop sharing</strong> to revoke the link and stop future access; this cannot remove copies someone has already saved.</p>
+        </GuideSection>
+        <GuideSection {...guideSections[7]}>
           <div className="space-y-3">
             {[
               ["Export is disabled", "Check that the project has scenes and that processing and saving have finished. If processing failed, review the available scenes and the recovery actions shown in the editor."],
               ["Narration is missing", "Use Retry narration in the affected scene. Check that the selected voice provider is connected, or choose to export using the audio already available."],
+              ["Generation has not reached review", "Check the project status and any provider error shown. A successful provider request does not mean every generation step has finished. Use the recovery or retry action offered by the project; completed media may be reused. Repeated retries can incur provider charges."],
+              ["A provider rejects my request", "Open API keys and providers, check the selected provider and model, and replace an expired or revoked key. Also check the provider account’s balance and model access before retrying."],
+              ["A shared video will not open", "Ask the owner to check that the export is complete and the share link is active. Expired or revoked links no longer grant access. Copy the link again from the sharing controls rather than sending an address from the editor."],
               ["Processing or rendering failed", "Your project may still contain editable scenes. A failed export does not necessarily mean the scenes are damaged. Check the project’s available actions; if the problem continues, contact support with the project ID and what you were doing."],
               ["The export shows an older edit", "Watch export opens the latest completed render. Save your changes and export again to include them."],
             ].map(([title, text]) => <details key={title} className="rounded-xl border border-gray-200 p-4 dark:border-gray-700"><summary className="cursor-pointer font-semibold text-gray-900 dark:text-white">{title}</summary><p className="mt-3">{text}</p></details>)}
