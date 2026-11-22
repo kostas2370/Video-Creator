@@ -47,6 +47,10 @@ class ProductionConfigurationTests(SimpleTestCase):
                 {
                     "ALLOWED_HOSTS": "video.example",
                     "FRONTEND_URL": "https://video.example",
+                    "SERVICE_API_KEYS_ENABLED": "",
+                    "SADTALKER_ENABLED": "",
+                    "INVITE_ONLY": "",
+                    "BETA_SIGNUP_EMAILS": "",
                     **environment,
                 },
             ),
@@ -68,6 +72,51 @@ class ProductionConfigurationTests(SimpleTestCase):
                 self.assertRaises(ImproperlyConfigured),
             ):
                 self.load_production(**environment)
+
+    def test_production_disables_shared_keys_and_presenters_and_requires_invitations(
+        self,
+    ):
+        config = self.load_production(
+            BETA_SIGNUP_EMAILS=" Invited@Example.com, another@example.com "
+        )
+        self.assertFalse(config["SERVICE_API_KEYS_ENABLED"])
+        self.assertFalse(config["SADTALKER_ENABLED"])
+        self.assertEqual(
+            config["SIGNUP_ALLOWED_EMAILS"],
+            ("invited@example.com", "another@example.com"),
+        )
+
+    def test_production_features_can_be_enabled_and_signup_opened_by_environment(self):
+        config = self.load_production(
+            SERVICE_API_KEYS_ENABLED="true",
+            SADTALKER_ENABLED="true",
+            INVITE_ONLY="false",
+            BETA_SIGNUP_EMAILS="invited@example.com",
+        )
+        self.assertTrue(config["SERVICE_API_KEYS_ENABLED"])
+        self.assertTrue(config["SADTALKER_ENABLED"])
+        self.assertIsNone(config["SIGNUP_ALLOWED_EMAILS"])
+
+    def test_production_preserves_the_public_share_rate_limit_cache(self):
+        from video_creator.settings import base
+
+        config = self.load_production()
+        self.assertEqual(config["CACHES"]["public_shares"], base.CACHES["public_shares"])
+
+    def test_explicit_false_values_keep_features_disabled_and_empty_invites_closed(self):
+        config = self.load_production(
+            SERVICE_API_KEYS_ENABLED="false",
+            SADTALKER_ENABLED="false",
+            INVITE_ONLY="true",
+        )
+        self.assertFalse(config["SERVICE_API_KEYS_ENABLED"])
+        self.assertFalse(config["SADTALKER_ENABLED"])
+        self.assertEqual(config["SIGNUP_ALLOWED_EMAILS"], ())
+
+    def test_invalid_feature_switches_fail_startup(self):
+        for name in ("SERVICE_API_KEYS_ENABLED", "SADTALKER_ENABLED", "INVITE_ONLY"):
+            with self.subTest(name=name), self.assertRaises(ImproperlyConfigured):
+                self.load_production(**{name: "treu"})
 
     def test_https_redirect_proxy_detection_and_hsts(self):
         from django.http import HttpResponse

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
@@ -14,6 +15,14 @@ from .utils import check_conditions
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    def validate_email(self, value):
+        allowed = settings.SIGNUP_ALLOWED_EMAILS
+        if allowed is not None and value.strip().casefold() not in allowed:
+            raise serializers.ValidationError(
+                "Beta registration is by invitation. Contact the operator for access."
+            )
+        return value
+
     class Meta:
         model = get_user_model()
         fields = ("username", "password", "email")

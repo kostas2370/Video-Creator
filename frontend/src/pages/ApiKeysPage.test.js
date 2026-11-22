@@ -20,6 +20,13 @@ const show = data => {
   return render(<MemoryRouter><ApiKeys /></MemoryRouter>);
 };
 
+it("removes the service key switch when the server requires personal keys", async () => {
+  show({ use_service_api_keys: false, service_keys_allowed: false, key_warnings: {} });
+  await screen.findByText("Generation uses your saved keys and custom voice providers. Add credentials for the services you use.");
+  expect(screen.queryByText("Use my own keys")).toBeNull();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+});
+
 it("shows a rejected personal key warning next to the OpenAI field after reload", async () => {
   show({ use_service_api_keys: false, openai_key: "sk-••••••••key1", key_warnings: { OPENAI: true } });
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("revoked"));

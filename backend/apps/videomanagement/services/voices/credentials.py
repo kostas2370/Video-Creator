@@ -10,7 +10,7 @@ def key_fingerprint(key):
 
 
 def key_source(user):
-    return "service" if user.use_service_api_keys else "user"
+    return "service" if user.uses_service_api_keys else "user"
 
 
 def voice_key(user, voice=None):

@@ -11,14 +11,22 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.common.models import UUIDModel
 
 
+def default_service_api_keys():
+    return settings.SERVICE_API_KEYS_ENABLED
+
+
 class User(AbstractUser, UUIDModel):
     first_name = models.CharField(max_length=20, blank=False)
     last_name = models.CharField(max_length=20, blank=False)
     email = models.EmailField(unique=True)
     is_verified = models.BooleanField(default=False)
-    use_service_api_keys = models.BooleanField(default=True)
+    use_service_api_keys = models.BooleanField(default=default_service_api_keys)
 
     REQUIRED_FIELDS = ["email"]
+
+    @property
+    def uses_service_api_keys(self):
+        return settings.SERVICE_API_KEYS_ENABLED and self.use_service_api_keys
 
     def __str__(self):
         return self.username

@@ -97,6 +97,9 @@ and every Celery worker/beat process with the rebuilt image. Keep the bucket pri
 - Accessing a missing local `.path` downloads the R2 object into the existing local
   storage root, checks SHA-256 and size, and publishes it atomically. This supports
   workers on a fresh host. Existing local processing files remain in use.
+- Availability checks use the storage existence API rather than requesting a
+  local `.path`. Music search and selection can check candidates without
+  downloading every track into the processing cache.
 - Reusing a generated filename with different bytes creates a new object and a new
   field filename; the previous R2 object and local source are retained. Existing
   identical objects use the SHA-256 metadata from the prior verified upload.

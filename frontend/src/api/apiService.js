@@ -15,6 +15,7 @@ const publicRequest = (url, data) => post(url, data, { client: axiosInstance, ..
 export const getNewsUpdates = (page = 1) => request({
   url: "news/", params: { page }, client: axiosInstance, ...callerHandlesErrors,
 });
+export const getDeployment = () => request({ url: "deployment/", client: axiosInstance, ...callerHandlesErrors });
 
 export const login = data => publicRequest(LOGIN_URL, data);
 export const register = data => publicRequest(REGISTER_URL, data);

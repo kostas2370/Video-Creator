@@ -3,6 +3,7 @@ import os
 import uuid
 from collections import defaultdict, deque
 
+from django.conf import settings
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
@@ -29,6 +30,11 @@ def narrate_scene(scene: Scene, voice_model, dir_name: str, user=None) -> Scene:
     """
     if not voice_model or scene.video.source_audio:
         return scene
+
+    if not dir_name:
+        dir_name = os.path.join(settings.MEDIA_ROOT, "media", "videos", str(scene.video_id))
+        scene.video.dir_name = dir_name
+        scene.video.save(update_fields=["dir_name"])
 
     syn = ApiSyn(
         provider=voice_model.provider,

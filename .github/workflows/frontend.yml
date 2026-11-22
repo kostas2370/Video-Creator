@@ -2,8 +2,12 @@ name: Frontend checks
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   frontend:

@@ -352,6 +352,8 @@ def render_scene_clips(segments, directory, size, opening=None, cache=None, fps=
 
 
 def avatar_source(video):
+    if not settings.SADTALKER_ENABLED:
+        return None
     if not video.avatar:
         return None
     path = Path(video.dir_name, "output_avatar.mp4").resolve()
@@ -632,7 +634,7 @@ def make_video(video):
                 "-crf",
                 str(export["crf"]),
                 "-threads",
-                "8",
+                str(settings.RENDER_THREADS),
                 "-c:a",
                 "aac",
                 "-movflags",

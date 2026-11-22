@@ -18,9 +18,9 @@
     "fonts:sync": "node ../scripts/sync-video-fonts.mjs",
     "fonts:check": "node ../scripts/sync-video-fonts.mjs --check",
     "start": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/precompress.mjs",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node --test scripts/precompress.check.mjs && vitest run",
     "test:watch": "vitest",
     "audit": "node --test scripts/audit-policy.check.mjs && node scripts/audit.mjs",
     "audit:raw": "npm audit --audit-level=high"

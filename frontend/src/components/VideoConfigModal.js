@@ -1,3 +1,4 @@
+import { useDeployment } from "../store/DeploymentContext";
 import { VoicePreview } from "./VoicePreview";
 import { StartingFrameOption } from "./StartingFrameOption";
 import { NarrationSetup } from "./NarrationSetup";
@@ -39,8 +40,9 @@ const normalizeAvatarPosition = (position) => {
 };
 
 export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => {
+  const { sadtalker_enabled: presentersEnabled } = useDeployment();
   const importedAudio = !!info?.source_audio || info?.settings?.creation_mode === "AUDIO";
-  const avatarsOptions = useAssetOptions(getAvatars, showModal && !importedAudio && info?.video_type !== "MANUAL");
+  const avatarsOptions = useAssetOptions(getAvatars, presentersEnabled && showModal && !importedAudio && info?.video_type !== "MANUAL");
   const avatars = avatarsOptions.items;
   const [selectedTab, setSelectedTab] = useState(0);
   const voiceSelect = useRef(null);
@@ -95,7 +97,7 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
   useEffect(() => {
     setSelectedAvatarFile(avatars.find((item) => String(item.id) === String(avatar))?.file || "");
   }, [avatar, avatars]);
-  useEffect(() => setAvatar(info?.avatar ?? ""), [info?.avatar]);
+  useEffect(() => setAvatar(presentersEnabled ? info?.avatar ?? "" : ""), [info?.avatar, presentersEnabled]);
   useEffect(() => setVoice(info?.voice_model ?? ""), [info?.voice_model]);
   useEffect(() => {
     setAvatarPosition(normalizeAvatarPosition(info?.settings?.avatar_position));
@@ -261,8 +263,8 @@ export const VideoConfigModal = ({ showModal, setShowModal, info, onSaved }) => 
             <TabPanel unmount={false}><fieldset disabled={selectedTab !== 2} className="min-w-0 space-y-6">
             <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5 dark:border-gray-800 dark:bg-gray-800/40">
               <div className="mb-4 flex items-start gap-3"><span className="mt-0.5 text-indigo-600 dark:text-indigo-300"><RiUser3Line aria-hidden="true" className="h-5 w-5" /></span><div><h3 className={sectionTitle}>{info?.video_type === "MANUAL" ? "Audio" : "Narration and audio"}</h3><p className={sectionDescription}>{importedAudio ? "Keep your original narration clips and adjust the sound the audience hears." : info?.video_type === "MANUAL" ? "Choose which audio is included in your video." : "Choose a voice, presenter, and the sound the audience hears."}</p></div></div>
-              {!importedAudio && info?.video_type !== "MANUAL" && <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />}
-              {!importedAudio && info?.video_type !== "MANUAL" && <MoreAssetOptions options={avatarsOptions} label="avatars" />}
+              {presentersEnabled && !importedAudio && info?.video_type !== "MANUAL" && <AssetDropBox value={avatar} setValue={setAvatar} setSelectedFile={setSelectedAvatarFile} type="avatar" items={avatars} selectedFile={selectedAvatarFile} />}
+              {presentersEnabled && !importedAudio && info?.video_type !== "MANUAL" && <MoreAssetOptions options={avatarsOptions} label="avatars" />}
               {info?.video_type !== "MANUAL" && <label htmlFor="video-narration" className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-800">
                 <input id="video-narration" type="checkbox" checked={narration} onChange={(event) => { setNarration(event.target.checked); if (!clipAudioTouched && info?.settings?.video_audio_enabled === undefined) setClipAudio(!event.target.checked); }} className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                 <span><span className="block text-sm font-semibold text-gray-800 dark:text-gray-100">Narration</span><span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">{importedAudio ? "Play your original recording clips. Turning this off mutes them; turning it on keeps the same recordings. No speech is generated." : "Read your scene text aloud using the selected voice. Enabling narration generates speech in the background. Turning it off keeps saved recordings."}</span></span>

@@ -1,6 +1,7 @@
 import os
 import tempfile
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from django.core.exceptions import SuspiciousFileOperation
 from django.test import SimpleTestCase
@@ -11,6 +12,12 @@ from ...utils.file_utils import (
     generate_directory,
     stored_file_exists,
 )
+
+
+class StorageFile(SimpleNamespace):
+    @property
+    def path(self):
+        return self.storage.path(self.name)
 
 
 class GenerateDirectoryTests(SimpleTestCase):
@@ -34,6 +41,12 @@ class GenerateDirectoryTests(SimpleTestCase):
 
         self.assertNotEqual(first, second)
         self.assertEqual(second, self.path("a-video 1"))
+
+    def test_creates_missing_parent_folders_on_a_fresh_deployment(self):
+        created = generate_directory(self.path("media", "videos", "a-video"))
+
+        self.assertTrue(os.path.isdir(os.path.join(created, "dialogues")))
+        self.assertTrue(os.path.isdir(os.path.join(created, "images")))
 
     def test_keeps_counting_past_the_first_collision(self):
         for _ in range(3):
@@ -63,6 +76,26 @@ class FileTypeTests(SimpleTestCase):
 
 
 class StoredFileExistsTests(SimpleTestCase):
+    def test_checks_remote_storage_without_materializing_a_local_processing_file(self):
+        storage = Mock()
+        storage.exists.return_value = True
+        storage.path.side_effect = AssertionError("Unexpected audio download")
+        field = StorageFile(storage=storage, name="media/music-catalog/track.mp3")
+
+        self.assertTrue(stored_file_exists(field))
+        storage.exists.assert_called_once_with(field.name)
+        storage.path.assert_not_called()
+
+    def test_missing_storage_objects_are_unavailable_without_a_local_read(self):
+        storage = Mock()
+        storage.exists.return_value = False
+        storage.path.side_effect = AssertionError("Unexpected local read")
+
+        self.assertFalse(
+            stored_file_exists(StorageFile(storage=storage, name="missing.mp3"))
+        )
+        storage.path.assert_not_called()
+
     def test_an_empty_field_has_nothing_behind_it(self):
         self.assertFalse(stored_file_exists(None))
         self.assertFalse(stored_file_exists(""))
