@@ -41,6 +41,10 @@ class MemoryR2:
 
     def get_object(self, **parameters):
         self.requests.append(parameters)
+        if parameters["Key"] not in self.objects:
+            raise ClientError(
+                {"ResponseMetadata": {"HTTPStatusCode": 404}}, "GetObject"
+            )
         data = self.objects[parameters["Key"]]
         if "Range" in parameters:
             start, end = parameters["Range"].removeprefix("bytes=").split("-")
@@ -51,7 +55,11 @@ class MemoryR2:
                 while chunk := self.read(chunk_size):
                     yield chunk
 
-        return {"Body": Body(data)}
+        return {
+            "Body": Body(data),
+            "ContentLength": len(data),
+            "ETag": '"etag"',
+        }
 
     def upload_if_missing(self, name, source, size, digest):
         if name in self.objects:
@@ -196,3 +204,42 @@ class R2StorageTests(unittest.TestCase):
         self.assertEqual(head["Content-Length"], "10")
         bad = media_response(RequestFactory().get("/", HTTP_RANGE="bytes=99-"), field)
         self.assertEqual(bad.status_code, 416)
+
+    def test_full_response_uses_one_r2_get_without_metadata_request_or_local_copy(self):
+        self.archive.objects["media/image.png"] = b"image-bytes"
+        field = SimpleNamespace(storage=self.storage, name="image.png")
+        with (
+            patch.object(
+                self.archive,
+                "head_object",
+                side_effect=AssertionError("Extra R2 request"),
+            ),
+            patch.object(
+                self.storage, "path", side_effect=AssertionError("Local read")
+            ),
+        ):
+            response = media_response(RequestFactory().get("/"), field)
+
+            async def consume():
+                return b"".join([chunk async for chunk in response.streaming_content])
+
+            self.assertEqual(asyncio.run(consume()), b"image-bytes")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Length"], "11")
+        self.assertEqual(len(self.archive.requests), 1)
+        self.assertNotIn("Range", self.archive.requests[0])
+        self.assertFalse(Path(self.directory.name, "image.png").exists())
+
+    def test_unused_full_response_closes_upstream_body(self):
+        body = io.BytesIO(b"image")
+        field = SimpleNamespace(storage=self.storage, name="image.png")
+        with patch.object(
+            self.archive,
+            "get_object",
+            return_value={"Body": body, "ContentLength": 5, "ETag": '"etag"'},
+        ) as get:
+            response = media_response(RequestFactory().get("/"), field)
+        self.assertEqual(get.call_count, 1)
+        self.assertEqual(response["Content-Length"], "5")
+        response.close()
+        self.assertTrue(body.closed)

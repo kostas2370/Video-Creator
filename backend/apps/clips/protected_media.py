@@ -25,7 +25,10 @@ def media_response(request, field, *, filename=None):
         raise Http404("Media is unavailable.")
     storage = field.storage
     remote = isinstance(storage, R2StorageMixin) and storage.r2_enabled
-    info = storage.remote_info(field.name) if remote else None
+    include_body = request.method != "HEAD" and not request.headers.get("Range")
+    info = (
+        storage.remote_info(field.name, include_body=include_body) if remote else None
+    )
     if (remote and info is None) or (not remote and not storage.exists(field.name)):
         raise Http404("Media is unavailable.")
     size = info["ContentLength"] if remote else field.size
@@ -42,11 +45,16 @@ def media_response(request, field, *, filename=None):
         HttpResponse()
         if request.method == "HEAD"
         else StreamingHttpResponse(
-            remote_file_chunks(storage, field.name, start, end, info["ETag"])
+            remote_file_chunks(
+                storage, field.name, start, end, info["ETag"], info.get("Body")
+            )
             if remote
             else file_chunks(field, start, length)
         )
     )
+    if remote and info.get("Body") is not None:
+        # Close R2 even if the browser disconnects before streaming starts.
+        response._resource_closers.append(info["Body"].close)
     response.status_code = 206 if partial else 200
     response["Content-Type"] = (
         mimetypes.guess_type(field.name)[0] or "application/octet-stream"
@@ -63,10 +71,14 @@ def media_response(request, field, *, filename=None):
     return response
 
 
-async def remote_file_chunks(storage, name, start, end, etag):
-    if end < start:
+async def remote_file_chunks(storage, name, start, end, etag, body=None):
+    if body is None and end < start:
         return
-    chunks = storage.remote_chunks(name, start, end, etag)
+    chunks = (
+        body.iter_chunks(chunk_size=256 * 1024)
+        if body is not None
+        else storage.remote_chunks(name, start, end, etag)
+    )
     sentinel = object()
     try:
         while (
@@ -75,6 +87,8 @@ async def remote_file_chunks(storage, name, start, end, etag):
             yield chunk
     finally:
         await asyncio.to_thread(chunks.close)
+        if body is not None:
+            await asyncio.to_thread(body.close)
 
 
 def range_error(size):
