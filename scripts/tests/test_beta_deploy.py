@@ -166,6 +166,10 @@ class DeploymentTests(unittest.TestCase):
 
     def compose(self, backend, *args, capture=False, output=None):
         self.calls.append(args)
+        if args[0] == "build":
+            for directory in deploy_beta.DATA_DIRS:
+                self.assertTrue((backend / directory).is_dir())
+                self.assertTrue((self.state / directory).is_dir())
         if self.failure and self.failure in args:
             raise subprocess.CalledProcessError(1, args)
         if output:
@@ -207,6 +211,14 @@ class DeploymentTests(unittest.TestCase):
         self.assertTrue(list((self.root / "backups").glob("*/database.dump")))
         self.assertFalse(any(call[0] in {"up", "start"} for call in self.calls))
         self.assertFalse((self.state / ".deployed-sha").exists())
+
+    def test_container_startup_failure_keeps_the_previous_release_running(self):
+        self.failure = "pass"
+        with self.assertRaises(subprocess.CalledProcessError):
+            deploy_beta.deploy(SHA, io.BytesIO(archive_bytes()))
+        self.assertEqual(self.current.resolve(), self.previous)
+        self.assertFalse(any(call[0] == "stop" for call in self.calls))
+        self.assertFalse(any("migrate" in call for call in self.calls))
 
     def test_jobs_that_cannot_drain_restore_the_previous_api_and_scheduler(self):
         with patch.object(deploy_beta, "wait_idle", side_effect=TimeoutError):

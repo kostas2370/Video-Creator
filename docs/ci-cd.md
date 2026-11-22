@@ -60,7 +60,10 @@ The installed deployment helper:
 2. Rejects paths outside the release, symlinks, secrets, media directories and
    oversized contents. It extracts a fresh directory, so removed source files do
    not survive as they would with an overlay update.
-3. Builds the backend and frontend while the existing app is running.
+3. Creates empty mount-point directories in the source release and ensures the
+   persistent working directories exist. Builds the backend and frontend, then
+   verifies a backend container can start with its mounts while the existing app
+   is running. A failed startup check leaves the existing services running.
 4. Stops the API and scheduler, waits up to ten minutes for queued/active work to
    drain, then stops the workers. Failed draining restarts the old containers.
 5. Backs up PostgreSQL and `.env` under `/var/backups/viddie/`. A backup failure
