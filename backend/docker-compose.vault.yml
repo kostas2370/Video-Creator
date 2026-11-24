@@ -1,0 +1,48 @@
+x-vault-client: &vault-client
+  environment:
+    CREDENTIAL_VAULT_URL: https://vault:8200
+    CREDENTIAL_VAULT_TOKEN_FILE: /run/secrets/viddie-vault-token
+    CREDENTIAL_VAULT_CA_BUNDLE: /run/secrets/viddie-vault-ca
+  secrets:
+    - viddie-vault-token
+    - viddie-vault-ca
+  networks:
+    - default
+    - credential-vault
+
+services:
+  vault:
+    image: ${VIDDIE_VAULT_IMAGE:?Set VIDDIE_VAULT_IMAGE to a pinned hashicorp/vault image}
+    command: ["server", "-config=/vault/config/viddie.hcl"]
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: https://vault:8200
+      VAULT_CACERT: /vault/tls/ca.pem
+    volumes:
+      - ./deploy/vault.hcl:/vault/config/viddie.hcl:ro
+      - ${VIDDIE_VAULT_TLS_DIR:?Set the Vault server TLS directory}:/vault/tls:ro
+      - credential-vault-data:/vault/file
+    networks:
+      - credential-vault
+
+  video_creator:
+    <<: *vault-client
+  celery:
+    <<: *vault-client
+  celery-render:
+    <<: *vault-client
+
+networks:
+  credential-vault:
+    internal: true
+
+volumes:
+  credential-vault-data:
+
+secrets:
+  viddie-vault-token:
+    file: ${VIDDIE_VAULT_TOKEN_PATH:?Set the host path to the Vault application token}
+  viddie-vault-ca:
+    file: ${VIDDIE_VAULT_TLS_DIR:?Set the Vault server TLS directory}/ca.pem

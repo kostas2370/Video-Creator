@@ -220,6 +220,20 @@ class DeploymentTests(unittest.TestCase):
         self.assertFalse(any(call[0] == "stop" for call in self.calls))
         self.assertFalse(any("migrate" in call for call in self.calls))
 
+    def test_vault_verification_failure_prevents_restarting_the_candidate_release(self):
+        self.failure = "--verify"
+        credential_command = (
+            "backend/apps/apikeysmanagement/management/commands/migrate_credentials.py"
+        )
+        archive = archive_bytes([(credential_command, b"x", tarfile.REGTYPE)])
+
+        with self.assertRaises(subprocess.CalledProcessError):
+            deploy_beta.deploy(SHA, io.BytesIO(archive))
+
+        self.assertIn("--check-vault", next(call for call in self.calls if "migrate_credentials" in call))
+        self.assertEqual(self.current.resolve(), self.previous)
+        self.assertFalse(any(call[0] == "up" for call in self.calls))
+
     def test_jobs_that_cannot_drain_restore_the_previous_api_and_scheduler(self):
         with patch.object(deploy_beta, "wait_idle", side_effect=TimeoutError):
             with self.assertRaises(TimeoutError):

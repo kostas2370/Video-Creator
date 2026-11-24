@@ -9,7 +9,6 @@ x-app: &app
     ENV: prod
     ALLOWED_HOSTS: ${BETA_DOMAIN:?Set BETA_DOMAIN}
     FRONTEND_URL: https://${BETA_DOMAIN:?Set BETA_DOMAIN}
-    FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?Set and preserve FIELD_ENCRYPTION_KEY}
     POSTGRES_HOST: postgres
     CACHE_URL: redis://redis-stack-server:6379/2
     CELERY_BROKER_URL: redis://redis-stack-server:6379/0

@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import models
-from encrypted_model_fields.fields import EncryptedTextField
 
+from apps.common.credential_encryption import CredentialTextField
 from apps.common.models import UUIDModel
 
 from .storage import PrivateExportStorage
@@ -18,8 +18,8 @@ class SocialAccount(UUIDModel):
     platform = models.CharField(max_length=12, choices=Platform.choices)
     external_id = models.CharField(max_length=255)
     display_name = models.CharField(max_length=255)
-    access_token = EncryptedTextField()
-    refresh_token = EncryptedTextField(blank=True, default="")
+    access_token = CredentialTextField()
+    refresh_token = CredentialTextField(blank=True, default="")
     expires_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

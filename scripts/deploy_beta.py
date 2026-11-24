@@ -122,14 +122,17 @@ def receive(stream, destination):
 
 def compose(backend, *args, capture=False, output=None):
     environment = {**os.environ, "VIDDIE_STATE_ROOT": str(STATE)}
+    compose_files = ["-f", str(backend / "docker-compose.beta.yml")]
+    vault_overlay = backend / "docker-compose.vault.yml"
+    if (STATE / ".use-compose-vault").is_file() and vault_overlay.is_file():
+        compose_files.extend(["-f", str(vault_overlay)])
     result = subprocess.run(
         [
             "docker",
             "compose",
             "--project-name",
             "viddie-beta",
-            "-f",
-            str(backend / "docker-compose.beta.yml"),
+            *compose_files,
             *args,
         ],
         cwd=backend,
@@ -234,6 +237,22 @@ def deploy(sha, stream):
         "-c",
         "pass",
     )
+    vault_release = (
+        backend / "apps/apikeysmanagement/management/commands/migrate_credentials.py"
+    ).is_file()
+    if vault_release:
+        compose(
+            backend,
+            "run",
+            "--rm",
+            "--no-deps",
+            "-T",
+            "video_creator",
+            "python",
+            "manage.py",
+            "migrate_credentials",
+            "--check-vault",
+        )
     previous = CURRENT.resolve() / "backend"
     compose(previous, "stop", "video_creator", "celery-beat")
     try:
@@ -277,6 +296,19 @@ def deploy(sha, stream):
             "migrate",
             "--noinput",
         )
+        if vault_release:
+            compose(
+                backend,
+                "run",
+                "--rm",
+                "--no-deps",
+                "-T",
+                "video_creator",
+                "python",
+                "manage.py",
+                "migrate_credentials",
+                "--verify",
+            )
         compose(
             backend,
             "run",

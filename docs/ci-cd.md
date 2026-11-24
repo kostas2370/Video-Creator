@@ -49,6 +49,9 @@ Never put provider credentials or media files in Git.
 `VIDDIE_STATE_ROOT=/opt/viddie/backend` keeps these mounts stable across releases.
 R2 is the active private media store; local working files support rendering.
 PostgreSQL and Redis continue using the existing named volumes.
+The first Vault-only release needs the offline [credential conversion](credential-security.md)
+before the automated deployment runs. For the Compose Vault service, the updated helper
+includes the Vault overlay when the persistent `.use-compose-vault` marker is present.
 
 `/opt/viddie-current` points at the current source checkout. Initially it points at
 `/opt/viddie`; subsequent checked releases live under `/opt/viddie-releases/`.
@@ -68,7 +71,8 @@ The installed deployment helper:
    drain, then stops the workers. Failed draining restarts the old containers.
 5. Backs up PostgreSQL and `.env` under `/var/backups/viddie/`. A backup failure
    restarts the existing containers before any schema change is attempted.
-6. Applies committed migrations, collects static files, and runs deployment checks.
+6. Applies committed migrations, verifies the credential store, collects static files,
+   and runs deployment checks.
 7. Recreates the API, workers, scheduler, frontend and HTTPS edge. It checks the
    trusted HTTPS API response, active R2 setting and replies from both workers.
 8. Updates `/opt/viddie-current` and records the deployed commit only after success.

@@ -20,7 +20,7 @@ drf-yasg
 django-resized
 django-filter
 django-lifecycle>=1.2
-django-encrypted-model-fields
+cryptography
 django-rest-passwordreset
 
 # Media and rendering

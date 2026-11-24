@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import json
 import os
 from datetime import timedelta
@@ -35,10 +33,11 @@ if not SECRET_KEY or SECRET_KEY == "REMOVED_EXPOSED_CREDENTIAL":
         "Set SECRET_KEY to a persistent, randomly generated secret before starting."
     )
 
-FIELD_ENCRYPTION_KEY = (
-    os.getenv("FIELD_ENCRYPTION_KEY")
-    or base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode()).digest()).decode()
-)
+CREDENTIAL_VAULT_URL = os.getenv("CREDENTIAL_VAULT_URL") or ""
+CREDENTIAL_VAULT_MOUNT = os.getenv("CREDENTIAL_VAULT_MOUNT") or "transit"
+CREDENTIAL_VAULT_KEY = os.getenv("CREDENTIAL_VAULT_KEY") or "viddie-credentials"
+CREDENTIAL_VAULT_TOKEN_FILE = os.getenv("CREDENTIAL_VAULT_TOKEN_FILE") or ""
+CREDENTIAL_VAULT_CA_BUNDLE = os.getenv("CREDENTIAL_VAULT_CA_BUNDLE") or ""
 
 COOKIES_SECURE = False
 CROSS_SITE_SAMESITE = "Lax"
@@ -65,7 +64,6 @@ INSTALLED_APPS = [
     "apps.news",
     "apps.publishing",
     "apps.apikeysmanagement",
-    "encrypted_model_fields",
     "django_rest_passwordreset",
     "corsheaders",
     "drf_yasg",

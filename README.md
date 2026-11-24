@@ -627,10 +627,9 @@ For nginx file acceleration, set `MEDIA_ACCEL_REDIRECT=true`; the supplied inter
 nginx location serves bytes only after Django authorizes the exact file. Keep the
 read-only media mount and never add a public media alias.
 
-Set a persistent `FIELD_ENCRYPTION_KEY` before storing user credentials and back it
-up securely. If unset, it is derived from `SECRET_KEY`; changing that secret then
-makes existing provider keys unreadable. Preserve the database, media storage, and
-private publishing snapshots across deployments.
+Set up [Vault Transit](docs/credential-security.md) before storing provider credentials
+or connecting publishing accounts. Upgrading an existing deployment requires converting
+stored credentials with the previous key before restarting the application.
 
 PostgreSQL uses the persistent `postgres-data` volume and is available only on the
 Compose network. Set a unique `POSTGRES_PASSWORD` in `backend/.env` before starting.

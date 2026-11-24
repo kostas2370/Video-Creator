@@ -54,7 +54,7 @@ class CreatorView(APIView):
 
 class ConnectionsView(CreatorView, GenericAPIView):
     serializer_class = ConnectionsSerializer
-    queryset = SocialAccount.objects.all()
+    queryset = SocialAccount.objects.defer("access_token")
     filter_backends = [DjangoFilterBackend]
     filterset_class = UserFilterSet
 
