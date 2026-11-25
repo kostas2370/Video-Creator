@@ -63,19 +63,20 @@ auto-unseal.
    create `/opt/viddie/backend/.use-compose-vault` and install the updated
    [deployment helper](../scripts/deploy_beta.py). It includes the Compose overlay and
    runs the Vault check before stopping the old application.
-2. Take a database backup and deploy the new release. The normal deployment
-   runs Django's schema migrations. It does not convert or clear stored credentials.
-   Vault is the only credential cipher used by the running application, and this
-   upgrade requires no legacy key input.
+2. Take a database backup. Before deploying, manually remove stored provider keys
+   and connection tokens that are not Vault ciphertext. Do this during maintenance
+   so the running application cannot recreate incompatible entries. Deploy the new
+   release. The normal deployment runs Django's schema migrations. It does not
+   convert or clear stored credentials.
+   Vault is the only credential cipher accepted by the running application.
 3. Sign in as the user with stored provider credentials and save fresh keys in
    the usual settings. Any publishing accounts with old tokens need to reconnect.
    Account records, provider settings, and publishing history are preserved.
 
-On the new release, old credential entries appear unset until replaced.
-The schema change preserves existing ciphertext, and Viddie never attempts to
-decrypt it. Remove the previous encryption key from the live configuration, and
-retain a protected copy only if needed to restore an older backup. Back up Vault
-storage and recovery material with the database created after cutover.
+The running application accepts empty values and Vault ciphertext only. Unsupported
+stored values fail closed; there is no format translation or compatibility fallback.
+Keep protected configuration/database backups for recovery. Back up Vault storage and
+recovery material with the database created after cutover.
 
 ## Local verification and operations
 

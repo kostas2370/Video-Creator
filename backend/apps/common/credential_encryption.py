@@ -90,24 +90,7 @@ def decrypt_credential(value, context):
         return value
     if value.startswith(VAULT_PREFIX):
         return vault_request("decrypt", value[len(VAULT_PREFIX) :], context)
-    if is_retired_credential(value):
-        return ""
     raise CredentialEncryptionError("Stored credential has an unsupported format.")
-
-
-def is_retired_credential(value):
-    if not value.startswith("g"):
-        return False
-    try:
-        legacy_bytes = base64.b64decode(value, altchars=b"-_", validate=True)
-    except ValueError:
-        return False
-    payload_size = len(legacy_bytes) - 57
-    return (
-        legacy_bytes.startswith(b"\x80")
-        and payload_size >= 16
-        and payload_size % 16 == 0
-    )
 
 
 class CredentialFieldMixin:

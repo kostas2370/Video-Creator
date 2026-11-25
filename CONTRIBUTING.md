@@ -260,7 +260,8 @@ Two settings matter for anyone touching stored credentials:
 - `SECRET_KEY` signs Django sessions and tokens. Set a persistent random value.
 - [Vault Transit](docs/credential-security.md) encrypts provider credentials and
   publishing tokens. Tests substitute an in-process Vault stand-in. The Vault release
-  treats existing legacy credentials as unset so users can enter replacements.
+  accepts only Vault ciphertext. Remove incompatible stored credentials before release,
+  then save fresh provider keys in the updated application.
 
 User-supplied API keys are write-only through the API and come back masked. If you add
 a field there, keep it that way — there is a test asserting a key never appears in a
