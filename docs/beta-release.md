@@ -165,17 +165,22 @@ Production deployment activates once the workflow files are merged through
 
 ## Review access requests
 
-Visitors use **Request access** on the public homepage (`/request-access/`).
+Visitors use **Get started** / **Request early access** at the top of the public
+homepage, or **Request access** near the bottom (`/request-access/`). Homepage
+signup buttons always lead to this form, including when direct registration is enabled.
 Requests store a name, email, and intended use without creating an account. The
 endpoint is rate limited and returns the same receipt for duplicate submissions.
 Repeat submissions do not overwrite reviews or resend invitations.
 
 In Django admin, open **Usermanagement → Access requests**, filter by **Pending**,
-select requests, and choose **Approve selected pending requests and email
-invitations**. Only superusers can review requests. Approval sends an invitation
-link to `FRONTEND_URL/register/` and records the reviewer and time. If email
-fails, the request remains pending; fix SMTP and retry. Rejecting pending requests
-records the decision without sending an invitation. These actions leave already
+select requests, and choose **Queue approval invitations for selected pending
+requests**. Only superusers can review requests. Celery sends the invitation in
+the background and retries delivery failures up to three times with backoff.
+Successful delivery records approval, reviewer, and time. Requests stay pending
+until delivery succeeds. If retries are exhausted, fix SMTP and queue approval
+again. If queueing fails, admin reports an error and the request stays pending.
+Rejecting or deleting a request before its queued task runs prevents delivery.
+Rejecting pending requests records the decision without sending an invitation. These actions leave already
 reviewed requests unchanged.
 
 Approved creators register with their approved email address and still verify email

@@ -69,7 +69,7 @@ export default function LandingPage({ theme, toggleTheme }) {
   const { invite_only: inviteOnly } = useDeployment();
   const [workflow, setWorkflow] = useState("edit");
   const selected = workflows.find((item) => item.id === workflow);
-  const signupPath = inviteOnly ? "/request-access/" : "/register/";
+  const signupPath = "/request-access/";
 
   function navigateWorkflow(event, index) {
     let next;
@@ -453,7 +453,7 @@ export default function LandingPage({ theme, toggleTheme }) {
           It deserves more than a note on your phone.
         </p>
         <Link to={signupPath} className="landing-button landing-button-primary">
-          {inviteOnly ? "Request access" : "Create your account"}
+          Request access
           <HiOutlineSparkles aria-hidden="true" />
         </Link>
         <span className="landing-final-note">

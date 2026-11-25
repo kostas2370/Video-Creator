@@ -8,7 +8,8 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from ..models import AccessRequest, User
-from ..services import approve_access_request
+from ..access_requests import approve_access_request
+from ..tasks import send_access_invitation
 
 
 @override_settings(SIGNUP_ALLOWED_EMAILS=(), USER_LIMIT=10)
@@ -113,7 +114,7 @@ class AccessRequestTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
 
     @patch(
-        "apps.usermanagement.services.send_mail",
+        "apps.usermanagement.access_requests.send_mail",
         side_effect=RuntimeError("SMTP unavailable"),
     )
     def test_delivery_failure_leaves_the_request_pending(self, send):
@@ -134,7 +135,8 @@ class AccessRequestTests(TestCase):
         with override_settings(SIGNUP_ALLOWED_EMAILS=("ada@example.test",)):
             self.assertEqual(self.register().status_code, 201)
 
-    def test_superuser_can_approve_requests_from_admin(self):
+    @patch("apps.usermanagement.admin.send_access_invitation.delay")
+    def test_superuser_queues_approval_without_waiting_for_email(self, queue):
         self.submit()
         self.client.force_login(self.admin)
         response = self.client.post(
@@ -146,8 +148,12 @@ class AccessRequestTests(TestCase):
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
-            AccessRequest.objects.get().status, AccessRequest.Status.APPROVED
+            AccessRequest.objects.get().status, AccessRequest.Status.PENDING
         )
+        queue.assert_called_once_with(
+            str(AccessRequest.objects.get().pk), str(self.admin.pk)
+        )
+        self.assertEqual(mail.outbox, [])
 
     def test_rejection_records_the_reviewer_without_inviting(self):
         self.submit()
@@ -194,3 +200,73 @@ class AccessRequestTests(TestCase):
     def test_public_endpoint_never_lists_requests(self):
         self.submit()
         self.assertEqual(self.client.get(reverse("access-request")).status_code, 405)
+
+    def test_worker_approves_and_sends_an_invitation_only_once(self):
+        self.submit()
+        entry = AccessRequest.objects.get()
+        args = (str(entry.pk), str(self.admin.pk))
+        self.assertTrue(send_access_invitation.run(*args))
+        self.assertFalse(send_access_invitation.run(*args))
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, AccessRequest.Status.APPROVED)
+        self.assertEqual(entry.reviewed_by, self.admin)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_rejected_or_deleted_requests_are_not_invited_by_queued_tasks(self):
+        self.submit()
+        entry = AccessRequest.objects.get()
+        args = (str(entry.pk), str(self.admin.pk))
+        AccessRequest.objects.filter(pk=entry.pk).update(
+            status=AccessRequest.Status.REJECTED
+        )
+        self.assertFalse(send_access_invitation.run(*args))
+        entry.delete()
+        self.assertFalse(send_access_invitation.run(*args))
+        self.assertEqual(mail.outbox, [])
+
+    def test_worker_does_not_send_after_reviewer_loses_superuser_access(self):
+        self.submit()
+        entry = AccessRequest.objects.get()
+        self.admin.is_superuser = False
+        self.admin.save(update_fields=["is_superuser"])
+        self.assertFalse(send_access_invitation.run(str(entry.pk), str(self.admin.pk)))
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, AccessRequest.Status.PENDING)
+        self.assertEqual(mail.outbox, [])
+
+    @patch(
+        "apps.usermanagement.admin.send_access_invitation.delay",
+        side_effect=OSError("Queue unavailable"),
+    )
+    def test_queue_failure_keeps_request_pending_and_reports_failure(self, queue):
+        self.submit()
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("admin:usermanagement_accessrequest_changelist"),
+            {
+                "action": "approve_requests",
+                "_selected_action": str(AccessRequest.objects.get().pk),
+            },
+            follow=True,
+        )
+        self.assertContains(response, "could not be queued")
+        self.assertEqual(
+            AccessRequest.objects.get().status, AccessRequest.Status.PENDING
+        )
+        self.assertEqual(mail.outbox, [])
+
+    @patch(
+        "apps.usermanagement.access_requests.send_mail",
+        side_effect=OSError("SMTP unavailable"),
+    )
+    def test_worker_retries_delivery_then_leaves_request_pending(self, send):
+        self.submit()
+        entry = AccessRequest.objects.get()
+        result = send_access_invitation.apply(
+            args=(str(entry.pk), str(self.admin.pk)), throw=False
+        )
+        self.assertTrue(result.failed())
+        self.assertEqual(send.call_count, 4)
+        entry.refresh_from_db()
+        self.assertEqual(entry.status, AccessRequest.Status.PENDING)
+        self.assertIsNone(entry.reviewed_at)

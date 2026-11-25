@@ -37,7 +37,7 @@ it("introduces Viddie publicly with working sign-in, registration, guide, and in
     screen.getByText(/Provider usage may be billed separately/),
   ).toBeTruthy();
 });
-it("does not advertise an invitation requirement on an open workspace", () => {
+it("routes Get started to access requests even when direct registration is enabled", () => {
   deployment.invite_only = false;
   render(
     <MemoryRouter>
@@ -47,7 +47,8 @@ it("does not advertise an invitation requirement on an open workspace", () => {
   expect(
     screen.queryByRole("link", { name: "Request an invitation" }),
   ).toBeNull();
-  expect(screen.getByRole("link", { name: "Get started" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Get started" }).getAttribute("href")).toBe("/request-access/");
+  expect(screen.getByRole("link", { name: "Request access", exact: true }).getAttribute("href")).toBe("/request-access/");
 });
 
 it("loads only the selected YouTube player after an explicit play action", () => {

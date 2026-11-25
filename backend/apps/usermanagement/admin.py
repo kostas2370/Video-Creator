@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
 from .models import AccessRequest, Login, User
-from .services import approve_access_request
+from .tasks import send_access_invitation
 
 logger = logging.getLogger(__name__)
 
@@ -82,20 +82,28 @@ class AccessRequestAdmin(SuperuserAdminMixin, admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @admin.action(description="Approve selected pending requests and email invitations")
+    @admin.action(
+        description="Queue approval invitations for selected pending requests"
+    )
     def approve_requests(self, request, queryset):
-        approved = failed = 0
-        for request_id in queryset.values_list("pk", flat=True):
+        queued = failed = 0
+        for request_id in queryset.filter(
+            status=AccessRequest.Status.PENDING
+        ).values_list("pk", flat=True):
             try:
-                approved += approve_access_request(request_id, request.user)
+                send_access_invitation.delay(str(request_id), str(request.user.pk))
+                queued += 1
             except Exception:
-                logger.exception("Access invitation delivery failed")
+                logger.exception("Access invitation queueing failed")
                 failed += 1
-        self.message_user(request, f"Approved and invited {approved} request(s).")
+        self.message_user(
+            request,
+            f"Queued {queued} invitation(s). Requests are approved after successful email delivery.",
+        )
         if failed:
             self.message_user(
                 request,
-                f"{failed} invitation(s) could not be sent. Those requests remain pending; check email delivery and retry.",
+                f"{failed} invitation(s) could not be queued. Those requests remain pending; check the worker queue and retry.",
                 level=messages.ERROR,
             )
 
