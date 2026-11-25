@@ -22,3 +22,8 @@ it("distinguishes the library, editor and password-recovery pages", () => {
   expect(pageLayout("/forgot-password/", false).showNavbar).toBe(false);
   expect(pageLayout("/reset-password/", true).showNavbar).toBe(false);
 });
+
+it("uses a public homepage shell only for signed-out visitors", () => {
+  expect(pageLayout("/", false)).toEqual({publicShell: true, showNavbar: false});
+  expect(pageLayout("/", true)).toEqual({publicShell: false, showNavbar: true});
+});

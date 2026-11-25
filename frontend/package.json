@@ -18,7 +18,7 @@
     "fonts:sync": "node ../scripts/sync-video-fonts.mjs",
     "fonts:check": "node ../scripts/sync-video-fonts.mjs --check",
     "start": "vite",
-    "build": "vite build && node scripts/precompress.mjs",
+    "build": "vite build && node scripts/build-search.mjs && node scripts/precompress.mjs",
     "preview": "vite preview",
     "test": "node --test scripts/precompress.check.mjs && vitest run",
     "test:watch": "vitest",

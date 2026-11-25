@@ -1,3 +1,4 @@
+import SearchMetadata from "./components/SearchMetadata";
 import React, { lazy, Suspense } from "react";
 import "./components/PublicPages.css";
 import { Outlet, Route, Routes, useLocation, Navigate } from "react-router-dom";
@@ -19,6 +20,7 @@ const Login = lazy(() => import("./pages/LoginPage"));
 const Home = lazy(() => import("./pages/HomePage"));
 const ClipsPage = lazy(() => import("./pages/ClipsPage"));
 const SeriesPage = lazy(() => import("./pages/SeriesPage"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const CreatePage = lazy(() => import("./pages/CreatePage"));
 const Register = lazy(() => import("./pages/RegisterPage"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPasswordPage"));
@@ -59,6 +61,7 @@ function App() {
 
   return (
     <div className={`min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white ${publicShell ? "public-shell" : ""}`}>
+      <SearchMetadata />
       {showNavbar ? (
         <Navbar theme={theme} toggleTheme={toggleTheme} />
       ) : null}
@@ -73,7 +76,8 @@ function App() {
             <Route path="/contact/" element={<ContactPage />} />
             <Route path="/privacy/" element={<LegalPage document="privacy" />} />
             <Route path="/terms/" element={<LegalPage document="terms" />} />
-            <Route path="/" element={<PersistLogin />}>
+            <Route path="/" element={<PersistLogin fallback={location.pathname === "/" ? <LandingPage /> : "Loading"} />}>
+              <Route index element={access_token ? <CreatePage /> : <LandingPage />} />
               <Route
                 path="/login/"
                 element={!access_token ? <Login /> : <Navigate to="/" replace />}
@@ -83,7 +87,6 @@ function App() {
               <Route path="/reset-password/" element={<ResetPassword />} />
 
               <Route element={<RequireAuth />}>
-                <Route index element={<CreatePage />} />
                 <Route path="/clips/" element={<ClipsPage key={location.pathname} />} />
                 <Route path="/clips/:projectId/" element={<ClipsPage key={location.pathname} />} />
                 <Route path="/series/" element={<SeriesPage key={location.pathname} />} />

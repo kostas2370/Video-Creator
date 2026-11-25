@@ -714,6 +714,7 @@ failures. Keep logs private because provider errors may contain sensitive detail
 | [Rendering](docs/rendering.md) | Timing, composition, export quality, scene caching, and failure recovery |
 | [In-app guide](docs/guide.md) | Task walkthroughs, guide search, and maintaining user instructions |
 | [Frontend](frontend/README.md) | Development server, builds, and frontend checks |
+| [Search discovery](docs/search-discovery.md) | Public homepage, canonical URLs, sitemap and robots setup |
 | [Screenshot gallery](docs/screenshots.md) | Current screens, editor panels, dialogs, and mobile audio |
 | [AI video providers](docs/ai-video-providers.md) | Provider setup, references, timing, and limitations |
 | [Prompting](docs/prompting.md) | Storyboard and visual prompt assembly, with complete GPT request examples |
