@@ -1,10 +1,4 @@
-.auth-page,
-.public-shell,
-.site-footer,
-.help-page,
-.guide-image-dialog,
-.landing-page,
-.access-page {
+:root {
   --brand-surface: #f8f9fd;
   --brand-panel: #fff;
   --brand-panel-soft: #f0f2f9;
@@ -17,6 +11,8 @@
   --brand-button: #7761e8;
   --brand-button-ink: #fff;
   --brand-button-hover: #6851db;
+  --brand-selected: #eeebff;
+  --brand-control: #e1ddeb;
   --auth-accent: var(--brand-accent);
   --auth-ink: var(--brand-ink);
   --auth-muted: var(--brand-muted);
@@ -32,13 +28,7 @@
   --lp-bright: var(--brand-bright);
   --lp-mint: var(--brand-mint);
 }
-.dark .auth-page,
-.dark .public-shell,
-.dark .site-footer,
-.dark .help-page,
-.dark .guide-image-dialog,
-.dark .landing-page,
-.dark .access-page {
+:root.dark {
   --brand-surface: #0b0d17;
   --brand-panel: #141724;
   --brand-panel-soft: #1b1e30;
@@ -51,4 +41,25 @@
   --brand-button: #c1b0ff;
   --brand-button-ink: #201642;
   --brand-button-hover: #d0c3ff;
+  --brand-selected: #29223f;
+  --brand-control: #49465f;
+}
+
+.workspace-shell {
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.workspace-nav {
+  background: var(--brand-surface);
+  border-color: var(--brand-line);
+}
+.studio-primary-button,
+:is(.workspace-shell, .app-dialog) :is(button, a)[class~="bg-blue-600"] {
+  background: var(--brand-button);
+  color: var(--brand-button-ink);
+}
+.studio-primary-button:hover:not(:disabled),
+:is(.workspace-shell, .app-dialog) :is(button, a)[class~="bg-blue-600"]:hover:not(:disabled) {
+  background: var(--brand-button-hover);
 }

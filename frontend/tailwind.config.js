@@ -1,4 +1,5 @@
-// Share a blue action color and slate surfaces; retain the full palette for status and preview colors.
+const brandAccent = {50:"#f2efff",100:"#e7e0ff",200:"#d5caff",300:"#c3b6ff",400:"#b3a4ff",500:"#8d78ef",600:"#7761e8",700:"#6851db",800:"#4738b4",900:"#30244f",950:"#201642"};
+
 module.exports = {
   darkMode: "class",
   content: ["./src/**/*.{js,ts,jsx,tsx}", "./index.html"],
@@ -11,7 +12,8 @@ module.exports = {
     "white": "#ffffff",
     "black": "#000000",
     "blue-gray": {"50":"#eceff1","100":"#cfd8dc","200":"#b0bec5","300":"#90a4ae","400":"#78909c","500":"#607d8b","600":"#546e7a","700":"#455a64","800":"#37474f","900":"#263238"},
-    "gray": require("tailwindcss/colors").slate,
+    "gray": {50:"#f8f9fd",100:"#f0f2f9",200:"#e1e3ef",300:"#c6c9db",400:"#a1a6bc",500:"#697189",600:"#616b84",700:"#36384d",800:"#141724",900:"#0b0d17",950:"#070910"},
+    "blue": brandAccent,
     "brown": {"50":"#efebe9","100":"#d7ccc8","200":"#bcaaa4","300":"#a1887f","400":"#8d6e63","500":"#795548","600":"#6d4c41","700":"#5d4037","800":"#4e342e","900":"#3e2723"},
     "deep-orange": {"50":"#fbe9e7","100":"#ffccbc","200":"#ffab91","300":"#ff8a65","400":"#ff7043","500":"#ff5722","600":"#f4511e","700":"#e64a19","800":"#d84315","900":"#bf360c"},
     "orange": {"50":"#fff3e0","100":"#ffe0b2","200":"#ffcc80","300":"#ffb74d","400":"#ffa726","500":"#ff9800","600":"#fb8c00","700":"#f57c00","800":"#ef6c00","900":"#e65100"},
@@ -34,7 +36,7 @@ module.exports = {
     screens: {"sm":"540px","md":"720px","lg":"960px","lg-max":{"max":"960px"},"xl":"1140px","2xl":"1320px"},
     extend: {
       padding: { 6: "2rem" },
-      colors: { primary: require("tailwindcss/colors").blue },
+      colors: { primary: brandAccent },
     },
   },
   plugins: [],

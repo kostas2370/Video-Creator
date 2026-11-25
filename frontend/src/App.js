@@ -61,7 +61,7 @@ function App() {
   const { showNavbar, publicShell } = pageLayout(location.pathname, !!access_token);
 
   return (
-    <div className={`min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white ${publicShell ? "public-shell" : ""}`}>
+    <div className={`min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-white ${publicShell ? "public-shell" : "workspace-shell"}`}>
       <SearchMetadata />
       {showNavbar ? (
         <Navbar theme={theme} toggleTheme={toggleTheme} />

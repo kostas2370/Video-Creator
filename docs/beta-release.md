@@ -192,6 +192,12 @@ profile in `frontend/src/components/VideoShowcase.js`. Players load only on clic
 with a direct YouTube link available if embedding is disabled. Only one player is
 mounted at a time. These public links do not grant access to private Viddie media.
 
+The public pages and signed-in workspace share the light/dark palette in
+`frontend/src/components/BrandTheme.css`. Workspace navigation, forms, libraries,
+scene editing, timelines, and portaled dialogs use the same violet accents and
+layered surfaces. Tailwind UI colors are defined in `frontend/tailwind.config.js`;
+success, warning, and error colors retain their meanings.
+
 ## Before inviting testers
 
 - Verify HTTPS and HTTP-to-HTTPS redirection at the real domain.
