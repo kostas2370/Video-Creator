@@ -2,7 +2,6 @@
 
 import django.db.models.deletion
 import apps.publishing.storage
-import encrypted_model_fields.fields
 import uuid
 from django.conf import settings
 from django.db import migrations, models
@@ -38,8 +37,8 @@ class Migration(migrations.Migration):
                 ('platform', models.CharField(choices=[('youtube', 'YouTube'), ('tiktok', 'TikTok'), ('instagram', 'Instagram')], max_length=12)),
                 ('external_id', models.CharField(max_length=255)),
                 ('display_name', models.CharField(max_length=255)),
-                ('access_token', encrypted_model_fields.fields.EncryptedTextField()),
-                ('refresh_token', encrypted_model_fields.fields.EncryptedTextField(blank=True, default='')),
+                ('access_token', models.TextField()),
+                ('refresh_token', models.TextField(blank=True, default='')),
                 ('expires_at', models.DateTimeField(null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),

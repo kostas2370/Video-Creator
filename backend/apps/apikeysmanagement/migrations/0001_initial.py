@@ -4,7 +4,6 @@ from django.conf import settings
 import uuid
 from django.db import migrations, models
 import django.db.models.deletion
-import encrypted_model_fields.fields
 
 
 class Migration(migrations.Migration):
@@ -29,67 +28,67 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "openai_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "anthropic_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "gemini_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "elevenlabs_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "sixtydb_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "diffusion_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "midjourney_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "google_search_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "google_search_engine_id",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "twitch_client_id",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),
                 (
                     "twitch_client_secret",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True, default=""
                     ),
                 ),

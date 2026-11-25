@@ -12,9 +12,9 @@ from django_lifecycle import (
     LifecycleModelMixin,
     hook,
 )
-from encrypted_model_fields.fields import EncryptedCharField
 from requests.auth import HTTPBasicAuth
 
+from apps.common.credential_encryption import CredentialCharField
 from apps.common.models import UUIDModel
 
 logger = logging.getLogger(__name__)
@@ -52,18 +52,18 @@ class ApiKeys(LifecycleModelMixin, UUIDModel):
         get_user_model(), on_delete=models.CASCADE, related_name="api_keys"
     )
 
-    openai_key = EncryptedCharField(max_length=255, blank=True, default="")
+    openai_key = CredentialCharField(max_length=255, blank=True, default="")
     key_warnings = models.JSONField(default=dict, db_default={}, blank=True, editable=False)
-    anthropic_key = EncryptedCharField(max_length=255, blank=True, default="")
-    gemini_key = EncryptedCharField(max_length=255, blank=True, default="")
-    fal_key = EncryptedCharField(max_length=255, blank=True, default="")
-    runway_key = EncryptedCharField(max_length=255, blank=True, default="")
-    elevenlabs_key = EncryptedCharField(max_length=255, blank=True, default="")
-    sixtydb_key = EncryptedCharField(max_length=255, blank=True, default="")
-    diffusion_key = EncryptedCharField(max_length=255, blank=True, default="")
-    midjourney_key = EncryptedCharField(max_length=255, blank=True, default="")
-    google_search_key = EncryptedCharField(max_length=255, blank=True, default="")
-    google_search_engine_id = EncryptedCharField(max_length=255, blank=True, default="")
+    anthropic_key = CredentialCharField(max_length=255, blank=True, default="")
+    gemini_key = CredentialCharField(max_length=255, blank=True, default="")
+    fal_key = CredentialCharField(max_length=255, blank=True, default="")
+    runway_key = CredentialCharField(max_length=255, blank=True, default="")
+    elevenlabs_key = CredentialCharField(max_length=255, blank=True, default="")
+    sixtydb_key = CredentialCharField(max_length=255, blank=True, default="")
+    diffusion_key = CredentialCharField(max_length=255, blank=True, default="")
+    midjourney_key = CredentialCharField(max_length=255, blank=True, default="")
+    google_search_key = CredentialCharField(max_length=255, blank=True, default="")
+    google_search_engine_id = CredentialCharField(max_length=255, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -171,7 +171,7 @@ class AbstractCustomProvider(UUIDModel):
         blank=True,
         help_text="Required if auth_type is 'header' (e.g., 'x-api-key')",
     )
-    api_key = EncryptedCharField(
+    api_key = CredentialCharField(
         max_length=255,
         blank=True,
         default="",

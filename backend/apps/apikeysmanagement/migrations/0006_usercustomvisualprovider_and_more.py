@@ -4,7 +4,6 @@ from django.conf import settings
 import uuid
 from django.db import migrations, models
 import django.db.models.deletion
-import encrypted_model_fields.fields
 
 
 class Migration(migrations.Migration):
@@ -50,7 +49,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "api_key",
-                    encrypted_model_fields.fields.EncryptedCharField(
+                    models.TextField(
                         blank=True,
                         default="",
                         help_text="Secret API key, token, or credentials",

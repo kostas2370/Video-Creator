@@ -5,6 +5,7 @@ import logging
 from rest_framework.response import Response
 from rest_framework.views import exception_handler, set_rollback
 
+from apps.common.credential_encryption import CredentialEncryptionError
 from apps.common.provider_errors import provider_failure
 
 from .observability import current_request_id
@@ -13,6 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 def api_exception_handler(exc, context):
+    if isinstance(exc, CredentialEncryptionError):
+        set_rollback()
+        return Response(
+            {
+                "detail": "Stored credentials are temporarily unavailable.",
+                "request_id": current_request_id(),
+            },
+            status=503,
+        )
     failure = provider_failure(exc)
     if failure:
         set_rollback()

@@ -31,7 +31,7 @@ SOCIAL_INSTAGRAM_CLIENT_SECRET=
 SOCIAL_META_API_VERSION=
 ```
 
-Use the Meta Graph API version chosen in your developer application, such as `v25.0` if that version is supported for your app. There is deliberately no implicit Meta version default. Retain the existing stable `FIELD_ENCRYPTION_KEY` configuration across deployments: account tokens use the same encrypted model fields as existing provider keys. `FRONTEND_URL` must name the public frontend where creators return after connecting.
+Use the Meta Graph API version chosen in your developer application, such as `v25.0` if that version is supported for your app. There is deliberately no implicit Meta version default. Account tokens use [Vault Transit](credential-security.md) alongside stored provider credentials. `FRONTEND_URL` must name the public frontend where creators return after connecting.
 
 Register these exact redirect URIs, replacing the example origin with `SOCIAL_PUBLIC_BASE_URL`:
 
