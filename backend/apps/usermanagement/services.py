@@ -7,7 +7,9 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage, send_mail
+from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError as APIValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -15,7 +17,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.videomanagement.events import publish_update
 
 from .exceptions import ContactDeliveryUnavailable
-from .models import Login, Notification
+from .models import AccessRequest, Login, Notification
 from .tasks import send_email
 
 logger = logging.getLogger(__name__)
@@ -90,3 +92,36 @@ def send_contact_message(*, name, email, message, website=""):
     except Exception as exc:
         logger.exception("Contact email delivery failed")
         raise ContactDeliveryUnavailable() from exc
+
+
+def request_access(*, name, email, message, website=""):
+    if website:
+        return
+    AccessRequest.objects.get_or_create(
+        email=email.strip().casefold(), defaults={"name": name, "message": message}
+    )
+
+
+@transaction.atomic
+def approve_access_request(request_id, reviewer):
+    access_request = AccessRequest.objects.select_for_update().get(pk=request_id)
+    if access_request.status != AccessRequest.Status.PENDING:
+        return False
+    sent = send_mail(
+        subject="Your Viddie invitation",
+        message=(
+            "Your request for Viddie access has been approved. "
+            "Create an account using this email address at "
+            f"{settings.FRONTEND_URL}/register/ and verify your email to get started. "
+            "AI features use your own provider keys and may incur provider charges."
+        ),
+        from_email=settings.EMAIL_HOST_USER or settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[access_request.email],
+    )
+    if not sent:
+        raise RuntimeError("Invitation delivery failed")
+    access_request.status = AccessRequest.Status.APPROVED
+    access_request.reviewed_at = timezone.now()
+    access_request.reviewed_by = reviewer
+    access_request.save(update_fields=["status", "reviewed_at", "reviewed_by"])
+    return True

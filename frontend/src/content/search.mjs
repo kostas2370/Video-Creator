@@ -24,6 +24,10 @@ export const publicPages = {
     description:
       "Read the terms for using Viddie and its video creation tools.",
   },
+  "/request-access/": {
+    title: "Request Early Access — Viddie",
+    description: "Tell us what you want to create and request access to Viddie. Approved creators receive an email invitation.",
+  },
   "/contact/": {
     title: "Contact Viddie",
     description:

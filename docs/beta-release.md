@@ -69,10 +69,11 @@ Set these values in `.env`:
   it requires a backend image rebuild and running `setup_checkpoints` once.
 - `SERVICE_API_KEYS_ENABLED=false`: require personal account provider keys. Set
   `true` to allow accounts to opt into configured operator credentials.
-- `INVITE_ONLY=true`: restrict new registrations to `BETA_SIGNUP_EMAILS`. Set
+- `INVITE_ONLY=true`: restrict new registrations to admin-approved access requests
+  or `BETA_SIGNUP_EMAILS`. Set
   `false` to allow public registration, subject to `USER_LIMIT` and rate limits.
-- `BETA_SIGNUP_EMAILS`: comma-separated invited email addresses. Empty closes signup;
-  existing accounts can still log in. `USER_LIMIT` defaults to ten accounts.
+- `BETA_SIGNUP_EMAILS`: comma-separated invited email addresses. Empty requires
+  admin approval; existing accounts can still log in. `USER_LIMIT` defaults to ten accounts.
 - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`: working SMTP
   credentials for verification and password-reset emails. The current SMTP setup
   uses STARTTLS, typically on port 587.
@@ -159,6 +160,35 @@ Use the [CI/CD guide](ci-cd.md) for the protected feature → develop → main f
 restricted deployment access, persistent state paths and recovery procedure.
 Production deployment activates once the workflow files are merged through
 `develop` into `main`; it does not deploy feature PRs.
+
+## Review access requests
+
+Visitors use **Request access** on the public homepage (`/request-access/`).
+Requests store a name, email, and intended use without creating an account. The
+endpoint is rate limited and returns the same receipt for duplicate submissions.
+Repeat submissions do not overwrite reviews or resend invitations.
+
+In Django admin, open **Usermanagement → Access requests**, filter by **Pending**,
+select requests, and choose **Approve selected pending requests and email
+invitations**. Only superusers can review requests. Approval sends an invitation
+link to `FRONTEND_URL/register/` and records the reviewer and time. If email
+fails, the request remains pending; fix SMTP and retry. Rejecting pending requests
+records the decision without sending an invitation. These actions leave already
+reviewed requests unchanged.
+
+Approved creators register with their approved email address and still verify email
+before signing in. Existing invited emails and `USER_LIMIT` remain enforced.
+Keep `INVITE_ONLY=true` in production; `false` permits registration without approval.
+Approval does not reserve an account slot. Review available capacity before inviting.
+Existing accounts are unaffected. Delete requests from admin when no longer needed;
+removing an approval prevents future registration but does not remove an existing
+account. No production configuration or database is changed by this source update;
+apply the committed migration during release.
+
+The homepage features the two curated YouTube videos and Viddie Education TikTok
+profile in `frontend/src/components/VideoShowcase.js`. Players load only on click,
+with a direct YouTube link available if embedding is disabled. Only one player is
+mounted at a time. These public links do not grant access to private Viddie media.
 
 ## Before inviting testers
 

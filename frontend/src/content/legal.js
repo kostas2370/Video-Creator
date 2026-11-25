@@ -36,6 +36,7 @@ export const legalDocuments = {
       {
         title: "Storage, security and retention",
         paragraphs: [
+          "Access requests store your name, email address, intended use, and review status so the operator can review and manage invitations. Contact the operator to request deletion. Featured YouTube players connect to YouTube when you press play, under YouTube’s privacy practices.",
           "Account and project information is stored in the deployment's database and media storage. Social authorization tokens and saved provider keys are encrypted in the database. Cookies and browser storage support sign-in, session persistence and interface preferences.",
           "Viddie retains projects and exports until you delete them or request their removal. Publishing creates a separate export copy so later edits cannot change an upload already requested. Publishing records and these copies do not currently expire automatically; contact the operator to request their deletion. Removing a social connection deletes its locally stored tokens. Technical logs and any backup copies are managed by the operator and may require separate removal.",
           "Providers may process information in countries other than yours, under their own hosting arrangements and applicable transfer safeguards. Contact the operator for the processing locations, retention arrangements and safeguards for the deployment you use.",

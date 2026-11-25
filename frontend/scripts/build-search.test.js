@@ -12,7 +12,8 @@ it("generates a public-only sitemap with a discoverable robots entry", async () 
     expect(sitemap).toContain("<loc>https://viddie.example.com/</loc>");
     expect(sitemap).toContain("<loc>https://viddie.example.com/guide/</loc>");
     expect(sitemap).not.toMatch(/\/(login|register|videos|share|api|admin)\//);
-    expect((sitemap.match(/<loc>/g) || []).length).toBe(6);
+    expect(sitemap).toContain("<loc>https://viddie.example.com/request-access/</loc>");
+    expect((sitemap.match(/<loc>/g) || []).length).toBe(7);
     expect(await readFile(join(directory, "robots.txt"), "utf8")).toContain(
       "Sitemap: https://viddie.example.com/sitemap.xml",
     );

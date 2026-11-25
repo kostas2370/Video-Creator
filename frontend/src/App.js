@@ -14,6 +14,7 @@ import { VideoEditorEntry, VideoEditorLoading } from "./components/VideoEditorLo
 import { PageLoading } from "./components/PageLoading";
 import { isVideoEditorPath, pageLayout } from "./utils/pageLayout";
 
+const RequestAccessPage = lazy(() => import("./pages/RequestAccessPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SharedVideoPage = lazy(() => import("./pages/SharedVideoPage"));
 const Login = lazy(() => import("./pages/LoginPage"));
@@ -73,6 +74,7 @@ function App() {
             <Route path="/share/:token/" element={<SharedVideoPage theme={theme} toggleTheme={toggleTheme} />} />
             <Route path="/guide/" element={<GuidePage />} />
             <Route path="/whats-new/" element={<WhatsNewPage />} />
+            <Route path="/request-access/" element={<RequestAccessPage />} />
             <Route path="/contact/" element={<ContactPage />} />
             <Route path="/privacy/" element={<LegalPage document="privacy" />} />
             <Route path="/terms/" element={<LegalPage document="terms" />} />

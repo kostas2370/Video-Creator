@@ -23,6 +23,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from .filters import NotificationFilter
 from .models import Login, Notification
 from .serializers import (
+    AccessRequestSerializer,
     ContactSerializer,
     CookieTokenRefreshSerializer,
     LoginSerializer,
@@ -35,10 +36,16 @@ from .services import (
     mark_notifications_read,
     record_login,
     register_user,
+    request_access,
     send_contact_message,
     verify_email,
 )
-from .throttling import ContactThrottle, LoginThrottle, RegistrationThrottle
+from .throttling import (
+    AccessRequestThrottle,
+    ContactThrottle,
+    LoginThrottle,
+    RegistrationThrottle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -252,3 +259,21 @@ class ContactView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         send_contact_message(**serializer.validated_data)
         return Response({"detail": "Message received."})
+
+
+class AccessRequestView(generics.GenericAPIView):
+    serializer_class = AccessRequestSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [AccessRequestThrottle]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_access(**serializer.validated_data)
+        return Response(
+            {
+                "detail": "Request received. If approved, you will receive an invitation by email."
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )

@@ -5,7 +5,7 @@ it.each(["/login", "/login/", "/register", "/register/"])("keeps %s focused on i
   expect(hasEmbeddedFooter(pathname)).toBe(true);
   expect(pageLayout(pathname, true).showNavbar).toBe(false);
 });
-it.each(["/privacy/", "/terms/", "/contact/", "/share/token/"])("uses the public palette on %s", pathname => {
+it.each(["/privacy/", "/terms/", "/contact/", "/request-access/", "/share/token/"])("uses the public palette on %s", pathname => {
   expect(pageLayout(pathname, false)).toEqual({ publicShell: true, showNavbar: false });
   expect(hasEmbeddedFooter(pathname)).toBe(false);
   expect(pageLayout(pathname, true).showNavbar).toBe(false);

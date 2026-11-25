@@ -1,0 +1,36 @@
+.landing-page { position: relative; isolation: isolate; }
+.landing-page::before { content: ""; position: absolute; z-index: -1; inset: 0 -1rem auto; height: 48rem; pointer-events: none; background: radial-gradient(ellipse at 85% 30%, #6d5cff20, transparent 58%), radial-gradient(ellipse at 10% 0%, #2e94ff16, transparent 50%); }
+.landing-hero h1 { font-size: clamp(2.75rem, 6vw, 4.8rem); line-height: 1.04; letter-spacing: -.055em; }
+.landing-hero h1 span { background: linear-gradient(110deg, #2563eb, #8b45dc); background-clip: text; color: transparent; }
+.landing-editor { transform: rotate(2deg); box-shadow: 0 28px 80px -24px #483bae40; }
+.landing-eyebrow { font-size: .875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: #2563eb; }
+.showcase-section { padding: 4rem 0; scroll-margin-top: 2rem; }
+.showcase-heading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; margin-bottom: 2rem; }
+.showcase-heading h2, .landing-final h2 { font-size: clamp(2rem, 4vw, 3.4rem); font-weight: 750; letter-spacing: -.045em; line-height: 1.1; margin-top: 1rem; }
+.showcase-heading > p { max-width: 22rem; line-height: 1.8; color: #64748b; }
+.showcase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.showcase-card { min-width: 0; border-radius: 1.5rem; overflow: hidden; border: 1px solid #94a3b830; background: #fff; }
+.showcase-player { aspect-ratio: 16 / 9; background: #10162d; }
+.showcase-player iframe { width: 100%; height: 100%; border: 0; }
+.showcase-play { position: relative; overflow: hidden; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .8rem; padding: 1.5rem; color: #fff; background: radial-gradient(ellipse at 20% 10%, #4385e9, transparent 60%), linear-gradient(130deg, #0a2043, #30388f); }
+.showcase-violet .showcase-play { background: radial-gradient(ellipse at 90% 10%, #ac5ad9, transparent 65%), linear-gradient(130deg, #291e58, #6d235d); }
+.showcase-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.showcase-shade { position: absolute; inset: 0; background: linear-gradient(180deg, #0b122020, #0b1220d9); }
+.showcase-play-icon { position: relative; display: grid; place-items: center; width: 3.5rem; height: 3.5rem; border-radius: 50%; background: #fff; color: #263b80; transition: transform .2s; }
+.showcase-play-icon svg { width: 1.5rem; height: 1.5rem; }
+.showcase-play:hover .showcase-play-icon { transform: scale(1.1); }
+.showcase-play:focus-visible { outline: 3px solid #93c5fd; outline-offset: -6px; }
+.showcase-cover-title { position: relative; font-size: clamp(1.2rem, 2.6vw, 1.9rem); font-weight: 700; letter-spacing: -.03em; text-align: center; }
+.showcase-cover-label { position: relative; font-size: .875rem; color: #e0e7ff; }
+.showcase-caption { padding: 1.25rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.showcase-caption h3 { font-size: 1rem; font-weight: 650; }
+.showcase-caption a, .showcase-footer a { font-size: .875rem; color: #2563eb; text-decoration: underline; text-underline-offset: 4px; }
+.showcase-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; font-size: .875rem; color: #64748b; }
+.landing-final { padding: 5rem 1rem; text-align: center; }
+.landing-final > p:not(.landing-eyebrow) { margin: 1.5rem auto; max-width: 30rem; line-height: 1.8; color: #64748b; }
+.dark .landing-hero h1 span { background-image: linear-gradient(110deg, #70a6ff, #d09bff); }
+.dark .showcase-card { background: #152039; }
+.dark .landing-eyebrow, .dark .showcase-caption a, .dark .showcase-footer a { color: #93c5fd; }
+.dark .showcase-heading > p, .dark .showcase-footer, .dark .landing-final > p:not(.landing-eyebrow) { color: #a6b5cb; }
+@media (max-width: 640px) { .showcase-grid { grid-template-columns: 1fr; } .showcase-heading { display: block; } .showcase-heading > p { margin-top: 1.5rem; } .showcase-section { padding: 2.5rem 0; } .landing-editor { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .showcase-play-icon { transition: none; } }

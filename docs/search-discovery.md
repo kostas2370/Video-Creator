@@ -9,7 +9,7 @@ argument. Vite embeds this value at build time; changing it requires rebuilding 
 frontend. Never put credentials in a `VITE_` variable.
 
 The production build creates a sitemap and robots file listing only the homepage,
-guide, news, privacy, terms and contact pages. When no public origin is configured,
+guide, news, privacy, terms, contact and access-request pages. When no public origin is configured,
 the build does not invent a production sitemap hostname. Route metadata supplies
 titles, descriptions and canonical links; private routes use `noindex, nofollow`.
 These instructions guide search engines and do not replace authorization checks.

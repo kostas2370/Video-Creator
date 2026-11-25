@@ -18,6 +18,7 @@ export const getNewsUpdates = (page = 1) => request({
 export const getDeployment = () => request({ url: "deployment/", client: axiosInstance, ...callerHandlesErrors });
 
 export const login = data => publicRequest(LOGIN_URL, data);
+export const requestAccess = data => post("access-requests/", data, { client: axiosInstance, headers: { "Content-Type": "application/json" }, ...callerHandlesErrors });
 export const register = data => publicRequest(REGISTER_URL, data);
 export const refreshToken = () => publicRequest(REFRESH_URL);
 export const requestPasswordReset = data => publicRequest(PASSWORD_RESET_URL, data);

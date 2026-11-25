@@ -1,7 +1,8 @@
+import "./LandingPage.css";
+import { VideoShowcase } from "../components/VideoShowcase";
 import { Link } from "react-router-dom";
 import {
   HiOutlineArrowRight,
-  HiOutlineBookOpen,
   HiOutlineCheck,
   HiOutlineFilm,
   HiOutlineScissors,
@@ -17,7 +18,7 @@ const secondary =
 export default function LandingPage() {
   const { invite_only: inviteOnly } = useDeployment();
   return (
-    <main className="mx-auto max-w-6xl px-4 pb-10 sm:px-6">
+    <main className="landing-page mx-auto max-w-6xl px-4 pb-10 sm:px-6">
       <nav
         aria-label="Viddie public navigation"
         className="flex flex-wrap items-center justify-between gap-4 py-6"
@@ -44,7 +45,7 @@ export default function LandingPage() {
       </nav>
       <section
         aria-labelledby="landing-title"
-        className="grid items-center gap-10 py-10 sm:py-16 lg:grid-cols-[1.1fr_1fr]"
+        className="landing-hero grid items-center gap-10 py-10 sm:py-16 lg:grid-cols-[1.1fr_1fr]"
       >
         <div>
           <p className="mb-4 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-300">
@@ -66,21 +67,18 @@ export default function LandingPage() {
             long recordings, add captions, and shape the final edit yourself.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/register/" className={primary}>
-              Get started
+            <Link to={inviteOnly ? "/request-access/" : "/register/"} className={primary}>
+              {inviteOnly ? "Request early access" : "Get started"}
               <HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
-            <Link to="/guide/" className={secondary}>
-              <HiOutlineBookOpen aria-hidden="true" className="h-4 w-4" />
-              See how it works
-            </Link>
+            <a href="#showcase" className={secondary}>Watch the videos</a>
           </div>
           <p className="mt-4 text-xs leading-6 text-gray-500 dark:text-gray-400">
             {inviteOnly ? (
               <>
                 Hosted access is currently invite-only.{" "}
                 <Link
-                  to="/contact/"
+                  to="/request-access/"
                   className="font-semibold text-blue-600 underline dark:text-blue-300"
                 >
                   Request an invitation
@@ -92,7 +90,7 @@ export default function LandingPage() {
             )}
           </p>
         </div>
-        <figure className="overflow-hidden rounded-3xl border border-gray-200 bg-white p-4 shadow-xl shadow-blue-900/5 dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+        <figure className="landing-editor overflow-hidden rounded-3xl border border-gray-200 bg-white p-4 shadow-xl shadow-blue-900/5 dark:border-gray-700 dark:bg-gray-800 sm:p-6">
           <figcaption className="mb-4 flex items-center justify-between gap-3 text-xs font-semibold">
             <span className="flex items-center gap-2">
               <HiOutlineFilm
@@ -143,6 +141,7 @@ export default function LandingPage() {
           </div>
         </figure>
       </section>
+      <VideoShowcase />
       <section aria-labelledby="landing-tools" className="py-8">
         <p className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-300">
           More than one way to create
@@ -211,6 +210,14 @@ export default function LandingPage() {
         >
           Explore the guide
           <HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" />
+        </Link>
+      </section>
+      <section className="landing-final" aria-labelledby="landing-final-title">
+        <p className="landing-eyebrow">Your story. Your way.</p>
+        <h2 id="landing-final-title">Have an idea?<br />Let’s give it a screen.</h2>
+        <p>Start with a sentence, a script, or the footage already on your phone.</p>
+        <Link to={inviteOnly ? "/request-access/" : "/register/"} className={primary}>
+          {inviteOnly ? "Request access" : "Create your account"}
         </Link>
       </section>
     </main>

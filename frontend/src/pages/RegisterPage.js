@@ -67,7 +67,8 @@ export default function Register() {
     <AuthLayout register>
       <p className="auth-eyebrow">LET’S MAKE SOMETHING</p>
       <h1 id="auth-title">Create your<br />account.</h1>
-      <p className="auth-subtitle">{inviteOnly ? "This beta is by invitation. Register with the email address you were invited with." : "Create your account and bring your next story to life."}</p>
+      <p className="auth-subtitle">{inviteOnly ? "This beta is by invitation. Register with the email address approved for access." : "Create your account and bring your next story to life."}</p>
+      {inviteOnly && <p className="auth-subtitle">Need an invitation? <Link to="/request-access/" className="underline">Request access</Link>.</p>}
       <form className="auth-form auth-register-form" onSubmit={handleRegister} aria-busy={loading}>
         <TextField
           id="username"

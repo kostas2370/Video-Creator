@@ -27,6 +27,12 @@ describe("API request results with the upgraded HTTP client", () => {
     expect(axiosPrivateInstance.request).toHaveBeenCalledWith(expect.objectContaining({ signal: controller.signal, timeout: 15000 }));
   });
 
+  it("passes explicit JSON headers for public access requests", async () => {
+    axiosPrivateInstance.request.mockResolvedValue({ data: {}, status: 202 });
+    await request({ method: "post", url: "access-requests/", data: { name: "Ada" }, headers: { "Content-Type": "application/json" } });
+    expect(axiosPrivateInstance.request).toHaveBeenCalledWith(expect.objectContaining({ headers: { "Content-Type": "application/json" }, data: { name: "Ada" } }));
+  });
+
   it("accepts a successful deletion with no response body", async () => {
     axiosPrivateInstance.request.mockResolvedValue({ status: 204, headers: {} });
     expect(await request({ method: "delete", url: "videos/7/" }))
