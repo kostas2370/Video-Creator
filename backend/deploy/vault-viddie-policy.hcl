@@ -5,3 +5,7 @@ path "transit/encrypt/viddie-credentials" {
 path "transit/decrypt/viddie-credentials" {
   capabilities = ["update"]
 }
+
+path "auth/token/renew-self" {
+  capabilities = ["update"]
+}

@@ -4,7 +4,11 @@ from unittest.mock import patch
 from celery import current_app
 from celery.backends.base import Backend
 from django.test import SimpleTestCase, TestCase
-from httpx import Request, Response
+
+try:
+    from httpx2 import Request, Response
+except ImportError:
+    from httpx import Request, Response
 from openai import (
     APIConnectionError,
     APIStatusError,

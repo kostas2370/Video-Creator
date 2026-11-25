@@ -64,8 +64,9 @@ auto-unseal.
    [deployment helper](../scripts/deploy_beta.py). It includes the Compose overlay and
    runs the Vault check before stopping the old application.
 2. Take a database backup and deploy the new release. The normal deployment
-   runs Django's schema migrations. Vault is the only credential cipher used
-   by the running application, and this upgrade requires no legacy key input.
+   runs Django's schema migrations. It does not convert or clear stored credentials.
+   Vault is the only credential cipher used by the running application, and this
+   upgrade requires no legacy key input.
 3. Sign in as the user with stored provider credentials and save fresh keys in
    the usual settings. Any publishing accounts with old tokens need to reconnect.
    Account records, provider settings, and publishing history are preserved.
@@ -75,3 +76,24 @@ The schema change preserves existing ciphertext, and Viddie never attempts to
 decrypt it. Remove the previous encryption key from the live configuration, and
 retain a protected copy only if needed to restore an older backup. Back up Vault
 storage and recovery material with the database created after cutover.
+
+## Local verification and operations
+
+Use a separate database and Compose project for disposable probes, or back up your
+existing local database before applying the upgrade. Keep operator recovery material,
+TLS private keys and database backups outside the source directories mounted into
+the application. The ignored `.viddie-local-vault/` directory at the repository root
+can hold private local setup files; it must never be committed or copied into an image.
+
+Run `python manage.py check_credential_vault` inside the configured API container to
+verify a real TLS encryption/decryption round trip without calling a paid provider.
+Check that the provider settings API masks saved keys. The database should contain
+`viddie:vault:1:` values, and the app token must not be able to create encryption keys.
+Restart Vault and unseal it, then verify that the same saved credential still works.
+
+The supplied policy allows the app token to renew itself. A periodic token can be
+renewed by an operator-managed timer before its period ends. Capture or discard the
+renewal response: it contains the token and must not appear in logs. Store audit logs
+in the dedicated persistent volume. Ordinary application releases leave Vault running;
+a VPS or Vault restart requires unsealing unless an external auto-unseal service is
+configured. Keep recovery material and a Vault storage backup off the VPS.

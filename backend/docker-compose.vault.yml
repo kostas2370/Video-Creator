@@ -24,6 +24,7 @@ services:
       - ./deploy/vault.hcl:/vault/config/viddie.hcl:ro
       - ${VIDDIE_VAULT_TLS_DIR:?Set the Vault server TLS directory}:/vault/tls:ro
       - credential-vault-data:/vault/file
+      - credential-vault-audit:/vault/logs
     networks:
       - credential-vault
 
@@ -40,6 +41,7 @@ networks:
 
 volumes:
   credential-vault-data:
+  credential-vault-audit:
 
 secrets:
   viddie-vault-token:
