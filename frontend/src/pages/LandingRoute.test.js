@@ -24,7 +24,7 @@ it("shows a useful public homepage even while a guest session check is pending",
       <App />
     </MemoryRouter>,
   );
-  await screen.findByRole("heading", { name: /worth watching/ });
+  await screen.findByRole("heading", { level: 1, name: /worth watching/ });
   expect(screen.getByRole("link", { name: "Get started" })).toBeTruthy();
   expect(screen.queryByText("Workspace navigation")).toBeNull();
 });

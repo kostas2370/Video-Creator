@@ -22,3 +22,11 @@ or ranking.
 Run `npm test` and `npm run build` from `frontend/` to verify generated files and
 public/private routing. Test the signed-out homepage and a signed-in return to Create
 after changing the root route.
+
+
+The homepage includes curated public videos, a keyboard-accessible studio walkthrough,
+and an access-request link when the deployment is invite-only. Its light/dark toggle
+uses the app’s saved theme. Sample players use click-to-load YouTube embeds; local
+posters and screenshots do not contact YouTube before playback. Replacing the
+examples requires updating `VideoShowcase.js` and the matching public poster assets.
+The access-request page uses the same visual theme and retains inline delivery errors.

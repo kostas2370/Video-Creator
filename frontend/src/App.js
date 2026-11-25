@@ -74,12 +74,12 @@ function App() {
             <Route path="/share/:token/" element={<SharedVideoPage theme={theme} toggleTheme={toggleTheme} />} />
             <Route path="/guide/" element={<GuidePage />} />
             <Route path="/whats-new/" element={<WhatsNewPage />} />
-            <Route path="/request-access/" element={<RequestAccessPage />} />
+            <Route path="/request-access/" element={<RequestAccessPage theme={theme} toggleTheme={toggleTheme} />} />
             <Route path="/contact/" element={<ContactPage />} />
             <Route path="/privacy/" element={<LegalPage document="privacy" />} />
             <Route path="/terms/" element={<LegalPage document="terms" />} />
-            <Route path="/" element={<PersistLogin fallback={location.pathname === "/" ? <LandingPage /> : "Loading"} />}>
-              <Route index element={access_token ? <CreatePage /> : <LandingPage />} />
+            <Route path="/" element={<PersistLogin fallback={location.pathname === "/" ? <LandingPage theme={theme} toggleTheme={toggleTheme} /> : "Loading"} />}>
+              <Route index element={access_token ? <CreatePage /> : <LandingPage theme={theme} toggleTheme={toggleTheme} />} />
               <Route
                 path="/login/"
                 element={!access_token ? <Login /> : <Navigate to="/" replace />}

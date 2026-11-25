@@ -1,225 +1,494 @@
-import "./LandingPage.css";
-import { VideoShowcase } from "../components/VideoShowcase";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  HiOutlineArrowRight,
-  HiOutlineCheck,
+  HiCheck,
+  HiOutlineAdjustmentsHorizontal,
   HiOutlineFilm,
   HiOutlineScissors,
+  HiOutlineShieldCheck,
   HiOutlineSparkles,
+  HiPlay,
 } from "react-icons/hi2";
+import { LandingThemeToggle } from "../components/LandingThemeToggle";
+import { VideoShowcase } from "../components/VideoShowcase";
 import { useDeployment } from "../store/DeploymentContext";
+import "./LandingPage.css";
 
-const primary =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2";
-const secondary =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold transition hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-gray-600";
+const workflows = [
+  {
+    id: "plan",
+    label: "Plan your story",
+    icon: HiOutlineSparkles,
+    eyebrow: "From a spark to a storyboard",
+    title: "Give your idea a little direction.",
+    description:
+      "Start with an idea, a script, or a recording. Choose the look and sound, then review your storyboard before creating the media.",
+    points: [
+      "Review the script before generating",
+      "Choose your visuals and narration",
+      "Keep every scene editable",
+    ],
+    image: "/showcase/storyboard.png",
+    alt: "Viddie storyboard review with an idea, scene count, and look and sound settings",
+  },
+  {
+    id: "edit",
+    label: "Make it yours",
+    icon: HiOutlineAdjustmentsHorizontal,
+    eyebrow: "The details make the difference",
+    title: "Your first draft is just the beginning.",
+    description:
+      "Open the editor and get hands-on. Rewrite a line, change a visual, refine the timing, and bring the whole story together.",
+    points: [
+      "Arrange and refine individual scenes",
+      "Shape captions, music, and motion",
+      "Preview before the final render",
+    ],
+    image: "/showcase/editor.png",
+    alt: "Viddie scene editor with an emu video preview, editable narration, and a scene timeline",
+  },
+  {
+    id: "clips",
+    label: "Find the highlights",
+    icon: HiOutlineScissors,
+    eyebrow: "There’s more in your footage",
+    title: "Big recordings. Little moments that matter.",
+    description:
+      "Turn interviews, podcasts, and talks into shorter clips. Find moments in the transcript, adjust the framing, and refine the captions.",
+    points: [
+      "Start with a long-form recording",
+      "Review and trim selected moments",
+      "Frame your clips for a smaller screen",
+    ],
+    image: "/showcase/clips.png",
+    alt: "Viddie clip workspace with a video transcript and controls for selecting highlights",
+  },
+];
 
-export default function LandingPage() {
+export default function LandingPage({ theme, toggleTheme }) {
   const { invite_only: inviteOnly } = useDeployment();
+  const [workflow, setWorkflow] = useState("edit");
+  const selected = workflows.find((item) => item.id === workflow);
+  const signupPath = inviteOnly ? "/request-access/" : "/register/";
+
+  function navigateWorkflow(event, index) {
+    let next;
+    if (event.key === "ArrowRight") next = (index + 1) % workflows.length;
+    else if (event.key === "ArrowLeft")
+      next = (index + workflows.length - 1) % workflows.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = workflows.length - 1;
+    else return;
+    event.preventDefault();
+    setWorkflow(workflows[next].id);
+    event.currentTarget.parentElement
+      .querySelectorAll('[role="tab"]')
+      [next].focus();
+  }
+
   return (
-    <main className="landing-page mx-auto max-w-6xl px-4 pb-10 sm:px-6">
+    <main className="landing-page">
+      <a className="landing-skip" href="#landing-content">
+        Skip to content
+      </a>
       <nav
+        className="landing-nav landing-container"
         aria-label="Viddie public navigation"
-        className="flex flex-wrap items-center justify-between gap-4 py-6"
       >
-        <Link
-          to="/"
-          aria-label="Viddie home"
-          className="flex items-center gap-3 rounded-lg text-lg font-bold focus-visible:ring-2 focus-visible:ring-blue-500"
-        >
-          <img src="/viddie-icon.svg" alt="" className="h-9 w-9 rounded-xl" />
-          Viddie
+        <Link to="/" className="landing-brand" aria-label="Viddie home">
+          <img src="/viddie-icon.svg" alt="" width="36" height="36" />
+          Viddie<span className="landing-beta">BETA</span>
         </Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/guide/"
-            className="px-2 py-2 text-sm font-medium hover:text-blue-500"
-          >
-            Guide
-          </Link>
-          <Link to="/login/" className={secondary}>
+        <div className="landing-nav-sections">
+          <a href="#workflow">The studio</a>
+          <a href="#showcase">Made with Viddie</a>
+          <Link to="/guide/">Guide</Link>
+        </div>
+        <div className="landing-nav-actions">
+          <LandingThemeToggle theme={theme} toggleTheme={toggleTheme} />
+          <Link to="/login/" className="landing-sign-in">
             Sign in
           </Link>
         </div>
       </nav>
+
       <section
+        id="landing-content"
+        className="landing-hero landing-container"
         aria-labelledby="landing-title"
-        className="landing-hero grid items-center gap-10 py-10 sm:py-16 lg:grid-cols-[1.1fr_1fr]"
       >
-        <div>
-          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-300">
-            Your ideas. Your footage. Your creative space.
+        <div className="landing-hero-copy">
+          <p className="landing-pill">
+            <HiOutlineSparkles aria-hidden="true" />A little idea. A whole new
+            possibility.
           </p>
-          <h1
-            id="landing-title"
-            className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl"
-          >
+          <h1 id="landing-title">
             Make something
             <br />
-            <span className="text-blue-600 dark:text-blue-400">
-              worth watching.
-            </span>
+            <span>worth watching.</span>
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-8 text-gray-600 dark:text-gray-300">
-            Viddie is a video creator and editor for turning ideas, scripts, and
-            your own media into videos. Build scenes with AI, find highlights in
-            long recordings, add captions, and shape the final edit yourself.
+          <p className="landing-hero-description">
+            The creative studio for the stories in your head.
+            <br className="landing-desktop-break" /> Turn ideas, scripts, and
+            your own footage into videos that feel like <em>you.</em>
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link to={inviteOnly ? "/request-access/" : "/register/"} className={primary}>
+          <div className="landing-hero-actions">
+            <Link
+              to={signupPath}
+              className="landing-button landing-button-primary"
+            >
               {inviteOnly ? "Request early access" : "Get started"}
-              <HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" />
+              <HiOutlineSparkles aria-hidden="true" />
             </Link>
-            <a href="#showcase" className={secondary}>Watch the videos</a>
+            <a
+              href="#showcase"
+              className="landing-button landing-button-secondary"
+            >
+              <HiPlay aria-hidden="true" />
+              Watch the videos
+            </a>
           </div>
-          <p className="mt-4 text-xs leading-6 text-gray-500 dark:text-gray-400">
+          <p className="landing-hero-note">
             {inviteOnly ? (
               <>
-                Hosted access is currently invite-only.{" "}
-                <Link
-                  to="/request-access/"
-                  className="font-semibold text-blue-600 underline dark:text-blue-300"
-                >
-                  Request an invitation
-                </Link>
-                .
+                A small beta. A personal welcome.{" "}
+                <Link to="/request-access/">Request an invitation</Link>.
               </>
             ) : (
-              "Start with your own media, or connect your providers to create with AI."
+              "Start with your own media. Connect your providers when you’re ready."
             )}
           </p>
-        </div>
-        <figure className="landing-editor overflow-hidden rounded-3xl border border-gray-200 bg-white p-4 shadow-xl shadow-blue-900/5 dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-          <figcaption className="mb-4 flex items-center justify-between gap-3 text-xs font-semibold">
-            <span className="flex items-center gap-2">
-              <HiOutlineFilm
-                aria-hidden="true"
-                className="h-4 w-4 text-blue-500"
-              />
-              A little idea, brought to life
+          <div className="landing-hero-promises">
+            <span>
+              <HiCheck aria-hidden="true" />
+              Your creative control
             </span>
-            <span className="text-gray-400">Editor illustration</span>
-          </figcaption>
-          <div className="relative flex aspect-video items-end overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-indigo-700 to-violet-500 p-6">
-            <div
-              aria-hidden="true"
-              className="absolute -right-5 -top-12 h-48 w-48 rounded-full border-[24px] border-white/10"
+            <span>
+              <HiCheck aria-hidden="true" />
+              Your choice of AI
+            </span>
+          </div>
+        </div>
+        <figure
+          className="landing-film-composition"
+          aria-label="Illustration of a Viddie video project using the featured Emu War video"
+        >
+          <div className="landing-film-glow" aria-hidden="true" />
+          <div className="landing-film-backdrop" aria-hidden="true">
+            <img
+              src="/showcase/world-war-ii.jpg"
+              alt=""
+              width="480"
+              height="360"
             />
-            <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-blue-100">
-                Your next story
-              </p>
-              <p className="text-3xl font-bold tracking-tight text-white">
-                One idea.
-                <br />A world of possibilities.
-              </p>
+            <span>Another story waiting to be told.</span>
+          </div>
+          <div className="landing-film-window">
+            <div className="landing-window-bar">
+              <span className="landing-window-brand">
+                <HiOutlineFilm aria-hidden="true" />
+                Your creative space
+              </span>
+              <span className="landing-window-label">Project illustration</span>
+            </div>
+            <div className="landing-film-image">
+              <img
+                src="/showcase/emu-war.jpg"
+                alt="Australian soldiers in a field from the featured Great Emu War video"
+                width="480"
+                height="360"
+              />
+              <div className="landing-film-overlay">
+                <span className="landing-film-tag">
+                  A curious little piece of history
+                </span>
+                <p>
+                  Small idea.
+                  <br />
+                  <em>Big story.</em>
+                </p>
+                <a href="#showcase" className="landing-film-watch">
+                  <HiPlay aria-hidden="true" />
+                  <span>Explore the films</span>
+                </a>
+              </div>
+            </div>
+            <div className="landing-mini-timeline" aria-hidden="true">
+              <div className="landing-timeline-scenes">
+                <img src="/showcase/emu-war.jpg" alt="" />
+                <img src="/showcase/world-war-ii.jpg" alt="" />
+                <div>
+                  Your next
+                  <br />
+                  scene
+                </div>
+                <span className="landing-timeline-playhead" />
+              </div>
+              <div className="landing-audio-wave">
+                {Array.from({ length: 34 }, (_, index) => (
+                  <i
+                    key={index}
+                    style={{ height: `${6 + ((index * 7) % 17)}px` }}
+                  />
+                ))}
+              </div>
+              <div className="landing-caption-track">
+                Every story starts with a little curiosity.
+              </div>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {["01 · The idea", "02 · The story", "03 · Your edit"].map(
-              (label) => (
-                <div
-                  key={label}
-                  className="rounded-xl bg-gray-50 px-3 py-4 text-xs font-semibold dark:bg-gray-900/60"
-                >
-                  {label}
-                </div>
-              ),
-            )}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500 dark:text-gray-400">
-            {["Scenes", "Narration", "Captions"].map((label) => (
-              <span key={label} className="flex items-center gap-1.5">
-                <HiOutlineCheck
-                  aria-hidden="true"
-                  className="h-4 w-4 text-blue-500"
-                />
-                {label}
-              </span>
-            ))}
-          </div>
+          <figcaption className="landing-floating-note">
+            <span>
+              <HiOutlineSparkles aria-hidden="true" />
+            </span>
+            <div>
+              <strong>From “what if” to “watch this”.</strong>
+              <p>Scenes. Sound. A story of your own.</p>
+            </div>
+          </figcaption>
         </figure>
       </section>
-      <VideoShowcase />
-      <section aria-labelledby="landing-tools" className="py-8">
-        <p className="text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-300">
-          More than one way to create
+
+      <div
+        className="landing-capabilities landing-container"
+        aria-label="Studio capabilities"
+      >
+        <p>
+          One creative space.
+          <br />
+          <strong>So many ways to begin.</strong>
         </p>
-        <h2
-          id="landing-tools"
-          className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl"
-        >
-          Start with what you have.
-        </h2>
-        <div className="mt-7 grid gap-4 sm:grid-cols-3">
+        <div>
           {[
-            {
-              icon: HiOutlineSparkles,
-              title: "Turn an idea into a video",
-              text: "Draft a script and storyboard, generate narration and visuals, then review and edit each scene.",
-            },
-            {
-              icon: HiOutlineFilm,
-              title: "Edit your own photos and clips",
-              text: "Arrange your media, control timing and sound, and make a finished video without needing AI keys.",
-            },
-            {
-              icon: HiOutlineScissors,
-              title: "Turn long videos into Shorts",
-              text: "Find highlights in interviews, podcasts, and talks. Refine their framing, trim, and captions before exporting.",
-            },
-          ].map(({ icon: Icon, title, text }) => (
-            <article
-              key={title}
-              className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800"
+            [HiOutlineSparkles, "Idea to video"],
+            [HiOutlineFilm, "Your own media"],
+            [HiOutlineScissors, "Long video to Shorts"],
+            [HiOutlineAdjustmentsHorizontal, "Captions & editing"],
+          ].map(([Icon, label]) => (
+            <span key={label}>
+              <Icon aria-hidden="true" />
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="landing-container">
+        <VideoShowcase />
+      </div>
+
+      <section
+        id="workflow"
+        className="landing-workflow landing-container"
+        aria-labelledby="landing-workflow-title"
+      >
+        <div className="landing-section-heading">
+          <p className="landing-eyebrow">Your idea has a place to grow</p>
+          <h2 id="landing-workflow-title">
+            A little AI magic.
+            <br />
+            <span>A lot of you.</span>
+          </h2>
+          <p>
+            Get a helping hand with the first draft. Keep your hands on the
+            final cut.
+          </p>
+        </div>
+        <div
+          className="landing-workflow-tabs"
+          role="tablist"
+          aria-label="Explore the Viddie studio"
+        >
+          {workflows.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`workflow-tab-${item.id}`}
+              aria-selected={workflow === item.id}
+              aria-controls="workflow-panel"
+              tabIndex={workflow === item.id ? 0 : -1}
+              onClick={() => setWorkflow(item.id)}
+              onKeyDown={(event) => navigateWorkflow(event, index)}
             >
-              <Icon
-                aria-hidden="true"
-                className="mb-5 h-6 w-6 text-blue-600 dark:text-blue-300"
-              />
-              <h3 className="font-bold">{title}</h3>
-              <p className="mt-3 text-sm leading-7 text-gray-500 dark:text-gray-400">
-                {text}
-              </p>
+              <item.icon aria-hidden="true" />
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div
+          id="workflow-panel"
+          role="tabpanel"
+          aria-labelledby={`workflow-tab-${selected.id}`}
+          tabIndex={0}
+          className="landing-workflow-panel"
+        >
+          <div className="landing-workflow-copy">
+            <p className="landing-eyebrow">{selected.eyebrow}</p>
+            <h3>{selected.title}</h3>
+            <p>{selected.description}</p>
+            <ul>
+              {selected.points.map((point) => (
+                <li key={point}>
+                  <HiCheck aria-hidden="true" />
+                  {point}
+                </li>
+              ))}
+            </ul>
+            <Link to="/guide/" className="landing-inline-link">
+              Take a look around the studio
+            </Link>
+          </div>
+          <figure
+            className={`landing-product-shot landing-product-shot-${selected.id}`}
+          >
+            <div className="landing-product-caption">
+              <HiOutlineFilm aria-hidden="true" />
+              <span>Inside Viddie</span>
+              <span>Product preview</span>
+            </div>
+            <img
+              key={selected.id}
+              src={selected.image}
+              alt={selected.alt}
+              width={selected.id === "edit" ? 1512 : 1280}
+              height={selected.id === "edit" ? 1559 : 1516}
+              loading="lazy"
+            />
+            <figcaption>Actual Viddie interface · Example project</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section
+        className="landing-control landing-container"
+        aria-labelledby="landing-control-title"
+      >
+        <div className="landing-control-intro">
+          <span className="landing-feature-icon">
+            <HiOutlineShieldCheck aria-hidden="true" />
+          </span>
+          <p className="landing-eyebrow">A studio on your terms</p>
+          <h2 id="landing-control-title">
+            Keep the part
+            <br />
+            that makes it yours.
+          </h2>
+          <p>
+            Your ideas, your media, your decisions. Viddie gives you room to
+            create your way.
+          </p>
+        </div>
+        <div className="landing-control-features">
+          {[
+            [
+              "Pick your creative partners.",
+              "Connect your preferred AI providers for writing, voices, and visuals. Or start with your own photos and clips.",
+            ],
+            [
+              "Make the final call.",
+              "Review your storyboard before generating media. Rewrite, rearrange, and preview before the final render.",
+            ],
+            [
+              "Share when you’re ready.",
+              "Keep your project private, create a viewing link, or export an editable project ZIP for a portable copy.",
+            ],
+          ].map(([title, text]) => (
+            <article key={title}>
+              <HiCheck aria-hidden="true" />
+              <div>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </div>
             </article>
           ))}
         </div>
       </section>
+
       <section
-        aria-labelledby="landing-control"
-        className="my-8 rounded-3xl bg-blue-50 p-6 sm:p-9 dark:bg-blue-500/10"
+        className="landing-faq landing-container"
+        aria-labelledby="landing-faq-title"
       >
-        <h2 id="landing-control" className="text-2xl font-bold tracking-tight">
-          Keep the creative control.
+        <div>
+          <p className="landing-eyebrow">A few things to know</p>
+          <h2 id="landing-faq-title">
+            Curious?
+            <br />
+            Good place to start.
+          </h2>
+          <Link to="/contact/" className="landing-inline-link">
+            Get in touch
+          </Link>
+        </div>
+        <div className="landing-faq-list">
+          {[
+            [
+              "Do I need AI provider keys?",
+              "You can edit your own photos and clips without AI keys. AI writing, narration, and visual generation use your connected providers. Provider usage may be billed separately.",
+            ],
+            [
+              "Can I edit what the AI creates?",
+              "Yes. Review the storyboard, rewrite narration, replace visuals, adjust scene timing, and refine your captions before rendering.",
+            ],
+            [
+              "How does early access work?",
+              "Send an access request with your email and what you’d like to create. If approved, you’ll receive an invitation to register. You’ll still verify your email before signing in.",
+            ],
+            [
+              "Are my projects public?",
+              "Your projects are private unless you choose to share or publish them. Public viewing links let you share a finished video when you’re ready.",
+            ],
+          ]
+            .filter(
+              ([question]) =>
+                inviteOnly || question !== "How does early access work?",
+            )
+            .map(([question, answer]) => (
+              <details key={question}>
+                <summary>
+                  {question}
+                  <span aria-hidden="true" />
+                </summary>
+                <p>{answer}</p>
+              </details>
+            ))}
+        </div>
+      </section>
+
+      <section
+        className="landing-final landing-container"
+        aria-labelledby="landing-final-title"
+      >
+        <div className="landing-final-orbit" aria-hidden="true" />
+        <p className="landing-eyebrow">You bring the idea.</p>
+        <h2 id="landing-final-title">
+          Let’s make it
+          <br />
+          <span>worth watching.</span>
         </h2>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-gray-600 dark:text-gray-300">
-          Review your scenes, correct captions, and preview before rendering.
-          Build connected episodes with recurring characters, share finished
-          videos through viewing links, or export an editable project ZIP to
-          keep a portable copy.
+        <p>
+          That story you keep thinking about?
+          <br />
+          It deserves more than a note on your phone.
         </p>
-        <p className="mt-3 max-w-3xl text-xs leading-6 text-gray-500 dark:text-gray-400">
-          AI tools use your connected providers. Provider usage may be billed
-          separately; you can also work with your own media without AI. Your
-          project is private unless you choose to share or publish it.
-        </p>
-        <Link
-          to="/guide/"
-          className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-blue-700 hover:underline dark:text-blue-300"
-        >
-          Explore the guide
-          <HiOutlineArrowRight aria-hidden="true" className="h-4 w-4" />
-        </Link>
-      </section>
-      <section className="landing-final" aria-labelledby="landing-final-title">
-        <p className="landing-eyebrow">Your story. Your way.</p>
-        <h2 id="landing-final-title">Have an idea?<br />Let’s give it a screen.</h2>
-        <p>Start with a sentence, a script, or the footage already on your phone.</p>
-        <Link to={inviteOnly ? "/request-access/" : "/register/"} className={primary}>
+        <Link to={signupPath} className="landing-button landing-button-primary">
           {inviteOnly ? "Request access" : "Create your account"}
+          <HiOutlineSparkles aria-hidden="true" />
         </Link>
+        <span className="landing-final-note">
+          {inviteOnly
+            ? "Thoughtful tools. A small beta. Your next big idea."
+            : "Your own footage, or a little help from AI. You decide."}
+        </span>
       </section>
+      <div className="landing-endnote landing-container">
+        <Link to="/" className="landing-brand">
+          <img src="/viddie-icon.svg" alt="" width="28" height="28" />
+          Viddie
+        </Link>
+        <p>A creative space for curious minds.</p>
+        <Link to="/guide/">Explore the guide</Link>
+      </div>
     </main>
   );
 }

@@ -1,11 +1,14 @@
 import { useRef, useState } from "react";
+import { HiCheck, HiOutlineEnvelope, HiOutlineSparkles } from "react-icons/hi2";
+import { LandingThemeToggle } from "../components/LandingThemeToggle";
+import "./LandingPage.css";
 import { Link } from "react-router-dom";
 import { requestAccess } from "../api/apiService";
 import { useDeployment } from "../store/DeploymentContext";
 
-const inputClass = "public-input mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-white";
+const inputClass = "access-input";
 
-export default function RequestAccessPage() {
+export default function RequestAccessPage({ theme, toggleTheme }) {
   const { invite_only: inviteOnly } = useDeployment();
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -22,7 +25,13 @@ export default function RequestAccessPage() {
     try {
       const result = await requestAccess(data);
       if (result.ok) setSent(true);
-      else setError(result.status === 429 ? "Too many requests. Please try again in an hour." : result.message || "We couldn’t send your request. Please try again.");
+      else
+        setError(
+          result.status === 429
+            ? "Too many requests. Please try again in an hour."
+            : result.message ||
+                "We couldn’t send your request. Please try again.",
+        );
     } catch {
       setError("We couldn’t send your request. Please try again.");
     } finally {
@@ -32,28 +41,188 @@ export default function RequestAccessPage() {
   }
 
   return (
-    <main className="public-page mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-16">
-      <Link to="/" className="text-sm font-semibold text-blue-600 underline underline-offset-4 dark:text-blue-400">Viddie home</Link>
-      <section className="public-card mt-8 rounded-3xl border border-gray-200 bg-white p-6 sm:p-10 dark:border-gray-700 dark:bg-gray-800">
-        <p className="text-sm font-semibold uppercase tracking-widest text-blue-600 dark:text-blue-300">Your next story starts here</p>
-        <h1 className="mt-3 text-4xl font-bold tracking-tight">Request early access.</h1>
-        <p className="mt-4 public-muted">Tell us a little about what you want to create. We review requests personally and email approved creators an invitation to register.</p>
-        {!inviteOnly && <p className="mt-4">Registration is open. <Link to="/register/" className="font-semibold text-blue-600 underline dark:text-blue-300">Create an account</Link>.</p>}
-        {sent ? <div role="status" className="mt-8 rounded-xl bg-green-50 p-5 text-green-900 dark:bg-green-950 dark:text-green-200"><h2 className="text-lg font-semibold">Your request is in.</h2><p className="mt-2">If approved, you’ll receive an invitation by email. You don’t have an account yet; no password is needed until registration.</p></div> : (
-          <form onSubmit={submit} className="mt-8 space-y-5" aria-busy={busy}>
-            <fieldset disabled={busy} className="space-y-5">
-              <div><label htmlFor="access-name">Your name</label><input id="access-name" name="name" required maxLength={100} autoComplete="name" className={inputClass} /></div>
-              <div><label htmlFor="access-email">Email address</label><input id="access-email" name="email" type="email" required maxLength={254} autoComplete="email" className={inputClass} /><p className="mt-2 text-sm public-muted">Use this same email address when you register.</p></div>
-              <div><label htmlFor="access-message">What would you like to create?</label><textarea id="access-message" name="message" required minLength={10} maxLength={2000} rows={4} aria-describedby="access-guidance" className={inputClass} /><p id="access-guidance" className="mt-2 text-sm public-muted">10–2,000 characters. Please don’t include passwords or API keys.</p></div>
-              <div className="hidden" aria-hidden="true"><label htmlFor="access-website">Website</label><input id="access-website" name="website" tabIndex={-1} autoComplete="off" maxLength={200} /></div>
-              <p className="text-sm public-muted">We store your details to review your request and send your invitation. AI features use your own provider keys; provider charges may apply. Read our <Link to="/privacy/" className="underline">Privacy Policy</Link>.</p>
-              {error && <p role="alert" className="text-red-600 dark:text-red-400">{error}</p>}
-              <button type="submit" className="public-button w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-60">{busy ? "Sending request…" : "Request access"}</button>
-            </fieldset>
-          </form>
-        )}
-        <p className="mt-6 text-sm public-muted">Already invited? <Link to="/register/" className="font-semibold underline">Register</Link>. Already a creator? <Link to="/login/" className="font-semibold underline">Sign in</Link>.</p>
-      </section>
+    <main className="access-page">
+      <nav
+        className="landing-nav landing-container"
+        aria-label="Viddie public navigation"
+      >
+        <Link to="/" className="landing-brand" aria-label="Viddie home">
+          <img src="/viddie-icon.svg" alt="" width="36" height="36" />
+          Viddie<span className="landing-beta">BETA</span>
+        </Link>
+        <div className="landing-nav-actions">
+          <LandingThemeToggle theme={theme} toggleTheme={toggleTheme} />
+          <Link to="/login/" className="landing-sign-in">
+            Sign in
+          </Link>
+        </div>
+      </nav>
+      <div className="access-layout landing-container">
+        <section className="access-intro" aria-labelledby="access-title">
+          <p className="landing-pill">
+            <HiOutlineSparkles aria-hidden="true" />A small beta. Big
+            possibilities.
+          </p>
+          <h1 id="access-title">
+            You have a story.
+            <br />
+            <span>
+              Let’s give it{" "}
+              <br />a screen.
+            </span>
+          </h1>
+          <p>
+            A space for the ideas you haven’t quite made yet. Tell us what
+            you’re thinking. We’d love to hear it.
+          </p>
+          <ul className="access-steps">
+            <li>
+              <HiCheck aria-hidden="true" />
+              <span>Tell us what you’d like to create.</span>
+            </li>
+            <li>
+              <HiCheck aria-hidden="true" />
+              <span>We review every request personally.</span>
+            </li>
+            <li>
+              <HiCheck aria-hidden="true" />
+              <span>If approved, an invitation lands in your inbox.</span>
+            </li>
+          </ul>
+          <div className="access-preview">
+            <img
+              src="/showcase/emu-war.jpg"
+              alt="A scene from the featured Great Emu War video"
+              width="480"
+              height="360"
+            />
+            <div>
+              <span>From a little curiosity</span>
+              <strong>to something worth watching.</strong>
+            </div>
+          </div>
+          <Link to="/" className="landing-inline-link">
+            Explore Viddie
+          </Link>
+        </section>
+        <section className="access-card" aria-labelledby="access-form-title">
+          {sent ? (
+            <div role="status" className="access-success">
+              <span className="access-success-icon">
+                <HiOutlineEnvelope aria-hidden="true" />
+              </span>
+              <p className="landing-eyebrow">The first step is yours</p>
+              <h2 id="access-form-title">Your request is in.</h2>
+              <p>
+                If approved, you’ll receive an invitation by email. You don’t
+                have an account yet; no password is needed until registration.
+              </p>
+              <Link to="/" className="landing-button landing-button-secondary">
+                Back to Viddie
+              </Link>
+            </div>
+          ) : (
+            <>
+              <p className="landing-eyebrow">Your next chapter</p>
+              <h2 id="access-form-title">Request early access.</h2>
+              <p className="access-card-description">
+                A few details. A personal welcome. Your creative space awaits.
+              </p>
+              {!inviteOnly && (
+                <p className="access-open-notice">
+                  Registration is open.{" "}
+                  <Link to="/register/">Create an account</Link>.
+                </p>
+              )}
+              <form onSubmit={submit} className="access-form" aria-busy={busy}>
+                <fieldset disabled={busy}>
+                  <div>
+                    <label htmlFor="access-name">Your name</label>
+                    <input
+                      id="access-name"
+                      name="name"
+                      required
+                      maxLength={100}
+                      autoComplete="name"
+                      placeholder="Your name"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="access-email">Email address</label>
+                    <input
+                      id="access-email"
+                      name="email"
+                      type="email"
+                      required
+                      maxLength={254}
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      aria-describedby="access-email-guidance"
+                      className={inputClass}
+                    />
+                    <p id="access-email-guidance" className="access-field-note">
+                      Use this same email address when you register.
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="access-message">
+                      What would you like to create?
+                    </label>
+                    <textarea
+                      id="access-message"
+                      name="message"
+                      required
+                      minLength={10}
+                      maxLength={2000}
+                      rows={4}
+                      placeholder="An idea, a channel, a story you can’t stop thinking about…"
+                      aria-describedby="access-guidance"
+                      className={inputClass}
+                    />
+                    <p id="access-guidance" className="access-field-note">
+                      10–2,000 characters. Please don’t include passwords or API
+                      keys.
+                    </p>
+                  </div>
+                  <div className="hidden" aria-hidden="true">
+                    <label htmlFor="access-website">Website</label>
+                    <input
+                      id="access-website"
+                      name="website"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      maxLength={200}
+                    />
+                  </div>
+                  {error && (
+                    <p role="alert" className="access-error">
+                      {error}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    className="landing-button landing-button-primary access-submit"
+                  >
+                    {busy ? "Sending request…" : "Request access"}
+                    {!busy && <HiOutlineSparkles aria-hidden="true" />}
+                  </button>
+                  <p className="access-privacy">
+                    We store your details to review your request and send your
+                    invitation. AI features use your own provider keys; provider
+                    charges may apply. Read our{" "}
+                    <Link to="/privacy/">Privacy Policy</Link>.
+                  </p>
+                </fieldset>
+              </form>
+            </>
+          )}
+          <p className="access-card-footer">
+            Already invited? <Link to="/register/">Register</Link>. Already a
+            creator? <Link to="/login/">Sign in</Link>.
+          </p>
+        </section>
+      </div>
     </main>
   );
 }
