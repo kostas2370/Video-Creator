@@ -119,6 +119,14 @@ class CredentialReplacementTests(TestCase):
             call_command("check_credential_vault", stdout=output)
         self.assertIn("Vault encryption and decryption verified.", output.getvalue())
 
+    def test_vault_stand_in_survives_cleanup_of_individual_test_mocks(self):
+        patch.stopall()
+        output = StringIO()
+
+        call_command("check_credential_vault", stdout=output)
+
+        self.assertIn("Vault encryption and decryption verified.", output.getvalue())
+
     def test_vault_preflight_fails_if_vault_is_unavailable(self):
         with (
             patch(

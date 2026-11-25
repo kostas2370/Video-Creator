@@ -1,4 +1,5 @@
 import base64
+from contextlib import ExitStack
 from secrets import token_bytes
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
@@ -13,22 +14,24 @@ from apps.apikeysmanagement.models import ApiKeys
 class ServiceKeysRunner(DiscoverRunner):
     def setup_test_environment(self, **kwargs):
         super().setup_test_environment(**kwargs)
+        self._resources = ExitStack()
 
         keys = {
             setting: f"test-{setting.lower()}" for _, setting in ApiKeys.FIELDS.values()
         }
-        self._vault_token = NamedTemporaryFile()
-        self._vault_token.write(b"test-vault-token")
-        self._vault_token.flush()
-        self._keys = override_settings(
-            **keys,
-            CREDENTIAL_VAULT_URL="https://vault.test",
-            CREDENTIAL_VAULT_MOUNT="transit",
-            CREDENTIAL_VAULT_KEY="viddie-credentials",
-            CREDENTIAL_VAULT_TOKEN_FILE=self._vault_token.name,
-            CREDENTIAL_VAULT_CA_BUNDLE="",
+        vault_token = self._resources.enter_context(NamedTemporaryFile())
+        vault_token.write(b"test-vault-token")
+        vault_token.flush()
+        self._resources.enter_context(
+            override_settings(
+                **keys,
+                CREDENTIAL_VAULT_URL="https://vault.test",
+                CREDENTIAL_VAULT_MOUNT="transit",
+                CREDENTIAL_VAULT_KEY="viddie-credentials",
+                CREDENTIAL_VAULT_TOKEN_FILE=vault_token.name,
+                CREDENTIAL_VAULT_CA_BUNDLE="",
+            )
         )
-        self._keys.enable()
         ciphertexts = {}
 
         real_post = requests.Session.post
@@ -52,11 +55,10 @@ class ServiceKeysRunner(DiscoverRunner):
             response.json = lambda: {"data": data}
             return response
 
-        self._vault = patch.object(requests.Session, "post", test_vault_post)
-        self._vault.start()
+        self._resources.enter_context(
+            patch.object(requests.Session, "post", test_vault_post)
+        )
 
     def teardown_test_environment(self, **kwargs):
-        self._vault.stop()
-        self._keys.disable()
-        self._vault_token.close()
+        self._resources.close()
         super().teardown_test_environment(**kwargs)
