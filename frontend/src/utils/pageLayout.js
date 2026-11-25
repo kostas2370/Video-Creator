@@ -2,9 +2,9 @@ export const hasEmbeddedFooter = pathname => /^\/(login|register)\/?$/.test(path
 export const isVideoEditorPath = pathname => /^\/videos\/[^/]+\/?$/.test(pathname);
 
 export function pageLayout(pathname, authenticated) {
-  const publicShell = /^\/(privacy|terms|contact)\/?$/.test(pathname)
-    || /^\/share\/[^/]+\/?$/.test(pathname);
   const publicHelp = /^\/(guide|whats-new)\/?$/.test(pathname);
+  const publicShell = (pathname === "/" && !authenticated) || /^\/(privacy|terms|contact|request-access)\/?$/.test(pathname)
+    || /^\/share\/[^/]+\/?$/.test(pathname) || (publicHelp && !authenticated);
   const passwordRecovery = pathname.startsWith("/forgot-password")
     || pathname.startsWith("/reset-password");
 

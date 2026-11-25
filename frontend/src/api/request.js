@@ -26,9 +26,9 @@ export function errorMessage(error) {
 }
 
 // All API helpers resolve the same result. HTTP errors never masquerade as data.
-export async function request({ method = "get", url, data, params, responseType, timeout, signal, client = axiosPrivateInstance, notifyError = true }) {
+export async function request({ method = "get", url, data, params, responseType, timeout, signal, headers, client = axiosPrivateInstance, notifyError = true }) {
   try {
-    const response = await client.request({ method, url, data, params, ...(timeout ? { timeout } : {}), ...(signal ? { signal } : {}), ...(responseType ? { responseType } : {}) });
+    const response = await client.request({ method, url, data, params, ...(headers ? { headers } : {}), ...(timeout ? { timeout } : {}), ...(signal ? { signal } : {}), ...(responseType ? { responseType } : {}) });
     return { ok: true, data: response.data ?? null, status: response.status, headers: response.headers, message: null, errors: null };
   } catch (error) {
     if (typeof Blob !== "undefined" && error?.response?.data instanceof Blob) {

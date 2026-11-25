@@ -4,7 +4,7 @@ import useAuth from "../hooks/useAuth";
 import useRefreshToken from "../hooks/useRefreshToken";
 import { useAxiosPrivate } from "../hooks/useAxiosPrivate";
 
-export default function PersistLogin() {
+export default function PersistLogin({ fallback = "Loading" }) {
   const refresh = useRefreshToken();
   const { access_token } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -29,5 +29,5 @@ export default function PersistLogin() {
     return () => { mounted = false; };
   }, [access_token, refresh]);
 
-  return loading ? "Loading" : <Outlet />;
+  return loading ? fallback : <Outlet />;
 }

@@ -378,15 +378,15 @@
   gap:12px;
   padding:13px 18px;
   border-radius:10px;
-  background:#4338ca;
-  color:#fff;
+  background:var(--brand-button);
+  color:var(--brand-button-ink);
   font-size:13px;
   font-weight:650;
   box-shadow:0 5px 12px #4338ca20;
   transition:background .15s,transform .15s;
 }
 .auth-submit:hover:not(:disabled) {
-  background:#3730a3;
+  background:var(--brand-button-hover);
   transform:translateY(-1px);
 }
 .auth-submit:disabled {

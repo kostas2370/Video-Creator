@@ -20,12 +20,12 @@
 }
 .public-page .public-input:focus {
   outline:none;
-  border-color:#818cf8;
+  border-color:var(--brand-accent);
   box-shadow:0 0 0 3px #818cf820;
 }
-.public-page .public-button { background:#4338ca; }
-.public-page .public-button:hover:not(:disabled) { background:#3730a3; }
+.public-page .public-button { background:var(--brand-button); color:var(--brand-button-ink); }
+.public-page .public-button:hover:not(:disabled) { background:var(--brand-button-hover); }
 .public-page :is(a,button,input,textarea):focus-visible {
-  outline:3px solid #818cf8;
+  outline:3px solid var(--brand-accent);
   outline-offset:4px;
 }

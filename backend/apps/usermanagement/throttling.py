@@ -53,3 +53,7 @@ class RegistrationThrottle(LoginThrottle):
 
     def identities(self, request):
         return [("ip", Login.get_user_ip(request) or "unknown", 3600, 5)]
+
+
+class AccessRequestThrottle(RegistrationThrottle):
+    scope = "access-request"

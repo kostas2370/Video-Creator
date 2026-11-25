@@ -10,16 +10,22 @@ from rest_framework_simplejwt import (
     serializers as jwt_serializers,
 )
 
-from .models import Notification
+from .models import AccessRequest, Notification
 from .utils import check_conditions
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         allowed = settings.SIGNUP_ALLOWED_EMAILS
-        if allowed is not None and value.strip().casefold() not in allowed:
+        if (
+            allowed is not None
+            and value.strip().casefold() not in allowed
+            and not AccessRequest.objects.filter(
+                email__iexact=value.strip(), status=AccessRequest.Status.APPROVED
+            ).exists()
+        ):
             raise serializers.ValidationError(
-                "Beta registration is by invitation. Contact the operator for access."
+                "Registration requires approval. Request access from the homepage first."
             )
         return value
 
@@ -117,4 +123,11 @@ class ContactSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     email = serializers.EmailField(max_length=254)
     message = serializers.CharField(min_length=10, max_length=5000)
+    website = serializers.CharField(required=False, allow_blank=True, max_length=200)
+
+
+class AccessRequestSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100)
+    email = serializers.EmailField(max_length=254)
+    message = serializers.CharField(min_length=10, max_length=2000)
     website = serializers.CharField(required=False, allow_blank=True, max_length=200)

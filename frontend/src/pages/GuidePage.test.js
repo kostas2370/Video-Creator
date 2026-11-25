@@ -5,6 +5,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -125,4 +126,70 @@ it("retains existing topic URLs and searches troubleshooting answers", () => {
   expect(
     screen.getByRole("link", { name: "Contact support" }).getAttribute("href"),
   ).toBe("/contact/");
+});
+
+it("opens an example screenshot and restores focus when it is closed", async () => {
+  show();
+  const trigger = screen.getByRole("button", {
+    name: /Enlarge screenshot: The blank project form/,
+  });
+  fireEvent.click(trigger);
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("img").getAttribute("src")).toBe(
+    "/guide-images/manual-project.webp",
+  );
+  expect(
+    within(dialog)
+      .getByRole("link", { name: /Open full-size image/ })
+      .getAttribute("target"),
+  ).toBe("_blank");
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Close screenshot" }),
+  );
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+});
+
+it("closes the screenshot viewer with Escape", async () => {
+  show("/guide/#edit");
+  fireEvent.click(
+    screen.getByRole("button", { name: /Enlarge screenshot: Scene editor/ }),
+  );
+  await screen.findByRole("dialog");
+  fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+it("keeps instructions usable when a screenshot is unavailable", () => {
+  show();
+  fireEvent.error(screen.getByRole("img", { name: /The blank project form/ }));
+  expect(screen.getByText(/Screenshot unavailable/)).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: /Enlarge screenshot/ }),
+  ).toBeNull();
+  expect(
+    within(screen.getByRole("article")).getAllByRole("heading", { level: 3 }),
+  ).toHaveLength(5);
+});
+
+it("clears a search with Escape and retains the selected topic", () => {
+  show("/guide/#clips");
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "export" },
+  });
+  expect(screen.queryByRole("article")).toBeNull();
+  fireEvent.keyDown(screen.getByRole("searchbox"), { key: "Escape" });
+  expect(
+    within(screen.getByRole("article")).getByRole("heading", {
+      name: "Turn a long video into Shorts",
+    }),
+  ).toBeTruthy();
+});
+
+
+it("skips to the guide content without changing the selected topic", () => {
+  show("/guide/#clips");
+  fireEvent.click(screen.getByRole("link", {name:"Skip to the guide"}));
+  expect(document.activeElement.id).toBe("help-content");
+  expect(within(screen.getByRole("article")).getByRole("heading", {name:"Turn a long video into Shorts"})).toBeTruthy();
 });

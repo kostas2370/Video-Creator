@@ -1,0 +1,118 @@
+@import "./BrandTheme.css";
+
+.landing-container {
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 40px;
+}
+.landing-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  min-height: 104px;
+}
+.landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.4rem;
+  font-weight: 750;
+  letter-spacing: -0.055em;
+  color: var(--lp-ink);
+}
+.landing-brand img {
+  border-radius: 11px;
+  flex-shrink: 0;
+}
+.landing-beta {
+  margin: 2px 0 0 2px;
+  padding: 4px 7px;
+  border: 1px solid var(--lp-line);
+  border-radius: 5px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--lp-muted);
+}
+.landing-nav-sections,
+.landing-nav-actions {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+.landing-nav-sections {
+  font-size: 0.875rem;
+  font-weight: 550;
+  color: var(--lp-muted);
+}
+.landing-nav-sections a:hover,
+.landing-sign-in:hover {
+  color: var(--lp-accent);
+}
+.landing-nav-actions {
+  gap: 16px;
+}
+.landing-sign-in {
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 9px;
+  border: 1px solid var(--lp-line);
+}
+.landing-theme-toggle {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  color: var(--lp-muted);
+  border-radius: 50%;
+}
+.landing-theme-toggle:hover {
+  background: var(--lp-panel-soft);
+}
+.landing-theme-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.landing-nav :is(a, button):focus-visible {
+  outline: 3px solid var(--brand-accent);
+  outline-offset: 5px;
+}
+@media (max-width: 1100px) {
+  .landing-nav-sections {
+    gap: 20px;
+  }
+}
+@media (max-width: 850px) {
+  .landing-container {
+    padding-inline: 28px;
+  }
+  .landing-nav-sections {
+    display: none;
+  }
+}
+@media (max-width: 580px) {
+  .landing-container {
+    padding-inline: 20px;
+  }
+  .landing-nav {
+    min-height: 84px;
+    gap: 10px;
+  }
+  .landing-brand {
+    font-size: 1.3rem;
+    gap: 8px;
+  }
+  .landing-brand img {
+    width: 32px;
+    height: 32px;
+  }
+  .landing-nav-actions {
+    gap: 6px;
+  }
+  .landing-sign-in {
+    padding: 9px 12px;
+  }
+}

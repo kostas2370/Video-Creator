@@ -15,7 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.videomanagement.events import publish_update
 
 from .exceptions import ContactDeliveryUnavailable
-from .models import Login, Notification
+from .models import AccessRequest, Login, Notification
 from .tasks import send_email
 
 logger = logging.getLogger(__name__)
@@ -90,3 +90,11 @@ def send_contact_message(*, name, email, message, website=""):
     except Exception as exc:
         logger.exception("Contact email delivery failed")
         raise ContactDeliveryUnavailable() from exc
+
+
+def request_access(*, name, email, message, website=""):
+    if website:
+        return
+    AccessRequest.objects.get_or_create(
+        email=email.strip().casefold(), defaults={"name": name, "message": message}
+    )
