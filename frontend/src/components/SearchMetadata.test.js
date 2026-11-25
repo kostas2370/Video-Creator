@@ -2,6 +2,8 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { Link, MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it } from "vitest";
+import initialHtml from "../../index.html?raw";
+import { publicPages } from "../content/search.mjs";
 import SearchMetadata from "./SearchMetadata";
 afterEach(() => {
   cleanup();
@@ -10,6 +12,25 @@ afterEach(() => {
       'meta[name="robots"], meta[name="description"], meta[property^="og:"], link[rel="canonical"]',
     )
     .forEach((element) => element.remove());
+});
+it("keeps homepage search and social metadata consistent with the initial HTML", () => {
+  const html = new DOMParser().parseFromString(
+    initialHtml,
+    "text/html",
+  );
+  render(
+    <MemoryRouter>
+      <SearchMetadata />
+    </MemoryRouter>,
+  );
+  expect(document.title).toBe(publicPages["/"].title);
+  expect(document.title).toBe(html.title);
+  for (const selector of ['meta[name="description"]', 'meta[property="og:description"]']) {
+    expect(document.head.querySelector(selector).content).toBe(
+      html.querySelector('meta[name="description"]').content,
+    );
+  }
+  expect(document.head.querySelector('meta[property="og:title"]').content).toBe(html.title);
 });
 it("sets route-specific public metadata and removes query parameters from canonical URLs", () => {
   render(

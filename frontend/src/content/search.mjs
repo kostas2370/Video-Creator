@@ -1,8 +1,8 @@
 export const publicPages = {
   "/": {
-    title: "Viddie — AI Video Creator & Editor",
+    title: "Viddie — AI Video Creator, Editor & Shorts Maker",
     description:
-      "Create videos from ideas, scripts, and your own footage with Viddie. Edit scenes, add captions, turn long videos into Shorts, and share your finished video.",
+      "Turn ideas and scripts into videos with Viddie’s AI video creator and editor. Add voiceovers and captions, or turn long videos into Shorts, TikToks, and Reels.",
   },
   "/guide/": {
     title: "Viddie Guide — Create, Edit & Share Videos",
