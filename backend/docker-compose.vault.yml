@@ -13,7 +13,7 @@ x-vault-client: &vault-client
 services:
   vault:
     image: ${VIDDIE_VAULT_IMAGE:?Set VIDDIE_VAULT_IMAGE to a pinned hashicorp/vault image}
-    command: ["server", "-config=/vault/config/viddie.hcl"]
+    command: ["server"]
     restart: unless-stopped
     cap_add:
       - IPC_LOCK
