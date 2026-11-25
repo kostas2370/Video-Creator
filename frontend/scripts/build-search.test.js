@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { writeSearchFiles } from "./build-search.mjs";
-import { siteOrigin } from "../src/content/search.mjs";
+import { publicPages, siteOrigin } from "../src/content/search.mjs";
 it("generates a public-only sitemap with a discoverable robots entry", async () => {
   const directory = await mkdtemp(join(tmpdir(), "viddie-search-"));
   try {
@@ -41,4 +41,16 @@ it.each([
   "javascript:alert(1)",
 ])("rejects unsafe public origin %s", (value) => {
   expect(() => siteOrigin(value)).toThrow();
+});
+
+
+it("keeps public SPA routes from being shadowed by static files or directories", async () => {
+  for (const route of Object.keys(publicPages).filter(path => path !== "/")) {
+    const asset = new URL(`../public${route}`, import.meta.url);
+    const entry = await stat(asset).catch(error => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    expect(entry, `Static asset shadows the ${route} page`).toBeNull();
+  }
 });

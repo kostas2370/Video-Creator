@@ -30,3 +30,13 @@ uses the app’s saved theme. Sample players use click-to-load YouTube embeds; l
 posters and screenshots do not contact YouTube before playback. Replacing the
 examples requires updating `VideoShowcase.js` and the matching public poster assets.
 The access-request page uses the same visual theme and retains inline delivery errors.
+
+
+The homepage, access request, Guide, news, authentication, and legal surfaces share
+light/dark color tokens in `frontend/src/components/BrandTheme.css`. The public
+header is shared between the homepage and help pages; signed-in help pages retain
+workspace navigation. The Guide preserves its hash links and search, with example
+screenshots in relevant walkthroughs. Images are lazy loaded and expand into an
+accessible viewer with Escape-to-close, focus restoration, and a full-size link.
+Public guide WebP assets are derived from the documented example screenshots in
+`docs/screenshots/`; existing homepage editor examples are reused.

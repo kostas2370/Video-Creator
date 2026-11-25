@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { HiCheck, HiOutlineEnvelope, HiOutlineSparkles } from "react-icons/hi2";
-import { LandingThemeToggle } from "../components/LandingThemeToggle";
+import { PublicHeader } from "../components/PublicHeader";
 import "./LandingPage.css";
 import { Link } from "react-router-dom";
 import { requestAccess } from "../api/apiService";
@@ -42,21 +42,7 @@ export default function RequestAccessPage({ theme, toggleTheme }) {
 
   return (
     <main className="access-page">
-      <nav
-        className="landing-nav landing-container"
-        aria-label="Viddie public navigation"
-      >
-        <Link to="/" className="landing-brand" aria-label="Viddie home">
-          <img src="/viddie-icon.svg" alt="" width="36" height="36" />
-          Viddie<span className="landing-beta">BETA</span>
-        </Link>
-        <div className="landing-nav-actions">
-          <LandingThemeToggle theme={theme} toggleTheme={toggleTheme} />
-          <Link to="/login/" className="landing-sign-in">
-            Sign in
-          </Link>
-        </div>
-      </nav>
+      <PublicHeader theme={theme} toggleTheme={toggleTheme} compact />
       <div className="access-layout landing-container">
         <section className="access-intro" aria-labelledby="access-title">
           <p className="landing-pill">

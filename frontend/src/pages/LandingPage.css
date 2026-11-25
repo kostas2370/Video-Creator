@@ -1,29 +1,4 @@
-.landing-page,
-.access-page {
-  --lp-bg: #f8f9fd;
-  --lp-panel: #fff;
-  --lp-panel-soft: #f0f2f9;
-  --lp-ink: #171b30;
-  --lp-muted: #616b84;
-  --lp-line: #1f29471c;
-  --lp-accent: #6352d9;
-  --lp-bright: #4738b4;
-  --lp-mint: #236e62;
-  background: var(--lp-bg);
-  color: var(--lp-ink);
-}
-.dark .landing-page,
-.dark .access-page {
-  --lp-bg: #0b0d17;
-  --lp-panel: #141724;
-  --lp-panel-soft: #1b1e30;
-  --lp-ink: #f3f2fc;
-  --lp-muted: #a1a6bc;
-  --lp-line: #c8c5f11c;
-  --lp-accent: #b3a4ff;
-  --lp-bright: #c3b6ff;
-  --lp-mint: #a5e0cd;
-}
+.landing-page, .access-page { background: var(--lp-bg); color: var(--lp-ink); }
 .landing-page {
   overflow: clip;
   background-image: radial-gradient(
@@ -32,11 +7,7 @@
     transparent
   );
 }
-.landing-container {
-  max-width: 1280px;
-  margin-inline: auto;
-  padding-inline: 40px;
-}
+
 .landing-page :is(a, button, summary, [tabindex]):focus-visible,
 .access-page :is(a, button, input, textarea):focus-visible {
   outline: 3px solid var(--lp-accent);
@@ -61,76 +32,6 @@
 }
 .landing-skip:focus {
   top: 1rem;
-}
-.landing-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  min-height: 104px;
-}
-.landing-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 1.4rem;
-  font-weight: 750;
-  letter-spacing: -0.055em;
-  color: var(--lp-ink);
-}
-.landing-brand img {
-  border-radius: 11px;
-  flex-shrink: 0;
-}
-.landing-beta {
-  margin: 2px 0 0 2px;
-  padding: 4px 7px;
-  border: 1px solid var(--lp-line);
-  border-radius: 5px;
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--lp-muted);
-}
-.landing-nav-sections,
-.landing-nav-actions {
-  display: flex;
-  gap: 30px;
-  align-items: center;
-}
-.landing-nav-sections {
-  font-size: 0.875rem;
-  font-weight: 550;
-  color: var(--lp-muted);
-}
-.landing-nav-sections a:hover,
-.landing-sign-in:hover {
-  color: var(--lp-accent);
-}
-.landing-nav-actions {
-  gap: 16px;
-}
-.landing-sign-in {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 10px 16px;
-  border-radius: 9px;
-  border: 1px solid var(--lp-line);
-}
-.landing-theme-toggle {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  color: var(--lp-muted);
-  border-radius: 50%;
-}
-.landing-theme-toggle:hover {
-  background: var(--lp-panel-soft);
-}
-.landing-theme-toggle svg {
-  width: 20px;
-  height: 20px;
 }
 .landing-hero {
   display: grid;
@@ -203,24 +104,24 @@
   height: 18px;
 }
 .landing-button-primary {
-  background: #7761e8;
-  color: #fff;
+  background: var(--brand-button);
+  color: var(--brand-button-ink);
   box-shadow:
     0 4px 20px #7761e82b,
     inset 0 1px 0 #ffffff30;
   border: 1px solid #ffffff18;
 }
 .landing-button-primary:hover {
-  background: #6851db;
+  background: var(--brand-button-hover);
   box-shadow: 0 6px 30px #7761e84d;
 }
 .dark .landing-button-primary {
-  background: #c1b0ff;
-  color: #201642;
+  background: var(--brand-button);
+  color: var(--brand-button-ink);
   box-shadow: 0 4px 24px #a78aff1c;
 }
 .dark .landing-button-primary:hover {
-  background: #d0c3ff;
+  background: var(--brand-button-hover);
 }
 .landing-button-secondary {
   border: 1px solid var(--lp-line);
@@ -1071,9 +972,6 @@
   .landing-film-image {
     height: 260px;
   }
-  .landing-nav-sections {
-    gap: 20px;
-  }
   .landing-workflow-panel {
     padding: 32px;
     gap: 32px;
@@ -1087,9 +985,6 @@
   }
 }
 @media (max-width: 850px) {
-  .landing-container {
-    padding-inline: 28px;
-  }
   .landing-hero {
     grid-template-columns: 1fr;
     padding-top: 38px;
@@ -1115,9 +1010,6 @@
   .landing-floating-note {
     left: 0;
   }
-  .landing-nav-sections {
-    display: none;
-  }
   .landing-capabilities {
     align-items: start;
   }
@@ -1140,27 +1032,6 @@
   }
 }
 @media (max-width: 580px) {
-  .landing-container {
-    padding-inline: 20px;
-  }
-  .landing-nav {
-    min-height: 84px;
-    gap: 10px;
-  }
-  .landing-brand {
-    font-size: 1.3rem;
-    gap: 8px;
-  }
-  .landing-brand img {
-    width: 32px;
-    height: 32px;
-  }
-  .landing-nav-actions {
-    gap: 6px;
-  }
-  .landing-sign-in {
-    padding: 9px 12px;
-  }
   .landing-hero {
     padding-top: 26px;
     padding-bottom: 42px;

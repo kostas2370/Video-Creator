@@ -27,3 +27,9 @@ it("uses a public homepage shell only for signed-out visitors", () => {
   expect(pageLayout("/", false)).toEqual({publicShell: true, showNavbar: false});
   expect(pageLayout("/", true)).toEqual({publicShell: false, showNavbar: true});
 });
+
+
+it.each(["/guide/", "/whats-new/"])("uses the shared public shell for guests on %s", pathname => {
+  expect(pageLayout(pathname, false)).toEqual({ publicShell: true, showNavbar: false });
+  expect(pageLayout(pathname, true).showNavbar).toBe(true);
+});

@@ -72,8 +72,8 @@ function App() {
         <Suspense fallback={isVideoEditorPath(location.pathname) ? <VideoEditorLoading /> : <PageLoading />}>
           <Routes>
             <Route path="/share/:token/" element={<SharedVideoPage theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="/guide/" element={<GuidePage />} />
-            <Route path="/whats-new/" element={<WhatsNewPage />} />
+            <Route path="/guide/" element={<GuidePage theme={theme} toggleTheme={toggleTheme} />} />
+            <Route path="/whats-new/" element={<WhatsNewPage theme={theme} toggleTheme={toggleTheme} />} />
             <Route path="/request-access/" element={<RequestAccessPage theme={theme} toggleTheme={toggleTheme} />} />
             <Route path="/contact/" element={<ContactPage />} />
             <Route path="/privacy/" element={<LegalPage document="privacy" />} />

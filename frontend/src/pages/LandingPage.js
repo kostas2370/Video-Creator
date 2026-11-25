@@ -9,7 +9,7 @@ import {
   HiOutlineSparkles,
   HiPlay,
 } from "react-icons/hi2";
-import { LandingThemeToggle } from "../components/LandingThemeToggle";
+import { PublicHeader } from "../components/PublicHeader";
 import { VideoShowcase } from "../components/VideoShowcase";
 import { useDeployment } from "../store/DeploymentContext";
 import "./LandingPage.css";
@@ -91,26 +91,7 @@ export default function LandingPage({ theme, toggleTheme }) {
       <a className="landing-skip" href="#landing-content">
         Skip to content
       </a>
-      <nav
-        className="landing-nav landing-container"
-        aria-label="Viddie public navigation"
-      >
-        <Link to="/" className="landing-brand" aria-label="Viddie home">
-          <img src="/viddie-icon.svg" alt="" width="36" height="36" />
-          Viddie<span className="landing-beta">BETA</span>
-        </Link>
-        <div className="landing-nav-sections">
-          <a href="#workflow">The studio</a>
-          <a href="#showcase">Made with Viddie</a>
-          <Link to="/guide/">Guide</Link>
-        </div>
-        <div className="landing-nav-actions">
-          <LandingThemeToggle theme={theme} toggleTheme={toggleTheme} />
-          <Link to="/login/" className="landing-sign-in">
-            Sign in
-          </Link>
-        </div>
-      </nav>
+      <PublicHeader theme={theme} toggleTheme={toggleTheme} home />
 
       <section
         id="landing-content"
