@@ -97,8 +97,9 @@ docker compose -f docker-compose.beta.yml up -d video_creator celery celery-rend
 
 Check that each command succeeds. A backup on this server does not protect against
 loss of the server. Copy backups to separate private storage and encrypt them
-before off-site transfer. Keep FIELD_ENCRYPTION_KEY with the database backup;
-changing or losing it makes saved provider keys unreadable.
+before off-site transfer. Keep the corresponding Vault storage backup and recovery
+material available. If a backup contains pre-Vault ciphertext, preserve access to
+the old encryption key separately. See docs/credential-security.md.
 
 5. RELEASE UPDATES THROUGH GITHUB — MAC
 

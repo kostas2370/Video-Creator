@@ -257,11 +257,11 @@ no-comments rule does not apply to it.
 
 Two settings matter for anyone touching stored credentials:
 
-- `SECRET_KEY` falls back to a development default. Never run a deployment on it.
-- `FIELD_ENCRYPTION_KEY` encrypts the per-user provider keys in `apikeysmanagement`. It
-  is derived from `SECRET_KEY` when unset, so **changing `SECRET_KEY` on an existing
-  database makes every stored API key undecryptable.** Set it explicitly anywhere the
-  data needs to survive.
+- `SECRET_KEY` signs Django sessions and tokens. Set a persistent random value.
+- [Vault Transit](docs/credential-security.md) encrypts provider credentials and
+  publishing tokens. Tests substitute an in-process Vault stand-in. The Vault release
+  accepts only Vault ciphertext. Remove incompatible stored credentials before release,
+  then save fresh provider keys in the updated application.
 
 User-supplied API keys are write-only through the API and come back masked. If you add
 a field there, keep it that way — there is a test asserting a key never appears in a

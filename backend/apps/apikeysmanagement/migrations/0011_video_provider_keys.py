@@ -1,5 +1,4 @@
-from django.db import migrations
-from encrypted_model_fields.fields import EncryptedCharField
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
@@ -10,11 +9,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="apikeys",
             name="fal_key",
-            field=EncryptedCharField(max_length=255, blank=True, default=""),
+            field=models.TextField(max_length=255, blank=True, default=""),
         ),
         migrations.AddField(
             model_name="apikeys",
             name="runway_key",
-            field=EncryptedCharField(max_length=255, blank=True, default=""),
+            field=models.TextField(max_length=255, blank=True, default=""),
         ),
     ]

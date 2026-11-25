@@ -186,3 +186,5 @@ backend/private-clips/
 
 # Private database migration snapshots and verification reports.
 backend/.db-backups/
+
+/.viddie-local-vault/

@@ -56,7 +56,9 @@ Set these values in `.env`:
 - `BETA_ALIASES`: optional space-separated HTTPS hostnames that redirect to the
   canonical host. Point their DNS at the same server first; leave blank for none.
 - `SECRET_KEY`: a persistent random secret of at least 50 characters.
-- `FIELD_ENCRYPTION_KEY`: a persistent Fernet key. Preserve it with database backups.
+- [Vault Transit](credential-security.md) for stored provider credentials and
+  publishing tokens. After upgrading, enter fresh provider keys and reconnect any
+  existing publishing accounts.
 - `POSTGRES_PASSWORD`: a unique random database password.
 - `R2_STORAGE_ENABLED=true`: use private R2 for active media storage and delivery.
 - `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and

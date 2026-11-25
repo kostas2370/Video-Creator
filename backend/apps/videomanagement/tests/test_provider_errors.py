@@ -1,9 +1,11 @@
 import pickle
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from celery import current_app
 from celery.backends.base import Backend
 from django.test import SimpleTestCase, TestCase
+
+from httpx2 import Request, Response
 from openai import (
     APIConnectionError,
     APIStatusError,
@@ -25,10 +27,18 @@ from apps.videomanagement.tasks import generate_video_task
 from video_creator.exceptions import api_exception_handler
 
 
+def openai_request():
+    return Request("POST", "https://api.openai.com/v1/responses")
+
+
+def openai_response(status):
+    return Response(status, request=openai_request())
+
+
 def rejected_key():
     return AuthenticationError(
         "Incorrect API key: sk-private-secret",
-        response=Mock(status_code=401, headers={}),
+        response=openai_response(401),
         body={"code": "invalid_api_key"},
     )
 
@@ -50,7 +60,7 @@ class ProviderErrorTests(SimpleTestCase):
         ]:
             error = RateLimitError(
                 "private",
-                response=Mock(status_code=429, headers={}),
+                response=openai_response(429),
                 body={"code": reason},
             )
             self.assertEqual(provider_failure(error)["code"], expected)
@@ -65,7 +75,7 @@ class ProviderErrorTests(SimpleTestCase):
         ]:
             with self.subTest(status=status):
                 error = APIStatusError(
-                    "private", response=Mock(status_code=status, headers={}), body=None
+                    "private", response=openai_response(status), body=None
                 )
                 failure = provider_failure(error)
                 self.assertEqual(failure["code"] if failure else None, expected)
@@ -73,15 +83,15 @@ class ProviderErrorTests(SimpleTestCase):
     def test_nested_quota_details_take_precedence_over_http_status(self):
         error = APIStatusError(
             "private",
-            response=Mock(status_code=429, headers={}),
+            response=openai_response(429),
             body={"error": {"code": "insufficient_quota"}},
         )
         self.assertEqual(provider_failure(error)["code"], "quota")
 
     def test_timeouts_are_distinct_from_connection_failures(self):
         for error, expected in [
-            (APITimeoutError(request=Mock()), "timeout"),
-            (APIConnectionError(request=Mock()), "connection"),
+            (APITimeoutError(request=openai_request()), "timeout"),
+            (APIConnectionError(request=openai_request()), "connection"),
         ]:
             with self.subTest(expected=expected):
                 self.assertEqual(provider_failure(error)["code"], expected)

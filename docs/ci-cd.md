@@ -49,6 +49,9 @@ Never put provider credentials or media files in Git.
 `VIDDIE_STATE_ROOT=/opt/viddie/backend` keeps these mounts stable across releases.
 R2 is the active private media store; local working files support rendering.
 PostgreSQL and Redis continue using the existing named volumes.
+[Vault](credential-security.md) must be available for the Vault-only release.
+The updated helper includes the Compose Vault overlay when the persistent
+`.use-compose-vault` marker is present.
 
 `/opt/viddie-current` points at the current source checkout. Initially it points at
 `/opt/viddie`; subsequent checked releases live under `/opt/viddie-releases/`.
@@ -62,7 +65,7 @@ The installed deployment helper:
    not survive as they would with an overlay update.
 3. Creates empty mount-point directories in the source release and ensures the
    persistent working directories exist. Builds the backend and frontend, then
-   verifies a backend container can start with its mounts while the existing app
+   verifies a backend container can start and use Vault while the existing app
    is running. A failed startup check leaves the existing services running.
 4. Stops the API and scheduler, waits up to ten minutes for queued/active work to
    drain, then stops the workers. Failed draining restarts the old containers.
@@ -70,8 +73,12 @@ The installed deployment helper:
    restarts the existing containers before any schema change is attempted.
 6. Applies committed migrations, collects static files, and runs deployment checks.
 7. Recreates the API, workers, scheduler, frontend and HTTPS edge. It checks the
-   trusted HTTPS API response, active R2 setting and replies from both workers.
+   trusted HTTPS API response, admin stylesheet, active R2 setting and replies
+   from both workers.
 8. Updates `/opt/viddie-current` and records the deployed commit only after success.
+
+nginx serves collected admin and Swagger assets when they are mounted. Django
+serves the bundled framework assets on those two paths if the mount is empty.
 
 GitHub serializes deployments and does not cancel one in progress. The server lock
 also protects against overlapping manual deployments. A deployment can take the

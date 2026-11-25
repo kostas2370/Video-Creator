@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import (
@@ -61,6 +62,7 @@ class ApiKeysSerializer(serializers.ModelSerializer):
             )
         return value
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
         warnings = dict(instance.key_warnings)

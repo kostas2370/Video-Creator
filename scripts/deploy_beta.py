@@ -122,14 +122,17 @@ def receive(stream, destination):
 
 def compose(backend, *args, capture=False, output=None):
     environment = {**os.environ, "VIDDIE_STATE_ROOT": str(STATE)}
+    compose_files = ["-f", str(backend / "docker-compose.beta.yml")]
+    vault_overlay = backend / "docker-compose.vault.yml"
+    if (STATE / ".use-compose-vault").is_file() and vault_overlay.is_file():
+        compose_files.extend(["-f", str(vault_overlay)])
     result = subprocess.run(
         [
             "docker",
             "compose",
             "--project-name",
             "viddie-beta",
-            "-f",
-            str(backend / "docker-compose.beta.yml"),
+            *compose_files,
             *args,
         ],
         cwd=backend,
@@ -161,19 +164,28 @@ def wait_http(url, timeout=90):
         try:
             with urlopen(url + "/api/deployment/", timeout=10) as response:
                 data = json.load(response)
-                if response.status == 200 and all(
+                api_ready = response.status == 200 and all(
                     isinstance(data.get(key), bool)
                     for key in (
                         "sadtalker_enabled",
                         "service_keys_allowed",
                         "invite_only",
                     )
-                ):
-                    return
+                )
+            if api_ready:
+                with urlopen(
+                    url + "/static/admin/css/base.css", timeout=10
+                ) as response:
+                    if (
+                        response.status == 200
+                        and response.headers.get_content_type() == "text/css"
+                        and response.read(1)
+                    ):
+                        return
         except (OSError, ValueError):
             pass
         if time.monotonic() >= deadline:
-            raise TimeoutError("HTTPS API health check failed")
+            raise TimeoutError("HTTPS API or admin stylesheet health check failed")
         time.sleep(2)
 
 
@@ -234,6 +246,21 @@ def deploy(sha, stream):
         "-c",
         "pass",
     )
+    vault_release = (
+        backend / "apps/apikeysmanagement/management/commands/check_credential_vault.py"
+    ).is_file()
+    if vault_release:
+        compose(
+            backend,
+            "run",
+            "--rm",
+            "--no-deps",
+            "-T",
+            "video_creator",
+            "python",
+            "manage.py",
+            "check_credential_vault",
+        )
     previous = CURRENT.resolve() / "backend"
     compose(previous, "stop", "video_creator", "celery-beat")
     try:
