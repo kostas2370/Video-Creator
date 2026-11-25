@@ -19,11 +19,12 @@ from apps.common.ranges import parse_byte_range
 from apps.videomanagement.models import Video
 
 from . import oauth
+from .accounts import accounts_with_credential_status
 from .config import setup_message, local_youtube_origin
 from .diagnostics import log_failure
 from .filters import PublishJobFilter
 from .http import ProviderError
-from .models import Platform, PublishJob, SocialAccount
+from .models import Platform, PublishJob
 from .serializers import (
     AccountSerializer,
     ConnectionsSerializer,
@@ -54,7 +55,7 @@ class CreatorView(APIView):
 
 class ConnectionsView(CreatorView, GenericAPIView):
     serializer_class = ConnectionsSerializer
-    queryset = SocialAccount.objects.defer("access_token")
+    queryset = accounts_with_credential_status()
     filter_backends = [DjangoFilterBackend]
     filterset_class = UserFilterSet
 

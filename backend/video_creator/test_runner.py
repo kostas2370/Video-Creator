@@ -1,9 +1,9 @@
 import base64
+from secrets import token_bytes
 from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
 import requests
-from cryptography.fernet import Fernet
 from django.test.runner import DiscoverRunner
 from django.test.utils import override_settings
 
@@ -29,7 +29,7 @@ class ServiceKeysRunner(DiscoverRunner):
             CREDENTIAL_VAULT_CA_BUNDLE="",
         )
         self._keys.enable()
-        crypter = Fernet(Fernet.generate_key())
+        ciphertexts = {}
 
         real_post = requests.Session.post
 
@@ -37,17 +37,17 @@ class ServiceKeysRunner(DiscoverRunner):
             if not url.startswith("https://vault.test/v1/transit/"):
                 return real_post(session, url, *args, **kwargs)
             payload = kwargs["json"]
-            if "/encrypt/" in url:
-                ciphertext = crypter.encrypt(base64.b64decode(payload["plaintext"]))
-                data = {
-                    "ciphertext": "vault:v1:" + base64.b64encode(ciphertext).decode()
-                }
-            else:
-                ciphertext = base64.b64decode(payload["ciphertext"].split(":", 2)[2])
-                data = {
-                    "plaintext": base64.b64encode(crypter.decrypt(ciphertext)).decode()
-                }
             response = requests.Response()
+            if "/encrypt/" in url:
+                ciphertext = "vault:v1:" + base64.b64encode(token_bytes(32)).decode()
+                ciphertexts[ciphertext, payload["context"]] = payload["plaintext"]
+                data = {"ciphertext": ciphertext}
+            else:
+                plaintext = ciphertexts.get((payload["ciphertext"], payload["context"]))
+                if plaintext is None:
+                    response.status_code = 400
+                    return response
+                data = {"plaintext": plaintext}
             response.status_code = 200
             response.json = lambda: {"data": data}
             return response

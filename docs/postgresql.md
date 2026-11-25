@@ -33,7 +33,7 @@ Changing the database setting does not move existing data. Before switching:
 
 1. Keep `SECRET_KEY` and the credential encryption configuration unchanged during
    the database transfer. For the transition to Vault, follow the separate
-   [credential migration](credential-security.md).
+   [Vault rollout](credential-security.md).
 2. Take a consistent SQLite snapshot and check database integrity and foreign keys.
 3. Apply the project's migrations to a fresh PostgreSQL database and rehearse the
    transfer. Preserve IDs, encrypted values, relationships, JSON values, timestamps

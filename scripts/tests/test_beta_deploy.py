@@ -6,6 +6,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
 
@@ -138,6 +139,20 @@ class BranchPolicyTests(unittest.TestCase):
                 self.assertEqual(result.returncode == 0, allowed)
 
 
+class SiteHealthTests(unittest.TestCase):
+    def test_an_html_response_does_not_pass_the_admin_stylesheet_check(self):
+        api = io.BytesIO(b'{"sadtalker_enabled":false,"service_keys_allowed":false,"invite_only":true}')
+        api.status = 200
+        asset = io.BytesIO(b"<html>Not a stylesheet</html>")
+        asset.status = 200
+        asset.headers = Message()
+        asset.headers["Content-Type"] = "text/html"
+
+        with patch.object(deploy_beta, "urlopen", side_effect=[api, asset]):
+            with self.assertRaisesRegex(TimeoutError, "admin stylesheet"):
+                deploy_beta.wait_http("https://video.example", timeout=0)
+
+
 class DeploymentTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
@@ -220,19 +235,18 @@ class DeploymentTests(unittest.TestCase):
         self.assertFalse(any(call[0] == "stop" for call in self.calls))
         self.assertFalse(any("migrate" in call for call in self.calls))
 
-    def test_vault_verification_failure_prevents_restarting_the_candidate_release(self):
-        self.failure = "--verify"
+    def test_vault_verification_failure_leaves_the_previous_release_running(self):
+        self.failure = "check_credential_vault"
         credential_command = (
-            "backend/apps/apikeysmanagement/management/commands/migrate_credentials.py"
+            "backend/apps/apikeysmanagement/management/commands/check_credential_vault.py"
         )
         archive = archive_bytes([(credential_command, b"x", tarfile.REGTYPE)])
 
         with self.assertRaises(subprocess.CalledProcessError):
             deploy_beta.deploy(SHA, io.BytesIO(archive))
 
-        self.assertIn("--check-vault", next(call for call in self.calls if "migrate_credentials" in call))
         self.assertEqual(self.current.resolve(), self.previous)
-        self.assertFalse(any(call[0] == "up" for call in self.calls))
+        self.assertFalse(any(call[0] in {"stop", "up"} for call in self.calls))
 
     def test_jobs_that_cannot_drain_restore_the_previous_api_and_scheduler(self):
         with patch.object(deploy_beta, "wait_idle", side_effect=TimeoutError):

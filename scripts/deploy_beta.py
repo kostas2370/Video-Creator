@@ -164,19 +164,28 @@ def wait_http(url, timeout=90):
         try:
             with urlopen(url + "/api/deployment/", timeout=10) as response:
                 data = json.load(response)
-                if response.status == 200 and all(
+                api_ready = response.status == 200 and all(
                     isinstance(data.get(key), bool)
                     for key in (
                         "sadtalker_enabled",
                         "service_keys_allowed",
                         "invite_only",
                     )
-                ):
-                    return
+                )
+            if api_ready:
+                with urlopen(
+                    url + "/static/admin/css/base.css", timeout=10
+                ) as response:
+                    if (
+                        response.status == 200
+                        and response.headers.get_content_type() == "text/css"
+                        and response.read(1)
+                    ):
+                        return
         except (OSError, ValueError):
             pass
         if time.monotonic() >= deadline:
-            raise TimeoutError("HTTPS API health check failed")
+            raise TimeoutError("HTTPS API or admin stylesheet health check failed")
         time.sleep(2)
 
 
@@ -238,7 +247,7 @@ def deploy(sha, stream):
         "pass",
     )
     vault_release = (
-        backend / "apps/apikeysmanagement/management/commands/migrate_credentials.py"
+        backend / "apps/apikeysmanagement/management/commands/check_credential_vault.py"
     ).is_file()
     if vault_release:
         compose(
@@ -250,8 +259,7 @@ def deploy(sha, stream):
             "video_creator",
             "python",
             "manage.py",
-            "migrate_credentials",
-            "--check-vault",
+            "check_credential_vault",
         )
     previous = CURRENT.resolve() / "backend"
     compose(previous, "stop", "video_creator", "celery-beat")
@@ -296,19 +304,6 @@ def deploy(sha, stream):
             "migrate",
             "--noinput",
         )
-        if vault_release:
-            compose(
-                backend,
-                "run",
-                "--rm",
-                "--no-deps",
-                "-T",
-                "video_creator",
-                "python",
-                "manage.py",
-                "migrate_credentials",
-                "--verify",
-            )
         compose(
             backend,
             "run",

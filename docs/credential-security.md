@@ -59,38 +59,19 @@ auto-unseal.
 
 ## Upgrade an existing deployment
 
-1. Stage the new release and verify Vault availability. Stop the old API and scheduler,
-   drain and stop both workers, and take a fresh database backup. Keep the previous
-   release and configuration for restoration.
-2. Export the exact old Fernet key into a private file. If the old deployment derived it
-   from Django's signing secret, reproduce the old URL-safe base64 encoding of the
-   SHA-256 digest using the original signing secret. Mount the file read-only in the
-   one-off migration container. Keep it outside the runtime containers and checkout.
-3. Run the new release's `python manage.py migrate --noinput` while the app is offline.
-   The credential columns remain text, and this schema step preserves their contents.
-4. Run the conversion from the staged backend directory. With the local Vault overlay,
-   define the Compose command and mount the old key only for the first two calls:
+1. Set up Vault and confirm the new release can use it. With the Compose service,
+   create `/opt/viddie/backend/.use-compose-vault` and install the updated
+   [deployment helper](../scripts/deploy_beta.py). It includes the Compose overlay and
+   runs the Vault check before stopping the old application.
+2. Take a database backup and deploy the new release. The normal deployment
+   runs Django's schema migrations. Vault is the only credential cipher used
+   by the running application, and this upgrade requires no legacy key input.
+3. Sign in as the user with stored provider credentials and save fresh keys in
+   the usual settings. Any publishing accounts with old tokens need to reconnect.
+   Account records, provider settings, and publishing history are preserved.
 
-   ```sh
-   compose() { docker compose -f docker-compose.beta.yml -f docker-compose.vault.yml "$@"; }
-   legacy_key_path=/absolute/private/path/to/old-key
-   compose run --rm --no-deps -T --volume "$legacy_key_path:/run/secrets/viddie-legacy-key:ro" video_creator python manage.py migrate_credentials --legacy-key-file /run/secrets/viddie-legacy-key
-   compose run --rm --no-deps -T --volume "$legacy_key_path:/run/secrets/viddie-legacy-key:ro" video_creator python manage.py migrate_credentials --legacy-key-file /run/secrets/viddie-legacy-key --apply
-   compose run --rm --no-deps -T video_creator python manage.py migrate_credentials --verify
-   ```
-
-   The first command checks both ciphers without writing. The second verifies each
-   replacement before saving it and can resume after an interruption. The last command
-   checks Vault and fails if legacy values remain. If a value cannot be opened with the
-   old key, investigate it before cutover. The command does not treat unreadable values
-   as plaintext and cannot recover a missing key.
-5. Only after verification, start the upgraded API and workers, check credential status
-   and a provider or publishing workflow, and remove the old key from live configuration.
-   Keep a protected copy of the old key while any required backups contain legacy
-   ciphertext. A rollback to the old app needs the matching pre-migration database and
-   configuration. Keep Vault storage and keys with the post-migration backups.
-
-The first conversion is a manual maintenance step. For later beta deployments using
-the local Vault service, create `/opt/viddie/backend/.use-compose-vault` and install the
-updated [deployment helper](../scripts/deploy_beta.py). It includes the Compose overlay
-when the marker is present and runs the verification command before restarting Viddie.
+On the new release, old credential entries appear unset until replaced.
+The schema change preserves existing ciphertext, and Viddie never attempts to
+decrypt it. Remove the previous encryption key from the live configuration, and
+retain a protected copy only if needed to restore an older backup. Back up Vault
+storage and recovery material with the database created after cutover.
