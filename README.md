@@ -8,6 +8,16 @@ Viddie is a browser-based video creation studio for explainers, short-form clips
 
 ![Viddie video editor with a scene preview, timeline, and editing controls](docs/screenshots/video-edit.png)
 
+## What’s new
+
+**November 2026**
+
+- **Recurring series** save cast references and visual style, then use story notes from finished episodes when drafting the next one.
+- **Long video to shorts** adds transcript search and suggested highlights, with controls for trimming, framing, and captions before export.
+- **Storyboard revisions** let you review suggested changes to narration and visual prompts before applying them and generating media.
+
+[Read the full release journal](https://viddiecreator.com/whats-new/)
+
 ## What you can make
 
 | Workflow | What you can do |
