@@ -8,6 +8,8 @@ Viddie is a browser-based video creation studio for explainers, short-form clips
 
 ![Viddie video editor with a scene preview, timeline, and editing controls](docs/screenshots/video-edit.png)
 
+[Browse the UI screenshot gallery](docs/screenshots.md) for creation, editing, captions, series, clips, and mobile audio.
+
 ## What’s new
 
 **November 2026**
